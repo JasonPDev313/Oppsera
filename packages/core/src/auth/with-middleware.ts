@@ -46,7 +46,7 @@ async function resolveLocation(
     throw new NotFoundError('Location');
   }
 
-  await db.execute(sql`SET LOCAL app.current_location_id = ${locationId}`);
+  await db.execute(sql`SELECT set_config('app.current_location_id', ${locationId}, false)`);
 
   return locationId;
 }
@@ -70,7 +70,7 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
       if (options?.authenticated && options?.requireTenant === false) {
         const ctx: RequestContext = {
           user,
-          tenantId: '',
+          tenantId: user.tenantId || '',
           requestId: generateUlid(),
           isPlatformAdmin: false,
         };
@@ -101,8 +101,11 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
         );
       }
       console.error('Unhandled error in route handler:', error);
+      const devMsg = process.env.NODE_ENV === 'development' && error instanceof Error
+        ? error.message
+        : 'An unexpected error occurred';
       return NextResponse.json(
-        { error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } },
+        { error: { code: 'INTERNAL_ERROR', message: devMsg } },
         { status: 500 },
       );
     }

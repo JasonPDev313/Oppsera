@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { MoreVertical, Plus } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
@@ -53,7 +53,7 @@ function HierarchyPane({
   };
 
   return (
-    <div className="flex flex-col rounded-lg border border-gray-200 bg-white">
+    <div className="flex flex-col rounded-lg border border-gray-200 bg-surface">
       <div className="border-b border-gray-200 px-4 py-3">
         <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
       </div>
@@ -97,7 +97,7 @@ function HierarchyPane({
                 <MoreVertical className="h-4 w-4" />
               </button>
               {menuOpen === item.id && (
-                <div className="absolute right-0 top-full z-10 w-32 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                <div className="absolute right-0 top-full z-10 w-32 rounded-lg border border-gray-200 bg-surface py-1 shadow-lg">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -181,6 +181,8 @@ function HierarchyPane({
 
 export default function HierarchyPage() {
   const { toast } = useToast();
+  const toastRef = React.useRef(toast);
+  toastRef.current = toast;
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [selectedSubDeptId, setSelectedSubDeptId] = useState<string | null>(null);
 
@@ -193,17 +195,17 @@ export default function HierarchyPage() {
       try {
         await apiFetch('/api/v1/catalog/categories', {
           method: 'POST',
-          body: JSON.stringify({ name, parentId, sortOrder: 0 }),
+          body: JSON.stringify({ name, ...(parentId ? { parentId } : {}), sortOrder: 0 }),
         });
-        toast.success(`"${name}" created`);
+        toastRef.current.success(`"${name}" created`);
         refreshDepts();
         refreshSubDepts();
         refreshCats();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to create');
+        toastRef.current.error(err instanceof Error ? err.message : 'Failed to create');
       }
     },
-    [toast, refreshDepts, refreshSubDepts, refreshCats],
+    [refreshDepts, refreshSubDepts, refreshCats],
   );
 
   const renameCategory = useCallback(
@@ -213,15 +215,15 @@ export default function HierarchyPage() {
           method: 'PATCH',
           body: JSON.stringify({ name }),
         });
-        toast.success('Renamed');
+        toastRef.current.success('Renamed');
         refreshDepts();
         refreshSubDepts();
         refreshCats();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to rename');
+        toastRef.current.error(err instanceof Error ? err.message : 'Failed to rename');
       }
     },
-    [toast, refreshDepts, refreshSubDepts, refreshCats],
+    [refreshDepts, refreshSubDepts, refreshCats],
   );
 
   const deactivateCategory = useCallback(
@@ -231,15 +233,15 @@ export default function HierarchyPage() {
           method: 'PATCH',
           body: JSON.stringify({ isActive: false }),
         });
-        toast.success('Deactivated');
+        toastRef.current.success('Deactivated');
         refreshDepts();
         refreshSubDepts();
         refreshCats();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Failed to deactivate');
+        toastRef.current.error(err instanceof Error ? err.message : 'Failed to deactivate');
       }
     },
-    [toast, refreshDepts, refreshSubDepts, refreshCats],
+    [refreshDepts, refreshSubDepts, refreshCats],
   );
 
   return (
@@ -265,7 +267,11 @@ export default function HierarchyPage() {
           selectedId={selectedSubDeptId}
           onSelect={setSelectedSubDeptId}
           onAdd={(name) => {
-            if (selectedDeptId) createCategory(name, selectedDeptId);
+            if (!selectedDeptId) {
+              toastRef.current.error('Select a department first');
+              return;
+            }
+            createCategory(name, selectedDeptId);
           }}
           onRename={renameCategory}
           onDeactivate={deactivateCategory}
@@ -276,7 +282,11 @@ export default function HierarchyPage() {
           selectedId={null}
           onSelect={() => {}}
           onAdd={(name) => {
-            if (selectedSubDeptId) createCategory(name, selectedSubDeptId);
+            if (!selectedSubDeptId) {
+              toastRef.current.error('Select a sub-department first');
+              return;
+            }
+            createCategory(name, selectedSubDeptId);
           }}
           onRename={renameCategory}
           onDeactivate={deactivateCategory}

@@ -24,11 +24,15 @@ interface TenderDialogProps {
   config: POSConfig;
   shiftId?: string;
   onPaymentComplete: (result: RecordTenderResult) => void;
+  onPartialPayment?: (remaining: number) => void;
+  /** Called before the first tender to place the order. Returns the placed order with updated version. */
+  onPlaceOrder?: () => Promise<Order>;
 }
 
-export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentComplete }: TenderDialogProps) {
+export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentComplete, onPartialPayment, onPlaceOrder }: TenderDialogProps) {
   const { user } = useAuthContext();
   const { toast } = useToast();
+  const locationHeaders = { 'X-Location-Id': order.locationId };
 
   const [tenderSummary, setTenderSummary] = useState<TenderSummary | null>(null);
   const [amountGiven, setAmountGiven] = useState('');
@@ -36,21 +40,38 @@ export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentC
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<RecordTenderResult | null>(null);
 
-  // Fetch existing tenders when dialog opens
+  // Track order version locally so split payments send the correct version
+  const [currentVersion, setCurrentVersion] = useState(order.version);
+  // Track whether we've already placed the order in this dialog session
+  const [isPlaced, setIsPlaced] = useState(order.status === 'placed');
+
+  // Reset state when the order prop changes (new order)
+  useEffect(() => {
+    setCurrentVersion(order.version);
+    setIsPlaced(order.status === 'placed');
+  }, [order.version, order.status]);
+
+  // Reset state when dialog closes/opens
   useEffect(() => {
     if (!open) {
       setAmountGiven('');
       setTipAmount('');
       setLastResult(null);
+      setCurrentVersion(order.version);
+      setIsPlaced(order.status === 'placed');
       return;
     }
-    fetchTenders();
+    // Only fetch tenders if order is already placed (has existing tenders)
+    if (order.status === 'placed') {
+      fetchTenders();
+    }
   }, [open, order.id]);
 
   const fetchTenders = async () => {
     try {
       const res = await apiFetch<{ data: TenderSummary }>(
-        `/api/v1/orders/${order.id}/tenders?orderTotal=${order.total}`
+        `/api/v1/orders/${order.id}/tenders?orderTotal=${order.total}`,
+        { headers: locationHeaders },
       );
       setTenderSummary(res.data);
     } catch {
@@ -80,10 +101,20 @@ export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentC
     }
     setIsSubmitting(true);
     try {
+      // Place the order on first payment if not already placed
+      let version = currentVersion;
+      if (!isPlaced && onPlaceOrder) {
+        const placed = await onPlaceOrder();
+        version = placed.version;
+        setCurrentVersion(version);
+        setIsPlaced(true);
+      }
+
       const res = await apiFetch<{ data: RecordTenderResult }>(
         `/api/v1/orders/${order.id}/tenders`,
         {
           method: 'POST',
+          headers: locationHeaders,
           body: JSON.stringify({
             clientRequestId: crypto.randomUUID(),
             orderId: order.id,
@@ -95,7 +126,7 @@ export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentC
             businessDate: todayBusinessDate(),
             shiftId: shiftId ?? undefined,
             posMode: config.posMode,
-            version: order.version,
+            version,
           }),
         }
       );
@@ -108,7 +139,10 @@ export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentC
         // Auto-close after 2s
         setTimeout(() => onClose(), 2000);
       } else {
+        // Increment local version so the next split payment uses the correct version
+        setCurrentVersion((v) => v + 1);
         toast.info(`Partial payment recorded. Remaining: ${formatMoney(result.remainingBalance)}`);
+        onPartialPayment?.(result.remainingBalance);
         setAmountGiven('');
         setTipAmount('');
         // Refresh tenders for next split payment
@@ -133,7 +167,7 @@ export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentC
     return createPortal(
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/50" />
-        <div className="relative w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
+        <div className="relative w-full max-w-md rounded-2xl bg-surface p-8 text-center shadow-xl">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
             <Check className="h-8 w-8 text-green-600" />
           </div>
@@ -153,7 +187,7 @@ export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentC
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div className="relative w-full max-w-lg rounded-2xl bg-surface shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div className="flex items-center gap-2">
@@ -212,7 +246,7 @@ export function TenderDialog({ open, onClose, order, config, shiftId, onPaymentC
                 key={cents}
                 type="button"
                 onClick={() => setAmountGiven((cents / 100).toFixed(2))}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:border-gray-300"
+                className="rounded-lg border border-gray-200 bg-surface px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:border-gray-300"
               >
                 {formatMoney(cents)}
               </button>

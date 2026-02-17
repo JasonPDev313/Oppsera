@@ -176,7 +176,7 @@ export default function EditItemPage() {
         {typeBadge && <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>}
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-lg border border-gray-200 bg-surface p-6 shadow-sm">
         <div className="space-y-4">
           <FormField label="Name" required error={errors.name}>
             <input
@@ -243,7 +243,7 @@ export default function EditItemPage() {
 
       {/* Type-specific fields */}
       {typeGroup === 'fnb' && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-gray-200 bg-surface p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-medium text-gray-900">F&B Options</h3>
           <div className="space-y-4">
             <label className="flex items-center gap-2 text-sm">
@@ -299,7 +299,7 @@ export default function EditItemPage() {
       )}
 
       {typeGroup === 'retail' && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-gray-200 bg-surface p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-medium text-gray-900">Retail Options</h3>
           <div className="space-y-4">
             <label className="flex items-center gap-2 text-sm">
@@ -337,7 +337,7 @@ export default function EditItemPage() {
       )}
 
       {typeGroup === 'service' && (
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-gray-200 bg-surface p-6 shadow-sm">
           <h3 className="mb-4 text-lg font-medium text-gray-900">Service Details</h3>
           <div className="space-y-4">
             <FormField label="Duration (minutes)" helpText="Length of the service">

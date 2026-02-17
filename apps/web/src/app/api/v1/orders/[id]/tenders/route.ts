@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { eq, and } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { ValidationError } from '@oppsera/shared';
+import { ValidationError, NotFoundError } from '@oppsera/shared';
+import { orders, withTenant } from '@oppsera/db';
 import { recordTender, recordTenderSchema, getTendersByOrder } from '@oppsera/module-payments';
 
 function extractOrderId(request: NextRequest): string {
@@ -32,17 +34,12 @@ export const POST = withMiddleware(
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const orderId = extractOrderId(request);
-    // Fetch order total from DB instead of trusting client
-    const { orders } = await import('@oppsera/db');
-    const { eq, and } = await import('drizzle-orm');
-    const { withTenant } = await import('@oppsera/db');
     const order = await withTenant(ctx.tenantId, async (tx) => {
-      const [row] = await (tx as any).select({ total: orders.total }).from(orders)
+      const [row] = await tx.select({ total: orders.total }).from(orders)
         .where(and(eq(orders.tenantId, ctx.tenantId), eq(orders.id, orderId)));
       return row;
     });
     if (!order) {
-      const { NotFoundError } = await import('@oppsera/shared');
       throw new NotFoundError('Order');
     }
     const result = await getTendersByOrder(ctx.tenantId, orderId, order.total);

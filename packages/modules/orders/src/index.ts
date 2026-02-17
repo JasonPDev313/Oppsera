@@ -14,7 +14,13 @@ export {
   removeServiceCharge,
   applyDiscount,
   placeOrder,
+  updateOrder,
   voidOrder,
+  cloneOrder,
+  reopenOrder,
+  deleteOrder,
+  holdOrder,
+  recallOrder,
 } from './commands';
 
 // Re-export queries
@@ -22,8 +28,10 @@ export {
   listOrders,
   getOrder,
   getOrderByNumber,
+  listHeldOrders,
 } from './queries';
-export type { ListOrdersInput, ListOrdersResult } from './queries/list-orders';
+export type { ListOrdersInput, ListOrdersResult, OrderListRow } from './queries/list-orders';
+export type { ListHeldOrdersInput, ListHeldOrdersResult, HeldOrderRow } from './queries/list-held-orders';
 export type { OrderDetail } from './queries/get-order';
 
 // Re-export validation schemas
@@ -35,7 +43,13 @@ export {
   removeServiceChargeSchema,
   applyDiscountSchema,
   placeOrderSchema,
+  updateOrderSchema,
   voidOrderSchema,
+  cloneOrderSchema,
+  reopenOrderSchema,
+  deleteOrderSchema,
+  holdOrderSchema,
+  recallOrderSchema,
 } from './validation';
 export type {
   OpenOrderInput,
@@ -45,7 +59,13 @@ export type {
   RemoveServiceChargeInput,
   ApplyDiscountInput,
   PlaceOrderInput,
+  UpdateOrderInput,
   VoidOrderInput,
+  CloneOrderInput,
+  ReopenOrderInput,
+  DeleteOrderInput,
+  HoldOrderInput,
+  RecallOrderInput,
 } from './validation';
 
 // Re-export helpers

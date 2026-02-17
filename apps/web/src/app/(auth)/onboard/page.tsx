@@ -22,6 +22,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 const AVAILABLE_MODULES = [
   { key: 'catalog', name: 'Product Catalog', description: 'Items, categories, pricing' },
   { key: 'pos_retail', name: 'Retail POS', description: 'Orders, line items, payments' },
+  { key: 'pos_restaurant', name: 'Restaurant POS', description: 'Tables, seats, coursing, kitchen tickets' },
   { key: 'payments', name: 'Payments', description: 'Cash, card, split payments' },
   { key: 'inventory', name: 'Inventory', description: 'Stock tracking, receiving' },
   { key: 'customers', name: 'Customers', description: 'Customer profiles, history' },
@@ -217,7 +218,7 @@ export default function OnboardPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-2xl rounded-xl bg-white p-8 shadow-lg">
+      <div className="w-full max-w-2xl rounded-xl bg-surface p-8 shadow-lg">
         {/* Step Indicator */}
         <StepIndicator currentStep={step} />
 
@@ -244,7 +245,7 @@ export default function OnboardPage() {
                       className={`flex flex-col items-center rounded-lg border-2 p-6 text-center transition-colors ${
                         isSelected
                           ? 'border-indigo-600 bg-indigo-50'
-                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                          : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
                       }`}
                     >
                       {Icon && (
@@ -416,7 +417,7 @@ export default function OnboardPage() {
                       className={`flex flex-col rounded-lg border-2 p-4 text-left transition-colors ${
                         isSelected
                           ? 'border-indigo-600 bg-indigo-50'
-                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                          : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
                       }`}
                     >
                       <span
@@ -506,7 +507,7 @@ export default function OnboardPage() {
               type="button"
               onClick={handleBack}
               disabled={isSubmitting}
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
+              className="rounded-lg border border-gray-300 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
             >
               Back
             </button>

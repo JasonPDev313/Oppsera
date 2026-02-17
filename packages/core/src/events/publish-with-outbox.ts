@@ -16,9 +16,9 @@ export async function publishWithOutbox<T>(
   return db.transaction(async (tx) => {
     const txDb = tx as unknown as Database;
 
-    await tx.execute(sql`SET LOCAL app.current_tenant_id = ${ctx.tenantId}`);
+    await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${ctx.tenantId}, true)`);
     if (ctx.locationId) {
-      await tx.execute(sql`SET LOCAL app.current_location_id = ${ctx.locationId}`);
+      await tx.execute(sql`SELECT set_config('app.current_location_id', ${ctx.locationId}, true)`);
     }
 
     const { result, events } = await operation(txDb);

@@ -99,6 +99,41 @@
       "when": 1708100013000,
       "tag": "0013_gl_dimensions",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1708100014000,
+      "tag": "0014_customer_profile_extension",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1708100015000,
+      "tag": "0015_fix_gen_ulid",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1708100016000,
+      "tag": "0016_register_tabs",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1708100017000,
+      "tag": "0017_held_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1708100018000,
+      "tag": "0018_register_tab_employees",
+      "breakpoints": true
     }
   ]
 }

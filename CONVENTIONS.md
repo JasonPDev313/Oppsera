@@ -677,6 +677,24 @@ Tailwind CSS v4, utility classes directly in JSX. Design tokens:
 - Text: `gray-900` (primary), `gray-500` (secondary), `gray-400` (muted)
 - Destructive: `red-600`
 
+### Dark Mode (Inverted Gray Scale)
+
+Dark mode is the **default** (`:root` has `color-scheme: dark`). Light mode is opt-in via `.light` class. The gray scale is **inverted** in `globals.css` — in dark mode, `gray-900` maps to near-white (`#f0f6fc`) and `gray-50` maps to dark (`#1c2128`). Other color palettes (red, indigo, amber, etc.) are NOT inverted.
+
+**Consequence:** Standard Tailwind dark mode assumptions break. `bg-gray-900 text-white` becomes near-white background with white text (invisible).
+
+**Button color patterns that work in both modes:**
+
+| Button Type | Classes |
+|---|---|
+| Primary | `bg-indigo-600 text-white hover:bg-indigo-700` |
+| Destructive outline | `border border-red-500/40 text-red-500 hover:bg-red-500/10` |
+| Secondary/ghost | `text-gray-600 hover:bg-gray-100` (inverted grays work here) |
+
+**Theme-aware background:** Use `bg-surface` (CSS variable: dark `#161b22`, light `#ffffff`).
+
+**Rule:** Use opacity-based colors (`red-500/40`, `red-500/10`) instead of static shades (`red-300`, `red-50`) for borders and hover states — these adapt naturally to both modes.
+
 ### Data Fetching Hooks
 
 Custom hooks live in `apps/web/src/hooks/` and follow this pattern:
@@ -1248,6 +1266,7 @@ allowedFractions: [0.25, 0.5, 0.75, 1]  // default: [1]
 - Package items: always `qty = 1`
 - F&B items: fractional allowed per configuration
 - Inventory movements: `numeric(10,4)` to match order line precision
+- **CRITICAL:** Drizzle/postgres.js returns `numeric` columns as **strings** (e.g., `"1.0000"`). Always convert with `Number()` in query mappings before returning to the frontend. Failing to do so causes bugs like `"1.0000" !== 1` evaluating to `true`.
 
 ---
 
@@ -1727,10 +1746,12 @@ Both are in `.gitignore`. Always verify with `git status` before committing.
 ### Customer Identity
 
 - **Two types**: `person` (first/last name) and `organization` (company name)
-- **Display name**: computed by `buildDisplayName()` helper — person: "First Last", org: "Company Name"
+- **Display name**: computed by `computeDisplayName()` helper — person: "First Last", org: "Company Name"
 - **Identifiers**: loyalty cards, barcodes, wristbands — polymorphic via `identifierType` field
 - **Merge**: soft merge via `mergedIntoId`. Queries always filter `WHERE merged_into_id IS NULL`
 - **Activity log**: CRM timeline of all interactions (orders, notes, membership changes)
+- **Contacts**: multi-contact support (email, phone, address, social) with `isPrimary` and `isVerified` flags
+- **Service flags**: VIP, Do Not Contact, special needs, etc. with severity levels (info, warning, critical)
 
 ### Membership System
 
@@ -1756,6 +1777,52 @@ AR charge:   debit Accounts Receivable (1200), credit Revenue (4000)
 AR payment:  debit Cash/Card (1010/1020), credit Accounts Receivable (1200)
 AR writeoff: debit Bad Debt Expense (6100), credit Accounts Receivable (1200)
 AR late fee: debit Accounts Receivable (1200), credit Late Fee Revenue (4600)
+```
+
+### Universal Customer Profile (Session 16.5)
+
+The profile system adds 21 sub-resource tables and a 360-degree view of each customer:
+
+| Sub-Resource | Table | Key Fields |
+|---|---|---|
+| Contacts | `customer_contacts` | type (email/phone/address/social), isPrimary, isVerified |
+| Preferences | `customer_preferences` | category, key, value, source (manual/inferred/imported), confidence |
+| Documents | `customer_documents` | fileType, fileUrl, expiresAt |
+| Communications | `customer_communications` | channel (email/sms/phone/push), direction, status |
+| Service Flags | `customer_service_flags` | flagType, severity (info/warning/critical), isActive |
+| Consents | `customer_consents` | consentType, status (granted/revoked), source |
+| External IDs | `customer_external_ids` | provider, externalId |
+| Wallets | `customer_wallet_accounts` | accountType (credit/loyalty/gift_card), currency, balanceCents |
+| Alerts | `customer_alerts` | alertType, severity, isDismissed |
+| Households | `customer_households` + `_members` | householdType, role (head/spouse/child/other), isPrimary |
+| Visits | `customer_visits` | checkInAt, checkOutAt, checkInMethod, locationId |
+| Incidents | `customer_incidents` | incidentType, severity, resolution, compensationType |
+| Segments | `customer_segments` + `_memberships` | segmentType (static/dynamic/smart/manual) |
+| Scores | `customer_scores` | scoreType (ltv/risk/churn/engagement), value, model |
+
+**Profile360 query**: `/api/v1/customers/:id/profile` returns a `CustomerProfileOverview` aggregating: customer data, stats (visits, avg spend, LTV), active membership, contacts, service flags, alerts, household summary, recent activity, segments, and wallet balances.
+
+**Profile Drawer**: 15 frontend components, portal-based slide-in panel (560px from right), 11 tabs (Overview, Identity, Activity, Financial, Membership, Preferences, Notes, Documents, Communications, Tags, Compliance). State managed via `ProfileDrawerContext` + `useProfileDrawer()` hook.
+
+### Preference Categories
+
+```
+food_beverage, golf, retail, service, facility, general, dietary, communication, scheduling
+```
+
+Each preference has a `source` (manual / inferred / imported) and optional `confidence` percentage (0-100).
+
+### Event Types (Session 16.5)
+
+22 new event types emitted by profile commands:
+```
+customer.contact.added.v1, customer.preference.set.v1, customer.document.added.v1,
+customer.communication.logged.v1, customer.service_flag.added/removed.v1,
+customer.consent.recorded.v1, customer.external_id.added.v1,
+customer.wallet.created/adjusted.v1, customer.alert.created/dismissed.v1,
+customer.household.created.v1, customer.household.member.added/removed.v1,
+customer.visit.recorded/checked_out.v1, customer.incident.created/updated.v1,
+customer.segment.created.v1, customer.segment.member.added/removed.v1
 ```
 
 ---
@@ -1797,6 +1864,14 @@ AR late fee: debit Accounts Receivable (1200), credit Late Fee Revenue (4600)
 33. **Never UPDATE or DELETE from `ar_transactions`** — AR is append-only like inventory movements. Corrections use credit_memo or writeoff transaction types.
 34. **Never query merged customers without filtering** — always exclude records where `displayName LIKE '[MERGED]%'` or `metadata->>'mergedInto' IS NOT NULL`
 35. **Never skip credit limit check on AR charges** — always call `checkCreditLimit(tx, accountId, amount)` inside the transaction before inserting a charge
+36. **Never render `Record<string, unknown>` values directly in React** — customer `metadata` fields are `unknown`; use `!!value` for conditionals and `String(value)` for value props to avoid strict TS errors
+37. **Never use Radix/shadcn Dialog for profile drawer** — the CustomerProfileDrawer uses `createPortal` to `document.body` (same pattern as POS dialogs) with CSS transitions, not Radix Dialog
+38. **Never fetch all profile data at once** — the profile drawer lazy-loads each tab's sub-resource via its own API endpoint; only the overview tab loads on open
+39. **Never return raw Drizzle `numeric` values to frontend** — `numeric(p,s)` columns return strings (e.g., `"1.0000"`). Always convert with `Number()` in query mappings. String `"1.0000" !== 1` is `true`, causing display bugs like `(x1.0000)` in the cart.
+40. **Never omit nullable columns from query mappings** — when a DB column exists but isn't included in the `getXxx()` query mapping, the field becomes `undefined` in the API response. `undefined !== null` (strict equality) is `true`, which can trigger rendering blocks that check `field !== null`. Always map nullable fields with `field ?? null`.
+41. **Never use `bg-gray-900 text-white` in dark mode** — the app's dark mode inverts the gray scale (`gray-900` becomes near-white). Use `bg-indigo-600 text-white` for primary buttons and opacity-based colors (`border-red-500/40`, `hover:bg-red-500/10`) for destructive actions — these work in both light and dark mode.
+42. **Never multiply percentage values by 100 before storing** — for both discounts and service charges, store the raw percentage (10 for 10%, not 1000 basis points). For fixed dollar amounts, store as cents. This keeps the convention consistent and avoids display conversion bugs.
+43. **Never calculate service charges on raw subtotal** — service charges apply AFTER discounts. Use `(subtotal - discountTotal)` as the base for percentage service charges, not raw `subtotal`. Order of operations: discount → service charge → tax.
 
 ---
 
@@ -1974,17 +2049,127 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - Transfer: paired movements with shared batchId, always non-negative at source
 - V2 provisioned: snapshots, counts, count_lines, vendors, purchase_orders, po_lines, recipes, recipe_components
 
-**Milestone 9: Customer Management Module (In Progress)**
+**Milestone 9: Customer Management Module**
 - Session 16: 15 tables (customers, identifiers, activity_log, membership_plans, memberships, billing_accounts, billing_account_members, ar_transactions, ar_allocations, statements, late_fee_policies, customer_privileges, pricing_tiers, customer_relationships, membership_billing_events)
-- Customer commands: createCustomer, updateCustomer, addCustomerIdentifier, addCustomerNote, mergeCustomers
-- Membership commands: createMembershipPlan, updateMembershipPlan, enrollMember, updateMembershipStatus, assignCustomerPrivilege
-- Billing commands: createBillingAccount, updateBillingAccount, addBillingAccountMember, recordArTransaction, recordArPayment, generateStatement
-- Event consumers: order.placed (AR charge), order.voided (AR reversal), tender.recorded (AR payment)
+- 16 commands: createCustomer, updateCustomer, addCustomerIdentifier, addCustomerNote, mergeCustomers, createMembershipPlan, updateMembershipPlan, enrollMember, updateMembershipStatus, assignCustomerPrivilege, createBillingAccount, updateBillingAccount, addBillingAccountMember, recordArTransaction, recordArPayment, generateStatement
+- 12 queries: listCustomers, getCustomer, searchCustomers, listMembershipPlans, getMembershipPlan, listMemberships, listBillingAccounts, getBillingAccount, getArLedger, getAgingReport, getStatement, getCustomerPrivileges
+- ~16 API routes for customers, memberships, billing/AR
+- 3 event consumers: order.placed (AR charge + visit/spend stats), order.voided (AR reversal), tender.recorded (AR payment + FIFO allocation)
 - GL integration: AR charge/payment/writeoff/late_fee journal entries
+- Frontend: customer list, detail, billing list, billing detail, memberships pages
+- 8 hooks: useCustomers, useCustomer, useMembershipPlans, useMembershipPlan, useBillingAccounts, useBillingAccount, useArLedger, useAgingReport
+- Sidebar navigation: Customers section with All Customers, Memberships, Billing sub-items
+
+**Milestone 9.5: Universal Customer Profile**
+- Session 16.5: 21 new tables (contacts, preferences, documents, communications, service_flags, consents, external_ids, auth_accounts, wallet_accounts, alerts, scores, metrics_daily, metrics_lifetime, merge_history, households, household_members, visits, incidents, segments, segment_memberships, payment_methods) + 29 new columns on customers table
+- 22 commands: addCustomerContact, updateCustomerContact, setCustomerPreference, deleteCustomerPreference, addCustomerDocument, logCustomerCommunication, addServiceFlag, removeServiceFlag, recordConsent, addExternalId, createWalletAccount, adjustWalletBalance, createAlert, dismissAlert, createHousehold, addHouseholdMember, removeHouseholdMember, recordVisit, checkOutVisit, createIncident, updateIncident, manageSegments (create/add/remove)
+- 11 queries: getCustomerProfile (360-degree overview), getCustomerFinancial, getCustomerPreferences, getCustomerActivity, getCustomerNotes, getCustomerDocuments, getCustomerCommunications, getCustomerCompliance, getCustomerSegments, getCustomerIntegrations, getCustomerAnalytics, listHouseholds
+- ~22 API routes under /api/v1/customers/[id]/profile/* and sub-resources
+- 22 event types emitted (customer.contact.added.v1, customer.wallet.adjusted.v1, etc.)
+- 11 hooks: useCustomerProfile, useCustomerFinancial, useCustomerPreferences, useCustomerActivityTab, useCustomerNotes, useCustomerDocuments, useCustomerCommunications, useCustomerCompliance, useCustomerSegments, useCustomerIntegrations, useCustomerAnalytics
+- Customer Profile Drawer: 15 components, portal-based 560px slide-in panel, 11 tabs (Overview, Identity, Activity, Financial, Membership, Preferences, Notes, Documents, Communications, Tags, Compliance)
+- ProfileDrawerContext: React Context provider with `useProfileDrawer()` hook (`open(customerId, { tab, source })`, `close()`)
+- HouseholdTreeView: hierarchical display with Unicode branch chars, primary member crown icon, clickable member navigation
 
 ### Test Coverage
-459 tests: 134 core + 68 catalog + 52 orders + 22 shared + 183 web (75 POS + 66 tenders + 42 inventory)
+569 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 183 web (75 POS + 66 tenders + 42 inventory) + 10 db
 
 ### What's Next
-- Customer Management module completion: queries, API routes, frontend, tests (Session 16)
 - Reporting module (Session 17)
+
+---
+
+## 44. Customer Profile Drawer Architecture
+
+### Component Structure
+
+```
+apps/web/src/components/customer-profile-drawer/
+├── CustomerProfileDrawer.tsx      # Main drawer (createPortal, 560px, z-50, ESC close, body scroll lock)
+├── ProfileDrawerContext.tsx        # Provider + useProfileDrawer() hook
+├── HouseholdTreeView.tsx           # Tree with Unicode branches, crown icon for primary
+├── ProfileOverviewTab.tsx          # Stats grid, service flags, alerts, quick actions, household, recent activity
+├── ProfileIdentityTab.tsx          # Contacts, identifiers, metadata details (coerced with String())
+├── ProfileActivityTab.tsx          # Visits + Timeline toggle, paginated
+├── ProfileFinancialTab.tsx         # AR aging, billing accounts, invoices, payments, wallets, loyalty
+├── ProfileMembershipTab.tsx        # Active membership, benefits, history
+├── ProfilePreferencesTab.tsx       # Preferences grouped by category with source/confidence
+├── ProfileNotesTab.tsx             # Notes + Incidents toggle, inline add-note form
+├── ProfileDocumentsTab.tsx         # File list with type icons, expiration detection
+├── ProfileCommunicationsTab.tsx    # Channel filter pills, direction arrows, paginated
+├── ProfileTagsTab.tsx              # Tag management (add/remove), segment list
+├── ProfileComplianceTab.tsx        # Consent records with grant/revoke toggle
+└── index.ts                        # Barrel exports
+```
+
+### Context Pattern
+
+```typescript
+// Wrap dashboard layout with provider
+<ProfileDrawerProvider>
+  <CustomerProfileDrawer />
+  {children}
+</ProfileDrawerProvider>
+
+// Open from anywhere in the dashboard
+const { open } = useProfileDrawer();
+open(customerId);                          // default tab
+open(customerId, { tab: 'financial' });    // specific tab
+open(customerId, { source: 'pos' });       // track where it was opened from
+```
+
+### Key Patterns
+
+- **Portal-based**: `createPortal` to `document.body` (consistent with POS dialogs)
+- **CSS transitions**: 300ms slide-in from right, semi-transparent backdrop (`bg-black/30`)
+- **Lazy tab loading**: each tab fetches its own sub-resource API endpoint on mount
+- **Body scroll lock**: prevents background scrolling when drawer is open
+- **Escape key close**: `keydown` listener on `useEffect`
+- **Tab bar**: horizontal scrollable with 11 tabs
+- **Quick actions**: Overview tab has Add Note, Record Payment, Check In, Log Incident buttons (POST via `apiFetch`)
+
+### Profile API Endpoints
+
+All under `/api/v1/customers/[id]/`:
+
+| Endpoint | Tab | Method |
+|---|---|---|
+| `profile` | Overview | GET |
+| `profile/financial` | Financial | GET |
+| `profile/activity` | Activity | GET |
+| `profile/notes` | Notes | GET |
+| `profile/documents` | Documents | GET |
+| `profile/preferences` | Preferences | GET |
+| `profile/communications` | Communications | GET |
+| `profile/compliance` | Compliance | GET |
+| `profile/segments` | Tags | GET |
+| `profile/integrations` | Identity | GET |
+| `profile/analytics` | Overview (scores) | GET |
+
+### Customer Frontend Types
+
+Types live in `apps/web/src/types/customers.ts`. Key Session 16.5 types:
+
+```typescript
+CustomerContact, CustomerPreference, CustomerDocument, CustomerCommunication,
+CustomerServiceFlag, CustomerConsent, CustomerExternalId, CustomerWalletAccount,
+CustomerAlert, CustomerScore, CustomerHousehold, CustomerHouseholdMember,
+CustomerVisit, CustomerIncident, CustomerSegmentMembership,
+CustomerProfileStats, CustomerProfileOverview, CustomerFinancial
+```
+
+### Strict TS Patterns for `metadata`
+
+Customer `metadata` is `Record<string, unknown> | null`. Strict TypeScript requires:
+
+```typescript
+// Conditional rendering — coerce to boolean
+{!!customer.metadata?.dateOfBirth && (
+  <DetailRow label="Date of Birth" value={String(customer.metadata.dateOfBirth)} />
+)}
+
+// Value props — coerce to string
+<DetailRow value={String(customer.metadata?.gender ?? '')} />
+```
+
+**Rule:** Never use `customer.metadata.X as string` (unsafe cast). Never render `unknown` directly as ReactNode.

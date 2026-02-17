@@ -4,7 +4,10 @@
       "Bash(npx turbo test:*)",
       "Bash(grep:*)",
       "Bash(pnpm lint:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(pnpm turbo run build:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIwMUtITjhTVEdUMlFSRjA0NUtEQlA0MllERiIsImlhdCI6MTc3MTMxNDE2OSwiZXhwIjoxNzcxNDAwNTY5fQ.AVSpYrStIWWlQjCD8P9TKBvEQr4l74Q5YX06MnJhBS0\")",
+      "Bash(npx next build:*)"
     ]
   }
 }

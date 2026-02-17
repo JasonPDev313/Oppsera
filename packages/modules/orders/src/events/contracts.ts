@@ -8,7 +8,13 @@ import {
   OrderDiscountAppliedDataSchema,
   OrderPlacedDataSchema,
   OrderPaidDataSchema,
+  OrderUpdatedDataSchema,
   OrderVoidedDataSchema,
+  OrderClonedDataSchema,
+  OrderReopenedDataSchema,
+  OrderDeletedDataSchema,
+  OrderHeldDataSchema,
+  OrderRecalledDataSchema,
 } from './types';
 
 registerContracts({
@@ -22,7 +28,13 @@ registerContracts({
     { eventType: 'order.discount_applied.v1', dataSchema: OrderDiscountAppliedDataSchema },
     { eventType: 'order.placed.v1', dataSchema: OrderPlacedDataSchema },
     { eventType: 'order.paid.v1', dataSchema: OrderPaidDataSchema },
+    { eventType: 'order.updated.v1', dataSchema: OrderUpdatedDataSchema },
     { eventType: 'order.voided.v1', dataSchema: OrderVoidedDataSchema },
+    { eventType: 'order.cloned.v1', dataSchema: OrderClonedDataSchema },
+    { eventType: 'order.reopened.v1', dataSchema: OrderReopenedDataSchema },
+    { eventType: 'order.deleted.v1', dataSchema: OrderDeletedDataSchema },
+    { eventType: 'order.held.v1', dataSchema: OrderHeldDataSchema },
+    { eventType: 'order.recalled.v1', dataSchema: OrderRecalledDataSchema },
   ],
   consumes: [],
 });

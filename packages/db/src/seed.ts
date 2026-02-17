@@ -1,4 +1,7 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ path: '../../.env.local' });
+dotenv.config({ path: '../../.env' });
+
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { generateUlid } from '@oppsera/shared';
@@ -22,6 +25,16 @@ import {
   taxGroups,
   taxGroupRates,
   catalogItemLocationTaxGroups,
+  inventoryItems,
+  customers,
+  customerIdentifiers,
+  customerActivityLog,
+  membershipPlans,
+  customerMemberships,
+  billingAccounts,
+  billingAccountMembers,
+  customerContacts,
+  customerPreferences,
 } from './schema';
 
 async function seed() {
@@ -34,6 +47,11 @@ async function seed() {
   const db = drizzle(client);
 
   console.log('Seeding database...\n');
+
+  // ── Clean existing seed data ─────────────────────────────────
+  console.log('Cleaning existing data...');
+  await client`TRUNCATE tenants, users CASCADE`;
+  console.log('Truncated all tables via tenants, users CASCADE.\n');
 
   // ── Create tenant ──────────────────────────────────────────────
   const tenantId = generateUlid();
@@ -187,6 +205,7 @@ async function seed() {
   const moduleKeys = [
     'platform_core',
     'catalog',
+    'orders',
     'pos_retail',
     'payments',
     'inventory',
@@ -444,24 +463,9 @@ async function seed() {
 
   // ── Catalog: Location Price Overrides ────────────────────────
   await db.insert(catalogLocationPrices).values([
-    {
-      tenantId,
-      catalogItemId: itemIds.greenFee18,
-      locationId: locationIds[1]!,
-      price: '65.00',
-    },
-    {
-      tenantId,
-      catalogItemId: itemIds.greenFee9,
-      locationId: locationIds[1]!,
-      price: '40.00',
-    },
-    {
-      tenantId,
-      catalogItemId: itemIds.beer,
-      locationId: locationIds[1]!,
-      price: '6.99',
-    },
+    { tenantId, catalogItemId: itemIds.greenFee18, locationId: locationIds[1]!, price: '65.00' },
+    { tenantId, catalogItemId: itemIds.greenFee9, locationId: locationIds[1]!, price: '40.00' },
+    { tenantId, catalogItemId: itemIds.beer, locationId: locationIds[1]!, price: '6.99' },
   ]);
   console.log('Location Price Overrides: 3 created (South Course Pro Shop)');
 
@@ -489,7 +493,6 @@ async function seed() {
     southFood: generateUlid(),
   };
 
-  // Main Clubhouse groups
   await db.insert(taxGroups).values([
     { id: tgIds.mainRetail, tenantId, locationId: locationIds[0]!, name: 'Retail Tax', calculationMode: 'exclusive', createdBy: userId },
     { id: tgIds.mainFood, tenantId, locationId: locationIds[0]!, name: 'Food & Bev Tax', calculationMode: 'exclusive', createdBy: userId },
@@ -497,30 +500,23 @@ async function seed() {
     { id: tgIds.mainExempt, tenantId, locationId: locationIds[0]!, name: 'Tax Exempt', calculationMode: 'exclusive', createdBy: userId },
   ]);
 
-  // South Course groups
   await db.insert(taxGroups).values([
     { id: tgIds.southRetail, tenantId, locationId: locationIds[1]!, name: 'Retail Tax', calculationMode: 'exclusive', createdBy: userId },
     { id: tgIds.southFood, tenantId, locationId: locationIds[1]!, name: 'Food & Bev Tax', calculationMode: 'exclusive', createdBy: userId },
   ]);
   console.log('Tax Groups: 6 created (4 Main Clubhouse, 2 South Course)');
 
-  // ── Tax Group Rates (link rates to groups) ────────────────────
+  // ── Tax Group Rates ────────────────────────────────────────────
   await db.insert(taxGroupRates).values([
-    // Main Retail: MI State 6% + Genesee County 1.5%
     { tenantId, taxGroupId: tgIds.mainRetail, taxRateId: rateIds.miState, sortOrder: 0 },
     { tenantId, taxGroupId: tgIds.mainRetail, taxRateId: rateIds.geneseeCounty, sortOrder: 1 },
-    // Main Food: MI State 6% + Genesee County 1.5% + City Restaurant 0.75%
     { tenantId, taxGroupId: tgIds.mainFood, taxRateId: rateIds.miState, sortOrder: 0 },
     { tenantId, taxGroupId: tgIds.mainFood, taxRateId: rateIds.geneseeCounty, sortOrder: 1 },
     { tenantId, taxGroupId: tgIds.mainFood, taxRateId: rateIds.cityRestaurant, sortOrder: 2 },
-    // Main Alcohol: MI State 6% + Genesee County 1.5% + City Restaurant 0.75%
     { tenantId, taxGroupId: tgIds.mainAlcohol, taxRateId: rateIds.miState, sortOrder: 0 },
     { tenantId, taxGroupId: tgIds.mainAlcohol, taxRateId: rateIds.geneseeCounty, sortOrder: 1 },
     { tenantId, taxGroupId: tgIds.mainAlcohol, taxRateId: rateIds.cityRestaurant, sortOrder: 2 },
-    // Main Exempt: no rates (empty group)
-    // South Retail: MI State 6%
     { tenantId, taxGroupId: tgIds.southRetail, taxRateId: rateIds.miState, sortOrder: 0 },
-    // South Food: MI State 6% + City Restaurant 0.75%
     { tenantId, taxGroupId: tgIds.southFood, taxRateId: rateIds.miState, sortOrder: 0 },
     { tenantId, taxGroupId: tgIds.southFood, taxRateId: rateIds.cityRestaurant, sortOrder: 1 },
   ]);
@@ -528,7 +524,6 @@ async function seed() {
 
   // ── Item Tax Group Assignments (per location) ─────────────────
   await db.insert(catalogItemLocationTaxGroups).values([
-    // Main Clubhouse assignments
     { tenantId, locationId: locationIds[0]!, catalogItemId: itemIds.polo, taxGroupId: tgIds.mainRetail },
     { tenantId, locationId: locationIds[0]!, catalogItemId: itemIds.gloves, taxGroupId: tgIds.mainRetail },
     { tenantId, locationId: locationIds[0]!, catalogItemId: itemIds.balls, taxGroupId: tgIds.mainRetail },
@@ -539,12 +534,226 @@ async function seed() {
     { tenantId, locationId: locationIds[0]!, catalogItemId: itemIds.greenFee18, taxGroupId: tgIds.mainExempt },
     { tenantId, locationId: locationIds[0]!, catalogItemId: itemIds.greenFee9, taxGroupId: tgIds.mainExempt },
     { tenantId, locationId: locationIds[0]!, catalogItemId: itemIds.cartRental, taxGroupId: tgIds.mainExempt },
-    // South Course assignments
     { tenantId, locationId: locationIds[1]!, catalogItemId: itemIds.polo, taxGroupId: tgIds.southRetail },
     { tenantId, locationId: locationIds[1]!, catalogItemId: itemIds.gloves, taxGroupId: tgIds.southRetail },
     { tenantId, locationId: locationIds[1]!, catalogItemId: itemIds.beer, taxGroupId: tgIds.southFood },
   ]);
-  console.log('Item Tax Group Assignments: 13 created (10 Main, 3 South)');
+  console.log('Item Tax Group Assignments: 13 created');
+
+  // ── Inventory Items (for trackable catalog items) ──────────────
+  const trackableItems = [
+    { catalogItemId: itemIds.polo, name: 'Logo Polo Shirt' },
+    { catalogItemId: itemIds.gloves, name: 'Golf Glove' },
+    { catalogItemId: itemIds.balls, name: 'Golf Balls (Dozen)' },
+  ];
+
+  for (const loc of locationIds) {
+    await db.insert(inventoryItems).values(
+      trackableItems.map((item) => ({
+        tenantId,
+        locationId: loc!,
+        catalogItemId: item.catalogItemId!,
+        name: item.name,
+        itemType: 'retail',
+        trackInventory: true,
+        reorderPoint: '5',
+        reorderQuantity: '20',
+      })),
+    );
+  }
+  console.log('Inventory Items: 6 created (3 items × 2 locations)');
+
+  // ── Customers ──────────────────────────────────────────────────
+  const custIds = {
+    johnson: generateUlid(),
+    smith: generateUlid(),
+    williams: generateUlid(),
+    acme: generateUlid(),
+  };
+
+  await db.insert(customers).values([
+    {
+      id: custIds.johnson,
+      tenantId,
+      type: 'person',
+      firstName: 'Robert',
+      lastName: 'Johnson',
+      displayName: 'Robert Johnson',
+      email: 'rjohnson@example.com',
+      phone: '910-555-0101',
+      status: 'active',
+      createdBy: userId,
+    },
+    {
+      id: custIds.smith,
+      tenantId,
+      type: 'person',
+      firstName: 'Sarah',
+      lastName: 'Smith',
+      displayName: 'Sarah Smith',
+      email: 'ssmith@example.com',
+      phone: '910-555-0102',
+      status: 'active',
+      createdBy: userId,
+    },
+    {
+      id: custIds.williams,
+      tenantId,
+      type: 'person',
+      firstName: 'James',
+      lastName: 'Williams',
+      displayName: 'James Williams',
+      email: 'jwilliams@example.com',
+      phone: '910-555-0103',
+      status: 'active',
+      createdBy: userId,
+    },
+    {
+      id: custIds.acme,
+      tenantId,
+      type: 'organization',
+      organizationName: 'Acme Corp',
+      displayName: 'Acme Corp',
+      email: 'billing@acmecorp.example.com',
+      phone: '910-555-0200',
+      status: 'active',
+      createdBy: userId,
+    },
+  ]);
+  console.log('Customers: 4 created (3 persons + 1 organization)');
+
+  // ── Customer Identifiers ───────────────────────────────────────
+  await db.insert(customerIdentifiers).values([
+    { tenantId, customerId: custIds.johnson, type: 'member_number', value: 'MEM-001', isActive: true },
+    { tenantId, customerId: custIds.smith, type: 'member_number', value: 'MEM-002', isActive: true },
+    { tenantId, customerId: custIds.williams, type: 'barcode', value: '9781234567890', isActive: true },
+  ]);
+  console.log('Customer Identifiers: 3 created');
+
+  // ── Customer Contacts ──────────────────────────────────────────
+  await db.insert(customerContacts).values([
+    { tenantId, customerId: custIds.johnson, contactType: 'email', value: 'rjohnson@example.com', isPrimary: true, isVerified: true },
+    { tenantId, customerId: custIds.johnson, contactType: 'phone', value: '910-555-0101', isPrimary: true, isVerified: false },
+    { tenantId, customerId: custIds.smith, contactType: 'email', value: 'ssmith@example.com', isPrimary: true, isVerified: true },
+  ]);
+  console.log('Customer Contacts: 3 created');
+
+  // ── Customer Preferences ───────────────────────────────────────
+  await db.insert(customerPreferences).values([
+    { tenantId, customerId: custIds.johnson, category: 'food_beverage', key: 'favorite_drink', value: 'Draft Beer', source: 'manual', updatedBy: userId },
+    { tenantId, customerId: custIds.johnson, category: 'golf', key: 'preferred_tee_time', value: '8:00 AM', source: 'manual', updatedBy: userId },
+    { tenantId, customerId: custIds.smith, category: 'dietary', key: 'allergy', value: 'Gluten-free', source: 'manual', updatedBy: userId },
+  ]);
+  console.log('Customer Preferences: 3 created');
+
+  // ── Customer Activity Log ──────────────────────────────────────
+  await db.insert(customerActivityLog).values([
+    { tenantId, customerId: custIds.johnson, activityType: 'system', title: 'Customer created', createdBy: userId },
+    { tenantId, customerId: custIds.smith, activityType: 'system', title: 'Customer created', createdBy: userId },
+    { tenantId, customerId: custIds.williams, activityType: 'system', title: 'Customer created', createdBy: userId },
+    { tenantId, customerId: custIds.acme, activityType: 'system', title: 'Customer created', createdBy: userId },
+  ]);
+  console.log('Customer Activity: 4 entries created');
+
+  // ── Membership Plans ───────────────────────────────────────────
+  const planIds = {
+    gold: generateUlid(),
+    silver: generateUlid(),
+  };
+
+  await db.insert(membershipPlans).values([
+    {
+      id: planIds.gold,
+      tenantId,
+      name: 'Gold Membership',
+      description: 'Premium membership with full privileges',
+      billingInterval: 'monthly',
+      priceCents: 29900,
+      privileges: { discount_percentage: 15, free_range_balls: true, guest_passes: 2 },
+      isActive: true,
+    },
+    {
+      id: planIds.silver,
+      tenantId,
+      name: 'Silver Membership',
+      description: 'Standard membership with basic privileges',
+      billingInterval: 'monthly',
+      priceCents: 14900,
+      privileges: { discount_percentage: 10, free_range_balls: false, guest_passes: 1 },
+      isActive: true,
+    },
+  ]);
+  console.log('Membership Plans: 2 created (Gold, Silver)');
+
+  // ── Billing Accounts ───────────────────────────────────────────
+  const billingAcctIds = {
+    johnson: generateUlid(),
+    acme: generateUlid(),
+  };
+
+  await db.insert(billingAccounts).values([
+    {
+      id: billingAcctIds.johnson,
+      tenantId,
+      primaryCustomerId: custIds.johnson,
+      name: 'Johnson House Account',
+      creditLimitCents: 500000,
+      currentBalanceCents: 0,
+      status: 'active',
+    },
+    {
+      id: billingAcctIds.acme,
+      tenantId,
+      primaryCustomerId: custIds.acme,
+      name: 'Acme Corp Account',
+      creditLimitCents: 2000000,
+      currentBalanceCents: 0,
+      status: 'active',
+    },
+  ]);
+  console.log('Billing Accounts: 2 created');
+
+  // ── Billing Account Members ────────────────────────────────────
+  await db.insert(billingAccountMembers).values([
+    {
+      tenantId,
+      billingAccountId: billingAcctIds.johnson,
+      customerId: custIds.johnson,
+      role: 'owner',
+      chargeAllowed: true,
+    },
+    {
+      tenantId,
+      billingAccountId: billingAcctIds.acme,
+      customerId: custIds.acme,
+      role: 'owner',
+      chargeAllowed: true,
+    },
+  ]);
+  console.log('Billing Account Members: 2 created');
+
+  // ── Customer Memberships (enrollments) ─────────────────────────
+  await db.insert(customerMemberships).values([
+    {
+      tenantId,
+      customerId: custIds.johnson,
+      planId: planIds.gold,
+      billingAccountId: billingAcctIds.johnson,
+      status: 'active',
+      startDate: '2025-01-01',
+      renewalDate: '2026-01-01',
+    },
+    {
+      tenantId,
+      customerId: custIds.smith,
+      planId: planIds.silver,
+      billingAccountId: billingAcctIds.johnson,
+      status: 'active',
+      startDate: '2025-03-15',
+      renewalDate: '2026-03-15',
+    },
+  ]);
+  console.log('Customer Memberships: 2 enrolled (Johnson=Gold, Smith=Silver)');
 
   // ── Summary ────────────────────────────────────────────────────
   console.log('\n=== Seed Summary ===');
@@ -555,6 +764,10 @@ async function seed() {
   console.log(`Entitlements:   ${moduleKeys.length}`);
   console.log('Catalog:        4 tax cats, 5 cats, 10 items, 3 mod groups, 3 price overrides');
   console.log('Tax System:     3 rates, 6 groups, 11 group-rate links, 13 item assignments');
+  console.log('Inventory:      6 items (3 trackable × 2 locations)');
+  console.log('Customers:      4 customers, 3 identifiers, 3 contacts, 3 preferences');
+  console.log('Memberships:    2 plans, 2 enrollments');
+  console.log('Billing:        2 house accounts, 2 members');
   console.log('====================\n');
 
   await client.end();

@@ -127,7 +127,7 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       lineTotal: taxResult.total,
     });
 
-    return { result: { order: { ...order, ...totals }, line: line! }, events: [event] };
+    return { result: { order: { ...order, ...totals, version: order.version + 1 }, line: { ...line!, qty: Number(line!.qty) } }, events: [event] };
   });
 
   await auditLog(ctx, 'order.line_added', 'order', orderId);

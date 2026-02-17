@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-surface px-4">
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="text-5xl font-bold tracking-tight text-gray-900 sm:text-6xl">
           OppsEra

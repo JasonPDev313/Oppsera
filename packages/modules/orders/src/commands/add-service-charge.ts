@@ -21,9 +21,11 @@ export async function addServiceCharge(ctx: RequestContext, orderId: string, inp
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     // Calculate amount based on calculation type
+    // Order of operations: service charge applies AFTER discounts
+    const discountedSubtotal = order.subtotal - order.discountTotal;
     let amount: number;
     if (input.calculationType === 'percentage') {
-      amount = Math.round(order.subtotal * input.value / 10000); // value is basis points
+      amount = Math.round(discountedSubtotal * input.value / 100);
     } else {
       amount = input.value; // fixed amount in cents
     }

@@ -4,7 +4,7 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import type { PlaceOrderInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
@@ -32,7 +32,6 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
     const lineIds = lines.map((l: any) => l.id);
     let lineTaxes: any[] = [];
     if (lineIds.length > 0) {
-      const { inArray } = await import('drizzle-orm');
       lineTaxes = await (tx as any).select().from(orderLineTaxes)
         .where(inArray(orderLineTaxes.orderLineId, lineIds));
     }
@@ -92,7 +91,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       lineCount: lines.length,
     });
 
-    return { result: { ...order, status: 'placed', placedAt: now, receiptSnapshot }, events: [event] };
+    return { result: { ...order, status: 'placed', placedAt: now, receiptSnapshot, version: order.version + 1 }, events: [event] };
   });
 
   await auditLog(ctx, 'order.placed', 'order', orderId);

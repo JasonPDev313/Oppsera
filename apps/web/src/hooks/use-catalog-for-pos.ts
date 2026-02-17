@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { getItemTypeGroup } from '@oppsera/shared';
@@ -78,6 +78,8 @@ function convertToPOSItem(
 
 export function useCatalogForPOS(locationId: string) {
   const { toast } = useToast();
+  const toastRef = React.useRef(toast);
+  toastRef.current = toast;
 
   // Raw data
   const [allCategories, setAllCategories] = useState<CategoryRow[]>([]);
@@ -114,27 +116,29 @@ export function useCatalogForPOS(locationId: string) {
         // Fetch categories and first page of items in parallel
         const [catRes, itemsFirstPage] = await Promise.all([
           apiFetch<{ data: CategoryRow[] }>('/api/v1/catalog/categories'),
-          apiFetch<{ data: { items: CatalogItemRow[]; nextCursor: string | null } }>(
-            '/api/v1/catalog/items?isActive=true&limit=500',
-          ),
+          apiFetch<{
+            data: CatalogItemRow[];
+            meta: { cursor: string | null; hasMore: boolean };
+          }>('/api/v1/catalog/items?isActive=true&limit=500'),
         ]);
 
         if (cancelled) return;
 
         const categories = catRes.data;
-        let rawItems = itemsFirstPage.data.items;
-        let nextCursor = itemsFirstPage.data.nextCursor;
+        let rawItems = [...itemsFirstPage.data];
+        let nextCursor = itemsFirstPage.meta.cursor;
 
         // Paginate through remaining items
         while (nextCursor) {
           const page = await apiFetch<{
-            data: { items: CatalogItemRow[]; nextCursor: string | null };
+            data: CatalogItemRow[];
+            meta: { cursor: string | null; hasMore: boolean };
           }>(`/api/v1/catalog/items?isActive=true&limit=500&cursor=${nextCursor}`);
 
           if (cancelled) return;
 
-          rawItems = [...rawItems, ...page.data.items];
-          nextCursor = page.data.nextCursor;
+          rawItems = [...rawItems, ...page.data];
+          nextCursor = page.meta.cursor;
         }
 
         // Build category map
@@ -152,7 +156,7 @@ export function useCatalogForPOS(locationId: string) {
       } catch (err) {
         if (cancelled) return;
         const e = err instanceof Error ? err : new Error('Failed to load catalog');
-        toast.error(e.message);
+        toastRef.current.error(e.message);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -162,7 +166,7 @@ export function useCatalogForPOS(locationId: string) {
     return () => {
       cancelled = true;
     };
-  }, [locationId, toast]);
+  }, [locationId]);
 
   // ── Category hierarchy maps ────────────────────────────────────
 
@@ -391,6 +395,7 @@ export function useCatalogForPOS(locationId: string) {
     // Favorites & Recent
     favorites,
     toggleFavorite,
+    isFavorite: useCallback((itemId: string) => favoriteIds.has(itemId), [favoriteIds]),
     recentItems,
     addToRecent,
 

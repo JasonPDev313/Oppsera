@@ -5,18 +5,21 @@ import * as schema from './schema';
 
 type DrizzleDB = ReturnType<typeof drizzle<typeof schema>>;
 
-let _db: DrizzleDB | null = null;
+// Use globalThis to persist the DB pool across Next.js hot reloads in dev.
+// Without this, each hot reload creates a new pool without closing the old one,
+// eventually exhausting all Supabase connection slots.
+const globalForDb = globalThis as unknown as { __oppsera_db?: DrizzleDB };
 
 function getDb(): DrizzleDB {
-  if (!_db) {
+  if (!globalForDb.__oppsera_db) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is required');
     }
-    const client = postgres(connectionString, { max: 20 });
-    _db = drizzle(client, { schema });
+    const client = postgres(connectionString, { max: 5 });
+    globalForDb.__oppsera_db = drizzle(client, { schema });
   }
-  return _db;
+  return globalForDb.__oppsera_db;
 }
 
 export const db: DrizzleDB = new Proxy({} as DrizzleDB, {
@@ -37,7 +40,7 @@ export async function withTenant<T>(
   callback: (tx: Database) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
-    await tx.execute(sql`SET LOCAL app.current_tenant_id = ${tenantId}`);
+    await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`);
     return callback(tx as unknown as Database);
   });
 }
@@ -53,13 +56,18 @@ export async function setTenantContext(tenantId: string) {
   return db;
 }
 
+const globalForAdmin = globalThis as unknown as { __oppsera_admin_db?: DrizzleDB };
+
 export function createAdminClient() {
-  const adminUrl = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
-  if (!adminUrl) {
-    throw new Error('DATABASE_URL_ADMIN or DATABASE_URL environment variable is required');
+  if (!globalForAdmin.__oppsera_admin_db) {
+    const adminUrl = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
+    if (!adminUrl) {
+      throw new Error('DATABASE_URL_ADMIN or DATABASE_URL environment variable is required');
+    }
+    const adminConn = postgres(adminUrl, { max: 3 });
+    globalForAdmin.__oppsera_admin_db = drizzle(adminConn, { schema });
   }
-  const adminConn = postgres(adminUrl, { max: 5 });
-  return drizzle(adminConn, { schema });
+  return globalForAdmin.__oppsera_admin_db;
 }
 
 export { sql, schema };

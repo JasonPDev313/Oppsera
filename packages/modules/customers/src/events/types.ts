@@ -152,3 +152,157 @@ export const TenderRecordedDataSchema = z.object({
   remainingBalance: z.number().int(),
   isFullyPaid: z.boolean(),
 });
+
+// ── Session 16.5 Event Schemas ──────────────────────────────────
+
+export const CustomerContactAddedDataSchema = z.object({
+  customerId: z.string(),
+  contactId: z.string(),
+  contactType: z.string(),
+  value: z.string(),
+  isPrimary: z.boolean(),
+});
+
+export const CustomerPreferenceSetDataSchema = z.object({
+  customerId: z.string(),
+  preferenceId: z.string(),
+  category: z.string(),
+  key: z.string(),
+  value: z.string(),
+  source: z.string(),
+});
+
+export const CustomerDocumentAddedDataSchema = z.object({
+  customerId: z.string(),
+  documentId: z.string(),
+  documentType: z.string(),
+  name: z.string(),
+});
+
+export const CustomerCommunicationLoggedDataSchema = z.object({
+  customerId: z.string(),
+  communicationId: z.string(),
+  channel: z.string(),
+  direction: z.string(),
+  status: z.string(),
+});
+
+export const CustomerServiceFlagAddedDataSchema = z.object({
+  customerId: z.string(),
+  flagId: z.string(),
+  flagType: z.string(),
+  severity: z.string(),
+});
+
+export const CustomerServiceFlagRemovedDataSchema = z.object({
+  customerId: z.string(),
+  flagId: z.string(),
+  flagType: z.string(),
+});
+
+export const CustomerConsentRecordedDataSchema = z.object({
+  customerId: z.string(),
+  consentId: z.string(),
+  consentType: z.string(),
+  status: z.string(),
+  source: z.string(),
+});
+
+export const CustomerExternalIdAddedDataSchema = z.object({
+  customerId: z.string(),
+  externalIdRecordId: z.string(),
+  provider: z.string(),
+  externalId: z.string(),
+});
+
+export const CustomerWalletCreatedDataSchema = z.object({
+  customerId: z.string(),
+  walletAccountId: z.string(),
+  walletType: z.string(),
+  balanceCents: z.number(),
+});
+
+export const CustomerWalletAdjustedDataSchema = z.object({
+  customerId: z.string(),
+  walletAccountId: z.string(),
+  walletType: z.string(),
+  amountCents: z.number(),
+  newBalanceCents: z.number(),
+  customerWalletBalanceCents: z.number(),
+});
+
+export const CustomerAlertCreatedDataSchema = z.object({
+  customerId: z.string(),
+  alertId: z.string(),
+  alertType: z.string(),
+  severity: z.string(),
+  message: z.string(),
+});
+
+export const CustomerAlertDismissedDataSchema = z.object({
+  customerId: z.string(),
+  alertId: z.string(),
+  alertType: z.string(),
+});
+
+export const CustomerHouseholdCreatedDataSchema = z.object({
+  householdId: z.string(),
+  name: z.string(),
+  householdType: z.string(),
+  primaryCustomerId: z.string(),
+});
+
+export const CustomerHouseholdMemberAddedDataSchema = z.object({
+  householdId: z.string(),
+  customerId: z.string(),
+  role: z.string(),
+});
+
+export const CustomerHouseholdMemberRemovedDataSchema = z.object({
+  householdId: z.string(),
+  customerId: z.string(),
+});
+
+export const CustomerVisitRecordedDataSchema = z.object({
+  customerId: z.string(),
+  visitId: z.string(),
+  location: z.string().optional(),
+  checkInMethod: z.string(),
+});
+
+export const CustomerVisitCheckedOutDataSchema = z.object({
+  customerId: z.string(),
+  visitId: z.string(),
+  durationMinutes: z.number(),
+});
+
+export const CustomerIncidentCreatedDataSchema = z.object({
+  customerId: z.string(),
+  incidentId: z.string(),
+  incidentType: z.string(),
+  severity: z.string(),
+  subject: z.string(),
+});
+
+export const CustomerIncidentUpdatedDataSchema = z.object({
+  customerId: z.string(),
+  incidentId: z.string(),
+  status: z.string(),
+  previousStatus: z.string(),
+});
+
+export const CustomerSegmentCreatedDataSchema = z.object({
+  segmentId: z.string(),
+  name: z.string(),
+  segmentType: z.string(),
+});
+
+export const CustomerSegmentMemberAddedDataSchema = z.object({
+  segmentId: z.string(),
+  customerId: z.string(),
+});
+
+export const CustomerSegmentMemberRemovedDataSchema = z.object({
+  segmentId: z.string(),
+  customerId: z.string(),
+});

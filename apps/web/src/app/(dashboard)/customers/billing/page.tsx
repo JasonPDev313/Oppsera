@@ -108,7 +108,7 @@ function CreateAccountDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900">Create Billing Account</h2>
         <p className="mt-1 text-sm text-gray-500">
           Set up a new billing account for house charge and AR tracking.

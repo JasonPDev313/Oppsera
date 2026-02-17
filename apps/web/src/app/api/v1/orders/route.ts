@@ -17,6 +17,14 @@ export const GET = withMiddleware(
     const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : 50;
     const status = url.searchParams.get('status') ?? undefined;
     const businessDate = url.searchParams.get('businessDate') ?? undefined;
+    const dateFrom = url.searchParams.get('dateFrom') ?? undefined;
+    const dateTo = url.searchParams.get('dateTo') ?? undefined;
+    const search = url.searchParams.get('search') ?? undefined;
+    const paymentMethod = url.searchParams.get('paymentMethod') ?? undefined;
+    const employeeId = url.searchParams.get('employeeId') ?? undefined;
+    const terminalId = url.searchParams.get('terminalId') ?? undefined;
+    const sortBy = (url.searchParams.get('sortBy') as 'createdAt' | 'total' | 'orderNumber') ?? undefined;
+    const sortDir = (url.searchParams.get('sortDir') as 'asc' | 'desc') ?? undefined;
 
     const result = await listOrders({
       tenantId: ctx.tenantId,
@@ -25,6 +33,14 @@ export const GET = withMiddleware(
       limit,
       status,
       businessDate,
+      dateFrom,
+      dateTo,
+      search,
+      paymentMethod,
+      employeeId,
+      terminalId,
+      sortBy,
+      sortDir,
     });
 
     return NextResponse.json({

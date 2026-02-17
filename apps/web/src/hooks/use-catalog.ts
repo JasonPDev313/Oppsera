@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import type {
@@ -18,6 +18,8 @@ function useFetch<T>(url: string | null) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { toast } = useToast();
+  const toastRef = React.useRef(toast);
+  toastRef.current = toast;
 
   const fetchData = useCallback(async () => {
     if (!url) {
@@ -31,11 +33,11 @@ function useFetch<T>(url: string | null) {
     } catch (err) {
       const e = err instanceof Error ? err : new Error('Fetch failed');
       setError(e);
-      toast.error(e.message);
+      toastRef.current.error(e.message);
     } finally {
       setIsLoading(false);
     }
-  }, [url, toast]);
+  }, [url]);
 
   useEffect(() => {
     fetchData();
@@ -57,11 +59,13 @@ interface ItemFilters {
 
 export function useCatalogItems(filters: ItemFilters) {
   const [items, setItems] = useState<CatalogItemRow[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [cursor, setCursor] = useState<string | undefined>();
   const [hasMore, setHasMore] = useState(false);
   const { toast } = useToast();
+  const toastRef2 = React.useRef(toast);
+  toastRef2.current = toast;
 
   const fetchItems = useCallback(
     async (appendCursor?: string) => {
@@ -76,25 +80,26 @@ export function useCatalogItems(filters: ItemFilters) {
         params.set('limit', '25');
 
         const res = await apiFetch<{
-          data: { items: CatalogItemRow[]; nextCursor: string | null };
+          data: CatalogItemRow[];
+          meta: { cursor: string | null; hasMore: boolean };
         }>(`/api/v1/catalog/items?${params.toString()}`);
 
         if (appendCursor) {
-          setItems((prev) => [...prev, ...res.data.items]);
+          setItems((prev) => [...prev, ...res.data]);
         } else {
-          setItems(res.data.items);
+          setItems(res.data);
         }
-        setCursor(res.data.nextCursor ?? undefined);
-        setHasMore(!!res.data.nextCursor);
+        setCursor(res.meta.cursor ?? undefined);
+        setHasMore(res.meta.hasMore);
       } catch (err) {
         const e = err instanceof Error ? err : new Error('Failed to load items');
         setError(e);
-        toast.error(e.message);
+        toastRef2.current.error(e.message);
       } finally {
         setIsLoading(false);
       }
     },
-    [filters.categoryId, filters.itemType, filters.isActive, filters.search, toast],
+    [filters.categoryId, filters.itemType, filters.isActive, filters.search],
   );
 
   useEffect(() => {

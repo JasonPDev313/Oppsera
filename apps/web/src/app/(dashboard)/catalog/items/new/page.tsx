@@ -522,7 +522,7 @@ export default function CreateItemPage() {
                   key={card.key}
                   type="button"
                   onClick={() => handleSelectType(card.key)}
-                  className="group rounded-xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  className="group rounded-xl border border-gray-200 bg-surface p-6 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-100">
                     <Icon className="h-5 w-5" />
@@ -559,7 +559,7 @@ export default function CreateItemPage() {
         <h1 className="mb-6 text-xl font-semibold text-gray-900">Create New Item</h1>
 
         <form onSubmit={handleSubmit}>
-          <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-gray-200 bg-surface p-6 shadow-sm">
             <div className="space-y-4">
               {/* Type badge + change link */}
               <div className="flex items-center gap-3">
@@ -990,7 +990,7 @@ function RetailFields({
             </FormField>
 
             <FormField label="Options" helpText="Type an option and press Enter">
-              <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-2">
                 {newOptionSetOptions.map((opt) => (
                   <span
                     key={opt}
@@ -1190,7 +1190,7 @@ function PackageFields({
             placeholder="Search items..."
           />
           {searchQuery && (
-            <ul className="mt-2 max-h-48 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 bg-white">
+            <ul className="mt-2 max-h-48 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 bg-surface">
               {searchResults.length === 0 && (
                 <li className="px-3 py-2 text-sm text-gray-500">No items found</li>
               )}
@@ -1251,7 +1251,7 @@ function PackageFields({
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
+            <tbody className="divide-y divide-gray-100 bg-surface">
               {components.map((comp) => {
                 const group = getItemTypeGroup(comp.itemType);
                 const badge = ITEM_TYPE_BADGES[group];

@@ -72,8 +72,40 @@ export const placeOrderSchema = z.object({
 });
 export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
 
+export const updateOrderSchema = z.object({
+  ...idempotencyMixin,
+  customerId: z.string().min(1).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
+
 export const voidOrderSchema = z.object({
   ...idempotencyMixin,
   reason: z.string().min(1).max(500),
 });
 export type VoidOrderInput = z.infer<typeof voidOrderSchema>;
+
+export const cloneOrderSchema = z.object({
+  ...idempotencyMixin,
+});
+export type CloneOrderInput = z.infer<typeof cloneOrderSchema>;
+
+export const reopenOrderSchema = z.object({
+  ...idempotencyMixin,
+});
+export type ReopenOrderInput = z.infer<typeof reopenOrderSchema>;
+
+export const deleteOrderSchema = z.object({
+  ...idempotencyMixin,
+});
+export type DeleteOrderInput = z.infer<typeof deleteOrderSchema>;
+
+export const holdOrderSchema = z.object({
+  ...idempotencyMixin,
+});
+export type HoldOrderInput = z.infer<typeof holdOrderSchema>;
+
+export const recallOrderSchema = z.object({
+  ...idempotencyMixin,
+});
+export type RecallOrderInput = z.infer<typeof recallOrderSchema>;

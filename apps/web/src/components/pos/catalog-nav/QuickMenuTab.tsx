@@ -34,7 +34,7 @@ export function QuickMenuTab({
           onClick={() => onTabChange('favorites')}
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors ${
             activeTab === 'favorites'
-              ? 'bg-white text-gray-900 shadow-sm'
+              ? 'bg-surface text-gray-900 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
@@ -46,7 +46,7 @@ export function QuickMenuTab({
           onClick={() => onTabChange('recent')}
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors ${
             activeTab === 'recent'
-              ? 'bg-white text-gray-900 shadow-sm'
+              ? 'bg-surface text-gray-900 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >

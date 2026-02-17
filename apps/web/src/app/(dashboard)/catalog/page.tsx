@@ -97,12 +97,24 @@ export default function CatalogPage() {
       render: (row: CatalogItemRow & Record<string, unknown>) => formatPrice(row.defaultPrice),
     },
     {
-      key: 'category',
+      key: 'departmentName',
+      header: 'Department',
+      render: (row: CatalogItemRow & Record<string, unknown>) => (
+        <span className="text-gray-500">{row.departmentName || '-'}</span>
+      ),
+    },
+    {
+      key: 'subDepartmentName',
+      header: 'Sub-Dept',
+      render: (row: CatalogItemRow & Record<string, unknown>) => (
+        <span className="text-gray-500">{row.subDepartmentName || '-'}</span>
+      ),
+    },
+    {
+      key: 'categoryName',
       header: 'Category',
       render: (row: CatalogItemRow & Record<string, unknown>) => (
-        <span className="text-gray-500">
-          {(row.category as { name: string } | null)?.name || '-'}
-        </span>
+        <span className="text-gray-500">{row.categoryName || '-'}</span>
       ),
     },
     {
@@ -182,7 +194,7 @@ export default function CatalogPage() {
         </label>
       </div>
 
-      {!isLoading && items.length === 0 && !search && !catId && !typeFilter ? (
+      {!isLoading && (items ?? []).length === 0 && !search && !catId && !typeFilter ? (
         <EmptyState
           icon={Package}
           title="No products yet"

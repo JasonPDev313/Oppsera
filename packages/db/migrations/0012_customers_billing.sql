@@ -157,8 +157,8 @@ CREATE INDEX idx_bam_tenant_account ON billing_account_members(tenant_id, billin
 CREATE INDEX idx_bam_tenant_customer ON billing_account_members(tenant_id, customer_id);
 CREATE UNIQUE INDEX uq_bam_tenant_account_customer ON billing_account_members(tenant_id, billing_account_id, customer_id);
 
--- ── memberships ───────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS memberships (
+-- ── customer_memberships ───────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS customer_memberships (
   id TEXT PRIMARY KEY DEFAULT gen_ulid(),
   tenant_id TEXT NOT NULL REFERENCES tenants(id),
   customer_id TEXT NOT NULL REFERENCES customers(id),
@@ -174,16 +174,16 @@ CREATE TABLE IF NOT EXISTS memberships (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_memberships_tenant_customer ON memberships(tenant_id, customer_id);
-CREATE INDEX idx_memberships_tenant_billing ON memberships(tenant_id, billing_account_id);
-CREATE INDEX idx_memberships_tenant_status ON memberships(tenant_id, status);
-CREATE INDEX idx_memberships_tenant_renewal ON memberships(tenant_id, renewal_date);
+CREATE INDEX idx_customer_memberships_tenant_customer ON customer_memberships(tenant_id, customer_id);
+CREATE INDEX idx_customer_memberships_tenant_billing ON customer_memberships(tenant_id, billing_account_id);
+CREATE INDEX idx_customer_memberships_tenant_status ON customer_memberships(tenant_id, status);
+CREATE INDEX idx_customer_memberships_tenant_renewal ON customer_memberships(tenant_id, renewal_date);
 
 -- ── membership_billing_events ─────────────────────────────────────
 CREATE TABLE IF NOT EXISTS membership_billing_events (
   id TEXT PRIMARY KEY DEFAULT gen_ulid(),
   tenant_id TEXT NOT NULL,
-  membership_id TEXT NOT NULL REFERENCES memberships(id),
+  membership_id TEXT NOT NULL REFERENCES customer_memberships(id),
   event_type TEXT NOT NULL,
   billing_period_start DATE NOT NULL,
   billing_period_end DATE NOT NULL,
@@ -294,7 +294,7 @@ ALTER TABLE membership_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE late_fee_policies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE billing_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE billing_account_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_memberships ENABLE ROW LEVEL SECURITY;
 ALTER TABLE membership_billing_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ar_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ar_allocations ENABLE ROW LEVEL SECURITY;
@@ -382,14 +382,14 @@ CREATE POLICY billing_account_members_update ON billing_account_members FOR UPDA
 CREATE POLICY billing_account_members_delete ON billing_account_members FOR DELETE TO oppsera_app
   USING (tenant_id = current_setting('app.current_tenant_id', true));
 
--- memberships
-CREATE POLICY memberships_select ON memberships FOR SELECT TO oppsera_app
+-- customer_memberships
+CREATE POLICY customer_memberships_select ON customer_memberships FOR SELECT TO oppsera_app
   USING (tenant_id = current_setting('app.current_tenant_id', true));
-CREATE POLICY memberships_insert ON memberships FOR INSERT TO oppsera_app
+CREATE POLICY customer_memberships_insert ON customer_memberships FOR INSERT TO oppsera_app
   WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true));
-CREATE POLICY memberships_update ON memberships FOR UPDATE TO oppsera_app
+CREATE POLICY customer_memberships_update ON customer_memberships FOR UPDATE TO oppsera_app
   USING (tenant_id = current_setting('app.current_tenant_id', true));
-CREATE POLICY memberships_delete ON memberships FOR DELETE TO oppsera_app
+CREATE POLICY customer_memberships_delete ON customer_memberships FOR DELETE TO oppsera_app
   USING (tenant_id = current_setting('app.current_tenant_id', true));
 
 -- membership_billing_events

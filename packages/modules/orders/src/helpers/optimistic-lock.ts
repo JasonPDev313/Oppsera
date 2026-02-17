@@ -68,6 +68,8 @@ export async function fetchOrderForMutation(
     voidedAt: row.voided_at ? new Date(row.voided_at as string) : null,
     voidReason: (row.void_reason as string) ?? null,
     voidedBy: (row.voided_by as string) ?? null,
+    heldAt: row.held_at ? new Date(row.held_at as string) : null,
+    heldBy: (row.held_by as string) ?? null,
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
     createdBy: row.created_by as string,

@@ -219,7 +219,7 @@ function UsersTab({ canManage }: { canManage: boolean }) {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-gray-200 bg-surface">
               {users.map((user) => (
                 <tr
                   key={user.id}
@@ -256,7 +256,7 @@ function UsersTab({ canManage }: { canManage: boolean }) {
 
       {/* User detail side panel */}
       {selectedUser && (
-        <div className="w-80 shrink-0 rounded-lg border border-gray-200 bg-white p-4">
+        <div className="w-80 shrink-0 rounded-lg border border-gray-200 bg-surface p-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-900">{selectedUser.name}</h3>
             <button type="button" onClick={() => setSelectedUser(null)}>
@@ -384,7 +384,7 @@ function RolesTab({ canManage }: { canManage: boolean }) {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-gray-200 bg-surface">
               {roles.map((role) => (
                 <tr
                   key={role.id}
@@ -420,7 +420,7 @@ function RolesTab({ canManage }: { canManage: boolean }) {
 
       {/* Role detail side panel */}
       {selectedRole && (
-        <div className="w-96 shrink-0 rounded-lg border border-gray-200 bg-white p-4">
+        <div className="w-96 shrink-0 rounded-lg border border-gray-200 bg-surface p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-gray-900">{selectedRole.name}</h3>
@@ -611,7 +611,7 @@ function RoleFormDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+      <div className="mx-4 w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
             {isEditing ? `Edit ${role.name}` : 'Create Role'}
@@ -737,29 +737,49 @@ function ModulesTab() {
   const [modules, setModules] = useState<ModuleInfo[]>([]);
   const [entitlementMap, setEntitlementMap] = useState<Map<string, EntitlementInfo>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
-  const { isModuleEnabled } = useEntitlements();
+  const [enablingModule, setEnablingModule] = useState<string | null>(null);
+  const { isModuleEnabled, refetch: refetchEntitlements } = useEntitlements();
+  const { can } = usePermissions();
+
+  const loadModules = useCallback(async () => {
+    try {
+      const [modulesResp, entResp] = await Promise.all([
+        apiFetch<{ data: { modules: ModuleInfo[] } }>('/api/v1/entitlements/modules'),
+        apiFetch<{ data: { entitlements: EntitlementInfo[] } }>('/api/v1/entitlements'),
+      ]);
+      setModules(modulesResp.data.modules);
+      const map = new Map<string, EntitlementInfo>();
+      for (const e of entResp.data.entitlements) {
+        map.set(e.moduleKey, e);
+      }
+      setEntitlementMap(map);
+    } catch {
+      // Ignore
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const [modulesResp, entResp] = await Promise.all([
-          apiFetch<{ data: { modules: ModuleInfo[] } }>('/api/v1/entitlements/modules'),
-          apiFetch<{ data: { entitlements: EntitlementInfo[] } }>('/api/v1/entitlements'),
-        ]);
-        setModules(modulesResp.data.modules);
-        const map = new Map<string, EntitlementInfo>();
-        for (const e of entResp.data.entitlements) {
-          map.set(e.moduleKey, e);
-        }
-        setEntitlementMap(map);
-      } catch {
-        // Ignore
-      } finally {
-        setIsLoading(false);
+    loadModules();
+  }, [loadModules]);
+
+  const handleEnableModule = useCallback(async (moduleKey: string) => {
+    setEnablingModule(moduleKey);
+    try {
+      await apiFetch('/api/v1/entitlements', {
+        method: 'POST',
+        body: JSON.stringify({ moduleKey }),
+      });
+      await Promise.all([loadModules(), refetchEntitlements()]);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        alert(err.message);
       }
+    } finally {
+      setEnablingModule(null);
     }
-    load();
-  }, []);
+  }, [loadModules, refetchEntitlements]);
 
   if (isLoading) {
     return (
@@ -773,7 +793,7 @@ function ModulesTab() {
     <div>
       <h2 className="text-lg font-semibold text-gray-900">Modules</h2>
       <p className="mt-1 text-sm text-gray-500">
-        Modules enabled for your account. Contact support or upgrade your plan to enable additional modules.
+        Modules enabled for your account. Enable available modules or contact support for upgrades.
       </p>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -781,13 +801,14 @@ function ModulesTab() {
           const ent = entitlementMap.get(mod.key);
           const enabled = isModuleEnabled(mod.key);
           const isComingSoon = mod.phase !== 'v1';
+          const canEnable = !isComingSoon && !enabled && mod.key !== 'platform_core' && can('settings.update');
 
           return (
             <div
               key={mod.key}
               className={`rounded-lg border p-4 ${
                 enabled
-                  ? 'border-gray-200 bg-white'
+                  ? 'border-gray-200 bg-surface'
                   : 'border-gray-100 bg-gray-50'
               }`}
             >
@@ -830,6 +851,21 @@ function ModulesTab() {
                 <p className="mt-2 text-xs text-gray-400">
                   Plan: {ent.planTier}
                 </p>
+              )}
+              {canEnable && (
+                <button
+                  type="button"
+                  onClick={() => handleEnableModule(mod.key)}
+                  disabled={enablingModule === mod.key}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {enablingModule === mod.key ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3" />
+                  )}
+                  Enable
+                </button>
               )}
             </div>
           );

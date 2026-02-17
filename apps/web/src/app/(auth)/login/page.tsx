@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiFetch, setTokens } from '@/lib/api-client';
+import { apiFetch } from '@/lib/api-client';
 import { ApiError } from '@/lib/api-client';
+import { useAuthContext } from '@/components/auth-provider';
 
 export default function LoginPage() {
   const router = useRouter();
+  const auth = useAuthContext();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -20,22 +22,10 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await apiFetch<{ data: { accessToken: string; refreshToken: string } }>(
-        '/api/v1/auth/login',
-        {
-          method: 'POST',
-          body: JSON.stringify({ email, password }),
-        },
-      );
-      setTokens(response.data.accessToken, response.data.refreshToken);
-
-      // Check if user has a tenant — if not, redirect to onboarding
-      const me = await apiFetch<{ data: { tenant: { id: string } | null } }>('/api/v1/me');
-      if (!me.data.tenant) {
-        router.push('/onboard');
-      } else {
-        router.push('/');
-      }
+      // Use auth context's login which stores tokens AND updates auth state
+      await auth.login(email, password);
+      // Dashboard layout handles onboarding redirect if needed
+      router.push('/catalog');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -137,7 +127,7 @@ export default function LoginPage() {
         type="button"
         onClick={handleMagicLink}
         disabled={isLoading}
-        className="mt-3 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
+        className="mt-3 w-full rounded-lg border border-gray-300 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
       >
         Send Magic Link
       </button>

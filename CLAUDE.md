@@ -28,7 +28,7 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Retail POS (orders, line items, discounts, tax calc) | orders | V1 | Done (backend + frontend) |
 | Payments / Tenders | payments | V1 | Done (cash V1) |
 | Inventory | inventory | V1 | Done (movements ledger + events) |
-| Customer Management | customers | V1 | In Progress |
+| Customer Management | customers | V1 | Done (CRM + Universal Profile) |
 | Reporting / Exports | reporting | V1 | Planned |
 | F&B POS (dual-mode, shares orders module) | pos_fnb | V1 | Done (frontend) |
 | Restaurant KDS | kds | V2 | Planned |
@@ -49,9 +49,10 @@ oppsera/
 │   ├── src/app/api/v1/               # API route handlers
 │   ├── src/components/ui/            # Reusable UI components
 │   ├── src/components/pos/           # POS components (ItemButton, Cart, dialogs, catalog-nav/)
-│   ├── src/hooks/                    # React hooks (use-auth, use-catalog, use-pos, etc.)
+│   ├── src/components/customer-profile-drawer/  # Universal Profile drawer (11 tabs)
+│   ├── src/hooks/                    # React hooks (use-auth, use-catalog, use-pos, use-customers, etc.)
 │   ├── src/lib/                      # Utilities (api-client)
-│   └── src/types/                    # Frontend type definitions (catalog.ts, pos.ts)
+│   └── src/types/                    # Frontend type definitions (catalog.ts, pos.ts, customers.ts)
 ├── packages/
 │   ├── shared/                       # @oppsera/shared — types, Zod schemas, utils, constants
 │   ├── core/                         # @oppsera/core — auth, RBAC, events, audit, entitlements
@@ -61,7 +62,7 @@ oppsera/
 │       ├── orders/                   # @oppsera/module-orders — IMPLEMENTED
 │       ├── payments/                 # @oppsera/module-payments — IMPLEMENTED (cash V1)
 │       ├── inventory/                # @oppsera/module-inventory — IMPLEMENTED (movements ledger + events)
-│       ├── customers/                # @oppsera/module-customers — IN PROGRESS (Session 16)
+│       ├── customers/                # @oppsera/module-customers — IMPLEMENTED (CRM + Universal Profile)
 │       ├── reporting/                # @oppsera/module-reporting — scaffolded
 │       ├── kds/                      # @oppsera/module-kds — scaffolded
 │       ├── golf-ops/                 # @oppsera/module-golf-ops — scaffolded
@@ -196,9 +197,9 @@ Transactional outbox pattern. Consumers are idempotent. 3x retry with exponentia
 ### Cross-Module Event Flow
 ```
 catalog.item.created.v1  → inventory (auto-create inventory item)
-order.placed.v1          → inventory (deduct stock, type-aware) + billing (AR charge if house account)
-order.voided.v1          → inventory (reverse stock) + tenders (reverse payments) + billing (AR void reversal)
-tender.recorded.v1       → orders (mark paid when fully paid) + billing (AR payment if house account)
+order.placed.v1          → inventory (deduct stock, type-aware) + customers (AR charge if house account, update visit/spend stats)
+order.voided.v1          → inventory (reverse stock) + tenders (reverse payments) + customers (AR void reversal)
+tender.recorded.v1       → orders (mark paid when fully paid) + customers (AR payment + FIFO allocation if house account)
 ```
 
 ### Internal Read APIs (Sync Cross-Module)
@@ -212,7 +213,7 @@ Internal APIs are read-only, use singleton getter/setter, and are the only excep
 
 ## Current State
 
-Milestones 0-8 (Sessions 1-15) complete. See CONVENTIONS.md for detailed code patterns.
+Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code patterns.
 
 ### What's Built
 - **Platform Core**: auth, RBAC, entitlements, events/outbox, audit, withMiddleware
@@ -250,19 +251,26 @@ Milestones 0-8 (Sessions 1-15) complete. See CONVENTIONS.md for detailed code pa
   - Idempotency: UNIQUE index on (tenantId, referenceType, referenceId, inventoryItemId, movementType) + ON CONFLICT DO NOTHING
   - Frontend: inventory list page (search, filters, color-coded on-hand), detail page with movement history, receive/adjust/shrink dialogs
 - **Shared**: item-type utilities (incl. green_fee/rental → retail mapping), money helpers, ULID, date utils, slug generation, catalog metadata types
-- **Customer Management Module** (IN PROGRESS — Session 16):
-  - 15 tables: customers, customer_relationships, customer_identifiers, customer_activity_log, membership_plans, memberships, membership_billing_events, billing_accounts, billing_account_members, ar_transactions, ar_allocations, statements, late_fee_policies, customer_privileges, pricing_tiers
+- **Customer Management Module** (Session 16 + 16.5):
+  - **36 tables** (15 Session 16 + 21 Session 16.5): customers (31 cols), customer_relationships, customer_identifiers, customer_activity_log, membership_plans, memberships, membership_billing_events, billing_accounts, billing_account_members, ar_transactions, ar_allocations, statements, late_fee_policies, customer_privileges, pricing_tiers, customer_contacts, customer_preferences, customer_documents, customer_communications, customer_service_flags, customer_consents, customer_external_ids, customer_auth_accounts, customer_wallet_accounts, customer_alerts, customer_scores, customer_metrics_daily, customer_metrics_lifetime, customer_merge_history, customer_households, customer_household_members, customer_visits, customer_incidents, customer_segments, customer_segment_memberships, customer_payment_methods
+  - **38 commands**: 16 Session 16 (CRUD customers, memberships, billing/AR) + 22 Session 16.5 (contacts, preferences, documents, communications, service flags, consents, external IDs, wallets, alerts, households, visits, incidents, segments)
+  - **23 queries**: 12 Session 16 (list/get customers, plans, memberships, billing, AR ledger, aging, statements, privileges, search) + 11 Session 16.5 (profile360, financial, preferences, activity, notes, documents, communications, compliance, segments, integrations, analytics)
+  - **~38 API routes**: base CRUD, search, merge, profile sub-resources, billing, memberships, households, segments
+  - **5 frontend pages**: customer list, customer detail, billing list, billing detail, memberships
+  - **18 hooks**: 8 Session 16 (customers, plans, memberships, billing, AR, aging) + 11 Session 16.5 (profile, financial, preferences, activity, notes, documents, communications, compliance, segments, integrations, analytics)
+  - **Customer Profile Drawer**: 15 components (11 tabs), portal-based slide-in panel (560px), React Context provider
   - Customer identity: person/organization types, merge capability, identifier cards/barcodes/wristbands, activity log (CRM timeline)
   - Membership system: plans with privileges (jsonb), status lifecycle (pending→active→paused→canceled→expired), billing account linkage
   - Billing/AR: credit limits, spending limits, sub-account authorization, FIFO payment allocation, aging buckets, collection status lifecycle
-  - Event consumers: order.placed (AR charge), order.voided (AR reversal), tender.recorded (AR payment)
-  - GL integration: glDimensions, recognitionStatus, deferredRevenueAccountCode on payment_journal_entries
+  - Universal Profile: contacts, preferences (by category), documents, communications, service flags, consents, wallets/loyalty, alerts, households, visits, incidents, segments, scores
+  - Event consumers: order.placed (AR charge + visit/spend stats), order.voided (AR reversal), tender.recorded (AR payment + FIFO allocation)
+  - GL integration: AR charge/payment/writeoff/late_fee journal entries
+  - Sidebar navigation: Customers section with All Customers, Memberships, Billing sub-items
 
 ### Test Coverage
-459 tests: 134 core + 68 catalog + 52 orders + 22 shared + 183 web (75 POS + 66 tenders + 42 inventory)
+569 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 183 web (75 POS + 66 tenders + 42 inventory) + 10 db
 
 ### What's Next
-- Customer Management module completion (Session 16) — queries, API routes, frontend, tests
 - Reporting module (Session 17)
 
 ## Critical Gotchas (Quick Reference)
@@ -295,6 +303,17 @@ Milestones 0-8 (Sessions 1-15) complete. See CONVENTIONS.md for detailed code pa
 26. **AR transactions are append-only** — like inventory movements and GL entries. Never UPDATE/DELETE from `ar_transactions`. Corrections are new rows (credit_memo, writeoff).
 27. **Billing credit limits use helper functions** — `checkCreditLimit(tx, accountId, amount)` validates available credit = creditLimit - outstandingBalance. Call inside the transaction.
 28. **Customer merge is soft** — merged customer gets `displayName = '[MERGED] ...'` and `metadata.mergedInto = primaryId`. Queries exclude merged records by filtering `NOT displayName LIKE '[MERGED]%'` or checking metadata.
+29. **ProfileDrawer is portal-based** — uses `createPortal` to `document.body` (same pattern as POS dialogs), NOT Radix/shadcn Dialog. 560px slide-in from right with `z-50`.
+30. **ProfileDrawer state is React Context** — `ProfileDrawerProvider` wraps the dashboard layout; access via `useProfileDrawer().open(customerId, { tab, source })`.
+31. **Customer profile queries are sub-resource scoped** — profile360 fetches overview, then each tab lazy-loads its own sub-resource endpoint (e.g., `/profile/financial`, `/profile/compliance`).
+32. **Customer preferences are grouped by category** — categories: food_beverage, golf, retail, service, facility, general, dietary, communication, scheduling. Source: manual/inferred/imported with confidence percentage.
+33. **Household tree uses Unicode branch chars** — `HouseholdTreeView` renders primary member with crown icon, clickable member names open their profile in the drawer.
+34. **Customer `metadata` is `Record<string, unknown>`** — always coerce with `!!` for conditional rendering and `String()` for value props to avoid `unknown` type errors in strict TS.
+35. **Drizzle `numeric` columns return strings** — `numeric(10,4)` columns (e.g., `order_lines.qty`) are returned as strings by postgres.js (e.g., `"1.0000"`). Always convert with `Number()` in query mappings before returning to frontend. String `"1.0000" !== 1` is `true`, causing display bugs.
+36. **Query mappings must include ALL frontend-needed fields** — When mapping DB rows in `getXxx()` queries, never omit nullable columns. Omitted fields are `undefined` in JS, and `undefined !== null` is `true` (strict equality), causing rendering bugs (e.g., `formatMoney(undefined)` = `$NaN`). Always map with `?? null`.
+37. **Percentage values: store as raw percentage, not basis points** — For discounts and service charges, store the percentage as-is (10 for 10%). Don't multiply by 100. Keeps storage consistent between charges and discounts, and simplifies display. For fixed dollar amounts, store as cents.
+38. **Service charges apply AFTER discounts** — Percentage service charges use `(subtotal - discountTotal)` as base, not raw `subtotal`. Order of operations: discount first, then service charge on the discounted amount.
+39. **Dark mode uses inverted gray scale** — In `globals.css`, dark mode swaps grays: `gray-900` = near-white, `gray-50` = dark. Never use `bg-gray-900 text-white` (invisible in dark mode). Use `bg-indigo-600 text-white` for primary buttons, `border-red-500/40 text-red-500 hover:bg-red-500/10` for destructive — opacity-based colors work in both modes. Use `bg-surface` for theme-aware backgrounds.
 
 ## Quick Commands
 

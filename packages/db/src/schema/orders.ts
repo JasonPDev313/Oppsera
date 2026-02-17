@@ -49,6 +49,8 @@ export const orders = pgTable(
     voidedAt: timestamp('voided_at', { withTimezone: true }),
     voidReason: text('void_reason'),
     voidedBy: text('voided_by'),
+    heldAt: timestamp('held_at', { withTimezone: true }),
+    heldBy: text('held_by'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by').notNull(),

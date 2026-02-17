@@ -9,7 +9,7 @@ function getDefaultConfig(locationId: string, mode: 'retail' | 'fnb'): POSConfig
   if (mode === 'fnb') {
     return {
       posMode: 'fnb',
-      terminalId: `terminal_${locationId}_1`,
+      terminalId: `terminal_${locationId}_fnb`,
       locationId,
       defaultServiceCharges: [],
       tipEnabled: true,
@@ -21,7 +21,7 @@ function getDefaultConfig(locationId: string, mode: 'retail' | 'fnb'): POSConfig
 
   return {
     posMode: 'retail',
-    terminalId: `terminal_${locationId}_1`,
+    terminalId: `terminal_${locationId}_retail`,
     locationId,
     defaultServiceCharges: [],
     tipEnabled: false,
@@ -31,12 +31,22 @@ function getDefaultConfig(locationId: string, mode: 'retail' | 'fnb'): POSConfig
   };
 }
 
+function migrateTerminalId(config: POSConfig): POSConfig {
+  // Migrate old _1 suffix to _retail/_fnb
+  if (config.terminalId.endsWith('_1')) {
+    const suffix = config.posMode === 'fnb' ? '_fnb' : '_retail';
+    return { ...config, terminalId: config.terminalId.replace(/_1$/, suffix) };
+  }
+  return config;
+}
+
 function loadConfigFromStorage(locationId: string): POSConfig | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${locationId}`);
     if (!raw) return null;
-    return JSON.parse(raw) as POSConfig;
+    const config = migrateTerminalId(JSON.parse(raw) as POSConfig);
+    return config;
   } catch {
     return null;
   }
@@ -52,22 +62,25 @@ function saveConfigToStorage(locationId: string, config: POSConfig): void {
 }
 
 export function usePOSConfig(locationId: string, defaultMode: 'retail' | 'fnb' = 'retail') {
-  const [config, setConfigState] = useState<POSConfig | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [config, setConfigState] = useState<POSConfig | null>(() => {
+    const stored = loadConfigFromStorage(locationId);
+    if (stored) return { ...stored, locationId };
+    const defaults = getDefaultConfig(locationId, defaultMode);
+    saveConfigToStorage(locationId, defaults);
+    return defaults;
+  });
+  const [isLoading] = useState(false);
 
-  // Load config from localStorage on mount or when locationId changes
+  // Re-load config if locationId changes
   useEffect(() => {
-    setIsLoading(true);
     const stored = loadConfigFromStorage(locationId);
     if (stored) {
-      // Ensure locationId is current (in case user switched locations)
       setConfigState({ ...stored, locationId });
     } else {
       const defaults = getDefaultConfig(locationId, defaultMode);
       saveConfigToStorage(locationId, defaults);
       setConfigState(defaults);
     }
-    setIsLoading(false);
   }, [locationId, defaultMode]);
 
   const setConfig = useCallback(

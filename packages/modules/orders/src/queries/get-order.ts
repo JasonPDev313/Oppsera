@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, inArray } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -32,14 +32,20 @@ export interface OrderDetail {
     catalogItemName: string;
     catalogItemSku: string | null;
     itemType: string;
-    qty: string;
+    qty: number;
     unitPrice: number;
+    originalUnitPrice: number | null;
+    priceOverrideReason: string | null;
     lineSubtotal: number;
     lineTax: number;
     lineTotal: number;
+    taxCalculationMode: string | null;
     modifiers: unknown;
     specialInstructions: string | null;
     selectedOptions: unknown;
+    packageComponents: unknown;
+    notes: string | null;
+    sortOrder: number;
     taxes: Array<{
       taxName: string;
       rateDecimal: string;
@@ -83,7 +89,6 @@ export async function getOrder(tenantId: string, orderId: string): Promise<Order
     const lineIds = lines.map((l) => l.id);
     let lineTaxes: (typeof orderLineTaxes.$inferSelect)[] = [];
     if (lineIds.length > 0) {
-      const { inArray } = await import('drizzle-orm');
       lineTaxes = await tx
         .select()
         .from(orderLineTaxes)
@@ -108,14 +113,20 @@ export async function getOrder(tenantId: string, orderId: string): Promise<Order
         catalogItemName: l.catalogItemName,
         catalogItemSku: l.catalogItemSku,
         itemType: l.itemType,
-        qty: l.qty,
+        qty: Number(l.qty),
         unitPrice: l.unitPrice,
+        originalUnitPrice: l.originalUnitPrice ?? null,
+        priceOverrideReason: l.priceOverrideReason ?? null,
         lineSubtotal: l.lineSubtotal,
         lineTax: l.lineTax,
         lineTotal: l.lineTotal,
+        taxCalculationMode: l.taxCalculationMode ?? null,
         modifiers: l.modifiers,
         specialInstructions: l.specialInstructions,
         selectedOptions: l.selectedOptions,
+        packageComponents: l.packageComponents ?? null,
+        notes: l.notes ?? null,
+        sortOrder: l.sortOrder,
         taxes: lineTaxes
           .filter((t) => t.orderLineId === l.id)
           .map((t) => ({

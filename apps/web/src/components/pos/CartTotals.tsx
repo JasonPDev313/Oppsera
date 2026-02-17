@@ -31,9 +31,10 @@ export function CartTotals({ order }: CartTotalsProps) {
     if (!hasDiscount || !order.discounts || order.discounts.length === 0) return 'Discount';
     const firstDiscount = order.discounts[0]!;
     if (firstDiscount.type === 'percentage') {
+      // value is stored as the raw percentage (e.g. 10 for 10%)
       return `Discount (${firstDiscount.value}%)`;
     }
-    return 'Discount';
+    return `Discount (${formatMoney(firstDiscount.value)})`;
   })();
 
   return (
@@ -44,7 +45,15 @@ export function CartTotals({ order }: CartTotalsProps) {
         <span>{formatMoney(order.subtotal)}</span>
       </div>
 
-      {/* Service charges */}
+      {/* Discount (applied first) */}
+      {hasDiscount && (
+        <div className="mt-1 flex items-center justify-between text-sm text-red-500">
+          <span>{discountLabel}</span>
+          <span>-{formatMoney(order.discountTotal)}</span>
+        </div>
+      )}
+
+      {/* Service charges (applied after discount) */}
       {hasCharges && (
         <div className="mt-1 flex items-center justify-between text-sm text-gray-600">
           <span>{chargeLabel}</span>
@@ -57,14 +66,6 @@ export function CartTotals({ order }: CartTotalsProps) {
         <span>Tax</span>
         <span>{formatMoney(order.taxTotal)}</span>
       </div>
-
-      {/* Discount */}
-      {hasDiscount && (
-        <div className="mt-1 flex items-center justify-between text-sm text-red-600">
-          <span>{discountLabel}</span>
-          <span>-{formatMoney(order.discountTotal)}</span>
-        </div>
-      )}
 
       {/* Divider */}
       <div className="my-2 border-t border-gray-200" />

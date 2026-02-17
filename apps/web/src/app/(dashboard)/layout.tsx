@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -24,14 +24,25 @@ import {
   ClipboardList,
   CreditCard,
   Crown,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Sun,
+  Moon,
+  CalendarDays,
+  Clock,
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useEntitlements } from '@/hooks/use-entitlements';
+import { useTheme } from '@/components/theme-provider';
+import { ProfileDrawerProvider, CustomerProfileDrawer } from '@/components/customer-profile-drawer';
+
+const SIDEBAR_KEY = 'sidebar_collapsed';
 
 interface SubNavItem {
   name: string;
   href: string;
   icon: typeof LayoutDashboard;
+  moduleKey?: string;
 }
 
 interface NavItem {
@@ -55,7 +66,7 @@ const navigation: NavItem[] = [
     ],
   },
   {
-    name: 'Catalog',
+    name: 'Inventory',
     href: '/catalog',
     icon: Package,
     moduleKey: 'catalog',
@@ -63,10 +74,10 @@ const navigation: NavItem[] = [
       { name: 'Items', href: '/catalog', icon: List },
       { name: 'Hierarchy', href: '/catalog/hierarchy', icon: FolderTree },
       { name: 'Taxes', href: '/catalog/taxes', icon: Receipt },
+      { name: 'Archived Items', href: '/inventory', icon: Warehouse },
     ],
   },
-  { name: 'Orders', href: '/orders', icon: ClipboardList, moduleKey: 'pos_retail' },
-  { name: 'Inventory', href: '/inventory', icon: Warehouse, moduleKey: 'inventory' },
+  { name: 'Sales History', href: '/orders', icon: ClipboardList, moduleKey: 'pos_retail' },
   {
     name: 'Customers',
     href: '/customers',
@@ -91,6 +102,74 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+function useLiveClock(): { time: string; date: string } {
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  if (!now) return { time: '', date: '' };
+
+  return {
+    time: now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),
+    date: now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }),
+  };
+}
+
+function SidebarActions({
+  collapsed,
+  onToggleCollapse,
+}: {
+  collapsed?: boolean;
+  onToggleCollapse: () => void;
+}) {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <div className={`border-t border-gray-200 ${collapsed ? 'space-y-1 px-2 py-3' : 'space-y-1 px-3 py-3'}`}>
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className={`flex w-full items-center rounded-lg text-sm font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 ${
+          collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2'
+        }`}
+        title={collapsed ? (theme === 'dark' ? 'Light mode' : 'Dark mode') : undefined}
+      >
+        {theme === 'dark' ? (
+          <>
+            <Sun className="h-5 w-5 shrink-0" />
+            {!collapsed && 'Light Mode'}
+          </>
+        ) : (
+          <>
+            <Moon className="h-5 w-5 shrink-0" />
+            {!collapsed && 'Dark Mode'}
+          </>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className={`flex w-full items-center rounded-lg text-sm font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 ${
+          collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2'
+        }`}
+        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+      >
+        {collapsed ? (
+          <PanelLeftOpen className="h-5 w-5 shrink-0" />
+        ) : (
+          <>
+            <PanelLeftClose className="h-5 w-5 shrink-0" />
+            Collapse
+          </>
+        )}
+      </button>
+    </div>
+  );
+}
+
 function SidebarContent({
   pathname,
   onLinkClick,
@@ -98,6 +177,8 @@ function SidebarContent({
   userEmail,
   onLogout,
   isModuleEnabled,
+  collapsed,
+  onToggleCollapse,
 }: {
   pathname: string;
   onLinkClick?: () => void;
@@ -105,47 +186,61 @@ function SidebarContent({
   userEmail: string;
   onLogout: () => void;
   isModuleEnabled: (key: string) => boolean;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
 }) {
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className="flex h-16 shrink-0 items-center border-b border-gray-200 px-6">
+      <div className={`flex h-16 shrink-0 items-center border-b border-gray-200 ${collapsed ? 'justify-center px-2' : 'px-6'}`}>
         <Link href="/" className="flex items-center gap-2" onClick={onLinkClick}>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600">
             <span className="text-sm font-bold text-white">O</span>
           </div>
-          <span className="text-lg font-bold text-gray-900">OppsEra</span>
+          {!collapsed && <span className="text-lg font-bold text-gray-900">OppsEra</span>}
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4">
+      <nav className={`flex-1 space-y-1 py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
         {navigation.map((item) => {
           const enabled = !item.moduleKey || isModuleEnabled(item.moduleKey);
           const isParentActive =
-            item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+            item.href === '/'
+              ? pathname === '/'
+              : pathname.startsWith(item.href) ||
+                (item.children?.some((child) => pathname.startsWith(child.href)) ?? false);
 
           if (!enabled) {
             return (
               <div
                 key={item.name}
-                className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-300 cursor-not-allowed"
-                title="Enable this module in Settings"
+                className={`group flex items-center rounded-lg text-sm font-medium text-gray-300 cursor-not-allowed ${
+                  collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+                }`}
+                title={collapsed ? `${item.name} (locked)` : 'Enable this module in Settings'}
               >
                 <item.icon className="h-5 w-5 shrink-0 text-gray-300" />
-                {item.name}
-                <Lock className="ml-auto h-3.5 w-3.5 text-gray-300" />
+                {!collapsed && (
+                  <>
+                    {item.name}
+                    <Lock className="ml-auto h-3.5 w-3.5 text-gray-300" />
+                  </>
+                )}
               </div>
             );
           }
 
           if (item.children) {
             return (
-              <div key={item.name}>
+              <div key={item.name} className={collapsed ? 'group/nav relative' : ''}>
                 <Link
                   href={item.href}
                   onClick={onLinkClick}
-                  className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  title={collapsed ? item.name : undefined}
+                  className={`group flex w-full items-center rounded-lg text-sm font-medium transition-colors ${
+                    collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+                  } ${
                     isParentActive
                       ? 'bg-indigo-50 text-indigo-600'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -156,14 +251,19 @@ function SidebarContent({
                       isParentActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'
                     }`}
                   />
-                  {item.name}
-                  <ChevronDown
-                    className={`ml-auto h-4 w-4 shrink-0 transition-transform ${
-                      isParentActive ? 'rotate-180 text-indigo-600' : 'text-gray-400'
-                    }`}
-                  />
+                  {!collapsed && (
+                    <>
+                      {item.name}
+                      <ChevronDown
+                        className={`ml-auto h-4 w-4 shrink-0 transition-transform ${
+                          isParentActive ? 'rotate-180 text-indigo-600' : 'text-gray-400'
+                        }`}
+                      />
+                    </>
+                  )}
                 </Link>
-                {isParentActive && (
+                {/* Expanded: inline children */}
+                {isParentActive && !collapsed && (
                   <div className="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3">
                     {item.children.map((child) => {
                       const isChildActive =
@@ -188,6 +288,35 @@ function SidebarContent({
                     })}
                   </div>
                 )}
+                {/* Collapsed: hover flyout — pl-3 creates invisible bridge so mouse can cross the gap */}
+                {collapsed && (
+                  <div className="absolute left-full top-0 z-50 hidden pl-3 group-hover/nav:block">
+                    <div className="min-w-44 rounded-lg border border-gray-200 bg-surface py-1.5 shadow-lg">
+                      <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase">{item.name}</p>
+                      {item.children.map((child) => {
+                        const isChildActive =
+                          child.href === '/catalog'
+                            ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
+                            : pathname.startsWith(child.href);
+                        return (
+                          <Link
+                            key={child.href}
+                            href={child.href}
+                            onClick={onLinkClick}
+                            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
+                              isChildActive
+                                ? 'bg-indigo-50 text-indigo-600'
+                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                          >
+                            <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
+                            {child.name}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           }
@@ -197,7 +326,10 @@ function SidebarContent({
               key={item.name}
               href={item.href}
               onClick={onLinkClick}
-              className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              title={collapsed ? item.name : undefined}
+              className={`group flex items-center rounded-lg text-sm font-medium transition-colors ${
+                collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+              } ${
                 isParentActive
                   ? 'bg-indigo-50 text-indigo-600'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
@@ -208,30 +340,39 @@ function SidebarContent({
                   isParentActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'
                 }`}
               />
-              {item.name}
+              {!collapsed && item.name}
             </Link>
           );
         })}
       </nav>
 
+      {/* Sidebar actions: theme + collapse (desktop only) */}
+      {onToggleCollapse && (
+        <SidebarActions collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
+      )}
+
       {/* Sidebar footer */}
-      <div className="border-t border-gray-200 p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600">
+      <div className={`border-t border-gray-200 ${collapsed ? 'p-2' : 'p-4'}`}>
+        <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600" title={collapsed ? userName : undefined}>
             <span className="text-sm font-medium text-white">{getInitials(userName)}</span>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
-            <p className="truncate text-xs text-gray-500">{userEmail}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onLogout}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-            title="Sign out"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          {!collapsed && (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
+                <p className="truncate text-xs text-gray-500">{userEmail}</p>
+              </div>
+              <button
+                type="button"
+                onClick={onLogout}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                title="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -240,10 +381,28 @@ function SidebarContent({
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { user, tenant, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
   const { isModuleEnabled } = useEntitlements();
+  const clock = useLiveClock();
+
+  // Load collapsed state from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(SIDEBAR_KEY);
+      if (stored === 'true') setCollapsed(true);
+    }
+  }, []);
+
+  const toggleCollapse = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_KEY, String(next));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -275,6 +434,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userEmail = user.email || '';
 
   return (
+    <ProfileDrawerProvider>
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
@@ -284,9 +444,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* Mobile sidebar */}
+      {/* Mobile sidebar — always full width, never collapsed */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-white shadow-xl transition-transform duration-200 ease-in-out md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 transform bg-surface shadow-xl transition-transform duration-200 ease-in-out md:hidden ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -310,14 +470,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Desktop sidebar */}
-      <div className="hidden md:flex md:w-64 md:shrink-0">
-        <div className="flex w-64 flex-col border-r border-gray-200 bg-white">
+      <div
+        className={`hidden md:flex md:shrink-0 transition-all duration-200 ease-in-out ${
+          collapsed ? 'md:w-16' : 'md:w-64'
+        }`}
+      >
+        <div
+          className={`flex flex-col border-r border-gray-200 bg-surface transition-all duration-200 ease-in-out ${
+            collapsed ? 'w-16' : 'w-64'
+          }`}
+        >
           <SidebarContent
             pathname={pathname}
             userName={userName}
             userEmail={userEmail}
             onLogout={handleLogout}
             isModuleEnabled={isModuleEnabled}
+            collapsed={collapsed}
+            onToggleCollapse={toggleCollapse}
           />
         </div>
       </div>
@@ -325,7 +495,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 md:px-6">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-surface px-4 md:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -340,6 +510,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <div className="hidden items-center gap-1.5 md:flex">
+              <CalendarDays className="h-4 w-4 text-gray-400" />
+              <span className="text-sm font-medium text-gray-600">{clock.date}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-4 w-4 text-gray-400" />
+              <span className="text-sm font-medium tabular-nums text-gray-600">{clock.time}</span>
+            </div>
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 transition-colors hover:bg-indigo-700">
               <span className="text-sm font-medium text-white">{getInitials(userName)}</span>
             </div>
@@ -347,8 +525,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <main className={`flex-1 ${
+          pathname.startsWith('/pos')
+            ? 'overflow-hidden'
+            : 'overflow-y-auto p-4 md:p-6'
+        }`}>{children}</main>
       </div>
+
+      {/* Customer Profile Drawer — always mounted, renders when open */}
+      <CustomerProfileDrawer />
     </div>
+    </ProfileDrawerProvider>
   );
 }

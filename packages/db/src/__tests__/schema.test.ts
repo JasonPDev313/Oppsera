@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ path: '../../.env.local' });
+dotenv.config({ path: '../../.env' });
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { sql } from 'drizzle-orm';
@@ -16,7 +18,6 @@ const adminClient = postgres(ADMIN_URL, { max: 3 });
 const adminDb = drizzle(adminClient, { schema });
 
 const appClient = postgres(APP_URL, { max: 3 });
-const appDb = drizzle(appClient, { schema });
 
 afterAll(async () => {
   await adminClient.end();
@@ -133,6 +134,8 @@ describe('seed data', () => {
 });
 
 // ── Test 4: RLS isolation works ──────────────────────────────────
+// Uses SET ROLE oppsera_app to enforce RLS (postgres has BYPASSRLS on Supabase)
+// Uses set_config() (parameterized) instead of SET LOCAL (which doesn't support $1)
 describe('RLS isolation', () => {
   let tenantId: string;
   const fakeTenantId = '00000000000000000000000000';
@@ -145,30 +148,30 @@ describe('RLS isolation', () => {
   });
 
   it('returns data when tenant_id matches', async () => {
-    const result = await appDb.execute(sql`
-      SET LOCAL app.current_tenant_id = ${tenantId};
-      SELECT COUNT(*)::int AS count FROM locations;
-    `);
-    const count = (result[0] as { count: number }).count;
-    expect(count).toBe(2);
+    const [row] = await appClient.begin(async (tx) => {
+      await tx`SET LOCAL ROLE oppsera_app`;
+      await tx`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return tx`SELECT COUNT(*)::int AS count FROM locations`;
+    });
+    expect((row as { count: number }).count).toBe(2);
   });
 
   it('returns no data when tenant_id does not match', async () => {
-    const result = await appDb.execute(sql`
-      SET LOCAL app.current_tenant_id = ${fakeTenantId};
-      SELECT COUNT(*)::int AS count FROM locations;
-    `);
-    const count = (result[0] as { count: number }).count;
-    expect(count).toBe(0);
+    const [row] = await appClient.begin(async (tx) => {
+      await tx`SET LOCAL ROLE oppsera_app`;
+      await tx`SELECT set_config('app.current_tenant_id', ${fakeTenantId}, true)`;
+      return tx`SELECT COUNT(*)::int AS count FROM locations`;
+    });
+    expect((row as { count: number }).count).toBe(0);
   });
 
   it('filters entitlements by tenant', async () => {
-    const result = await appDb.execute(sql`
-      SET LOCAL app.current_tenant_id = ${tenantId};
-      SELECT COUNT(*)::int AS count FROM entitlements;
-    `);
-    const count = (result[0] as { count: number }).count;
-    expect(count).toBe(7);
+    const [row] = await appClient.begin(async (tx) => {
+      await tx`SET LOCAL ROLE oppsera_app`;
+      await tx`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return tx`SELECT COUNT(*)::int AS count FROM entitlements`;
+    });
+    expect((row as { count: number }).count).toBe(7);
   });
 });
 
@@ -185,18 +188,20 @@ describe('withTenant wrapper', () => {
   });
 
   it('returns locations for real tenant', async () => {
-    const result = await appDb.execute(sql`
-      SET LOCAL app.current_tenant_id = ${tenantId};
-      SELECT COUNT(*)::int AS count FROM locations;
-    `);
-    expect((result[0] as { count: number }).count).toBe(2);
+    const [row] = await appClient.begin(async (tx) => {
+      await tx`SET LOCAL ROLE oppsera_app`;
+      await tx`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      return tx`SELECT COUNT(*)::int AS count FROM locations`;
+    });
+    expect((row as { count: number }).count).toBe(2);
   });
 
   it('returns no locations for fake tenant', async () => {
-    const result = await appDb.execute(sql`
-      SET LOCAL app.current_tenant_id = ${fakeTenantId};
-      SELECT COUNT(*)::int AS count FROM locations;
-    `);
-    expect((result[0] as { count: number }).count).toBe(0);
+    const [row] = await appClient.begin(async (tx) => {
+      await tx`SET LOCAL ROLE oppsera_app`;
+      await tx`SELECT set_config('app.current_tenant_id', ${fakeTenantId}, true)`;
+      return tx`SELECT COUNT(*)::int AS count FROM locations`;
+    });
+    expect((row as { count: number }).count).toBe(0);
   });
 });

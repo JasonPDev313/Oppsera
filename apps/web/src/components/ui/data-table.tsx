@@ -41,7 +41,7 @@ export function DataTable<T extends Record<string, unknown>>({
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+      <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
         {/* Desktop skeleton */}
         <div className="hidden md:block">
           <table className="w-full">
@@ -81,7 +81,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-white py-12">
+      <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
         <p className="text-sm text-gray-500">{emptyMessage}</p>
         {emptyAction && (
           <button
@@ -97,7 +97,7 @@ export function DataTable<T extends Record<string, unknown>>({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full">

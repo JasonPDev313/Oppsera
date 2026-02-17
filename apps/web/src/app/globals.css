@@ -1,1 +1,77 @@
 @import 'tailwindcss';
+
+/* ── Theme: Override indigo/purple with dark blue ────────────────── */
+
+@theme {
+  /* Remap indigo to blue (dark blue, not purple) */
+  --color-indigo-50: #eff6ff;
+  --color-indigo-100: #dbeafe;
+  --color-indigo-200: #bfdbfe;
+  --color-indigo-300: #93c5fd;
+  --color-indigo-400: #60a5fa;
+  --color-indigo-500: #3b82f6;
+  --color-indigo-600: #2563eb;
+  --color-indigo-700: #1d4ed8;
+  --color-indigo-800: #1e40af;
+  --color-indigo-900: #1e3a8a;
+  --color-indigo-950: #172554;
+
+  /* Remap purple to blue as well */
+  --color-purple-50: #eff6ff;
+  --color-purple-100: #dbeafe;
+  --color-purple-200: #bfdbfe;
+  --color-purple-300: #93c5fd;
+  --color-purple-400: #60a5fa;
+  --color-purple-500: #3b82f6;
+  --color-purple-600: #2563eb;
+  --color-purple-700: #1d4ed8;
+  --color-purple-800: #1e40af;
+  --color-purple-900: #1e3a8a;
+  --color-purple-950: #172554;
+
+  /* Theme-aware surface colors */
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+}
+
+/* ── Dark mode (default) ─────────────────────────────────────────── */
+
+:root {
+  color-scheme: dark;
+
+  --surface: #161b22;
+  --surface-raised: #1c2128;
+
+  --color-gray-50: #1c2128;
+  --color-gray-100: #0d1117;
+  --color-gray-200: #30363d;
+  --color-gray-300: #484f58;
+  --color-gray-400: #7d8590;
+  --color-gray-500: #7d8590;
+  --color-gray-600: #c9d1d9;
+  --color-gray-700: #e6edf3;
+  --color-gray-800: #f0f3f6;
+  --color-gray-900: #f0f6fc;
+  --color-gray-950: #ffffff;
+}
+
+/* ── Light mode ──────────────────────────────────────────────────── */
+
+.light {
+  color-scheme: light;
+
+  --surface: #ffffff;
+  --surface-raised: #f9fafb;
+
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  --color-gray-950: #030712;
+}

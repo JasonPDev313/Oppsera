@@ -20,7 +20,10 @@ export const GET = withMiddleware(
       isActive,
     });
 
-    return NextResponse.json({ data: result });
+    return NextResponse.json({
+      data: result.items,
+      meta: { cursor: result.cursor, hasMore: result.hasMore },
+    });
   },
   { entitlement: 'customers', permission: 'customers.view' },
 );

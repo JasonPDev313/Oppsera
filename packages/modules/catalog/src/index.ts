@@ -54,7 +54,7 @@ export {
   listTaxGroups,
   getItemTaxGroupsAtLocation,
 } from './queries';
-export type { ListItemsInput, ListItemsResult } from './queries/list-items';
+export type { ListItemsInput, ListItemsResult, ListItemRow } from './queries/list-items';
 export type { ItemDetail } from './queries/get-item';
 export type { CategoryWithCount } from './queries/list-categories';
 export type { ModifierGroupDetail } from './queries/list-modifier-groups';

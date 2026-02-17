@@ -32,3 +32,11 @@ export const reverseTenderSchema = z.object({
     .default('original_tender'),
 });
 export type ReverseTenderInput = z.input<typeof reverseTenderSchema>;
+
+export const adjustTipSchema = z.object({
+  clientRequestId: z.string().min(1).max(128), // REQUIRED
+  tenderId: z.string().min(1),
+  newTipAmount: z.number().int().min(0), // cents — the new total tip amount (not a delta)
+  reason: z.string().max(500).optional(),
+});
+export type AdjustTipInput = z.input<typeof adjustTipSchema>;

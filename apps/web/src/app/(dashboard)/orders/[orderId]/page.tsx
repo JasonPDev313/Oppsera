@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, DollarSign, FileText, XCircle } from 'lucide-react';
+import { ArrowLeft, DollarSign, Printer, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useAuthContext } from '@/components/auth-provider';
 import { useOrder } from '@/hooks/use-orders';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
+import { ReceiptView } from '@/components/orders/ReceiptView';
 import type { OrderLine, OrderCharge, OrderDiscount } from '@/types/pos';
 
 // ── Badge mappings ────────────────────────────────────────────────
@@ -50,51 +51,6 @@ function formatFullDateTime(dateStr: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
-}
-
-// ── Receipt Modal ─────────────────────────────────────────────────
-
-function ReceiptModal({
-  open,
-  onClose,
-  receipt,
-}: {
-  open: boolean;
-  onClose: () => void;
-  receipt: Record<string, unknown>;
-}) {
-  if (!open || typeof document === 'undefined') return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Receipt</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-          >
-            <XCircle className="h-5 w-5" />
-          </button>
-        </div>
-        <pre className="whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
-          {JSON.stringify(receipt, null, 2)}
-        </pre>
-        <div className="mt-4 flex justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
 }
 
 // ── Line Items Section ────────────────────────────────────────────
@@ -327,7 +283,7 @@ interface TenderResponse {
   summary: TenderSummaryData;
 }
 
-function TendersSection({ orderId, orderTotal }: { orderId: string; orderTotal: number }) {
+function TendersSection({ orderId, orderTotal, locationId }: { orderId: string; orderTotal: number; locationId: string }) {
   const [tenderData, setTenderData] = useState<TenderResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -335,7 +291,8 @@ function TendersSection({ orderId, orderTotal }: { orderId: string; orderTotal: 
     async function fetchTenders() {
       try {
         const res = await apiFetch<{ data: TenderResponse }>(
-          `/api/v1/orders/${orderId}/tenders?orderTotal=${orderTotal}`
+          `/api/v1/orders/${orderId}/tenders?orderTotal=${orderTotal}`,
+          { headers: { 'X-Location-Id': locationId } },
         );
         setTenderData(res.data);
       } catch {
@@ -345,7 +302,7 @@ function TendersSection({ orderId, orderTotal }: { orderId: string; orderTotal: 
       }
     }
     fetchTenders();
-  }, [orderId, orderTotal]);
+  }, [orderId, orderTotal, locationId]);
 
   if (isLoading) return <div className="px-4 py-4"><div className="h-8 w-48 animate-pulse rounded bg-gray-200" /></div>;
   if (!tenderData || tenderData.tenders.length === 0) return null;
@@ -404,9 +361,13 @@ export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { locations, tenant } = useAuthContext();
+  const locationId = locations[0]?.id ?? '';
+  const locationName = locations[0]?.name ?? '';
+  const businessName = tenant?.name ?? '';
   const orderId = params.orderId as string;
 
-  const { data: order, isLoading, mutate } = useOrder(orderId);
+  const { data: order, isLoading, mutate } = useOrder(orderId, locationId);
 
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
@@ -415,7 +376,10 @@ export default function OrderDetailPage() {
   const handleVoid = useCallback(async () => {
     setIsVoiding(true);
     try {
-      await apiFetch(`/api/v1/orders/${orderId}/void`, { method: 'POST' });
+      await apiFetch(`/api/v1/orders/${orderId}/void`, {
+        method: 'POST',
+        headers: { 'X-Location-Id': locationId },
+      });
       toast.success('Order voided successfully');
       setShowVoidDialog(false);
       mutate();
@@ -425,7 +389,7 @@ export default function OrderDetailPage() {
     } finally {
       setIsVoiding(false);
     }
-  }, [orderId, toast, mutate]);
+  }, [orderId, locationId, toast, mutate]);
 
   // Loading state
   if (isLoading) {
@@ -435,12 +399,12 @@ export default function OrderDetailPage() {
           <div className="h-5 w-5 animate-pulse rounded bg-gray-200" />
           <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
         </div>
-        <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
+        <div className="space-y-4 rounded-lg border border-gray-200 bg-surface p-6">
           <div className="h-4 w-64 animate-pulse rounded bg-gray-200" />
           <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
           <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
         </div>
-        <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-6">
+        <div className="space-y-3 rounded-lg border border-gray-200 bg-surface p-6">
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="h-12 animate-pulse rounded bg-gray-200" />
           ))}
@@ -459,9 +423,9 @@ export default function OrderDetailPage() {
           className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Orders
+          Back to Sales History
         </button>
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-white py-16">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
           <XCircle className="h-12 w-12 text-gray-300" />
           <h3 className="mt-4 text-sm font-semibold text-gray-900">Order not found</h3>
           <p className="mt-1 text-sm text-gray-500">
@@ -472,7 +436,7 @@ export default function OrderDetailPage() {
             onClick={() => router.push('/orders')}
             className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
           >
-            Go to Orders
+            Go to Sales History
           </button>
         </div>
       </div>
@@ -501,11 +465,11 @@ export default function OrderDetailPage() {
         className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Orders
+        Back to Sales History
       </button>
 
       {/* Header */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-gray-200 bg-surface p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-gray-900">
@@ -548,7 +512,7 @@ export default function OrderDetailPage() {
             <button
               type="button"
               onClick={() => setShowVoidDialog(true)}
-              className="rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+              className="rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
             >
               Void Order
             </button>
@@ -557,7 +521,7 @@ export default function OrderDetailPage() {
       </div>
 
       {/* Line Items */}
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-gray-200 bg-surface">
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Line Items
@@ -568,7 +532,7 @@ export default function OrderDetailPage() {
 
       {/* Charges */}
       {charges.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white">
+        <div className="rounded-lg border border-gray-200 bg-surface">
           <div className="border-b border-gray-200 px-4 py-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
               Charges
@@ -580,7 +544,7 @@ export default function OrderDetailPage() {
 
       {/* Discounts */}
       {discounts.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white">
+        <div className="rounded-lg border border-gray-200 bg-surface">
           <div className="border-b border-gray-200 px-4 py-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
               Discounts
@@ -591,17 +555,17 @@ export default function OrderDetailPage() {
       )}
 
       {/* Tenders */}
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-gray-200 bg-surface">
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Payments
           </h2>
         </div>
-        <TendersSection orderId={order.id} orderTotal={order.total} />
+        <TendersSection orderId={order.id} orderTotal={order.total} locationId={locationId} />
       </div>
 
       {/* Totals */}
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-gray-200 bg-surface">
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Totals
@@ -645,21 +609,19 @@ export default function OrderDetailPage() {
 
       {/* Actions */}
       <div className="flex flex-wrap gap-3">
-        {order.receiptSnapshot && (
-          <button
-            type="button"
-            onClick={() => setShowReceipt(true)}
-            className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-          >
-            <FileText className="h-4 w-4" />
-            View Receipt
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setShowReceipt(true)}
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+        >
+          <Printer className="h-4 w-4" />
+          Print Receipt
+        </button>
         {!isVoided && (
           <button
             type="button"
             onClick={() => setShowVoidDialog(true)}
-            className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+            className="flex items-center gap-2 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
           >
             <XCircle className="h-4 w-4" />
             Void Order
@@ -679,14 +641,15 @@ export default function OrderDetailPage() {
         isLoading={isVoiding}
       />
 
-      {/* Receipt Modal */}
-      {order.receiptSnapshot && (
-        <ReceiptModal
-          open={showReceipt}
-          onClose={() => setShowReceipt(false)}
-          receipt={order.receiptSnapshot}
-        />
-      )}
+      {/* Receipt View (80mm thermal print) */}
+      <ReceiptView
+        open={showReceipt}
+        onClose={() => setShowReceipt(false)}
+        order={order}
+        businessName={businessName}
+        locationName={locationName}
+        locationId={locationId}
+      />
     </div>
   );
 }

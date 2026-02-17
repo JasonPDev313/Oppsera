@@ -137,7 +137,7 @@ export function ServiceChargeDialog({ open, onClose, onAdd, subtotal }: ServiceC
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-lg bg-white shadow-xl">
+      <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
           <h3 className="text-lg font-semibold text-gray-900">Add Service Charge</h3>
@@ -159,7 +159,7 @@ export function ServiceChargeDialog({ open, onClose, onAdd, subtotal }: ServiceC
               ref={firstFocusRef}
               value={chargeType}
               onChange={(e) => handleChargeTypeChange(e.target.value as ChargeType)}
-              className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             >
               {CHARGE_TYPES.map((ct) => (
                 <option key={ct.value} value={ct.value}>
@@ -190,7 +190,7 @@ export function ServiceChargeDialog({ open, onClose, onAdd, subtotal }: ServiceC
                 className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                   calculationType === 'percentage'
                     ? 'border-indigo-600 bg-indigo-600 text-white'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                    : 'border-gray-300 bg-surface text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 Percentage
@@ -201,7 +201,7 @@ export function ServiceChargeDialog({ open, onClose, onAdd, subtotal }: ServiceC
                 className={`flex-1 rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                   calculationType === 'fixed'
                     ? 'border-indigo-600 bg-indigo-600 text-white'
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                    : 'border-gray-300 bg-surface text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 Fixed Amount

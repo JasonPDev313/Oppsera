@@ -42,6 +42,39 @@ export const customers = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by'),
+
+    // ── Universal Customer Profile fields ──
+    dateOfBirth: date('date_of_birth'),
+    gender: text('gender'),
+    anniversary: date('anniversary'),
+    preferredLanguage: text('preferred_language').default('en'),
+    preferredContactMethod: text('preferred_contact_method'),
+    emergencyContactName: text('emergency_contact_name'),
+    emergencyContactPhone: text('emergency_contact_phone'),
+    profileImageUrl: text('profile_image_url'),
+    communicationOptIns: jsonb('communication_opt_ins')
+      .notNull()
+      .default('{"email": false, "sms": false, "push": false}'),
+    riskFlags: jsonb('risk_flags').notNull().default('[]'),
+    complianceData: jsonb('compliance_data'),
+    aiFields: jsonb('ai_fields'),
+    behavioralProfile: jsonb('behavioral_profile'),
+    status: text('status').notNull().default('active'),
+    walletBalanceCents: integer('wallet_balance_cents').notNull().default(0),
+    doNotContactReasons: jsonb('do_not_contact_reasons').notNull().default('[]'),
+    preferredTimeOfDay: text('preferred_time_of_day'),
+    preferredChannelPriority: jsonb('preferred_channel_priority'),
+    loyaltyTier: text('loyalty_tier'),
+    loyaltyPointsBalance: integer('loyalty_points_balance').notNull().default(0),
+    loyaltyEnrollmentDate: date('loyalty_enrollment_date'),
+    acquisitionSource: text('acquisition_source'),
+    referralSource: text('referral_source'),
+    campaignSource: text('campaign_source'),
+    utmData: jsonb('utm_data'),
+    lastStaffInteractionId: text('last_staff_interaction_id'),
+    favoriteStaffId: text('favorite_staff_id'),
+    socialMediaHandles: jsonb('social_media_handles'),
+    handicapIndex: numeric('handicap_index', { precision: 4, scale: 1 }),
   },
   (table) => [
     // NOTE: partial unique indexes (WHERE email IS NOT NULL / WHERE phone IS NOT NULL)
@@ -282,6 +315,11 @@ export const billingAccountMembers = pgTable(
     role: text('role').notNull(),
     chargeAllowed: boolean('charge_allowed').notNull().default(true),
     spendingLimitCents: bigint('spending_limit_cents', { mode: 'number' }),
+    permissions: jsonb('permissions')
+      .notNull()
+      .default(
+        '{"canCharge": true, "canViewStatements": false, "canManageMembers": false, "canEditProfile": false}',
+      ),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -465,5 +503,664 @@ export const pricingTiers = pgTable(
   (table) => [
     index('idx_pricing_tiers_tenant_name').on(table.tenantId, table.name),
     index('idx_pricing_tiers_tenant_default').on(table.tenantId, table.isDefault),
+  ],
+);
+
+// ── Customer Contacts ─────────────────────────────────────────────
+export const customerContacts = pgTable(
+  'customer_contacts',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    contactType: text('contact_type').notNull(),
+    label: text('label'),
+    value: text('value').notNull(),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    isVerified: boolean('is_verified').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_contacts_tenant_customer_type').on(
+      table.tenantId,
+      table.customerId,
+      table.contactType,
+    ),
+  ],
+);
+
+// ── Customer Preferences ──────────────────────────────────────────
+export const customerPreferences = pgTable(
+  'customer_preferences',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    category: text('category').notNull(),
+    key: text('key').notNull(),
+    value: text('value').notNull(),
+    source: text('source').notNull().default('manual'),
+    confidence: numeric('confidence', { precision: 3, scale: 2 }),
+    inferenceVersion: text('inference_version'),
+    lastInferredAt: timestamp('last_inferred_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: text('updated_by'),
+  },
+  (table) => [
+    index('idx_customer_preferences_tenant_customer_category').on(
+      table.tenantId,
+      table.customerId,
+      table.category,
+    ),
+    uniqueIndex('uq_customer_preferences_tenant_customer_category_key').on(
+      table.tenantId,
+      table.customerId,
+      table.category,
+      table.key,
+    ),
+  ],
+);
+
+// ── Customer Documents ────────────────────────────────────────────
+export const customerDocuments = pgTable(
+  'customer_documents',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    documentType: text('document_type').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    storageKey: text('storage_key').notNull(),
+    mimeType: text('mime_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
+    uploadedBy: text('uploaded_by').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('idx_customer_documents_tenant_customer_type').on(
+      table.tenantId,
+      table.customerId,
+      table.documentType,
+    ),
+  ],
+);
+
+// ── Customer Communications ───────────────────────────────────────
+export const customerCommunications = pgTable(
+  'customer_communications',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    channel: text('channel').notNull(),
+    direction: text('direction').notNull().default('outbound'),
+    subject: text('subject'),
+    body: text('body'),
+    campaignId: text('campaign_id'),
+    status: text('status').notNull().default('sent'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
+  },
+  (table) => [
+    index('idx_customer_communications_tenant_customer_created').on(
+      table.tenantId,
+      table.customerId,
+      table.createdAt,
+    ),
+    index('idx_customer_communications_tenant_channel_status').on(
+      table.tenantId,
+      table.channel,
+      table.status,
+    ),
+  ],
+);
+
+// ── Customer Service Flags ────────────────────────────────────────
+export const customerServiceFlags = pgTable(
+  'customer_service_flags',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    flagType: text('flag_type').notNull(),
+    severity: text('severity').notNull().default('info'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('idx_customer_service_flags_tenant_customer').on(table.tenantId, table.customerId),
+    index('idx_customer_service_flags_tenant_flag_type').on(table.tenantId, table.flagType),
+  ],
+);
+
+// ── Customer Consents ─────────────────────────────────────────────
+export const customerConsents = pgTable(
+  'customer_consents',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    consentType: text('consent_type').notNull(),
+    status: text('status').notNull(),
+    grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    source: text('source').notNull().default('manual'),
+    ipAddress: text('ip_address'),
+    documentId: text('document_id'),
+  },
+  (table) => [
+    index('idx_customer_consents_tenant_customer_type').on(
+      table.tenantId,
+      table.customerId,
+      table.consentType,
+    ),
+    uniqueIndex('uq_customer_consents_tenant_customer_type').on(
+      table.tenantId,
+      table.customerId,
+      table.consentType,
+    ),
+  ],
+);
+
+// ── Customer External IDs ─────────────────────────────────────────
+export const customerExternalIds = pgTable(
+  'customer_external_ids',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    provider: text('provider').notNull(),
+    externalId: text('external_id').notNull(),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_customer_external_ids_tenant_provider_external').on(
+      table.tenantId,
+      table.provider,
+      table.externalId,
+    ),
+    index('idx_customer_external_ids_tenant_customer_provider').on(
+      table.tenantId,
+      table.customerId,
+      table.provider,
+    ),
+  ],
+);
+
+// ── Customer Auth Accounts ────────────────────────────────────────
+export const customerAuthAccounts = pgTable(
+  'customer_auth_accounts',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    provider: text('provider').notNull(),
+    authProviderUserId: text('auth_provider_user_id'),
+    isActive: boolean('is_active').notNull().default(false),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_customer_auth_accounts_tenant_customer_provider').on(
+      table.tenantId,
+      table.customerId,
+      table.provider,
+    ),
+  ],
+);
+
+// ── Customer Wallet Accounts ──────────────────────────────────────
+export const customerWalletAccounts = pgTable(
+  'customer_wallet_accounts',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    walletType: text('wallet_type').notNull(),
+    balanceCents: integer('balance_cents').notNull().default(0),
+    currency: text('currency').notNull().default('USD'),
+    externalRef: text('external_ref'),
+    status: text('status').notNull().default('active'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_wallet_accounts_tenant_customer_type').on(
+      table.tenantId,
+      table.customerId,
+      table.walletType,
+    ),
+    index('idx_customer_wallet_accounts_tenant_customer_status').on(
+      table.tenantId,
+      table.customerId,
+      table.status,
+    ),
+  ],
+);
+
+// ── Customer Alerts ───────────────────────────────────────────────
+export const customerAlerts = pgTable(
+  'customer_alerts',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    alertType: text('alert_type').notNull(),
+    severity: text('severity').notNull().default('info'),
+    message: text('message').notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    dismissedAt: timestamp('dismissed_at', { withTimezone: true }),
+    dismissedBy: text('dismissed_by'),
+  },
+  (table) => [
+    index('idx_customer_alerts_tenant_customer_active').on(
+      table.tenantId,
+      table.customerId,
+      table.isActive,
+    ),
+    index('idx_customer_alerts_tenant_type_active').on(
+      table.tenantId,
+      table.alertType,
+      table.isActive,
+    ),
+  ],
+);
+
+// ── Customer Scores ───────────────────────────────────────────────
+export const customerScores = pgTable(
+  'customer_scores',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    scoreType: text('score_type').notNull(),
+    score: numeric('score', { precision: 5, scale: 2 }).notNull(),
+    computedAt: timestamp('computed_at', { withTimezone: true }).notNull().defaultNow(),
+    modelVersion: text('model_version'),
+    metadata: jsonb('metadata'),
+  },
+  (table) => [
+    uniqueIndex('uq_customer_scores_tenant_customer_type').on(
+      table.tenantId,
+      table.customerId,
+      table.scoreType,
+    ),
+    index('idx_customer_scores_tenant_type_score').on(
+      table.tenantId,
+      table.scoreType,
+      table.score,
+    ),
+  ],
+);
+
+// ── Customer Metrics Daily ────────────────────────────────────────
+export const customerMetricsDaily = pgTable(
+  'customer_metrics_daily',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    date: date('date').notNull(),
+    visits: integer('visits').notNull().default(0),
+    spendCents: integer('spend_cents').notNull().default(0),
+    orders: integer('orders').notNull().default(0),
+    durationMinutes: integer('duration_minutes').notNull().default(0),
+    categoryBreakdown: jsonb('category_breakdown').notNull().default('{}'),
+  },
+  (table) => [
+    uniqueIndex('uq_customer_metrics_daily_tenant_customer_date').on(
+      table.tenantId,
+      table.customerId,
+      table.date,
+    ),
+    index('idx_customer_metrics_daily_tenant_date').on(table.tenantId, table.date),
+  ],
+);
+
+// ── Customer Metrics Lifetime ─────────────────────────────────────
+export const customerMetricsLifetime = pgTable(
+  'customer_metrics_lifetime',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    totalVisits: integer('total_visits').notNull().default(0),
+    totalSpendCents: integer('total_spend_cents').notNull().default(0),
+    lastVisitAt: timestamp('last_visit_at', { withTimezone: true }),
+    firstVisitAt: timestamp('first_visit_at', { withTimezone: true }),
+    avgSpendCents: integer('avg_spend_cents').notNull().default(0),
+    lifetimeValueCents: integer('lifetime_value_cents').notNull().default(0),
+    visitFrequency: text('visit_frequency'),
+    avgVisitDurationMinutes: integer('avg_visit_duration_minutes'),
+    topCategory: text('top_category'),
+    categoryBreakdown: jsonb('category_breakdown').notNull().default('{}'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_customer_metrics_lifetime_tenant_customer').on(
+      table.tenantId,
+      table.customerId,
+    ),
+  ],
+);
+
+// ── Customer Merge History ────────────────────────────────────────
+export const customerMergeHistory = pgTable(
+  'customer_merge_history',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    primaryCustomerId: text('primary_customer_id')
+      .notNull()
+      .references(() => customers.id),
+    mergedCustomerId: text('merged_customer_id').notNull(),
+    mergedAt: timestamp('merged_at', { withTimezone: true }).notNull().defaultNow(),
+    mergedBy: text('merged_by').notNull(),
+    snapshot: jsonb('snapshot').notNull(),
+  },
+  (table) => [
+    index('idx_customer_merge_history_tenant_primary').on(
+      table.tenantId,
+      table.primaryCustomerId,
+    ),
+    index('idx_customer_merge_history_tenant_merged').on(
+      table.tenantId,
+      table.mergedCustomerId,
+    ),
+  ],
+);
+
+// ── Customer Households ───────────────────────────────────────────
+export const customerHouseholds = pgTable(
+  'customer_households',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    householdType: text('household_type').notNull(),
+    primaryCustomerId: text('primary_customer_id')
+      .notNull()
+      .references(() => customers.id),
+    billingAccountId: text('billing_account_id'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_households_tenant_primary').on(
+      table.tenantId,
+      table.primaryCustomerId,
+    ),
+    index('idx_customer_households_tenant_type').on(table.tenantId, table.householdType),
+  ],
+);
+
+// ── Customer Household Members ────────────────────────────────────
+export const customerHouseholdMembers = pgTable(
+  'customer_household_members',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    householdId: text('household_id')
+      .notNull()
+      .references(() => customerHouseholds.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    role: text('role').notNull(),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    leftAt: timestamp('left_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('uq_customer_household_members_tenant_household_customer').on(
+      table.tenantId,
+      table.householdId,
+      table.customerId,
+    ),
+    index('idx_customer_household_members_tenant_customer').on(
+      table.tenantId,
+      table.customerId,
+    ),
+  ],
+);
+
+// ── Customer Visits ───────────────────────────────────────────────
+export const customerVisits = pgTable(
+  'customer_visits',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    checkInAt: timestamp('check_in_at', { withTimezone: true }).notNull().defaultNow(),
+    checkOutAt: timestamp('check_out_at', { withTimezone: true }),
+    durationMinutes: integer('duration_minutes'),
+    location: text('location'),
+    checkInMethod: text('check_in_method').notNull().default('manual'),
+    staffId: text('staff_id'),
+    notes: text('notes'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_visits_tenant_customer_checkin').on(
+      table.tenantId,
+      table.customerId,
+      table.checkInAt,
+    ),
+    index('idx_customer_visits_tenant_checkin').on(table.tenantId, table.checkInAt),
+    index('idx_customer_visits_tenant_location_checkin').on(
+      table.tenantId,
+      table.location,
+      table.checkInAt,
+    ),
+  ],
+);
+
+// ── Customer Incidents ────────────────────────────────────────────
+export const customerIncidents = pgTable(
+  'customer_incidents',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    incidentType: text('incident_type').notNull(),
+    severity: text('severity').notNull().default('medium'),
+    status: text('status').notNull().default('open'),
+    subject: text('subject').notNull(),
+    description: text('description'),
+    resolution: text('resolution'),
+    compensationCents: integer('compensation_cents'),
+    compensationType: text('compensation_type'),
+    staffInvolvedIds: jsonb('staff_involved_ids').notNull().default('[]'),
+    relatedOrderId: text('related_order_id'),
+    relatedVisitId: text('related_visit_id'),
+    reportedBy: text('reported_by').notNull(),
+    resolvedBy: text('resolved_by'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_incidents_tenant_customer_created').on(
+      table.tenantId,
+      table.customerId,
+      table.createdAt,
+    ),
+    index('idx_customer_incidents_tenant_status').on(table.tenantId, table.status),
+    index('idx_customer_incidents_tenant_type_created').on(
+      table.tenantId,
+      table.incidentType,
+      table.createdAt,
+    ),
+    index('idx_customer_incidents_tenant_severity').on(table.tenantId, table.severity),
+  ],
+);
+
+// ── Customer Segments ─────────────────────────────────────────────
+export const customerSegments = pgTable(
+  'customer_segments',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    description: text('description'),
+    segmentType: text('segment_type').notNull(),
+    rules: jsonb('rules'),
+    isActive: boolean('is_active').notNull().default(true),
+    memberCount: integer('member_count').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by').notNull(),
+  },
+  (table) => [
+    uniqueIndex('uq_customer_segments_tenant_name').on(table.tenantId, table.name),
+    index('idx_customer_segments_tenant_type_active').on(
+      table.tenantId,
+      table.segmentType,
+      table.isActive,
+    ),
+  ],
+);
+
+// ── Customer Segment Memberships ──────────────────────────────────
+export const customerSegmentMemberships = pgTable(
+  'customer_segment_memberships',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    segmentId: text('segment_id')
+      .notNull()
+      .references(() => customerSegments.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
+    addedBy: text('added_by'),
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('idx_customer_segment_memberships_tenant_segment_customer').on(
+      table.tenantId,
+      table.segmentId,
+      table.customerId,
+    ),
+    index('idx_customer_segment_memberships_tenant_customer').on(
+      table.tenantId,
+      table.customerId,
+    ),
+  ],
+);
+
+// ── Customer Payment Methods ──────────────────────────────────────
+export const customerPaymentMethods = pgTable(
+  'customer_payment_methods',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id')
+      .notNull()
+      .references(() => customers.id),
+    paymentType: text('payment_type').notNull(),
+    token: text('token').notNull(),
+    brand: text('brand'),
+    last4: text('last4'),
+    expiryMonth: integer('expiry_month'),
+    expiryYear: integer('expiry_year'),
+    billingAccountId: text('billing_account_id'),
+    isDefault: boolean('is_default').notNull().default(false),
+    status: text('status').notNull().default('active'),
+    metadata: jsonb('metadata'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_payment_methods_tenant_customer_status').on(
+      table.tenantId,
+      table.customerId,
+      table.status,
+    ),
+    uniqueIndex('uq_customer_payment_methods_tenant_token').on(table.tenantId, table.token),
   ],
 );

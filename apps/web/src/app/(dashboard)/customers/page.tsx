@@ -82,18 +82,19 @@ function CreateCustomerDialog({
     try {
       const body: Record<string, unknown> = {
         type: form.type,
-        email: form.email || null,
-        phone: form.phone || null,
-        notes: form.notes || null,
-        tags: form.tags
-          ? form.tags.split(',').map((t) => t.trim()).filter(Boolean)
-          : [],
       };
+      if (form.email) body.email = form.email;
+      if (form.phone) body.phone = form.phone;
+      if (form.notes) body.notes = form.notes;
+      const tagList = form.tags
+        ? form.tags.split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
+      if (tagList.length > 0) body.tags = tagList;
       if (form.type === 'person') {
-        body.firstName = form.firstName || null;
-        body.lastName = form.lastName || null;
+        if (form.firstName) body.firstName = form.firstName;
+        if (form.lastName) body.lastName = form.lastName;
       } else {
-        body.organizationName = form.organizationName || null;
+        if (form.organizationName) body.organizationName = form.organizationName;
       }
       await apiFetch('/api/v1/customers', {
         method: 'POST',
@@ -114,7 +115,7 @@ function CreateCustomerDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Add Customer</h3>
           <button

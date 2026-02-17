@@ -40,7 +40,7 @@ export async function voidOrder(ctx: RequestContext, orderId: string, input: Voi
       voidedBy: ctx.user.id,
     });
 
-    return { result: { ...order, status: 'voided', voidedAt: now, voidReason: input.reason }, events: [event] };
+    return { result: { ...order, status: 'voided', voidedAt: now, voidReason: input.reason, version: order.version + 1 }, events: [event] };
   });
 
   await auditLog(ctx, 'order.voided', 'order', orderId);

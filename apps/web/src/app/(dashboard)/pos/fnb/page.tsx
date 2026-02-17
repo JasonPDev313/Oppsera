@@ -16,11 +16,19 @@ import {
   Loader2,
   X,
   Copy,
+  Send,
+  Banknote,
+  CreditCard,
+  Ticket,
+  FileText,
+  Split,
+  Wrench,
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useToast } from '@/components/ui/toast';
 import { usePOSConfig } from '@/hooks/use-pos-config';
 import { usePOS } from '@/hooks/use-pos';
+import { useRegisterTabs } from '@/hooks/use-register-tabs';
 import { useCatalogForPOS } from '@/hooks/use-catalog-for-pos';
 import { useShift } from '@/hooks/use-shift';
 import { SearchInput } from '@/components/ui/search-input';
@@ -40,7 +48,11 @@ import {
 } from '@/components/pos/catalog-nav';
 import { ModifierDialog } from '@/components/pos/ModifierDialog';
 import { OptionPickerDialog } from '@/components/pos/OptionPickerDialog';
-import type { CatalogItemForPOS, AddLineItemInput, HeldOrder } from '@/types/pos';
+import { TenderDialog } from '@/components/pos/TenderDialog';
+import { RegisterTabs } from '@/components/pos/RegisterTabs';
+import { ToolsView } from '@/components/pos/ToolsView';
+import { useProfileDrawer } from '@/components/customer-profile-drawer';
+import type { CatalogItemForPOS, AddLineItemInput, HeldOrder, RecordTenderResult } from '@/types/pos';
 import type { RetailMetadata } from '@oppsera/shared';
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -66,7 +78,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-lg bg-white shadow-xl">
+      <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
           <div>
@@ -111,7 +123,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
                     </p>
                     <p className="text-xs text-gray-500">
                       {held.itemCount} {held.itemCount === 1 ? 'item' : 'items'} &middot;{' '}
-                      {held.employeeName}
+                      {held.heldBy}
                     </p>
                   </div>
                   <div className="text-right">
@@ -150,7 +162,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
 // ── F&B POS Page ──────────────────────────────────────────────────
 
 export default function FnbPOSPage() {
-  const { locations } = useAuthContext();
+  const { locations, user } = useAuthContext();
   const { toast } = useToast();
 
   // Location
@@ -167,12 +179,28 @@ export default function FnbPOSPage() {
     barcodeEnabled: false,
     kitchenSendEnabled: true,
   });
+  const registerTabs = useRegisterTabs({
+    terminalId: config?.terminalId ?? '',
+    pos,
+    employeeId: user?.id ?? '',
+    employeeName: user?.name ?? '',
+  });
   const catalog = useCatalogForPOS(locationId);
   const shift = useShift(locationId, config?.terminalId ?? '');
+  const profileDrawer = useProfileDrawer();
+
+  // Build orderLabels map for tab display
+  const orderLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    if (pos.currentOrder) {
+      map.set(pos.currentOrder.id, `#${pos.currentOrder.orderNumber}`);
+    }
+    return map;
+  }, [pos.currentOrder]);
 
   // ── View state ──────────────────────────────────────────────────
 
-  type ViewMode = 'catalog' | 'quick';
+  type ViewMode = 'catalog' | 'quick' | 'tools';
   const [viewMode, setViewMode] = useState<ViewMode>('catalog');
   const [quickMenuTab, setQuickMenuTab] = useState<'favorites' | 'recent'>('favorites');
 
@@ -186,12 +214,25 @@ export default function FnbPOSPage() {
   const [showServiceChargeDialog, setShowServiceChargeDialog] = useState(false);
   const [showRecallDialog, setShowRecallDialog] = useState(false);
 
+  // Payment flow
+  const [showPaymentPicker, setShowPaymentPicker] = useState(false);
+  const [showTenderDialog, setShowTenderDialog] = useState(false);
+  const [remainingBalance, setRemainingBalance] = useState<number | null>(null);
+
   // Confirm dialogs
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [showShiftEndConfirm, setShowShiftEndConfirm] = useState(false);
   const [voidReason, setVoidReason] = useState('');
 
   // ── Item tap handler (universal) ────────────────────────────────
+
+  /** Build _display info from a catalog item for optimistic UI */
+  const displayFor = useCallback((item: CatalogItemForPOS) => ({
+    name: item.name,
+    unitPrice: item.price,
+    itemType: item.type,
+    sku: item.sku,
+  }), []);
 
   const handleItemTap = useCallback(
     (item: CatalogItemForPOS) => {
@@ -205,13 +246,13 @@ export default function FnbPOSPage() {
           if (meta?.optionSets && meta.optionSets.length > 0) {
             setOptionItem(item);
           } else {
-            pos.addItem({ catalogItemId: item.id, qty: 1 });
+            pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
             catalog.addToRecent(item.id);
           }
           break;
         }
         case 'service':
-          pos.addItem({ catalogItemId: item.id, qty: 1 });
+          pos.addItem({ catalogItemId: item.id, qty: 1, _display: displayFor(item) });
           catalog.addToRecent(item.id);
           break;
         case 'package':
@@ -219,36 +260,45 @@ export default function FnbPOSPage() {
           break;
       }
     },
-    [pos, catalog],
+    [pos, catalog, displayFor],
   );
 
   // ── Dialog add handlers ─────────────────────────────────────────
 
   const handleModifierAdd = useCallback(
     (input: AddLineItemInput) => {
-      pos.addItem(input);
+      pos.addItem({
+        ...input,
+        _display: modifierItem ? displayFor(modifierItem) : undefined,
+      });
       if (modifierItem) catalog.addToRecent(modifierItem.id);
       setModifierItem(null);
     },
-    [pos, catalog, modifierItem],
+    [pos, catalog, modifierItem, displayFor],
   );
 
   const handleOptionAdd = useCallback(
     (input: AddLineItemInput) => {
-      pos.addItem(input);
+      pos.addItem({
+        ...input,
+        _display: optionItem ? displayFor(optionItem) : undefined,
+      });
       if (optionItem) catalog.addToRecent(optionItem.id);
       setOptionItem(null);
     },
-    [pos, catalog, optionItem],
+    [pos, catalog, optionItem, displayFor],
   );
 
   const handlePackageAdd = useCallback(
     (input: AddLineItemInput) => {
-      pos.addItem(input);
+      pos.addItem({
+        ...input,
+        _display: packageItem ? displayFor(packageItem) : undefined,
+      });
       if (packageItem) catalog.addToRecent(packageItem.id);
       setPackageItem(null);
     },
-    [pos, catalog, packageItem],
+    [pos, catalog, packageItem, displayFor],
   );
 
   // ── Barcode scan handler (still works for F&B if scanned) ──────
@@ -301,23 +351,69 @@ export default function FnbPOSPage() {
       ...(lastLine.notes && { notes: lastLine.notes }),
     };
 
-    pos.addItem(input);
+    pos.addItem({
+      ...input,
+      _display: {
+        name: lastLine.catalogItemName,
+        unitPrice: lastLine.unitPrice,
+        itemType: lastLine.itemType,
+        sku: lastLine.catalogItemSku,
+      },
+    });
     toast.success(`Repeated: ${lastLine.catalogItemName}`);
   }, [lastLine, pos, toast]);
 
   // ── Order actions ───────────────────────────────────────────────
 
-  const handleSendAndPay = useCallback(async () => {
+  const isOrderPlaced = pos.currentOrder?.status === 'placed';
+
+  const handleSendOrder = useCallback(async () => {
     try {
       await pos.placeOrder();
+      toast.success('Order sent to kitchen');
     } catch {
       // Error already toasted by hook
     }
-  }, [pos]);
+  }, [pos, toast]);
+
+  const handlePayClick = useCallback(() => {
+    setShowPaymentPicker(true);
+  }, []);
+
+  const handlePaymentMethod = useCallback(
+    (method: string) => {
+      setShowPaymentPicker(false);
+      if (method === 'credit_debit') {
+        toast.info('Credit/Debit card payments coming soon');
+        return;
+      }
+      if (method === 'split') {
+        toast.info('Split payment coming soon');
+        return;
+      }
+      setShowTenderDialog(true);
+    },
+    [toast],
+  );
+
+  const handlePaymentComplete = useCallback(
+    (_result: RecordTenderResult) => {
+      setShowTenderDialog(false);
+      setRemainingBalance(null);
+      pos.clearOrder();
+      registerTabs.clearActiveTab();
+    },
+    [pos, registerTabs],
+  );
+
+  const handlePartialPayment = useCallback((remaining: number) => {
+    setRemainingBalance(remaining);
+  }, []);
 
   const handleHoldOrder = useCallback(async () => {
     await pos.holdOrder();
-  }, [pos]);
+    registerTabs.clearActiveTab();
+  }, [pos, registerTabs]);
 
   const handleRecallOrder = useCallback(
     async (orderId: string) => {
@@ -333,9 +429,10 @@ export default function FnbPOSPage() {
       return;
     }
     await pos.voidOrder(voidReason.trim());
+    registerTabs.clearActiveTab();
     setVoidReason('');
     setShowVoidConfirm(false);
-  }, [pos, voidReason, toast]);
+  }, [pos, registerTabs, voidReason, toast]);
 
   const handleShiftEnd = useCallback(async () => {
     try {
@@ -374,7 +471,7 @@ export default function FnbPOSPage() {
 
   // ── Loading state ───────────────────────────────────────────────
 
-  if (configLoading || catalog.isLoading) {
+  if (configLoading) {
     return (
       <div className="flex h-full items-center justify-center">
         <LoadingSpinner size="lg" label="Loading F&B POS..." />
@@ -387,10 +484,26 @@ export default function FnbPOSPage() {
 
   return (
     <div className="flex h-full flex-col">
+      {/* ── Register Tabs ────────────────────────────────────────────── */}
+      <RegisterTabs
+        tabs={registerTabs.tabs}
+        activeTabNumber={registerTabs.activeTabNumber}
+        onSwitchTab={registerTabs.switchTab}
+        onAddTab={registerTabs.addTab}
+        onCloseTab={registerTabs.closeTab}
+        onRenameTab={registerTabs.renameTab}
+        orderLabels={orderLabels}
+        customerId={pos.currentOrder?.customerId ?? null}
+        onAttachCustomer={pos.attachCustomer}
+        onDetachCustomer={pos.detachCustomer}
+        onChangeServer={registerTabs.changeServer}
+        onViewProfile={(id) => profileDrawer.open(id, { source: 'pos' })}
+      />
+
       {/* ── Main Content Area ──────────────────────────────────────── */}
       <div className="flex flex-1 overflow-hidden">
         {/* ── LEFT PANEL (60%) ─────────────────────────────────────── */}
-        <div className="flex w-[60%] flex-col border-r border-gray-200 bg-white">
+        <div className="flex w-[60%] flex-col border-r border-gray-200 bg-surface">
           {/* Department tabs (large for touch) */}
           <div className="shrink-0 border-b border-gray-200 px-4 py-3">
             <DepartmentTabs
@@ -413,7 +526,7 @@ export default function FnbPOSPage() {
             </div>
           )}
 
-          {/* View toggle for Quick Menu */}
+          {/* View toggle for Hot Sellers */}
           <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-4 py-2">
             <button
               type="button"
@@ -435,7 +548,19 @@ export default function FnbPOSPage() {
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              Quick Menu
+              Hot Sellers
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('tools')}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === 'tools'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <Wrench className="h-3.5 w-3.5" />
+              Tools
             </button>
 
             {/* Breadcrumb pushed to right */}
@@ -449,17 +574,41 @@ export default function FnbPOSPage() {
             )}
           </div>
 
-          {viewMode === 'quick' ? (
-            /* ── Quick Menu View ────────────────────────────────────── */
-            <div className="flex-1 overflow-y-auto p-4">
-              <QuickMenuTab
-                favorites={catalog.favorites}
-                recentItems={catalog.recentItems}
-                onItemTap={handleItemTap}
-                activeTab={quickMenuTab}
-                onTabChange={setQuickMenuTab}
-                itemSize="large"
+          {viewMode === 'tools' ? (
+            /* ── Tools View ──────────────────────────────────────────── */
+            <div className="flex-1 overflow-hidden">
+              <ToolsView
+                locationId={locationId}
+                terminalId={config?.terminalId ?? ''}
+                onRecallSavedTab={async (orderId) => {
+                  await pos.recallOrder(orderId);
+                  setViewMode('catalog');
+                }}
+                onTransferTab={async (orderId) => {
+                  const order = await pos.fetchOrder(orderId);
+                  pos.setOrder(order);
+                  setViewMode('catalog');
+                }}
+                isLoading={pos.isLoading}
               />
+            </div>
+          ) : viewMode === 'quick' ? (
+            /* ── Hot Sellers View ────────────────────────────────────── */
+            <div className="flex-1 overflow-y-auto p-4">
+              {catalog.isLoading ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <LoadingSpinner size="md" label="Loading items..." />
+                </div>
+              ) : (
+                <QuickMenuTab
+                  favorites={catalog.favorites}
+                  recentItems={catalog.recentItems}
+                  onItemTap={handleItemTap}
+                  activeTab={quickMenuTab}
+                  onTabChange={setQuickMenuTab}
+                  itemSize="large"
+                />
+              )}
             </div>
           ) : (
             /* ── Catalog View ──────────────────────────────────────── */
@@ -477,32 +626,40 @@ export default function FnbPOSPage() {
 
                 {/* Large items grid */}
                 <div className="flex-1 overflow-y-auto p-4">
-                  {catalog.searchQuery.trim() && (
-                    <p className="mb-3 text-sm text-gray-500">
-                      {displayItems.length} result{displayItems.length !== 1 ? 's' : ''}{' '}
-                      for &ldquo;{catalog.searchQuery}&rdquo;
-                    </p>
-                  )}
-
-                  {displayItems.length === 0 ? (
+                  {catalog.isLoading ? (
                     <div className="flex flex-col items-center justify-center py-16">
-                      <p className="text-sm text-gray-400">
-                        {catalog.searchQuery.trim()
-                          ? 'No items match your search'
-                          : 'No items in this category'}
-                      </p>
+                      <LoadingSpinner size="md" label="Loading items..." />
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                      {displayItems.map((item) => (
-                        <ItemButton
-                          key={item.id}
-                          item={item}
-                          onTap={handleItemTap}
-                          size="large"
-                        />
-                      ))}
-                    </div>
+                    <>
+                      {catalog.searchQuery.trim() && (
+                        <p className="mb-3 text-sm text-gray-500">
+                          {displayItems.length} result{displayItems.length !== 1 ? 's' : ''}{' '}
+                          for &ldquo;{catalog.searchQuery}&rdquo;
+                        </p>
+                      )}
+
+                      {displayItems.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16">
+                          <p className="text-sm text-gray-400">
+                            {catalog.searchQuery.trim()
+                              ? 'No items match your search'
+                              : 'No items in this category'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+                          {displayItems.map((item) => (
+                            <ItemButton
+                              key={item.id}
+                              item={item}
+                              onTap={handleItemTap}
+                              size="large"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -521,7 +678,7 @@ export default function FnbPOSPage() {
         </div>
 
         {/* ── RIGHT PANEL (40%) ────────────────────────────────────── */}
-        <div className="flex w-[40%] flex-col bg-white">
+        <div className="flex w-[40%] flex-col bg-surface">
           {/* Ticket header with customer attachment */}
           <div className="shrink-0 border-b border-gray-200 px-4 py-3">
             <div className="flex items-center justify-between">
@@ -591,22 +748,99 @@ export default function FnbPOSPage() {
             </div>
           </div>
 
-          {/* Send & Pay button */}
-          <div className="shrink-0 px-4 py-2">
-            <button
-              type="button"
-              onClick={handleSendAndPay}
-              disabled={!hasItems || pos.isLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3.5 text-lg font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
-            >
-              {pos.isLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : null}
-              Send & Pay
-              {pos.currentOrder?.total ? (
-                <span className="ml-1">{formatMoney(pos.currentOrder.total)}</span>
-              ) : null}
-            </button>
+          {/* Send + Pay buttons */}
+          <div className="relative shrink-0 px-4 py-2">
+            <div className="flex gap-2">
+              {/* Send button — always highlighted in F&B since items are food/beverage */}
+              <button
+                type="button"
+                onClick={handleSendOrder}
+                disabled={!hasItems || isOrderPlaced || pos.isLoading}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3.5 text-base font-semibold transition-colors disabled:cursor-not-allowed ${
+                  hasItems && !isOrderPlaced
+                    ? 'bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-300'
+                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40'
+                }`}
+              >
+                <Send className="h-4 w-4" />
+                {isOrderPlaced ? 'Sent' : 'Send'}
+              </button>
+
+              {/* Pay button */}
+              <button
+                type="button"
+                onClick={handlePayClick}
+                disabled={!hasItems || pos.isLoading}
+                className="flex flex-[1.5] items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3.5 text-base font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+              >
+                {pos.isLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : null}
+                Pay
+                {(remainingBalance ?? pos.currentOrder?.total) ? (
+                  <span className="ml-1">{formatMoney(remainingBalance ?? pos.currentOrder?.total ?? 0)}</span>
+                ) : null}
+              </button>
+            </div>
+
+            {/* Payment method picker dropdown */}
+            {showPaymentPicker && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setShowPaymentPicker(false)} />
+                <div className="absolute bottom-full left-4 right-4 z-40 mb-2 rounded-lg border border-gray-200 bg-surface shadow-xl">
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold uppercase text-gray-500">Payment Method</p>
+                  </div>
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentMethod('cash')}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-indigo-50"
+                    >
+                      <Banknote className="h-5 w-5 text-green-600" />
+                      Cash
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentMethod('credit_debit')}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-50"
+                    >
+                      <CreditCard className="h-5 w-5 text-gray-300" />
+                      Credit / Debit
+                      <Badge variant="default" className="ml-auto text-[10px]">Coming Soon</Badge>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentMethod('voucher')}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-indigo-50"
+                    >
+                      <Ticket className="h-5 w-5 text-amber-500" />
+                      Voucher
+                      <span className="ml-auto text-xs text-gray-400">Gift Card / Credit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentMethod('check')}
+                      className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-900 transition-colors hover:bg-indigo-50"
+                    >
+                      <FileText className="h-5 w-5 text-blue-500" />
+                      Check
+                    </button>
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handlePaymentMethod('split')}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-400 transition-colors hover:bg-gray-50"
+                      >
+                        <Split className="h-5 w-5 text-gray-300" />
+                        Split Payment
+                        <Badge variant="default" className="ml-auto text-[10px]">Coming Soon</Badge>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Hold / Recall / Void row */}
@@ -638,7 +872,7 @@ export default function FnbPOSPage() {
                 type="button"
                 onClick={() => setShowVoidConfirm(true)}
                 disabled={!pos.currentOrder}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-200 px-2 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-2 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Ban className="h-4 w-4" />
                 Void
@@ -653,7 +887,7 @@ export default function FnbPOSPage() {
         <button
           type="button"
           onClick={() => shift.openDrawer()}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
         >
           <Unlock className="h-3.5 w-3.5" />
           Open Drawer
@@ -661,7 +895,7 @@ export default function FnbPOSPage() {
         <button
           type="button"
           onClick={() => toast.info('No Sale logged')}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
         >
           <XCircle className="h-3.5 w-3.5" />
           No Sale
@@ -669,7 +903,7 @@ export default function FnbPOSPage() {
         <button
           type="button"
           onClick={() => toast.info('Reprint coming in V2')}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
         >
           <Printer className="h-3.5 w-3.5" />
           Reprint
@@ -677,7 +911,7 @@ export default function FnbPOSPage() {
         <button
           type="button"
           onClick={() => toast.info('Returns coming in V2')}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
         >
           <RotateCcw className="h-3.5 w-3.5" />
           Return
@@ -695,7 +929,7 @@ export default function FnbPOSPage() {
             <button
               type="button"
               onClick={() => setShowShiftEndConfirm(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+              className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
             >
               <LogOut className="h-3.5 w-3.5" />
               Shift End
@@ -735,7 +969,7 @@ export default function FnbPOSPage() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setPackageItem(null)} />
-            <div className="relative w-full max-w-md rounded-lg bg-white shadow-xl">
+            <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
               <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
                 <h3 className="text-lg font-semibold text-gray-900">
                   {packageItem.name}
@@ -796,7 +1030,7 @@ export default function FnbPOSPage() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowDiscountDialog(false)} />
-            <div className="relative w-full max-w-sm rounded-lg bg-white shadow-xl">
+            <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
               <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Apply Discount</h3>
                 <button
@@ -858,7 +1092,7 @@ export default function FnbPOSPage() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowServiceChargeDialog(false)} />
-            <div className="relative w-full max-w-sm rounded-lg bg-white shadow-xl">
+            <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
               <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Add Service Charge</h3>
                 <button
@@ -926,7 +1160,7 @@ export default function FnbPOSPage() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowVoidConfirm(false)} />
-            <div className="relative w-full max-w-sm rounded-lg bg-white shadow-xl">
+            <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
               <div className="border-b border-gray-200 px-6 pt-6 pb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Void Ticket</h3>
                 <p className="mt-1 text-sm text-gray-500">
@@ -982,6 +1216,20 @@ export default function FnbPOSPage() {
         confirmLabel="End Shift"
         destructive
       />
+
+      {/* Tender Dialog (Cash / Voucher / Check) */}
+      {pos.currentOrder && config && (
+        <TenderDialog
+          open={showTenderDialog}
+          onClose={() => setShowTenderDialog(false)}
+          order={pos.currentOrder}
+          config={config}
+          shiftId={shift.currentShift?.id}
+          onPaymentComplete={handlePaymentComplete}
+          onPartialPayment={handlePartialPayment}
+          onPlaceOrder={pos.placeOrder}
+        />
+      )}
     </div>
   );
 }

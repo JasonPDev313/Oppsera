@@ -70,9 +70,45 @@ export const OrderPaidDataSchema = z.object({
   paidAt: z.string(),
 });
 
+export const OrderUpdatedDataSchema = z.object({
+  orderId: z.string(),
+  changes: z.record(z.string(), z.unknown()),
+});
+
 export const OrderVoidedDataSchema = z.object({
   orderId: z.string(),
   orderNumber: z.string(),
   reason: z.string(),
   voidedBy: z.string(),
+});
+
+export const OrderClonedDataSchema = z.object({
+  sourceOrderId: z.string(),
+  sourceOrderNumber: z.string(),
+  newOrderId: z.string(),
+  newOrderNumber: z.string(),
+  lineCount: z.number().int(),
+});
+
+export const OrderReopenedDataSchema = z.object({
+  orderId: z.string(),
+  orderNumber: z.string(),
+  previousStatus: z.string(),
+});
+
+export const OrderDeletedDataSchema = z.object({
+  orderId: z.string(),
+  orderNumber: z.string(),
+});
+
+export const OrderHeldDataSchema = z.object({
+  orderId: z.string(),
+  orderNumber: z.string(),
+  heldBy: z.string(),
+});
+
+export const OrderRecalledDataSchema = z.object({
+  orderId: z.string(),
+  orderNumber: z.string(),
+  recalledBy: z.string(),
 });

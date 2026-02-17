@@ -30,7 +30,14 @@ function getVerificationKey(): { key: string | KeyObject; algorithms: jwt.Algori
 }
 
 export class SupabaseAuthAdapter implements AuthAdapter {
-  private supabase = createSupabaseAdmin();
+  private _supabase: ReturnType<typeof createSupabaseAdmin> | null = null;
+
+  private get supabase() {
+    if (!this._supabase) {
+      this._supabase = createSupabaseAdmin();
+    }
+    return this._supabase;
+  }
 
   async validateToken(token: string): Promise<AuthUser | null> {
     try {

@@ -171,7 +171,7 @@ function ReceiveDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-gray-900">Receive Stock</h3>
         <p className="mt-1 text-sm text-gray-500">
           Record incoming inventory for this item.
@@ -324,7 +324,7 @@ function AdjustDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-gray-900">Adjust Inventory</h3>
         <p className="mt-1 text-sm text-gray-500">
           Manually adjust the stock quantity. Use negative values to reduce.
@@ -470,7 +470,7 @@ function ShrinkDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-gray-900">Record Shrink</h3>
         <p className="mt-1 text-sm text-gray-500">
           Record lost, wasted, damaged, or stolen inventory.
@@ -726,7 +726,7 @@ export default function InventoryDetailPage() {
           <button
             type="button"
             onClick={() => setShowShrink(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             <Trash2 className="h-4 w-4" />
             Record Shrink
@@ -736,28 +736,28 @@ export default function InventoryDetailPage() {
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">On Hand</p>
           <p className={`mt-1 text-2xl font-bold ${getStockColor(item)}`}>
             {formatQty(item.onHand)}
           </p>
           <p className="mt-0.5 text-xs text-gray-400">{item.baseUnit}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Reorder Point</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {item.reorderPoint ? formatQty(item.reorderPoint) : '\u2014'}
           </p>
           <p className="mt-0.5 text-xs text-gray-400">{item.baseUnit}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Par Level</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {item.parLevel ? formatQty(item.parLevel) : '\u2014'}
           </p>
           <p className="mt-0.5 text-xs text-gray-400">{item.baseUnit}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Costing Method</p>
           <p className="mt-1 text-2xl font-bold text-gray-900 capitalize">
             {item.costingMethod}
@@ -771,7 +771,7 @@ export default function InventoryDetailPage() {
       </div>
 
       {/* Details card */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-gray-200 bg-surface p-6">
         <h2 className="mb-4 text-base font-semibold text-gray-900">Item Details</h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-4">
@@ -792,7 +792,7 @@ export default function InventoryDetailPage() {
       </div>
 
       {/* Movement history */}
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-gray-200 bg-surface">
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-base font-semibold text-gray-900">Movement History</h2>
         </div>

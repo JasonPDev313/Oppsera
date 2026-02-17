@@ -168,7 +168,7 @@ function EditCustomerDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Edit Customer</h3>
           <button
@@ -350,7 +350,7 @@ function AddIdentifierDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Add Identifier</h3>
           <button
@@ -462,7 +462,7 @@ function AddNoteDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Add Note</h3>
           <button
@@ -568,7 +568,7 @@ function EnrollMembershipDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-md rounded-xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Enroll in Membership</h3>
           <button
@@ -648,7 +648,7 @@ function OverviewSection({
   return (
     <div className="space-y-6">
       {/* Customer Info */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-gray-200 bg-surface p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Customer Info
         </h3>
@@ -714,7 +714,7 @@ function OverviewSection({
       </div>
 
       {/* Identifiers */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-gray-200 bg-surface p-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
             Identifiers
@@ -753,7 +753,7 @@ function OverviewSection({
       </div>
 
       {/* Tags */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-gray-200 bg-surface p-6">
         <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">
           Tags
         </h3>
@@ -790,7 +790,7 @@ function OverviewSection({
 function ActivitySection({ activities }: { activities: CustomerActivity[] }) {
   if (activities.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center">
+      <div className="rounded-lg border border-gray-200 bg-surface py-12 text-center">
         <Activity className="mx-auto h-10 w-10 text-gray-300" />
         <p className="mt-3 text-sm text-gray-500">No activity recorded yet.</p>
       </div>
@@ -804,7 +804,7 @@ function ActivitySection({ activities }: { activities: CustomerActivity[] }) {
         return (
           <div
             key={activity.id}
-            className="rounded-lg border border-gray-200 bg-white px-5 py-4"
+            className="rounded-lg border border-gray-200 bg-surface px-5 py-4"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">
@@ -853,7 +853,7 @@ function MembershipsSection({
       </div>
 
       {memberships.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-white py-12 text-center">
+        <div className="rounded-lg border border-gray-200 bg-surface py-12 text-center">
           <CreditCard className="mx-auto h-10 w-10 text-gray-300" />
           <p className="mt-3 text-sm text-gray-500">No memberships.</p>
           <button
@@ -869,7 +869,7 @@ function MembershipsSection({
           {memberships.map((m: CustomerMembershipSummary) => (
             <div
               key={m.id}
-              className="rounded-lg border border-gray-200 bg-white px-5 py-4"
+              className="rounded-lg border border-gray-200 bg-surface px-5 py-4"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -897,7 +897,7 @@ function BillingSection({ billingAccounts }: { billingAccounts: BillingAccountSu
 
   if (billingAccounts.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white py-12 text-center">
+      <div className="rounded-lg border border-gray-200 bg-surface py-12 text-center">
         <DollarSign className="mx-auto h-10 w-10 text-gray-300" />
         <p className="mt-3 text-sm text-gray-500">No billing accounts.</p>
       </div>
@@ -910,7 +910,7 @@ function BillingSection({ billingAccounts }: { billingAccounts: BillingAccountSu
         <div
           key={acct.id}
           onClick={() => router.push(`/customers/billing/${acct.id}`)}
-          className="cursor-pointer rounded-lg border border-gray-200 bg-white px-5 py-4 transition-colors hover:bg-gray-50"
+          className="cursor-pointer rounded-lg border border-gray-200 bg-surface px-5 py-4 transition-colors hover:bg-gray-50"
         >
           <div className="flex items-center justify-between">
             <div>
@@ -966,14 +966,14 @@ export default function CustomerDetailPage() {
           <div className="h-5 w-5 animate-pulse rounded bg-gray-200" />
           <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
         </div>
-        <div className="space-y-4 rounded-lg border border-gray-200 bg-white p-6">
+        <div className="space-y-4 rounded-lg border border-gray-200 bg-surface p-6">
           <div className="h-4 w-64 animate-pulse rounded bg-gray-200" />
           <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
           <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-lg border border-gray-200 bg-white p-4">
+            <div key={i} className="rounded-lg border border-gray-200 bg-surface p-4">
               <div className="h-3 w-20 animate-pulse rounded bg-gray-200" />
               <div className="mt-2 h-6 w-16 animate-pulse rounded bg-gray-200" />
             </div>
@@ -995,7 +995,7 @@ export default function CustomerDetailPage() {
           <ArrowLeft className="h-4 w-4" />
           Back to Customers
         </button>
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-white py-16">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
           <User className="h-12 w-12 text-gray-300" />
           <h3 className="mt-4 text-sm font-semibold text-gray-900">Customer not found</h3>
           <p className="mt-1 text-sm text-gray-500">
@@ -1030,7 +1030,7 @@ export default function CustomerDetailPage() {
       </button>
 
       {/* Header */}
-      <div className="rounded-lg border border-gray-200 bg-white p-6">
+      <div className="rounded-lg border border-gray-200 bg-surface p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
@@ -1056,14 +1056,14 @@ export default function CustomerDetailPage() {
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
             <Eye className="h-4 w-4" />
             Total Visits
           </div>
           <div className="mt-2 text-xl font-semibold text-gray-900">{customer.totalVisits}</div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
             <DollarSign className="h-4 w-4" />
             Total Spend
@@ -1072,7 +1072,7 @@ export default function CustomerDetailPage() {
             {formatMoney(customer.totalSpend)}
           </div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
             <Clock className="h-4 w-4" />
             Last Visit
@@ -1081,7 +1081,7 @@ export default function CustomerDetailPage() {
             {customer.lastVisitAt ? formatDate(customer.lastVisitAt) : '\u2014'}
           </div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <div className="flex items-center gap-2 text-xs font-medium text-gray-500">
             <Calendar className="h-4 w-4" />
             Member Since

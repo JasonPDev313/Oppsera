@@ -6,7 +6,7 @@ export const MODULE_VERSION = '1.0.0';
 import './events/contracts';
 
 // Commands
-export { recordTender, reverseTender } from './commands';
+export { recordTender, reverseTender, adjustTip } from './commands';
 
 // Queries
 export { getTendersByOrder, listTenders, getPaymentJournalEntries } from './queries';
@@ -15,8 +15,8 @@ export type { ListTendersInput, ListTendersResult } from './queries/list-tenders
 export type { GetJournalInput, GetJournalResult } from './queries/get-payment-journal-entries';
 
 // Validation schemas + types
-export { recordTenderSchema, reverseTenderSchema } from './validation';
-export type { RecordTenderInput, ReverseTenderInput } from './validation';
+export { recordTenderSchema, reverseTenderSchema, adjustTipSchema } from './validation';
+export type { RecordTenderInput, ReverseTenderInput, AdjustTipInput } from './validation';
 
 // Helpers
 export { generateJournalEntry } from './helpers';

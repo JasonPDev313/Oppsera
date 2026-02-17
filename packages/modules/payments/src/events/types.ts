@@ -33,6 +33,15 @@ export const TenderReversedDataSchema = z.object({
   refundMethod: z.string().nullable(),
 });
 
+export const TenderTipAdjustedDataSchema = z.object({
+  tenderId: z.string(),
+  orderId: z.string(),
+  previousTipAmount: z.number().int(),
+  newTipAmount: z.number().int(),
+  delta: z.number().int(),
+  reason: z.string().nullable(),
+});
+
 // Also import the OrderVoidedDataSchema for consumes registration
 // The orders module emits order.voided.v1 which tenders consumes
 export const OrderVoidedDataSchema = z.object({

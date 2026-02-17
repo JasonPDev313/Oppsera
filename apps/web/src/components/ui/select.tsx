@@ -112,16 +112,23 @@ export function Select({
                     className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-700"
                   >
                     {opt?.label}
-                    <button
-                      type="button"
+                    <span
+                      role="button"
+                      tabIndex={0}
                       onClick={(e) => {
                         e.stopPropagation();
                         removeTag(v);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.stopPropagation();
+                          removeTag(v);
+                        }
+                      }}
                       className="text-indigo-400 hover:text-indigo-600"
                     >
                       <X className="h-3 w-3" />
-                    </button>
+                    </span>
                   </span>
                 );
               })
@@ -135,7 +142,7 @@ export function Select({
       </button>
 
       {isOpen && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-surface shadow-lg">
           {showSearch && (
             <div className="border-b border-gray-100 p-2">
               <div className="relative">

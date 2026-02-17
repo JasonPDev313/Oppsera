@@ -65,6 +65,9 @@ export interface CatalogItemRow {
   createdAt: string;
   updatedAt: string;
   category?: { id: string; name: string } | null;
+  departmentName?: string | null;
+  subDepartmentName?: string | null;
+  categoryName?: string | null;
 }
 
 export interface CategoryRow {

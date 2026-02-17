@@ -2,32 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { X, MapPin, Monitor, User, Clock } from 'lucide-react';
+import { X, MapPin, Monitor, User } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-
-// ── Live Clock ────────────────────────────────────────────────────
-
-function useLiveClock(): string {
-  const [time, setTime] = useState(() => formatTime(new Date()));
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setTime(formatTime(new Date()));
-    }, 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  return time;
-}
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
 
 // ── Terminal ID ───────────────────────────────────────────────────
 
@@ -106,7 +83,6 @@ function useBarcodeScannerListener(): void {
 export default function POSLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, locations, isLoading, isAuthenticated } = useAuthContext();
-  const clock = useLiveClock();
   const terminalId = useTerminalId();
 
   // Barcode scanner listener
@@ -125,7 +101,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-50">
+      <div className="flex h-full items-center justify-center bg-gray-50">
         <LoadingSpinner size="lg" label="Loading POS..." />
       </div>
     );
@@ -144,9 +120,9 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
     : employeeName;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-gray-50">
+    <div className="flex h-full flex-col bg-gray-50">
       {/* ── Top Bar ──────────────────────────────────────────────── */}
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm">
+      <header className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-surface px-4 shadow-sm">
         {/* Left: Location, terminal, employee */}
         <div className="flex items-center gap-4">
           {/* Location */}
@@ -180,16 +156,8 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Right: Clock + Exit */}
+        {/* Right: Exit */}
         <div className="flex items-center gap-4">
-          {/* Clock */}
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-medium tabular-nums text-gray-600">
-              {clock}
-            </span>
-          </div>
-
           {/* Exit POS */}
           <button
             type="button"

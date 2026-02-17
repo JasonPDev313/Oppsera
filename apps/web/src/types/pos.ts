@@ -132,8 +132,15 @@ export interface Order {
   createdAt: string;
   updatedAt: string;
   placedAt: string | null;
+  paidAt: string | null;
   voidedAt: string | null;
   voidReason: string | null;
+  heldAt?: string | null;
+  heldBy?: string | null;
+  // Enriched fields from list query (optional — present only in list responses)
+  customerName?: string | null;
+  paymentType?: string | null;
+  tipTotal?: number;
 }
 
 // ── Tender ────────────────────────────────────────────────────────
@@ -254,12 +261,32 @@ export interface AddLineItemInput {
   selectedOptions?: Record<string, string>;
   priceOverride?: PriceOverrideInput;
   notes?: string;
+  /** Display info for optimistic UI — not sent to API */
+  _display?: {
+    name: string;
+    unitPrice: number;
+    itemType: string;
+    sku?: string | null;
+  };
 }
 
 export interface PriceOverrideInput {
   unitPrice: number;
   reason: string;
   approvedBy: string;
+}
+
+// ── Register Tabs ─────────────────────────────────────────────────
+
+export type TabNumber = number; // 1-based, unlimited
+
+export interface RegisterTab {
+  id: string; // server-side PK
+  tabNumber: TabNumber;
+  orderId: string | null; // null = empty tab
+  label?: string | null; // optional custom label
+  employeeId?: string | null;
+  employeeName?: string | null;
 }
 
 // ── Held Orders ────────────────────────────────────────────────────
@@ -270,5 +297,7 @@ export interface HeldOrder {
   itemCount: number;
   total: number;
   heldAt: string;
-  employeeName: string;
+  heldBy: string;
+  customerName: string | null;
+  employeeId: string | null;
 }

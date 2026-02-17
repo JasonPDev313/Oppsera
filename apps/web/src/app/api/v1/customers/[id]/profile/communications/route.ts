@@ -1,0 +1,29 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { getCustomerCommunications } from '@oppsera/module-customers';
+
+function extractId(request: NextRequest): string {
+  const parts = new URL(request.url).pathname.split('/');
+  return parts[parts.length - 3]!;
+}
+
+// GET /api/v1/customers/:id/profile/communications — customer communications
+export const GET = withMiddleware(
+  async (request: NextRequest, ctx) => {
+    const id = extractId(request);
+    const url = new URL(request.url);
+    const cursor = url.searchParams.get('cursor') ?? undefined;
+    const limit = url.searchParams.get('limit')
+      ? Number(url.searchParams.get('limit'))
+      : undefined;
+    const comms = await getCustomerCommunications({
+      tenantId: ctx.tenantId,
+      customerId: id,
+      cursor,
+      limit,
+    });
+    return NextResponse.json({ data: comms });
+  },
+  { entitlement: 'customers', permission: 'customers.view' },
+);

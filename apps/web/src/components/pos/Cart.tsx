@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getItemTypeGroup } from '@/types/catalog';
@@ -19,35 +19,39 @@ interface LineRendererProps {
   onUpdateQty?: (lineId: string, newQty: number) => void;
 }
 
+function formatQty(qty: number): string {
+  return qty % 1 === 0 ? String(qty) : String(parseFloat(qty.toFixed(4)));
+}
+
 function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
   const meta = (line as unknown as { metadata?: FnbMetadata }).metadata;
   const allowedFractions = meta?.allowedFractions ?? [1];
+  const qty = Number(line.qty);
 
   const handleIncrement = useCallback(() => {
     if (!onUpdateQty) return;
-    // Find next fraction step above current qty
-    const currentIdx = allowedFractions.indexOf(line.qty);
+    const currentIdx = allowedFractions.indexOf(qty);
     if (currentIdx >= 0 && currentIdx < allowedFractions.length - 1) {
       onUpdateQty(line.id, allowedFractions[currentIdx + 1]!);
     } else {
-      onUpdateQty(line.id, line.qty + 1);
+      onUpdateQty(line.id, qty + 1);
     }
-  }, [line.id, line.qty, allowedFractions, onUpdateQty]);
+  }, [line.id, qty, allowedFractions, onUpdateQty]);
 
   const handleDecrement = useCallback(() => {
     if (!onUpdateQty) return;
-    const currentIdx = allowedFractions.indexOf(line.qty);
+    const currentIdx = allowedFractions.indexOf(qty);
     if (currentIdx > 0) {
       onUpdateQty(line.id, allowedFractions[currentIdx - 1]!);
-    } else if (line.qty > 1) {
-      onUpdateQty(line.id, line.qty - 1);
+    } else if (qty > 1) {
+      onUpdateQty(line.id, qty - 1);
     }
-  }, [line.id, line.qty, allowedFractions, onUpdateQty]);
+  }, [line.id, qty, allowedFractions, onUpdateQty]);
 
-  const qtyDisplay = line.qty !== 1 ? ` (x${line.qty})` : '';
+  const qtyDisplay = qty !== 1 ? ` (x${formatQty(qty)})` : '';
 
   return (
-    <div className="group flex flex-col gap-1 border-b border-gray-100 px-3 py-2.5">
+    <div className="group flex flex-col border-b border-gray-100 px-3 py-0.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
@@ -60,7 +64,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
           </div>
 
           {/* Price override */}
-          {line.originalUnitPrice !== null && (
+          {line.originalUnitPrice != null && (
             <div className="mt-0.5 flex items-center gap-1.5">
               <span className="text-xs text-gray-400 line-through">
                 {formatMoney(line.originalUnitPrice)}
@@ -137,14 +141,14 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
           <button
             type="button"
             onClick={handleDecrement}
-            disabled={line.qty <= (allowedFractions[0] ?? 1)}
+            disabled={qty <= (allowedFractions[0] ?? 1)}
             className="flex h-6 w-6 items-center justify-center rounded border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
             aria-label="Decrease quantity"
           >
             <Minus className="h-3 w-3" />
           </button>
           <span className="min-w-[2rem] text-center text-sm font-medium text-gray-700">
-            {line.qty}
+            {formatQty(qty)}
           </span>
           <button
             type="button"
@@ -162,14 +166,14 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
 
 function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty'>) {
   return (
-    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-2.5">
+    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
       <div className="flex-1 min-w-0">
         <span className="font-medium text-gray-900 truncate block">
           {line.catalogItemName}
         </span>
 
         {/* Price override */}
-        {line.originalUnitPrice !== null && (
+        {line.originalUnitPrice != null && (
           <div className="mt-0.5 flex items-center gap-1.5">
             <span className="text-xs text-gray-400 line-through">
               {formatMoney(line.originalUnitPrice)}
@@ -228,7 +232,7 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
   const durationMinutes = (line as unknown as { metadata?: { durationMinutes?: number } }).metadata?.durationMinutes;
 
   return (
-    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-2.5">
+    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
       <div className="flex-1 min-w-0">
         <span className="font-medium text-gray-900 truncate block">
           {line.catalogItemName}
@@ -240,7 +244,7 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
         )}
 
         {/* Price override */}
-        {line.originalUnitPrice !== null && (
+        {line.originalUnitPrice != null && (
           <div className="mt-0.5 flex items-center gap-1.5">
             <span className="text-xs text-gray-400 line-through">
               {formatMoney(line.originalUnitPrice)}
@@ -288,14 +292,14 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
 
 function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty'>) {
   return (
-    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-2.5">
+    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
       <div className="flex-1 min-w-0">
         <span className="font-medium text-gray-900 truncate block">
           {line.catalogItemName}
         </span>
 
         {/* Price override */}
-        {line.originalUnitPrice !== null && (
+        {line.originalUnitPrice != null && (
           <div className="mt-0.5 flex items-center gap-1.5">
             <span className="text-xs text-gray-400 line-through">
               {formatMoney(line.originalUnitPrice)}
@@ -395,11 +399,19 @@ export function Cart({
 }: CartProps) {
   const lines = order?.lines ?? [];
   const itemCount = lines.length;
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new items are added
+  useEffect(() => {
+    if (scrollRef.current && itemCount > 0) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [itemCount]);
 
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2.5">
+      <div className="flex items-center justify-between border-b border-gray-200 px-3 py-0.5">
         <h2 className="text-sm font-semibold text-gray-900">{label}</h2>
         <span className="text-xs text-gray-500">
           {itemCount} {itemCount === 1 ? 'item' : 'items'}
@@ -412,7 +424,7 @@ export function Cart({
           <p className="text-sm text-gray-400">No items yet</p>
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto">
           {lines
             .sort((a, b) => a.sortOrder - b.sortOrder)
             .map((line) => (

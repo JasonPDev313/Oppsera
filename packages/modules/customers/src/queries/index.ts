@@ -33,3 +33,56 @@ export type { GetCustomerPrivilegesInput, PrivilegeEntry } from './get-customer-
 
 export { searchCustomers } from './search-customers';
 export type { SearchCustomersInput, SearchCustomerResult } from './search-customers';
+
+export { getCustomerProfile } from './get-customer-profile';
+export type { GetCustomerProfileInput, CustomerProfileOverview } from './get-customer-profile';
+
+export { getCustomerFinancial } from './get-customer-financial';
+export type {
+  GetCustomerFinancialInput,
+  ArAgingBuckets,
+  CustomerFinancialResult,
+} from './get-customer-financial';
+
+export { getCustomerPreferences } from './get-customer-preferences';
+export type { GetCustomerPrefsInput, CustomerPrefsResult } from './get-customer-preferences';
+
+export { getCustomerActivity } from './get-customer-activity';
+export type { GetCustomerActivityInput, GetCustomerActivityResult } from './get-customer-activity';
+
+export { getCustomerNotes } from './get-customer-notes';
+export type { GetCustomerNotesInput, GetCustomerNotesResult } from './get-customer-notes';
+
+export { getCustomerDocuments } from './get-customer-documents';
+export type { GetCustomerDocumentsInput } from './get-customer-documents';
+
+export { getCustomerCommunications } from './get-customer-communications';
+export type {
+  GetCustomerCommsInput,
+  GetCustomerCommsResult,
+} from './get-customer-communications';
+
+export { getCustomerCompliance } from './get-customer-compliance';
+export type { GetCustomerComplianceInput } from './get-customer-compliance';
+
+export { getCustomerSegments } from './get-customer-segments';
+export type { GetCustomerSegmentsInput, CustomerSegmentEntry } from './get-customer-segments';
+
+export { getCustomerIntegrations } from './get-customer-integrations';
+export type {
+  GetCustomerIntegrationsInput,
+  GetCustomerIntegrationsResult,
+} from './get-customer-integrations';
+
+export { getCustomerAnalytics } from './get-customer-analytics';
+export type {
+  GetCustomerAnalyticsInput,
+  GetCustomerAnalyticsResult,
+} from './get-customer-analytics';
+
+export { listHouseholds } from './list-households';
+export type {
+  ListHouseholdsInput,
+  HouseholdListItem,
+  ListHouseholdsResult,
+} from './list-households';

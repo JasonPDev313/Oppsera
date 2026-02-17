@@ -19,7 +19,7 @@ export default function DashboardPage() {
         {metrics.map((metric) => (
           <div
             key={metric.name}
-            className="rounded-xl bg-white p-6 shadow-sm ring-1 ring-gray-950/5"
+            className="rounded-xl bg-surface p-6 shadow-sm ring-1 ring-gray-950/5"
           >
             <div className="flex items-center gap-4">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${metric.color}`}>

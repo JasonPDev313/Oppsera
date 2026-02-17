@@ -31,7 +31,7 @@ export async function applyDiscount(ctx: RequestContext, orderId: string, input:
       tenantId: ctx.tenantId,
       orderId,
       type: input.type,
-      value: Math.round(input.value * 100), // store as cents for fixed, basis points for percentage
+      value: input.type === 'fixed' ? Math.round(input.value * 100) : input.value,
       amount,
       reason: input.reason ?? null,
       createdBy: ctx.user.id,

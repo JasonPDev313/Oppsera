@@ -52,7 +52,7 @@ function TaxRatesTab() {
         method: 'POST',
         body: JSON.stringify({
           name: addName.trim(),
-          rateDecimal: (parsed / 100).toString(),
+          rateDecimal: parsed / 100,
         }),
       });
       toast.success(`Tax rate "${addName.trim()}" created`);
@@ -88,7 +88,7 @@ function TaxRatesTab() {
         method: 'PATCH',
         body: JSON.stringify({
           name: editName.trim(),
-          rateDecimal: (parsed / 100).toString(),
+          rateDecimal: parsed / 100,
         }),
       });
       toast.success('Tax rate updated');
@@ -188,7 +188,7 @@ function TaxRatesTab() {
       {editingRate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setEditingRate(null)} />
-          <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+          <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900">Edit Tax Rate</h3>
             <div className="mt-4 space-y-4">
               <FormField label="Name" required>
@@ -399,14 +399,32 @@ function TaxGroupsTab() {
     if (!editGroup || !editName.trim()) return;
     setEditSaving(true);
     try {
+      // Update name/mode via PATCH
       await apiFetch(`/api/v1/catalog/tax-groups/${editGroup.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           name: editName.trim(),
           calculationMode: editMode,
-          rateIds: editRateIds,
         }),
       });
+
+      // Sync rates: compare original vs edited, add/remove as needed
+      const originalRateIds = editGroup.rates.map((r) => r.id);
+      const toRemove = originalRateIds.filter((id) => !editRateIds.includes(id));
+      const toAdd = editRateIds.filter((id) => !originalRateIds.includes(id));
+
+      for (const rateId of toRemove) {
+        await apiFetch(`/api/v1/catalog/tax-groups/${editGroup.id}/rates/${rateId}`, {
+          method: 'DELETE',
+        });
+      }
+      for (const rateId of toAdd) {
+        await apiFetch(`/api/v1/catalog/tax-groups/${editGroup.id}/rates`, {
+          method: 'POST',
+          body: JSON.stringify({ taxRateId: rateId }),
+        });
+      }
+
       toast.success('Tax group updated');
       setEditGroup(null);
       refresh();
@@ -530,7 +548,7 @@ function TaxGroupsTab() {
               <LoadingSpinner label="Loading tax groups..." />
             </div>
           ) : (groups ?? []).length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-white py-12">
+            <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
               <p className="text-sm text-gray-500">No tax groups at this location</p>
               <button
                 type="button"
@@ -545,7 +563,7 @@ function TaxGroupsTab() {
               {(groups ?? []).map((group) => (
                 <div
                   key={group.id}
-                  className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
+                  className="rounded-lg border border-gray-200 bg-surface p-4 shadow-sm"
                 >
                   <div className="mb-3 flex items-start justify-between">
                     <div>
@@ -615,7 +633,7 @@ function TaxGroupsTab() {
       )}
 
       {!locationId && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-white py-12">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
           <p className="text-sm text-gray-500">Select a location to view its tax groups</p>
         </div>
       )}
@@ -624,7 +642,7 @@ function TaxGroupsTab() {
       {editGroup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setEditGroup(null)} />
-          <div className="relative w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+          <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900">Edit Tax Group</h3>
             <div className="mt-4 space-y-4">
               <FormField label="Name" required>

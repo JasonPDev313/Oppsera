@@ -170,7 +170,7 @@ export function AuditLogViewer({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
+          <tbody className="divide-y divide-gray-200 bg-surface">
             {entries.map((entry) => (
               <tr key={entry.id}>
                 <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">

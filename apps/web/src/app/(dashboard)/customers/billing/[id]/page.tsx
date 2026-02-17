@@ -124,7 +124,7 @@ function AddMemberDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900">Add Member</h2>
         <p className="mt-1 text-sm text-gray-500">
           Add an authorized member to this billing account.
@@ -269,7 +269,7 @@ function RecordPaymentDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900">Record Payment</h2>
         <p className="mt-1 text-sm text-gray-500">
           Record a payment against this billing account.
@@ -385,7 +385,7 @@ function GenerateStatementDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+      <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
         <h2 className="text-lg font-semibold text-gray-900">Generate Statement</h2>
         <p className="mt-1 text-sm text-gray-500">
           Generate a billing statement for a specific period.
@@ -496,7 +496,7 @@ function MembersSection({
   ];
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <div className="rounded-lg border border-gray-200 bg-surface">
       <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
         <h2 className="text-base font-semibold text-gray-900">Members</h2>
         <button
@@ -533,7 +533,7 @@ function AgingSection({ accountId }: { accountId: string }) {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-gray-200 bg-surface">
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-base font-semibold text-gray-900">Aging Report</h2>
         </div>
@@ -546,7 +546,7 @@ function AgingSection({ accountId }: { accountId: string }) {
 
   if (!aging) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="rounded-lg border border-gray-200 bg-surface">
         <div className="border-b border-gray-200 px-6 py-4">
           <h2 className="text-base font-semibold text-gray-900">Aging Report</h2>
         </div>
@@ -568,7 +568,7 @@ function AgingSection({ accountId }: { accountId: string }) {
   const maxBucket = Math.max(...buckets.map((b) => b.value), 1);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <div className="rounded-lg border border-gray-200 bg-surface">
       <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
         <h2 className="text-base font-semibold text-gray-900">Aging Report</h2>
         <div className="text-sm text-gray-500">
@@ -670,7 +670,7 @@ function TransactionsSection({
   ];
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <div className="rounded-lg border border-gray-200 bg-surface">
       <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
         <h2 className="text-base font-semibold text-gray-900">Transactions</h2>
         <button
@@ -717,7 +717,7 @@ function StatementsSection({ accountId }: { accountId: string }) {
   const [showGenerate, setShowGenerate] = useState(false);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white">
+    <div className="rounded-lg border border-gray-200 bg-surface">
       <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
         <h2 className="text-base font-semibold text-gray-900">Statements</h2>
         <button
@@ -813,19 +813,19 @@ export default function BillingAccountDetailPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Current Balance</p>
           <p className={`mt-1 text-2xl font-bold ${account.currentBalanceCents > 0 ? 'text-red-600' : 'text-green-600'}`}>
             {formatMoney(account.currentBalanceCents)}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Credit Limit</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">
             {creditLimit !== null ? formatMoney(creditLimit) : '\u2014'}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Available Credit</p>
           <p className={`mt-1 text-2xl font-bold ${
             availableCredit !== null && availableCredit < 0 ? 'text-red-600' : 'text-gray-900'
@@ -833,7 +833,7 @@ export default function BillingAccountDetailPage() {
             {availableCredit !== null ? formatMoney(availableCredit) : '\u2014'}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Due Days</p>
           <p className="mt-1 text-2xl font-bold text-gray-900">{account.dueDays}</p>
           <p className="mt-0.5 text-xs capitalize text-gray-400">{account.billingCycle} cycle</p>
