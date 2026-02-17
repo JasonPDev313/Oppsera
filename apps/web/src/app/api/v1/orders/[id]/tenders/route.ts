@@ -1,0 +1,52 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { ValidationError } from '@oppsera/shared';
+import { recordTender, recordTenderSchema, getTendersByOrder } from '@oppsera/module-payments';
+
+function extractOrderId(request: NextRequest): string {
+  const parts = new URL(request.url).pathname.split('/');
+  // URL: /api/v1/orders/{id}/tenders → id is at parts[parts.length - 2]
+  return parts[parts.length - 2]!;
+}
+
+// POST /api/v1/orders/:id/tenders — record a tender payment
+export const POST = withMiddleware(
+  async (request: NextRequest, ctx) => {
+    const orderId = extractOrderId(request);
+    const body = await request.json();
+    const parsed = recordTenderSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ValidationError(
+        'Validation failed',
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      );
+    }
+    const result = await recordTender(ctx, orderId, parsed.data);
+    return NextResponse.json({ data: result }, { status: 201 });
+  },
+  { entitlement: 'payments', permission: 'tenders.create' },
+);
+
+// GET /api/v1/orders/:id/tenders — get tenders for an order
+export const GET = withMiddleware(
+  async (request: NextRequest, ctx) => {
+    const orderId = extractOrderId(request);
+    // Fetch order total from DB instead of trusting client
+    const { orders } = await import('@oppsera/db');
+    const { eq, and } = await import('drizzle-orm');
+    const { withTenant } = await import('@oppsera/db');
+    const order = await withTenant(ctx.tenantId, async (tx) => {
+      const [row] = await (tx as any).select({ total: orders.total }).from(orders)
+        .where(and(eq(orders.tenantId, ctx.tenantId), eq(orders.id, orderId)));
+      return row;
+    });
+    if (!order) {
+      const { NotFoundError } = await import('@oppsera/shared');
+      throw new NotFoundError('Order');
+    }
+    const result = await getTendersByOrder(ctx.tenantId, orderId, order.total);
+    return NextResponse.json({ data: result });
+  },
+  { entitlement: 'payments', permission: 'tenders.view' },
+);

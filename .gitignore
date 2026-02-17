@@ -1,0 +1,10 @@
+node_modules
+.next
+.turbo
+dist
+.env.local
+*.log
+coverage
+.DS_Store
+*.tsbuildinfo
+.claude/settings.local.json

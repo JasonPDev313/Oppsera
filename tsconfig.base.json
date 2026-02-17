@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "paths": {
+      "@oppsera/shared": ["./packages/shared/src"],
+      "@oppsera/shared/*": ["./packages/shared/src/*"],
+      "@oppsera/core": ["./packages/core/src"],
+      "@oppsera/core/*": ["./packages/core/src/*"],
+      "@oppsera/db": ["./packages/db/src"],
+      "@oppsera/db/*": ["./packages/db/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", ".turbo"]
+}

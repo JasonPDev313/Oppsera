@@ -1,0 +1,182 @@
+import { eq, and, sql } from 'drizzle-orm';
+import { withTenant } from '@oppsera/db';
+import { inventoryItems, inventoryMovements } from '@oppsera/db';
+import { orderLines } from '@oppsera/db';
+import { locations } from '@oppsera/db';
+import { generateUlid } from '@oppsera/shared';
+import type { EventEnvelope } from '@oppsera/shared';
+
+/**
+ * Handles order.placed.v1 events.
+ *
+ * When an order is placed, deduct inventory for each line item.
+ * Package items deduct from each component's inventory, not the package itself.
+ * Uses ON CONFLICT DO NOTHING for idempotency via the unique index on
+ * (tenant_id, reference_type, reference_id, inventory_item_id, movement_type).
+ */
+export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
+  const { orderId, locationId } = event.data as {
+    orderId: string;
+    locationId: string;
+  };
+
+  await withTenant(event.tenantId, async (tx) => {
+    // Get all order lines for this order
+    const lines = await tx
+      .select()
+      .from(orderLines)
+      .where(
+        and(
+          eq(orderLines.tenantId, event.tenantId),
+          eq(orderLines.orderId, orderId),
+        ),
+      );
+
+    const businessDate =
+      (event.data as { businessDate?: string }).businessDate ||
+      new Date().toISOString().slice(0, 10);
+    const createdBy = event.actorUserId || 'system';
+
+    // Aggregate quantities per catalogItemId across all lines and package components.
+    // This prevents the idempotency index from silently dropping duplicate deductions
+    // when the same catalog item appears in multiple lines or package components.
+    const qtyByCatalogItemId = new Map<string, number>();
+
+    for (const line of lines) {
+      const lineQty = Number(line.qty);
+
+      if (
+        line.packageComponents &&
+        Array.isArray(line.packageComponents) &&
+        (line.packageComponents as Array<{ catalogItemId: string; name: string; qty: number }>).length > 0
+      ) {
+        const components = line.packageComponents as Array<{
+          catalogItemId: string;
+          name: string;
+          qty: number;
+        }>;
+
+        for (const component of components) {
+          const componentQty = component.qty * lineQty;
+          qtyByCatalogItemId.set(
+            component.catalogItemId,
+            (qtyByCatalogItemId.get(component.catalogItemId) || 0) + componentQty,
+          );
+        }
+      } else {
+        qtyByCatalogItemId.set(
+          line.catalogItemId,
+          (qtyByCatalogItemId.get(line.catalogItemId) || 0) + lineQty,
+        );
+      }
+    }
+
+    // Insert one aggregated movement per inventory item
+    for (const [catalogItemId, totalQty] of qtyByCatalogItemId) {
+      const [inventoryItem] = await tx
+        .select()
+        .from(inventoryItems)
+        .where(
+          and(
+            eq(inventoryItems.tenantId, event.tenantId),
+            eq(inventoryItems.locationId, locationId),
+            eq(inventoryItems.catalogItemId, catalogItemId),
+          ),
+        )
+        .limit(1);
+
+      if (!inventoryItem) continue;
+      if (!inventoryItem.trackInventory) continue;
+
+      await tx.execute(
+        sql`INSERT INTO inventory_movements (id, tenant_id, location_id, inventory_item_id, movement_type, quantity_delta, reference_type, reference_id, source, business_date, created_by)
+            VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${inventoryItem.id}, ${'sale'}, ${-totalQty}, ${'order'}, ${orderId}, ${'pos'}, ${businessDate}, ${createdBy})
+            ON CONFLICT (tenant_id, reference_type, reference_id, inventory_item_id, movement_type) WHERE reference_type IS NOT NULL
+            DO NOTHING`,
+      );
+    }
+  });
+}
+
+/**
+ * Handles order.voided.v1 events.
+ *
+ * When an order is voided, reverse all sale movements by creating
+ * void_reversal movements with the opposite quantity delta.
+ * Uses ON CONFLICT DO NOTHING for idempotency.
+ */
+export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
+  const { orderId } = event.data as {
+    orderId: string;
+  };
+
+  await withTenant(event.tenantId, async (tx) => {
+    // Find all sale movements for this order
+    const saleMovements = await tx
+      .select()
+      .from(inventoryMovements)
+      .where(
+        and(
+          eq(inventoryMovements.tenantId, event.tenantId),
+          eq(inventoryMovements.referenceType, 'order'),
+          eq(inventoryMovements.referenceId, orderId),
+          eq(inventoryMovements.movementType, 'sale'),
+        ),
+      );
+
+    const createdBy = event.actorUserId || 'system';
+
+    for (const movement of saleMovements) {
+      // Create a reversal: positive quantity to undo the negative sale
+      const reversalQty = -Number(movement.quantityDelta);
+
+      await tx.execute(
+        sql`INSERT INTO inventory_movements (id, tenant_id, location_id, inventory_item_id, movement_type, quantity_delta, reference_type, reference_id, source, business_date, created_by)
+            VALUES (${generateUlid()}, ${event.tenantId}, ${movement.locationId}, ${movement.inventoryItemId}, ${'void_reversal'}, ${reversalQty}, ${'order'}, ${orderId}, ${'pos'}, ${movement.businessDate}, ${createdBy})
+            ON CONFLICT (tenant_id, reference_type, reference_id, inventory_item_id, movement_type) WHERE reference_type IS NOT NULL
+            DO NOTHING`,
+      );
+    }
+  });
+}
+
+/**
+ * Handles catalog.item.created.v1 events.
+ *
+ * When a new catalog item is created, auto-create an inventory_item
+ * for each active location in the tenant.
+ * Uses ON CONFLICT DO NOTHING via the unique index on
+ * (tenant_id, location_id, catalog_item_id) to prevent duplicates.
+ */
+export async function handleCatalogItemCreated(event: EventEnvelope): Promise<void> {
+  const { itemId, name, sku, itemType } = event.data as {
+    itemId: string;
+    name: string;
+    sku: string | null | undefined;
+    itemType: string;
+  };
+
+  const createdBy = event.actorUserId || 'system';
+
+  await withTenant(event.tenantId, async (tx) => {
+    // Get all active locations for this tenant
+    const activeLocations = await tx
+      .select()
+      .from(locations)
+      .where(
+        and(
+          eq(locations.tenantId, event.tenantId),
+          eq(locations.isActive, true),
+        ),
+      );
+
+    for (const location of activeLocations) {
+      await tx.execute(
+        sql`INSERT INTO inventory_items (id, tenant_id, location_id, catalog_item_id, name, sku, item_type, status, track_inventory, base_unit, purchase_unit, purchase_to_base_ratio, costing_method, allow_negative, created_by, created_at, updated_at)
+            VALUES (${generateUlid()}, ${event.tenantId}, ${location.id}, ${itemId}, ${name}, ${sku ?? null}, ${itemType}, 'active', true, 'each', 'each', 1, 'fifo', false, ${createdBy}, NOW(), NOW())
+            ON CONFLICT (tenant_id, location_id, catalog_item_id)
+            DO NOTHING`,
+      );
+    }
+  });
+}

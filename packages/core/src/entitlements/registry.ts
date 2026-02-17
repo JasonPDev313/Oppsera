@@ -1,0 +1,16 @@
+export const MODULE_REGISTRY = [
+  { key: 'platform_core', name: 'Platform Core', phase: 'v1', description: 'Identity, auth, RBAC, audit logging' },
+  { key: 'catalog', name: 'Product Catalog', phase: 'v1', description: 'Items, categories, modifiers, pricing, tax categories' },
+  { key: 'pos_retail', name: 'Retail POS', phase: 'v1', description: 'Orders, line items, discounts, tax calculation' },
+  { key: 'pos_restaurant', name: 'Restaurant POS', phase: 'v2', description: 'Tables, seats, coursing, kitchen tickets' },
+  { key: 'payments', name: 'Payments & Tenders', phase: 'v1', description: 'Cash (V1), card, split, refund (V2)' },
+  { key: 'inventory', name: 'Inventory Management', phase: 'v1', description: 'Stock movements, receiving, adjustments, transfers' },
+  { key: 'customers', name: 'Customer Management', phase: 'v1', description: 'Profiles, search, visit/spend tracking' },
+  { key: 'marketing', name: 'Marketing Automation', phase: 'v2', description: 'Segments, campaigns, triggered journeys' },
+  { key: 'kds', name: 'Kitchen Display', phase: 'v2', description: 'Kitchen order tickets, bump screen' },
+  { key: 'golf_ops', name: 'Golf Operations', phase: 'v2', description: 'Tee sheet, starter sheet, pace-of-play' },
+  { key: 'reporting', name: 'Reports & Exports', phase: 'v1', description: 'Read models, daily sales, CSV/PDF export' },
+  { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
+] as const;
+
+export type ModuleKey = (typeof MODULE_REGISTRY)[number]['key'];

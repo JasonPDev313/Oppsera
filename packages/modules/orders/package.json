@@ -1,0 +1,28 @@
+{
+  "name": "@oppsera/module-orders",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@oppsera/core": "workspace:*",
+    "@oppsera/db": "workspace:*",
+    "@oppsera/shared": "workspace:*",
+    "@oppsera/module-catalog": "workspace:*",
+    "drizzle-orm": "^0.37.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@oppsera/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./auth/*": "./src/auth/*.ts"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@oppsera/shared": "workspace:*",
+    "@oppsera/db": "workspace:*",
+    "@supabase/supabase-js": "^2.47.0",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

@@ -1,0 +1,1807 @@
+# OppsEra — Conventions
+
+Feed this file to Claude at the start of every session to prevent drift.
+
+---
+
+## 1. Monorepo Structure
+
+```
+oppsera/
+├── apps/web/                    # Next.js 15 App Router (frontend + API routes)
+├── packages/
+│   ├── core/                    # Platform services (auth, RBAC, entitlements, events, audit)
+│   ├── db/                      # Drizzle client, schema, migrations, seeds, scripts
+│   ├── shared/                  # Types, Zod schemas, utils (money, date, ULID), errors
+│   └── modules/                 # Business modules (catalog, orders, etc.)
+├── tools/scripts/               # Operational scripts
+├── turbo.json                   # Turborepo config
+├── pnpm-workspace.yaml
+└── tsconfig.base.json
+```
+
+- Package manager: **pnpm** (workspace protocol `workspace:*`)
+- Build orchestrator: **Turborepo** (`turbo run build/test/lint`)
+- TypeScript: **strict mode** everywhere
+
+---
+
+## 2. Database & Schema
+
+### Driver & ORM
+
+- ORM: **Drizzle** (NOT Prisma)
+- Driver: **postgres.js** (`postgres` package, NOT `pg`)
+- `db.execute()` returns a **RowList** (array-like iterable), NOT `{ rows: [...] }`. Always use `Array.from(result as Iterable<T>)` to convert.
+
+### Table Conventions
+
+Every tenant-scoped table includes:
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `TEXT` | ULID, 26-char, sortable. Generated via `$defaultFn(generateUlid)` |
+| `tenant_id` | `TEXT NOT NULL` | FK to `tenants.id` |
+| `location_id` | `TEXT` | Nullable; only when location-specific |
+| `created_at` | `TIMESTAMPTZ NOT NULL` | `.defaultNow()` |
+| `updated_at` | `TIMESTAMPTZ NOT NULL` | `.defaultNow()` |
+| `created_by` | `TEXT` | Nullable for system records |
+
+Column naming in Postgres: **snake_case** (e.g., `tenant_id`, `created_at`).
+Column naming in TypeScript (Drizzle): **camelCase** (e.g., `tenantId`, `createdAt`).
+
+### Schema Definition Pattern
+
+```typescript
+import { pgTable, text, boolean, timestamp, jsonb, index, uniqueIndex } from 'drizzle-orm/pg-core';
+import { generateUlid } from '@oppsera/shared';
+
+export const myTable = pgTable(
+  'my_table',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    name: text('name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_my_table_tenant').on(table.tenantId),
+  ],
+);
+```
+
+### Composite Primary Keys (Partitioned Tables)
+
+For partitioned tables (e.g., `audit_log`), use `primaryKey({ columns: [...] })` instead of `.primaryKey()` on a single column:
+
+```typescript
+(table) => [
+  primaryKey({ columns: [table.id, table.createdAt] }),
+]
+```
+
+### Multi-Tenancy Isolation
+
+Three layers, all required:
+
+1. **Application layer:** Every query filters by `tenant_id`
+2. **ORM layer:** `withTenant(tenantId, callback)` — sets `SET LOCAL app.current_tenant_id` inside a transaction
+3. **Database layer:** Postgres RLS policies on every tenant-scoped table
+
+### DB Client Pattern
+
+```typescript
+// Lazy-init via Proxy (no connection until first use)
+export const db: Database = new Proxy({} as DrizzleDB, { ... });
+
+// Tenant-scoped transaction
+await withTenant(tenantId, async (tx) => { ... });
+
+// Admin client (bypasses RLS) — for system operations
+const admin = createAdminClient();
+```
+
+### Migrations
+
+- Location: `packages/db/migrations/`
+- Naming: `NNNN_description.sql` (e.g., `0003_audit_log_partitioning.sql`)
+- Run via: `pnpm db:migrate`
+
+---
+
+## 3. Auth & Request Context
+
+### AuthUser Interface
+
+```typescript
+interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  tenantId: string;
+  tenantStatus: string;
+  membershipStatus: string;
+}
+```
+
+Note: `isPlatformAdmin` lives on **RequestContext**, NOT AuthUser.
+
+### RequestContext (AsyncLocalStorage)
+
+```typescript
+interface RequestContext {
+  user: AuthUser;
+  tenantId: string;
+  locationId?: string;
+  requestId: string;
+  isPlatformAdmin: boolean;
+}
+```
+
+- Stored in `AsyncLocalStorage` via `requestContext.run(ctx, fn)`
+- Access anywhere: `getRequestContext()`
+- Every request gets a unique `requestId` (ULID)
+
+### withMiddleware Pattern
+
+Every API route wraps its handler with `withMiddleware`:
+
+```typescript
+export const POST = withMiddleware(
+  async (request, ctx) => {
+    // ctx: RequestContext is available here
+    return NextResponse.json({ data: result }, { status: 201 });
+  },
+  { permission: 'module.action', entitlement: 'module_key' },
+);
+```
+
+Middleware chain: `authenticate → resolveTenant → resolveLocation → requireEntitlement → requirePermission → handler`
+
+Options:
+- `{ public: true }` — skip auth entirely
+- `{ permission: 'perm.string' }` — check RBAC permission
+- `{ entitlement: 'module_key' }` — check module is enabled for tenant
+
+---
+
+## 4. API Routes
+
+### Location & Naming
+
+- Path: `apps/web/src/app/api/v1/{resource}/route.ts`
+- Admin routes: `apps/web/src/app/api/v1/admin/{resource}/route.ts`
+- Export named handlers: `GET`, `POST`, `PATCH`, `DELETE`
+
+### Request Handling Pattern
+
+```typescript
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { ValidationError } from '@oppsera/shared';
+
+const bodySchema = z.object({ ... });
+
+export const POST = withMiddleware(
+  async (request, ctx) => {
+    const body = await request.json();
+    const parsed = bodySchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ValidationError(
+        'Validation failed',
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      );
+    }
+
+    const result = await doSomething({ tenantId: ctx.tenantId, ...parsed.data });
+    await auditLog(ctx, 'entity.created', 'entity', result.id);
+
+    return NextResponse.json({ data: result }, { status: 201 });
+  },
+  { permission: 'module.action' },
+);
+```
+
+### Response Envelope
+
+```json
+// Success
+{ "data": { ... } }
+
+// Error (thrown as AppError subclass, caught by withMiddleware)
+{ "error": { "code": "VALIDATION_ERROR", "message": "...", "details": [...] } }
+```
+
+### Pagination
+
+Cursor-based, NOT offset-based:
+
+```typescript
+// Query params
+?cursor=ULID&limit=50
+
+// Response
+{ "data": [...], "cursor": "next_cursor_value" }
+```
+
+Default limit: 50. Max limit: 100.
+
+---
+
+## 5. Error Handling
+
+All errors extend `AppError` from `@oppsera/shared`:
+
+| Error Class | Code | HTTP Status |
+|---|---|---|
+| `ValidationError` | `VALIDATION_ERROR` | 400 |
+| `AuthenticationError` | `AUTHENTICATION_REQUIRED` | 401 |
+| `AuthorizationError` | `AUTHORIZATION_DENIED` | 403 |
+| `NotFoundError` | `NOT_FOUND` | 404 |
+| `ConflictError` | `CONFLICT` | 409 |
+| `TenantSuspendedError` | `TENANT_SUSPENDED` | 403 |
+| `MembershipInactiveError` | `MEMBERSHIP_INACTIVE` | 403 |
+| `ModuleNotEnabledError` | `MODULE_NOT_ENABLED` | 403 |
+
+Pattern: throw an `AppError` subclass; `withMiddleware` catches it and returns the JSON error envelope.
+
+---
+
+## 6. Validation
+
+- Always use **Zod** for runtime validation
+- Define schemas colocated with the route or command that uses them
+- Use `safeParse()`, NOT `parse()` — then throw `ValidationError` with field-level details
+- Shared schemas (pagination, IDs) live in `packages/shared/src/validation/`
+
+```typescript
+const parsed = schema.safeParse(input);
+if (!parsed.success) {
+  throw new ValidationError(
+    'Validation failed',
+    parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+  );
+}
+```
+
+---
+
+## 7. Singleton / Service Registry Pattern
+
+All engines and services use a getter/setter singleton pattern for testability:
+
+```typescript
+let _instance: MyService | null = null;
+
+export function getMyService(): MyService {
+  if (!_instance) {
+    _instance = new DefaultMyService();
+  }
+  return _instance;
+}
+
+export function setMyService(service: MyService): void {
+  _instance = service;
+}
+```
+
+In production: call `getXxx()` which lazy-inits the default.
+In tests: call `setXxx(mockInstance)` in `beforeEach`.
+
+Used by: PermissionEngine, EntitlementEngine, EventBus, OutboxWriter, OutboxWorker, AuditLogger.
+
+---
+
+## 8. Commands (Write Operations)
+
+Business write operations live in `packages/modules/{name}/src/commands/` (one file per command):
+
+```typescript
+// packages/modules/catalog/src/commands/create-item.ts
+import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { buildEventFromContext } from '@oppsera/core/events/build-event';
+import { auditLog } from '@oppsera/core/audit/helpers';
+import type { RequestContext } from '@oppsera/core/auth/context';
+
+export async function createItem(ctx: RequestContext, input: CreateItemInput) {
+  const item = await publishWithOutbox(ctx, async (tx) => {
+    // 1. Validate references (FK existence checks)
+    // 2. Check uniqueness constraints
+    // 3. Insert row
+    const [created] = await tx.insert(table).values({ tenantId: ctx.tenantId, ...input }).returning();
+    // 4. Build event
+    const event = buildEventFromContext(ctx, 'catalog.item.created.v1', { itemId: created!.id, ... });
+    return { result: created!, events: [event] };
+  });
+  // 5. Audit log (outside transaction, after success)
+  await auditLog(ctx, 'catalog.item.created', 'catalog_item', item.id);
+  return item;
+}
+```
+
+Key points:
+- Commands receive `RequestContext` as first arg (provides tenantId, user, locationId)
+- Zod validation happens in the **route handler**, not the command
+- `publishWithOutbox(ctx, fn)` wraps the DB write + event outbox in a single transaction
+- The callback returns `{ result, events }` — outbox writer handles event persistence
+- Audit logging happens **after** the transaction succeeds
+- Use `tx` (transaction handle) inside `publishWithOutbox`, not bare `db`
+
+### Module Command Organization
+
+Each command gets its own file in `commands/`:
+
+```
+packages/modules/catalog/src/commands/
+├── create-item.ts
+├── update-item.ts
+├── deactivate-item.ts
+├── create-category.ts
+├── set-location-price.ts
+└── ... one file per command
+```
+
+All commands are re-exported via `commands/index.ts` and then through the module's `index.ts`.
+
+---
+
+## 9. Event System
+
+### Event Naming
+
+`{domain}.{entity}.{action}.v{N}` — e.g., `catalog.item.created.v1`
+
+### Event Envelope
+
+```typescript
+interface EventEnvelope {
+  eventId: string;        // ULID
+  eventType: string;      // domain.entity.action.vN
+  occurredAt: string;     // ISO 8601
+  tenantId: string;
+  locationId?: string;
+  actorUserId?: string;
+  correlationId?: string; // requestId for traceability
+  idempotencyKey: string; // tenant:type:id
+  data: Record<string, unknown>;
+}
+```
+
+### Publishing
+
+Always use the **transactional outbox pattern**:
+
+```typescript
+await publishWithOutbox(tx, event);
+// Writes business row + outbox row in same DB transaction
+// OutboxWorker polls and dispatches to EventBus
+```
+
+### Consumer Idempotency
+
+Consumers track `(event_id, consumer_name)` in `processed_events` table. Duplicate deliveries are silently skipped.
+
+### Retry & Dead-Letter
+
+Failed events retry 3x with exponential backoff, then route to dead-letter queue.
+
+---
+
+## 10. Audit Logging
+
+### When to Audit
+
+Audit every state-changing operation at the route handler level:
+
+```typescript
+const result = await createThing({ tenantId: ctx.tenantId, ...parsed.data });
+await auditLog(ctx, 'thing.created', 'thing', result.id);
+```
+
+For updates, capture changes:
+
+```typescript
+const oldThing = await getThing(id);
+const result = await updateThing({ ... });
+const changes = computeChanges(oldThing, result);
+await auditLog(ctx, 'thing.updated', 'thing', id, changes);
+```
+
+### Helper Functions
+
+- `auditLog(ctx, action, entityType, entityId, changes?, metadata?)` — for user-initiated actions
+- `auditLogSystem(tenantId, action, entityType, entityId, metadata?)` — for system/worker actions
+
+### Dual-Mode Writes
+
+- User actions → normal `db` (respects RLS)
+- System/API key actions → `createAdminClient()` (bypasses RLS)
+
+### Non-Throwing
+
+Audit log writes **never throw** — failures are caught and logged to console. Audit should never break main operations.
+
+---
+
+## 11. Testing
+
+### Framework
+
+**Vitest** — all test files: `__tests__/*.test.ts`
+
+### Mock Pattern (vi.hoisted)
+
+```typescript
+const { mockExecute, mockInsert } = vi.hoisted(() => ({
+  mockExecute: vi.fn().mockResolvedValue([]),
+  mockInsert: vi.fn(),
+}));
+
+// Set up default chains
+mockInsert.mockReturnValue({
+  values: vi.fn().mockReturnValue({
+    returning: vi.fn().mockResolvedValue([]),
+  }),
+});
+
+vi.mock('@oppsera/db', () => ({
+  db: { execute: mockExecute, insert: mockInsert, query: {} },
+  // ... table symbols and sql helper
+}));
+```
+
+### Critical Testing Gotchas
+
+1. **`vi.clearAllMocks()` does NOT clear `mockResolvedValueOnce` queues.** Always set up per-test mocks fresh after `clearAllMocks`.
+
+2. **postgres.js `db.execute()` returns array-like RowList**, not `{ rows: [...] }`. Mock it as returning arrays directly:
+   ```typescript
+   mockExecute.mockResolvedValueOnce([{ id: '1', name: 'test' }]);
+   ```
+
+3. **`sql.raw()` from drizzle-orm returns a SQL object**, not a string. To inspect query content in tests, mock drizzle-orm:
+   ```typescript
+   vi.mock('drizzle-orm', () => ({
+     sql: Object.assign(vi.fn((...args: unknown[]) => args), {
+       raw: vi.fn((str: string) => str),
+     }),
+     eq: vi.fn(),
+     and: vi.fn(),
+   }));
+   ```
+
+4. **Always mock `@oppsera/shared`** when using `generateUlid` to get deterministic IDs:
+   ```typescript
+   vi.mock('@oppsera/shared', () => ({
+     generateUlid: vi.fn(() => 'ULID_TEST_001'),
+   }));
+   ```
+
+5. **Always mock `../../auth/supabase-client`** to avoid Supabase initialization:
+   ```typescript
+   vi.mock('../../auth/supabase-client', () => ({
+     createSupabaseAdmin: vi.fn(),
+     createSupabaseClient: vi.fn(),
+   }));
+   ```
+
+6. **Set DATABASE_URL** before imports if DB client is transitively imported:
+   ```typescript
+   process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+   ```
+
+### Module Test Mock Pattern (Commands + Queries)
+
+For testing module commands/queries, mock the DB with chainable methods:
+
+```typescript
+const { mockInsert, mockSelect, mockUpdate, mockDelete, mockPublishWithOutbox } = vi.hoisted(() => {
+  // Helper to create chainable select mock: .from().where().orderBy()...
+  function makeSelectChain(result: unknown[] = []) {
+    const chain: Record<string, ReturnType<typeof vi.fn>> = {};
+    chain.from = vi.fn().mockReturnValue(chain);
+    chain.where = vi.fn().mockReturnValue(chain);
+    chain.orderBy = vi.fn().mockReturnValue(chain);
+    chain.limit = vi.fn().mockReturnValue(chain);
+    chain.leftJoin = vi.fn().mockReturnValue(chain);
+    chain.then = vi.fn((resolve: (v: unknown) => void) => resolve(result));
+    return chain;
+  }
+
+  return {
+    mockInsert: vi.fn(),
+    mockSelect: vi.fn(() => makeSelectChain()),
+    mockUpdate: vi.fn(),
+    mockDelete: vi.fn(),
+    mockPublishWithOutbox: vi.fn(),
+  };
+});
+```
+
+Key: The `then` property on the chain makes it awaitable, so `await tx.select().from().where()` resolves to the mock data.
+
+### Test Structure
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// 1. vi.hoisted() mocks at top
+// 2. vi.mock() calls
+// 3. process.env setup
+// 4. Imports of code under test
+// 5. Test data factories (makeCtx, etc.)
+
+describe('Feature', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Reset singleton state
+    // Re-setup default mock chains after clearAllMocks
+  });
+
+  it('does the thing', async () => { ... });
+});
+```
+
+---
+
+## 12. Exports & Imports
+
+### Package Exports
+
+Every package re-exports from a barrel `index.ts`:
+
+- Types: `export type { MyInterface } from './module'`
+- Values: `export { MyClass, myFunction } from './module'`
+
+### Import Paths
+
+Use **subpath imports** for granular access:
+
+```typescript
+// Preferred (specific subpath)
+import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { auditLog } from '@oppsera/core/audit';
+
+// Also valid (barrel re-export)
+import { createRole, assignRole } from '@oppsera/core/permissions';
+```
+
+### DB Package Exports
+
+```typescript
+import { db, withTenant, createAdminClient, sql, schema } from '@oppsera/db';
+import { roles, rolePermissions, tenants } from '@oppsera/db';  // schema tables
+```
+
+---
+
+## 13. Permissions (RBAC)
+
+### Permission Strings
+
+Format: `{resource}.{action}` — e.g., `users.view`, `users.manage`, `settings.view`
+
+Wildcard: `*` grants all permissions.
+
+### Checking Permissions
+
+- In routes: use `withMiddleware` options: `{ permission: 'users.manage' }`
+- Programmatically: `await requirePermission('perm.string')(ctx)`
+- Engine: `getPermissionEngine().hasPermission(tenantId, userId, permission)`
+
+### Location-Scoped Roles
+
+Role assignments can be tenant-wide (`locationId = null`) or location-specific. Resolution unions all applicable roles.
+
+### Cache
+
+Permission cache (60s TTL). Invalidate after role changes: `engine.invalidateCache(tenantId, userId)`.
+
+---
+
+## 14. Entitlements
+
+### Module Keys
+
+`platform_core`, `catalog`, `pos_retail`, `payments`, `inventory`, etc.
+
+### Checking Entitlements
+
+- In routes: `{ entitlement: 'module_key' }` option on `withMiddleware`
+- Programmatically: `await requireEntitlement('module_key')(ctx)`
+
+### Limit Checks
+
+```typescript
+await checkSeatLimit(tenantId, 'module_key');
+await checkLocationLimit(tenantId, 'module_key');
+```
+
+---
+
+## 15. Frontend (Next.js App Router)
+
+### Client Components
+
+- `'use client'` directive at top of every interactive component/page
+- State management via React hooks (`useState`, `useEffect`, `useCallback`, `useMemo`)
+- Data fetching via custom hooks wrapping `apiFetch`
+
+### API Client
+
+```typescript
+import { apiFetch, ApiError } from '@/lib/api-client';
+
+const data = await apiFetch('/api/v1/resource');
+```
+
+`apiFetch` auto-attaches Bearer token, handles 401 → redirect to /login, and throws `ApiError` on non-2xx responses.
+
+### Styling
+
+Tailwind CSS v4, utility classes directly in JSX. Design tokens:
+- Primary: `indigo-600` / `indigo-700` (hover)
+- Background: `gray-50` (page), `white` (cards)
+- Borders: `gray-200` (cards), `gray-100` (dividers)
+- Text: `gray-900` (primary), `gray-500` (secondary), `gray-400` (muted)
+- Destructive: `red-600`
+
+### Data Fetching Hooks
+
+Custom hooks live in `apps/web/src/hooks/` and follow this pattern:
+
+```typescript
+// Generic fetcher (returns { data, isLoading, error, mutate })
+function useFetch<T>(url: string | null) { ... }
+
+// Domain hooks compose the generic fetcher
+export function useDepartments() {
+  const { data: all, ...rest } = useFetch<CategoryRow[]>('/api/v1/catalog/categories');
+  const departments = (all || []).filter((c) => c.parentId === null);
+  return { data: departments, ...rest };
+}
+```
+
+Key patterns:
+- Pass `null` URL to skip fetch (conditional fetching)
+- `mutate` function refetches data (for refresh after mutations)
+- `useMutation<TInput, TResult>` wraps async functions with loading state and error toasts
+- Cursor pagination: `useCatalogItems` returns `{ data, hasMore, loadMore }`
+
+### Reusable UI Components
+
+Components live in `apps/web/src/components/ui/` and are self-contained:
+
+| Component | Props | Notes |
+|---|---|---|
+| `Badge` | `variant`, `children` | 8 color variants (success, warning, error, neutral, info, indigo, purple, orange) |
+| `LoadingSpinner` | `size`, `label` | sm/md/lg sizes |
+| `EmptyState` | `icon`, `title`, `description`, `action` | Centered placeholder |
+| `SearchInput` | `value`, `onChange`, `placeholder` | 300ms debounced with clear button |
+| `CurrencyInput` | `value`, `onChange`, `error` | $ prefix, 2 decimal formatting |
+| `ConfirmDialog` | `open`, `onClose`, `onConfirm`, `title`, `destructive` | Portal-based modal |
+| `Toast` / `useToast` | `toast.success()`, `toast.error()`, `toast.info()` | Provider + context pattern |
+| `FormField` | `label`, `required`, `error`, `helpText`, `children` | Slot-based form wrapper |
+| `Select` | `options`, `value`, `onChange`, `multiple` | Single/multi with search for 6+ options |
+| `DataTable` | `columns`, `data`, `isLoading`, `onRowClick` | Desktop table + mobile cards, skeleton loading |
+
+### Page Structure
+
+Catalog pages follow this pattern:
+
+```
+apps/web/src/app/(dashboard)/catalog/
+├── page.tsx                    # Items list (default catalog route)
+├── hierarchy/page.tsx          # Hierarchy manager
+├── taxes/page.tsx              # Tax management
+└── items/
+    ├── new/page.tsx            # Create item (type-branching wizard)
+    └── [id]/
+        ├── page.tsx            # Item detail (read-only + tax group management)
+        └── edit/page.tsx       # Edit item (type-specific fields, diff-only PATCH)
+```
+
+### Type Definitions
+
+Frontend types live in `apps/web/src/types/catalog.ts`:
+- `ItemTypeGroup`: `'fnb' | 'retail' | 'service' | 'package'`
+- `ITEM_TYPE_MAP`: maps frontend groups to backend enum values
+- `getItemTypeGroup()`: reverse maps backend type to frontend group
+- Type-specific metadata interfaces: `FnbMetadata`, `RetailMetadata`, `ServiceMetadata`, `PackageMetadata`
+- API response types: `CatalogItemRow`, `CategoryRow`, `TaxRateRow`, `TaxGroupRow`, etc.
+
+### Auth Context
+
+`useAuthContext()` provides: `user`, `tenant`, `locations`, `login`, `signup`, `logout`, `fetchMe`, `isAuthenticated`, `isLoading`, `needsOnboarding`
+
+### Auth Flow
+
+1. **Login**: POST /api/v1/auth/login → store tokens → fetch /api/v1/me
+2. **Onboarding check**: If `/me` returns `tenant: null`, redirect to `/onboard`
+3. **Dashboard guard**: `needsOnboarding` (user exists but no tenant) → redirect to `/onboard`
+4. **Auth layout**: Allows `/onboard` route through with existing token (no redirect to dashboard)
+5. **Token expiry**: 401 from `apiFetch` → clear tokens → redirect to `/login`
+
+### Sidebar Navigation
+
+Navigation items support expandable children:
+
+```typescript
+interface NavItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  moduleKey?: string;      // For entitlement gating
+  children?: SubNavItem[]; // Expandable sub-menu
+}
+```
+
+Disabled modules show a lock icon. Active parent expands to show children with indented links.
+
+---
+
+## 16. Naming Conventions
+
+| Context | Convention | Example |
+|---|---|---|
+| Postgres columns | snake_case | `tenant_id`, `created_at` |
+| TypeScript properties | camelCase | `tenantId`, `createdAt` |
+| API response keys | camelCase | `{ "entityType": "role" }` |
+| Table names | snake_case, plural | `roles`, `role_assignments` |
+| Drizzle table variables | camelCase, plural | `roles`, `roleAssignments` |
+| Event types | dot.separated.vN | `order.placed.v1` |
+| Audit actions | dot.separated | `role.created`, `role.updated` |
+| Permission strings | resource.action | `users.manage`, `settings.view` |
+| Module keys | snake_case | `platform_core`, `pos_retail` |
+| Migration files | NNNN_description.sql | `0003_audit_log_partitioning.sql` |
+| Test files | `__tests__/*.test.ts` | `__tests__/audit.test.ts` |
+| ID prefixes (display) | lowercase entity abbreviation | `tnt_`, `usr_`, `loc_`, `rol_` |
+
+---
+
+## 17. Business Module Internal Structure
+
+Every business module under `packages/modules/{name}/` follows this structure:
+
+```
+packages/modules/catalog/
+├── src/
+│   ├── schema.ts              # Drizzle table definitions (this module's tables ONLY)
+│   ├── schema-taxes.ts        # Additional schema files for sub-domains
+│   ├── commands/              # Write operations (one file per command)
+│   │   ├── index.ts           # Re-exports all commands
+│   │   ├── create-item.ts
+│   │   ├── update-item.ts
+│   │   └── ...
+│   ├── queries/               # Read operations (one file per query)
+│   │   ├── index.ts
+│   │   ├── list-items.ts
+│   │   └── ...
+│   ├── events/
+│   │   ├── types.ts           # Event type constants and contract interfaces
+│   │   └── index.ts
+│   ├── internal-api.ts        # Read-only interface for cross-module lookups
+│   ├── validation.ts          # Zod schemas for commands (shared across routes)
+│   ├── validation-taxes.ts    # Additional validation for sub-domains
+│   ├── tax-calc.ts            # Domain-specific helpers (tax calculation, etc.)
+│   ├── __tests__/             # Tests colocated in module
+│   │   ├── catalog.test.ts
+│   │   └── tax-system.test.ts
+│   └── index.ts               # Module entry point (re-exports everything)
+├── package.json
+├── tsconfig.json
+└── vitest.config.ts
+```
+
+### Module Index Exports
+
+The module `index.ts` is the single public API surface:
+
+```typescript
+// Commands
+export { createItem } from './commands/create-item';
+// Queries
+export { listItems } from './queries/list-items';
+// Validation schemas + inferred types
+export { createItemSchema, type CreateItemInput } from './validation';
+// Event types
+export { CATALOG_EVENTS } from './events/types';
+// Internal API (for cross-module use)
+export { getCatalogReadApi, type CatalogReadApi } from './internal-api';
+// Domain helpers
+export { calculateTaxes } from './tax-calc';
+```
+
+### package.json Subpath Exports
+
+Use wildcard exports for subpath access:
+
+```json
+{
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  }
+}
+```
+
+This allows imports like `@oppsera/module-catalog/validation-taxes` without explicit entries.
+
+### Internal API Pattern
+
+For **synchronous cross-module reads** (e.g., looking up item prices during order creation), expose a read-only internal API:
+
+```typescript
+// internal-api.ts
+export interface CatalogReadApi {
+  getItemPrice(tenantId: string, itemId: string, locationId?: string): Promise<PriceResult>;
+  getItemTaxes(tenantId: string, itemId: string, locationId: string): Promise<TaxResult>;
+}
+
+let _api: CatalogReadApi | null = null;
+export function getCatalogReadApi(): CatalogReadApi { ... }
+export function setCatalogReadApi(api: CatalogReadApi): void { ... }
+```
+
+Internal APIs follow the singleton getter/setter pattern and are the **only exception** to the "events-only cross-module" rule.
+
+---
+
+## 18. Location-Scoped Data
+
+Some entities are scoped to specific locations (e.g., tax groups, location prices). Patterns:
+
+- Tables include `location_id TEXT NOT NULL REFERENCES locations(id)`
+- API routes accept `?locationId=...` query parameter
+- Frontend uses `useAuthContext().locations` to populate location selectors
+- Tax groups, prices, and entitlements can vary per location within a tenant
+
+### Tax System
+
+Tax rates are tenant-global. Tax groups compose rates and are location-scoped. Item tax assignments link items to groups at specific locations.
+
+V1 constraint: All tax groups assigned to the same item at the same location must share the same `calculationMode` (exclusive or inclusive). This is validated in `assignItemTaxGroups`.
+
+---
+
+## 19. Zod Schema Best Practices
+
+### `z.input<>` vs `z.infer<>`
+
+When a Zod schema uses `.default()`, the **output type** makes that field required (it always has a value after parsing), but the **input type** keeps it optional (callers don't need to provide it).
+
+```typescript
+const openOrderSchema = z.object({
+  source: z.enum(['pos', 'online', 'phone']).default('pos'),
+  isTaxable: z.boolean().default(false),
+});
+
+// WRONG — source and isTaxable are REQUIRED in this type
+type OpenOrderInput = z.infer<typeof openOrderSchema>;
+
+// CORRECT — source and isTaxable are OPTIONAL in this type
+type OpenOrderInput = z.input<typeof openOrderSchema>;
+```
+
+**Rule:** Use `z.input<>` for function parameter types (what callers pass in). Use `z.infer<>` only when you need the fully-resolved output type (after defaults are applied).
+
+This matters for every schema with `.default()`, `.optional()`, or `.transform()` — if the input shape differs from the output shape, pick the right one.
+
+### Validation Schema Colocation
+
+- **Command input schemas**: `packages/modules/{name}/src/validation.ts`
+- **Idempotency mixin**: Reuse across modules
+  ```typescript
+  const idempotencyMixin = { clientRequestId: z.string().min(1).max(128).optional() };
+  ```
+- **Route-level parsing**: Always in the route handler, never in the command itself
+
+---
+
+## 20. Type Re-Export Scoping
+
+`export type { X } from './module'` re-exports a type for consumers but does **NOT** create a local binding in the same file.
+
+```typescript
+// WRONG — ItemTypeGroup is NOT available locally
+export type { ItemTypeGroup } from '@oppsera/shared';
+const badges: Record<ItemTypeGroup, ...> = {};  // TS error!
+
+// CORRECT — separate import for local use
+import type { ItemTypeGroup } from '@oppsera/shared';
+export type { ItemTypeGroup } from '@oppsera/shared';
+const badges: Record<ItemTypeGroup, ...> = {};  // works
+```
+
+**Rule:** If you need a type both locally AND as a re-export, add an explicit `import type` at the top of the file.
+
+---
+
+## 21. Money Representation
+
+### Two Conventions (by Layer)
+
+| Layer | Format | Type | Example |
+|---|---|---|---|
+| Catalog (prices, costs) | Dollars | `NUMERIC(12,2)` / string | `"29.99"` |
+| Orders (totals, line amounts) | Cents | `INTEGER` | `2999` |
+| Tenders (amounts, change, tips) | Cents | `INTEGER` | `2999` |
+| GL Journal Entries | Cents | `INTEGER` | `2999` |
+
+### Conversion Pattern
+
+When crossing the catalog→orders boundary, convert dollars to cents:
+
+```typescript
+const unitPriceCents = Math.round(parseFloat(catalogPrice) * 100);
+```
+
+**Rule:** Use `Math.round()` to prevent floating-point drift. Never store fractional cents. All arithmetic in the orders/payments layer is integer-only.
+
+### Money Helpers (`@oppsera/shared`)
+
+```typescript
+import { toCents, toDollars, formatMoney } from '@oppsera/shared';
+```
+
+Use these helpers whenever converting between layers. Don't hand-roll `* 100` or `/ 100` conversions.
+
+---
+
+## 22. Idempotency Pattern (POS Commands)
+
+POS terminals retry on network failure. All write commands that POS calls must support idempotency via `clientRequestId`.
+
+### Implementation Pattern
+
+```typescript
+import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
+
+export async function myCommand(ctx: RequestContext, input: MyInput) {
+  // 1. Check idempotency BEFORE any work
+  if (input.clientRequestId) {
+    const cached = await checkIdempotency(ctx.tenantId, input.clientRequestId);
+    if (cached) return cached;
+  }
+
+  // 2. Do the actual work
+  const result = await publishWithOutbox(ctx, async (tx) => {
+    // ... insert rows, build events ...
+    return { result, events };
+  });
+
+  // 3. Save idempotency key AFTER success
+  if (input.clientRequestId) {
+    await saveIdempotencyKey(ctx.tenantId, input.clientRequestId, result);
+  }
+
+  await auditLog(ctx, ...);
+  return result;
+}
+```
+
+### Key Rules
+
+- `idempotency_keys` table has a 24-hour TTL — old keys are ignored
+- The cached result is returned as-is (same shape as the original response)
+- `clientRequestId` is always optional — non-POS callers can skip it
+- Idempotency check happens **outside** the `publishWithOutbox` transaction
+
+---
+
+## 23. Optimistic Locking Pattern
+
+Orders and other mutable aggregates use optimistic locking to prevent concurrent mutation conflicts.
+
+### Schema
+
+```typescript
+// Every mutable aggregate needs a version column
+version: integer('version').notNull().default(1),
+```
+
+### Fetch-for-Mutation Pattern
+
+```typescript
+import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
+
+export async function mutateOrder(ctx: RequestContext, input: MutateInput) {
+  const result = await publishWithOutbox(ctx, async (tx) => {
+    // 1. SELECT ... FOR UPDATE (row-level lock within transaction)
+    const order = await fetchOrderForMutation(
+      tx,
+      ctx.tenantId,
+      input.orderId,
+      'open',                   // required status
+      input.expectedVersion,    // optional — 409 if mismatch
+    );
+
+    // 2. Do mutations...
+
+    // 3. Increment version
+    await incrementVersion(tx, order.id);
+
+    return { result, events };
+  });
+}
+```
+
+### Key Rules
+
+- `SELECT ... FOR UPDATE` prevents concurrent reads of the same row during a transaction
+- `expectedVersion` is optional — when provided, throws `ConflictError` if stale
+- `fetchOrderForMutation` returns snake_case DB row mapped to camelCase
+- Version is incremented **inside** the transaction, after all mutations
+- Raw SQL is used for `SELECT ... FOR UPDATE` because Drizzle doesn't natively support it
+
+### Raw SQL for SELECT ... FOR UPDATE
+
+```typescript
+const rows = Array.from(
+  await tx.execute(
+    sql`SELECT * FROM orders WHERE id = ${orderId} AND tenant_id = ${tenantId} FOR UPDATE`
+  ) as Iterable<SnakeCaseRow>
+);
+```
+
+Always use `Array.from(... as Iterable<T>)` to convert the postgres.js RowList result.
+
+---
+
+## 24. Receipt Snapshot Pattern
+
+When an order is placed, the receipt is **frozen** — a JSON snapshot of all line items, taxes, charges, discounts, and totals at the time of placement. This snapshot is immutable and used for receipt printing/emailing.
+
+### Why
+
+- Tax rates or catalog prices may change after the order is placed
+- The receipt must reflect what the customer was actually charged
+- Fiscal compliance requires an unchangeable record
+
+### Implementation
+
+```typescript
+// In placeOrder command:
+const receiptSnapshot = {
+  lines: orderLines.map(l => ({
+    name: l.catalogItemName,
+    qty: l.qty,
+    unitPrice: l.unitPrice,
+    lineTotal: l.lineTotal,
+    taxes: lineTaxes.filter(t => t.orderLineId === l.id),
+  })),
+  charges: orderCharges,
+  discounts: orderDiscounts,
+  subtotal, taxTotal, chargeTotal, discountTotal, total,
+};
+
+await tx.update(orders).set({
+  status: 'placed',
+  receiptSnapshot,
+  placedAt: new Date(),
+});
+```
+
+### Key Rules
+
+- Receipt snapshot is stored as JSONB on the `orders` table
+- Never regenerate it from live data — always read from the frozen snapshot
+- Includes all display-relevant data: item names, prices, quantities, tax breakdowns
+
+---
+
+## 25. Order Number Generation
+
+Sequential, human-readable order numbers per location per business day.
+
+### Implementation
+
+Uses an UPSERT counter pattern on the `order_counters` table:
+
+```typescript
+// INSERT ... ON CONFLICT DO UPDATE (atomic increment)
+const result = await tx.execute(sql`
+  INSERT INTO order_counters (id, tenant_id, location_id, business_date, last_number)
+  VALUES (${generateUlid()}, ${tenantId}, ${locationId}, ${businessDate}, 1)
+  ON CONFLICT (tenant_id, location_id, business_date)
+  DO UPDATE SET last_number = order_counters.last_number + 1
+  RETURNING last_number
+`);
+const orderNumber = String(result[0].last_number).padStart(4, '0');
+```
+
+### Key Rules
+
+- Order numbers reset daily per location (e.g., `0001`, `0002`, ...)
+- The counter is incremented atomically via UPSERT — no race conditions
+- Zero-padded to 4 digits for display
+- `business_date` accounts for late-night orders (configurable day close time)
+
+---
+
+## 26. Cross-Module Communication
+
+### Events (Async, Preferred)
+
+Modules communicate primarily through events. The producing module emits; consuming modules subscribe.
+
+```
+catalog.item.created.v1  → inventory module auto-creates inventory item
+order.placed.v1          → inventory module deducts stock
+order.voided.v1          → inventory module reverses stock
+tender.recorded.v1       → orders module marks order paid (when fully paid)
+```
+
+### Internal Read APIs (Sync, Exception)
+
+For **synchronous lookups** during a transaction (e.g., fetching catalog item prices while creating an order line), use the internal API pattern:
+
+```typescript
+// Consumer (orders module):
+const catalogApi = getCatalogReadApi();
+const posItem = await catalogApi.getItemForPOS(tenantId, itemId, locationId);
+
+// Provider (catalog module):
+export interface CatalogReadApi {
+  getItemForPOS(tenantId: string, itemId: string, locationId: string): Promise<PosItemData>;
+}
+```
+
+### Key Rules
+
+- Internal APIs are **read-only** — never mutate another module's data
+- Use the getter/setter singleton pattern for testability
+- Internal APIs should be minimal — only expose what consumers actually need
+- Prefer events over internal APIs whenever possible (eventual consistency is usually fine)
+
+---
+
+## 27. Business Date & Time Dimensions
+
+### Business Date
+
+`businessDate` is the **trading day**, not the calendar date. Orders placed after midnight but before the location's `dayCloseTime` (default 03:00) belong to the **prior** business date.
+
+```typescript
+// business_date is a DATE column, not TIMESTAMPTZ
+businessDate: date('business_date').notNull(),
+```
+
+### Time Dimension Fields on Orders
+
+Every order carries context for reporting and reconciliation:
+
+```typescript
+businessDate: date       // trading day
+terminalId: text         // which register
+employeeId: text         // who created the order
+shiftId: text           // which shift (V2)
+```
+
+These fields enable shift reports, Z-reports, and terminal reconciliation.
+
+---
+
+## 28. Fractional Quantities (F&B)
+
+F&B items (food, beverage) support fractional quantities for split items (half sandwich, quarter portion).
+
+### Schema
+
+```typescript
+qty: numeric('qty', { precision: 10, scale: 4 }).notNull(),
+// Also used in inventory_movements.quantityDelta
+```
+
+### Allowed Fractions
+
+Configurable per item via `FnbMetadata.allowedFractions`:
+
+```typescript
+allowedFractions: [0.25, 0.5, 0.75, 1]  // default: [1]
+```
+
+### Rules
+
+- Retail items: always `qty = 1` (enforced in `addLineItem`)
+- Service items: always `qty = 1`
+- Package items: always `qty = 1`
+- F&B items: fractional allowed per configuration
+- Inventory movements: `numeric(10,4)` to match order line precision
+
+---
+
+## 29. Catalog Schema Patterns
+
+### Barcode Field
+
+Items have both `sku` (internal) and `barcode` (UPC/EAN). Both are optional, both have per-tenant uniqueness constraints with `WHERE ... IS NOT NULL`:
+
+```typescript
+barcode: text('barcode'),
+// Unique index:
+uniqueIndex('uq_catalog_items_tenant_barcode')
+  .on(table.tenantId, table.barcode)
+  .where(sql`barcode IS NOT NULL`),
+```
+
+Validate uniqueness in create/update commands before insert (application-level check + DB constraint as safety net).
+
+### JSONB Metadata Column
+
+Type-specific configuration is stored as JSONB, typed via `@oppsera/shared` interfaces:
+
+```typescript
+metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+```
+
+Shared metadata types: `FnbMetadata`, `RetailMetadata`, `ServiceMetadata`, `PackageMetadata`, `CatalogItemMetadata` (union). Defined in `packages/shared/src/types/catalog-metadata.ts`, re-exported by `@oppsera/shared`.
+
+### Junction Table `isDefault` Pattern
+
+When a many-to-many junction needs to distinguish default vs optional associations, add a boolean flag on the junction table itself (not in metadata):
+
+```typescript
+export const catalogItemModifierGroups = pgTable(
+  'catalog_item_modifier_groups',
+  {
+    catalogItemId: text('catalog_item_id').notNull().references(() => catalogItems.id, { onDelete: 'cascade' }),
+    modifierGroupId: text('modifier_group_id').notNull().references(() => catalogModifierGroups.id, { onDelete: 'cascade' }),
+    isDefault: boolean('is_default').notNull().default(false),
+  },
+  (table) => [primaryKey({ columns: [table.catalogItemId, table.modifierGroupId] })],
+);
+```
+
+**Rule:** The junction table is the canonical source of truth. Metadata may reference the same IDs for backward compat, but reads should query the junction table.
+
+### Category Nesting Depth Validation
+
+Categories support a 3-level hierarchy: Department → SubDepartment → Category. Enforce via parent chain walking in the `createCategory` command:
+
+```typescript
+const MAX_NESTING_DEPTH = 3;
+let depth = 2; // parent (1) + new child (2)
+let currentParentId = parent[0]!.parentId;
+while (currentParentId) {
+  depth++;
+  if (depth > MAX_NESTING_DEPTH) {
+    throw new ValidationError(`Maximum category nesting depth is ${MAX_NESTING_DEPTH} levels`);
+  }
+  // fetch ancestor's parentId and continue walking
+}
+```
+
+---
+
+## 30. Future Schema Warnings
+
+These issues were identified during cross-session review. The referenced schemas don't exist yet — address when building these modules.
+
+| ID | Module | Issue | Action When Building |
+|---|---|---|---|
+| M3 | Reporting | `rm_daily_sales.netSales` formula should be `grossSales - discounts - refunds` | Use standard restaurant accounting formula, not `total - taxTotal` |
+| M4 | Reporting | `rm_item_sales.quantitySold` should be `NUMERIC(10,4)` not `INTEGER` | F&B supports fractional qty (0.5 portions) — match `order_lines.qty` type |
+| m1 | POS Config | Session 11 onboarding doesn't seed POS terminal config | Add terminal/drawer seeding when `POSConfig` schema is built (Session 13+) |
+
+---
+
+## 31. POS Frontend Architecture
+
+### Dual-Mode Design
+
+Two POS shells (`/pos/retail` and `/pos/fnb`) share one commerce engine (orders module). Either shell can sell any item type — a retail POS can sell F&B items (opens modifier dialog), and an F&B POS can sell retail items (direct add or option picker).
+
+### Fullscreen Layout Pattern
+
+POS pages use a **fullscreen overlay** that covers the dashboard sidebar:
+
+```typescript
+// apps/web/src/app/(dashboard)/pos/layout.tsx
+// Fixed overlay: covers everything, including the (dashboard) sidebar
+<div className="fixed inset-0 z-50 flex flex-col bg-gray-50">
+  <TopBar />      {/* h-12: location, terminal, employee, clock, exit */}
+  <div className="flex-1 overflow-hidden">{children}</div>
+</div>
+```
+
+The top bar displays: location name, terminal ID, employee name (abbreviated), live clock, and exit button.
+
+### Universal Item Tap Handler
+
+**Every POS shell must use the same routing logic** — switch on `typeGroup`, never on raw `item.type`:
+
+```typescript
+function handleItemTap(item: CatalogItemForPOS): string {
+  switch (item.typeGroup) {
+    case 'fnb':     return 'openModifierDialog';
+    case 'retail': {
+      const meta = item.metadata as RetailMetadata | undefined;
+      if (meta?.optionSets?.length) return 'openOptionPicker';
+      return 'directAdd';
+    }
+    case 'service': return 'directAdd';
+    case 'package': return 'openPackageConfirm';
+  }
+}
+```
+
+**Rule:** Always use `getItemTypeGroup()` from `@oppsera/shared` to derive the group. The mapping includes `green_fee` and `rental` as retail.
+
+### Shell Differences (Retail vs F&B)
+
+| Feature | Retail | F&B |
+|---|---|---|
+| Cart label | "Cart" | "Ticket" |
+| Primary action | "Place & Pay" | "Send & Pay" |
+| Tile size | `normal` (w-28 h-28) | `large` (w-36 h-36) |
+| Tab size | `normal` | `large` |
+| Grid columns | 2-5 | 2-4 |
+| Search position | Top of left panel | Bottom of left panel |
+| Repeat last | No | Yes (duplicates last line with modifiers) |
+
+### Barcode Scanner Integration
+
+Keyboard wedge scanners emit fast keystrokes. Detection via `keydown` listener on `window`:
+
+```typescript
+const SCAN_THRESHOLD = 50;  // ms between keystrokes
+const MIN_LENGTH = 4;       // minimum barcode length
+
+// On Enter with buffer >= MIN_LENGTH and all gaps < SCAN_THRESHOLD:
+window.dispatchEvent(new CustomEvent('barcode-scan', { detail: { barcode: buffer } }));
+```
+
+**Rule:** Ignore barcode detection when focus is in `INPUT`, `TEXTAREA`, or `contentEditable` elements.
+
+---
+
+## 32. POS Component Organization
+
+### File Structure
+
+```
+apps/web/src/components/pos/
+├── ItemButton.tsx           # Touchable tile with type-colored bar, price, badge
+├── Cart.tsx                 # Type-aware order line list (4 internal renderers)
+├── CartTotals.tsx           # Subtotal, charges, tax, discount, total
+├── InventoryIndicator.tsx   # Color-coded stock level (green/amber/red)
+├── CustomerAttachment.tsx   # Customer search/attach/detach
+├── ModifierDialog.tsx       # F&B item configurator (fractions, modifiers, notes)
+├── OptionPickerDialog.tsx   # Retail option set picker (required validation)
+├── PackageConfirmDialog.tsx # Package component list with type badges
+├── PriceOverrideDialog.tsx  # Price override with reason + manager PIN
+├── ServiceChargeDialog.tsx  # Service charge (percentage/fixed, taxable)
+├── DiscountDialog.tsx       # Discount (percentage/fixed with preview)
+└── catalog-nav/
+    ├── DepartmentTabs.tsx   # Horizontal scrollable department pills
+    ├── SubDepartmentTabs.tsx # Conditional subdepartment pills
+    ├── CategoryRail.tsx     # Vertical left rail (w-48, overflow-y-auto)
+    ├── CatalogBreadcrumb.tsx # Clickable hierarchy breadcrumb
+    ├── QuickMenuTab.tsx     # Favorites/Recent with segmented control
+    └── index.ts             # Barrel re-exports
+```
+
+### Component Size Props
+
+Components that differ between retail and F&B accept a `size` prop:
+
+```typescript
+// ItemButton, DepartmentTabs, SubDepartmentTabs
+type TileSize = 'normal' | 'large';
+```
+
+Retail uses `normal`, F&B uses `large`. This keeps the component reusable while letting shells customize touch targets.
+
+### Cart Type-Aware Rendering
+
+`Cart.tsx` contains four internal line renderers, dispatched by `getItemTypeGroup()`:
+
+| Renderer | Shows | Qty Controls |
+|---|---|---|
+| `FnbLineItem` | Modifiers, special instructions, fraction picker | +/- cycling `allowedFractions` |
+| `RetailLineItem` | Selected options (Size: M, Color: Blue) | None (qty=1) |
+| `ServiceLineItem` | Duration from metadata | None (qty=1) |
+| `PackageLineItem` | "Includes: item1, item2, ..." from components | None (qty=1) |
+
+All renderers show: price override indicator (strikethrough + new price + reason badge), notes, line total with tax.
+
+### 4-Layer Catalog Navigation
+
+The hierarchy UI is **first-class navigation**, not a search overlay:
+
+```
+┌─────────────────────────────────────────────┐
+│ [ Department Tabs (horizontal scroll) ]      │ ← DepartmentTabs
+├─────────────────────────────────────────────┤
+│ [ SubDepartment Tabs (conditional) ]         │ ← SubDepartmentTabs
+├─────────────────────────────────────────────┤
+│ Breadcrumb: Food > Burgers > Beef            │ ← CatalogBreadcrumb
+├───────────┬─────────────────────────────────┤
+│ Category  │ ┌──────┐ ┌──────┐ ┌──────┐     │
+│ Rail      │ │ Item │ │ Item │ │ Item │     │ ← ItemButton grid
+│ (w-48)    │ └──────┘ └──────┘ └──────┘     │
+│           │ ┌──────┐ ┌──────┐               │
+│           │ │ Item │ │ Item │               │
+│           │ └──────┘ └──────┘               │
+└───────────┴─────────────────────────────────┘
+```
+
+**Rule:** Selecting a department resets subdepartment and category. Selecting a subdepartment resets category. Each level cascades item filtering.
+
+---
+
+## 33. POS Hooks Pattern
+
+### usePOSConfig
+
+```typescript
+const { config, setConfig, isLoading } = usePOSConfig(locationId, 'retail');
+```
+
+V1 stores in localStorage keyed by `pos_config_{locationId}`. Provides sensible defaults per mode:
+- Retail: barcode scanning on, kitchen printing off
+- F&B: barcode scanning off, kitchen printing on, tips enabled
+
+**Future:** Replace localStorage with server-side terminal configuration API.
+
+### usePOS (Main State Machine)
+
+```typescript
+const pos = usePOS(config);
+// pos.currentOrder, pos.isLoading, pos.heldOrderCount
+// pos.addItem(input), pos.removeItem(lineId)
+// pos.placeOrder(), pos.voidOrder(reason), pos.holdOrder(), pos.recallOrder(orderId)
+// pos.addServiceCharge(input), pos.removeServiceCharge(id), pos.applyDiscount(...)
+// pos.attachCustomer(id), pos.detachCustomer()
+```
+
+Key behaviors:
+- **Auto-open:** First `addItem()` call auto-creates an order via `POST /api/v1/orders`
+- **Idempotency:** Every API call includes `crypto.randomUUID()` as `clientRequestId`
+- **Conflict handling:** On 409 `ApiError`, auto-refetches the order and shows toast
+- **Hold/Recall:** Hold clears local state (order stays `open` in DB), Recall fetches and loads
+
+### useCatalogForPOS
+
+```typescript
+const catalog = useCatalogForPOS(locationId);
+// catalog.departments, catalog.nav, catalog.currentItems, catalog.breadcrumb
+// catalog.searchQuery, catalog.setSearchQuery, catalog.lookupByBarcode(code)
+// catalog.favorites, catalog.toggleFavorite(id), catalog.recentItems, catalog.addToRecent(id)
+```
+
+Loads ALL categories + active items on mount. Builds hierarchy maps for O(1) navigation. Favorites in localStorage, recents in memory (capped at 20).
+
+### useShift
+
+```typescript
+const shift = useShift(locationId, terminalId);
+// shift.currentShift, shift.isOpen
+// shift.openShift(balance), shift.closeShift(closingCount)
+// shift.recordPaidIn(amount, reason), shift.recordPaidOut(amount, reason)
+// shift.openDrawer()
+```
+
+V1: localStorage. Close calculates variance from opening balance + events. All operations validate shift is open first.
+
+---
+
+## 34. POS Frontend Types
+
+POS types live in `apps/web/src/types/pos.ts`, separate from catalog types. Key types:
+
+```typescript
+// Terminal configuration
+interface POSConfig {
+  posMode: 'retail' | 'fnb';
+  terminalId: string;
+  locationId: string;
+  // feature toggles: enableTips, enableReceipt, enableBarcodeScanner, enableKitchenPrinting
+  // service charge defaults, etc.
+}
+
+// Flattened item for POS display (derived from catalog data)
+interface CatalogItemForPOS {
+  id: string; name: string; sku: string | null; barcode: string | null;
+  type: string;                    // raw backend type (food, retail, green_fee, etc.)
+  typeGroup: ItemTypeGroup;        // derived via getItemTypeGroup()
+  price: number;                   // cents (converted from catalog dollars)
+  isTrackInventory: boolean; onHand: number | null;
+  metadata: Record<string, unknown>;
+  categoryId: string; departmentId: string;  // departmentId resolved by walking parent chain
+  tax: { calculationMode: string; taxRates: unknown[] };
+}
+
+// Navigation state for catalog hierarchy
+interface CatalogNavState {
+  departmentId: string | null;
+  subDepartmentId: string | null;
+  categoryId: string | null;
+}
+```
+
+**Rule:** `CatalogItemForPOS.price` is always in cents. The conversion from catalog dollars happens in `useCatalogForPOS` via `Math.round(parseFloat(price) * 100)`.
+
+**Rule:** `departmentId` on `CatalogItemForPOS` is resolved by walking the category parent chain to the root — this avoids runtime parent lookups in the item grid.
+
+---
+
+## 35. Tenders / Payments Architecture
+
+### Append-Only Financial Tables
+```
+tenders: NEVER UPDATE amount, amountGiven, changeGiven, tipAmount, status
+tender_reversals: creates NEW ROW to reverse a tender
+payment_journal_entries: NEVER UPDATE entries; void marks postingStatus='voided' + inserts reversal entry
+```
+
+### Tender Status Lifecycle
+```
+INSERT → status='captured' (always)
+"Reversed" = derived via JOIN on tender_reversals (original tender row unchanged)
+```
+
+### GL Journal Entry Allocation
+```
+Partial tender (not final): proportional method
+  ratio = tenderAmount / orderTotal
+  revenue credit = Math.round(lineNet * ratio) per department
+  tax credit = Math.round(lineTax * ratio)
+
+Final tender (isFullyPaid): remainder method
+  revenue credit = totalLineNet - previouslyPostedRevenue
+  tax credit = totalLineTax - previouslyPostedTax
+  → guarantees exact sum across all tenders
+
+Both: sum(debits) === sum(credits) enforced with rounding fixup
+```
+
+### Account Mapping (V1 Hardcoded)
+| Tender Type | Debit Account | Code |
+|---|---|---|
+| cash | Cash on Hand | 1010 |
+| card | Undeposited Funds | 1020 |
+| gift_card | Gift Card Liability | 2200 |
+| store_credit | Store Credit Liability | 2300 |
+| house_account | Accounts Receivable | 1200 |
+
+Credit accounts: Revenue (4000), Sales Tax Payable (2100), Tips Payable (2150), Service Charge Revenue (4500)
+
+### Cash Tender Flow
+```
+1. Validate: clientRequestId (REQUIRED), order status='placed', businessDate matches
+2. Calculate: remaining = order.total - sum(active tenders), tenderAmount = min(amountGiven, remaining), change = max(0, amountGiven - remaining)
+3. Insert tender row (append-only)
+4. Generate GL journal entry (proportional or remainder)
+5. Store allocationSnapshot on tender
+6. If fully paid: update order.status → 'paid', set paidAt
+7. Increment order version (optimistic lock)
+8. Emit tender.recorded.v1 event
+```
+
+### TenderDialog (Shared POS Component)
+- Used by both Retail and F&B POS shells
+- z-index: 60 (above POS overlay at z-50)
+- Quick denomination buttons: $5, $10, $20, $50, $100, Exact
+- Tip section controlled by `POSConfig.tipEnabled`
+- Split payment: stays open with updated remaining after partial payment
+- Auto-closes 2s after full payment with change display
+
+---
+
+## 36. Key Anti-Patterns to Avoid
+
+1. **Never use `pg` driver** — always `postgres` (postgres.js)
+2. **Never use `.rows`** on query results — use `Array.from(result as Iterable<T>)`
+3. **Never use offset pagination** — always cursor-based
+4. **Never import across module boundaries** — use events for cross-module communication (exception: internal read APIs)
+5. **Never throw from audit logging** — always catch and log
+6. **Never use `parse()` with Zod** — always `safeParse()` then throw `ValidationError`
+7. **Never put audit logging inside the `publishWithOutbox` transaction** — call `auditLog(ctx, ...)` after the transaction succeeds, still within the command function
+8. **Never access `process.env` at module level** in library code — use the lazy Proxy pattern (see db client)
+9. **Never use `import()` type annotations in test mocks** — ESLint `consistent-type-imports` forbids them. Use `null as never` for mock typed parameters
+10. **Never mix tax calculation modes on the same item+location** — V1 constraint enforced by `assignItemTaxGroups`
+11. **Never create UI components without `'use client'`** — all interactive React components need the directive
+12. **Never duplicate state that can be derived** — use `useMemo` to filter/transform data from hooks (e.g., departments derived from flat category list by filtering `parentId === null`)
+13. **Never use `z.infer<>` for function inputs when schema has `.default()`** — use `z.input<>` instead (see §19)
+14. **Never assume `export type { X }` creates a local binding** — it only re-exports; add a separate `import type` for local use (see §20)
+15. **Never store money as floats** — use INTEGER cents in orders/payments, NUMERIC(12,2) dollars in catalog (see §21)
+16. **Never UPDATE or DELETE from append-only tables** — `inventory_movements`, `audit_log`, and `payment_journal_entries` are append-only; corrections are new rows
+17. **Never regenerate a receipt from live data** — always use the frozen `receiptSnapshot` from the order (see §24)
+18. **Never skip idempotency checks on POS-facing commands** — all write endpoints that POS calls must support `clientRequestId` (see §22)
+19. **Never route item behavior by raw `item.type`** — always use `getItemTypeGroup()` from `@oppsera/shared` to get the canonical `typeGroup`, then switch on that (see §31)
+20. **Never hard-code POS tile/tab sizes** — use the `size` prop (`normal`/`large`) so both shells can customize touch targets from one component
+21. **Never replace catalog hierarchy with search-only** — the 4-layer Department → SubDepartment → Category → Items navigation is first-class UI; search/barcode are overlays on top, not replacements
+22. **Never couple POS hooks to a storage backend** — V1 uses localStorage for config/shift/favorites; design the hook interface so swapping to a server API is a single internal change
+23. **Never access array indexes without `!` assertion in strict TS** — `array[0].prop` fails strict null checks; use `array[0]!.prop` when the index is known-safe (tests, after length check)
+24. **Never UPDATE financial fields on tenders** — amount, amountGiven, changeGiven, tipAmount, and status are immutable after INSERT. "Reversed" is derived from `tender_reversals` join.
+25. **Never use optional `clientRequestId` on tenders** — unlike orders, tender schema mandates it (`z.string().min(1).max(128)`, not `.optional()`)
+26. **Never compute GL without balancing check** — every journal entry must enforce `sum(debits) === sum(credits)` with rounding fixup on first revenue line if needed
+27. **Never store on-hand as a mutable column** — inventory on-hand = SUM(quantity_delta) from `inventory_movements`. Always compute via `getOnHand()` helper.
+28. **Never deduct package inventory from the package itself** — detect packages via `packageComponents?.length > 0` on order lines, then deduct from each component's inventory item
+29. **Never allow negative stock at transfer source** — transfer always validates sourceOnHand >= quantity, regardless of `allowNegative` setting on the inventory item
+
+---
+
+## 37. Inventory Architecture
+
+### Append-Only Movements Ledger
+```
+on-hand = SUM(quantity_delta) FROM inventory_movements WHERE inventory_item_id = ?
+Never a mutable column. Never UPDATE or DELETE movements.
+```
+
+### Movement Types
+```
+receive        (+)  stock received from supplier/transfer
+sale           (-)  POS/online sale (auto via order.placed event)
+void_reversal  (+)  reversal of sale (auto via order.voided event)
+adjustment     (±)  manual count correction
+transfer_out   (-)  outgoing transfer to another location
+transfer_in    (+)  incoming transfer from another location
+shrink         (-)  loss/waste/theft/damage/expiry
+waste          (-)  alias for shrink
+return         (+)  customer return (V2)
+initial        (+)  initial count (V2)
+conversion     (±)  UOM conversion (V2)
+```
+
+### Idempotency Guard (Event Consumers)
+```sql
+UNIQUE INDEX uq_inventory_movements_idempotency
+  ON (tenant_id, reference_type, reference_id, inventory_item_id, movement_type)
+  WHERE reference_type IS NOT NULL
+```
+Insert uses `ON CONFLICT DO NOTHING` — duplicate event deliveries are silently skipped.
+
+### Type-Aware Deduction (order.placed consumer)
+```
+Package item (packageComponents.length > 0):
+  → Deduct from each component's inventory: componentQty × lineQty
+  → NOT from the package item itself
+
+Non-package item (food, beverage, retail, service):
+  → Deduct lineQty from the item's inventory
+  → Skip if no inventory_item found or trackInventory=false
+```
+
+### Transfer Pattern
+```
+1. Validate fromLocation ≠ toLocation
+2. Find inventory_item at BOTH locations by catalogItemId
+3. Always enforce sourceOnHand >= quantity (no exceptions)
+4. Insert transfer_out at source (-qty) + transfer_in at dest (+qty)
+5. Both movements share the same batchId for grouping
+```
+
+### Stock Alerts
+```
+inventory.negative.v1   → emitted when on-hand < 0
+inventory.low_stock.v1  → emitted when 0 < on-hand ≤ reorderPoint
+```
+
+### Provisioned V2 Tables (8)
+```
+inventory_snapshots, inventory_counts, inventory_count_lines,
+inventory_vendors, inventory_purchase_orders, inventory_po_lines,
+inventory_recipes, inventory_recipe_components
+```
+Created as empty stubs with basic structure and RLS. Ready for V2 implementation.
+
+---
+
+## 38. Tenant Onboarding
+
+### Business Types
+4 types defined in `packages/shared/src/constants/business-types.ts`: restaurant, retail, golf, hybrid. Each has:
+- `key`, `name`, `icon`, `description`
+- `recommendedModules`: pre-selected modules for the type
+- `starterHierarchy`: Department → SubDepartment → Category tree seeded on onboarding
+
+### Onboarding API (POST /api/v1/onboard)
+Uses `{ authenticated: true, requireTenant: false }` middleware. Atomic transaction creates:
+1. Tenant (with unique slug)
+2. Location
+3. Membership
+4. 6 system roles (Owner, Manager, Supervisor, Cashier, Server, Staff) with permissions
+5. Role assignment (Owner → creating user)
+6. Module entitlements (selected + platform_core)
+7. 2 starter tax rates (Sales Tax 8%, No Tax 0%)
+8. Default tax group
+9. Full catalog hierarchy from business type config
+10. Audit log entry
+
+### Onboarding Wizard (5 steps)
+Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
+1. Business Type selection
+2. Company Name
+3. Location Details (name, timezone, address)
+4. Module Selection (pre-selected from business type)
+5. Review & Launch
+
+---
+
+## 39. Current Project State
+
+### Completed Milestones
+
+**Milestones 0-2: Platform Core**
+- Auth: Supabase JWT, authenticate/resolveTenant middleware
+- RBAC: PermissionEngine, Redis cache, wildcard matching, location-scoped permissions
+- Entitlements: EntitlementCheck engine, module registry, seat/location limits
+- Events: InMemoryEventBus, transactional outbox, retry/dead-letter
+- Audit: Partitioned audit_log, auditLog/auditLogSystem helpers, computeChanges
+- withMiddleware: complete chain with all options
+- Seed: "Sunset Golf & Grill" tenant, 2 locations, admin user, 6 roles, 7 entitlements
+
+**Milestone 3: Catalog Module**
+- Session 8: 7 Drizzle tables, 9 commands, Zod schemas, event contracts, internal read API
+- Session 9: 5 queries, 14 API routes, seed data (20 items, 4 modifier groups)
+- Session 9.5: Tax system (5 tables, 7 commands, 3 queries, 10 routes, tax calc engine)
+- Session 10: Frontend (6 pages, 10 UI components, data hooks, sidebar)
+
+**Milestone 4: Tenant Onboarding**
+- Session 11: Business types, slug generation, onboarding API + wizard, auth flow guards
+
+**Milestone 5: Orders Module (Backend)**
+- Session 12: 6 tables (orders, order_lines, order_charges, order_discounts, order_counters, idempotency_keys) + existing order_line_taxes
+- 8 commands: openOrder, addLineItem, removeLineItem, addServiceCharge, removeServiceCharge, applyDiscount, placeOrder, voidOrder
+- 3 queries: listOrders, getOrder, getOrderByNumber
+- 10 API routes, 9 event types, 8 Zod validation schemas
+- Enterprise patterns: idempotency keys, optimistic locking (version), receipt snapshots
+- Cross-module integration: catalog internal API (`getItemForPOS`) for price/tax lookup
+- F&B: fractional qty, modifier support; Retail: qty=1; Service: qty=1; Package: component snapshot
+- Service charges (auto-gratuity, venue/booking fees), discounts, price overrides with audit trail
+
+**Post-Session 12: Cross-Session Consistency Fixes**
+- C2: Added `barcode` column + unique index to `catalog_items`, updated `getItemForPOS` return type
+- C3+m2: Updated Manager/Supervisor/Cashier permissions with POS ops, added Server role (now 6 roles)
+- C4: Added 3-level nesting depth validation to `createCategory`
+- C5: Added `isDefault` flag to `catalogItemModifierGroups` junction table (canonical source of truth)
+- C7: Moved metadata types (`FnbMetadata`, `RetailMetadata`, etc.) to `@oppsera/shared`
+- M1: Deprecated `tax_categories` table
+- M2: Removed deprecated `getTaxRate` from `CatalogReadApi`
+- Added `metadata` JSONB column to `catalog_items`
+
+**Milestone 6: POS Frontend**
+- Session 13: Dual-mode POS (Retail + F&B shells), 17 POS components, 6 catalog-nav components
+- 6 hooks: usePOSConfig, usePOS, useCatalogForPOS, useShift, useOrders, useOrder
+- Fullscreen POS layout with barcode scanner keyboard wedge listener
+- Retail shell: 60/40 split, search, 4-layer hierarchy, barcode scan, hold/recall, all dialogs
+- F&B shell: large touch targets, "Ticket" label, "Send & Pay", repeat last item
+- Order history: list (filters, cursor pagination) + detail (line items, charges, receipt viewer)
+- Navigation sidebar updated with POS section (Retail POS, F&B POS)
+- Shared item-types updated: `green_fee`/`rental` → retail group
+
+**Milestone 7: Payments / Tenders Module**
+- Session 14: 3 tables (tenders, tender_reversals, payment_journal_entries) + migration + RLS
+- 2 commands: recordTender (full cash V1), reverseTender (V2 stub)
+- 3 queries: getTendersByOrder (with summary), listTenders (paginated), getPaymentJournalEntries
+- 5 API routes: POST/GET orders/:id/tenders, GET tenders, POST tenders/:id/reverse, GET tenders/journal
+- GL journal generation: proportional allocation (partial), remainder method (final), always balanced
+- Event types: tender.recorded.v1, tender.reversed.v1; consumes order.voided.v1
+- Order void consumer: auto-creates reversals for all active tenders, reverses GL entries
+- Frontend: TenderDialog (shared, z-[60]), Order Detail tenders section, usePOS.recordTender
+- V1 scope: cash only; V2 roadmap: card, gift card, store credit, house account
+
+**Milestone 8: Inventory Module**
+- Session 15: 2 core tables (inventory_items, inventory_movements) + 8 provisioned V2 tables + migration + RLS
+- 4 commands: receiveInventory, adjustInventory, transferInventory, recordShrink
+- 3 queries: listInventoryItems (with computed on-hand via SUM), getInventoryItem, getMovements
+- 7 API routes under /api/v1/inventory
+- 3 event consumers: handleOrderPlaced (type-aware deduction, package component support), handleOrderVoided (void_reversal), handleCatalogItemCreated (auto-create at all locations)
+- 4 emitted events: inventory.received.v1, inventory.adjusted.v1, inventory.low_stock.v1, inventory.negative.v1
+- 3 helpers: getOnHand (SUM query), checkStockAlerts (threshold events), findByCatalogItemId (cross-location lookup)
+- Idempotency via UNIQUE index + ON CONFLICT DO NOTHING for event consumer movements
+- Frontend: inventory list (search, filters, color-coded on-hand), item detail with movement history, receive/adjust/shrink dialogs
+- Transfer: paired movements with shared batchId, always non-negative at source
+- V2 provisioned: snapshots, counts, count_lines, vendors, purchase_orders, po_lines, recipes, recipe_components
+
+### Test Coverage
+459 tests: 134 core + 68 catalog + 52 orders + 22 shared + 183 web (75 POS + 66 tenders + 42 inventory)
+
+### What's Next
+- Customer Management module (Session 16)

@@ -1,0 +1,90 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1708100000000,
+      "tag": "0000_gen_ulid",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1708100001000,
+      "tag": "0001_core_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1708100002000,
+      "tag": "0002_rls_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1708100003000,
+      "tag": "0003_audit_log_partitioning",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1708100004000,
+      "tag": "0004_catalog_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1708100005000,
+      "tag": "0005_catalog_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1708100006000,
+      "tag": "0006_tax_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1708100007000,
+      "tag": "0007_tax_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1708100008000,
+      "tag": "0008_tenders",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1708100009000,
+      "tag": "0009_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1708100010000,
+      "tag": "0010_orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1708100011000,
+      "tag": "0011_catalog_add_columns",
+      "breakpoints": true
+    }
+  ]
+}

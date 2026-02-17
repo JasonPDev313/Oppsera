@@ -1,0 +1,33 @@
+{
+  "name": "@oppsera/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "db:migrate": "tsx src/migrate.ts",
+    "db:seed": "tsx src/seed.ts",
+    "db:create-partitions": "tsx scripts/create-partitions.ts",
+    "generate": "drizzle-kit generate",
+    "studio": "drizzle-kit studio",
+    "test": "vitest run",
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@oppsera/shared": "workspace:*",
+    "drizzle-orm": "^0.37.0",
+    "postgres": "^3.4.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "drizzle-kit": "^0.30.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}

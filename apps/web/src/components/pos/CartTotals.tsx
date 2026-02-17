@@ -1,0 +1,81 @@
+'use client';
+
+import type { Order } from '@/types/pos';
+
+function formatMoney(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+interface CartTotalsProps {
+  order: Order | null;
+}
+
+export function CartTotals({ order }: CartTotalsProps) {
+  if (!order) return null;
+
+  const hasCharges = order.serviceChargeTotal > 0;
+  const hasDiscount = order.discountTotal > 0;
+
+  // Build charge description from order charges
+  const chargeLabel = (() => {
+    if (!hasCharges || !order.charges || order.charges.length === 0) return 'Charges';
+    const firstCharge = order.charges[0]!;
+    if (firstCharge.calculationType === 'percentage') {
+      return `${firstCharge.name} (${firstCharge.value}%)`;
+    }
+    return firstCharge.name;
+  })();
+
+  // Build discount description
+  const discountLabel = (() => {
+    if (!hasDiscount || !order.discounts || order.discounts.length === 0) return 'Discount';
+    const firstDiscount = order.discounts[0]!;
+    if (firstDiscount.type === 'percentage') {
+      return `Discount (${firstDiscount.value}%)`;
+    }
+    return 'Discount';
+  })();
+
+  return (
+    <div className="border-t border-gray-200 px-3 py-3">
+      {/* Subtotal */}
+      <div className="flex items-center justify-between text-sm text-gray-600">
+        <span>Subtotal</span>
+        <span>{formatMoney(order.subtotal)}</span>
+      </div>
+
+      {/* Service charges */}
+      {hasCharges && (
+        <div className="mt-1 flex items-center justify-between text-sm text-gray-600">
+          <span>{chargeLabel}</span>
+          <span>{formatMoney(order.serviceChargeTotal)}</span>
+        </div>
+      )}
+
+      {/* Tax */}
+      <div className="mt-1 flex items-center justify-between text-sm text-gray-600">
+        <span>Tax</span>
+        <span>{formatMoney(order.taxTotal)}</span>
+      </div>
+
+      {/* Discount */}
+      {hasDiscount && (
+        <div className="mt-1 flex items-center justify-between text-sm text-red-600">
+          <span>{discountLabel}</span>
+          <span>-{formatMoney(order.discountTotal)}</span>
+        </div>
+      )}
+
+      {/* Divider */}
+      <div className="my-2 border-t border-gray-200" />
+
+      {/* Total */}
+      <div className="flex items-center justify-between">
+        <span className="text-base font-bold text-gray-900">TOTAL</span>
+        <span className="text-lg font-bold text-gray-900">
+          {formatMoney(order.total)}
+        </span>
+      </div>
+    </div>
+  );
+}

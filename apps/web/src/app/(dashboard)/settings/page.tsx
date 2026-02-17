@@ -1,0 +1,856 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText } from 'lucide-react';
+import { apiFetch, ApiError } from '@/lib/api-client';
+import { usePermissions } from '@/hooks/use-permissions';
+import { useEntitlements } from '@/hooks/use-entitlements';
+import { AuditLogViewer } from '@/components/audit-log-viewer';
+
+// ── Types ────────────────────────────────────────────────────────
+
+interface Role {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystem: boolean;
+  permissions: string[];
+  userCount: number;
+}
+
+interface RoleDetail extends Omit<Role, 'userCount'> {
+  assignedUsers: Array<{
+    id: string;
+    email: string;
+    name: string;
+    locationId: string | null;
+  }>;
+}
+
+interface TenantUser {
+  id: string;
+  email: string;
+  name: string;
+  roles: string[];
+  status: string;
+}
+
+// ── Permission Groups ────────────────────────────────────────────
+
+const PERMISSION_GROUPS: Record<string, string[]> = {
+  Catalog: ['catalog.view', 'catalog.create', 'catalog.update', 'catalog.delete'],
+  Orders: ['orders.view', 'orders.create', 'orders.void'],
+  Payments: ['tenders.view', 'tenders.create'],
+  Inventory: ['inventory.view', 'inventory.receive', 'inventory.adjust', 'inventory.transfer'],
+  Customers: ['customers.view', 'customers.create', 'customers.update', 'customers.merge'],
+  Reports: ['reports.view', 'reports.export'],
+  Settings: ['settings.view', 'settings.update'],
+  Users: ['users.view', 'users.manage'],
+};
+
+// ── Settings Page ────────────────────────────────────────────────
+
+export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'audit'>('users');
+  const { can } = usePermissions();
+
+  const tabs = [
+    { id: 'users' as const, label: 'Users', icon: Users },
+    { id: 'roles' as const, label: 'Roles', icon: Shield },
+    { id: 'modules' as const, label: 'Modules', icon: Blocks },
+    { id: 'audit' as const, label: 'Audit Log', icon: ScrollText },
+  ];
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+      <p className="mt-1 text-sm text-gray-500">Manage your team, permissions, and modules</p>
+
+      {/* Tab navigation */}
+      <div className="mt-6 border-b border-gray-200">
+        <nav className="-mb-px flex gap-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab content */}
+      <div className="mt-6">
+        {activeTab === 'users' && <UsersTab canManage={can('users.manage')} />}
+        {activeTab === 'roles' && <RolesTab canManage={can('users.manage')} />}
+        {activeTab === 'modules' && <ModulesTab />}
+        {activeTab === 'audit' && <AuditLogTab />}
+      </div>
+    </div>
+  );
+}
+
+// ── Users Tab ────────────────────────────────────────────────────
+
+function UsersTab({ canManage }: { canManage: boolean }) {
+  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<TenantUser | null>(null);
+  const [userRoles, setUserRoles] = useState<Array<{
+    id: string;
+    name: string;
+    scope: string;
+    locationId: string | null;
+    permissions: string[];
+  }>>([]);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const rolesResp = await apiFetch<{ data: Role[] }>('/api/v1/roles');
+      const allRoles = rolesResp.data;
+
+      // Build users list from role assignments
+      const userMap = new Map<string, TenantUser>();
+      for (const role of allRoles) {
+        const detail = await apiFetch<{ data: RoleDetail }>(`/api/v1/roles/${role.id}`);
+        for (const u of detail.data.assignedUsers) {
+          const existing = userMap.get(u.id);
+          if (existing) {
+            if (!existing.roles.includes(role.name)) {
+              existing.roles.push(role.name);
+            }
+          } else {
+            userMap.set(u.id, {
+              id: u.id,
+              email: u.email,
+              name: u.name,
+              roles: [role.name],
+              status: 'active',
+            });
+          }
+        }
+      }
+      setUsers(Array.from(userMap.values()));
+    } catch {
+      // Ignore errors
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleSelectUser = useCallback(async (user: TenantUser) => {
+    setSelectedUser(user);
+    try {
+      // Fetch all role details to find this user's assignments
+      const rolesResp = await apiFetch<{ data: Role[] }>('/api/v1/roles');
+      const assignments: typeof userRoles = [];
+      for (const role of rolesResp.data) {
+        const detail = await apiFetch<{ data: RoleDetail }>(`/api/v1/roles/${role.id}`);
+        for (const u of detail.data.assignedUsers) {
+          if (u.id === user.id) {
+            assignments.push({
+              id: role.id,
+              name: role.name,
+              scope: u.locationId ? 'location' : 'tenant',
+              locationId: u.locationId,
+              permissions: detail.data.permissions,
+            });
+          }
+        }
+      }
+      setUserRoles(assignments);
+    } catch {
+      setUserRoles([]);
+    }
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-6">
+      <div className="flex-1">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => alert('Coming in Milestone 4')}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              <Plus className="h-4 w-4" />
+              Invite User
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Email
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Roles
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {users.map((user) => (
+                <tr
+                  key={user.id}
+                  onClick={() => handleSelectUser(user)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                    {user.name}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                    {user.email}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                    {user.roles.join(', ')}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                      {user.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-500">
+                    No users found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* User detail side panel */}
+      {selectedUser && (
+        <div className="w-80 shrink-0 rounded-lg border border-gray-200 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">{selectedUser.name}</h3>
+            <button type="button" onClick={() => setSelectedUser(null)}>
+              <X className="h-4 w-4 text-gray-400" />
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">{selectedUser.email}</p>
+
+          <div className="mt-4">
+            <h4 className="text-xs font-medium text-gray-500 uppercase">Role Assignments</h4>
+            <div className="mt-2 space-y-2">
+              {userRoles.map((role, i) => (
+                <div key={i} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-900">{role.name}</span>
+                    <span className="text-xs text-gray-500">
+                      {role.scope === 'tenant' ? 'Tenant-wide' : 'Location'}
+                    </span>
+                  </div>
+                  {role.locationId && (
+                    <p className="mt-1 text-xs text-gray-400">Location: {role.locationId}</p>
+                  )}
+                </div>
+              ))}
+              {userRoles.length === 0 && (
+                <p className="text-xs text-gray-400">No roles assigned</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Roles Tab ────────────────────────────────────────────────────
+
+function RolesTab({ canManage }: { canManage: boolean }) {
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedRole, setSelectedRole] = useState<RoleDetail | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      const response = await apiFetch<{ data: Role[] }>('/api/v1/roles');
+      setRoles(response.data);
+    } catch {
+      // Ignore
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRoles();
+  }, [fetchRoles]);
+
+  const handleSelectRole = useCallback(async (roleId: string) => {
+    try {
+      const response = await apiFetch<{ data: RoleDetail }>(`/api/v1/roles/${roleId}`);
+      setSelectedRole(response.data);
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const handleDeleteRole = useCallback(
+    async (roleId: string) => {
+      if (!confirm('Are you sure you want to delete this role?')) return;
+      try {
+        await apiFetch(`/api/v1/roles/${roleId}`, { method: 'DELETE' });
+        setSelectedRole(null);
+        fetchRoles();
+      } catch (err) {
+        if (err instanceof ApiError) {
+          alert(err.message);
+        }
+      }
+    },
+    [fetchRoles],
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-6">
+      <div className="flex-1">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Roles</h2>
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setShowCreateDialog(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              <Plus className="h-4 w-4" />
+              Create Role
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Description
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Users
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                  Type
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {roles.map((role) => (
+                <tr
+                  key={role.id}
+                  onClick={() => handleSelectRole(role.id)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                    {role.name}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500">
+                    {role.description || '—'}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+                    {role.userCount}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {role.isSystem ? (
+                      <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                        System
+                      </span>
+                    ) : (
+                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+                        Custom
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Role detail side panel */}
+      {selectedRole && (
+        <div className="w-96 shrink-0 rounded-lg border border-gray-200 bg-white p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-gray-900">{selectedRole.name}</h3>
+              {selectedRole.isSystem && (
+                <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                  System
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {canManage && (selectedRole.isSystem ? selectedRole.name !== 'owner' : true) && (
+                <button
+                  type="button"
+                  onClick={() => setShowEditDialog(true)}
+                  className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                >
+                  Edit
+                </button>
+              )}
+              {canManage && !selectedRole.isSystem && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteRole(selectedRole.id)}
+                  className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                >
+                  Delete
+                </button>
+              )}
+              <button type="button" onClick={() => setSelectedRole(null)}>
+                <X className="h-4 w-4 text-gray-400" />
+              </button>
+            </div>
+          </div>
+          {selectedRole.description && (
+            <p className="mt-1 text-xs text-gray-500">{selectedRole.description}</p>
+          )}
+
+          <div className="mt-4">
+            <h4 className="text-xs font-medium text-gray-500 uppercase">Permissions</h4>
+            <div className="mt-2 flex flex-wrap gap-1">
+              {selectedRole.permissions.map((perm) => (
+                <span
+                  key={perm}
+                  className="inline-flex rounded bg-gray-100 px-2 py-0.5 text-xs font-mono text-gray-700"
+                >
+                  {perm}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <h4 className="text-xs font-medium text-gray-500 uppercase">
+              Assigned Users ({selectedRole.assignedUsers.length})
+            </h4>
+            <div className="mt-2 space-y-1">
+              {selectedRole.assignedUsers.map((user, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-medium text-indigo-700">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-gray-700">{user.name}</span>
+                  <span className="text-xs text-gray-400">{user.email}</span>
+                </div>
+              ))}
+              {selectedRole.assignedUsers.length === 0 && (
+                <p className="text-xs text-gray-400">No users assigned</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Role Dialog */}
+      {showCreateDialog && (
+        <RoleFormDialog
+          onClose={() => setShowCreateDialog(false)}
+          onSaved={() => {
+            setShowCreateDialog(false);
+            fetchRoles();
+          }}
+        />
+      )}
+
+      {/* Edit Role Dialog */}
+      {showEditDialog && selectedRole && (
+        <RoleFormDialog
+          role={selectedRole}
+          onClose={() => setShowEditDialog(false)}
+          onSaved={() => {
+            setShowEditDialog(false);
+            fetchRoles();
+            handleSelectRole(selectedRole.id);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Role Form Dialog ─────────────────────────────────────────────
+
+function RoleFormDialog({
+  role,
+  onClose,
+  onSaved,
+}: {
+  role?: RoleDetail;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEditing = !!role;
+  const [name, setName] = useState(role?.name ?? '');
+  const [description, setDescription] = useState(role?.description ?? '');
+  const [selectedPerms, setSelectedPerms] = useState<Set<string>>(
+    new Set(role?.permissions ?? []),
+  );
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const togglePerm = (perm: string) => {
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      if (next.has(perm)) {
+        next.delete(perm);
+      } else {
+        next.add(perm);
+      }
+      return next;
+    });
+  };
+
+  const toggleGroup = (perms: string[]) => {
+    const allSelected = perms.every((p) => selectedPerms.has(p));
+    setSelectedPerms((prev) => {
+      const next = new Set(prev);
+      for (const p of perms) {
+        if (allSelected) {
+          next.delete(p);
+        } else {
+          next.add(p);
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleSubmit = async () => {
+    if (selectedPerms.size === 0) {
+      setError('At least one permission is required');
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      if (isEditing) {
+        await apiFetch(`/api/v1/roles/${role.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            name: role.isSystem ? undefined : name,
+            description,
+            permissions: [...selectedPerms],
+          }),
+        });
+      } else {
+        await apiFetch('/api/v1/roles', {
+          method: 'POST',
+          body: JSON.stringify({
+            name,
+            description: description || undefined,
+            permissions: [...selectedPerms],
+          }),
+        });
+      }
+      onSaved();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError('An error occurred');
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="mx-4 w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {isEditing ? `Edit ${role.name}` : 'Create Role'}
+          </h2>
+          <button type="button" onClick={onClose}>
+            <X className="h-5 w-5 text-gray-400" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-4 space-y-4">
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isEditing && role.isSystem}
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100"
+              placeholder="e.g. Shift Lead"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <input
+              type="text"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              placeholder="What can this role do?"
+            />
+          </div>
+
+          {/* Permission checkboxes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Permissions</label>
+            <div className="mt-2 max-h-64 space-y-3 overflow-y-auto rounded-lg border border-gray-200 p-3">
+              {Object.entries(PERMISSION_GROUPS).map(([group, perms]) => (
+                <div key={group}>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={perms.every((p) => selectedPerms.has(p))}
+                      onChange={() => toggleGroup(perms)}
+                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">{group}</span>
+                  </div>
+                  <div className="ml-6 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                    {perms.map((perm) => (
+                      <label key={perm} className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedPerms.has(perm)}
+                          onChange={() => togglePerm(perm)}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-xs font-mono text-gray-600">{perm}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSaving || (!name.trim() && !isEditing)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {isSaving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="h-4 w-4" />
+            )}
+            {isEditing ? 'Save Changes' : 'Create Role'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Modules Tab ──────────────────────────────────────────────────
+
+interface ModuleInfo {
+  key: string;
+  name: string;
+  phase: string;
+  description: string;
+}
+
+interface EntitlementInfo {
+  moduleKey: string;
+  displayName: string;
+  isEnabled: boolean;
+  planTier: string;
+  limits: Record<string, number>;
+  activatedAt: string;
+  expiresAt: string | null;
+}
+
+function ModulesTab() {
+  const [modules, setModules] = useState<ModuleInfo[]>([]);
+  const [entitlementMap, setEntitlementMap] = useState<Map<string, EntitlementInfo>>(new Map());
+  const [isLoading, setIsLoading] = useState(true);
+  const { isModuleEnabled } = useEntitlements();
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [modulesResp, entResp] = await Promise.all([
+          apiFetch<{ data: { modules: ModuleInfo[] } }>('/api/v1/entitlements/modules'),
+          apiFetch<{ data: { entitlements: EntitlementInfo[] } }>('/api/v1/entitlements'),
+        ]);
+        setModules(modulesResp.data.modules);
+        const map = new Map<string, EntitlementInfo>();
+        for (const e of entResp.data.entitlements) {
+          map.set(e.moduleKey, e);
+        }
+        setEntitlementMap(map);
+      } catch {
+        // Ignore
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-gray-900">Modules</h2>
+      <p className="mt-1 text-sm text-gray-500">
+        Modules enabled for your account. Contact support or upgrade your plan to enable additional modules.
+      </p>
+
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {modules.map((mod) => {
+          const ent = entitlementMap.get(mod.key);
+          const enabled = isModuleEnabled(mod.key);
+          const isComingSoon = mod.phase !== 'v1';
+
+          return (
+            <div
+              key={mod.key}
+              className={`rounded-lg border p-4 ${
+                enabled
+                  ? 'border-gray-200 bg-white'
+                  : 'border-gray-100 bg-gray-50'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <h3 className={`text-sm font-semibold ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                  {mod.name}
+                </h3>
+                <div className="flex gap-1.5">
+                  {isComingSoon ? (
+                    <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                      Coming Soon
+                    </span>
+                  ) : enabled ? (
+                    <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                      Not Enabled
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className={`mt-1.5 text-xs ${enabled ? 'text-gray-500' : 'text-gray-400'}`}>
+                {mod.description}
+              </p>
+              {ent && enabled && Object.keys(ent.limits).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {Object.entries(ent.limits).map(([key, value]) => (
+                    <span
+                      key={key}
+                      className="inline-flex rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700"
+                    >
+                      {value} {key.replace('max_', '').replace('_', ' ')}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {ent && (
+                <p className="mt-2 text-xs text-gray-400">
+                  Plan: {ent.planTier}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Audit Log Tab ─────────────────────────────────────────────────
+
+function AuditLogTab() {
+  return (
+    <div>
+      <h2 className="text-lg font-semibold text-gray-900">Audit Log</h2>
+      <p className="mt-1 text-sm text-gray-500">
+        View all activity and changes across your organization.
+      </p>
+      <div className="mt-6">
+        <AuditLogViewer showActor pageSize={50} />
+      </div>
+    </div>
+  );
+}

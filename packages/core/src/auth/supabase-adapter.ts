@@ -1,0 +1,196 @@
+import { createPublicKey, type KeyObject } from 'node:crypto';
+import jwt from 'jsonwebtoken';
+import { eq, and, asc } from 'drizzle-orm';
+import { db } from '@oppsera/db';
+import { users, memberships, tenants } from '@oppsera/db';
+import { generateUlid, AppError } from '@oppsera/shared';
+import { createSupabaseAdmin } from './supabase-client';
+import type { AuthAdapter, AuthUser } from './index';
+
+let _publicKey: KeyObject | null = null;
+
+function getVerificationKey(): { key: string | KeyObject; algorithms: jwt.Algorithm[] } {
+  // Prefer ES256 with JWK public key (new Supabase projects)
+  const jwkStr = process.env.SUPABASE_JWT_JWK;
+  if (jwkStr) {
+    if (!_publicKey) {
+      const jwk = JSON.parse(jwkStr);
+      _publicKey = createPublicKey({ key: jwk, format: 'jwk' });
+    }
+    return { key: _publicKey, algorithms: ['ES256'] };
+  }
+
+  // Fall back to HS256 with symmetric secret (legacy Supabase projects)
+  const secret = process.env.SUPABASE_JWT_SECRET;
+  if (secret) {
+    return { key: secret, algorithms: ['HS256'] };
+  }
+
+  throw new Error('SUPABASE_JWT_JWK or SUPABASE_JWT_SECRET must be set');
+}
+
+export class SupabaseAuthAdapter implements AuthAdapter {
+  private supabase = createSupabaseAdmin();
+
+  async validateToken(token: string): Promise<AuthUser | null> {
+    try {
+      const { key, algorithms } = getVerificationKey();
+
+      const decoded = jwt.verify(token, key, { algorithms }) as { sub: string };
+
+      const authProviderId = decoded.sub;
+      if (!authProviderId) return null;
+
+      // Look up user by auth_provider_id
+      const user = await db.query.users.findFirst({
+        where: eq(users.authProviderId, authProviderId),
+      });
+      if (!user) return null;
+
+      // Look up active membership
+      // TODO: V2 — support multiple tenants with tenant switching
+      const membership = await db.query.memberships.findFirst({
+        where: and(
+          eq(memberships.userId, user.id),
+          eq(memberships.status, 'active'),
+        ),
+        orderBy: [asc(memberships.createdAt)],
+      });
+
+      if (!membership) {
+        // User exists but has no tenant — needs onboarding
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          tenantId: '',
+          tenantStatus: 'none',
+          membershipStatus: 'none',
+        };
+      }
+
+      // Look up tenant
+      const tenant = await db.query.tenants.findFirst({
+        where: eq(tenants.id, membership.tenantId),
+      });
+      if (!tenant) return null;
+
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        tenantId: membership.tenantId,
+        tenantStatus: tenant.status,
+        membershipStatus: membership.status,
+      };
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError) {
+        console.debug('JWT validation failed:', error.message);
+      } else if (error instanceof jwt.TokenExpiredError) {
+        console.debug('JWT expired');
+      } else {
+        console.debug('Token validation error:', error);
+      }
+      return null;
+    }
+  }
+
+  async signUp(
+    email: string,
+    password: string,
+    name: string,
+  ): Promise<{ userId: string }> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const trimmedName = name.trim();
+
+    const { data, error } = await this.supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+    });
+
+    if (error) {
+      throw new AppError('AUTH_SIGNUP_FAILED', error.message);
+    }
+
+    if (!data.user) {
+      throw new AppError('AUTH_SIGNUP_FAILED', 'No user returned from auth provider');
+    }
+
+    const userId = generateUlid();
+    await db.insert(users).values({
+      id: userId,
+      email: normalizedEmail,
+      name: trimmedName,
+      authProviderId: data.user.id,
+      isPlatformAdmin: false,
+    });
+
+    return { userId };
+  }
+
+  async signIn(
+    email: string,
+    password: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const { data, error } = await this.supabase.auth.signInWithPassword({
+      email: email.toLowerCase().trim(),
+      password,
+    });
+
+    if (error) {
+      throw new AppError('AUTH_SIGNIN_FAILED', error.message, 401);
+    }
+
+    if (!data.session) {
+      throw new AppError('AUTH_SIGNIN_FAILED', 'No session returned', 401);
+    }
+
+    return {
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+    };
+  }
+
+  async signOut(token: string): Promise<void> {
+    try {
+      // Decode without verification to extract sub for admin signout
+      const decoded = jwt.decode(token) as { sub?: string } | null;
+      if (decoded?.sub) {
+        await this.supabase.auth.admin.signOut(decoded.sub);
+      }
+    } catch {
+      // Best-effort — swallow errors
+    }
+  }
+
+  async refreshToken(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
+    const { data, error } = await this.supabase.auth.refreshSession({
+      refresh_token: refreshToken,
+    });
+
+    if (error) {
+      throw new AppError('AUTH_REFRESH_FAILED', error.message, 401);
+    }
+
+    if (!data.session) {
+      throw new AppError('AUTH_REFRESH_FAILED', 'No session returned', 401);
+    }
+
+    return {
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+    };
+  }
+
+  async sendMagicLink(email: string): Promise<void> {
+    const { error } = await this.supabase.auth.signInWithOtp({
+      email: email.toLowerCase().trim(),
+    });
+
+    if (error) {
+      throw new AppError('AUTH_MAGIC_LINK_FAILED', error.message);
+    }
+  }
+}
