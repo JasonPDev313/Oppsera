@@ -1,0 +1,47 @@
+import { registerContracts } from '@oppsera/core/events/contracts';
+import {
+  CustomerCreatedDataSchema,
+  CustomerUpdatedDataSchema,
+  CustomerMergedDataSchema,
+  CustomerPrivilegeAssignedDataSchema,
+  MembershipPlanCreatedDataSchema,
+  MembershipPlanUpdatedDataSchema,
+  MembershipCreatedDataSchema,
+  MembershipUpdatedDataSchema,
+  BillingAccountCreatedDataSchema,
+  BillingAccountUpdatedDataSchema,
+  ArTransactionCreatedDataSchema,
+  ArPaymentCreatedDataSchema,
+  ArAdjustmentCreatedDataSchema,
+  ArLateFeeAppliedDataSchema,
+  StatementGeneratedDataSchema,
+  OrderPlacedDataSchema,
+  OrderVoidedDataSchema,
+  TenderRecordedDataSchema,
+} from './types';
+
+registerContracts({
+  moduleName: 'customers',
+  emits: [
+    { eventType: 'customer.created.v1', dataSchema: CustomerCreatedDataSchema },
+    { eventType: 'customer.updated.v1', dataSchema: CustomerUpdatedDataSchema },
+    { eventType: 'customer.merged.v1', dataSchema: CustomerMergedDataSchema },
+    { eventType: 'customer.privilege.assigned.v1', dataSchema: CustomerPrivilegeAssignedDataSchema },
+    { eventType: 'membership_plan.created.v1', dataSchema: MembershipPlanCreatedDataSchema },
+    { eventType: 'membership_plan.updated.v1', dataSchema: MembershipPlanUpdatedDataSchema },
+    { eventType: 'membership.created.v1', dataSchema: MembershipCreatedDataSchema },
+    { eventType: 'membership.updated.v1', dataSchema: MembershipUpdatedDataSchema },
+    { eventType: 'billing_account.created.v1', dataSchema: BillingAccountCreatedDataSchema },
+    { eventType: 'billing_account.updated.v1', dataSchema: BillingAccountUpdatedDataSchema },
+    { eventType: 'ar.charge.created.v1', dataSchema: ArTransactionCreatedDataSchema },
+    { eventType: 'ar.payment.created.v1', dataSchema: ArPaymentCreatedDataSchema },
+    { eventType: 'ar.adjustment.created.v1', dataSchema: ArAdjustmentCreatedDataSchema },
+    { eventType: 'ar.late_fee.applied.v1', dataSchema: ArLateFeeAppliedDataSchema },
+    { eventType: 'statement.generated.v1', dataSchema: StatementGeneratedDataSchema },
+  ],
+  consumes: [
+    { eventType: 'order.placed.v1', dataSchema: OrderPlacedDataSchema },
+    { eventType: 'order.voided.v1', dataSchema: OrderVoidedDataSchema },
+    { eventType: 'tender.recorded.v1', dataSchema: TenderRecordedDataSchema },
+  ],
+});

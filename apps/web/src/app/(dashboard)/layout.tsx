@@ -22,6 +22,8 @@ import {
   Monitor,
   UtensilsCrossed,
   ClipboardList,
+  CreditCard,
+  Crown,
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useEntitlements } from '@/hooks/use-entitlements';
@@ -65,7 +67,17 @@ const navigation: NavItem[] = [
   },
   { name: 'Orders', href: '/orders', icon: ClipboardList, moduleKey: 'pos_retail' },
   { name: 'Inventory', href: '/inventory', icon: Warehouse, moduleKey: 'inventory' },
-  { name: 'Customers', href: '/customers', icon: Users, moduleKey: 'customers' },
+  {
+    name: 'Customers',
+    href: '/customers',
+    icon: Users,
+    moduleKey: 'customers',
+    children: [
+      { name: 'All Customers', href: '/customers', icon: Users },
+      { name: 'Memberships', href: '/customers/memberships', icon: Crown },
+      { name: 'Billing', href: '/customers/billing', icon: CreditCard },
+    ],
+  },
   { name: 'Reports', href: '/reports', icon: BarChart3, moduleKey: 'reporting' },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

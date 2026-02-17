@@ -28,7 +28,7 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Retail POS (orders, line items, discounts, tax calc) | orders | V1 | Done (backend + frontend) |
 | Payments / Tenders | payments | V1 | Done (cash V1) |
 | Inventory | inventory | V1 | Done (movements ledger + events) |
-| Customer Management | customers | V1 | Planned |
+| Customer Management | customers | V1 | In Progress |
 | Reporting / Exports | reporting | V1 | Planned |
 | F&B POS (dual-mode, shares orders module) | pos_fnb | V1 | Done (frontend) |
 | Restaurant KDS | kds | V2 | Planned |
@@ -61,7 +61,7 @@ oppsera/
 │       ├── orders/                   # @oppsera/module-orders — IMPLEMENTED
 │       ├── payments/                 # @oppsera/module-payments — IMPLEMENTED (cash V1)
 │       ├── inventory/                # @oppsera/module-inventory — IMPLEMENTED (movements ledger + events)
-│       ├── customers/                # @oppsera/module-customers — scaffolded
+│       ├── customers/                # @oppsera/module-customers — IN PROGRESS (Session 16)
 │       ├── reporting/                # @oppsera/module-reporting — scaffolded
 │       ├── kds/                      # @oppsera/module-kds — scaffolded
 │       ├── golf-ops/                 # @oppsera/module-golf-ops — scaffolded
@@ -81,8 +81,9 @@ oppsera/
 @oppsera/module-catalog ← shared, db, core (Drizzle, Zod)
 @oppsera/module-orders   ← shared, db, core, module-catalog (Drizzle, Zod)
 @oppsera/module-payments ← shared, db, core, module-orders (Drizzle, Zod)
-@oppsera/module-inventory ← shared, db, core (Drizzle, Zod)
-@oppsera/web             ← shared, core, db, module-catalog, module-orders, module-payments, module-inventory (Next.js, React)
+@oppsera/module-inventory  ← shared, db, core (Drizzle, Zod)
+@oppsera/module-customers  ← shared, db, core (Drizzle, Zod)
+@oppsera/web               ← shared, core, db, module-catalog, module-orders, module-payments, module-inventory, module-customers (Next.js, React)
 ```
 
 ## Key Architectural Patterns
@@ -98,23 +99,19 @@ Special mode: `{ authenticated: true, requireTenant: false }` for pre-tenant end
 ### Command Pattern (Write Operations)
 ```typescript
 async function createThing(ctx: RequestContext, input: ValidatedInput) {
-  // Optional: idempotency check for POS-facing commands
-  if (input.clientRequestId) {
-    const cached = await checkIdempotency(ctx.tenantId, input.clientRequestId);
-    if (cached) return cached;
-  }
-
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check INSIDE the transaction (prevents race conditions)
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createThing');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // validate references, insert row
     const [created] = await tx.insert(table).values({...}).returning();
     const event = buildEventFromContext(ctx, 'module.entity.created.v1', {...});
+
+    // Save idempotency key INSIDE the same transaction
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createThing', created);
     return { result: created!, events: [event] };
   });
-
-  // Save idempotency key after success
-  if (input.clientRequestId) {
-    await saveIdempotencyKey(ctx.tenantId, input.clientRequestId, result);
-  }
 
   await auditLog(ctx, 'module.entity.created', 'entity_type', result.id);
   return result;
@@ -199,9 +196,9 @@ Transactional outbox pattern. Consumers are idempotent. 3x retry with exponentia
 ### Cross-Module Event Flow
 ```
 catalog.item.created.v1  → inventory (auto-create inventory item)
-order.placed.v1          → inventory (deduct stock, type-aware)
-order.voided.v1          → inventory (reverse stock) + tenders (reverse payments)
-tender.recorded.v1       → orders (mark paid when fully paid)
+order.placed.v1          → inventory (deduct stock, type-aware) + billing (AR charge if house account)
+order.voided.v1          → inventory (reverse stock) + tenders (reverse payments) + billing (AR void reversal)
+tender.recorded.v1       → orders (mark paid when fully paid) + billing (AR payment if house account)
 ```
 
 ### Internal Read APIs (Sync Cross-Module)
@@ -253,12 +250,20 @@ Milestones 0-8 (Sessions 1-15) complete. See CONVENTIONS.md for detailed code pa
   - Idempotency: UNIQUE index on (tenantId, referenceType, referenceId, inventoryItemId, movementType) + ON CONFLICT DO NOTHING
   - Frontend: inventory list page (search, filters, color-coded on-hand), detail page with movement history, receive/adjust/shrink dialogs
 - **Shared**: item-type utilities (incl. green_fee/rental → retail mapping), money helpers, ULID, date utils, slug generation, catalog metadata types
+- **Customer Management Module** (IN PROGRESS — Session 16):
+  - 15 tables: customers, customer_relationships, customer_identifiers, customer_activity_log, membership_plans, memberships, membership_billing_events, billing_accounts, billing_account_members, ar_transactions, ar_allocations, statements, late_fee_policies, customer_privileges, pricing_tiers
+  - Customer identity: person/organization types, merge capability, identifier cards/barcodes/wristbands, activity log (CRM timeline)
+  - Membership system: plans with privileges (jsonb), status lifecycle (pending→active→paused→canceled→expired), billing account linkage
+  - Billing/AR: credit limits, spending limits, sub-account authorization, FIFO payment allocation, aging buckets, collection status lifecycle
+  - Event consumers: order.placed (AR charge), order.voided (AR reversal), tender.recorded (AR payment)
+  - GL integration: glDimensions, recognitionStatus, deferredRevenueAccountCode on payment_journal_entries
 
 ### Test Coverage
 459 tests: 134 core + 68 catalog + 52 orders + 22 shared + 183 web (75 POS + 66 tenders + 42 inventory)
 
 ### What's Next
-- Customer Management module (Session 16)
+- Customer Management module completion (Session 16) — queries, API routes, frontend, tests
+- Reporting module (Session 17)
 
 ## Critical Gotchas (Quick Reference)
 
@@ -268,7 +273,7 @@ Milestones 0-8 (Sessions 1-15) complete. See CONVENTIONS.md for detailed code pa
 4. **postgres.js returns RowList** — use `Array.from(result as Iterable<T>)`, never `.rows`
 5. **Append-only tables** — `inventory_movements`, `audit_log`, `payment_journal_entries` are never updated/deleted
 6. **Receipt snapshots are immutable** — frozen at `placeOrder`, never regenerated
-7. **POS commands need idempotency** — all POS-facing writes must support `clientRequestId`
+7. **POS commands need idempotency INSIDE the transaction** — `checkIdempotency(tx, ...)` and `saveIdempotencyKey(tx, ...)` both use the transaction handle, not bare `db`. This prevents TOCTOU race conditions between check and save.
 8. **POS uses fullscreen overlay** — `fixed inset-0 z-50` covers dashboard sidebar entirely; exit via router.push('/')
 9. **Item typeGroup drives POS behavior** — always use `getItemTypeGroup()` from `@oppsera/shared`, never raw `item.type`
 10. **POS V1 state is localStorage** — config, shift, favorites are localStorage until backend APIs exist; design hooks to swap storage later
@@ -284,6 +289,12 @@ Milestones 0-8 (Sessions 1-15) complete. See CONVENTIONS.md for detailed code pa
 20. **Package items deduct COMPONENTS, not the package** — detect via `packageComponents?.length > 0` on order lines. Multiply component qty by line qty for the delta.
 21. **Transfer always enforces non-negative at source** — regardless of `allowNegative` setting on the inventory item. Only manual adjustments respect `allowNegative`.
 22. **Inventory idempotency uses ON CONFLICT DO NOTHING** — the UNIQUE index on (tenantId, referenceType, referenceId, inventoryItemId, movementType) WHERE referenceType IS NOT NULL prevents duplicate deductions from event replays.
+23. **Always use parameterized SQL** — never string-interpolate user input into SQL. Use Drizzle `sql` template literals: `` sql`column = ${value}` `` not `` `column = '${value}'` ``. Template literals auto-parameterize.
+24. **Token refresh is deduplicated** — `apiFetch` stores a single `refreshPromise` so concurrent 401s share one refresh call. Always clear tokens on final 401 failure.
+25. **dotenv loading order matters** — for scripts reading `.env.local`, load it first: `dotenv.config({ path: '.env.local' })` then `dotenv.config()` as fallback. The first load wins for duplicate keys.
+26. **AR transactions are append-only** — like inventory movements and GL entries. Never UPDATE/DELETE from `ar_transactions`. Corrections are new rows (credit_memo, writeoff).
+27. **Billing credit limits use helper functions** — `checkCreditLimit(tx, accountId, amount)` validates available credit = creditLimit - outstandingBalance. Call inside the transaction.
+28. **Customer merge is soft** — merged customer gets `displayName = '[MERGED] ...'` and `metadata.mergedInto = primaryId`. Queries exclude merged records by filtering `NOT displayName LIKE '[MERGED]%'` or checking metadata.
 
 ## Quick Commands
 

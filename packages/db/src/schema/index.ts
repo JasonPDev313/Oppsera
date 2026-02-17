@@ -4,3 +4,4 @@ export * from './catalog-taxes';
 export * from './orders';
 export * from './payments';
 export * from './inventory';
+export * from './customers';

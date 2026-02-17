@@ -85,6 +85,20 @@
       "when": 1708100011000,
       "tag": "0011_catalog_add_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1708100012000,
+      "tag": "0012_customers_billing",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1708100013000,
+      "tag": "0013_gl_dimensions",
+      "breakpoints": true
     }
   ]
 }

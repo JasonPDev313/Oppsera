@@ -303,19 +303,25 @@ Business write operations live in `packages/modules/{name}/src/commands/` (one f
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
 export async function createItem(ctx: RequestContext, input: CreateItemInput) {
   const item = await publishWithOutbox(ctx, async (tx) => {
-    // 1. Validate references (FK existence checks)
-    // 2. Check uniqueness constraints
-    // 3. Insert row
+    // 1. Idempotency check (inside transaction to prevent TOCTOU race)
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createItem');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    // 2. Validate references (FK existence checks)
+    // 3. Check uniqueness constraints
+    // 4. Insert row
     const [created] = await tx.insert(table).values({ tenantId: ctx.tenantId, ...input }).returning();
-    // 4. Build event
+    // 5. Build event
     const event = buildEventFromContext(ctx, 'catalog.item.created.v1', { itemId: created!.id, ... });
+    // 6. Save idempotency key (inside same transaction)
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createItem', created);
     return { result: created!, events: [event] };
   });
-  // 5. Audit log (outside transaction, after success)
+  // 7. Audit log (outside transaction, after success)
   await auditLog(ctx, 'catalog.item.created', 'catalog_item', item.id);
   return item;
 }
@@ -326,6 +332,7 @@ Key points:
 - Zod validation happens in the **route handler**, not the command
 - `publishWithOutbox(ctx, fn)` wraps the DB write + event outbox in a single transaction
 - The callback returns `{ result, events }` — outbox writer handles event persistence
+- **Idempotency check AND save both happen inside the transaction** — prevents race conditions
 - Audit logging happens **after** the transaction succeeds
 - Use `tx` (transaction handle) inside `publishWithOutbox`, not bare `db`
 
@@ -492,6 +499,28 @@ vi.mock('@oppsera/db', () => ({
    process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
    ```
 
+7. **Parameterized SQL produces objects, not strings.** When testing code that uses `sql` template literals, the mock call args are structured objects. Don't cast to `string` — use `JSON.stringify()`:
+   ```typescript
+   // WRONG — sql template literals are NOT strings
+   const sqlArg = mockExecute.mock.calls[0]?.[0] as string;
+   expect(sqlArg).toContain('entity_type');  // fails!
+
+   // CORRECT — stringify to inspect contents
+   const sqlArg = JSON.stringify(mockExecute.mock.calls[0]);
+   expect(sqlArg).toContain('entity_type');  // works
+   ```
+
+8. **Idempotency mocks use in-transaction pattern.** Since `checkIdempotency` now runs inside `publishWithOutbox`, mock it via `mockSelectReturns` (the tx.select chain), not `db.query.idempotencyKeys.findFirst`:
+   ```typescript
+   // Mock a duplicate request inside transaction
+   mockSelectReturns([{
+     tenantId: TENANT_A,
+     clientRequestId: 'req_dup',
+     resultPayload: { id: 'cached_order' },
+     expiresAt: new Date(Date.now() + 86400000),
+   }]);
+   ```
+
 ### Module Test Mock Pattern (Commands + Queries)
 
 For testing module commands/queries, mock the DB with chainable methods:
@@ -605,7 +634,7 @@ Permission cache (60s TTL). Invalidate after role changes: `engine.invalidateCac
 
 ### Module Keys
 
-`platform_core`, `catalog`, `pos_retail`, `payments`, `inventory`, etc.
+`platform_core`, `catalog`, `pos_retail`, `payments`, `inventory`, `customers`, etc.
 
 ### Checking Entitlements
 
@@ -637,7 +666,7 @@ import { apiFetch, ApiError } from '@/lib/api-client';
 const data = await apiFetch('/api/v1/resource');
 ```
 
-`apiFetch` auto-attaches Bearer token, handles 401 → redirect to /login, and throws `ApiError` on non-2xx responses.
+`apiFetch` auto-attaches Bearer token, attempts token refresh on 401 (deduplicated across concurrent requests), and throws `ApiError` on non-2xx responses. On final 401 failure, clears tokens and lets auth context redirect to `/login`.
 
 ### Styling
 
@@ -954,32 +983,40 @@ Use these helpers whenever converting between layers. Don't hand-roll `* 100` or
 
 POS terminals retry on network failure. All write commands that POS calls must support idempotency via `clientRequestId`.
 
-### Implementation Pattern
+### Implementation Pattern (Inside Transaction)
 
 ```typescript
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 
 export async function myCommand(ctx: RequestContext, input: MyInput) {
-  // 1. Check idempotency BEFORE any work
-  if (input.clientRequestId) {
-    const cached = await checkIdempotency(ctx.tenantId, input.clientRequestId);
-    if (cached) return cached;
-  }
-
-  // 2. Do the actual work
   const result = await publishWithOutbox(ctx, async (tx) => {
-    // ... insert rows, build events ...
-    return { result, events };
-  });
+    // 1. Check idempotency INSIDE the transaction (prevents TOCTOU race)
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'myCommand');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
 
-  // 3. Save idempotency key AFTER success
-  if (input.clientRequestId) {
-    await saveIdempotencyKey(ctx.tenantId, input.clientRequestId, result);
-  }
+    // 2. Do the actual work
+    // ... insert rows, build events ...
+
+    // 3. Save idempotency key INSIDE the same transaction
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'myCommand', created);
+
+    return { result: created!, events };
+  });
 
   await auditLog(ctx, ...);
   return result;
 }
+```
+
+### `checkIdempotency` / `saveIdempotencyKey` Signature
+
+```typescript
+// Both take txOrDb as first arg — works with either tx (inside publishWithOutbox) or bare db
+checkIdempotency(txOrDb: Database, tenantId: string, clientRequestId: string | undefined, commandName: string)
+  → { isDuplicate: boolean; originalResult?: unknown }
+
+saveIdempotencyKey(tx: Database, tenantId: string, clientRequestId: string | undefined, commandName: string, resultPayload: unknown)
+  → void  (uses ON CONFLICT DO NOTHING for safety)
 ```
 
 ### Key Rules
@@ -987,7 +1024,8 @@ export async function myCommand(ctx: RequestContext, input: MyInput) {
 - `idempotency_keys` table has a 24-hour TTL — old keys are ignored
 - The cached result is returned as-is (same shape as the original response)
 - `clientRequestId` is always optional — non-POS callers can skip it
-- Idempotency check happens **outside** the `publishWithOutbox` transaction
+- **Both check and save happen INSIDE the `publishWithOutbox` transaction** — this prevents a race condition where two concurrent requests both pass the check before either saves
+- Idempotency functions accept `txOrDb: Database` as first parameter (transaction handle or bare db)
 
 ---
 
@@ -1592,7 +1630,137 @@ Credit accounts: Revenue (4000), Sales Tax Payable (2100), Tips Payable (2150), 
 
 ---
 
-## 36. Key Anti-Patterns to Avoid
+## 36. SQL Injection Prevention (Parameterized Queries)
+
+### Rule: Always Use `sql` Template Literals
+
+When building dynamic SQL with Drizzle, always use the `sql` tagged template literal. Values interpolated via `${}` become parameterized query bindings — never raw string concatenation.
+
+```typescript
+import { sql } from 'drizzle-orm';
+
+// CORRECT — parameterized (safe)
+const conditions = [sql`tenant_id = ${tenantId}`];
+if (filters.entityType) {
+  conditions.push(sql`entity_type = ${filters.entityType}`);
+}
+const whereClause = sql.join(conditions, sql` AND `);
+const rows = await db.execute(sql`SELECT * FROM audit_log WHERE ${whereClause}`);
+
+// WRONG — string interpolation (SQL injection risk!)
+const rows = await db.execute(sql.raw(`SELECT * FROM audit_log WHERE tenant_id = '${tenantId}'`));
+```
+
+### When You Need Dynamic Table/Column Names
+
+Use `sql.raw()` ONLY for trusted, hardcoded identifiers (never user input):
+
+```typescript
+// OK — hardcoded table name from code
+const tableName = sql.raw(`audit_log_${partitionSuffix}`);
+
+// NEVER — user-controlled value in sql.raw()
+const tableName = sql.raw(userInput); // DANGER!
+```
+
+### Testing Parameterized SQL
+
+When testing code that uses `sql` template literals, mock call args produce structured objects (not raw strings). Use `JSON.stringify()` to inspect:
+
+```typescript
+const sqlArg = JSON.stringify(mockExecute.mock.calls[0]);
+expect(sqlArg).toContain('entity_type');
+```
+
+---
+
+## 37. Token Refresh & API Client Pattern
+
+### Deduplicated Token Refresh
+
+`apiFetch` in `apps/web/src/lib/api-client.ts` handles expired JWTs automatically:
+
+```typescript
+// On 401 response (not on /auth/ routes):
+// 1. Store a single refreshPromise (deduplicated across concurrent requests)
+// 2. POST to /api/v1/auth/refresh with stored refresh token
+// 3. On success: update tokens in localStorage, retry original request
+// 4. On final 401: clear all tokens, throw ApiError (auth context handles redirect)
+```
+
+### Key Rules
+
+- Refresh promise is deduplicated — multiple concurrent 401s share one refresh call
+- Auth routes (`/auth/login`, `/auth/refresh`) are excluded from refresh logic to prevent loops
+- `clearTokens()` on final failure — the `useAuthContext` effect detects missing token and redirects to `/login`
+- 204 responses return `undefined` (not parsed as JSON)
+
+---
+
+## 38. Environment & Credential Hygiene
+
+### dotenv Loading Order
+
+For scripts that need `.env.local` credentials (migrations, DB tools), load `.env.local` first:
+
+```typescript
+import dotenv from 'dotenv';
+dotenv.config({ path: '../../.env.local' });  // local overrides first
+dotenv.config({ path: '../../.env' });         // fallback
+```
+
+The first `dotenv.config()` call wins for any duplicate keys. If you only use `dotenv.config()` (or `import 'dotenv/config'`), it reads `.env` only — your `.env.local` credentials won't be loaded.
+
+### Files That Must Never Be Committed
+
+```
+.env.local                        # Contains DATABASE_URL, Supabase keys, secrets
+.claude/settings.local.json       # May contain connection strings with passwords
+```
+
+Both are in `.gitignore`. Always verify with `git status` before committing.
+
+---
+
+## 39. Customers / Billing / AR Architecture
+
+### Customer Identity
+
+- **Two types**: `person` (first/last name) and `organization` (company name)
+- **Display name**: computed by `buildDisplayName()` helper — person: "First Last", org: "Company Name"
+- **Identifiers**: loyalty cards, barcodes, wristbands — polymorphic via `identifierType` field
+- **Merge**: soft merge via `mergedIntoId`. Queries always filter `WHERE merged_into_id IS NULL`
+- **Activity log**: CRM timeline of all interactions (orders, notes, membership changes)
+
+### Membership System
+
+- **Plans**: define privileges (jsonb), pricing, billing frequency, auto-renew behavior
+- **Status lifecycle**: `pending → active → paused → canceled → expired`
+- **Billing events**: track enrollment, renewal, cancellation, payment linked to membership
+- **Privileges**: flat key-value grants (e.g., `discount_percentage: 10`, `free_range_balls: true`)
+
+### Billing Accounts (Accounts Receivable)
+
+- **AR transactions are append-only** — like inventory movements and GL entries
+- **Transaction types**: `charge`, `payment`, `credit_memo`, `late_fee`, `writeoff`, `refund`
+- **FIFO payment allocation**: payments allocated oldest-first via `ar_allocations` table
+- **Aging buckets**: current / 30 / 60 / 90 / 120+ days past due
+- **Credit limits**: checked via `checkCreditLimit(tx, accountId, amount)` inside transactions
+- **Collection status lifecycle**: `current → past_due → collections → suspended → written_off`
+- **Sub-accounts**: `billing_account_members` with per-member spending limits and authorization flags
+
+### GL Integration for AR
+
+```
+AR charge:   debit Accounts Receivable (1200), credit Revenue (4000)
+AR payment:  debit Cash/Card (1010/1020), credit Accounts Receivable (1200)
+AR writeoff: debit Bad Debt Expense (6100), credit Accounts Receivable (1200)
+AR late fee: debit Accounts Receivable (1200), credit Late Fee Revenue (4600)
+```
+
+---
+
+## 40. Key Anti-Patterns to Avoid
 
 1. **Never use `pg` driver** — always `postgres` (postgres.js)
 2. **Never use `.rows`** on query results — use `Array.from(result as Iterable<T>)`
@@ -1609,7 +1777,7 @@ Credit accounts: Revenue (4000), Sales Tax Payable (2100), Tips Payable (2150), 
 13. **Never use `z.infer<>` for function inputs when schema has `.default()`** — use `z.input<>` instead (see §19)
 14. **Never assume `export type { X }` creates a local binding** — it only re-exports; add a separate `import type` for local use (see §20)
 15. **Never store money as floats** — use INTEGER cents in orders/payments, NUMERIC(12,2) dollars in catalog (see §21)
-16. **Never UPDATE or DELETE from append-only tables** — `inventory_movements`, `audit_log`, and `payment_journal_entries` are append-only; corrections are new rows
+16. **Never UPDATE or DELETE from append-only tables** — `inventory_movements`, `audit_log`, `payment_journal_entries`, and `ar_transactions` are append-only; corrections are new rows
 17. **Never regenerate a receipt from live data** — always use the frozen `receiptSnapshot` from the order (see §24)
 18. **Never skip idempotency checks on POS-facing commands** — all write endpoints that POS calls must support `clientRequestId` (see §22)
 19. **Never route item behavior by raw `item.type`** — always use `getItemTypeGroup()` from `@oppsera/shared` to get the canonical `typeGroup`, then switch on that (see §31)
@@ -1623,10 +1791,16 @@ Credit accounts: Revenue (4000), Sales Tax Payable (2100), Tips Payable (2150), 
 27. **Never store on-hand as a mutable column** — inventory on-hand = SUM(quantity_delta) from `inventory_movements`. Always compute via `getOnHand()` helper.
 28. **Never deduct package inventory from the package itself** — detect packages via `packageComponents?.length > 0` on order lines, then deduct from each component's inventory item
 29. **Never allow negative stock at transfer source** — transfer always validates sourceOnHand >= quantity, regardless of `allowNegative` setting on the inventory item
+30. **Never string-interpolate into SQL** — always use Drizzle `sql` template literals for parameterized queries. Never use `sql.raw()` with user-controlled values (see §36)
+31. **Never check idempotency outside the transaction** — both `checkIdempotency()` and `saveIdempotencyKey()` must use the `tx` handle inside `publishWithOutbox` to prevent TOCTOU race conditions (see §22)
+32. **Never use `import 'dotenv/config'` in scripts that need `.env.local`** — it only reads `.env`. Use explicit `dotenv.config({ path: '.env.local' })` first (see §38)
+33. **Never UPDATE or DELETE from `ar_transactions`** — AR is append-only like inventory movements. Corrections use credit_memo or writeoff transaction types.
+34. **Never query merged customers without filtering** — always exclude records where `displayName LIKE '[MERGED]%'` or `metadata->>'mergedInto' IS NOT NULL`
+35. **Never skip credit limit check on AR charges** — always call `checkCreditLimit(tx, accountId, amount)` inside the transaction before inserting a charge
 
 ---
 
-## 37. Inventory Architecture
+## 41. Inventory Architecture
 
 ### Append-Only Movements Ledger
 ```
@@ -1693,7 +1867,7 @@ Created as empty stubs with basic structure and RLS. Ready for V2 implementation
 
 ---
 
-## 38. Tenant Onboarding
+## 42. Tenant Onboarding
 
 ### Business Types
 4 types defined in `packages/shared/src/constants/business-types.ts`: restaurant, retail, golf, hybrid. Each has:
@@ -1724,7 +1898,7 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 
 ---
 
-## 39. Current Project State
+## 43. Current Project State
 
 ### Completed Milestones
 
@@ -1800,8 +1974,17 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - Transfer: paired movements with shared batchId, always non-negative at source
 - V2 provisioned: snapshots, counts, count_lines, vendors, purchase_orders, po_lines, recipes, recipe_components
 
+**Milestone 9: Customer Management Module (In Progress)**
+- Session 16: 15 tables (customers, identifiers, activity_log, membership_plans, memberships, billing_accounts, billing_account_members, ar_transactions, ar_allocations, statements, late_fee_policies, customer_privileges, pricing_tiers, customer_relationships, membership_billing_events)
+- Customer commands: createCustomer, updateCustomer, addCustomerIdentifier, addCustomerNote, mergeCustomers
+- Membership commands: createMembershipPlan, updateMembershipPlan, enrollMember, updateMembershipStatus, assignCustomerPrivilege
+- Billing commands: createBillingAccount, updateBillingAccount, addBillingAccountMember, recordArTransaction, recordArPayment, generateStatement
+- Event consumers: order.placed (AR charge), order.voided (AR reversal), tender.recorded (AR payment)
+- GL integration: AR charge/payment/writeoff/late_fee journal entries
+
 ### Test Coverage
 459 tests: 134 core + 68 catalog + 52 orders + 22 shared + 183 web (75 POS + 66 tenders + 42 inventory)
 
 ### What's Next
-- Customer Management module (Session 16)
+- Customer Management module completion: queries, API routes, frontend, tests (Session 16)
+- Reporting module (Session 17)
