@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getAuthAdapter } from '@oppsera/core/auth/get-adapter';
+import { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from '@oppsera/core/security';
 import { AppError, ValidationError } from '@oppsera/shared';
 
 const refreshSchema = z.object({
@@ -10,6 +11,15 @@ const refreshSchema = z.object({
 
 export const POST = withMiddleware(
   async (request) => {
+    const rlKey = getRateLimitKey(request, 'auth:refresh');
+    const rl = checkRateLimit(rlKey, RATE_LIMITS.auth);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.' } },
+        { status: 429, headers: rateLimitHeaders(rl) },
+      );
+    }
+
     const body = await request.json();
     const parsed = refreshSchema.safeParse(body);
 

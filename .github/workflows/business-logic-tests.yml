@@ -1,0 +1,144 @@
+name: Business Logic Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/modules/**'
+      - 'packages/core/**'
+      - 'packages/db/**'
+      - 'packages/shared/**'
+      - 'test/business-logic/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/modules/**'
+      - 'packages/core/**'
+      - 'packages/db/**'
+      - 'packages/shared/**'
+      - 'test/business-logic/**'
+  workflow_dispatch:
+
+env:
+  DATABASE_URL: postgres://oppsera_app:testpass@localhost:5432/oppsera_test
+  DATABASE_URL_ADMIN: postgres://postgres:testpass@localhost:5432/oppsera_test
+
+jobs:
+  business-logic-tests:
+    name: Business Logic Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: oppsera_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Cache pnpm
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Setup test database
+        run: |
+          # Create app role for RLS testing
+          PGPASSWORD=testpass psql -h localhost -U postgres -d oppsera_test <<'SQL'
+            -- Create app role (used by the application with RLS)
+            DO $$ BEGIN
+              IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'oppsera_app') THEN
+                CREATE ROLE oppsera_app LOGIN PASSWORD 'testpass';
+              END IF;
+            END $$;
+
+            -- Grant basic permissions
+            GRANT CONNECT ON DATABASE oppsera_test TO oppsera_app;
+            GRANT USAGE ON SCHEMA public TO oppsera_app;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO oppsera_app;
+            ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO oppsera_app;
+
+            -- Install required extensions
+            CREATE EXTENSION IF NOT EXISTS pgcrypto;
+          SQL
+
+      - name: Run migrations
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_ADMIN }}
+
+      - name: Grant table permissions to app role
+        run: |
+          PGPASSWORD=testpass psql -h localhost -U postgres -d oppsera_test <<'SQL'
+            GRANT ALL ON ALL TABLES IN SCHEMA public TO oppsera_app;
+            GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO oppsera_app;
+          SQL
+
+      - name: Run unit tests (pure calculations)
+        run: |
+          cd test/business-logic
+          npx vitest run unit/ --reporter=verbose 2>&1 | tee unit-results.txt
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DATABASE_URL_ADMIN: ${{ env.DATABASE_URL_ADMIN }}
+
+      - name: Run integration tests (real DB)
+        run: |
+          cd test/business-logic
+          npx vitest run integration/ --reporter=verbose 2>&1 | tee integration-results.txt
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DATABASE_URL_ADMIN: ${{ env.DATABASE_URL_ADMIN }}
+
+      - name: Run reconciliation tests
+        run: |
+          cd test/business-logic
+          npx vitest run reconciliation/ --reporter=verbose 2>&1 | tee reconciliation-results.txt
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+          DATABASE_URL_ADMIN: ${{ env.DATABASE_URL_ADMIN }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: business-logic-test-results
+          path: |
+            test/business-logic/unit-results.txt
+            test/business-logic/integration-results.txt
+            test/business-logic/reconciliation-results.txt
+          retention-days: 30

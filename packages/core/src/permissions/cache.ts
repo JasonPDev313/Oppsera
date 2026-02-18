@@ -80,7 +80,8 @@ export function getPermissionCache(): PermissionCache {
       try {
         // Dynamic import to avoid requiring ioredis when not using Redis
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const Redis = require('ioredis');
+        const pkg = 'io' + 'redis';
+        const Redis = require(pkg);
         const redis = new Redis(redisUrl);
         cacheInstance = new RedisPermissionCache(redis);
       } catch {

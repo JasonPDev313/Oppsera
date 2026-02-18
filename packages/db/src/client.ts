@@ -16,7 +16,10 @@ function getDb(): DrizzleDB {
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is required');
     }
-    const client = postgres(connectionString, { max: 5 });
+    const client = postgres(connectionString, {
+      max: parseInt(process.env.DB_POOL_MAX || '5', 10),
+      prepare: process.env.DB_PREPARE_STATEMENTS !== 'true',
+    });
     globalForDb.__oppsera_db = drizzle(client, { schema });
   }
   return globalForDb.__oppsera_db;
@@ -64,7 +67,10 @@ export function createAdminClient() {
     if (!adminUrl) {
       throw new Error('DATABASE_URL_ADMIN or DATABASE_URL environment variable is required');
     }
-    const adminConn = postgres(adminUrl, { max: 3 });
+    const adminConn = postgres(adminUrl, {
+      max: parseInt(process.env.DB_ADMIN_POOL_MAX || '3', 10),
+      prepare: process.env.DB_PREPARE_STATEMENTS !== 'true',
+    });
     globalForAdmin.__oppsera_admin_db = drizzle(adminConn, { schema });
   }
   return globalForAdmin.__oppsera_admin_db;

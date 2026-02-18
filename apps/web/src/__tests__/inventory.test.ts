@@ -19,6 +19,7 @@ const { mockExecute, mockInsert, mockSelect, mockUpdate, mockPublishWithOutbox, 
     mockInsert: vi.fn().mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([{ id: 'MOV_001' }]),
+        onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
       }),
     }),
     mockSelect: vi.fn(() => makeSelectChain()),
@@ -82,6 +83,7 @@ vi.mock('drizzle-orm', () => ({
   sql: Object.assign(vi.fn((...args: unknown[]) => args), { raw: vi.fn((s: string) => s) }),
   sum: vi.fn((...args: unknown[]) => args),
   ilike: vi.fn((...args: unknown[]) => args),
+  inArray: vi.fn((...args: unknown[]) => args),
 }));
 
 // ─── Environment ───────────────────────────────────────────────────────────────
@@ -202,6 +204,7 @@ function resetMockChains() {
   mockInsert.mockReturnValue({
     values: vi.fn().mockReturnValue({
       returning: vi.fn().mockResolvedValue([{ id: 'MOV_001' }]),
+      onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
     }),
   });
 }
@@ -1047,15 +1050,13 @@ describe('Inventory Module', () => {
 
       // Call 1: fetch order lines => 2 lines
       mockSelect.mockImplementationOnce(() => makeSelectChain([orderLine1, orderLine2]));
-      // Call 2: find inventory item for line 1 => found
-      mockSelect.mockImplementationOnce(() => makeSelectChain([invItem1]));
-      // Call 3: find inventory item for line 2 => found
-      mockSelect.mockImplementationOnce(() => makeSelectChain([invItem2]));
+      // Call 2: batch fetch inventory items with inArray => both items
+      mockSelect.mockImplementationOnce(() => makeSelectChain([invItem1, invItem2]));
 
       const event = makeEvent({ orderId: 'ORD_001', locationId: 'LOC_001', businessDate: '2024-01-15' });
       await handleOrderPlaced(event);
 
-      // Two execute calls for two sale movements
+      // Two execute calls for two sale movements (raw SQL INSERT with ON CONFLICT)
       const executeCallCount = mockExecute.mock.calls.length as number;
       expect(executeCallCount).toBe(2);
     });
@@ -1075,10 +1076,8 @@ describe('Inventory Module', () => {
 
       // Call 1: fetch order lines => 1 package line
       mockSelect.mockImplementationOnce(() => makeSelectChain([packageLine]));
-      // Call 2: find inventory item for component 1
-      mockSelect.mockImplementationOnce(() => makeSelectChain([comp1Inv]));
-      // Call 3: find inventory item for component 2
-      mockSelect.mockImplementationOnce(() => makeSelectChain([comp2Inv]));
+      // Call 2: batch fetch inventory items for components with inArray
+      mockSelect.mockImplementationOnce(() => makeSelectChain([comp1Inv, comp2Inv]));
 
       const event = makeEvent({ orderId: 'ORD_001', locationId: 'LOC_001' });
       await handleOrderPlaced(event);
@@ -1099,7 +1098,7 @@ describe('Inventory Module', () => {
 
       // Call 1: fetch order lines
       mockSelect.mockImplementationOnce(() => makeSelectChain([orderLine]));
-      // Call 2: find inventory item (trackInventory = false)
+      // Call 2: batch fetch inventory items with inArray (trackInventory = false)
       mockSelect.mockImplementationOnce(() => makeSelectChain([invItem]));
 
       const event = makeEvent({ orderId: 'ORD_001', locationId: 'LOC_001' });
@@ -1140,9 +1139,8 @@ describe('Inventory Module', () => {
       event.eventType = 'order.voided.v1';
       await handleOrderVoided(event);
 
-      // Two execute calls for two void_reversal movements
-      const executeCallCount = mockExecute.mock.calls.length as number;
-      expect(executeCallCount).toBe(2);
+      // One batch insert with onConflictDoNothing for void_reversal movements
+      expect(mockInsert).toHaveBeenCalled();
     });
   });
 
@@ -1181,9 +1179,8 @@ describe('Inventory Module', () => {
 
       await handleCatalogItemCreated(event);
 
-      // Three execute calls for three locations
-      const executeCallCount = mockExecute.mock.calls.length as number;
-      expect(executeCallCount).toBe(3);
+      // One batch insert with onConflictDoNothing for all locations
+      expect(mockInsert).toHaveBeenCalled();
     });
   });
 });

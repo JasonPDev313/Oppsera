@@ -46,7 +46,7 @@ async function resolveLocation(
     throw new NotFoundError('Location');
   }
 
-  await db.execute(sql`SELECT set_config('app.current_location_id', ${locationId}, false)`);
+  await db.execute(sql`SELECT set_config('app.current_location_id', ${locationId}, true)`);
 
   return locationId;
 }

@@ -20,9 +20,12 @@
     "@oppsera/shared": "workspace:*",
     "@oppsera/core": "workspace:*",
     "@oppsera/db": "workspace:*",
+    "@oppsera/module-catalog": "workspace:*",
+    "@oppsera/module-customers": "workspace:*",
     "@oppsera/module-orders": "workspace:*",
     "@oppsera/module-payments": "workspace:*",
     "@oppsera/module-inventory": "workspace:*",
+    "dotenv": "^16.4.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {

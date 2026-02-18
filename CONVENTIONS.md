@@ -100,6 +100,23 @@ await withTenant(tenantId, async (tx) => { ... });
 const admin = createAdminClient();
 ```
 
+### Connection Pool Configuration
+
+```typescript
+// postgres.js config — tuned for Vercel serverless + Supavisor
+const pool = postgres(DATABASE_URL, {
+  max: 2,              // Low per-instance (Vercel = many concurrent instances)
+  prepare: false,       // REQUIRED for Supavisor transaction mode
+  idle_timeout: 20,     // Close idle connections after 20s
+  max_lifetime: 300,    // Recycle connections every 5 minutes
+});
+```
+
+**Key rules:**
+- `prepare: false` is **mandatory** for Supabase Supavisor (transaction-mode pooling). Prepared statements are connection-scoped and break when the pooler reassigns connections.
+- `max: 2` keeps total connections manageable: total = Vercel instances × max. At 20 concurrent instances, that's ~40 connections.
+- `withTenant()` uses `set_config('app.current_tenant_id', tenantId, true)` (SET LOCAL) — transaction-scoped, safe with connection poolers because it auto-clears on commit/rollback.
+
 ### Migrations
 
 - Location: `packages/db/migrations/`
@@ -393,6 +410,25 @@ Consumers track `(event_id, consumer_name)` in `processed_events` table. Duplica
 ### Retry & Dead-Letter
 
 Failed events retry 3x with exponential backoff, then route to dead-letter queue.
+
+### Event Payload Enrichment
+
+Event payloads must be **self-contained** — consumers should never need to query other modules' tables to process an event. If a consumer needs data not present in the event, the **publisher** must enrich the payload at emit time.
+
+```typescript
+// WRONG — consumer queries another module's table
+async function handleOrderPlaced(event: EventEnvelope) {
+  const order = await tx.select().from(orders).where(...); // cross-module violation!
+}
+
+// CORRECT — publisher includes all needed data in the event
+const event = buildEventFromContext(ctx, 'order.placed.v1', {
+  orderId, locationId, customerId, billingAccountId,
+  businessDate, total, lineItems: lines.map(l => ({ ... })),
+});
+```
+
+**Rule:** When adding a new event consumer that needs data from the publishing module, enrich the event payload — don't add a cross-module table query.
 
 ---
 
@@ -1911,6 +1947,13 @@ customer.segment.created.v1, customer.segment.member.added/removed.v1
 41. **Never use `bg-gray-900 text-white` in dark mode** — the app's dark mode inverts the gray scale (`gray-900` becomes near-white). Use `bg-indigo-600 text-white` for primary buttons and opacity-based colors (`border-red-500/40`, `hover:bg-red-500/10`) for destructive actions — these work in both light and dark mode.
 42. **Never multiply percentage values by 100 before storing** — for both discounts and service charges, store the raw percentage (10 for 10%, not 1000 basis points). For fixed dollar amounts, store as cents. This keeps the convention consistent and avoids display conversion bugs.
 43. **Never calculate service charges on raw subtotal** — service charges apply AFTER discounts. Use `(subtotal - discountTotal)` as the base for percentage service charges, not raw `subtotal`. Order of operations: discount → service charge → tax.
+44. **Never cache inventory on-hand values** — on-hand = SUM(quantity_delta) from movements, always computed live. Caching introduces stale reads and double-deduction risks in concurrent POS environments.
+45. **Never set postgres.js `max` > 3 on Vercel** — serverless = many concurrent instances, each with its own pool. Total connections = instances × max. Keep `max: 2` to stay within Supabase connection limits.
+46. **Never use `prepare: true` with Supavisor** — Supabase's connection pooler in transaction mode breaks prepared statements (they're connection-scoped). Always set `prepare: false`.
+47. **Never partition tables before 50M rows** — partitioning adds query complexity and migration overhead. Only partition when a single table exceeds 50M rows AND P95 index scans exceed 100ms. Use date-based monthly, not tenant-based.
+48. **Never use session-mode pooling with RLS** — RLS relies on `SET LOCAL` (transaction-scoped). Session-mode poolers persist session state across transactions from different tenants, causing data leaks. Always use transaction-mode pooling.
+49. **Never skip tenant fairness in job workers** — without `maxJobsPerTenantPerPoll` caps, a single noisy tenant can monopolize the job queue, starving all other tenants.
+50. **Never adopt K8s before Docker Compose proves insufficient** — K8s adds massive operational overhead. Progress through: Vercel → VPS Docker Compose → Docker Swarm → K8s. Only K8s when >10 services, custom auto-scaling needed, and monthly spend >$2K.
 
 ---
 
@@ -2333,3 +2376,390 @@ Before marking a page as done, verify at these breakpoints:
 - 1440px+ (desktop)
 
 **Rule:** Never use `customer.metadata.X as string` (unsafe cast). Never render `unknown` directly as ReactNode.
+
+---
+
+## 47. Connection Pooling & Database Configuration
+
+### Supavisor Transaction Mode
+
+Supabase uses Supavisor as its connection pooler. In transaction mode (the default and recommended mode), each SQL transaction is assigned a backend connection for its duration, then returned to the pool.
+
+**Implications for our stack:**
+
+1. **`prepare: false`** is mandatory — prepared statements are connection-scoped; Supavisor reassigns connections between transactions, causing "prepared statement does not exist" errors.
+2. **`SET LOCAL` is safe** — `withTenant()` uses `set_config(..., true)` which is equivalent to `SET LOCAL`. Transaction-scoped settings auto-clear on commit/rollback, so the next transaction on that connection starts clean.
+3. **Advisory locks are NOT safe** — `pg_advisory_lock()` is session-scoped. With transaction-mode pooling, the "session" is just one transaction. Use `pg_advisory_xact_lock()` (transaction-scoped) instead.
+
+### Connection Budget by Stage
+
+```
+Stage 1 (Vercel Pro + Supabase Pro):
+  Supabase limit: 60 direct / 200 pooled connections
+  Vercel instances: ~20 concurrent × max:2 = ~40 connections
+  Outbox worker: 1 connection
+  Cron jobs: 1-2 connections
+  Budget: ~46 of 200 pooled (safe headroom)
+
+Stage 2 (+ read replica):
+  Primary: ~46 (writes + commands)
+  Replica: ~46 (reads + queries)
+  Redis: takes load off DB for caching
+  Budget: ~110 total
+```
+
+### Postgres Tuning Parameters
+
+Set these at the database level (Supabase dashboard or `postgresql.conf`):
+
+```sql
+-- Query safety
+SET statement_timeout = '30s';                        -- Kill queries over 30s
+SET idle_in_transaction_session_timeout = '60s';       -- Kill idle-in-txn after 60s
+SET lock_timeout = '5s';                               -- Fail fast on lock waits
+
+-- Write-heavy table autovacuum (apply per-table)
+ALTER TABLE orders SET (autovacuum_vacuum_scale_factor = 0.05);
+ALTER TABLE orders SET (autovacuum_analyze_scale_factor = 0.02);
+ALTER TABLE inventory_movements SET (autovacuum_vacuum_scale_factor = 0.05);
+ALTER TABLE event_outbox SET (autovacuum_vacuum_scale_factor = 0.02);
+ALTER TABLE event_outbox SET (autovacuum_vacuum_threshold = 100);
+```
+
+### Read Replica Routing (Stage 2+)
+
+```typescript
+// withTenantReadonly() routes to read replica when available
+async function listThings(input: ListInput): Promise<ListResult> {
+  return withTenantReadonly(input.tenantId, async (tx) => {
+    // ... read-only queries go to replica
+  });
+}
+
+// withTenant() always uses primary (writes + reads needing consistency)
+async function createThing(ctx: RequestContext, input: Input) {
+  return publishWithOutbox(ctx, async (tx) => {
+    // ... writes always go to primary
+  });
+}
+```
+
+**Rule:** Use `withTenantReadonly()` for queries (list, get, search). Use `withTenant()` for commands (create, update, delete). The implementation swaps between primary and replica internally — no caller changes needed when replica is added.
+
+---
+
+## 48. Background Jobs
+
+### Architecture
+
+Postgres-native job system using `FOR UPDATE SKIP LOCKED` — no external queue dependency (no pg-boss, BullMQ, or Redis required at Stage 1).
+
+### Tables
+
+```sql
+-- Main job queue
+background_jobs (
+  id, tenant_id, job_type, payload jsonb, priority, status,
+  max_attempts, attempt_count, locked_by, locked_at, lease_expires,
+  scheduled_for, completed_at, failed_at, last_error,
+  created_at, updated_at
+)
+
+-- Attempt history for debugging
+background_job_attempts (
+  id, job_id, attempt_number, worker_id, started_at, completed_at,
+  status, error_message, error_stack, duration_ms
+)
+
+-- Cron-like scheduled jobs
+scheduled_jobs (
+  id, tenant_id, job_type, cron_expression, payload jsonb,
+  is_active, last_run_at, next_run_at, created_at
+)
+```
+
+### Emitting Jobs
+
+Always emit jobs **inside** transactions alongside the business write:
+
+```typescript
+export async function createThing(ctx: RequestContext, input: Input) {
+  return publishWithOutbox(ctx, async (tx) => {
+    const [created] = await tx.insert(table).values({...}).returning();
+
+    // Emit background job in the same transaction
+    await emitJob(tx, {
+      tenantId: ctx.tenantId,
+      jobType: 'generate-report',
+      payload: { thingId: created!.id },
+      priority: 5,           // 1=highest, 10=lowest
+      scheduledFor: null,     // null = run immediately
+    });
+
+    return { result: created!, events: [...] };
+  });
+}
+```
+
+**Rule:** `emitJob()` writes to the `background_jobs` table inside the transaction. If the transaction rolls back, the job is never created. This guarantees consistency between business state and job existence.
+
+### Job Handler Interface
+
+```typescript
+interface JobHandler {
+  jobType: string;
+  handle(job: BackgroundJob): Promise<void>;
+  // Optional: custom retry delay (default: exponential backoff)
+  getRetryDelay?(attempt: number): number;
+}
+```
+
+### Job Type Naming
+
+Format: `{module}.{action}` — e.g., `inventory.sync-counts`, `customers.generate-statement`, `reporting.daily-sales`.
+
+### Worker Design
+
+```typescript
+// JobWorker polls for jobs using SKIP LOCKED
+SELECT * FROM background_jobs
+WHERE status = 'pending'
+  AND (scheduled_for IS NULL OR scheduled_for <= NOW())
+  AND (lease_expires IS NULL OR lease_expires < NOW())
+ORDER BY priority ASC, created_at ASC
+LIMIT :batchSize
+FOR UPDATE SKIP LOCKED
+```
+
+**Tenant fairness:** The worker enforces `maxJobsPerTenantPerPoll` (default: 5) to prevent a single tenant from monopolizing the queue.
+
+**Lease mechanism:** When a worker claims a job, it sets `locked_by`, `locked_at`, and `lease_expires` (default: 5 minutes). If the worker crashes, the lease expires and another worker picks up the job.
+
+### Vercel Deployment
+
+On Vercel, background jobs run via:
+1. **In-process worker** started in `instrumentation.ts` (runs while instance is alive)
+2. **Vercel Cron** pings `/api/v1/internal/drain-jobs` every 1 minute as safety net for cold start gaps
+
+### Retry & Failure
+
+```
+Attempt 1: immediate
+Attempt 2: 30s delay
+Attempt 3: 2min delay
+Attempt 4: 10min delay
+Attempt 5: 1hr delay (max_attempts default: 5)
+→ After max_attempts: status = 'dead', moved to dead-letter inspection
+```
+
+---
+
+## 49. Scaling Strategy
+
+### Deployment Stages
+
+| Stage | Tenants | Infrastructure | Monthly Cost |
+|-------|---------|----------------|-------------|
+| 1 | 0-200 | Vercel Pro + Supabase Pro | ~$50-70 |
+| 2 | 200-1000 | + Redis + read replica | ~$150-500 |
+| 3 | 1000-4000 | VPS Docker Compose | ~$500-2,000 |
+| 4 | 4000+ | K8s (only if justified) | $2,000+ |
+
+### Stage Transition Triggers
+
+**Stage 1 → 2** (add Redis + replica):
+- P95 query latency > 200ms consistently
+- Connection pool utilization > 70%
+- Permission cache hits < 80%
+
+**Stage 2 → 3** (move to VPS):
+- Vercel function timeouts on background jobs
+- Need persistent workers (not cron-triggered)
+- Monthly Vercel bill > VPS equivalent
+
+**Stage 3 → 4** (K8s):
+- Running >10 independently scalable services
+- Need custom-metric auto-scaling
+- Team has K8s operational experience
+- Monthly spend already >$2K
+
+### Tenant Tiering
+
+```typescript
+type TenantTier = 'small' | 'medium' | 'large' | 'enterprise';
+
+const TIER_LIMITS = {
+  small:      { maxLocations: 5,   rateLimit: 100,  maxConcurrentJobs: 10  },
+  medium:     { maxLocations: 20,  rateLimit: 500,  maxConcurrentJobs: 25  },
+  large:      { maxLocations: 100, rateLimit: 2000, maxConcurrentJobs: 50  },
+  enterprise: { maxLocations: -1,  rateLimit: 5000, maxConcurrentJobs: 100 },
+};
+```
+
+Rate limits are requests per minute. Enforce via middleware with sliding window counter (Redis at Stage 2, in-memory at Stage 1).
+
+### Data Lifecycle
+
+| Table | Retention | Action |
+|-------|-----------|--------|
+| `event_outbox` (published) | 7 days | DELETE |
+| `processed_events` | 30 days | DELETE |
+| `idempotency_keys` | 24 hours (TTL column) | DELETE |
+| `background_jobs` (completed) | 30 days | DELETE/archive |
+| `audit_log` | 2 years | Partition + detach old |
+| `inventory_movements` | Indefinite | Partition at 50M rows |
+| `orders` | Indefinite | Partition at 50M rows |
+
+### Partitioning Decision
+
+**When:** Only when a single table exceeds 50M rows AND index scans show P95 > 100ms.
+**How:** Date-based monthly partitioning (by `created_at` or `business_date`).
+**NOT:** Tenant-based partitioning (creates too many partitions — one per tenant is unmanageable at 4000 tenants).
+
+---
+
+## 50. Observability
+
+### Structured Logging
+
+Every API request should log:
+
+```typescript
+{
+  level: 'info',
+  requestId: ctx.requestId,
+  tenantId: ctx.tenantId,
+  method: 'POST',
+  path: '/api/v1/orders',
+  status: 201,
+  durationMs: 45,
+  userId: ctx.user.id,
+}
+```
+
+**Rule:** Always include `tenantId` and `requestId` in logs. These are the primary correlation keys for debugging multi-tenant issues.
+
+### pg_stat_statements
+
+Enable from day 1 (Supabase has it enabled by default):
+
+```sql
+-- Weekly review: top 20 slowest queries
+SELECT query, calls, mean_exec_time, total_exec_time
+FROM pg_stat_statements
+ORDER BY mean_exec_time DESC
+LIMIT 20;
+
+-- High-frequency queries (potential for caching)
+SELECT query, calls, mean_exec_time
+FROM pg_stat_statements
+ORDER BY calls DESC
+LIMIT 20;
+```
+
+### Alert Thresholds
+
+| Metric | Warning | Critical |
+|--------|---------|----------|
+| P95 API latency | > 500ms | > 2s |
+| DB connection pool utilization | > 70% | > 90% |
+| Dead-letter queue depth | > 10 | > 50 |
+| Background job failure rate | > 5% | > 20% |
+| Outbox lag (unpublished > 5min old) | > 10 events | > 100 events |
+
+### Error Tracking (Sentry)
+
+```typescript
+// Initialize in instrumentation.ts
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  tracesSampleRate: 0.1,  // 10% of requests get performance traces
+  environment: process.env.NODE_ENV,
+});
+
+// Errors automatically captured via withMiddleware error handler
+// Add breadcrumbs for critical operations:
+Sentry.addBreadcrumb({ category: 'job', message: `Processing ${job.jobType}`, data: { jobId: job.id } });
+```
+
+### Optional Dependency Pattern
+
+For packages that may not be installed (e.g., `@sentry/nextjs`, `ioredis`), use runtime string concatenation to prevent webpack from statically resolving:
+
+```typescript
+// WRONG — webpack will fail if package not installed:
+const Sentry = require('@sentry/nextjs');
+
+// RIGHT — webpack cannot resolve dynamic string:
+const pkg = '@sentry/' + 'nextjs';
+const Sentry = require(pkg);  // wrapped in try/catch
+```
+
+### Vitest Mock Reset Pattern
+
+When using `mockReturnValueOnce` chains, always call `mockReset()` in `beforeEach` — `clearAllMocks()` only clears call history, NOT the once-value queue:
+
+```typescript
+beforeEach(() => {
+  vi.clearAllMocks();    // clears .mock.calls, .mock.results
+  mockSelect.mockReset();  // ALSO clears mockReturnValueOnce queue
+  mockInsert.mockReset();
+  // Re-establish default return values after reset
+  mockSelect.mockImplementation(() => makeSelectChain());
+  mockInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ returning: vi.fn().mockResolvedValue([]) }) });
+});
+```
+
+### Observability File Locations
+
+```
+packages/core/src/observability/
+├── logger.ts              # Structured JSON logger (LOG_LEVEL env var)
+├── request-metrics.ts     # Per-request metrics via AsyncLocalStorage
+├── drizzle-logger.ts      # Drizzle Logger interface for query tracking
+├── api-handler.ts         # withApi() — enhanced route handler wrapper
+├── alerts.ts              # Slack webhook alerting (P0-P3 severity, dedup)
+├── error-classification.ts # Error pattern → severity mapping
+├── db-health.ts           # pg_stat_statements monitoring
+├── job-health.ts          # Outbox + background job metrics
+├── sentry-context.ts      # Sentry helpers (graceful no-op if not installed)
+├── runbooks.ts            # On-call runbook definitions
+├── migration-triggers.ts  # When-to-migrate threshold checks
+└── index.ts               # Barrel exports
+```
+
+### Infrastructure File Locations
+
+```
+infra/
+├── docker/
+│   ├── Dockerfile.web     # Next.js standalone multi-stage build
+│   └── Dockerfile.worker  # Background worker multi-stage build
+├── docker-compose.yml     # Local dev: postgres + redis + web + worker
+├── terraform/
+│   ├── main.tf            # AWS: VPC, ECS Fargate, RDS, ElastiCache, ALB
+│   ├── variables.tf       # Resource sizing defaults
+│   └── outputs.tf         # DNS, endpoints
+├── worker.ts              # Standalone worker entry point
+├── migration/
+│   └── db-migration-checklist.sql  # Post-migration validation queries
+├── LIMITS_AND_MIGRATION.ts        # Vercel/Supabase limits + cost projections (run with npx tsx)
+└── MIGRATION_PLAN.md              # Full 6-phase migration plan (human-readable reference)
+```
+
+### Migration Planning Pattern
+
+Cost projections and migration triggers are code, not docs:
+
+```typescript
+// infra/LIMITS_AND_MIGRATION.ts — run to see current assessment:
+npx tsx infra/LIMITS_AND_MIGRATION.ts
+
+// packages/core/src/config/deployment.ts — auto-detects target:
+const config = getDeploymentConfig();
+// config.target: 'vercel' | 'container' | 'local'
+// config.database.poolSize: auto-adjusted per target (2/10/5)
+
+// packages/core/src/config/feature-flags.ts — gradual rollout:
+if (isEnabled('USE_READ_REPLICA')) { /* route to replica */ }
+```

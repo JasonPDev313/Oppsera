@@ -35,6 +35,12 @@ importers:
       '@oppsera/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@oppsera/module-catalog':
+        specifier: workspace:*
+        version: link:../../packages/modules/catalog
+      '@oppsera/module-customers':
+        specifier: workspace:*
+        version: link:../../packages/modules/customers
       '@oppsera/module-inventory':
         specifier: workspace:*
         version: link:../../packages/modules/inventory
@@ -47,6 +53,9 @@ importers:
       '@oppsera/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.4)
@@ -251,9 +260,6 @@ importers:
       '@oppsera/db':
         specifier: workspace:*
         version: link:../../db
-      '@oppsera/module-catalog':
-        specifier: workspace:*
-        version: link:../catalog
       '@oppsera/shared':
         specifier: workspace:*
         version: link:../../shared
@@ -282,9 +288,6 @@ importers:
       '@oppsera/db':
         specifier: workspace:*
         version: link:../../db
-      '@oppsera/module-orders':
-        specifier: workspace:*
-        version: link:../orders
       '@oppsera/shared':
         specifier: workspace:*
         version: link:../../shared

@@ -1,0 +1,80 @@
+# OppsEra Web — Multi-stage Next.js 15 production build
+#
+# The builder stage sets DOCKER_BUILD=1 which enables output: 'standalone'
+# in next.config.ts automatically. No manual config change needed.
+#
+# Build context must be the monorepo root:
+#   docker build -f infra/docker/Dockerfile.web .
+
+# ── Stage 1: Dependencies ──────────────────────────────────────────────
+FROM node:20-alpine AS deps
+
+RUN corepack enable && corepack prepare pnpm@9 --activate
+WORKDIR /app
+
+# Copy workspace root manifests (layer-cached unless lockfile changes)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+
+# Copy every workspace package.json for pnpm resolution
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/core/package.json ./packages/core/
+COPY packages/db/package.json ./packages/db/
+COPY packages/modules/catalog/package.json ./packages/modules/catalog/
+COPY packages/modules/orders/package.json ./packages/modules/orders/
+COPY packages/modules/payments/package.json ./packages/modules/payments/
+COPY packages/modules/inventory/package.json ./packages/modules/inventory/
+COPY packages/modules/customers/package.json ./packages/modules/customers/
+COPY packages/modules/reporting/package.json ./packages/modules/reporting/
+COPY packages/modules/kds/package.json ./packages/modules/kds/
+COPY packages/modules/golf-ops/package.json ./packages/modules/golf-ops/
+COPY packages/modules/marketing/package.json ./packages/modules/marketing/
+
+RUN pnpm install --frozen-lockfile
+
+# ── Stage 2: Build ─────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@9 --activate
+WORKDIR /app
+
+# Bring in installed dependencies from stage 1
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages/ ./packages/
+
+# Copy full source tree
+COPY . .
+
+# Turborepo builds @oppsera/web and all its transitive deps in order
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV DOCKER_BUILD=1
+RUN pnpm turbo run build --filter=@oppsera/web
+
+# ── Stage 3: Production ───────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy the standalone server (includes node_modules trace)
+COPY --from=builder /app/apps/web/.next/standalone ./
+
+# Copy static assets that standalone mode does not inline
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
+
+USER nextjs
+
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+CMD ["node", "apps/web/server.js"]

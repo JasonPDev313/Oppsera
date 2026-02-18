@@ -29,11 +29,14 @@ function makeSelectChain(results: unknown[] = []) {
     then: p.then.bind(p),
     catch: p.catch.bind(p),
   });
-  const leftJoinFn = vi.fn().mockReturnValue({
+  // leftJoinFn returns object that includes itself so chained .leftJoin() calls work
+  const joinResult: Record<string, unknown> = {
     where: whereFn,
     then: p.then.bind(p),
     catch: p.catch.bind(p),
-  });
+  };
+  const leftJoinFn = vi.fn().mockReturnValue(joinResult);
+  joinResult.leftJoin = leftJoinFn;
   const fromFn = vi.fn().mockReturnValue({
     where: whereFn,
     leftJoin: leftJoinFn,
@@ -136,9 +139,14 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((...args: unknown[]) => ['desc', ...args]),
   asc: vi.fn((...args: unknown[]) => ['asc', ...args]),
   inArray: vi.fn((...args: unknown[]) => ['inArray', ...args]),
+  getTableColumns: vi.fn((table: Record<string, unknown>) => table),
   sql: Object.assign(vi.fn((...args: unknown[]) => args), {
     raw: vi.fn((str: string) => str),
   }),
+}));
+
+vi.mock('drizzle-orm/pg-core', () => ({
+  alias: vi.fn((table: unknown, _aliasName: string) => table),
 }));
 
 vi.mock('@oppsera/shared', () => ({

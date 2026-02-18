@@ -330,6 +330,20 @@
       "when": 1708100046000,
       "tag": "0046_index_performance_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1708100047000,
+      "tag": "0047_legacy_id_mapping",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1708100048000,
+      "tag": "0048_observability",
+      "breakpoints": true
     }
   ]
 }

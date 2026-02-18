@@ -1,0 +1,188 @@
+name: Load Tests
+
+on:
+  # Nightly schedule (2 AM UTC)
+  schedule:
+    - cron: '0 2 * * *'
+
+  # Manual trigger with profile selection
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Load test profile'
+        required: true
+        default: 'ci-fast'
+        type: choice
+        options:
+          - ci-fast
+          - nightly
+          - release
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - vps
+      seed:
+        description: 'Re-seed test data'
+        required: false
+        default: false
+        type: boolean
+
+  # Auto-trigger on staging deploy (ci-fast only)
+  deployment_status:
+    types: [success]
+
+jobs:
+  load-test:
+    name: Run Load Tests (${{ inputs.profile || 'ci-fast' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 300  # 5 hours max for release profile
+
+    # Only run deployment_status for staging
+    if: >
+      github.event_name != 'deployment_status' ||
+      github.event.deployment.environment == 'Preview'
+
+    env:
+      DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+      STAGING_URL: ${{ secrets.STAGING_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.STAGING_SUPABASE_SERVICE_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Determine Profile
+        id: profile
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            echo "profile=nightly" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "deployment_status" ]; then
+            echo "profile=ci-fast" >> $GITHUB_OUTPUT
+          else
+            echo "profile=${{ inputs.profile || 'ci-fast' }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify Seed Data
+        run: npx tsx load-tests/scripts/verify-seed.ts --profile stage1
+        continue-on-error: true
+        id: verify
+
+      - name: Seed Data (if needed)
+        if: steps.verify.outcome == 'failure' || inputs.seed == 'true'
+        run: |
+          SEED_PROFILE="stage1"
+          if [ "${{ steps.profile.outputs.profile }}" = "release" ]; then
+            SEED_PROFILE="stage2-lite"
+          fi
+          npx tsx load-tests/scripts/seed-load-test.ts --profile $SEED_PROFILE
+
+      - name: Reset DB Stats
+        if: env.DATABASE_URL != ''
+        run: psql "$DATABASE_URL" -f load-tests/scripts/reset_stats.sql || true
+        continue-on-error: true
+
+      - name: Run k6 (${{ steps.profile.outputs.profile }})
+        run: |
+          mkdir -p load-tests/results
+          k6 run \
+            --out json=load-tests/results/k6-results.json \
+            -e TARGET_ENV=staging \
+            -e AUTH_TOKENS_PATH=./load-tests/auth-tokens.json \
+            -e DATA_POOL_PATH=./load-tests/seed-manifest.json \
+            ${STAGING_URL:+-e STAGING_URL=$STAGING_URL} \
+            load-tests/profiles/${{ steps.profile.outputs.profile }}.js \
+            2>&1 | tee load-tests/results/k6-output.log
+
+      - name: Capture DB Stats
+        if: always() && env.DATABASE_URL != ''
+        run: |
+          psql "$DATABASE_URL" -f load-tests/scripts/capture_results.sql > load-tests/results/db-stats.txt 2>&1 || true
+          psql "$DATABASE_URL" -t -A -f load-tests/scripts/compare_baselines.sql > load-tests/results/db-stats.json 2>&1 || true
+        continue-on-error: true
+
+      - name: Upload Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results-${{ steps.profile.outputs.profile }}-${{ github.run_number }}
+          path: load-tests/results/
+          retention-days: 30
+
+      - name: Check Tenant Isolation
+        if: always()
+        run: |
+          if grep -q "tenant_isolation_violations.*✗" load-tests/results/k6-output.log 2>/dev/null; then
+            echo "::error::TENANT ISOLATION VIOLATION DETECTED"
+            exit 1
+          fi
+          echo "✅ No tenant isolation violations"
+
+      - name: Post Summary
+        if: always()
+        run: |
+          echo "## Load Test Results (${{ steps.profile.outputs.profile }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Profile | ${{ steps.profile.outputs.profile }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Environment | staging |" >> $GITHUB_STEP_SUMMARY
+          echo "| Run | #${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Extract key metrics from k6 output
+          if [ -f load-tests/results/k6-output.log ]; then
+            echo "### k6 Output (last 30 lines)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -30 load-tests/results/k6-output.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+  notify:
+    name: Notify on Failure
+    needs: load-test
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Load Test Failure — Nightly ${new Date().toISOString().slice(0, 10)}`,
+              body: [
+                '## Nightly Load Test Failed',
+                '',
+                `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                '',
+                'Please investigate and fix before the next release.',
+              ].join('\n'),
+              labels: ['load-test', 'bug'],
+            });

@@ -2,7 +2,7 @@ import { db, sql } from '@oppsera/db';
 import type { PermissionEngine } from './index';
 import { getPermissionCache } from './cache';
 
-const CACHE_TTL = 60; // seconds
+const CACHE_TTL = 15; // seconds — reduced from 60s for faster permission revocation (SEC-007)
 
 export function matchPermission(granted: string, requested: string): boolean {
   if (granted === '*') return true;

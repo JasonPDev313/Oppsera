@@ -88,3 +88,37 @@ export { calculateTaxes } from './helpers/tax-calc';
 export type { TaxCalculationInput, TaxCalculationResult, TaxRateBreakdown } from './helpers/tax-calc';
 export { getCatalogReadApi, setCatalogReadApi } from './helpers/catalog-read-api';
 export type { CatalogReadApi, ItemTaxInfo, PosItemData } from './helpers/catalog-read-api';
+
+// ── Observability ───────────────────────────────────────────────────
+export {
+  logger,
+  log,
+  setLogLevel,
+  withApi,
+  sendAlert,
+  classifyAndAlert,
+  dbHealth,
+  jobHealth,
+  setSentryRequestContext,
+  setSentryBusinessContext,
+  captureException,
+  ObservabilityDrizzleLogger,
+  metricsStore,
+  createRequestMetrics,
+  getRequestMetrics,
+  recordDbQuery,
+  runbooks,
+  findRunbook,
+} from './observability';
+export type {
+  LogLevel,
+  LogEntry,
+  AlertLevel,
+  AlertPayload,
+  RequestMetrics,
+  Runbook,
+  RunbookStep,
+} from './observability';
+
+// ── Security ─────────────────────────────────────────────────────
+export { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from './security';

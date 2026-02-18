@@ -1,0 +1,68 @@
+# OppsEra Worker — Background job processor (outbox dispatcher, event consumers)
+#
+# Runs the outbox poller and scheduled jobs. Connects to the same Postgres
+# and Redis instances as the web service.
+#
+# Build context must be the monorepo root:
+#   docker build -f infra/docker/Dockerfile.worker .
+
+# ── Stage 1: Dependencies ──────────────────────────────────────────────
+FROM node:20-alpine AS deps
+
+RUN corepack enable && corepack prepare pnpm@9 --activate
+WORKDIR /app
+
+# Copy workspace root manifests
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+
+# Copy package manifests for all packages the worker needs
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/core/package.json ./packages/core/
+COPY packages/db/package.json ./packages/db/
+COPY packages/modules/catalog/package.json ./packages/modules/catalog/
+COPY packages/modules/orders/package.json ./packages/modules/orders/
+COPY packages/modules/payments/package.json ./packages/modules/payments/
+COPY packages/modules/inventory/package.json ./packages/modules/inventory/
+COPY packages/modules/customers/package.json ./packages/modules/customers/
+COPY packages/modules/reporting/package.json ./packages/modules/reporting/
+COPY packages/modules/kds/package.json ./packages/modules/kds/
+COPY packages/modules/golf-ops/package.json ./packages/modules/golf-ops/
+COPY packages/modules/marketing/package.json ./packages/modules/marketing/
+
+RUN pnpm install --frozen-lockfile
+
+# ── Stage 2: Build ─────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@9 --activate
+WORKDIR /app
+
+# Bring in installed dependencies from stage 1
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/packages/ ./packages/
+
+# Copy full source tree
+COPY . .
+
+# Build core packages the worker depends on (Turborepo resolves order)
+RUN pnpm turbo run build --filter=@oppsera/core --filter=@oppsera/db --filter=@oppsera/shared
+
+# ── Stage 3: Production ───────────────────────────────────────────────
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+ENV NODE_ENV=production
+
+RUN addgroup --system --gid 1001 worker && \
+    adduser --system --uid 1001 worker
+
+# Copy built packages, node_modules, and worker entry point
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/infra/worker.ts ./infra/worker.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
+USER worker
+
+# Worker entry point — polls outbox and dispatches events to consumers
+CMD ["node", "--import", "tsx", "infra/worker.ts"]

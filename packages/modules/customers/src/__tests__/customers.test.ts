@@ -239,7 +239,14 @@ describe('Customers Module', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Re-establish default chains after clearing
+    // Reset mocks to clear any leftover mockReturnValueOnce queues
+    // (vi.clearAllMocks only clears call history, not once-value queues)
+    mockSelect.mockReset();
+    mockInsert.mockReset();
+    mockUpdate.mockReset();
+    mockDelete.mockReset();
+
+    // Re-establish default chains after resetting
     mockInsert.mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([]),
@@ -1040,14 +1047,8 @@ describe('Customers Module', () => {
       // Previous statement (none)
       mockSelectReturns([]);
 
-      // Sum charges in period
-      mockSelectReturns([{ total: 15000 }]);
-
-      // Sum payments in period (absolute value will be taken)
-      mockSelectReturns([{ total: -5000 }]);
-
-      // Sum late fees in period
-      mockSelectReturns([{ total: 500 }]);
+      // Period totals (single query with conditional aggregates)
+      mockSelectReturns([{ charges: 15000, payments: -5000, lateFees: 500 }]);
 
       // Insert statement
       const createdStatement = {

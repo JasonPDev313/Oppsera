@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const EventEnvelopeSchema = z.object({
   eventId: z.string().min(1),
-  eventType: z.string().regex(/^[a-z]+\.[a-z_]+\.[a-z]+\.v\d+$/),
+  eventType: z.string().regex(/^[a-z][a-z_]*(\.[a-z][a-z_]*)+\.v\d+$/),
   occurredAt: z.string().datetime(),
   tenantId: z.string().min(1),
   locationId: z.string().optional(),

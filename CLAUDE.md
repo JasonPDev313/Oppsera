@@ -18,6 +18,9 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Icons | lucide-react |
 | Testing | Vitest |
 | API | REST, JSON, camelCase keys |
+| Job System | Postgres-backed (SKIP LOCKED), no external queue dependency |
+| Caching | Redis (Stage 2+), in-memory LRU (Stage 1) |
+| Deployment | Vercel → Docker Compose → K8s (staged, see infra/MIGRATION_PLAN.md) |
 
 ## Modules
 
@@ -209,6 +212,61 @@ const posItem = await catalogApi.getItemForPOS(tenantId, itemId, locationId);
 ```
 Internal APIs are read-only, use singleton getter/setter, and are the only exception to events-only cross-module rule.
 
+## Deployment & Infrastructure
+
+### Staged Deployment Path (Updated Feb 2026)
+```
+Stage 1 (10 locations):     Vercel Pro + Supabase Pro Micro (~$45/mo)
+Stage 2 (100 locations):    + Supabase Medium compute + read replica + Redis (~$175/mo)
+Stage 3 (1,000 locations):  + Supabase Large compute (~$505/mo) — still on Vercel
+Stage 4 (5,000 locations):  AWS ECS + RDS + ElastiCache (~$1,195/mo) — containers win
+```
+Cost crossover at ~2,000-3,000 locations (NOT ~100 as previously estimated).
+Real migration drivers: compliance, cold starts, log retention — not cost.
+See `infra/MIGRATION_PLAN.md` and `infra/LIMITS_AND_MIGRATION.ts` for full analysis.
+
+### Connection Pooling (Vercel + Supavisor)
+```typescript
+// postgres.js config for Vercel serverless
+const pool = postgres(DATABASE_URL, {
+  max: 2,              // low per-instance (many concurrent instances)
+  prepare: false,       // REQUIRED for Supavisor transaction mode
+  idle_timeout: 20,
+  max_lifetime: 300,
+});
+```
+
+### Postgres Tuning
+```
+statement_timeout = 30s
+idle_in_transaction_session_timeout = 60s
+lock_timeout = 5s
+```
+Per-table autovacuum for write-heavy tables (orders, inventory_movements, event_outbox):
+`autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.02`
+
+### Background Jobs
+Postgres-native job system using `SKIP LOCKED` (no pg-boss/BullMQ/Redis at Stage 1):
+- Tables: `background_jobs`, `background_job_attempts`, `scheduled_jobs`
+- JobWorker polls with `FOR UPDATE SKIP LOCKED` for lock-free concurrency
+- Tenant fairness: `maxJobsPerTenantPerPoll` cap prevents noisy neighbors
+- Lease + heartbeat mechanism for crash recovery
+- On Vercel: Vercel Cron pings `/api/v1/internal/drain-jobs` every minute as safety net
+
+### Tenant Tiers
+```
+small:      ≤5 locations, 100 req/min, 10 concurrent jobs
+medium:     ≤20 locations, 500 req/min, 25 concurrent jobs
+large:      ≤100 locations, 2000 req/min, 50 concurrent jobs
+enterprise: unlimited, 5000 req/min, 100 concurrent jobs
+```
+
+### Observability
+- **Sentry** for error tracking + performance tracing (Stage 1)
+- **pg_stat_statements** enabled from day 1 — review weekly for top-20 slowest queries
+- Structured JSON logging with `tenantId`, `requestId`, `duration` on every request
+- Stock alerts: `inventory.low_stock.v1`, `inventory.negative.v1` events for monitoring
+
 ## Current State
 
 Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code patterns.
@@ -266,13 +324,26 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - Sidebar navigation: Customers section with All Customers, Memberships, Billing sub-items
 
 ### Test Coverage
-569 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 183 web (75 POS + 66 tenders + 42 inventory) + 10 db
+586 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers + 183 web (75 POS + 66 tenders + 42 inventory) + 27 db
+
+### What's Built (Infrastructure)
+- **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
+- **Admin API**: `/api/health` (public, minimal), `/api/admin/health` (full diagnostics), `/api/admin/metrics/system`, `/api/admin/metrics/tenants`, `/api/admin/migration-readiness`
+- **Container Migration Plan**: Docker multi-stage builds, docker-compose, Terraform (AWS ECS Fargate + RDS + ElastiCache), CI/CD (GitHub Actions), deployment config abstraction, feature flags, full Vercel/Supabase limits audit with 2026 pricing, cost projections, migration trigger framework (16/21 pre-migration checklist items complete)
+- **Legacy Migration Pipeline**: 14 files in `tools/migration/` (~4,030 lines) — config, ID mapping, transformers, validators, pipeline, cutover/rollback, monitoring
+- **Load Testing**: k6 scenarios for auth, catalog, orders, inventory, customers (in `load-tests/`)
+- **Business Logic Tests**: 30 test files in `test/` covering all domain invariants
 
 ### What's Next
 - V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
 - Settings → Dashboard tab (widget toggles, notes editor)
 - Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
 - Reporting module (Session 17)
+- Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
+- Add rate limiting to auth + API endpoints
+- Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
+- CORS configuration for production
+- Security audit and hardening pass
 
 ## Critical Gotchas (Quick Reference)
 
@@ -319,6 +390,29 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 41. **Never import another module's internal helpers** — if multiple modules need `checkIdempotency`, `fetchOrderForMutation`, etc., move them to `@oppsera/core`. Never import from `@oppsera/module-X/helpers/*` in `@oppsera/module-Y`.
 42. **Never query another module's tables in event consumers** — event consumers receive all needed data in the event payload. Don't reach into other modules' tables. If more data is needed, enrich the event payload or use an internal read API.
 43. **Every page must be mobile-responsive** — all dashboard pages must work on 320px+ screens. Use responsive breakpoints (`sm:`, `md:`, `lg:`). POS pages target tablets (768px+). See CONVENTIONS.md §46.
+44. **`prepare: false` is REQUIRED for Supavisor** — postgres.js must set `prepare: false` when using Supabase's connection pooler (Supavisor) in transaction mode. Without this, prepared statements fail silently or error.
+45. **Connection pool `max: 2` on Vercel** — Vercel spins many concurrent instances; each gets a tiny pool. Never set `max` higher than 2-3 in serverless. Total connections = instances × max.
+46. **`withTenant()` uses SET LOCAL** — `set_config('app.current_tenant_id', tenantId, true)` is transaction-scoped (`true` = SET LOCAL). Safe with PgBouncer/Supavisor transaction mode — auto-clears on commit/rollback.
+47. **Never cache stock levels** — inventory on-hand is always computed from `SUM(quantity_delta)`. Caching introduces stale reads and double-deduction risks. Always query live.
+48. **Defer partitioning until 50M+ rows** — partition only when a single table exceeds 50M rows AND index scans show >100ms P95. Use date-based monthly partitioning, NOT tenant-based (too many partitions).
+49. **Vercel Cron for outbox drain** — the outbox worker runs in-process via `instrumentation.ts`, but Vercel cold starts can leave gaps. Add a Vercel Cron job pinging `/api/v1/internal/drain-outbox` every minute as safety net.
+50. **Event payloads must be self-contained** — consumers should NEVER query other modules' tables. If a consumer needs data not in the event, enrich the event payload at publish time. See §45 known violation for customers consumer.
+51. **Background jobs use SKIP LOCKED** — `SELECT ... FOR UPDATE SKIP LOCKED` ensures multiple workers never claim the same job. No external queue dependency needed at Stage 1.
+52. **Tenant fairness in job workers** — cap `maxJobsPerTenantPerPoll` to prevent a single tenant from monopolizing the job queue. Default: 5 jobs per tenant per poll cycle.
+53. **Never K8s before Docker Compose proves insufficient** — K8s adds operational complexity. Only migrate when: >10 services, need custom-metric auto-scaling, team has K8s experience, monthly spend >$2K.
+54. **DevAuthAdapter has production guard** — `get-adapter.ts` checks `process.env.NODE_ENV !== 'production'` in addition to `DEV_AUTH_BYPASS`. This prevents accidental auth bypass in production if env vars leak.
+55. **Optional dependencies use runtime string concatenation** — for packages like `@sentry/nextjs` and `ioredis` that may not be installed, use `const pkg = '@sentry/' + 'nextjs'; require(pkg)` to prevent webpack from statically resolving and failing the build. Always wrap in try/catch.
+56. **Public health endpoint returns minimal info** — `/api/health` only returns `{ status: "healthy" | "unhealthy" }`. Detailed diagnostics (DB latency, cache ratio, commit SHA) are at `/api/admin/health` behind auth. Never expose infrastructure details publicly.
+57. **Event type regex allows multi-segment names** — `^[a-z][a-z_]*(\.[a-z][a-z_]*)+\.v\d+$` supports event types like `catalog.item.tax_groups.updated.v1` (5+ segments). Don't assume exactly 4 segments.
+58. **Vitest `clearAllMocks()` does NOT clear `mockReturnValueOnce` queues** — only `mockReset()` clears them. If tests configure more mock returns than consumed, the leftovers leak into the next test. Always use `mockReset()` for mocks with `mockReturnValueOnce` chains.
+59. **Sentry config files are staged, not active** — `apps/web/sentry-config/` contains ready-to-use configs but `@sentry/nextjs` is NOT installed. To activate: `pnpm -F @oppsera/web add @sentry/nextjs`, move files back to project root, and uncomment imports in `instrumentation.ts`.
+60. **`next.config.ts` — no `instrumentationHook` needed in Next.js 15** — Next.js 15 auto-discovers `src/instrumentation.ts` without `experimental.instrumentationHook`. Remove it if present (it causes a type error).
+61. **All workspace module imports must be explicit in `package.json`** — even if pnpm hoists them. Add `"@oppsera/module-X": "workspace:*"` to every consuming package's `dependencies`. Required for Docker builds and strict pnpm configs.
+62. **Vercel cost crossover is at ~2K-3K locations, not ~100** — Supabase Pro now includes read replicas and PITR add-ons (was Team-only). Team ($599/mo) is only needed for SOC2/SAML compliance. Vercel function limits are 800s timeout, 4GB memory, 30K concurrent (not 60s/1GB/1K). See `infra/LIMITS_AND_MIGRATION.ts`.
+63. **Migration is 80% env-var-driven** — `deployment.ts` auto-detects Vercel vs container vs local, adjusts pool size automatically. Feature flags (`USE_READ_REPLICA`, `USE_CONTAINER_WORKERS`, `USE_REDIS_CACHE`) enable gradual rollout. DB migration = change `DATABASE_URL` only.
+64. **Vercel runtime log retention is 1 day** — ship logs to external aggregator from day 1. This is a launch requirement, not a nice-to-have. Enterprise only extends to 3 days.
+65. **Supabase compute tiers are independent of Pro vs Team** — Pro with Medium compute ($60/mo) gets 120 direct connections, 600 pooler connections, 100GB max DB. No need for Team ($599/mo) just for database features.
+66. **Function invocation overages are the Vercel cost killer at scale** — $0.60/million invocations. At 4M/mo (Stage 4), that's $1,800/mo in overages alone. Cache read-heavy endpoints aggressively.
 
 ## Quick Commands
 
