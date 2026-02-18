@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     // Once auth state is resolved, redirect authenticated users away from auth pages
     if (!isLoading && isAuthenticated && pathname !== '/onboard') {
-      router.replace('/catalog');
+      router.replace('/dashboard');
     }
   }, [isLoading, isAuthenticated, router, pathname]);
 

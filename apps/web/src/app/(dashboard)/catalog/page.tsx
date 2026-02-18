@@ -131,7 +131,7 @@ export default function CatalogPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Catalog</h1>
+        <h1 className="text-xl font-semibold text-gray-900">Inventory Items</h1>
         <button
           type="button"
           onClick={() => router.push('/catalog/items/new')}

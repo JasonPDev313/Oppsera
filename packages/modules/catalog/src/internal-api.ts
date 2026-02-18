@@ -13,54 +13,7 @@ import {
   catalogItemLocationTaxGroups,
 } from './schema';
 import type { CatalogItem, CatalogItemWithModifiers, ModifierGroupWithModifiers } from './types';
-
-// ── Item Tax Info ────────────────────────────────────────────────
-
-export interface ItemTaxInfo {
-  calculationMode: 'exclusive' | 'inclusive';
-  taxGroups: Array<{ id: string; name: string }>;
-  taxRates: Array<{ id: string; name: string; rateDecimal: number }>;
-  totalRate: number;
-}
-
-// ── POS Item Data ────────────────────────────────────────────────
-
-export interface PosItemData {
-  id: string;
-  sku: string | null;
-  barcode: string | null;
-  name: string;
-  itemType: string;
-  isTrackable: boolean;
-  unitPriceCents: number;      // effective price in cents (dollars * 100)
-  taxInfo: ItemTaxInfo;
-  metadata: Record<string, unknown> | null;
-}
-
-// ── Interface ────────────────────────────────────────────────────
-
-export interface CatalogReadApi {
-  getItem(tenantId: string, itemId: string): Promise<CatalogItem | null>;
-  getEffectivePrice(
-    tenantId: string,
-    itemId: string,
-    locationId: string,
-  ): Promise<number>;
-  getItemsWithModifiers(
-    tenantId: string,
-    itemIds: string[],
-  ): Promise<CatalogItemWithModifiers[]>;
-  getItemTaxes(
-    tenantId: string,
-    locationId: string,
-    itemId: string,
-  ): Promise<ItemTaxInfo>;
-  getItemForPOS(
-    tenantId: string,
-    locationId: string,
-    itemId: string,
-  ): Promise<PosItemData | null>;
-}
+import type { CatalogReadApi, ItemTaxInfo, PosItemData } from '@oppsera/core/helpers/catalog-read-api';
 
 // ── Implementation ──────────────────────────────────────────────
 
@@ -198,8 +151,10 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
     const item = await this.getItem(tenantId, itemId);
     if (!item || !item.isActive) return null;
 
-    const price = await this.getEffectivePrice(tenantId, itemId, locationId);
-    const taxInfo = await this.getItemTaxes(tenantId, locationId, itemId);
+    const [price, taxInfo] = await Promise.all([
+      this.getEffectivePrice(tenantId, itemId, locationId),
+      this.getItemTaxes(tenantId, locationId, itemId),
+    ]);
 
     return {
       id: item.id,
@@ -315,6 +270,12 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
       };
     });
   }
+}
+
+// ── Factory ─────────────────────────────────────────────────────
+
+export function createDrizzleCatalogReadApi(): CatalogReadApi {
+  return new DrizzleCatalogReadApi();
 }
 
 // ── Singleton ────────────────────────────────────────────────────

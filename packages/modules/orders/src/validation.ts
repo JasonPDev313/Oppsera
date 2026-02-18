@@ -109,3 +109,10 @@ export const recallOrderSchema = z.object({
   ...idempotencyMixin,
 });
 export type RecallOrderInput = z.infer<typeof recallOrderSchema>;
+
+export const setTaxExemptSchema = z.object({
+  ...idempotencyMixin,
+  taxExempt: z.boolean(),
+  taxExemptReason: z.string().max(500).nullable().optional(),
+});
+export type SetTaxExemptInput = z.infer<typeof setTaxExemptSchema>;

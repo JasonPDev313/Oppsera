@@ -81,10 +81,11 @@ export async function getOrder(tenantId: string, orderId: string): Promise<Order
       throw new NotFoundError('Order', orderId);
     }
 
-    const lines = await tx
-      .select()
-      .from(orderLines)
-      .where(eq(orderLines.orderId, orderId));
+    const [lines, charges, discounts] = await Promise.all([
+      tx.select().from(orderLines).where(eq(orderLines.orderId, orderId)),
+      tx.select().from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+      tx.select().from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+    ]);
 
     const lineIds = lines.map((l) => l.id);
     let lineTaxes: (typeof orderLineTaxes.$inferSelect)[] = [];
@@ -94,16 +95,6 @@ export async function getOrder(tenantId: string, orderId: string): Promise<Order
         .from(orderLineTaxes)
         .where(inArray(orderLineTaxes.orderLineId, lineIds));
     }
-
-    const charges = await tx
-      .select()
-      .from(orderCharges)
-      .where(eq(orderCharges.orderId, orderId));
-
-    const discounts = await tx
-      .select()
-      .from(orderDiscounts)
-      .where(eq(orderDiscounts.orderId, orderId));
 
     return {
       ...order,

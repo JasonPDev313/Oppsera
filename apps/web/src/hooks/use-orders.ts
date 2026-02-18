@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import type { Order } from '@/types/pos';
@@ -12,6 +12,8 @@ function useFetch<T>(url: string | null, headers?: Record<string, string>) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const fetchData = useCallback(async () => {
     if (!url) {
@@ -25,11 +27,11 @@ function useFetch<T>(url: string | null, headers?: Record<string, string>) {
     } catch (err) {
       const e = err instanceof Error ? err : new Error('Fetch failed');
       setError(e);
-      toast.error(e.message);
+      toastRef.current.error(e.message);
     } finally {
       setIsLoading(false);
     }
-  }, [url, toast]);
+  }, [url]);
 
   useEffect(() => {
     fetchData();
@@ -63,6 +65,8 @@ export function useOrders(filters: OrderFilters) {
   const [cursor, setCursor] = useState<string | undefined>();
   const [hasMore, setHasMore] = useState(false);
   const { toast } = useToast();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
 
   const locationHeaders = filters.locationId
     ? { 'X-Location-Id': filters.locationId }
@@ -102,7 +106,7 @@ export function useOrders(filters: OrderFilters) {
       } catch (err) {
         const e = err instanceof Error ? err : new Error('Failed to load orders');
         setError(e);
-        toast.error(e.message);
+        toastRef.current.error(e.message);
       } finally {
         setIsLoading(false);
       }
@@ -110,7 +114,7 @@ export function useOrders(filters: OrderFilters) {
     [
       filters.status, filters.businessDate, filters.dateFrom, filters.dateTo,
       filters.search, filters.paymentMethod, filters.employeeId, filters.terminalId,
-      filters.sortBy, filters.sortDir, filters.locationId, toast,
+      filters.sortBy, filters.sortDir, filters.locationId,
     ],
   );
 

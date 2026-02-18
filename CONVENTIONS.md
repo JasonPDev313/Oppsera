@@ -2075,6 +2075,9 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 569 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 183 web (75 POS + 66 tenders + 42 inventory) + 10 db
 
 ### What's Next
+- V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
+- Settings → Dashboard tab (widget toggles, notes editor)
+- Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
 - Reporting module (Session 17)
 
 ---
@@ -2171,5 +2174,82 @@ Customer `metadata` is `Record<string, unknown> | null`. Strict TypeScript requi
 // Value props — coerce to string
 <DetailRow value={String(customer.metadata?.gender ?? '')} />
 ```
+
+---
+
+## 45. Module Independence (Microservice Readiness)
+
+The architecture is a **modular monolith** designed for future microservice extraction. Each module MUST be independently deployable.
+
+### Hard Rules
+
+1. **No cross-module package.json dependencies** — modules in `packages/modules/` must ONLY depend on `@oppsera/shared`, `@oppsera/db`, and `@oppsera/core`. Never add another module as a dependency.
+2. **No importing another module's internal helpers** — shared functions like `fetchOrderForMutation`, `incrementVersion`, `checkIdempotency`, `saveIdempotencyKey` now live in `@oppsera/core/helpers/`. Never import from `@oppsera/module-X/helpers/*` in another module.
+3. **No direct function calls across modules** — module A must never call module B's command or query functions directly (exception: internal read APIs via singleton pattern, §26).
+4. **No querying another module's tables** — each module owns its schema. Event consumers must NOT reach into another module's tables. Use event data or internal read APIs instead.
+5. **Events are the primary communication channel** — cross-module side-effects happen via event consumers, not synchronous calls.
+6. **Internal read APIs are the ONLY sync exception** — and they must be read-only, minimal, and use the singleton getter/setter pattern.
+
+### Known Violations (Status)
+
+| Issue | Modules | Status |
+|-------|---------|--------|
+| ~~`module-orders` depends on `module-catalog` in package.json~~ | orders → catalog | **FIXED** — orders imports `getCatalogReadApi` + `calculateTaxes` from `@oppsera/core/helpers/` |
+| ~~`module-payments` depends on `module-orders` in package.json~~ | payments → orders | **FIXED** — shared helpers moved to `@oppsera/core/helpers/` |
+| ~~Payments imports `fetchOrderForMutation`, `incrementVersion`, `checkIdempotency`, `saveIdempotencyKey` from Orders~~ | payments → orders | **FIXED** — all four helpers now in `@oppsera/core/helpers/` with thin re-exports in orders |
+| Customers event consumer queries `orders` and `tenders` tables directly | customers → orders, payments | **TODO** — enrich event payloads instead of direct table access |
+
+### Shared Helpers in `@oppsera/core/helpers/`
+
+After the architecture decoupling, these cross-module helpers live in core:
+
+| Helper | File | Used By |
+|--------|------|---------|
+| `checkIdempotency`, `saveIdempotencyKey` | `core/helpers/idempotency.ts` | orders, payments |
+| `fetchOrderForMutation`, `incrementVersion` | `core/helpers/optimistic-lock.ts` | orders, payments |
+| `calculateTaxes` | `core/helpers/tax-calc.ts` | orders (via add-line-item) |
+| `getCatalogReadApi`, `setCatalogReadApi` | `core/helpers/catalog-read-api.ts` | orders (via add-line-item) |
+
+The orders and catalog modules provide thin re-exports from their original paths for backward compat.
+
+### Dependency Rule (Package.json)
+
+```
+@oppsera/shared          ← no internal deps
+@oppsera/db              ← shared
+@oppsera/core            ← shared, db
+@oppsera/module-*        ← shared, db, core (NEVER another module)
+@oppsera/web             ← all packages (orchestration layer)
+```
+
+---
+
+## 46. Mobile Responsiveness
+
+Every page and component MUST be responsive and usable on mobile devices (320px+).
+
+### Hard Rules
+
+1. **Never use fixed percentage widths without responsive alternatives** — `w-[60%]` must have a `flex-col lg:flex-row` wrapper or similar breakpoint behavior.
+2. **Always use responsive breakpoints for layouts** — desktop multi-column layouts must stack on mobile. Use `flex-col md:flex-row` or `grid grid-cols-1 md:grid-cols-2`.
+3. **Dialogs must be mobile-friendly** — use `max-w-[calc(100vw-2rem)] sm:max-w-md` patterns; reduce padding on small screens with `p-4 sm:p-6`.
+4. **Tables must have mobile alternatives** — use the `DataTable` component's built-in mobile card view, or add `overflow-x-auto` for horizontal scrolling.
+5. **Touch targets must be at least 44px** — all buttons, links, and interactive elements need minimum 44x44px tap area on mobile.
+6. **Context menus and popovers must check viewport bounds** — never position a menu off-screen; clamp to viewport edges on small screens.
+7. **Text must scale down on mobile** — use responsive text classes: `text-lg sm:text-xl md:text-2xl`.
+8. **Filters and toolbars must stack on mobile** — use `flex flex-col sm:flex-row` for filter groups.
+
+### POS Exception
+
+POS pages (retail + F&B) are designed for **tablet and desktop** (10"+ screens). They do NOT need to support phones. However, they MUST work on tablets (768px+).
+
+### Testing Checklist
+
+Before marking a page as done, verify at these breakpoints:
+- 320px (small phone)
+- 375px (standard phone)
+- 768px (tablet portrait)
+- 1024px (tablet landscape / small laptop)
+- 1440px+ (desktop)
 
 **Rule:** Never use `customer.metadata.X as string` (unsafe cast). Never render `unknown` directly as ReactNode.

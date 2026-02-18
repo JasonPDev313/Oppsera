@@ -75,6 +75,14 @@ export const customers = pgTable(
     favoriteStaffId: text('favorite_staff_id'),
     socialMediaHandles: jsonb('social_media_handles'),
     handicapIndex: numeric('handicap_index', { precision: 4, scale: 1 }),
+
+    // ── Customer Gap fields (migration 0027) ──
+    prefix: text('prefix'),
+    suffix: text('suffix'),
+    nickname: text('nickname'),
+    homePhone: text('home_phone'),
+    ghinNumber: text('ghin_number'),
+    projectedRounds: integer('projected_rounds'),
   },
   (table) => [
     // NOTE: partial unique indexes (WHERE email IS NOT NULL / WHERE phone IS NOT NULL)
@@ -188,6 +196,26 @@ export const membershipPlans = pgTable(
     privileges: jsonb('privileges').notNull().default('[]'),
     rules: jsonb('rules'),
     isActive: boolean('is_active').notNull().default(true),
+
+    // ── Membership gap fields (migration 0032) ──
+    taxGroupId: text('tax_group_id'),
+    processFeeRate: numeric('process_fee_rate'),
+    processFeeAmountCents: integer('process_fee_amount_cents'),
+    enableOnlineSale: boolean('enable_online_sale').notNull().default(false),
+    teeSheetColor: text('tee_sheet_color'),
+    termsAndConditions: text('terms_and_conditions'),
+    cancellationPolicy: text('cancellation_policy'),
+    prorateOnSale: boolean('prorate_on_sale').notNull().default(false),
+    maxAssignments: integer('max_assignments'),
+    expirationStrategy: jsonb('expiration_strategy'),
+    eligibleForLoyalty: boolean('eligible_for_loyalty').notNull().default(false),
+    eligibleForAwards: boolean('eligible_for_awards').notNull().default(false),
+    awardsPercentage: numeric('awards_percentage'),
+    displaySequence: integer('display_sequence').notNull().default(0),
+    accountType: text('account_type'),
+    requireCcForTeeReservations: text('require_cc_for_tee_reservations'),
+    requireCcForActivityReservations: text('require_cc_for_activity_reservations'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -453,6 +481,12 @@ export const lateFeePolicies = pgTable(
     value: numeric('value', { precision: 12, scale: 4 }).notNull(),
     graceDays: integer('grace_days').notNull().default(0),
     maxFeeCents: bigint('max_fee_cents', { mode: 'number' }),
+
+    // ── Late fee gap fields (migration 0028) ──
+    feeAmountCents: bigint('fee_amount_cents', { mode: 'number' }),
+    thresholdAmountCents: bigint('threshold_amount_cents', { mode: 'number' }),
+    minimumFeeCents: bigint('minimum_fee_cents', { mode: 'number' }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index('idx_late_fee_policies_tenant').on(table.tenantId)],

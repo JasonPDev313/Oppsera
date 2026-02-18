@@ -26,13 +26,12 @@ export const GET = withMiddleware(async (_request, ctx) => {
     });
   }
 
-  const tenant = await db.query.tenants.findFirst({
-    where: eq(tenants.id, ctx.tenantId),
-  });
-
-  const tenantLocations = await db.query.locations.findMany({
-    where: and(eq(locations.tenantId, ctx.tenantId), eq(locations.isActive, true)),
-  });
+  const [tenant, tenantLocations] = await Promise.all([
+    db.query.tenants.findFirst({ where: eq(tenants.id, ctx.tenantId) }),
+    db.query.locations.findMany({
+      where: and(eq(locations.tenantId, ctx.tenantId), eq(locations.isActive, true)),
+    }),
+  ]);
 
   return NextResponse.json({
     data: {

@@ -22,7 +22,7 @@ export function CatalogBreadcrumb({
   if (breadcrumb.length === 0) return null;
 
   return (
-    <nav className="flex items-center gap-1 text-sm" aria-label="Catalog breadcrumb">
+    <nav className="flex items-center gap-1 text-sm" aria-label="Inventory breadcrumb">
       {breadcrumb.map((segment, index) => {
         const isLast = index === breadcrumb.length - 1;
 

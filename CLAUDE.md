@@ -79,13 +79,11 @@ oppsera/
 @oppsera/shared        ← no internal deps (Zod, ulid)
 @oppsera/db            ← shared (Drizzle, postgres.js)
 @oppsera/core          ← shared, db (Supabase, jsonwebtoken)
-@oppsera/module-catalog ← shared, db, core (Drizzle, Zod)
-@oppsera/module-orders   ← shared, db, core, module-catalog (Drizzle, Zod)
-@oppsera/module-payments ← shared, db, core, module-orders (Drizzle, Zod)
-@oppsera/module-inventory  ← shared, db, core (Drizzle, Zod)
-@oppsera/module-customers  ← shared, db, core (Drizzle, Zod)
-@oppsera/web               ← shared, core, db, module-catalog, module-orders, module-payments, module-inventory, module-customers (Next.js, React)
+@oppsera/module-*      ← shared, db, core ONLY (Drizzle, Zod) — NEVER another module
+@oppsera/web           ← all packages (orchestration layer — only place that imports multiple modules)
 ```
+
+**NOTE**: Cross-module deps were eliminated in the architecture decoupling pass. Shared helpers (`checkIdempotency`, `saveIdempotencyKey`, `fetchOrderForMutation`, `incrementVersion`, `calculateTaxes`, `CatalogReadApi`) now live in `@oppsera/core/helpers/`. Order and catalog modules provide thin re-exports for backward compat. One remaining violation: customers event consumer queries `orders` and `tenders` tables directly (fix: enrich event payloads).
 
 ## Key Architectural Patterns
 
@@ -271,6 +269,9 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 569 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 183 web (75 POS + 66 tenders + 42 inventory) + 10 db
 
 ### What's Next
+- V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
+- Settings → Dashboard tab (widget toggles, notes editor)
+- Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
 - Reporting module (Session 17)
 
 ## Critical Gotchas (Quick Reference)
@@ -314,6 +315,10 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 37. **Percentage values: store as raw percentage, not basis points** — For discounts and service charges, store the percentage as-is (10 for 10%). Don't multiply by 100. Keeps storage consistent between charges and discounts, and simplifies display. For fixed dollar amounts, store as cents.
 38. **Service charges apply AFTER discounts** — Percentage service charges use `(subtotal - discountTotal)` as base, not raw `subtotal`. Order of operations: discount first, then service charge on the discounted amount.
 39. **Dark mode uses inverted gray scale** — In `globals.css`, dark mode swaps grays: `gray-900` = near-white, `gray-50` = dark. Never use `bg-gray-900 text-white` (invisible in dark mode). Use `bg-indigo-600 text-white` for primary buttons, `border-red-500/40 text-red-500 hover:bg-red-500/10` for destructive — opacity-based colors work in both modes. Use `bg-surface` for theme-aware backgrounds.
+40. **Never add cross-module dependencies in package.json** — modules in `packages/modules/` must ONLY depend on `@oppsera/shared`, `@oppsera/db`, and `@oppsera/core`. Never add `module-orders`, `module-catalog`, etc. as a dependency of another module. Use events or internal read APIs instead.
+41. **Never import another module's internal helpers** — if multiple modules need `checkIdempotency`, `fetchOrderForMutation`, etc., move them to `@oppsera/core`. Never import from `@oppsera/module-X/helpers/*` in `@oppsera/module-Y`.
+42. **Never query another module's tables in event consumers** — event consumers receive all needed data in the event payload. Don't reach into other modules' tables. If more data is needed, enrich the event payload or use an internal read API.
+43. **Every page must be mobile-responsive** — all dashboard pages must work on 320px+ screens. Use responsive breakpoints (`sm:`, `md:`, `lg:`). POS pages target tablets (768px+). See CONVENTIONS.md §46.
 
 ## Quick Commands
 

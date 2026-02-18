@@ -5,7 +5,8 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, NotFoundError } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
 import { eq, max } from 'drizzle-orm';
-import { getCatalogReadApi, calculateTaxes } from '@oppsera/module-catalog';
+import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
+import { calculateTaxes } from '@oppsera/core/helpers/tax-calc';
 import type { AddLineItemInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
@@ -87,20 +88,20 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
     }
 
     // Recalculate order totals
-    const allLines = await (tx as any).select({
-      lineSubtotal: orderLines.lineSubtotal,
-      lineTax: orderLines.lineTax,
-      lineTotal: orderLines.lineTotal,
-    }).from(orderLines).where(eq(orderLines.orderId, orderId));
-
-    const allCharges = await (tx as any).select({
-      amount: orderCharges.amount,
-      taxAmount: orderCharges.taxAmount,
-    }).from(orderCharges).where(eq(orderCharges.orderId, orderId));
-
-    const allDiscounts = await (tx as any).select({
-      amount: orderDiscounts.amount,
-    }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId));
+    const [allLines, allCharges, allDiscounts] = await Promise.all([
+      (tx as any).select({
+        lineSubtotal: orderLines.lineSubtotal,
+        lineTax: orderLines.lineTax,
+        lineTotal: orderLines.lineTotal,
+      }).from(orderLines).where(eq(orderLines.orderId, orderId)),
+      (tx as any).select({
+        amount: orderCharges.amount,
+        taxAmount: orderCharges.taxAmount,
+      }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+      (tx as any).select({
+        amount: orderDiscounts.amount,
+      }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+    ]);
 
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 

@@ -289,12 +289,15 @@ vi.mock('@oppsera/core/auth/supabase-client', () => ({
   createSupabaseClient: vi.fn(),
 }));
 
-// Mock the catalog module
+// Mock the catalog read API and tax calc (now in core)
 const mockGetItemForPOS = vi.fn();
-vi.mock('@oppsera/module-catalog', () => ({
+vi.mock('@oppsera/core/helpers/catalog-read-api', () => ({
   getCatalogReadApi: () => ({
     getItemForPOS: mockGetItemForPOS,
   }),
+  setCatalogReadApi: vi.fn(),
+}));
+vi.mock('@oppsera/core/helpers/tax-calc', () => ({
   calculateTaxes: vi.fn(
     (input: {
       lineSubtotal: number;

@@ -506,7 +506,7 @@ export default function CreateItemPage() {
             className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to Catalog
+            Back to Items
           </button>
 
           <h1 className="mb-2 text-xl font-semibold text-gray-900">Create New Item</h1>
@@ -553,7 +553,7 @@ export default function CreateItemPage() {
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Catalog
+          Back to Items
         </button>
 
         <h1 className="mb-6 text-xl font-semibold text-gray-900">Create New Item</h1>

@@ -96,7 +96,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   }, [isLoading, isAuthenticated, router]);
 
   const handleExitPOS = useCallback(() => {
-    router.push('/');
+    router.push('/dashboard');
   }, [router]);
 
   if (isLoading) {

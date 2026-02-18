@@ -85,7 +85,7 @@ export function useInventoryItem(itemId: string | null) {
     fetchData();
   }, [fetchData]);
 
-  const mutate = () => fetchData();
+  const mutate = useCallback(() => fetchData(), [fetchData]);
   return { data, isLoading, error, mutate };
 }
 

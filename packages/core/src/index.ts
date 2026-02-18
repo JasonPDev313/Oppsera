@@ -80,3 +80,11 @@ export {
 } from './audit';
 export type { ConfigService } from './config';
 export type { BillingAdapter } from './billing';
+
+// ── Cross-module helpers (shared infrastructure) ──────────────────
+export { checkIdempotency, saveIdempotencyKey } from './helpers/idempotency';
+export { fetchOrderForMutation, incrementVersion } from './helpers/optimistic-lock';
+export { calculateTaxes } from './helpers/tax-calc';
+export type { TaxCalculationInput, TaxCalculationResult, TaxRateBreakdown } from './helpers/tax-calc';
+export { getCatalogReadApi, setCatalogReadApi } from './helpers/catalog-read-api';
+export type { CatalogReadApi, ItemTaxInfo, PosItemData } from './helpers/catalog-read-api';

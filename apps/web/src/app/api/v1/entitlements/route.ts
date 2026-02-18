@@ -8,6 +8,8 @@ import { MODULE_REGISTRY, getEntitlementEngine } from '@oppsera/core/entitlement
 import { auditLog } from '@oppsera/core/audit';
 import { generateUlid, ValidationError, ConflictError } from '@oppsera/shared';
 
+const MODULE_REGISTRY_MAP = new Map<string, (typeof MODULE_REGISTRY)[number]>(MODULE_REGISTRY.map((m) => [m.key, m]));
+
 export const GET = withMiddleware(
   async (_request, ctx) => {
     const rows = await db.query.entitlements.findMany({
@@ -15,7 +17,7 @@ export const GET = withMiddleware(
     });
 
     const result = rows.map((row) => {
-      const registryEntry = MODULE_REGISTRY.find((m) => m.key === row.moduleKey);
+      const registryEntry = MODULE_REGISTRY_MAP.get(row.moduleKey);
       return {
         moduleKey: row.moduleKey,
         displayName: registryEntry?.name ?? row.moduleKey,

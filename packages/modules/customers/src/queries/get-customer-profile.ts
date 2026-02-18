@@ -1,4 +1,4 @@
-import { eq, and, desc, isNull } from 'drizzle-orm';
+import { eq, and, desc, isNull, or } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import {
   customers,
@@ -93,77 +93,149 @@ export async function getCustomerProfile(
       throw new NotFoundError('Customer', input.customerId);
     }
 
-    // Fetch contacts
-    const contacts = await tx
-      .select()
-      .from(customerContacts)
-      .where(
-        and(
-          eq(customerContacts.tenantId, input.tenantId),
-          eq(customerContacts.customerId, input.customerId),
+    // Fetch all independent queries in parallel (Group A)
+    const [
+      contacts,
+      identifiers,
+      serviceFlags,
+      activeAlerts,
+      currentVisitRows,
+      householdMemberRows,
+      metrics,
+      activeMembershipRows,
+      membershipHistory,
+      relationships,
+    ] = await Promise.all([
+      // Fetch contacts
+      tx
+        .select()
+        .from(customerContacts)
+        .where(
+          and(
+            eq(customerContacts.tenantId, input.tenantId),
+            eq(customerContacts.customerId, input.customerId),
+          ),
         ),
-      );
 
-    // Fetch identifiers
-    const identifiers = await tx
-      .select()
-      .from(customerIdentifiers)
-      .where(
-        and(
-          eq(customerIdentifiers.tenantId, input.tenantId),
-          eq(customerIdentifiers.customerId, input.customerId),
+      // Fetch identifiers
+      tx
+        .select()
+        .from(customerIdentifiers)
+        .where(
+          and(
+            eq(customerIdentifiers.tenantId, input.tenantId),
+            eq(customerIdentifiers.customerId, input.customerId),
+          ),
         ),
-      );
 
-    // Fetch service flags
-    const serviceFlags = await tx
-      .select()
-      .from(customerServiceFlags)
-      .where(
-        and(
-          eq(customerServiceFlags.tenantId, input.tenantId),
-          eq(customerServiceFlags.customerId, input.customerId),
+      // Fetch service flags
+      tx
+        .select()
+        .from(customerServiceFlags)
+        .where(
+          and(
+            eq(customerServiceFlags.tenantId, input.tenantId),
+            eq(customerServiceFlags.customerId, input.customerId),
+          ),
         ),
-      );
 
-    // Fetch active alerts
-    const activeAlerts = await tx
-      .select()
-      .from(customerAlerts)
-      .where(
-        and(
-          eq(customerAlerts.tenantId, input.tenantId),
-          eq(customerAlerts.customerId, input.customerId),
-          eq(customerAlerts.isActive, true),
+      // Fetch active alerts
+      tx
+        .select()
+        .from(customerAlerts)
+        .where(
+          and(
+            eq(customerAlerts.tenantId, input.tenantId),
+            eq(customerAlerts.customerId, input.customerId),
+            eq(customerAlerts.isActive, true),
+          ),
         ),
-      );
 
-    // Fetch current visit (checkOutAt IS NULL, ordered by checkInAt DESC, limit 1)
-    const [currentVisit] = await tx
-      .select()
-      .from(customerVisits)
-      .where(
-        and(
-          eq(customerVisits.tenantId, input.tenantId),
-          eq(customerVisits.customerId, input.customerId),
-          isNull(customerVisits.checkOutAt),
+      // Fetch current visit (checkOutAt IS NULL, ordered by checkInAt DESC, limit 1)
+      tx
+        .select()
+        .from(customerVisits)
+        .where(
+          and(
+            eq(customerVisits.tenantId, input.tenantId),
+            eq(customerVisits.customerId, input.customerId),
+            isNull(customerVisits.checkOutAt),
+          ),
+        )
+        .orderBy(desc(customerVisits.checkInAt))
+        .limit(1),
+
+      // Fetch household memberships for this customer
+      tx
+        .select()
+        .from(customerHouseholdMembers)
+        .where(
+          and(
+            eq(customerHouseholdMembers.tenantId, input.tenantId),
+            eq(customerHouseholdMembers.customerId, input.customerId),
+            isNull(customerHouseholdMembers.leftAt),
+          ),
         ),
-      )
-      .orderBy(desc(customerVisits.checkInAt))
-      .limit(1);
 
-    // Fetch households: get memberships, then for each fetch the household + all its members
-    const householdMemberRows = await tx
-      .select()
-      .from(customerHouseholdMembers)
-      .where(
-        and(
-          eq(customerHouseholdMembers.tenantId, input.tenantId),
-          eq(customerHouseholdMembers.customerId, input.customerId),
-          isNull(customerHouseholdMembers.leftAt),
+      // Fetch customer_metrics_lifetime for stats
+      tx
+        .select()
+        .from(customerMetricsLifetime)
+        .where(
+          and(
+            eq(customerMetricsLifetime.tenantId, input.tenantId),
+            eq(customerMetricsLifetime.customerId, input.customerId),
+          ),
+        )
+        .limit(1),
+
+      // Fetch active membership with plan name
+      tx
+        .select({
+          membership: customerMemberships,
+          planName: membershipPlans.name,
+        })
+        .from(customerMemberships)
+        .innerJoin(membershipPlans, eq(customerMemberships.planId, membershipPlans.id))
+        .where(
+          and(
+            eq(customerMemberships.tenantId, input.tenantId),
+            eq(customerMemberships.customerId, input.customerId),
+            eq(customerMemberships.status, 'active'),
+          ),
+        )
+        .limit(1),
+
+      // Fetch all membership history
+      tx
+        .select()
+        .from(customerMemberships)
+        .where(
+          and(
+            eq(customerMemberships.tenantId, input.tenantId),
+            eq(customerMemberships.customerId, input.customerId),
+          ),
+        )
+        .orderBy(desc(customerMemberships.createdAt)),
+
+      // Fetch relationships
+      tx
+        .select()
+        .from(customerRelationships)
+        .where(
+          and(
+            eq(customerRelationships.tenantId, input.tenantId),
+            or(
+              eq(customerRelationships.parentCustomerId, input.customerId),
+              eq(customerRelationships.childCustomerId, input.customerId),
+            ),
+          ),
         ),
-      );
+    ]);
 
+    const currentVisit = currentVisitRows[0] ?? null;
+
+    // Group B: household details depend on householdMemberRows from Group A
     let household: CustomerProfileOverview['household'] = null;
     if (householdMemberRows.length > 0) {
       const { inArray } = await import('drizzle-orm');
@@ -208,26 +280,16 @@ export async function getCustomerProfile(
       };
     }
 
-    // Fetch customer_metrics_lifetime for stats
-    const [metrics] = await tx
-      .select()
-      .from(customerMetricsLifetime)
-      .where(
-        and(
-          eq(customerMetricsLifetime.tenantId, input.tenantId),
-          eq(customerMetricsLifetime.customerId, input.customerId),
-        ),
-      )
-      .limit(1);
+    const metricsRow = metrics[0];
 
-    const totalVisits = metrics?.totalVisits ?? 0;
-    const totalSpendCents = metrics?.totalSpendCents ?? 0;
-    const avgSpendCents = metrics?.avgSpendCents ?? 0;
-    const lifetimeValueCents = metrics?.lifetimeValueCents ?? 0;
-    const firstVisitAt = metrics?.firstVisitAt?.toISOString() ?? null;
-    const lastVisitAt = metrics?.lastVisitAt?.toISOString() ?? null;
-    const avgVisitDurationMinutes = metrics?.avgVisitDurationMinutes ?? null;
-    const categoryBreakdown = (metrics?.categoryBreakdown ?? {}) as Record<string, number>;
+    const totalVisits = metricsRow?.totalVisits ?? 0;
+    const totalSpendCents = metricsRow?.totalSpendCents ?? 0;
+    const avgSpendCents = metricsRow?.avgSpendCents ?? 0;
+    const lifetimeValueCents = metricsRow?.lifetimeValueCents ?? 0;
+    const firstVisitAt = metricsRow?.firstVisitAt?.toISOString() ?? null;
+    const lastVisitAt = metricsRow?.lastVisitAt?.toISOString() ?? null;
+    const avgVisitDurationMinutes = metricsRow?.avgVisitDurationMinutes ?? null;
+    const categoryBreakdown = (metricsRow?.categoryBreakdown ?? {}) as Record<string, number>;
 
     const daysSinceLastVisit = lastVisitAt
       ? Math.floor((Date.now() - new Date(lastVisitAt).getTime()) / 86400000)
@@ -248,53 +310,9 @@ export async function getCustomerProfile(
       avgVisitDurationMinutes,
     };
 
-    // Fetch active membership with plan name
-    const activeMembershipRows = await tx
-      .select({
-        membership: customerMemberships,
-        planName: membershipPlans.name,
-      })
-      .from(customerMemberships)
-      .innerJoin(membershipPlans, eq(customerMemberships.planId, membershipPlans.id))
-      .where(
-        and(
-          eq(customerMemberships.tenantId, input.tenantId),
-          eq(customerMemberships.customerId, input.customerId),
-          eq(customerMemberships.status, 'active'),
-        ),
-      )
-      .limit(1);
-
     const activeMembership = activeMembershipRows.length > 0
       ? { ...activeMembershipRows[0]!.membership, planName: activeMembershipRows[0]!.planName }
       : null;
-
-    // Fetch all membership history
-    const membershipHistory = await tx
-      .select()
-      .from(customerMemberships)
-      .where(
-        and(
-          eq(customerMemberships.tenantId, input.tenantId),
-          eq(customerMemberships.customerId, input.customerId),
-        ),
-      )
-      .orderBy(desc(customerMemberships.createdAt));
-
-    // Fetch relationships
-    const { or } = await import('drizzle-orm');
-    const relationships = await tx
-      .select()
-      .from(customerRelationships)
-      .where(
-        and(
-          eq(customerRelationships.tenantId, input.tenantId),
-          or(
-            eq(customerRelationships.parentCustomerId, input.customerId),
-            eq(customerRelationships.childCustomerId, input.customerId),
-          ),
-        ),
-      );
 
     return {
       customer,

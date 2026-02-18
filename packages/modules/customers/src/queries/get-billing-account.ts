@@ -50,31 +50,31 @@ export async function getBillingAccount(
         ),
       );
 
-    // Fetch recent AR transactions (last 20)
-    const recentTransactions = await tx
-      .select()
-      .from(arTransactions)
-      .where(
-        and(
-          eq(arTransactions.tenantId, input.tenantId),
-          eq(arTransactions.billingAccountId, input.billingAccountId),
+    // Fetch recent AR transactions and outstanding balance in parallel
+    const [recentTransactions, [balanceResult]] = await Promise.all([
+      tx
+        .select()
+        .from(arTransactions)
+        .where(
+          and(
+            eq(arTransactions.tenantId, input.tenantId),
+            eq(arTransactions.billingAccountId, input.billingAccountId),
+          ),
+        )
+        .orderBy(desc(arTransactions.createdAt))
+        .limit(20),
+      tx
+        .select({
+          balance: sql<number>`coalesce(sum(amount_cents), 0)::int`,
+        })
+        .from(arTransactions)
+        .where(
+          and(
+            eq(arTransactions.tenantId, input.tenantId),
+            eq(arTransactions.billingAccountId, input.billingAccountId),
+          ),
         ),
-      )
-      .orderBy(desc(arTransactions.createdAt))
-      .limit(20);
-
-    // Compute outstanding balance from the ledger
-    const [balanceResult] = await tx
-      .select({
-        balance: sql<number>`coalesce(sum(amount_cents), 0)::int`,
-      })
-      .from(arTransactions)
-      .where(
-        and(
-          eq(arTransactions.tenantId, input.tenantId),
-          eq(arTransactions.billingAccountId, input.billingAccountId),
-        ),
-      );
+    ]);
 
     return {
       account,

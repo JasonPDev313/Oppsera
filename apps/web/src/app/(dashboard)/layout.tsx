@@ -54,7 +54,7 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   {
     name: 'POS',
     href: '/pos',
@@ -193,7 +193,7 @@ function SidebarContent({
     <div className="flex h-full flex-col">
       {/* Logo */}
       <div className={`flex h-16 shrink-0 items-center border-b border-gray-200 ${collapsed ? 'justify-center px-2' : 'px-6'}`}>
-        <Link href="/" className="flex items-center gap-2" onClick={onLinkClick}>
+        <Link href="/dashboard" className="flex items-center gap-2" onClick={onLinkClick}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600">
             <span className="text-sm font-bold text-white">O</span>
           </div>
@@ -206,8 +206,8 @@ function SidebarContent({
         {navigation.map((item) => {
           const enabled = !item.moduleKey || isModuleEnabled(item.moduleKey);
           const isParentActive =
-            item.href === '/'
-              ? pathname === '/'
+            item.href === '/dashboard'
+              ? pathname === '/dashboard'
               : pathname.startsWith(item.href) ||
                 (item.children?.some((child) => pathname.startsWith(child.href)) ?? false);
 

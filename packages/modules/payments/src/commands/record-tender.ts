@@ -9,11 +9,11 @@ import type { RecordTenderInput } from '../validation';
 import {
   checkIdempotency,
   saveIdempotencyKey,
-} from '@oppsera/module-orders/helpers/idempotency';
+} from '@oppsera/core/helpers/idempotency';
 import {
   fetchOrderForMutation,
   incrementVersion,
-} from '@oppsera/module-orders/helpers/optimistic-lock';
+} from '@oppsera/core/helpers/optimistic-lock';
 import { generateJournalEntry } from '../helpers/gl-journal';
 import type { OrderLineForGL } from '../helpers/gl-journal';
 

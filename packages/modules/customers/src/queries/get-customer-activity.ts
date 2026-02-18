@@ -32,29 +32,29 @@ export async function getCustomerActivity(
       conditions.push(lt(customerActivityLog.id, input.cursor));
     }
 
-    const rows = await tx
-      .select()
-      .from(customerActivityLog)
-      .where(and(...conditions))
-      .orderBy(desc(customerActivityLog.id))
-      .limit(limit + 1);
+    const [rows, recentVisits] = await Promise.all([
+      tx
+        .select()
+        .from(customerActivityLog)
+        .where(and(...conditions))
+        .orderBy(desc(customerActivityLog.id))
+        .limit(limit + 1),
+      tx
+        .select()
+        .from(customerVisits)
+        .where(
+          and(
+            eq(customerVisits.tenantId, input.tenantId),
+            eq(customerVisits.customerId, input.customerId),
+          ),
+        )
+        .orderBy(desc(customerVisits.checkInAt))
+        .limit(20),
+    ]);
 
     const hasMore = rows.length > limit;
     const timeline = hasMore ? rows.slice(0, limit) : rows;
     const nextCursor = hasMore ? timeline[timeline.length - 1]!.id : null;
-
-    // Fetch recent visits (last 20)
-    const recentVisits = await tx
-      .select()
-      .from(customerVisits)
-      .where(
-        and(
-          eq(customerVisits.tenantId, input.tenantId),
-          eq(customerVisits.customerId, input.customerId),
-        ),
-      )
-      .orderBy(desc(customerVisits.checkInAt))
-      .limit(20);
 
     return { timeline, recentVisits, cursor: nextCursor, hasMore };
   });

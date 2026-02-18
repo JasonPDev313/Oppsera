@@ -42,7 +42,7 @@ export function ProfilePreferencesTab({ customerId }: ProfilePreferencesTabProps
       const res = await apiFetch<{ data: CustomerPreference[] }>(
         `/api/v1/customers/${customerId}/preferences`,
       );
-      setPreferences(res.data);
+      setPreferences(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to load preferences'));
     } finally {

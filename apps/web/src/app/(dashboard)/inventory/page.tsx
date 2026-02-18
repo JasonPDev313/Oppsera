@@ -1,14 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Warehouse, AlertTriangle } from 'lucide-react';
+import { Warehouse, AlertTriangle, Eye, Archive, History } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ActionMenu } from '@/components/ui/action-menu';
+import type { ActionMenuItem } from '@/components/ui/action-menu';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import { useInventory } from '@/hooks/use-inventory';
+import { apiFetch } from '@/lib/api-client';
 import type { InventoryItem } from '@/types/inventory';
 
 const statusOptions = [
@@ -51,17 +56,74 @@ type InventoryRow = InventoryItem & Record<string, unknown>;
 
 export default function InventoryPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [itemType, setItemType] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
 
-  const { data: items, isLoading, hasMore, loadMore } = useInventory({
+  // Archive confirmation
+  const [archiveTarget, setArchiveTarget] = useState<InventoryItem | null>(null);
+
+  const { data: items, isLoading, hasMore, loadMore, mutate } = useInventory({
     status: status || undefined,
     itemType: itemType || undefined,
     search: search || undefined,
     lowStockOnly,
   });
+
+  const handleArchive = useCallback(
+    async (item: InventoryItem) => {
+      const isArchived = item.status === 'archived';
+      try {
+        await apiFetch(`/api/v1/inventory/${item.id}/archive`, {
+          method: 'POST',
+          body: JSON.stringify({ archive: !isArchived }),
+        });
+        toast.success(isArchived ? `"${item.name}" unarchived` : `"${item.name}" archived`);
+        mutate();
+      } catch {
+        toast.error(`Failed to ${isArchived ? 'unarchive' : 'archive'} item`);
+      }
+      setArchiveTarget(null);
+    },
+    [toast, mutate],
+  );
+
+  const buildActions = useCallback(
+    (row: InventoryItem): ActionMenuItem[] => {
+      const isArchived = row.status === 'archived';
+      return [
+        {
+          key: 'view',
+          label: 'View / Edit',
+          icon: Eye,
+          onClick: () => router.push(`/inventory/${row.id}`),
+        },
+        {
+          key: 'changelog',
+          label: 'Change Log',
+          icon: History,
+          onClick: () => router.push(`/inventory/${row.id}?tab=movements`),
+        },
+        {
+          key: 'archive',
+          label: isArchived ? 'Unarchive' : 'Archive',
+          icon: Archive,
+          destructive: !isArchived,
+          dividerBefore: true,
+          onClick: () => {
+            if (isArchived) {
+              handleArchive(row);
+            } else {
+              setArchiveTarget(row);
+            }
+          },
+        },
+      ];
+    },
+    [router, handleArchive],
+  );
 
   const columns = [
     {
@@ -103,6 +165,15 @@ export default function InventoryPage() {
       key: 'status',
       header: 'Status',
       render: (row: InventoryRow) => getStatusBadge(row.status),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (row: InventoryRow) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ActionMenu items={buildActions(row)} />
+        </div>
+      ),
     },
   ];
 
@@ -181,6 +252,17 @@ export default function InventoryPage() {
           )}
         </>
       )}
+
+      {/* Archive Confirmation */}
+      <ConfirmDialog
+        open={!!archiveTarget}
+        title="Archive Item"
+        description={`Are you sure you want to archive "${archiveTarget?.name}"? Archived items won't appear in POS or active inventory views.`}
+        confirmLabel="Archive"
+        destructive
+        onConfirm={() => archiveTarget && handleArchive(archiveTarget)}
+        onClose={() => setArchiveTarget(null)}
+      />
     </div>
   );
 }

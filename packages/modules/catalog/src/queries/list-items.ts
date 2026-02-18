@@ -27,7 +27,7 @@ export interface ListItemsResult {
 }
 
 export async function listItems(input: ListItemsInput): Promise<ListItemsResult> {
-  const limit = Math.min(input.limit ?? 50, 100);
+  const limit = Math.min(input.limit ?? 50, 5000);
 
   return withTenant(input.tenantId, async (tx) => {
     const conditions = [eq(catalogItems.tenantId, input.tenantId)];

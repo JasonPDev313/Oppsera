@@ -119,7 +119,7 @@ export function useCatalogForPOS(locationId: string) {
           apiFetch<{
             data: CatalogItemRow[];
             meta: { cursor: string | null; hasMore: boolean };
-          }>('/api/v1/catalog/items?isActive=true&limit=500'),
+          }>('/api/v1/catalog/items?isActive=true&limit=5000'),
         ]);
 
         if (cancelled) return;
@@ -133,7 +133,7 @@ export function useCatalogForPOS(locationId: string) {
           const page = await apiFetch<{
             data: CatalogItemRow[];
             meta: { cursor: string | null; hasMore: boolean };
-          }>(`/api/v1/catalog/items?isActive=true&limit=500&cursor=${nextCursor}`);
+          }>(`/api/v1/catalog/items?isActive=true&limit=5000&cursor=${nextCursor}`);
 
           if (cancelled) return;
 
@@ -275,7 +275,7 @@ export function useCatalogForPOS(locationId: string) {
 
     // No selection — return all items
     return allItems;
-  }, [nav, childrenByParent, itemsByCategory, allItems]);
+  }, [nav.categoryId, nav.subDepartmentId, nav.departmentId, childrenByParent, itemsByCategory, allItems]);
 
   // ── Breadcrumb ─────────────────────────────────────────────────
 
@@ -359,10 +359,8 @@ export function useCatalogForPOS(locationId: string) {
     [],
   );
 
-  const recentItems = useMemo(() => {
-    const itemMap = new Map(allItems.map((item) => [item.id, item]));
-    return recentIds.map((id) => itemMap.get(id)).filter(Boolean) as CatalogItemForPOS[];
-  }, [recentIds, allItems]);
+  const allItemsMap = useMemo(() => new Map(allItems.map((item) => [item.id, item])), [allItems]);
+  const recentItems = useMemo(() => recentIds.map((id) => allItemsMap.get(id)).filter(Boolean) as CatalogItemForPOS[], [recentIds, allItemsMap]);
 
   // ── Reload favorites when locationId changes ───────────────────
 

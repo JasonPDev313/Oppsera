@@ -41,6 +41,15 @@ export const locations = pgTable(
     latitude: numeric('latitude', { precision: 10, scale: 7 }),
     longitude: numeric('longitude', { precision: 10, scale: 7 }),
     isActive: boolean('is_active').notNull().default(true),
+
+    // ── Location gap fields (migration 0042) ──
+    phone: text('phone'),
+    email: text('email'),
+    websiteUrl: text('website_url'),
+    logoUrl: text('logo_url'),
+    description: text('description'),
+    socialLinks: jsonb('social_links'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -54,6 +63,16 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   authProviderId: text('auth_provider_id').unique(),
   isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
+
+  // ── Employee fields (migration 0031) ──
+  phone: text('phone'),
+  posPin: text('pos_pin'),
+  overridePin: text('override_pin'),
+  employeeColor: text('employee_color'),
+  externalPayrollId: text('external_payroll_id'),
+  profileImageUrl: text('profile_image_url'),
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

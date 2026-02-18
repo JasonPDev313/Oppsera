@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
@@ -24,7 +24,7 @@ export function usePOS(config: POSConfig) {
   const { toast } = useToast();
 
   // Location header for all POS API calls
-  const locationHeaders = { 'X-Location-Id': config.locationId };
+  const locationHeaders = useMemo(() => ({ 'X-Location-Id': config.locationId }), [config.locationId]);
 
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -76,10 +76,10 @@ export function usePOS(config: POSConfig) {
     }
   }, [config.locationId]);
 
-  // Refresh held count on mount and when order changes
+  // Refresh held count on mount only (hold/recall call fetchHeldOrderCount explicitly)
   useEffect(() => {
     fetchHeldOrderCount();
-  }, [fetchHeldOrderCount, currentOrder?.id]);
+  }, [fetchHeldOrderCount]);
 
   // ── Error handler with 409 auto-refetch ────────────────────────
 
@@ -355,8 +355,11 @@ export function usePOS(config: POSConfig) {
 
   const attachCustomer = useCallback(
     async (customerId: string): Promise<void> => {
-      const order = orderRef.current;
-      if (!order) return;
+      // Auto-open an order if none exists (so customer can be attached before adding items)
+      let order = orderRef.current;
+      if (!order) {
+        order = await openOrder();
+      }
       setIsLoading(true);
       try {
         await apiFetch(`/api/v1/orders/${order.id}`, {
@@ -375,7 +378,7 @@ export function usePOS(config: POSConfig) {
         setIsLoading(false);
       }
     },
-    [fetchOrder, handleMutationError],
+    [openOrder, fetchOrder, handleMutationError],
   );
 
   const detachCustomer = useCallback(async (): Promise<void> => {
@@ -558,6 +561,39 @@ export function usePOS(config: POSConfig) {
     [fetchOrder, toast, fetchHeldOrderCount],
   );
 
+  // ── Tax Exempt ─────────────────────────────────────────────────
+
+  const setTaxExempt = useCallback(
+    async (taxExempt: boolean, taxExemptReason?: string | null): Promise<void> => {
+      const order = orderRef.current;
+      if (!order) return;
+      setIsLoading(true);
+      try {
+        const res = await apiFetch<{ data: Order }>(
+          `/api/v1/orders/${order.id}/tax-exempt`,
+          {
+            method: 'POST',
+            headers: locationHeaders,
+            body: JSON.stringify({
+              taxExempt,
+              taxExemptReason: taxExemptReason ?? null,
+              clientRequestId: clientRequestId(),
+            }),
+          },
+        );
+        // Refresh order to get recalculated totals
+        const refreshed = await fetchOrder(order.id);
+        setCurrentOrder(refreshed);
+        toast.info(taxExempt ? 'Tax exempt applied' : 'Tax exempt removed');
+      } catch (err) {
+        await handleMutationError(err);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [fetchOrder, toast, handleMutationError],
+  );
+
   const clearOrder = useCallback((): void => {
     setCurrentOrder(null);
   }, []);
@@ -584,6 +620,9 @@ export function usePOS(config: POSConfig) {
 
     // Tenders
     recordTender,
+
+    // Tax
+    setTaxExempt,
 
     // Order Lifecycle
     placeOrder,

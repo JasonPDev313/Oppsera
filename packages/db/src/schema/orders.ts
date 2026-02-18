@@ -37,6 +37,8 @@ export const orders = pgTable(
     discountTotal: integer('discount_total').notNull().default(0),
     roundingAdjustment: integer('rounding_adjustment').notNull().default(0),
     total: integer('total').notNull().default(0),
+    taxExempt: boolean('tax_exempt').notNull().default(false),
+    taxExemptReason: text('tax_exempt_reason'),
     notes: text('notes'),
     metadata: jsonb('metadata'),
     businessDate: date('business_date').notNull(),
@@ -51,6 +53,17 @@ export const orders = pgTable(
     voidedBy: text('voided_by'),
     heldAt: timestamp('held_at', { withTimezone: true }),
     heldBy: text('held_by'),
+
+    // ── Order gap fields (migration 0034) ──
+    holeNumber: integer('hole_number'),
+    tabName: text('tab_name'),
+    tableNumber: text('table_number'),
+    serviceChargeExempt: boolean('service_charge_exempt').notNull().default(false),
+    primaryOrderId: text('primary_order_id'),
+    promoCodeId: text('promo_code_id'),
+    searchTags: text('search_tags'),
+    eventId: text('event_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by').notNull(),
@@ -119,6 +132,13 @@ export const orderLines = pgTable(
     selectedOptions: jsonb('selected_options'),
     packageComponents: jsonb('package_components'),
     notes: text('notes'),
+
+    // ── Order line gap fields (migration 0034) ──
+    costPrice: integer('cost_price'),
+    seatNumber: integer('seat_number'),
+    mealCourseId: text('meal_course_id'),
+    comboParentLineId: text('combo_parent_line_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

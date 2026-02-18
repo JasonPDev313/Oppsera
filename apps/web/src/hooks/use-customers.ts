@@ -38,6 +38,7 @@ export function useCustomers(options: UseCustomersOptions = {}) {
   const [hasMore, setHasMore] = useState(false);
   const cursorRef = useRef<string | null>(null);
 
+  const tagsKey = options.tags?.join(',') ?? '';
   const fetchData = useCallback(async (loadMore = false) => {
     try {
       if (!loadMore) setIsLoading(true);
@@ -62,7 +63,7 @@ export function useCustomers(options: UseCustomersOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [options.search, options.tags]);
+  }, [options.search, tagsKey]);
 
   useEffect(() => {
     cursorRef.current = null;
@@ -101,7 +102,7 @@ export function useCustomer(id: string | null) {
     fetchData();
   }, [fetchData]);
 
-  const mutate = () => fetchData();
+  const mutate = useCallback(() => fetchData(), [fetchData]);
   return { data, isLoading, error, mutate };
 }
 
@@ -178,7 +179,7 @@ export function useMembershipPlan(id: string | null) {
     fetchData();
   }, [fetchData]);
 
-  const mutate = () => fetchData();
+  const mutate = useCallback(() => fetchData(), [fetchData]);
   return { data, isLoading, error, mutate };
 }
 
@@ -255,7 +256,7 @@ export function useBillingAccount(id: string | null) {
     fetchData();
   }, [fetchData]);
 
-  const mutate = () => fetchData();
+  const mutate = useCallback(() => fetchData(), [fetchData]);
   return { data, isLoading, error, mutate };
 }
 
@@ -328,7 +329,7 @@ export function useAgingReport(billingAccountId: string | null) {
     fetchData();
   }, [fetchData]);
 
-  const mutate = () => fetchData();
+  const mutate = useCallback(() => fetchData(), [fetchData]);
   return { data, isLoading, error, mutate };
 }
 

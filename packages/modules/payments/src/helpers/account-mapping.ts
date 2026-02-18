@@ -8,6 +8,8 @@ export function getDebitAccountForTenderType(tenderType: string): Account {
   switch (tenderType) {
     case 'cash':
       return { code: '1010', name: 'Cash on Hand' };
+    case 'check':
+      return { code: '1015', name: 'Checks Receivable' };
     case 'card':
       return { code: '1020', name: 'Undeposited Funds' };
     case 'gift_card':

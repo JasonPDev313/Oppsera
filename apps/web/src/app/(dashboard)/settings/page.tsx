@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText } from 'lucide-react';
+import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useEntitlements } from '@/hooks/use-entitlements';
@@ -38,7 +38,7 @@ interface TenantUser {
 // ── Permission Groups ────────────────────────────────────────────
 
 const PERMISSION_GROUPS: Record<string, string[]> = {
-  Catalog: ['catalog.view', 'catalog.create', 'catalog.update', 'catalog.delete'],
+  'Inventory Items': ['catalog.view', 'catalog.create', 'catalog.update', 'catalog.delete'],
   Orders: ['orders.view', 'orders.create', 'orders.void'],
   Payments: ['tenders.view', 'tenders.create'],
   Inventory: ['inventory.view', 'inventory.receive', 'inventory.adjust', 'inventory.transfer'],
@@ -51,13 +51,14 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
 // ── Settings Page ────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'audit'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'audit' | 'dashboard'>('users');
   const { can } = usePermissions();
 
   const tabs = [
     { id: 'users' as const, label: 'Users', icon: Users },
     { id: 'roles' as const, label: 'Roles', icon: Shield },
     { id: 'modules' as const, label: 'Modules', icon: Blocks },
+    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'audit' as const, label: 'Audit Log', icon: ScrollText },
   ];
 
@@ -68,13 +69,13 @@ export default function SettingsPage() {
 
       {/* Tab navigation */}
       <div className="mt-6 border-b border-gray-200">
-        <nav className="-mb-px flex gap-6">
+        <nav className="-mb-px flex gap-6 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'border-indigo-600 text-indigo-600'
                   : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
@@ -92,6 +93,7 @@ export default function SettingsPage() {
         {activeTab === 'users' && <UsersTab canManage={can('users.manage')} />}
         {activeTab === 'roles' && <RolesTab canManage={can('users.manage')} />}
         {activeTab === 'modules' && <ModulesTab />}
+        {activeTab === 'dashboard' && <DashboardSettingsTab />}
         {activeTab === 'audit' && <AuditLogTab />}
       </div>
     </div>
@@ -870,6 +872,120 @@ function ModulesTab() {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard Settings Tab ─────────────────────────────────────────
+
+const DASHBOARD_PREFS_KEY = 'dashboard_prefs';
+const DASHBOARD_NOTES_KEY = 'dashboard_notes';
+
+interface DashboardPrefs {
+  showSales: boolean;
+  showOrders: boolean;
+  showLowStock: boolean;
+  showNotes: boolean;
+  showRecentOrders: boolean;
+}
+
+const DEFAULT_DASHBOARD_PREFS: DashboardPrefs = {
+  showSales: true,
+  showOrders: true,
+  showLowStock: true,
+  showNotes: true,
+  showRecentOrders: true,
+};
+
+function DashboardSettingsTab() {
+  const [prefs, setPrefs] = useState<DashboardPrefs>(DEFAULT_DASHBOARD_PREFS);
+  const [notes, setNotes] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DASHBOARD_PREFS_KEY);
+      if (raw) setPrefs({ ...DEFAULT_DASHBOARD_PREFS, ...JSON.parse(raw) });
+      setNotes(localStorage.getItem(DASHBOARD_NOTES_KEY) ?? '');
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleToggle = useCallback((key: keyof DashboardPrefs) => {
+    setPrefs((prev) => {
+      const next = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem(DASHBOARD_PREFS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+    flashSaved();
+  }, []);
+
+  const handleNotesChange = useCallback((value: string) => {
+    setNotes(value);
+    try { localStorage.setItem(DASHBOARD_NOTES_KEY, value); } catch { /* ignore */ }
+  }, []);
+
+  const flashSaved = useCallback(() => {
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  }, []);
+
+  const widgets = [
+    { key: 'showSales' as const, label: 'Total Sales Today', description: 'Sum of all paid/placed orders for the current business day' },
+    { key: 'showOrders' as const, label: 'Orders Today', description: 'Count of non-voided orders for today' },
+    { key: 'showLowStock' as const, label: 'Low Stock Alerts', description: 'Items below their reorder point' },
+    { key: 'showRecentOrders' as const, label: 'Recent Orders', description: 'Last 5 orders with status and totals' },
+    { key: 'showNotes' as const, label: 'Notes Widget', description: 'Quick notes and reminders on the dashboard' },
+  ];
+
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
+      <p className="mt-1 text-sm text-gray-500">
+        Choose which widgets appear on your dashboard home page.
+      </p>
+
+      {saved && (
+        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-1.5 text-sm text-green-700">
+          <Check className="h-4 w-4" /> Saved
+        </div>
+      )}
+
+      {/* Widget Toggles */}
+      <div className="mt-6 space-y-4">
+        <h3 className="text-sm font-medium text-gray-700">Widgets</h3>
+        <div className="space-y-3">
+          {widgets.map((w) => (
+            <label key={w.key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-4 hover:bg-gray-50/50">
+              <input
+                type="checkbox"
+                checked={prefs[w.key]}
+                onChange={() => handleToggle(w.key)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-900">{w.label}</p>
+                <p className="text-xs text-gray-500">{w.description}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Notes Editor */}
+      <div className="mt-8">
+        <h3 className="text-sm font-medium text-gray-700">Dashboard Notes</h3>
+        <p className="mt-1 text-xs text-gray-500">
+          These notes appear on your dashboard. Great for daily specials, shift reminders, or team messages.
+        </p>
+        <textarea
+          value={notes}
+          onChange={(e) => handleNotesChange(e.target.value)}
+          placeholder="Quick notes, reminders, daily specials..."
+          className="mt-3 w-full resize-y rounded-lg border border-gray-300 bg-transparent p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          rows={6}
+        />
+        <p className="mt-1 text-xs text-gray-400">Saved to this browser (localStorage)</p>
       </div>
     </div>
   );

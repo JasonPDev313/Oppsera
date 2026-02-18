@@ -193,7 +193,7 @@ export default function OnboardPage() {
           modules,
         }),
       });
-      router.push('/');
+      router.push('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

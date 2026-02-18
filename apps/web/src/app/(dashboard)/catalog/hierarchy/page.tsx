@@ -246,7 +246,7 @@ export default function HierarchyPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">Catalog Hierarchy</h1>
+      <h1 className="text-xl font-semibold text-gray-900">Item Hierarchy</h1>
       {/* TODO: Update backend validation in Session 8 to allow 3-level category nesting */}
       <div className="grid min-h-[500px] grid-cols-1 gap-4 md:grid-cols-3">
         <HierarchyPane

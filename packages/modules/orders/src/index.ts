@@ -21,6 +21,7 @@ export {
   deleteOrder,
   holdOrder,
   recallOrder,
+  setTaxExempt,
 } from './commands';
 
 // Re-export queries
@@ -50,6 +51,7 @@ export {
   deleteOrderSchema,
   holdOrderSchema,
   recallOrderSchema,
+  setTaxExemptSchema,
 } from './validation';
 export type {
   OpenOrderInput,
@@ -66,6 +68,7 @@ export type {
   DeleteOrderInput,
   HoldOrderInput,
   RecallOrderInput,
+  SetTaxExemptInput,
 } from './validation';
 
 // Re-export helpers

@@ -48,6 +48,7 @@ interface RegisterTabsProps {
   onSaveTab?: (tabNumber: TabNumber) => void;
   onChangeServer?: (tabNumber: TabNumber, employeeId: string, employeeName: string) => void;
   onViewProfile?: (customerId: string) => void;
+  onAddNewCustomer?: () => void;
 }
 
 export function RegisterTabs({
@@ -65,6 +66,7 @@ export function RegisterTabs({
   onSaveTab,
   onChangeServer,
   onViewProfile,
+  onAddNewCustomer,
 }: RegisterTabsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -165,9 +167,13 @@ export function RegisterTabs({
     (e: React.MouseEvent, tabNumber: TabNumber) => {
       e.preventDefault();
       e.stopPropagation();
+      // Auto-switch to the right-clicked tab so the order (and customerId) loads
+      if (tabNumber !== activeTabNumber) {
+        onSwitchTab(tabNumber);
+      }
       setContextMenu({ x: e.clientX, y: e.clientY, tabNumber });
     },
-    [],
+    [activeTabNumber, onSwitchTab],
   );
 
   // Close context menu on outside click / scroll
@@ -514,7 +520,7 @@ export function RegisterTabs({
             </button>
 
             {/* Attach / Detach Customer */}
-            {contextMenu.tabNumber === activeTabNumber && customerId ? (
+            {customerId ? (
               <button
                 type="button"
                 onClick={handleDetachCustomer}
@@ -546,7 +552,7 @@ export function RegisterTabs({
             ) : null}
 
             {/* View Profile */}
-            {contextMenu.tabNumber === activeTabNumber && customerId && onViewProfile && (
+            {customerId && onViewProfile && (
               <button
                 type="button"
                 onClick={() => {
@@ -557,6 +563,21 @@ export function RegisterTabs({
               >
                 <Eye className="h-4 w-4 text-gray-400" />
                 View Profile
+              </button>
+            )}
+
+            {/* Add New Customer */}
+            {onAddNewCustomer && (
+              <button
+                type="button"
+                onClick={() => {
+                  onAddNewCustomer();
+                  setContextMenu(null);
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+              >
+                <UserPlus className="h-4 w-4 text-gray-400" />
+                Add New Customer
               </button>
             )}
 

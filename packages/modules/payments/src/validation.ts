@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const recordTenderSchema = z.object({
   clientRequestId: z.string().min(1).max(128), // REQUIRED
   orderId: z.string().min(1),
-  tenderType: z.enum(['cash']), // V1: cash only
+  tenderType: z.enum(['cash', 'check', 'voucher']),
   amountGiven: z.number().int().min(0), // cents
   tipAmount: z.number().int().min(0).default(0),
   terminalId: z.string().min(1),
@@ -16,6 +16,7 @@ export const recordTenderSchema = z.object({
   metadata: z
     .object({
       denominations: z.record(z.string(), z.number()).optional(),
+      checkNumber: z.string().max(50).optional(),
     })
     .optional(),
 });

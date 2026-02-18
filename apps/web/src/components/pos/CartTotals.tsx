@@ -18,7 +18,7 @@ export function CartTotals({ order }: CartTotalsProps) {
 
   // Build charge description from order charges
   const chargeLabel = (() => {
-    if (!hasCharges || !order.charges || order.charges.length === 0) return 'Charges';
+    if (!hasCharges || !order.charges || order.charges.length === 0) return 'Service Charge';
     const firstCharge = order.charges[0]!;
     if (firstCharge.calculationType === 'percentage') {
       return `${firstCharge.name} (${firstCharge.value}%)`;
@@ -63,9 +63,18 @@ export function CartTotals({ order }: CartTotalsProps) {
 
       {/* Tax */}
       <div className="mt-1 flex items-center justify-between text-sm text-gray-600">
-        <span>Tax</span>
-        <span>{formatMoney(order.taxTotal)}</span>
+        <span>Tax{order.taxExempt ? ' (Exempt)' : ''}</span>
+        <span className={order.taxExempt ? 'text-purple-600 font-medium' : ''}>
+          {order.taxExempt ? '$0.00' : formatMoney(order.taxTotal)}
+        </span>
       </div>
+
+      {/* Tax Exempt Reason */}
+      {order.taxExempt && order.taxExemptReason && (
+        <div className="mt-0.5 text-xs text-purple-600 italic">
+          {order.taxExemptReason}
+        </div>
+      )}
 
       {/* Divider */}
       <div className="my-2 border-t border-gray-200" />

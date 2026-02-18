@@ -134,6 +134,13 @@
       "when": 1708100018000,
       "tag": "0018_register_tab_employees",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1708100019000,
+      "tag": "0019_order_tax_exempt",
+      "breakpoints": true
     }
   ]
 }

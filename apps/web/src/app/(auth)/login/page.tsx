@@ -25,7 +25,7 @@ export default function LoginPage() {
       // Use auth context's login which stores tokens AND updates auth state
       await auth.login(email, password);
       // Dashboard layout handles onboarding redirect if needed
-      router.push('/catalog');
+      router.push('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

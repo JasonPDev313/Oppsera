@@ -26,44 +26,21 @@ export async function generateStatement(ctx: RequestContext, input: GenerateStat
       .limit(1);
     const openingBalance = prevStatements.length > 0 ? Number(prevStatements[0].closingBalanceCents) : 0;
 
-    // Sum charges in the period
-    const chargeRows = await (tx as any).select({
-      total: sql`COALESCE(SUM(${arTransactions.amountCents}), 0)`,
+    // Sum charges, payments, and late fees in a single query using conditional aggregates
+    const [periodTotals] = await (tx as any).select({
+      charges: sql`COALESCE(SUM(CASE WHEN ${arTransactions.type} = 'charge' THEN ${arTransactions.amountCents} ELSE 0 END), 0)`,
+      payments: sql`COALESCE(SUM(CASE WHEN ${arTransactions.type} = 'payment' THEN ${arTransactions.amountCents} ELSE 0 END), 0)`,
+      lateFees: sql`COALESCE(SUM(CASE WHEN ${arTransactions.type} = 'late_fee' THEN ${arTransactions.amountCents} ELSE 0 END), 0)`,
     }).from(arTransactions)
       .where(and(
         eq(arTransactions.tenantId, ctx.tenantId),
         eq(arTransactions.billingAccountId, input.billingAccountId),
-        eq(arTransactions.type, 'charge'),
         sql`${arTransactions.createdAt} >= ${input.periodStart}::date`,
         sql`${arTransactions.createdAt} < (${input.periodEnd}::date + interval '1 day')`,
       ));
-    const chargesCents = Number(chargeRows[0]?.total ?? 0);
-
-    // Sum payments in the period (negative values)
-    const paymentRows = await (tx as any).select({
-      total: sql`COALESCE(SUM(${arTransactions.amountCents}), 0)`,
-    }).from(arTransactions)
-      .where(and(
-        eq(arTransactions.tenantId, ctx.tenantId),
-        eq(arTransactions.billingAccountId, input.billingAccountId),
-        eq(arTransactions.type, 'payment'),
-        sql`${arTransactions.createdAt} >= ${input.periodStart}::date`,
-        sql`${arTransactions.createdAt} < (${input.periodEnd}::date + interval '1 day')`,
-      ));
-    const paymentsCents = Math.abs(Number(paymentRows[0]?.total ?? 0));
-
-    // Sum late fees in the period
-    const lateFeeRows = await (tx as any).select({
-      total: sql`COALESCE(SUM(${arTransactions.amountCents}), 0)`,
-    }).from(arTransactions)
-      .where(and(
-        eq(arTransactions.tenantId, ctx.tenantId),
-        eq(arTransactions.billingAccountId, input.billingAccountId),
-        eq(arTransactions.type, 'late_fee'),
-        sql`${arTransactions.createdAt} >= ${input.periodStart}::date`,
-        sql`${arTransactions.createdAt} < (${input.periodEnd}::date + interval '1 day')`,
-      ));
-    const lateFeesCents = Number(lateFeeRows[0]?.total ?? 0);
+    const chargesCents = Number(periodTotals?.charges ?? 0);
+    const paymentsCents = Math.abs(Number(periodTotals?.payments ?? 0));
+    const lateFeesCents = Number(periodTotals?.lateFees ?? 0);
 
     const closingBalance = openingBalance + chargesCents - paymentsCents + lateFeesCents;
 

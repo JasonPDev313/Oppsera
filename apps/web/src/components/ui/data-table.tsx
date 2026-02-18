@@ -18,12 +18,14 @@ interface DataTableProps<T> {
   rowClassName?: (row: T) => string;
 }
 
+const SKELETON_WIDTHS = ['70%', '85%', '60%', '75%', '65%', '80%', '55%'];
+
 function SkeletonRow({ colCount }: { colCount: number }) {
   return (
     <tr className="border-b border-gray-100">
       {Array.from({ length: colCount }).map((_, i) => (
         <td key={i} className="px-4 py-3">
-          <div className="h-4 animate-pulse rounded bg-gray-200" style={{ width: `${60 + Math.random() * 30}%` }} />
+          <div className="h-4 animate-pulse rounded bg-gray-200" style={{ width: SKELETON_WIDTHS[i % SKELETON_WIDTHS.length] }} />
         </td>
       ))}
     </tr>

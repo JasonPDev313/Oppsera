@@ -50,10 +50,15 @@ export async function apiFetch<T = unknown>(
   options: RequestInit = {},
 ): Promise<T> {
   const token = getStoredToken();
+  const method = (options.method ?? 'GET').toUpperCase();
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...((options.headers as Record<string, string>) || {}),
   };
+
+  // Only set Content-Type for methods that have a body
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'DELETE') {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;

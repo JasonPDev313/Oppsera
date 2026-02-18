@@ -82,13 +82,15 @@ export async function assignItemTaxGroups(
         ),
       );
 
-    for (const groupId of input.taxGroupIds) {
-      await tx.insert(catalogItemLocationTaxGroups).values({
-        tenantId: ctx.tenantId,
-        locationId: input.locationId,
-        catalogItemId: input.catalogItemId,
-        taxGroupId: groupId,
-      });
+    if (input.taxGroupIds.length > 0) {
+      await tx.insert(catalogItemLocationTaxGroups).values(
+        input.taxGroupIds.map(groupId => ({
+          tenantId: ctx.tenantId,
+          locationId: input.locationId,
+          catalogItemId: input.catalogItemId,
+          taxGroupId: groupId,
+        })),
+      );
     }
 
     const event = buildEventFromContext(ctx, 'catalog.item.tax_groups.updated.v1', {

@@ -12,3 +12,4 @@ export { reopenOrder } from './reopen-order';
 export { deleteOrder } from './delete-order';
 export { holdOrder } from './hold-order';
 export { recallOrder } from './recall-order';
+export { setTaxExempt } from './set-tax-exempt';

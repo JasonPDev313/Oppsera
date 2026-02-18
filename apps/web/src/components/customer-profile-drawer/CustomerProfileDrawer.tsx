@@ -348,7 +348,7 @@ export function CustomerProfileDrawer() {
 
       {/* Drawer panel */}
       <div
-        className={`relative flex h-full w-160 max-w-full flex-col bg-surface shadow-2xl transition-transform duration-300 ease-in-out ${
+        className={`relative flex h-full w-1/2 max-w-full flex-col bg-surface shadow-2xl transition-transform duration-300 ease-in-out ${
           isAnimating ? 'translate-x-0' : 'translate-x-full'
         }`}
       >

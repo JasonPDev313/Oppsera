@@ -281,7 +281,7 @@ export default function ItemDetailPage() {
           onClick={() => router.push('/catalog')}
           className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
         >
-          Back to Catalog
+          Back to Items
         </button>
       </div>
     );
@@ -324,7 +324,7 @@ export default function ItemDetailPage() {
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
       >
         <ArrowLeft className="h-4 w-4" />
-        Back to Catalog
+        Back to Items
       </button>
 
       {/* Header */}

@@ -38,20 +38,20 @@ export async function applyDiscount(ctx: RequestContext, orderId: string, input:
     }).returning();
 
     // Recalculate totals
-    const allLines = await (tx as any).select({
-      lineSubtotal: orderLines.lineSubtotal,
-      lineTax: orderLines.lineTax,
-      lineTotal: orderLines.lineTotal,
-    }).from(orderLines).where(eq(orderLines.orderId, orderId));
-
-    const allCharges = await (tx as any).select({
-      amount: orderCharges.amount,
-      taxAmount: orderCharges.taxAmount,
-    }).from(orderCharges).where(eq(orderCharges.orderId, orderId));
-
-    const allDiscounts = await (tx as any).select({
-      amount: orderDiscounts.amount,
-    }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId));
+    const [allLines, allCharges, allDiscounts] = await Promise.all([
+      (tx as any).select({
+        lineSubtotal: orderLines.lineSubtotal,
+        lineTax: orderLines.lineTax,
+        lineTotal: orderLines.lineTotal,
+      }).from(orderLines).where(eq(orderLines.orderId, orderId)),
+      (tx as any).select({
+        amount: orderCharges.amount,
+        taxAmount: orderCharges.taxAmount,
+      }).from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+      (tx as any).select({
+        amount: orderDiscounts.amount,
+      }).from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+    ]);
 
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 

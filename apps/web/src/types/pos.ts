@@ -124,6 +124,8 @@ export interface Order {
   businessDate: string;
   terminalId: string | null;
   employeeId: string | null;
+  taxExempt: boolean;
+  taxExemptReason: string | null;
   notes: string | null;
   lines?: OrderLine[];
   charges?: OrderCharge[];

@@ -7,7 +7,10 @@ export * from './schema';
 
 // Re-export the internal read API
 export { getCatalogReadApi, setCatalogReadApi } from './internal-api';
-export type { CatalogReadApi, ItemTaxInfo, PosItemData } from './internal-api';
+export type { CatalogReadApi, ItemTaxInfo, PosItemData } from '@oppsera/core/helpers/catalog-read-api';
+
+// Re-export registration helper
+export { registerCatalogReadApi } from './register';
 
 // Re-export event contracts (side-effect import)
 import './events/contracts';

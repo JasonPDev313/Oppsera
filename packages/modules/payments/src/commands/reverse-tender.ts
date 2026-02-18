@@ -9,10 +9,10 @@ import type { ReverseTenderInput } from '../validation';
 import {
   checkIdempotency,
   saveIdempotencyKey,
-} from '@oppsera/module-orders/helpers/idempotency';
+} from '@oppsera/core/helpers/idempotency';
 import {
   incrementVersion,
-} from '@oppsera/module-orders/helpers/optimistic-lock';
+} from '@oppsera/core/helpers/optimistic-lock';
 
 export async function reverseTender(
   ctx: RequestContext,

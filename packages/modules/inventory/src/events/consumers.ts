@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, sql, inArray } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { inventoryItems, inventoryMovements } from '@oppsera/db';
 import { orderLines } from '@oppsera/db';
@@ -71,19 +71,23 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
       }
     }
 
+    // Batch-fetch all inventory items for the catalogItemIds in this order
+    const catalogItemIds = [...qtyByCatalogItemId.keys()];
+    const inventoryItemRows = await tx
+      .select()
+      .from(inventoryItems)
+      .where(
+        and(
+          eq(inventoryItems.tenantId, event.tenantId),
+          eq(inventoryItems.locationId, locationId),
+          inArray(inventoryItems.catalogItemId, catalogItemIds),
+        ),
+      );
+    const invItemByCatalogId = new Map(inventoryItemRows.map(r => [r.catalogItemId, r]));
+
     // Insert one aggregated movement per inventory item
     for (const [catalogItemId, totalQty] of qtyByCatalogItemId) {
-      const [inventoryItem] = await tx
-        .select()
-        .from(inventoryItems)
-        .where(
-          and(
-            eq(inventoryItems.tenantId, event.tenantId),
-            eq(inventoryItems.locationId, locationId),
-            eq(inventoryItems.catalogItemId, catalogItemId),
-          ),
-        )
-        .limit(1);
+      const inventoryItem = invItemByCatalogId.get(catalogItemId);
 
       if (!inventoryItem) continue;
       if (!inventoryItem.trackInventory) continue;
@@ -126,16 +130,29 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
 
     const createdBy = event.actorUserId || 'system';
 
-    for (const movement of saleMovements) {
-      // Create a reversal: positive quantity to undo the negative sale
+    // Collect all reversal rows, then batch insert with ON CONFLICT DO NOTHING
+    const reversalValues = saleMovements.map(movement => {
       const reversalQty = -Number(movement.quantityDelta);
+      return {
+        id: generateUlid(),
+        tenantId: event.tenantId,
+        locationId: movement.locationId,
+        inventoryItemId: movement.inventoryItemId,
+        movementType: 'void_reversal' as const,
+        quantityDelta: String(reversalQty),
+        referenceType: 'order' as const,
+        referenceId: orderId,
+        source: 'pos' as const,
+        businessDate: movement.businessDate,
+        createdBy,
+      };
+    });
 
-      await tx.execute(
-        sql`INSERT INTO inventory_movements (id, tenant_id, location_id, inventory_item_id, movement_type, quantity_delta, reference_type, reference_id, source, business_date, created_by)
-            VALUES (${generateUlid()}, ${event.tenantId}, ${movement.locationId}, ${movement.inventoryItemId}, ${'void_reversal'}, ${reversalQty}, ${'order'}, ${orderId}, ${'pos'}, ${movement.businessDate}, ${createdBy})
-            ON CONFLICT (tenant_id, reference_type, reference_id, inventory_item_id, movement_type) WHERE reference_type IS NOT NULL
-            DO NOTHING`,
-      );
+    if (reversalValues.length > 0) {
+      await tx
+        .insert(inventoryMovements)
+        .values(reversalValues)
+        .onConflictDoNothing();
     }
   });
 }
@@ -170,13 +187,30 @@ export async function handleCatalogItemCreated(event: EventEnvelope): Promise<vo
         ),
       );
 
-    for (const location of activeLocations) {
-      await tx.execute(
-        sql`INSERT INTO inventory_items (id, tenant_id, location_id, catalog_item_id, name, sku, item_type, status, track_inventory, base_unit, purchase_unit, purchase_to_base_ratio, costing_method, allow_negative, created_by, created_at, updated_at)
-            VALUES (${generateUlid()}, ${event.tenantId}, ${location.id}, ${itemId}, ${name}, ${sku ?? null}, ${itemType}, 'active', true, 'each', 'each', 1, 'fifo', false, ${createdBy}, NOW(), NOW())
-            ON CONFLICT (tenant_id, location_id, catalog_item_id)
-            DO NOTHING`,
-      );
+    // Collect all inventory item rows, then batch insert with ON CONFLICT DO NOTHING
+    const inventoryItemValues = activeLocations.map(location => ({
+      id: generateUlid(),
+      tenantId: event.tenantId,
+      locationId: location.id,
+      catalogItemId: itemId,
+      name,
+      sku: sku ?? null,
+      itemType,
+      status: 'active' as const,
+      trackInventory: true,
+      baseUnit: 'each',
+      purchaseUnit: 'each',
+      purchaseToBaseRatio: '1',
+      costingMethod: 'fifo' as const,
+      allowNegative: false,
+      createdBy,
+    }));
+
+    if (inventoryItemValues.length > 0) {
+      await tx
+        .insert(inventoryItems)
+        .values(inventoryItemValues)
+        .onConflictDoNothing();
     }
   });
 }

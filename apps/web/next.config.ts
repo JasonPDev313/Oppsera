@@ -8,6 +8,10 @@ config({ path: resolve(__dirname, '../../.env') });
 
 const nextConfig: NextConfig = {
   transpilePackages: ['@oppsera/shared', '@oppsera/core'],
+  poweredByHeader: false,
+  experimental: {
+    optimizePackageImports: ['@oppsera/shared', '@oppsera/core', 'lucide-react'],
+  },
 };
 
 export default nextConfig;

@@ -23,6 +23,7 @@ import {
   FileText,
   Split,
   Wrench,
+  ShieldOff,
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useToast } from '@/components/ui/toast';
@@ -49,6 +50,8 @@ import {
 import { ModifierDialog } from '@/components/pos/ModifierDialog';
 import { OptionPickerDialog } from '@/components/pos/OptionPickerDialog';
 import { TenderDialog } from '@/components/pos/TenderDialog';
+import { TaxExemptDialog } from '@/components/pos/TaxExemptDialog';
+import { NewCustomerDialog } from '@/components/pos/NewCustomerDialog';
 import { RegisterTabs } from '@/components/pos/RegisterTabs';
 import { ToolsView } from '@/components/pos/ToolsView';
 import { useProfileDrawer } from '@/components/customer-profile-drawer';
@@ -213,10 +216,13 @@ export default function FnbPOSPage() {
   const [showDiscountDialog, setShowDiscountDialog] = useState(false);
   const [showServiceChargeDialog, setShowServiceChargeDialog] = useState(false);
   const [showRecallDialog, setShowRecallDialog] = useState(false);
+  const [showTaxExemptDialog, setShowTaxExemptDialog] = useState(false);
+  const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
 
   // Payment flow
   const [showPaymentPicker, setShowPaymentPicker] = useState(false);
   const [showTenderDialog, setShowTenderDialog] = useState(false);
+  const [selectedTenderType, setSelectedTenderType] = useState<'cash' | 'check' | 'voucher'>('cash');
   const [remainingBalance, setRemainingBalance] = useState<number | null>(null);
 
   // Confirm dialogs
@@ -391,6 +397,7 @@ export default function FnbPOSPage() {
         toast.info('Split payment coming soon');
         return;
       }
+      setSelectedTenderType(method as 'cash' | 'check' | 'voucher');
       setShowTenderDialog(true);
     },
     [toast],
@@ -406,7 +413,7 @@ export default function FnbPOSPage() {
     [pos, registerTabs],
   );
 
-  const handlePartialPayment = useCallback((remaining: number) => {
+  const handlePartialPayment = useCallback((remaining: number, _version: number) => {
     setRemainingBalance(remaining);
   }, []);
 
@@ -498,6 +505,7 @@ export default function FnbPOSPage() {
         onDetachCustomer={pos.detachCustomer}
         onChangeServer={registerTabs.changeServer}
         onViewProfile={(id) => profileDrawer.open(id, { source: 'pos' })}
+        onAddNewCustomer={() => setShowNewCustomerDialog(true)}
       />
 
       {/* ── Main Content Area ──────────────────────────────────────── */}
@@ -689,6 +697,7 @@ export default function FnbPOSPage() {
                 customerId={pos.currentOrder?.customerId ?? null}
                 onAttach={pos.attachCustomer}
                 onDetach={pos.detachCustomer}
+                onViewProfile={(id) => profileDrawer.open(id, { source: 'pos' })}
               />
             </div>
           </div>
@@ -724,7 +733,7 @@ export default function FnbPOSPage() {
             </button>
           </div>
 
-          {/* Action buttons: Discount + Charges */}
+          {/* Action buttons: Discount + Charges + Tax Exempt */}
           <div className="shrink-0 border-t border-gray-100 px-4 py-2">
             <div className="flex gap-2">
               <button
@@ -743,7 +752,26 @@ export default function FnbPOSPage() {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <Receipt className="h-4 w-4" />
-                Charges
+                Service Charge
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (pos.currentOrder?.taxExempt) {
+                    pos.setTaxExempt(false);
+                  } else {
+                    setShowTaxExemptDialog(true);
+                  }
+                }}
+                disabled={!hasItems}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  pos.currentOrder?.taxExempt
+                    ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <ShieldOff className="h-4 w-4" />
+                {pos.currentOrder?.taxExempt ? 'Tax Exempt ✓' : 'Tax Exempt'}
               </button>
             </div>
           </div>
@@ -1224,12 +1252,41 @@ export default function FnbPOSPage() {
           onClose={() => setShowTenderDialog(false)}
           order={pos.currentOrder}
           config={config}
+          tenderType={selectedTenderType}
           shiftId={shift.currentShift?.id}
           onPaymentComplete={handlePaymentComplete}
           onPartialPayment={handlePartialPayment}
           onPlaceOrder={pos.placeOrder}
         />
       )}
+
+      {/* Tax Exempt Dialog */}
+      <TaxExemptDialog
+        open={showTaxExemptDialog}
+        onClose={() => setShowTaxExemptDialog(false)}
+        onConfirm={(reason) => {
+          pos.setTaxExempt(true, reason);
+          setShowTaxExemptDialog(false);
+        }}
+      />
+
+      {/* New Customer Dialog */}
+      <NewCustomerDialog
+        open={showNewCustomerDialog}
+        onClose={() => setShowNewCustomerDialog(false)}
+        onCreated={(customerId, displayName) => {
+          setShowNewCustomerDialog(false);
+          pos.attachCustomer(customerId);
+          // Auto-rename the active tab to the customer's name
+          const parts = displayName.trim().split(/\s+/);
+          const shortName =
+            parts.length >= 2
+              ? `${parts[0]} ${parts[parts.length - 1]![0]!.toUpperCase()}`
+              : parts[0] ?? '';
+          registerTabs.renameTab(registerTabs.activeTabNumber, shortName);
+          toast.success(`Customer "${displayName}" created and attached`);
+        }}
+      />
     </div>
   );
 }

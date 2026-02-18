@@ -10,6 +10,7 @@ export { receiveInventory } from './commands/receive-inventory';
 export { adjustInventory } from './commands/adjust-inventory';
 export { transferInventory } from './commands/transfer-inventory';
 export { recordShrink } from './commands/record-shrink';
+export { archiveInventoryItem } from './commands/archive-inventory-item';
 
 // Queries
 export { listInventoryItems } from './queries/list-inventory-items';
@@ -25,12 +26,14 @@ export {
   adjustInventorySchema,
   transferInventorySchema,
   recordShrinkSchema,
+  archiveInventoryItemSchema,
 } from './validation';
 export type {
   ReceiveInventoryInput,
   AdjustInventoryInput,
   TransferInventoryInput,
   RecordShrinkInput,
+  ArchiveInventoryItemInput,
 } from './validation';
 
 // Helpers

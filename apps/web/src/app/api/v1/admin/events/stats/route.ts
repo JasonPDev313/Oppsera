@@ -14,33 +14,33 @@ export const GET = withMiddleware(
       );
     }
 
-    const [totalResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(eventOutbox);
-
-    const [unpublishedResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(eventOutbox)
-      .where(sql`${eventOutbox.publishedAt} IS NULL`);
-
-    const [oldestUnpublished] = await db
-      .select({ age: sql<string>`now() - min(${eventOutbox.createdAt})` })
-      .from(eventOutbox)
-      .where(sql`${eventOutbox.publishedAt} IS NULL`);
-
-    const [publishedLast24h] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(eventOutbox)
-      .where(sql`${eventOutbox.publishedAt} > now() - interval '24 hours'`);
-
-    const [processedTotal] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(processedEvents);
-
-    const [processedLast24h] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(processedEvents)
-      .where(sql`${processedEvents.processedAt} > now() - interval '24 hours'`);
+    const [
+      [totalResult],
+      [unpublishedResult],
+      [oldestUnpublished],
+      [publishedLast24h],
+      [processedTotal],
+      [processedLast24h],
+    ] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(eventOutbox),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(eventOutbox)
+        .where(sql`${eventOutbox.publishedAt} IS NULL`),
+      db
+        .select({ age: sql<string>`now() - min(${eventOutbox.createdAt})` })
+        .from(eventOutbox)
+        .where(sql`${eventOutbox.publishedAt} IS NULL`),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(eventOutbox)
+        .where(sql`${eventOutbox.publishedAt} > now() - interval '24 hours'`),
+      db.select({ count: sql<number>`count(*)::int` }).from(processedEvents),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(processedEvents)
+        .where(sql`${processedEvents.processedAt} > now() - interval '24 hours'`),
+    ]);
 
     const bus = getEventBus() as InMemoryEventBus;
     const dlqCount = typeof bus.getDeadLetterQueue === 'function'

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getItemTypeGroup } from '@/types/catalog';
@@ -400,6 +400,7 @@ export function Cart({
   const lines = order?.lines ?? [];
   const itemCount = lines.length;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const sortedLines = useMemo(() => [...lines].sort((a, b) => a.sortOrder - b.sortOrder), [lines]);
 
   // Auto-scroll to bottom when new items are added
   useEffect(() => {
@@ -425,9 +426,7 @@ export function Cart({
         </div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
-          {lines
-            .sort((a, b) => a.sortOrder - b.sortOrder)
-            .map((line) => (
+          {sortedLines.map((line) => (
               <CartLineItem
                 key={line.id}
                 line={line}
