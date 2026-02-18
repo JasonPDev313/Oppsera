@@ -330,6 +330,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
 - **Admin API**: `/api/health` (public, minimal), `/api/admin/health` (full diagnostics), `/api/admin/metrics/system`, `/api/admin/metrics/tenants`, `/api/admin/migration-readiness`
 - **Container Migration Plan**: Docker multi-stage builds, docker-compose, Terraform (AWS ECS Fargate + RDS + ElastiCache), CI/CD (GitHub Actions), deployment config abstraction, feature flags, full Vercel/Supabase limits audit with 2026 pricing, cost projections, migration trigger framework (16/21 pre-migration checklist items complete)
+- **Security Hardening**: Security headers (CSP, HSTS, X-Frame-Options, etc.), in-memory sliding window rate limiter on all auth endpoints, auth event audit logging (login/signup/logout), env-var-driven DB pool + prepared statement config. Full audit at `infra/SECURITY_AUDIT.md`
 - **Legacy Migration Pipeline**: 14 files in `tools/migration/` (~4,030 lines) — config, ID mapping, transformers, validators, pipeline, cutover/rollback, monitoring
 - **Load Testing**: k6 scenarios for auth, catalog, orders, inventory, customers (in `load-tests/`)
 - **Business Logic Tests**: 30 test files in `test/` covering all domain invariants
@@ -340,10 +341,8 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
 - Reporting module (Session 17)
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
-- Add rate limiting to auth + API endpoints
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
-- CORS configuration for production
-- Security audit and hardening pass
+- Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
 
 ## Critical Gotchas (Quick Reference)
 
@@ -413,6 +412,12 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 64. **Vercel runtime log retention is 1 day** — ship logs to external aggregator from day 1. This is a launch requirement, not a nice-to-have. Enterprise only extends to 3 days.
 65. **Supabase compute tiers are independent of Pro vs Team** — Pro with Medium compute ($60/mo) gets 120 direct connections, 600 pooler connections, 100GB max DB. No need for Team ($599/mo) just for database features.
 66. **Function invocation overages are the Vercel cost killer at scale** — $0.60/million invocations. At 4M/mo (Stage 4), that's $1,800/mo in overages alone. Cache read-heavy endpoints aggressively.
+67. **All auth endpoints have rate limiting** — login/refresh: 20/15min, signup/magic-link: 5/15min. Uses in-memory sliding window (`packages/core/src/security/rate-limiter.ts`). Upgrade to Redis in Stage 2. Returns 429 with `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers.
+68. **Security headers are in next.config.ts** — CSP (with dynamic dev/prod script-src), HSTS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, Permissions-Policy. Never weaken CSP without a security review.
+69. **Auth events are audit-logged** — `auth.login.success`, `auth.login.failed`, `auth.signup.success`, `auth.logout` via `auditLogSystem()`. Best-effort (wrapped in try/catch) — never blocks auth response.
+70. **DB pool config is env-var-driven** — `DB_POOL_MAX` (default 5), `DB_ADMIN_POOL_MAX` (default 3), `DB_PREPARE_STATEMENTS` (default false). Set `DB_POOL_MAX=2` on Vercel, `DB_POOL_MAX=10` + `DB_PREPARE_STATEMENTS=true` on containers with direct Postgres.
+71. **Permission cache TTL is 15 seconds** — reduced from 60s for faster permission revocation. When a user is demoted/terminated, their stale access window is at most 15s. Future: add immediate invalidation webhook.
+72. **set_config scope must be transaction-scoped** — always use `set_config(key, value, true)` (third param = `true` for SET LOCAL). Session-scoped (`false`) leaks between pooled connections. `withTenant()` already does this correctly.
 
 ## Quick Commands
 

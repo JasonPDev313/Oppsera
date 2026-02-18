@@ -2763,3 +2763,83 @@ const config = getDeploymentConfig();
 // packages/core/src/config/feature-flags.ts — gradual rollout:
 if (isEnabled('USE_READ_REPLICA')) { /* route to replica */ }
 ```
+
+---
+
+## 51. Security
+
+### Security Audit Reference
+
+Full audit with 25 findings at `infra/SECURITY_AUDIT.md`. Key files:
+
+```
+packages/core/src/security/
+├── rate-limiter.ts    # In-memory sliding window rate limiter (Stage 1)
+└── index.ts           # Barrel exports
+
+apps/web/next.config.ts       # Security headers (CSP, HSTS, etc.)
+infra/SECURITY_AUDIT.md       # Full 8-phase audit with checklist
+```
+
+### Rate Limiting Pattern
+
+All auth endpoints use rate limiting. Apply to new endpoints:
+
+```typescript
+import { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from '@oppsera/core/security';
+
+// Inside route handler, BEFORE any business logic:
+const rlKey = getRateLimitKey(request, 'auth:login');
+const rl = checkRateLimit(rlKey, RATE_LIMITS.auth);
+if (!rl.allowed) {
+  return NextResponse.json(
+    { error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.' } },
+    { status: 429, headers: rateLimitHeaders(rl) },
+  );
+}
+```
+
+**Presets:** `auth` (20/15min), `authStrict` (5/15min), `api` (100/min), `apiWrite` (30/min).
+
+### Auth Event Audit Logging
+
+Auth events use `auditLogSystem()` (no user context available). Always best-effort:
+
+```typescript
+import { auditLogSystem } from '@oppsera/core/audit/helpers';
+
+// After successful login:
+try {
+  await auditLogSystem('', 'auth.login.success', 'user', 'unknown', { email });
+} catch { /* best-effort */ }
+```
+
+Events logged: `auth.login.success`, `auth.login.failed`, `auth.signup.success`, `auth.logout`.
+
+### Security Headers
+
+Configured in `next.config.ts` via `async headers()`. CSP dynamically adds `'unsafe-eval'` in dev only. Never weaken CSP without security review.
+
+### DB Connection Security
+
+Pool config is env-var-driven in `packages/db/src/client.ts`:
+
+| Env Var | Default | Vercel | Container |
+|---------|---------|--------|-----------|
+| `DB_POOL_MAX` | 5 | 2 | 10 |
+| `DB_ADMIN_POOL_MAX` | 3 | 2 | 5 |
+| `DB_PREPARE_STATEMENTS` | false | false | true |
+
+**Rule:** `prepare: false` is the default (safe for Supavisor). Only set `DB_PREPARE_STATEMENTS=true` on containers with direct Postgres connections.
+
+### set_config Scope Rule
+
+Always use `set_config(key, value, true)` — the third parameter `true` means transaction-scoped (`SET LOCAL`). Session-scoped (`false`) leaks between pooled connections. The only correct patterns:
+
+```typescript
+// CORRECT — transaction-scoped:
+await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`);
+
+// WRONG — session-scoped, leaks in connection pools:
+await db.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, false)`);
+```
