@@ -141,6 +141,167 @@
       "when": 1708100019000,
       "tag": "0019_order_tax_exempt",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1708100020000,
+      "tag": "0020_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1708100021000,
+      "tag": "0021_management_co_departments",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1708100022000,
+      "tag": "0022_api_ai_portal",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1708100023000,
+      "tag": "0023_communications",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1708100024000,
+      "tag": "0024_floor_plans_venues",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1708100025000,
+      "tag": "0025_courses",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1708100026000,
+      "tag": "0026_discounts_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1708100027000,
+      "tag": "0027_customer_gaps",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1708100028000,
+      "tag": "0028_role_gaps_late_fees",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1708100029000,
+      "tag": "0029_terminal_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1708100030000,
+      "tag": "0030_inventory_gaps",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1708100031000,
+      "tag": "0031_employees_tips",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1708100032000,
+      "tag": "0032_membership_gaps",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1708100033000,
+      "tag": "0033_loyalty_punch_cards",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1708100034000,
+      "tag": "0034_order_gaps_payment_gaps",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1708100035000,
+      "tag": "0035_vouchers_minimum_spend",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1708100036000,
+      "tag": "0036_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1708100037000,
+      "tag": "0037_tee_times",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1708100038000,
+      "tag": "0038_tee_bookings",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1708100039000,
+      "tag": "0039_events_part1",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1708100040000,
+      "tag": "0040_events_part2",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1708100041000,
+      "tag": "0041_misc_domains",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1708100042000,
+      "tag": "0042_field_additions",
+      "breakpoints": true
     }
   ]
 }
