@@ -302,6 +302,27 @@
       "when": 1708100042000,
       "tag": "0042_field_additions",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1708100043000,
+      "tag": "0043_missing_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1708100044000,
+      "tag": "0044_customer_minimum_spend_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1708100045000,
+      "tag": "0045_fk_hardening",
+      "breakpoints": true
     }
   ]
 }

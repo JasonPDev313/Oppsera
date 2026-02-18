@@ -167,6 +167,23 @@ export const onDemandAvailabilitySchedules = pgTable(
   ],
 );
 
+// ── On-Demand Orders ────────────────────────────────────────────
+
+export const onDemandOrders = pgTable(
+  'on_demand_orders',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    orderId: text('order_id').notNull(),
+    intendedTipCents: integer('intended_tip_cents'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('idx_on_demand_orders_tenant_order').on(table.tenantId, table.orderId)],
+);
+
 // ── Online Ordering Schedules ───────────────────────────────────
 
 export const onlineOrderingSchedules = pgTable(

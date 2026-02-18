@@ -344,6 +344,28 @@ export const golfLeagueGolferDetails = pgTable(
   ],
 );
 
+// ── Golf Outing Golfer Details ─────────────────────────────────
+export const golfOutingGolferDetails = pgTable(
+  'golf_outing_golfer_details',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    eventId: text('event_id').notNull(),
+    totalGolfers: integer('total_golfers'),
+    pricePerGolferCents: integer('price_per_golfer_cents'),
+    includesCart: boolean('includes_cart').notNull().default(false),
+    totalCarts: integer('total_carts'),
+    pricePerCartCents: integer('price_per_cart_cents'),
+    remarks: text('remarks'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_golf_outing_golfer_details_tenant_event').on(table.tenantId, table.eventId),
+  ],
+);
+
 // ── Golf Outing Profiles ────────────────────────────────────────
 
 export const golfOutingProfiles = pgTable(

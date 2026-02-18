@@ -140,6 +140,35 @@ export const customerSignedWaivers = pgTable(
   ],
 );
 
+// ── Customer Pace of Play ───────────────────────────────────────
+export const customerPaceOfPlay = pgTable(
+  'customer_pace_of_play',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id').notNull(),
+    courseId: text('course_id'),
+    gameRoundId: text('game_round_id'),
+    latitude: numeric('latitude', { precision: 10, scale: 7 }),
+    longitude: numeric('longitude', { precision: 10, scale: 7 }),
+    trackedAt: timestamp('tracked_at', { withTimezone: true }).notNull().defaultNow(),
+    holeNumber: integer('hole_number'),
+    position: text('position'),
+    status: text('status').notNull().default('active'),
+    details: jsonb('details'),
+    trackingType: text('tracking_type'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_pace_of_play_tenant_customer').on(table.tenantId, table.customerId),
+    index('idx_customer_pace_of_play_tenant_round')
+      .on(table.tenantId, table.gameRoundId)
+      .where(sql`game_round_id IS NOT NULL`),
+  ],
+);
+
 // ── Membership Applications ───────────────────────────────────────
 export const membershipApplications = pgTable(
   'membership_applications',

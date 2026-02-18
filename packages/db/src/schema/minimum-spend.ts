@@ -54,6 +54,57 @@ export const minimumSpendRuleDepartments = pgTable(
   ],
 );
 
+// ── Customer Minimum Spend Rules ────────────────────────────────
+// Per-customer assignment linking a customer to a minimum_spend_rule template
+
+export const customerMinimumSpendRules = pgTable(
+  'customer_minimum_spend_rules',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerId: text('customer_id').notNull(),
+    minimumSpendRuleId: text('minimum_spend_rule_id')
+      .notNull()
+      .references(() => minimumSpendRules.id),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_min_spend_rules_tenant_customer').on(table.tenantId, table.customerId),
+    index('idx_customer_min_spend_rules_tenant_rule').on(table.tenantId, table.minimumSpendRuleId),
+  ],
+);
+
+// ── Customer Minimum Spend Rule Departments ─────────────────────
+
+export const customerMinimumSpendRuleDepartments = pgTable(
+  'customer_minimum_spend_rule_departments',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    customerMinimumSpendRuleId: text('customer_minimum_spend_rule_id')
+      .notNull()
+      .references(() => customerMinimumSpendRules.id, { onDelete: 'cascade' }),
+    departmentId: text('department_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_customer_min_spend_rule_depts_tenant_rule_dept').on(
+      table.tenantId,
+      table.customerMinimumSpendRuleId,
+      table.departmentId,
+    ),
+  ],
+);
+
 // ── Minimum Spend Charges ───────────────────────────────────────
 
 export const minimumSpendCharges = pgTable(

@@ -169,6 +169,76 @@ export const courseSuggestions = pgTable(
   (table) => [index('idx_course_suggestions_tenant_status').on(table.tenantId, table.status)],
 );
 
+// ── Course Layout Rec Dates ────────────────────────────────────
+export const courseLayoutRecDates = pgTable(
+  'course_layout_rec_dates',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    courseLayoutId: text('course_layout_id')
+      .notNull()
+      .references(() => courseLayouts.id, { onDelete: 'cascade' }),
+    courseId: text('course_id')
+      .notNull()
+      .references(() => courses.id),
+    recDate: timestamp('rec_date', { withTimezone: true }).notNull(),
+    status: text('status').notNull().default('active'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_course_layout_rec_dates_tenant_layout').on(table.tenantId, table.courseLayoutId),
+  ],
+);
+
+// ── Course Suggestion Coordinates ─────────────────────────────
+export const courseSuggestionCoordinates = pgTable(
+  'course_suggestion_coordinates',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    courseId: text('course_id')
+      .notNull()
+      .references(() => courses.id),
+    status: text('status').notNull().default('pending'),
+    isActive: boolean('is_active').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_course_suggestion_coordinates_tenant_course').on(table.tenantId, table.courseId),
+  ],
+);
+
+// ── Course Suggestion Coordinate Details ──────────────────────
+export const courseSuggestionCoordinateDetails = pgTable(
+  'course_suggestion_coordinate_details',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    suggestionCoordinateId: text('suggestion_coordinate_id')
+      .notNull()
+      .references(() => courseSuggestionCoordinates.id, { onDelete: 'cascade' }),
+    holeNumber: integer('hole_number').notNull(),
+    longitude: numeric('longitude', { precision: 11, scale: 8 }),
+    latitude: numeric('latitude', { precision: 11, scale: 8 }),
+    markerType: text('marker_type').notNull().default('pin'),
+    description: text('description'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_course_suggestion_coord_details_tenant_coord').on(
+      table.tenantId,
+      table.suggestionCoordinateId,
+    ),
+  ],
+);
+
 // ── Channel Partner Course Availability ─────────────────────────
 export const channelPartnerCourseAvailability = pgTable(
   'channel_partner_course_availability',
