@@ -569,7 +569,7 @@ export function usePOS(config: POSConfig) {
       if (!order) return;
       setIsLoading(true);
       try {
-        const res = await apiFetch<{ data: Order }>(
+        await apiFetch<{ data: Order }>(
           `/api/v1/orders/${order.id}/tax-exempt`,
           {
             method: 'POST',

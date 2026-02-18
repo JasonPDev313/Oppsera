@@ -2,7 +2,6 @@ import {
   pgTable,
   text,
   integer,
-  boolean,
   timestamp,
   index,
   uniqueIndex,

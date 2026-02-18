@@ -93,7 +93,6 @@ export const memberships = pgTable(
   },
   (table) => [
     uniqueIndex('uq_memberships_tenant_user').on(table.tenantId, table.userId),
-    index('idx_memberships_tenant').on(table.tenantId),
     index('idx_memberships_user').on(table.userId),
   ],
 );
@@ -166,7 +165,6 @@ export const entitlements = pgTable(
   },
   (table) => [
     uniqueIndex('uq_entitlements_tenant_module').on(table.tenantId, table.moduleKey),
-    index('idx_entitlements_tenant').on(table.tenantId),
   ],
 );
 

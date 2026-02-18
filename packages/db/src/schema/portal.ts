@@ -4,7 +4,6 @@ import {
   integer,
   timestamp,
   jsonb,
-  index,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';

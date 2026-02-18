@@ -119,6 +119,6 @@ export const paymentJournalEntries = pgTable(
   (table) => [
     index('idx_pje_tenant_date').on(table.tenantId, table.businessDate),
     index('idx_pje_tenant_order').on(table.tenantId, table.orderId),
-    index('idx_pje_ref').on(table.referenceType, table.referenceId),
+    index('idx_pje_tenant_ref').on(table.tenantId, table.referenceType, table.referenceId),
   ],
 );

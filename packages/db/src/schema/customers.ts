@@ -398,7 +398,7 @@ export const arTransactions = pgTable(
       table.dueDate,
     ),
     index('idx_ar_transactions_tenant_type').on(table.tenantId, table.type),
-    index('idx_ar_transactions_reference').on(table.referenceType, table.referenceId),
+    index('idx_ar_transactions_tenant_reference').on(table.tenantId, table.referenceType, table.referenceId),
   ],
 );
 

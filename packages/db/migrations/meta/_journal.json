@@ -323,6 +323,13 @@
       "when": 1708100045000,
       "tag": "0045_fk_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1708100046000,
+      "tag": "0046_index_performance_audit",
+      "breakpoints": true
     }
   ]
 }

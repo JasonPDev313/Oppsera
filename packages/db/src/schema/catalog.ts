@@ -33,7 +33,6 @@ export const taxCategories = pgTable(
   },
   (table) => [
     uniqueIndex('uq_tax_categories_tenant_name').on(table.tenantId, table.name),
-    index('idx_tax_categories_tenant').on(table.tenantId),
   ],
 );
 
@@ -51,7 +50,6 @@ export const catalogCategories = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_catalog_categories_tenant').on(table.tenantId),
     index('idx_catalog_categories_parent').on(table.tenantId, table.parentId),
   ],
 );
@@ -125,7 +123,7 @@ export const catalogModifiers = pgTable(
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_catalog_modifiers_group').on(table.modifierGroupId)],
+  (table) => [index('idx_catalog_modifiers_tenant_group').on(table.tenantId, table.modifierGroupId)],
 );
 
 // ── Item ↔ Modifier Group Junction ─────────────────────────────

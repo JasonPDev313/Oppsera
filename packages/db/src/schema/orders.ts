@@ -142,7 +142,7 @@ export const orderLines = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_order_lines_order_sort').on(table.orderId, table.sortOrder),
+    index('idx_order_lines_tenant_order_sort').on(table.tenantId, table.orderId, table.sortOrder),
     index('idx_order_lines_tenant_item').on(table.tenantId, table.catalogItemId),
   ],
 );
@@ -168,7 +168,7 @@ export const orderCharges = pgTable(
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_order_charges_order').on(table.orderId)],
+  (table) => [index('idx_order_charges_tenant_order').on(table.tenantId, table.orderId)],
 );
 
 // ── Order Discounts ─────────────────────────────────────────────
@@ -189,7 +189,7 @@ export const orderDiscounts = pgTable(
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_order_discounts_order').on(table.orderId)],
+  (table) => [index('idx_order_discounts_tenant_order').on(table.tenantId, table.orderId)],
 );
 
 // ── Order Counters ──────────────────────────────────────────────
