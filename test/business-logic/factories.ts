@@ -122,15 +122,13 @@ export async function createMultiRateTaxConfig(
   rates: Array<{ name: string; rateDecimal: string }>,
   options: {
     groupName?: string;
-    calculationMode?: 'exclusive' | 'inclusive';
   } = {},
 ): Promise<{ taxGroupId: string; taxRateIds: string[] }> {
   const taxGroupId = testUlid();
-  const calculationMode = options.calculationMode || 'exclusive';
 
   await adminDb.execute(sql`
-    INSERT INTO tax_groups (id, tenant_id, location_id, name, calculation_mode, is_active)
-    VALUES (${taxGroupId}, ${tenantId}, ${locationId}, ${options.groupName || 'Multi-Rate Group'}, ${calculationMode}, true)
+    INSERT INTO tax_groups (id, tenant_id, location_id, name, is_active)
+    VALUES (${taxGroupId}, ${tenantId}, ${locationId}, ${options.groupName || 'Multi-Rate Group'}, true)
   `);
 
   const taxRateIds: string[] = [];

@@ -901,7 +901,6 @@ describe('Tax System', () => {
       const rawInput = {
         locationId: LOCATION_A,
         name: 'Food Tax',
-        calculationMode: 'exclusive',
         taxRateIds: ['tr_001', 'tr_002'],
       };
       const parsed = createTaxGroupSchema.safeParse(rawInput);
@@ -923,7 +922,6 @@ describe('Tax System', () => {
         tenantId: TENANT_A,
         locationId: LOCATION_A,
         name: 'Food Tax',
-        calculationMode: 'exclusive',
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -937,7 +935,6 @@ describe('Tax System', () => {
 
       const result = await createTaxGroup(ctx, parsed.data);
       expect(result.id).toBe('tg_new');
-      expect(result.calculationMode).toBe('exclusive');
     });
   });
 });
