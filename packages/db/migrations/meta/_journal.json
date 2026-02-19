@@ -414,6 +414,13 @@
       "when": 1708100058000,
       "tag": "0058_vendor_management",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1708100059000,
+      "tag": "0059_fix_rls_role_policies",
+      "breakpoints": true
     }
   ]
 }

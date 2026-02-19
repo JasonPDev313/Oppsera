@@ -1,4 +1,4 @@
-import { eq, and, lt, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, lt, asc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { vendors } from '@oppsera/db';
 
@@ -34,69 +34,53 @@ export async function listVendors(input: ListVendorsInput): Promise<ListVendorsR
   const limit = Math.min(input.limit ?? 50, 100);
 
   return withTenant(input.tenantId, async (tx) => {
-    const whereClause: ReturnType<typeof eq>[] = [
-      eq(vendors.tenantId, input.tenantId),
-    ];
-
-    if (input.isActive !== undefined) whereClause.push(eq(vendors.isActive, input.isActive));
-    if (input.cursor) whereClause.push(lt(vendors.id, input.cursor));
+    // Single query: vendors + item count + last receipt date via LEFT JOIN LATERAL
+    const conditions = [sql`v.tenant_id = ${input.tenantId}`];
+    if (input.isActive !== undefined) conditions.push(sql`v.is_active = ${input.isActive}`);
+    if (input.cursor) conditions.push(sql`v.id < ${input.cursor}`);
     if (input.search) {
-      whereClause.push(
-        sql`(${vendors.name} ILIKE ${'%' + input.search + '%'} OR ${vendors.accountNumber} ILIKE ${'%' + input.search + '%'})`,
-      );
+      const pattern = `%${input.search}%`;
+      conditions.push(sql`(v.name ILIKE ${pattern} OR v.account_number ILIKE ${pattern})`);
     }
 
-    const rows = await tx
-      .select()
-      .from(vendors)
-      .where(and(...whereClause))
-      .orderBy(asc(vendors.name))
-      .limit(limit + 1);
+    const rows = await tx.execute(sql`
+      SELECT v.id, v.name, v.account_number, v.contact_name, v.contact_email,
+             v.contact_phone, v.payment_terms, v.is_active, v.created_at,
+             COALESCE(ic.cnt, 0)::int AS item_count,
+             rc.last_date AS last_receipt_date
+      FROM vendors v
+      LEFT JOIN LATERAL (
+        SELECT COUNT(*)::int AS cnt
+        FROM item_vendors iv
+        WHERE iv.vendor_id = v.id AND iv.tenant_id = v.tenant_id AND iv.is_active = true
+      ) ic ON true
+      LEFT JOIN LATERAL (
+        SELECT MAX(received_date)::text AS last_date
+        FROM receiving_receipts rr
+        WHERE rr.vendor_id = v.id AND rr.tenant_id = v.tenant_id AND rr.status = 'posted'
+      ) rc ON true
+      WHERE ${sql.join(conditions, sql` AND `)}
+      ORDER BY v.name ASC
+      LIMIT ${limit + 1}
+    `);
 
-    const hasMore = rows.length > limit;
-    const items = hasMore ? rows.slice(0, limit) : rows;
-
-    // Batch-fetch item counts and last receipt dates for the page
-    const vendorIds = items.map((v) => v.id);
-    if (vendorIds.length === 0) {
-      return { items: [], cursor: null, hasMore: false };
-    }
-
-    const catalogCounts = await tx.execute(
-      sql`SELECT vendor_id, COUNT(*)::int AS cnt
-          FROM item_vendors
-          WHERE tenant_id = ${input.tenantId} AND vendor_id = ANY(${vendorIds}) AND is_active = true
-          GROUP BY vendor_id`,
-    );
-    const countMap = new Map<string, number>();
-    for (const row of catalogCounts as any) {
-      countMap.set(row.vendor_id, Number(row.cnt));
-    }
-
-    const receiptDates = await tx.execute(
-      sql`SELECT vendor_id, MAX(received_date) AS last_date
-          FROM receiving_receipts
-          WHERE tenant_id = ${input.tenantId} AND vendor_id = ANY(${vendorIds}) AND status = 'posted'
-          GROUP BY vendor_id`,
-    );
-    const dateMap = new Map<string, string>();
-    for (const row of receiptDates as any) {
-      dateMap.set(row.vendor_id, row.last_date);
-    }
+    const allRows = Array.from(rows as Iterable<any>);
+    const hasMore = allRows.length > limit;
+    const items = hasMore ? allRows.slice(0, limit) : allRows;
 
     return {
-      items: items.map((v) => ({
+      items: items.map((v: any) => ({
         id: v.id,
         name: v.name,
-        accountNumber: v.accountNumber ?? null,
-        contactName: v.contactName ?? null,
-        contactEmail: v.contactEmail ?? null,
-        contactPhone: v.contactPhone ?? null,
-        paymentTerms: v.paymentTerms ?? null,
-        isActive: v.isActive,
-        itemCount: countMap.get(v.id) ?? 0,
-        lastReceiptDate: dateMap.get(v.id) ?? null,
-        createdAt: v.createdAt.toISOString(),
+        accountNumber: v.account_number ?? null,
+        contactName: v.contact_name ?? null,
+        contactEmail: v.contact_email ?? null,
+        contactPhone: v.contact_phone ?? null,
+        paymentTerms: v.payment_terms ?? null,
+        isActive: v.is_active,
+        itemCount: Number(v.item_count) || 0,
+        lastReceiptDate: v.last_receipt_date ?? null,
+        createdAt: v.created_at instanceof Date ? v.created_at.toISOString() : String(v.created_at),
       })),
       cursor: hasMore ? items[items.length - 1]!.id : null,
       hasMore,
