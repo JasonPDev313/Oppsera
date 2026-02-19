@@ -41,7 +41,6 @@ export function useDashboards() {
 
   useEffect(() => {
     fetchDashboards();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

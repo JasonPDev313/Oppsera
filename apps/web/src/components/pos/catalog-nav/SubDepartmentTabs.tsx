@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
 interface SubDepartmentTabsProps {
   departments: Array<{ id: string; name: string }>;
@@ -9,7 +9,7 @@ interface SubDepartmentTabsProps {
   size?: 'normal' | 'large';
 }
 
-export function SubDepartmentTabs({
+export const SubDepartmentTabs = memo(function SubDepartmentTabs({
   departments,
   selectedId,
   onSelect,
@@ -64,4 +64,4 @@ export function SubDepartmentTabs({
       ))}
     </div>
   );
-}
+});

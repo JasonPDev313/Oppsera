@@ -20,7 +20,7 @@ export const GET = withMiddleware(
     const groups = await listTaxGroups(ctx.tenantId, locationId);
     return NextResponse.json({ data: groups });
   },
-  { entitlement: 'catalog', permission: 'catalog.view' },
+  { entitlement: 'catalog', permission: 'catalog.view', cache: 'private, max-age=300, stale-while-revalidate=600' },
 );
 
 export const POST = withMiddleware(

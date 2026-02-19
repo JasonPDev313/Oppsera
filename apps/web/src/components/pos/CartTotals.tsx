@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { Order } from '@/types/pos';
 
 function formatMoney(cents: number): string {
@@ -10,7 +11,7 @@ interface CartTotalsProps {
   order: Order | null;
 }
 
-export function CartTotals({ order }: CartTotalsProps) {
+export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
   if (!order) return null;
 
   const hasCharges = order.serviceChargeTotal > 0;
@@ -88,4 +89,4 @@ export function CartTotals({ order }: CartTotalsProps) {
       </div>
     </div>
   );
-}
+});

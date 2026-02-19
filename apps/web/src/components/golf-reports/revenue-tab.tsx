@@ -4,7 +4,6 @@ import { useMemo } from 'react';
 import { Download } from 'lucide-react';
 import {
   ResponsiveContainer,
-  BarChart,
   Bar,
   Line,
   XAxis,

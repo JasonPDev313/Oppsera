@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ClipboardList, Plus } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
-import { SearchInput } from '@/components/ui/search-input';
+
 import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useToast } from '@/components/ui/toast';
@@ -34,7 +34,7 @@ export default function ReceivingPage() {
   const [vendorFilter, setVendorFilter] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  const { items, isLoading, hasMore, loadMore, mutate } = useReceipts({
+  const { items, isLoading, hasMore, loadMore } = useReceipts({
     status: (statusFilter || undefined) as ReceiptStatus | undefined,
     vendorId: vendorFilter || undefined,
   });

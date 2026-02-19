@@ -1,12 +1,14 @@
 'use client';
 
+import { memo } from 'react';
+
 interface InventoryIndicatorProps {
   onHand: number | null;
   isTrackInventory: boolean;
   compact?: boolean;
 }
 
-export function InventoryIndicator({
+export const InventoryIndicator = memo(function InventoryIndicator({
   onHand,
   isTrackInventory,
   compact = false,
@@ -36,4 +38,4 @@ export function InventoryIndicator({
       {compact ? String(onHand) : `${onHand} in stock`}
     </span>
   );
-}
+});

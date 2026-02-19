@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { ChevronRight } from 'lucide-react';
 
 interface CatalogBreadcrumbProps {
@@ -8,7 +8,7 @@ interface CatalogBreadcrumbProps {
   onNavigate: (level: string) => void;
 }
 
-export function CatalogBreadcrumb({
+export const CatalogBreadcrumb = memo(function CatalogBreadcrumb({
   breadcrumb,
   onNavigate,
 }: CatalogBreadcrumbProps) {
@@ -49,4 +49,4 @@ export function CatalogBreadcrumb({
       })}
     </nav>
   );
-}
+});

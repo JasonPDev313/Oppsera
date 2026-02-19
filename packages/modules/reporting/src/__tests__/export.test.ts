@@ -57,8 +57,6 @@ describe('toCsv', () => {
 
     const buffer = toCsv(COLUMNS, rows);
     const csv = buffer.toString('utf-8');
-    const lines = csv.split('\r\n');
-
     // The field with a newline should be quoted
     expect(csv).toContain('"Line1\nLine2"');
   });

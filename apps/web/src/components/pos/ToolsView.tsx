@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Archive, ArrowRightLeft } from 'lucide-react';
+import { Archive, ArrowRightLeft, PackagePlus } from 'lucide-react';
 import { SavedTabsPanel } from './SavedTabsPanel';
 import { TransferTabPanel } from './TransferTabPanel';
+import { QuickAddItemPanel } from './QuickAddItemPanel';
 
-type ToolId = 'saved-tabs' | 'transfer-tab';
+type ToolId = 'saved-tabs' | 'transfer-tab' | 'quick-add-item';
 
 interface Tool {
   id: ToolId;
@@ -16,6 +17,7 @@ interface Tool {
 const TOOLS: Tool[] = [
   { id: 'saved-tabs', label: 'Saved Tabs', icon: Archive },
   { id: 'transfer-tab', label: 'Transfer Tab', icon: ArrowRightLeft },
+  { id: 'quick-add-item', label: 'Add Item', icon: PackagePlus },
 ];
 
 interface ToolsViewProps {
@@ -23,6 +25,7 @@ interface ToolsViewProps {
   terminalId: string;
   onRecallSavedTab: (orderId: string) => void;
   onTransferTab: (orderId: string) => void;
+  onItemCreated: () => void;
   isLoading?: boolean;
 }
 
@@ -31,6 +34,7 @@ export function ToolsView({
   terminalId,
   onRecallSavedTab,
   onTransferTab,
+  onItemCreated,
   isLoading,
 }: ToolsViewProps) {
   const [activeTool, setActiveTool] = useState<ToolId>('saved-tabs');
@@ -77,6 +81,9 @@ export function ToolsView({
             onTransfer={onTransferTab}
             isTransferring={isLoading}
           />
+        )}
+        {activeTool === 'quick-add-item' && (
+          <QuickAddItemPanel onItemCreated={onItemCreated} />
         )}
       </div>
     </div>

@@ -13,7 +13,7 @@ export const GET = withMiddleware(
     const rates = await listTaxRates(ctx.tenantId);
     return NextResponse.json({ data: rates });
   },
-  { entitlement: 'catalog', permission: 'catalog.view' },
+  { entitlement: 'catalog', permission: 'catalog.view', cache: 'private, max-age=300, stale-while-revalidate=600' },
 );
 
 export const POST = withMiddleware(

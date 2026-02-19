@@ -1,20 +1,15 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Truck, Plus } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
 import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
-import { useToast } from '@/components/ui/toast';
 import { VendorStatusBadge } from '@/components/vendors/vendor-status-badge';
 import { useVendors } from '@/hooks/use-vendors';
 import type { VendorSummary } from '@/types/vendors';
-
-function formatMoney(value: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
-}
 
 const statusOptions = [
   { value: 'true', label: 'Active' },
@@ -26,7 +21,6 @@ type VendorRow = VendorSummary & Record<string, unknown>;
 
 export default function VendorsPage() {
   const router = useRouter();
-  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('true');
 

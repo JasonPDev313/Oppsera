@@ -1,4 +1,4 @@
-import { eq, and, lt, asc, sql } from 'drizzle-orm';
+import { eq, and, asc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { vendors } from '@oppsera/db';
 

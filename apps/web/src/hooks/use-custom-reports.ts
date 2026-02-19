@@ -47,7 +47,6 @@ export function useCustomReports(options: UseCustomReportsOptions = {}) {
 
   useEffect(() => {
     fetchReports();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

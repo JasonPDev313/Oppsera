@@ -7,6 +7,7 @@ function makeLines(overrides: Partial<AllocationLine>[]): AllocationLine[] {
     extendedCost: o.extendedCost ?? 100,
     baseQty: o.baseQty ?? 10,
     weight: o.weight ?? null,
+    volume: o.volume ?? null,
   }));
 }
 

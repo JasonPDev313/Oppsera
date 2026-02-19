@@ -279,4 +279,175 @@ describe('Tax Calculations', () => {
       expect(result.taxTotal).toBeGreaterThanOrEqual(0);
     });
   });
+
+  // ── Requirements Scenarios ──────────────────────────────────────
+  // Covers the exact scenarios from the tax-inclusive pricing requirements.
+
+  describe('Requirements Scenarios', () => {
+    it('Scenario 1: Basic inclusive — $100.00 at 10%', () => {
+      const result = calculateTaxes({
+        lineSubtotal: 10000,
+        calculationMode: 'inclusive',
+        taxRates: [{ taxRateId: 'r', taxName: 'Sales Tax', rateDecimal: 0.10 }],
+      });
+      // taxTotal = round(10000 - 10000/1.10) = round(10000 - 9090.909...) = round(909.09...) = 909
+      expect(result.taxTotal).toBe(909);
+      expect(result.subtotal).toBe(9091);  // base price = 10000 - 909
+      expect(result.total).toBe(10000);     // customer pays entered price
+      expect(result.subtotal + result.taxTotal).toBe(result.total);
+    });
+
+    it('Scenario 2: Basic exclusive — $100.00 at 10%', () => {
+      const result = calculateTaxes({
+        lineSubtotal: 10000,
+        calculationMode: 'exclusive',
+        taxRates: [{ taxRateId: 'r', taxName: 'Sales Tax', rateDecimal: 0.10 }],
+      });
+      expect(result.subtotal).toBe(10000);  // unchanged
+      expect(result.taxTotal).toBe(1000);    // 10000 * 0.10
+      expect(result.total).toBe(11000);      // customer pays 10000 + 1000
+    });
+
+    it('Scenario 3: Compound tax (8% + 2%) inclusive — $100.00', () => {
+      const result = calculateTaxes({
+        lineSubtotal: 10000,
+        calculationMode: 'inclusive',
+        taxRates: [
+          { taxRateId: 'state', taxName: 'State Tax', rateDecimal: 0.08 },
+          { taxRateId: 'local', taxName: 'Local Tax', rateDecimal: 0.02 },
+        ],
+      });
+      // Combined rate = 0.10, same as Scenario 1
+      expect(result.taxTotal).toBe(909);
+      expect(result.subtotal).toBe(9091);
+      expect(result.total).toBe(10000);
+
+      // Breakdown: proportional allocation
+      // State share: round(909 * 0.08/0.10) = round(727.2) = 727
+      expect(result.breakdown[0]!.taxName).toBe('State Tax');
+      expect(result.breakdown[0]!.amount).toBe(727);
+      // Local: 909 - 727 = 182 (remainder)
+      expect(result.breakdown[1]!.taxName).toBe('Local Tax');
+      expect(result.breakdown[1]!.amount).toBe(182);
+      // Sum must match
+      expect(result.breakdown[0]!.amount + result.breakdown[1]!.amount).toBe(result.taxTotal);
+    });
+
+    it('Scenario 4: Zero price — $0.00 at 10%', () => {
+      const resultInclusive = calculateTaxes({
+        lineSubtotal: 0,
+        calculationMode: 'inclusive',
+        taxRates: [{ taxRateId: 'r', taxName: 'Tax', rateDecimal: 0.10 }],
+      });
+      expect(resultInclusive.subtotal).toBe(0);
+      expect(resultInclusive.taxTotal).toBe(0);
+      expect(resultInclusive.total).toBe(0);
+
+      const resultExclusive = calculateTaxes({
+        lineSubtotal: 0,
+        calculationMode: 'exclusive',
+        taxRates: [{ taxRateId: 'r', taxName: 'Tax', rateDecimal: 0.10 }],
+      });
+      expect(resultExclusive.subtotal).toBe(0);
+      expect(resultExclusive.taxTotal).toBe(0);
+      expect(resultExclusive.total).toBe(0);
+    });
+
+    it('Scenario 5: Rounding edge — $9.99 at 7% inclusive', () => {
+      const result = calculateTaxes({
+        lineSubtotal: 999,
+        calculationMode: 'inclusive',
+        taxRates: [{ taxRateId: 'r', taxName: 'Tax', rateDecimal: 0.07 }],
+      });
+      // taxTotal = round(999 - 999/1.07) = round(999 - 933.6449...) = round(65.355...) = 65
+      expect(result.taxTotal).toBe(65);
+      expect(result.subtotal).toBe(934);   // 999 - 65
+      expect(result.total).toBe(999);       // unchanged
+      expect(result.subtotal + result.taxTotal).toBe(result.total);
+    });
+
+    it('Scenario 6: Cart 3×$3.33 inclusive at 10% — per-line rounding', () => {
+      // Each line: $3.33 inclusive at 10%
+      // Per line: taxTotal = round(333 - 333/1.10) = round(333 - 302.727...) = round(30.272...) = 30
+      // Per line: subtotal = 333 - 30 = 303
+      const lines = [];
+      for (let i = 0; i < 3; i++) {
+        lines.push(calculateTaxes({
+          lineSubtotal: 333,
+          calculationMode: 'inclusive',
+          taxRates: [{ taxRateId: 'r', taxName: 'Tax', rateDecimal: 0.10 }],
+        }));
+      }
+
+      const totalTax = lines.reduce((s, l) => s + l.taxTotal, 0);
+      const totalSubtotal = lines.reduce((s, l) => s + l.subtotal, 0);
+      const totalCustomerPays = lines.reduce((s, l) => s + l.total, 0);
+
+      expect(totalTax).toBe(90);           // 3 × 30
+      expect(totalSubtotal).toBe(909);     // 3 × 303
+      expect(totalCustomerPays).toBe(999); // 3 × 333
+
+      // Per-line invariant holds for the cart
+      expect(totalSubtotal + totalTax).toBe(totalCustomerPays);
+    });
+
+    it('Scenario 7: INVARIANT sweep — total = subtotal + taxTotal (both modes)', () => {
+      const amounts = [1, 33, 50, 99, 100, 333, 500, 999, 1000, 1500, 5000, 9999, 10000, 99999];
+      const rates = [0.01, 0.05, 0.07, 0.075, 0.085, 0.10, 0.13, 0.20, 0.25];
+      const modes: Array<'exclusive' | 'inclusive'> = ['exclusive', 'inclusive'];
+
+      for (const mode of modes) {
+        for (const amount of amounts) {
+          for (const rate of rates) {
+            const result = calculateTaxes({
+              lineSubtotal: amount,
+              calculationMode: mode,
+              taxRates: [{ taxRateId: 'r', taxName: 'Tax', rateDecimal: rate }],
+            });
+
+            // Core invariant: total = subtotal + taxTotal
+            expect(result.subtotal + result.taxTotal).toBe(result.total);
+
+            // Mode-specific invariants
+            if (mode === 'inclusive') {
+              expect(result.total).toBe(amount); // customer pays entered price
+            } else {
+              expect(result.subtotal).toBe(amount); // subtotal = entered price
+            }
+
+            // Non-negative
+            expect(result.taxTotal).toBeGreaterThanOrEqual(0);
+            expect(result.subtotal).toBeGreaterThanOrEqual(0);
+          }
+        }
+      }
+    });
+
+    it('Scenario 7b: INVARIANT sweep — multi-rate breakdown sums to taxTotal', () => {
+      const amounts = [33, 100, 333, 999, 5000, 10000];
+      const modes: Array<'exclusive' | 'inclusive'> = ['exclusive', 'inclusive'];
+
+      for (const mode of modes) {
+        for (const amount of amounts) {
+          const result = calculateTaxes({
+            lineSubtotal: amount,
+            calculationMode: mode,
+            taxRates: [
+              { taxRateId: 'a', taxName: 'State', rateDecimal: 0.06 },
+              { taxRateId: 'b', taxName: 'County', rateDecimal: 0.015 },
+              { taxRateId: 'c', taxName: 'City', rateDecimal: 0.005 },
+            ],
+          });
+          const breakdownSum = result.breakdown.reduce((s, b) => s + b.amount, 0);
+          expect(breakdownSum).toBe(result.taxTotal);
+        }
+      }
+    });
+
+    // Phase 2 — line-level discount → tax recalculation
+    it.todo('Scenario: Discount applied to base, tax recomputed on discounted base (requires line-level discounts)');
+
+    // Phase 2 — floor price enforcement
+    it.todo('Scenario: Floor price prevents selling below minimum (requires floorPrice column on catalog_items)');
+  });
 });

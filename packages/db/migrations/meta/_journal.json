@@ -463,6 +463,20 @@
       "when": 1708100065000,
       "tag": "0065_list_page_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1708100066000,
+      "tag": "0066_query_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1708100067000,
+      "tag": "0067_query_audit_indexes",
+      "breakpoints": true
     }
   ]
 }

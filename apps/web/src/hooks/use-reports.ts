@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import type {
   DashboardMetrics,
@@ -71,42 +71,24 @@ export async function downloadCsvExport(
 // ── useReportsDashboard ──────────────────────────────────────────
 
 export function useReportsDashboard(locationId?: string) {
-  const [data, setData] = useState<DashboardMetrics | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setError(null);
+  const result = useQuery({
+    queryKey: ['reports-dashboard', locationId, getTodayDate()],
+    queryFn: () => {
       const params = new URLSearchParams({ date: getTodayDate() });
       if (locationId) params.set('locationId', locationId);
-
-      const res = await apiFetch<{ data: DashboardMetrics }>(
+      return apiFetch<{ data: DashboardMetrics }>(
         `/api/v1/reports/dashboard?${params.toString()}`,
-      );
-      setData(res.data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load dashboard'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [locationId]);
+      ).then((r) => r.data);
+    },
+    refetchInterval: 60_000,
+  });
 
-  useEffect(() => {
-    setIsLoading(true);
-    fetchData();
-  }, [fetchData]);
-
-  // Auto-refresh every 60s
-  useEffect(() => {
-    intervalRef.current = setInterval(fetchData, 60_000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchData]);
-
-  return { data, isLoading, error, mutate: fetchData };
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
 // ── useDailySales ────────────────────────────────────────────────
@@ -118,36 +100,26 @@ interface UseDailySalesOptions {
 }
 
 export function useDailySales(options: UseDailySalesOptions) {
-  const [data, setData] = useState<DailySalesRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const result = useQuery({
+    queryKey: ['daily-sales', options.dateFrom, options.dateTo, options.locationId],
+    queryFn: () => {
       const params = new URLSearchParams({
         dateFrom: options.dateFrom,
         dateTo: options.dateTo,
       });
       if (options.locationId) params.set('locationId', options.locationId);
-
-      const res = await apiFetch<{ data: DailySalesRow[] }>(
+      return apiFetch<{ data: DailySalesRow[] }>(
         `/api/v1/reports/daily-sales?${params.toString()}`,
-      );
-      setData(res.data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load daily sales'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [options.dateFrom, options.dateTo, options.locationId]);
+      ).then((r) => r.data);
+    },
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, isLoading, error, mutate: fetchData };
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
 // ── useItemSales ─────────────────────────────────────────────────
@@ -162,14 +134,9 @@ interface UseItemSalesOptions {
 }
 
 export function useItemSales(options: UseItemSalesOptions) {
-  const [data, setData] = useState<ItemSalesRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const result = useQuery({
+    queryKey: ['item-sales', options.dateFrom, options.dateTo, options.locationId, options.sortBy, options.sortDir, options.limit],
+    queryFn: () => {
       const params = new URLSearchParams({
         dateFrom: options.dateFrom,
         dateTo: options.dateTo,
@@ -178,23 +145,18 @@ export function useItemSales(options: UseItemSalesOptions) {
       if (options.sortBy) params.set('sortBy', options.sortBy);
       if (options.sortDir) params.set('sortDir', options.sortDir);
       if (options.limit) params.set('limit', String(options.limit));
-
-      const res = await apiFetch<{ data: ItemSalesRow[] }>(
+      return apiFetch<{ data: ItemSalesRow[] }>(
         `/api/v1/reports/item-sales?${params.toString()}`,
-      );
-      setData(res.data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load item sales'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [options.dateFrom, options.dateTo, options.locationId, options.sortBy, options.sortDir, options.limit]);
+      ).then((r) => r.data);
+    },
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, isLoading, error, mutate: fetchData };
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
 // ── useInventorySummary ──────────────────────────────────────────
@@ -206,33 +168,23 @@ interface UseInventorySummaryOptions {
 }
 
 export function useInventorySummary(options: UseInventorySummaryOptions = {}) {
-  const [data, setData] = useState<InventorySummaryRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const result = useQuery({
+    queryKey: ['inventory-summary', options.locationId, options.belowThresholdOnly, options.search],
+    queryFn: () => {
       const params = new URLSearchParams();
       if (options.locationId) params.set('locationId', options.locationId);
       if (options.belowThresholdOnly) params.set('belowThresholdOnly', 'true');
       if (options.search) params.set('search', options.search);
-
-      const res = await apiFetch<{ data: InventorySummaryRow[] }>(
+      return apiFetch<{ data: InventorySummaryRow[] }>(
         `/api/v1/reports/inventory-summary?${params.toString()}`,
-      );
-      setData(res.data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load inventory'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [options.locationId, options.belowThresholdOnly, options.search]);
+      ).then((r) => r.data);
+    },
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, isLoading, error, mutate: fetchData };
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }

@@ -112,7 +112,7 @@ export function EditableCell({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onBlur={commit}
-        className="w-full rounded border border-indigo-400 bg-white px-2 py-1 text-right text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+        className="w-full rounded border border-indigo-400 bg-surface px-2 py-1 text-right text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         style={{ minWidth: 60 }}
       />
     );

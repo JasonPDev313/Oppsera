@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Star, Trash2, Pencil, X, Check } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
-import { Badge } from '@/components/ui/badge';
 import type { VendorCatalogEntry } from '@/types/vendors';
 
 function formatMoney(value: number | null): string {

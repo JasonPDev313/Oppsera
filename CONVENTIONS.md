@@ -704,6 +704,7 @@ await checkLocationLimit(tenantId, 'module_key');
 - `'use client'` directive at top of every interactive component/page
 - State management via React hooks (`useState`, `useEffect`, `useCallback`, `useMemo`)
 - Data fetching via custom hooks wrapping `apiFetch`
+- **Code-split pattern**: every heavy page uses `next/dynamic` with `ssr: false` — `page.tsx` is a thin wrapper, heavy logic lives in `*-content.tsx`. See §57 for details.
 
 ### API Client
 
@@ -1436,20 +1437,51 @@ These issues were identified during cross-session review. The referenced schemas
 
 Two POS shells (`/pos/retail` and `/pos/fnb`) share one commerce engine (orders module). Either shell can sell any item type — a retail POS can sell F&B items (opens modifier dialog), and an F&B POS can sell retail items (direct add or option picker).
 
-### Fullscreen Layout Pattern
+### Fullscreen Layout with Dual-Mount Switching
 
-POS pages use a **fullscreen overlay** that covers the dashboard sidebar:
+POS pages use a **fullscreen overlay** that covers the dashboard sidebar. Both Retail and F&B POS content components are mounted simultaneously in the layout and toggled via CSS for instant switching:
 
 ```typescript
 // apps/web/src/app/(dashboard)/pos/layout.tsx
-// Fixed overlay: covers everything, including the (dashboard) sidebar
-<div className="fixed inset-0 z-50 flex flex-col bg-gray-50">
-  <TopBar />      {/* h-12: location, terminal, employee, clock, exit */}
-  <div className="flex-1 overflow-hidden">{children}</div>
+// Both POS modes mounted via next/dynamic, toggled by CSS
+const RetailPOSContent = dynamic(() => import('./retail/retail-pos-content'), {
+  loading: () => <RetailPOSLoading />,
+  ssr: false,
+});
+const FnBPOSContent = dynamic(() => import('./fnb/fnb-pos-content'), {
+  loading: () => <FnBPOSLoading />,
+  ssr: false,
+});
+
+// Inside the component:
+const isRetail = pathname.startsWith('/pos/retail');
+const isFnB = pathname.startsWith('/pos/fnb');
+
+// Lazily mount on first visit, keep mounted forever
+const [visited, setVisited] = useState({ retail: isRetail, fnb: isFnB });
+
+// Content area — CSS toggle, no route transition
+<div className="relative flex-1 overflow-hidden">
+  {visited.retail && (
+    <div className={`absolute inset-0 ${isRetail ? '' : 'pointer-events-none invisible'}`}>
+      <RetailPOSContent isActive={isRetail} />
+    </div>
+  )}
+  {visited.fnb && (
+    <div className={`absolute inset-0 ${isFnB ? '' : 'pointer-events-none invisible'}`}>
+      <FnBPOSContent isActive={isFnB} />
+    </div>
+  )}
 </div>
 ```
 
-The top bar displays: location name, terminal ID, employee name (abbreviated), live clock, and exit button.
+**Key rules:**
+1. Page files (`retail/page.tsx`, `fnb/page.tsx`) return `null` — they exist only as Next.js route targets
+2. Content lives in `retail-pos-content.tsx` / `fnb-pos-content.tsx` with `isActive` prop
+3. `isActive` gates barcode listener (early return) and triggers dialog cleanup via `useEffect`
+4. Portal-based dialogs (`createPortal` to `document.body`) must be closed when `isActive` becomes `false` — otherwise they remain visible on top of the other POS mode
+
+The top bar displays: location name, terminal ID, employee name (abbreviated), and exit button.
 
 ### Universal Item Tap Handler
 
@@ -2337,18 +2369,30 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - **POS item-not-found handling**: `usePOS` now accepts `{ onItemNotFound }` callback. On 404 from `addItem`, calls the callback. POS pages wire it to `catalog.refresh()` to purge stale archived items from the grid.
 - New files: `stock-section.tsx`, `receive-dialog.tsx`, `adjust-dialog.tsx`, `shrink-dialog.tsx`, `use-inventory-for-catalog-item.ts`, `get-inventory-item-by-catalog.ts`, `by-catalog-item/route.ts`
 
+**Milestone 15: Frontend Performance Pass**
+
+- Session 27: Code-split all pages, POS instant switching, dashboard optimization, covering indexes
+- **Code-split all heavy pages**: 16 pages split with `next/dynamic` + `ssr: false`. Thin `page.tsx` wrappers, heavy logic in `*-content.tsx`. Custom loading skeletons per page + reusable `PageSkeleton` component. Route transitions now commit instantly with skeleton UI.
+- **POS dual-mount instant switching**: `pos/layout.tsx` mounts both Retail and F&B POS content simultaneously via `next/dynamic` and toggles with CSS (`invisible pointer-events-none`). Eliminates 300-500ms Next.js route transition. Pages (`retail/page.tsx`, `fnb/page.tsx`) return `null` — exist only as route targets. `isActive` prop gates barcode listener and triggers portal dialog cleanup via `useEffect`.
+- **Combined catalog+inventory API**: `listItems` accepts `includeInventory` flag — batch-fetches inventory data (on-hand, reorder point) in same transaction. Eliminates separate `/api/v1/inventory` call on catalog list page.
+- **Category fetch deduplication**: module-level `_catCache` in `use-catalog.ts` with in-flight promise dedup + 30s TTL — 3 concurrent category API calls share 1 request.
+- **Covering indexes**: migration `0065_list_page_indexes.sql` — `idx_tenders_tenant_status_order` for order list tender aggregation; `idx_inventory_movements_onhand` with `INCLUDE (quantity_delta)` for index-only on-hand SUM scans.
+- **Dashboard stale-while-revalidate**: uses `/api/v1/reports/dashboard` (pre-aggregated CQRS read models) for KPIs instead of fetching 100 raw orders. SessionStorage cache with business-date invalidation. Cached data renders instantly, background refresh keeps it fresh. Data fetched reduced: orders `limit=100` → `limit=5`, inventory `limit=50` → `limit=5`.
+- **Sidebar z-index architecture**: desktop sidebar `relative z-40` stays above POS overlay backdrops (z-30); main content `relative z-0` creates stacking context isolation so POS fixed/absolute overlays stay scoped and never paint above the sidebar.
+- **Portal dialog cleanup on POS switch**: `useEffect` in each POS content component closes all portaled dialog states when `isActive` becomes false, preventing leaked dialogs across POS modes.
+- New files: `page-skeleton.tsx`, `dashboard/loading.tsx`, `catalog/loading.tsx`, `orders/loading.tsx`, `settings/loading.tsx`, `catalog-content.tsx`, `orders-content.tsx`, `settings-content.tsx`, `item-detail-content.tsx`, `item-edit-content.tsx`, `customer-detail-content.tsx`, `billing-detail-content.tsx`, `order-detail-content.tsx`, `taxes-content.tsx`, `memberships-content.tsx`, `vendors-content.tsx`, `vendor-detail-content.tsx`, `reports-content.tsx`, `golf-reports-content.tsx`, `receipt-detail-content.tsx`, `0065_list_page_indexes.sql`
+
 ### Test Coverage
 
 792 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 10 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + golf-reporting tests
 
 ### What's Next
 
-- Vendor Management frontend (types, hooks, components, pages, sidebar link) + remaining API routes
+- Vendor Management remaining API routes (search, deactivate/reactivate, catalog CRUD endpoints)
 - Purchase Orders Phases 2-6 (commands, queries, API routes, frontend)
 - Receiving frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
-- V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
 - Settings → Dashboard tab (widget toggles, notes editor)
-- Run migrations 0060 + 0061 on dev DB (archive semantics + drop isActive)
+- Run migrations 0060-0065 on dev DB
 
 ---
 
@@ -3525,6 +3569,141 @@ Hooks: `useGolfReports`, `useReportFilters`, `useNavigationGuard`
 
 ## 57. Performance Optimization Patterns
 
+### Code-Split Pattern (All Dashboard Pages)
+
+Every page >100 lines under `(dashboard)/` uses a thin wrapper with `next/dynamic` so route transitions commit instantly:
+
+```typescript
+// page.tsx — thin wrapper, loads in <1ms
+'use client';
+import dynamic from 'next/dynamic';
+import PageLoading from './loading'; // or PageSkeleton
+
+const PageContent = dynamic(() => import('./page-content'), {
+  loading: () => <PageLoading />,
+  ssr: false,
+});
+
+export default function Page() {
+  return <PageContent />;
+}
+```
+
+**Rules:**
+1. `ssr: false` — disables server rendering so the route transition commits immediately
+2. Heavy logic lives in `*-content.tsx` — never put business logic directly in `page.tsx`
+3. Each page has a `loading.tsx` skeleton (custom or reusable `PageSkeleton`)
+4. Custom skeletons mirror the exact page layout; `PageSkeleton` (`apps/web/src/components/ui/page-skeleton.tsx`) is a generic fallback with configurable row count
+
+**Pages using this pattern:** catalog, orders, settings, taxes, memberships, vendors, reports, golf-reports, customer-detail, item-detail, billing-detail, order-detail, item-edit, vendor-detail, receipt-detail, POS retail, POS F&B
+
+### POS Instant Mode Switching (Dual-Mount)
+
+Both POS content components mount in the shared `pos/layout.tsx` and toggle via CSS — no Next.js route transition. See §31 for full implementation.
+
+**Key patterns:**
+- Lazy mount on first visit via `visited` state, keep mounted forever
+- CSS toggle: active mode is default, inactive gets `pointer-events-none invisible`
+- `isActive` prop gates barcode listener and triggers `useEffect` dialog cleanup
+- Page files return `null` — exist only as route targets
+
+### Combined API Calls (Catalog + Inventory)
+
+The catalog `listItems` query accepts `includeInventory: true` to batch-fetch inventory data in the same transaction:
+
+```typescript
+// packages/modules/catalog/src/queries/list-items.ts
+// When includeInventory=true AND locationId is provided:
+// 1. Fetch catalog items (standard query)
+// 2. Batch-fetch matching inventory_items by catalogItemId
+// 3. Batch-compute SUM(quantity_delta) for on-hand
+// 4. Enrich each item with { inventoryItemId, onHand, reorderPoint }
+```
+
+**Rule:** On the catalog list page, always pass `includeInventory=true` to avoid a separate `/api/v1/inventory` waterfall call.
+
+### Category Fetch Deduplication
+
+Module-level cache in `apps/web/src/hooks/use-catalog.ts` ensures 3 category hooks share 1 API call:
+
+```typescript
+// Module-level (not per-component) — survives re-renders
+let _catCache: {
+  data: CategoryRow[] | null;
+  promise: Promise<CategoryRow[]> | null;
+  ts: number;
+} = { data: null, promise: null, ts: 0 };
+
+const CAT_CACHE_TTL = 30_000; // 30s
+
+// useAllCategories() checks cache, deduplicates in-flight requests
+// useDepartments(), useSubDepartments(), useCategories() filter in-memory
+```
+
+**Rules:**
+1. Never fetch categories individually — always go through `useAllCategories()`
+2. Cache is module-level (shared across all components), not React state
+3. In-flight promise dedup prevents multiple concurrent API calls
+4. TTL is 30s — stale data auto-refreshes on next access
+
+### Dashboard Stale-While-Revalidate
+
+Dashboard uses pre-aggregated CQRS read models via `/api/v1/reports/dashboard` instead of fetching raw orders/inventory:
+
+```typescript
+// Pattern: sessionStorage cache with business-date invalidation
+const cached = loadCachedDashboard(); // from sessionStorage
+if (cached) {
+  setMetrics(cached.metrics);      // render instantly
+  setRecentOrders(cached.recentOrders);
+  fetchDashboard(false);           // background refresh, no spinner
+} else {
+  fetchDashboard(true);            // first load, show spinner
+}
+
+// fetchDashboard uses Promise.allSettled for 3 parallel calls:
+// 1. /api/v1/reports/dashboard  (pre-aggregated KPIs)
+// 2. /api/v1/orders?limit=5     (recent 5 orders only)
+// 3. /api/v1/inventory?lowStockOnly=true&limit=5
+```
+
+**Rules:**
+1. Never fetch >5 items for dashboard display — previous pattern fetched 100 orders for 2 KPI numbers
+2. Use `Promise.allSettled` so individual API failures don't block others
+3. Cache invalidates on new business day (date comparison)
+4. Reporting endpoint uses `rm_daily_sales` read models — single-digit ms vs hundreds of ms for raw order aggregation
+
+### Covering Indexes
+
+Migration `0065_list_page_indexes.sql`:
+
+```sql
+-- Tender aggregation on order list page
+CREATE INDEX idx_tenders_tenant_status_order
+  ON tenders (tenant_id, status, order_id);
+
+-- Index-only scan for inventory on-hand SUM
+CREATE INDEX idx_inventory_movements_onhand
+  ON inventory_movements (tenant_id, inventory_item_id)
+  INCLUDE (quantity_delta);
+```
+
+**Rule:** When adding new list pages or aggregation queries, add covering indexes. Use `INCLUDE` for columns only needed in SELECT (not WHERE/ORDER BY) to enable index-only scans.
+
+### Z-Index Architecture
+
+The dashboard layout uses z-index layering to prevent POS overlays from blocking sidebar navigation:
+
+```
+z-0:  Main content area (relative z-0 — creates stacking context)
+z-30: POS overlay backdrops (payment picker, etc.)
+z-40: Desktop sidebar (relative z-40 — always clickable)
+z-50: Portal dialogs (createPortal to document.body)
+z-60: TenderDialog (highest priority portal)
+```
+
+**Rule:** Never add `fixed inset-0` overlays above z-30 in POS content. The sidebar must remain clickable at z-40. Dialogs that need to be above everything use portals to `document.body` (outside the z-0 stacking context).
+
 ### POS Catalog Single-Query Loader
 
 The original POS catalog loading used multiple API calls (categories, items, modifiers). The optimized version uses a single query:
@@ -3542,12 +3721,7 @@ const catalog = await getCatalogForPOS(tenantId, locationId);
 
 ### Customer Search Indexes
 
-Migration `0055_customer_search_indexes.sql` adds targeted indexes for customer search performance:
-
-```sql
--- Indexes added for common search patterns:
--- Name search (ILIKE), phone lookup, email lookup, identifier scan
-```
+Migration `0055_customer_search_indexes.sql` adds targeted indexes for customer search performance.
 
 **Rule:** When adding new search patterns, add corresponding indexes. Use `EXPLAIN ANALYZE` to verify index usage.
 
@@ -3563,19 +3737,6 @@ POS hooks were refactored for performance:
 - Use `useCallback` for event handlers passed to child components
 - Avoid unnecessary state that can be derived from existing state
 - Batch related state updates to prevent cascading re-renders
-
-### Middleware Performance
-
-`withMiddleware` was optimized to reduce overhead per request:
-- Reduced unnecessary async operations in the hot path
-- Streamlined permission/entitlement checks
-
-### Layout Optimization
-
-Dashboard layout and settings page were slimmed down:
-- Removed redundant wrapper components
-- Simplified conditional rendering logic
-- Reduced component tree depth
 
 ---
 
@@ -3802,7 +3963,7 @@ The `useCatalogForPOS` hook has two freshness mechanisms:
 ### Wiring
 
 ```typescript
-// In retail/page.tsx and fnb/page.tsx:
+// In retail-pos-content.tsx and fnb-pos-content.tsx:
 const catalog = useCatalogForPOS(locationId);
 const pos = usePOS(config, { onItemNotFound: catalog.refresh });
 ```
@@ -3813,3 +3974,75 @@ const pos = usePOS(config, { onItemNotFound: catalog.refresh });
 2. **Background refresh is silent** — no toast or loading state on periodic refresh
 3. **sessionStorage cache is 5 min TTL** — matches the refresh interval
 4. **On initial load with cache**, items are displayed immediately from cache, then a background refresh replaces them with fresh data
+
+---
+
+## 62. Dashboard Data Fetching (React Query)
+
+### Rule
+
+The dashboard page uses **React Query** (`@tanstack/react-query`) for data fetching, not raw `useEffect` + `apiFetch`. This provides automatic AbortSignal cancellation on unmount, preventing slow dashboard API calls from blocking the browser connection pool during navigation.
+
+### Pattern
+
+```typescript
+// In dashboard-content.tsx:
+const { data, isLoading } = useQuery({
+  queryKey: ['dashboard', 'metrics', locationId, today],
+  queryFn: ({ signal }) =>
+    apiFetch<{ data: T }>(url, { signal, headers }).then((r) => r.data),
+  enabled: !!locationId,
+  staleTime: 60_000,
+});
+```
+
+### Key Rules
+
+1. **Always use `({ signal })` pattern** — React Query passes an AbortSignal automatically; forward it to `apiFetch` for cancellation on unmount
+2. **`QueryProvider` wraps the dashboard layout** — `apps/web/src/components/query-provider.tsx` with `staleTime: 30_000`, `gcTime: 5 * 60 * 1000`, `retry: 1`
+3. **`apiFetch` handles AbortError gracefully** — `DOMException` with `name === 'AbortError'` is re-thrown without logging. All other network errors are logged.
+4. **Never use raw `useEffect` + `apiFetch` for dashboard data** — the old pattern blocked navigation for up to 15 seconds because slow API calls held browser connections
+
+---
+
+## 63. Register Tab Customer Persistence
+
+### Problem
+
+When a user navigates away from POS and returns, the POS layout unmounts and remounts. During remount, tabs load from cache/server with `orderId` intact, but the order fetch is async — `pos.currentOrder` is temporarily `null`. A sync-back effect that watched `currentOrder` would detect `null` + truthy `orderId` and auto-clear the orderId, breaking the `tab → order → customer` chain.
+
+### Rules
+
+1. **orderId clearing is ONLY via `clearActiveTab()`** — never auto-clear in the sync-back effect. All order-clearing paths (payment complete, void, hold) already call `clearActiveTab()` explicitly.
+2. **`clearActiveTab()` clears BOTH `orderId` and `label`** — the label contains the customer name and must be wiped when the order completes.
+3. **Loading paths set `isSwitching = true`** — both cached-tabs and server-fetched-tabs loading paths block the sync-back effect during rehydration, releasing via `requestAnimationFrame`.
+4. **Conditional `pos.setOrder(null)`** — during loading, only call `pos.setOrder(null)` if the active tab genuinely has no order. Otherwise leave it for the order fetch to populate.
+5. **PATCH calls skip `pending-` tabs** — optimistic tabs haven't been persisted to the server yet, so PATCH/DELETE calls must check `!tab.id.startsWith('pending-')`.
+
+### Customer Association Chain
+
+```
+RegisterTab.orderId → Order.customerId → Customer data
+```
+
+Breaking any link in this chain loses: loyalty tracking, receipts, CRM linkage, account billing.
+
+---
+
+## 64. POS Tender placeOrder Race Recovery
+
+### Problem
+
+TenderDialog fires a preemptive `placeOrder()` when it opens so the order is already placed by the time the user clicks Pay. However, a race condition exists: if the user clicks Pay before the preemptive promise updates `placedRef.current`, a second `placeOrder()` call is triggered, which gets a 409 "already placed" from the server.
+
+### Solution (Defense in Depth)
+
+1. **`placeOrder()` catches "already placed" 409** — in the `doPlace()` catch block, if the 409 is from placeOrder, fetch the order. If status is `'placed'`, return it as success instead of clearing POS state via `handleMutationError`.
+2. **TenderDialog `handleSubmit` fallback** — wraps the `onPlaceOrder()` call in its own try-catch. On failure, re-fetches the order. If the order IS placed on the server, continues to the tender POST. Otherwise shows a retry error.
+3. **`placeOrder()` deduplication** — `placingPromise.current` ensures concurrent calls share one API request. `order.status === 'placed'` check returns immediately for already-placed orders.
+
+### Key Rules
+
+1. **Never `setCurrentOrder(null)` on a placeOrder 409** — the order exists on the server; clearing it strands the user
+2. **Always deduplicate placeOrder** — preemptive (dialog open) + handleSubmit (Pay click) must share the same promise
+3. **TenderDialog manages its own version tracking** — `versionRef` and `currentVersion` state persist across dialog close/reopen for the same order via refs

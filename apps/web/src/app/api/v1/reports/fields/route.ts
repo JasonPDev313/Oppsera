@@ -10,5 +10,5 @@ export const GET = withMiddleware(
     const fields = await getFieldCatalog(dataset);
     return NextResponse.json({ data: fields });
   },
-  { entitlement: 'reporting', permission: 'reports.view' },
+  { entitlement: 'reporting', permission: 'reports.view', cache: 'private, max-age=3600' },
 );

@@ -16,7 +16,7 @@ export const GET = withMiddleware(
     const taxCategories = await listTaxCategories(ctx.tenantId, includeInactive);
     return NextResponse.json({ data: taxCategories });
   },
-  { entitlement: 'catalog', permission: 'catalog.view' },
+  { entitlement: 'catalog', permission: 'catalog.view', cache: 'private, max-age=300, stale-while-revalidate=600' },
 );
 
 // POST /api/v1/catalog/tax-categories — create tax category

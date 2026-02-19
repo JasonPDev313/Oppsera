@@ -781,7 +781,7 @@ export function RegisterTabs({
         createPortal(
           <div
             data-server-search
-            className="fixed z-50 w-80 rounded-lg border border-gray-200 bg-white shadow-xl"
+            className="fixed z-50 w-80 rounded-lg border border-gray-200 bg-surface shadow-xl"
             style={{ left: serverSearch.x, top: serverSearch.y }}
             onMouseDown={(e) => e.stopPropagation()}
           >

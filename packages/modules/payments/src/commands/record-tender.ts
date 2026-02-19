@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError, ConflictError } from '@oppsera/shared';
-import { tenders, tenderReversals, orderLines } from '@oppsera/db';
+import { tenders, tenderReversals, orderLines, orders } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { RecordTenderInput } from '../validation';
 import {
@@ -189,7 +189,6 @@ export async function recordTender(
 
     // 9. If fully paid, update order status
     if (isFullyPaid) {
-      const { orders } = await import('@oppsera/db');
       const now = new Date();
       await (tx as any)
         .update(orders)

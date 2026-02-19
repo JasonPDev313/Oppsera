@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, AlertTriangle, Eye, Power, RotateCcw, History } from 'lucide-react';
+import { Package, AlertTriangle, Pencil, Power, RotateCcw, History } from 'lucide-react';
+import { useItemEditDrawer } from '@/components/inventory/ItemEditDrawerContext';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
 import { Select } from '@/components/ui/select';
@@ -59,6 +60,7 @@ type EnrichedRow = CatalogItemRow & {
 export default function CatalogPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const itemEditDrawer = useItemEditDrawer();
   const [search, setSearch] = useState('');
   const [deptId, setDeptId] = useState('');
   const [subDeptId, setSubDeptId] = useState('');
@@ -144,14 +146,21 @@ export default function CatalogPage() {
     [reactivateTarget, toast, mutate],
   );
 
+  const openDrawer = useCallback(
+    (row: EnrichedRow) => {
+      itemEditDrawer.open(row.id, { onSaveSuccess: () => mutate() });
+    },
+    [itemEditDrawer, mutate],
+  );
+
   const buildActions = useCallback(
     (row: EnrichedRow): ActionMenuItem[] => {
       const actions: ActionMenuItem[] = [
         {
-          key: 'view',
-          label: 'View / Edit',
-          icon: Eye,
-          onClick: () => router.push(`/catalog/items/${row.id}`),
+          key: 'edit',
+          label: 'Edit Item',
+          icon: Pencil,
+          onClick: () => openDrawer(row),
         },
         {
           key: 'history',
@@ -160,14 +169,6 @@ export default function CatalogPage() {
           onClick: () => setHistoryItem({ id: row.id, name: row.name }),
         },
       ];
-      if (row.inventoryItemId) {
-        actions.push({
-          key: 'changelog',
-          label: 'Stock History',
-          icon: History,
-          onClick: () => router.push(`/catalog/items/${row.id}`),
-        });
-      }
       if (row.archivedAt) {
         actions.push({
           key: 'reactivate',
@@ -188,7 +189,7 @@ export default function CatalogPage() {
       }
       return actions;
     },
-    [router],
+    [openDrawer],
   );
 
   const columns = [
@@ -355,7 +356,7 @@ export default function CatalogPage() {
             data={enrichedItems}
             isLoading={isLoading}
             emptyMessage={lowStockOnly ? 'No low stock items' : 'No items match your filters'}
-            onRowClick={(row) => router.push(`/catalog/items/${row.id}`)}
+            onRowClick={(row) => openDrawer(row)}
             rowClassName={(row) => (!row.archivedAt ? '' : 'opacity-50')}
           />
           {hasMore && !lowStockOnly && (

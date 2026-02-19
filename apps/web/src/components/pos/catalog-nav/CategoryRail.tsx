@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 interface CategoryRailProps {
   categories: Array<{ id: string; name: string }>;
@@ -8,7 +8,7 @@ interface CategoryRailProps {
   onSelect: (id: string | null) => void;
 }
 
-export function CategoryRail({
+export const CategoryRail = memo(function CategoryRail({
   categories,
   selectedId,
   onSelect,
@@ -51,4 +51,4 @@ export function CategoryRail({
       ))}
     </div>
   );
-}
+});

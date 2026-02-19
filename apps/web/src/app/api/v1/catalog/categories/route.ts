@@ -16,7 +16,7 @@ export const GET = withMiddleware(
     const categories = await listCategories(ctx.tenantId, includeInactive);
     return NextResponse.json({ data: categories });
   },
-  { entitlement: 'catalog', permission: 'catalog.view' },
+  { entitlement: 'catalog', permission: 'catalog.view', cache: 'private, max-age=60, stale-while-revalidate=300' },
 );
 
 // POST /api/v1/catalog/categories — create category

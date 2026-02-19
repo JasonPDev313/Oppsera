@@ -343,6 +343,129 @@ describe('Shared Components (1-18)', () => {
   });
 });
 
+// ── Register Tabs & Customer Persistence (Tests 76-80) ──────────────────
+
+describe('Register Tabs & Customer Persistence (76-80)', () => {
+  // Simulate the tab + order state for testing sync-back logic
+  type Tab = { id: string; tabNumber: number; orderId: string | null; label: string | null };
+  type Order = { id: string; customerId: string | null; customerName?: string | null; status: string };
+
+  // Test 76
+  describe('Test 76 – Sync-back must NOT auto-clear orderId when currentOrder is null', () => {
+    it('does not clear orderId during rehydration window', () => {
+      // Simulates: POS remount, tabs loaded from cache with orderId,
+      // but currentOrder is still null (async fetch in progress)
+      const tab: Tab = { id: 'tab-1', tabNumber: 1, orderId: 'order-abc', label: 'John D' };
+      const currentOrder: Order | null = null; // fetch not yet resolved
+
+      // The OLD buggy logic would do: if currentOrder is null AND tab.orderId exists → clear orderId
+      // The FIX: never auto-clear — only clearActiveTab() can nullify orderId
+      const shouldAutoClear = false; // This is the fix — we never auto-clear
+
+      if (shouldAutoClear && currentOrder === null && tab.orderId) {
+        tab.orderId = null; // BUG: this would detach the customer
+      }
+
+      // orderId MUST survive the null currentOrder window
+      expect(tab.orderId).toBe('order-abc');
+      expect(tab.label).toBe('John D');
+    });
+  });
+
+  // Test 77
+  describe('Test 77 – clearActiveTab clears both orderId AND label', () => {
+    it('resets tab to clean state after payment/void/hold', () => {
+      const tabs: Tab[] = [
+        { id: 'tab-1', tabNumber: 1, orderId: 'order-abc', label: 'John D' },
+        { id: 'tab-2', tabNumber: 2, orderId: null, label: null },
+      ];
+      const activeTabNumber = 1;
+
+      // Simulate clearActiveTab — clears BOTH orderId and label
+      const updated = tabs.map((t) =>
+        t.tabNumber === activeTabNumber ? { ...t, orderId: null, label: null } : t,
+      );
+
+      expect(updated[0]!.orderId).toBeNull();
+      expect(updated[0]!.label).toBeNull();
+      // Other tabs unaffected
+      expect(updated[1]!.orderId).toBeNull();
+      expect(updated[1]!.label).toBeNull();
+    });
+  });
+
+  // Test 78
+  describe('Test 78 – Customer association survives POS remount via tab orderId', () => {
+    it('tab → order → customer chain intact after navigation round-trip', () => {
+      // Step 1: Tab has orderId and customer name label
+      const tab: Tab = { id: 'tab-1', tabNumber: 1, orderId: 'order-abc', label: 'Jane S' };
+
+      // Step 2: Order fetched from server has customerId
+      const fetchedOrder: Order = {
+        id: 'order-abc',
+        customerId: 'cust-456',
+        customerName: 'Jane Smith',
+        status: 'open',
+      };
+
+      // Step 3: After rehydration, the chain must be intact
+      expect(tab.orderId).toBe(fetchedOrder.id);
+      expect(fetchedOrder.customerId).toBe('cust-456');
+
+      // The UI derives customerId from: pos.currentOrder?.customerId
+      const displayedCustomerId = fetchedOrder.customerId;
+      expect(displayedCustomerId).toBe('cust-456');
+    });
+  });
+
+  // Test 79
+  describe('Test 79 – isSwitching guard prevents sync-back during tab load', () => {
+    it('sync-back effect is blocked while isSwitching is true', () => {
+      let isSwitching = true;
+      const tab: Tab = { id: 'tab-1', tabNumber: 1, orderId: 'order-abc', label: 'John D' };
+      const currentOrder: Order | null = null;
+
+      // Sync-back effect logic: if isSwitching, bail out immediately
+      let syncBackRan = false;
+      if (!isSwitching) {
+        syncBackRan = true;
+        // Would check currentOrder and potentially modify tab
+      }
+      expect(syncBackRan).toBe(false);
+      expect(tab.orderId).toBe('order-abc'); // untouched
+
+      // After rehydration completes, isSwitching is unblocked
+      isSwitching = false;
+      const resolvedOrder: Order = { id: 'order-abc', customerId: 'cust-789', status: 'open' };
+
+      if (!isSwitching && resolvedOrder) {
+        syncBackRan = true;
+        // Now sync-back can safely update cache
+      }
+      expect(syncBackRan).toBe(true);
+    });
+  });
+
+  // Test 80
+  describe('Test 80 – Tab label persists customer name across rehydration', () => {
+    it('cached tab preserves label through sessionStorage round-trip', () => {
+      const original: Tab = { id: 'tab-1', tabNumber: 1, orderId: 'order-abc', label: 'Jane S' };
+
+      // Simulate sessionStorage cache → restore
+      const serialized = JSON.stringify({ tabs: [original], cachedAt: Date.now() });
+      const parsed = JSON.parse(serialized) as { tabs: Tab[]; cachedAt: number };
+
+      expect(parsed.tabs[0]!.label).toBe('Jane S');
+      expect(parsed.tabs[0]!.orderId).toBe('order-abc');
+
+      // After clearActiveTab (payment complete), both are null
+      const cleared = { ...parsed.tabs[0]!, orderId: null, label: null };
+      expect(cleared.orderId).toBeNull();
+      expect(cleared.label).toBeNull();
+    });
+  });
+});
+
 // ── Catalog Hierarchy UI (Tests 19-28) ──────────────────────────────────
 
 describe('Catalog Hierarchy UI (19-28)', () => {

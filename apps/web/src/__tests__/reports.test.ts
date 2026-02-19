@@ -16,7 +16,7 @@ const {
   const mockToCsv = vi.fn();
 
   // withMiddleware extracts the handler and calls it with a mock context
-  const mockWithMiddleware = vi.fn((handler: Function, _options: unknown) => {
+  const mockWithMiddleware = vi.fn((handler: (...args: any[]) => any, _options: unknown) => {
     return async (request: any) => {
       const ctx = {
         user: { id: 'user_001' },

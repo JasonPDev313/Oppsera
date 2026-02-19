@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getItemTypeGroup } from '@/types/catalog';
@@ -364,7 +364,7 @@ interface CartProps {
   label?: string;
 }
 
-function CartLineItem({ line, onRemoveItem, onUpdateQty }: {
+const CartLineItem = memo(function CartLineItem({ line, onRemoveItem, onUpdateQty }: {
   line: OrderLine;
   onRemoveItem: (lineId: string) => void;
   onUpdateQty?: (lineId: string, newQty: number) => void;
@@ -389,9 +389,9 @@ function CartLineItem({ line, onRemoveItem, onUpdateQty }: {
     default:
       return <RetailLineItem line={line} onRemove={onRemoveItem} />;
   }
-}
+});
 
-export function Cart({
+export const Cart = memo(function Cart({
   order,
   onRemoveItem,
   onUpdateQty,
@@ -438,4 +438,4 @@ export function Cart({
       )}
     </div>
   );
-}
+});

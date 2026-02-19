@@ -1,3 +1,5 @@
+export type TaxMode = 'exclusive' | 'inclusive';
+
 export interface TaxRateBreakdown {
   taxRateId: string | null;
   taxName: string;
@@ -6,7 +8,7 @@ export interface TaxRateBreakdown {
 }
 
 export interface TaxCalculationResult {
-  calculationMode: 'exclusive' | 'inclusive';
+  calculationMode: TaxMode;
   subtotal: number;
   taxTotal: number;
   total: number;
@@ -15,7 +17,7 @@ export interface TaxCalculationResult {
 
 export interface TaxCalculationInput {
   lineSubtotal: number;
-  calculationMode: 'exclusive' | 'inclusive';
+  calculationMode: TaxMode;
   taxRates: Array<{
     taxRateId: string | null;
     taxName: string;
@@ -24,20 +26,31 @@ export interface TaxCalculationInput {
 }
 
 /**
- * Calculate taxes for a line item.
+ * Calculate taxes for a line item (all amounts in cents).
  *
- * EXCLUSIVE: taxes are added on top of the subtotal.
- *   taxTotal = subtotal * totalRate
- *   total = subtotal + taxTotal
+ * EXCLUSIVE mode — tax is added on top of the entered price:
+ *   subtotal = lineSubtotal (the entered price, unchanged)
+ *   taxTotal = round(lineSubtotal × totalRate)
+ *   total    = subtotal + taxTotal (what the customer pays)
  *
- * INCLUSIVE: taxes are extracted from the price (price already includes tax).
- *   taxTotal = subtotal - (subtotal / (1 + totalRate))
- *   total = subtotal (unchanged — tax is already inside)
+ * INCLUSIVE mode — tax is already embedded in the entered price:
+ *   total    = lineSubtotal (the entered price, unchanged — customer pays this)
+ *   taxTotal = round(lineSubtotal − lineSubtotal / (1 + totalRate))
+ *   subtotal = lineSubtotal − taxTotal (the pre-tax base price)
  *
- * Individual rate amounts are proportional to their share of the total rate.
+ * In both modes: total = subtotal + taxTotal (always holds).
+ *
+ * Individual rate amounts are allocated proportionally by their share of the
+ * combined rate. The last rate receives the remainder to guarantee
+ * sum(breakdown) === taxTotal exactly.
  */
 export function calculateTaxes(input: TaxCalculationInput): TaxCalculationResult {
   const { lineSubtotal, calculationMode, taxRates } = input;
+
+  // Zero-price early return — no tax on free items
+  if (lineSubtotal === 0) {
+    return { calculationMode, subtotal: 0, taxTotal: 0, total: 0, breakdown: [] };
+  }
 
   if (taxRates.length === 0) {
     return {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import type {
   Receipt,
@@ -21,83 +22,65 @@ interface UseReceiptsFilters {
 }
 
 export function useReceipts(filters: UseReceiptsFilters = {}) {
-  const [items, setItems] = useState<ReceiptSummary[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchReceipts = useCallback(async (nextCursor?: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const result = useInfiniteQuery({
+    queryKey: ['receipts', filters] as const,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
       if (filters.locationId) params.set('locationId', filters.locationId);
       if (filters.status) params.set('status', filters.status);
       if (filters.vendorId) params.set('vendorId', filters.vendorId);
       if (filters.limit) params.set('limit', String(filters.limit));
-      if (nextCursor) params.set('cursor', nextCursor);
+      if (pageParam) params.set('cursor', pageParam);
 
-      const res = await apiFetch<{ data: ReceiptSummary[]; meta: { cursor: string | null; hasMore: boolean } }>(
+      return apiFetch<{ data: ReceiptSummary[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/inventory/receiving?${params}`,
       );
-      if (nextCursor) {
-        setItems((prev) => [...prev, ...res.data]);
-      } else {
-        setItems(res.data);
-      }
-      setCursor(res.meta.cursor);
-      setHasMore(res.meta.hasMore);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load receipts');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filters.locationId, filters.status, filters.vendorId, filters.limit]);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.hasMore ? (lastPage.meta.cursor ?? undefined) : undefined,
+  });
 
-  useEffect(() => {
-    fetchReceipts();
-  }, [fetchReceipts]);
+  const items = result.data?.pages.flatMap((p) => p.data) ?? [];
+  const { fetchNextPage, hasNextPage } = result;
+  const hasMore = hasNextPage ?? false;
 
   const loadMore = useCallback(() => {
-    if (cursor && hasMore) fetchReceipts(cursor);
-  }, [cursor, hasMore, fetchReceipts]);
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
 
-  const mutate = useCallback(() => fetchReceipts(), [fetchReceipts]);
+  const mutate = useCallback(() => {
+    return queryClient.invalidateQueries({ queryKey: ['receipts'] });
+  }, [queryClient]);
 
-  return { items, isLoading, error, hasMore, loadMore, mutate };
+  return {
+    items,
+    isLoading: result.isLoading,
+    error: result.error?.message ?? null,
+    hasMore,
+    loadMore,
+    mutate,
+  };
 }
 
 // ── Single Receipt ──────────────────────────────────────────────
 
 export function useReceipt(receiptId: string | null) {
-  const [data, setData] = useState<Receipt | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const result = useQuery({
+    queryKey: ['receipt', receiptId],
+    queryFn: () =>
+      apiFetch<{ data: Receipt }>(`/api/v1/inventory/receiving/${receiptId}`).then((r) => r.data),
+    enabled: !!receiptId,
+  });
 
-  const fetchReceipt = useCallback(async () => {
-    if (!receiptId) return;
-    try {
-      setIsLoading(true);
-      setError(null);
-      const res = await apiFetch<{ data: Receipt }>(
-        `/api/v1/inventory/receiving/${receiptId}`,
-      );
-      setData(res.data);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load receipt');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [receiptId]);
-
-  useEffect(() => {
-    fetchReceipt();
-  }, [fetchReceipt]);
-
-  const mutate = useCallback(() => fetchReceipt(), [fetchReceipt]);
-
-  return { data, isLoading, error, mutate };
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error?.message ?? null,
+    mutate: result.refetch,
+  };
 }
 
 // ── Item Search (debounced, with AbortController + LRU cache) ───
@@ -198,52 +181,42 @@ export function useReceivingItemSearch(
 // ── Reorder Suggestions ─────────────────────────────────────────
 
 export function useReorderSuggestions(locationId: string | undefined) {
-  const [data, setData] = useState<ReorderSuggestion[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const result = useQuery({
+    queryKey: ['reorder-suggestions', locationId],
+    queryFn: () =>
+      apiFetch<{ data: ReorderSuggestion[] }>(
+        `/api/v1/inventory/receiving/reorder-suggestions?locationId=${locationId}`,
+      ).then((r) => r.data),
+    enabled: !!locationId,
+  });
 
-  useEffect(() => {
-    if (!locationId) return;
-    setIsLoading(true);
-    apiFetch<{ data: ReorderSuggestion[] }>(
-      `/api/v1/inventory/receiving/reorder-suggestions?locationId=${locationId}`,
-    )
-      .then((res) => setData(res.data))
-      .catch(() => setData([]))
-      .finally(() => setIsLoading(false));
-  }, [locationId]);
-
-  return { data, isLoading };
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+  };
 }
 
 // ── Vendors ─────────────────────────────────────────────────────
 
 export function useVendors(search?: string, opts?: { minimal?: boolean }) {
-  const [items, setItems] = useState<Vendor[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const minimal = opts?.minimal ?? false;
 
-  const fetchVendors = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  const result = useQuery({
+    queryKey: ['receiving-vendors', search, minimal],
+    queryFn: async () => {
       const params = new URLSearchParams({ isActive: 'true' });
       if (search) params.set('search', search);
       if (minimal) params.set('minimal', 'true');
       const res = await apiFetch<{ data: Vendor[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/inventory/vendors?${params}`,
       );
-      setItems(res.data);
-    } catch {
-      setItems([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [search, minimal]);
+      return res.data;
+    },
+  });
 
-  useEffect(() => {
-    fetchVendors();
-  }, [fetchVendors]);
-
-  const mutate = useCallback(() => fetchVendors(), [fetchVendors]);
-
-  return { items, isLoading, mutate };
+  return {
+    items: result.data ?? [],
+    isLoading: result.isLoading,
+    mutate: result.refetch,
+  };
 }

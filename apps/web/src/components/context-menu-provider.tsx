@@ -83,8 +83,12 @@ export function ContextMenuProvider({
     function handler(e: MouseEvent) {
       if (!authRef.current) return;
 
+      const target = e.target as HTMLElement;
+
+      // Allow components with their own context menu handlers to receive the event
+      if (target.closest('[data-contextmenu]')) return;
+
       if (allowInputsRef.current) {
-        const target = e.target as HTMLElement;
         const tag = target.tagName;
         if (
           tag === 'INPUT' ||

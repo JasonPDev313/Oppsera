@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
+import { refreshTokenIfNeeded } from '@/lib/api-client';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import RetailPOSLoading from './retail/loading';
 import FnBPOSLoading from './fnb/loading';
@@ -93,6 +94,47 @@ function useBarcodeScannerListener(): void {
   }, []);
 }
 
+// ── Visibility Resume (proactive warm-up after idle) ─────────────
+// When the browser tab was hidden and becomes visible again, proactively:
+// 1. Refresh the JWT if it's near expiry (avoids 401 → refresh → retry chain)
+// 2. Ping /api/health to warm the Vercel serverless function (avoids cold start)
+// 3. Dispatch 'pos-visibility-resume' event so catalog/tabs hooks can refresh
+
+const IDLE_THRESHOLD_MS = 30_000; // only act if hidden for >30 seconds
+
+function usePOSVisibilityRefresh(): void {
+  useEffect(() => {
+    let lastHiddenAt = 0;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        lastHiddenAt = Date.now();
+        return;
+      }
+
+      // Tab became visible again
+      const idleDuration = lastHiddenAt ? Date.now() - lastHiddenAt : 0;
+      if (idleDuration < IDLE_THRESHOLD_MS) return;
+
+      // 1. Proactive token refresh if near expiry (<5 min remaining)
+      refreshTokenIfNeeded().catch(() => {});
+
+      // 2. Warm serverless function — fire and forget
+      fetch('/api/health').catch(() => {});
+
+      // 3. Signal POS hooks to refresh stale data
+      window.dispatchEvent(
+        new CustomEvent('pos-visibility-resume', {
+          detail: { idleDurationMs: idleDuration },
+        }),
+      );
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+}
+
 // ── POS Layout ────────────────────────────────────────────────────
 
 export default function POSLayout({ children }: { children: React.ReactNode }) {
@@ -103,6 +145,9 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
   // Barcode scanner listener
   useBarcodeScannerListener();
+
+  // Proactive warm-up when returning from idle (token refresh + function warm + data refresh)
+  usePOSVisibilityRefresh();
 
   // ── Mode state ─────────────────────────────────────────────────
   // React state drives the CSS toggle for instant switching.
@@ -116,7 +161,6 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (pathname.startsWith('/pos/fnb') && mode !== 'fnb') setMode('fnb');
     else if (pathname.startsWith('/pos/retail') && mode !== 'retail') setMode('retail');
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit `mode` to avoid loops
   }, [pathname]);
 
   const isRetail = mode === 'retail';
@@ -178,14 +222,14 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
         {/* Left: Mode toggle, location, terminal, employee */}
         <div className="flex items-center gap-4">
           {/* Retail / F&B mode toggle — instant switch via React state */}
-          <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg bg-gray-200 p-0.5">
             <button
               type="button"
               onClick={() => switchMode('retail')}
-              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
                 isRetail
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-300'
               }`}
             >
               <ShoppingCart className="h-3.5 w-3.5" />
@@ -194,10 +238,10 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => switchMode('fnb')}
-              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
                 isFnB
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-300'
               }`}
             >
               <UtensilsCrossed className="h-3.5 w-3.5" />

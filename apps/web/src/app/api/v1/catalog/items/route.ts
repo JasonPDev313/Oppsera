@@ -35,7 +35,7 @@ export const GET = withMiddleware(
       meta: { cursor: result.cursor, hasMore: result.hasMore },
     });
   },
-  { entitlement: 'catalog', permission: 'catalog.view' },
+  { entitlement: 'catalog', permission: 'catalog.view', cache: 'private, max-age=30, stale-while-revalidate=60' },
 );
 
 // POST /api/v1/catalog/items — create item

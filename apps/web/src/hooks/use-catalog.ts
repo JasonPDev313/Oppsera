@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
-import { useToast } from '@/components/ui/toast';
 import type {
   CatalogItemRow,
   CategoryRow,
@@ -10,41 +10,6 @@ import type {
   TaxRateRow,
   TaxGroupRow,
 } from '@/types/catalog';
-
-// ── Generic fetcher ───────────────────────────────────────────────
-
-function useFetch<T>(url: string | null) {
-  const [data, setData] = useState<T | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const { toast } = useToast();
-  const toastRef = React.useRef(toast);
-  toastRef.current = toast;
-
-  const fetchData = useCallback(async () => {
-    if (!url) {
-      setData(null);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const res = await apiFetch<{ data: T }>(url);
-      setData(res.data);
-    } catch (err) {
-      const e = err instanceof Error ? err : new Error('Fetch failed');
-      setError(e);
-      toastRef.current.error(e.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [url]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, isLoading, error, mutate: fetchData };
-}
 
 // ── Items ─────────────────────────────────────────────────────────
 
@@ -60,124 +25,83 @@ interface ItemFilters {
 }
 
 export function useCatalogItems(filters: ItemFilters) {
-  const [items, setItems] = useState<CatalogItemRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [hasMore, setHasMore] = useState(false);
-  const { toast } = useToast();
-  const toastRef2 = React.useRef(toast);
-  toastRef2.current = toast;
+  const queryClient = useQueryClient();
 
-  const fetchItems = useCallback(
-    async (appendCursor?: string) => {
-      setIsLoading(true);
-      try {
-        const params = new URLSearchParams();
-        if (filters.categoryId) params.set('categoryId', filters.categoryId);
-        if (filters.itemType) params.set('itemType', filters.itemType);
-        if (filters.search) params.set('search', filters.search);
-        if (filters.includeArchived) params.set('includeArchived', 'true');
-        if (filters.includeInventory) params.set('includeInventory', 'true');
-        if (appendCursor) params.set('cursor', appendCursor);
-        params.set('limit', '25');
+  const result = useInfiniteQuery({
+    queryKey: ['catalog-items', filters] as const,
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams();
+      if (filters.categoryId) params.set('categoryId', filters.categoryId);
+      if (filters.itemType) params.set('itemType', filters.itemType);
+      if (filters.search) params.set('search', filters.search);
+      if (filters.includeArchived) params.set('includeArchived', 'true');
+      if (filters.includeInventory) params.set('includeInventory', 'true');
+      if (pageParam) params.set('cursor', pageParam);
+      params.set('limit', '25');
 
-        const res = await apiFetch<{
-          data: CatalogItemRow[];
-          meta: { cursor: string | null; hasMore: boolean };
-        }>(`/api/v1/catalog/items?${params.toString()}`);
-
-        if (appendCursor) {
-          setItems((prev) => [...prev, ...res.data]);
-        } else {
-          setItems(res.data);
-        }
-        setCursor(res.meta.cursor ?? undefined);
-        setHasMore(res.meta.hasMore);
-      } catch (err) {
-        const e = err instanceof Error ? err : new Error('Failed to load items');
-        setError(e);
-        toastRef2.current.error(e.message);
-      } finally {
-        setIsLoading(false);
-      }
+      return apiFetch<{
+        data: CatalogItemRow[];
+        meta: { cursor: string | null; hasMore: boolean };
+      }>(`/api/v1/catalog/items?${params.toString()}`);
     },
-    [filters.categoryId, filters.itemType, filters.search, filters.includeArchived, filters.includeInventory],
-  );
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.hasMore ? (lastPage.meta.cursor ?? undefined) : undefined,
+  });
 
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+  const data = result.data?.pages.flatMap((p) => p.data) ?? [];
+  const { fetchNextPage, hasNextPage } = result;
+  const hasMore = hasNextPage ?? false;
 
   const loadMore = useCallback(() => {
-    if (cursor) fetchItems(cursor);
-  }, [cursor, fetchItems]);
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
 
-  return { data: items, isLoading, error, hasMore, loadMore, mutate: () => fetchItems() };
+  const mutate = useCallback(() => {
+    return queryClient.invalidateQueries({ queryKey: ['catalog-items'] });
+  }, [queryClient]);
+
+  return { data, isLoading: result.isLoading, error: result.error, hasMore, loadMore, mutate };
 }
 
 export function useCatalogItem(id: string) {
-  return useFetch<CatalogItemRow>(id ? `/api/v1/catalog/items/${id}` : null);
+  const result = useQuery({
+    queryKey: ['catalog-item', id],
+    queryFn: () =>
+      apiFetch<{ data: CatalogItemRow }>(`/api/v1/catalog/items/${id}`).then((r) => r.data),
+    enabled: !!id,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
-// ── Hierarchy (shared cache — single fetch for all 3 hooks) ───────
+// ── Hierarchy (TanStack Query replaces the old module-level cache) ─
 
-// Module-level cache so useDepartments/useSubDepartments/useCategories
-// share one API call instead of firing 3 identical requests.
-let _catCache: { data: CategoryRow[] | null; promise: Promise<CategoryRow[]> | null; ts: number } = {
-  data: null,
-  promise: null,
-  ts: 0,
-};
-const CAT_CACHE_TTL = 30_000; // 30s
+export function useAllCategories() {
+  const queryClient = useQueryClient();
 
-function useAllCategories() {
-  const [data, setData] = useState<CategoryRow[] | null>(_catCache.data);
-  const [isLoading, setIsLoading] = useState(!_catCache.data);
-  const [error, setError] = useState<Error | null>(null);
-
-  const fetchData = useCallback(async () => {
-    const now = Date.now();
-    // Serve from cache if fresh
-    if (_catCache.data && now - _catCache.ts < CAT_CACHE_TTL) {
-      setData(_catCache.data);
-      setIsLoading(false);
-      return;
-    }
-    // Deduplicate in-flight requests
-    if (!_catCache.promise) {
-      _catCache.promise = apiFetch<{ data: CategoryRow[] }>('/api/v1/catalog/categories')
-        .then((res) => {
-          _catCache.data = res.data;
-          _catCache.ts = Date.now();
-          return res.data;
-        })
-        .finally(() => {
-          _catCache.promise = null;
-        });
-    }
-    setIsLoading(true);
-    try {
-      const result = await _catCache.promise!;
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load categories'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const result = useQuery({
+    queryKey: ['categories'],
+    queryFn: () =>
+      apiFetch<{ data: CategoryRow[] }>('/api/v1/catalog/categories').then((r) => r.data),
+    staleTime: 5 * 60_000, // 5 min — categories rarely change mid-session
+  });
 
   const mutate = useCallback(() => {
-    _catCache.data = null;
-    _catCache.ts = 0;
-    fetchData();
-  }, [fetchData]);
+    return queryClient.invalidateQueries({ queryKey: ['categories'] });
+  }, [queryClient]);
 
-  return { data, isLoading, error, mutate };
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate,
+  };
 }
 
 export function useDepartments() {
@@ -205,14 +129,38 @@ export function useCategories(subDepartmentId?: string) {
 // ── Tax Rates ─────────────────────────────────────────────────────
 
 export function useTaxRates() {
-  return useFetch<TaxRateRow[]>('/api/v1/catalog/tax-rates');
+  const result = useQuery({
+    queryKey: ['tax-rates'],
+    queryFn: () =>
+      apiFetch<{ data: TaxRateRow[] }>('/api/v1/catalog/tax-rates').then((r) => r.data),
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
 // ── Tax Groups ────────────────────────────────────────────────────
 
 export function useTaxGroups(locationId?: string) {
   const url = locationId ? `/api/v1/catalog/tax-groups?locationId=${locationId}` : null;
-  return useFetch<TaxGroupRow[]>(url);
+
+  const result = useQuery({
+    queryKey: ['tax-groups', locationId],
+    queryFn: () =>
+      apiFetch<{ data: TaxGroupRow[] }>(url!).then((r) => r.data),
+    enabled: url !== null,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
 // ── Item Tax Groups ───────────────────────────────────────────────
@@ -222,15 +170,37 @@ export function useItemTaxGroups(itemId: string, locationId?: string) {
     itemId && locationId
       ? `/api/v1/catalog/items/${itemId}/tax-groups?locationId=${locationId}`
       : null;
-  return useFetch<Array<{ taxGroupId: string; taxGroupName: string; calculationMode: string }>>(
-    url,
-  );
+
+  const result = useQuery({
+    queryKey: ['item-tax-groups', itemId, locationId],
+    queryFn: () =>
+      apiFetch<{ data: Array<{ taxGroupId: string; taxGroupName: string; calculationMode: string }> }>(url!).then((r) => r.data),
+    enabled: url !== null,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
 // ── Modifier Groups ───────────────────────────────────────────────
 
 export function useModifierGroups() {
-  return useFetch<ModifierGroupRow[]>('/api/v1/catalog/modifier-groups');
+  const result = useQuery({
+    queryKey: ['modifier-groups'],
+    queryFn: () =>
+      apiFetch<{ data: ModifierGroupRow[] }>('/api/v1/catalog/modifier-groups').then((r) => r.data),
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
 // ── Archive Mutations ─────────────────────────────────────────────

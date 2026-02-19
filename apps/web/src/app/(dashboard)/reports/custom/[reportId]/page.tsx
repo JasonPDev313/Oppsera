@@ -1,15 +1,13 @@
 'use client';
 
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useCustomReport } from '@/hooks/use-custom-reports';
 import { ReportBuilder } from '@/components/reports/custom/report-builder';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function EditReportPage() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const reportId = params.reportId as string;
-  const mode = searchParams.get('mode') || 'view';
 
   const { data: report, isLoading } = useCustomReport(reportId);
 

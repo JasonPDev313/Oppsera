@@ -160,6 +160,8 @@ interface QuickMenuTabProps {
   onToggleFavorite?: (itemId: string) => void;
   canEditItem?: boolean;
   onEditItem?: (itemId: string) => void;
+  onArchiveItem?: (itemId: string) => void;
+  onViewHistory?: (itemId: string) => void;
 }
 
 export function QuickMenuTab({
@@ -173,6 +175,8 @@ export function QuickMenuTab({
   onToggleFavorite,
   canEditItem,
   onEditItem,
+  onArchiveItem,
+  onViewHistory,
 }: QuickMenuTabProps) {
   const items = activeTab === 'favorites' ? favorites : recentItems;
   const emptyMessage =
@@ -223,6 +227,8 @@ export function QuickMenuTab({
               onToggleFavorite={onToggleFavorite}
               canEditItem={canEditItem}
               onEditItem={onEditItem}
+              onArchiveItem={onArchiveItem}
+              onViewHistory={onViewHistory}
             />
           ))}
         </div>

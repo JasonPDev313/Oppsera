@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import type { InventoryItem, InventoryMovement } from '@/types/inventory';
 
@@ -13,124 +14,89 @@ interface UseInventoryOptions {
 }
 
 export function useInventory(options: UseInventoryOptions = {}) {
-  const [data, setData] = useState<InventoryItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const cursorRef = useRef<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchData = useCallback(async (loadMore = false) => {
-    try {
-      if (!loadMore) setIsLoading(true);
-      setError(null);
+  const result = useInfiniteQuery({
+    queryKey: ['inventory', options] as const,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
       if (options.locationId) params.set('locationId', options.locationId);
       if (options.status) params.set('status', options.status);
       if (options.itemType) params.set('itemType', options.itemType);
       if (options.search) params.set('search', options.search);
       if (options.lowStockOnly) params.set('lowStockOnly', 'true');
-      if (loadMore && cursorRef.current) params.set('cursor', cursorRef.current);
+      if (pageParam) params.set('cursor', pageParam);
 
-      const res = await apiFetch<{ data: InventoryItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
+      return apiFetch<{ data: InventoryItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/inventory?${params.toString()}`
       );
-      if (loadMore) {
-        setData((prev) => [...prev, ...res.data]);
-      } else {
-        setData(res.data);
-      }
-      cursorRef.current = res.meta.cursor;
-      setHasMore(res.meta.hasMore);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load inventory'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [options.locationId, options.status, options.itemType, options.search, options.lowStockOnly]);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.hasMore ? (lastPage.meta.cursor ?? undefined) : undefined,
+  });
 
-  useEffect(() => {
-    cursorRef.current = null;
-    fetchData();
-  }, [fetchData]);
+  const data = result.data?.pages.flatMap((p) => p.data) ?? [];
+  const { fetchNextPage, hasNextPage } = result;
+  const hasMore = hasNextPage ?? false;
 
-  const loadMore = useCallback(() => fetchData(true), [fetchData]);
+  const loadMore = useCallback(() => {
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
+
   const mutate = useCallback(() => {
-    cursorRef.current = null;
-    fetchData();
-  }, [fetchData]);
+    return queryClient.invalidateQueries({ queryKey: ['inventory'] });
+  }, [queryClient]);
 
-  return { data, isLoading, error, hasMore, loadMore, mutate };
+  return { data, isLoading: result.isLoading, error: result.error, hasMore, loadMore, mutate };
 }
 
 export function useInventoryItem(itemId: string | null) {
-  const [data, setData] = useState<InventoryItem | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const result = useQuery({
+    queryKey: ['inventory-item', itemId],
+    queryFn: () =>
+      apiFetch<{ data: InventoryItem }>(`/api/v1/inventory/${itemId}`).then((r) => r.data),
+    enabled: !!itemId,
+  });
 
-  const fetchData = useCallback(async () => {
-    if (!itemId) return;
-    try {
-      setIsLoading(true);
-      setError(null);
-      const res = await apiFetch<{ data: InventoryItem }>(`/api/v1/inventory/${itemId}`);
-      setData(res.data);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load inventory item'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [itemId]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const mutate = useCallback(() => fetchData(), [fetchData]);
-  return { data, isLoading, error, mutate };
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
 }
 
 export function useMovements(itemId: string | null) {
-  const [data, setData] = useState<InventoryMovement[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const cursorRef = useRef<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchData = useCallback(async (loadMore = false) => {
-    if (!itemId) return;
-    try {
-      if (!loadMore) setIsLoading(true);
-      setError(null);
+  const result = useInfiniteQuery({
+    queryKey: ['movements', itemId] as const,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
-      if (loadMore && cursorRef.current) params.set('cursor', cursorRef.current);
+      if (pageParam) params.set('cursor', pageParam);
 
-      const res = await apiFetch<{ data: InventoryMovement[]; meta: { cursor: string | null; hasMore: boolean } }>(
+      return apiFetch<{ data: InventoryMovement[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/inventory/${itemId}/movements?${params.toString()}`
       );
-      if (loadMore) {
-        setData((prev) => [...prev, ...res.data]);
-      } else {
-        setData(res.data);
-      }
-      cursorRef.current = res.meta.cursor;
-      setHasMore(res.meta.hasMore);
-    } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load movements'));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [itemId]);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.hasMore ? (lastPage.meta.cursor ?? undefined) : undefined,
+    enabled: !!itemId,
+  });
 
-  useEffect(() => {
-    cursorRef.current = null;
-    fetchData();
-  }, [fetchData]);
+  const data = result.data?.pages.flatMap((p) => p.data) ?? [];
+  const { fetchNextPage, hasNextPage } = result;
+  const hasMore = hasNextPage ?? false;
 
-  const loadMore = useCallback(() => fetchData(true), [fetchData]);
+  const loadMore = useCallback(() => {
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
+
   const mutate = useCallback(() => {
-    cursorRef.current = null;
-    fetchData();
-  }, [fetchData]);
+    return queryClient.invalidateQueries({ queryKey: ['movements', itemId] });
+  }, [queryClient, itemId]);
 
-  return { data, isLoading, error, hasMore, loadMore, mutate };
+  return { data, isLoading: result.isLoading, error: result.error, hasMore, loadMore, mutate };
 }

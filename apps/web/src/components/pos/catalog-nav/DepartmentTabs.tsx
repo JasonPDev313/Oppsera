@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useRef } from 'react';
 
 interface DepartmentTabsProps {
   departments: Array<{ id: string; name: string }>;
@@ -9,7 +9,7 @@ interface DepartmentTabsProps {
   size?: 'normal' | 'large';
 }
 
-export function DepartmentTabs({
+export const DepartmentTabs = memo(function DepartmentTabs({
   departments,
   selectedId,
   onSelect,
@@ -62,4 +62,4 @@ export function DepartmentTabs({
       ))}
     </div>
   );
-}
+});

@@ -21,6 +21,8 @@ interface MiddlewareOptions {
   requireTenant?: boolean;
   permission?: string;
   entitlement?: string;
+  /** Cache-Control header value for GET requests. e.g., 'private, max-age=60, stale-while-revalidate=300' */
+  cache?: string;
 }
 
 async function resolveLocation(
@@ -66,6 +68,8 @@ async function resolveLocation(
 export function withMiddleware(handler: RouteHandler, options?: MiddlewareOptions) {
   return async (request: NextRequest) => {
     try {
+      let response: NextResponse;
+
       if (options?.public) {
         const ctx: RequestContext = {
           user: null as unknown as RequestContext['user'],
@@ -73,38 +77,45 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
           requestId: generateUlid(),
           isPlatformAdmin: false,
         };
-        return await handler(request, ctx);
+        response = await handler(request, ctx);
+      } else {
+        const user = await authenticate(request);
+
+        // authenticated-only mode: skip tenant resolution (for pre-tenant endpoints like onboard)
+        if (options?.authenticated && options?.requireTenant === false) {
+          const ctx: RequestContext = {
+            user,
+            tenantId: user.tenantId || '',
+            requestId: generateUlid(),
+            isPlatformAdmin: false,
+          };
+          response = await requestContext.run(ctx, () => handler(request, ctx));
+        } else {
+          const ctx = await resolveTenant(user);
+
+          const locationId = await resolveLocation(request, ctx);
+          if (locationId) {
+            ctx.locationId = locationId;
+          }
+
+          if (options?.entitlement) {
+            await requireEntitlement(options.entitlement)(ctx);
+          }
+
+          if (options?.permission) {
+            await requirePermission(options.permission)(ctx);
+          }
+
+          response = await requestContext.run(ctx, () => handler(request, ctx));
+        }
       }
 
-      const user = await authenticate(request);
-
-      // authenticated-only mode: skip tenant resolution (for pre-tenant endpoints like onboard)
-      if (options?.authenticated && options?.requireTenant === false) {
-        const ctx: RequestContext = {
-          user,
-          tenantId: user.tenantId || '',
-          requestId: generateUlid(),
-          isPlatformAdmin: false,
-        };
-        return await requestContext.run(ctx, () => handler(request, ctx));
+      // Apply Cache-Control header to GET responses when configured
+      if (options?.cache && request.method === 'GET') {
+        response.headers.set('Cache-Control', options.cache);
       }
 
-      const ctx = await resolveTenant(user);
-
-      const locationId = await resolveLocation(request, ctx);
-      if (locationId) {
-        ctx.locationId = locationId;
-      }
-
-      if (options?.entitlement) {
-        await requireEntitlement(options.entitlement)(ctx);
-      }
-
-      if (options?.permission) {
-        await requirePermission(options.permission)(ctx);
-      }
-
-      return await requestContext.run(ctx, () => handler(request, ctx));
+      return response;
     } catch (error) {
       if (error instanceof AppError) {
         return NextResponse.json(

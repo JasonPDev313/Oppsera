@@ -17,11 +17,6 @@ function formatMoney(value: number, decimals: number = 2): string {
 // ── Column Definitions ──────────────────────────────────────────
 
 const EDITABLE_COLS = ['qty', 'unitCost'] as const;
-type EditableCol = (typeof EDITABLE_COLS)[number];
-
-function colIndex(col: EditableCol): number {
-  return EDITABLE_COLS.indexOf(col);
-}
 
 // ── Props ───────────────────────────────────────────────────────
 
@@ -39,7 +34,6 @@ interface ReceivingGridProps {
 
 export function ReceivingGrid({
   lines,
-  totals,
   isDraft,
   freightMode = 'allocate',
   onUpdateLine,
@@ -92,25 +86,6 @@ export function ReceivingGrid({
       }
     },
     [lines.length],
-  );
-
-  // ── Focus a specific cell (used after adding a line) ────────
-
-  // Exposed via ref or parent can call after render
-  const focusCell = useCallback(
-    (rowIndex: number, colName: EditableCol) => {
-      requestAnimationFrame(() => {
-        const cIdx = colIndex(colName);
-        const target = gridRef.current?.querySelector(
-          `[data-cell-id="${rowIndex}-${cIdx}"]`,
-        ) as HTMLElement | null;
-        if (target) {
-          target.click();
-          target.focus();
-        }
-      });
-    },
-    [],
   );
 
   if (lines.length === 0) {

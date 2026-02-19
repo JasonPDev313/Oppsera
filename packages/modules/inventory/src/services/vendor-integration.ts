@@ -1,7 +1,7 @@
 /**
  * Vendor integration hooks — consumed by the receiving module.
  */
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { itemVendors } from '@oppsera/db';
 

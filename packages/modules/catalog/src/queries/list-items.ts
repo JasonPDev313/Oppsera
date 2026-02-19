@@ -1,6 +1,6 @@
 import { eq, and, lt, ilike, or, desc, isNull, getTableColumns, sql, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import { withTenant, inventoryItems, inventoryMovements } from '@oppsera/db';
+import { withTenant, inventoryItems } from '@oppsera/db';
 import { catalogItems, catalogCategories } from '../schema';
 
 export interface ListItemsInput {

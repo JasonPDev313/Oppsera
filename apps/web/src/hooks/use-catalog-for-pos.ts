@@ -154,7 +154,7 @@ function processCatalogData(
 
 // ── Hook ───────────────────────────────────────────────────────────
 
-export function useCatalogForPOS(locationId: string) {
+export function useCatalogForPOS(locationId: string, isActive = true) {
   const { toast } = useToast();
   const toastRef = React.useRef(toast);
   toastRef.current = toast;
@@ -244,13 +244,27 @@ export function useCatalogForPOS(locationId: string) {
   }, [locationId, fetchCatalog]);
 
   // ── Periodic refresh to keep catalog current during long shifts ──
+  // Only the active POS mode refreshes — the inactive one is CSS-hidden
+  // and doesn't need to poll. This halves background API calls.
 
   useEffect(() => {
+    if (!isActive) return;
     const interval = setInterval(() => {
       fetchCatalog(false);
     }, REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [fetchCatalog]);
+  }, [fetchCatalog, isActive]);
+
+  // ── Refresh catalog when tab resumes from idle ──────────────────
+  // Listens for the 'pos-visibility-resume' event dispatched by the
+  // POS layout's visibilitychange handler. Only the active mode responds.
+
+  useEffect(() => {
+    if (!isActive) return;
+    const handleResume = () => fetchCatalog(false);
+    window.addEventListener('pos-visibility-resume', handleResume);
+    return () => window.removeEventListener('pos-visibility-resume', handleResume);
+  }, [fetchCatalog, isActive]);
 
   // ── Category hierarchy maps ────────────────────────────────────
 
@@ -483,6 +497,9 @@ export function useCatalogForPOS(locationId: string) {
 
     // Loading state
     isLoading,
+
+    // Full item list (for pre-seed lookups when opening edit drawer)
+    allItems,
 
     // Manual refresh (e.g., after item-not-found error to purge stale items)
     refresh: useCallback(() => fetchCatalog(false), [fetchCatalog]),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { User, UserPlus, RefreshCw, Eye, Search, Loader2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 
@@ -20,6 +20,44 @@ interface CustomerAttachmentProps {
   onViewProfile?: (customerId: string) => void;
 }
 
+// Module-level cache — shared across mounts, survives re-renders
+let _customerCache: CustomerSearchResult[] | null = null;
+let _cacheLoadedAt = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const FETCH_TIMEOUT = 8_000; // 8s — fail fast rather than spin forever
+
+async function loadCustomers(signal?: AbortSignal): Promise<CustomerSearchResult[]> {
+  if (_customerCache && Date.now() - _cacheLoadedAt < CACHE_TTL) {
+    return _customerCache;
+  }
+  try {
+    const res = await apiFetch<{ data: CustomerSearchResult[] }>(
+      '/api/v1/customers/search',
+      signal ? { signal } : {},
+    );
+    _customerCache = res.data;
+    _cacheLoadedAt = Date.now();
+  } catch {
+    // Keep stale cache if fetch fails — return whatever we have
+  }
+  return _customerCache ?? [];
+}
+
+function filterCustomers(
+  customers: CustomerSearchResult[],
+  query: string,
+): CustomerSearchResult[] {
+  const q = query.toLowerCase();
+  return customers
+    .filter(
+      (c) =>
+        c.displayName.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q) ||
+        c.phone?.includes(q),
+    )
+    .slice(0, 10);
+}
+
 export function CustomerAttachment({
   customerId,
   customerName,
@@ -28,17 +66,51 @@ export function CustomerAttachment({
   onViewProfile,
 }: CustomerAttachmentProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<CustomerSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [allCustomers, setAllCustomers] = useState<CustomerSearchResult[]>(
+    _customerCache ?? [],
+  );
+  const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [attachedName, setAttachedName] = useState<string | null>(null);
   const [showChangeSearch, setShowChangeSearch] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Eagerly load all customers on mount
+  useEffect(() => {
+    if (_customerCache && Date.now() - _cacheLoadedAt < CACHE_TTL) {
+      setAllCustomers(_customerCache);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+    setIsLoading(true);
+    loadCustomers(controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) setAllCustomers(data);
+      })
+      .catch(() => {
+        // Swallow — loadCustomers already handles errors internally
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        if (!controller.signal.aborted) setIsLoading(false);
+      });
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, []);
 
   // Auto-resolve customer name when customerId is present but name is unknown
   useEffect(() => {
     if (!customerId || customerName || attachedName) return;
+
+    // Try resolving from cache first — no API call needed
+    const cached = allCustomers.find((c) => c.id === customerId);
+    if (cached) {
+      setAttachedName(cached.displayName);
+      return;
+    }
 
     let cancelled = false;
     apiFetch<{ data: { displayName: string } }>(
@@ -56,38 +128,22 @@ export function CustomerAttachment({
     return () => {
       cancelled = true;
     };
-  }, [customerId, customerName, attachedName]);
+  }, [customerId, customerName, attachedName, allCustomers]);
 
-  // Search customers as user types
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
+  // Filter locally — instant, no API call
+  const filtered = useMemo(() => {
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setResults([]);
-      setShowDropdown(false);
-      return;
+    if (trimmed.length < 1) return allCustomers.slice(0, 10);
+    return filterCustomers(allCustomers, trimmed);
+  }, [query, allCustomers]);
+
+  const handleFocus = useCallback(() => {
+    setShowDropdown(true);
+    // Refresh cache in the background if stale
+    if (Date.now() - _cacheLoadedAt > CACHE_TTL) {
+      loadCustomers().then((data) => setAllCustomers(data)).catch(() => {});
     }
-
-    debounceRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const res = await apiFetch<{ data: CustomerSearchResult[] }>(
-          `/api/v1/customers/search?search=${encodeURIComponent(trimmed)}`,
-        );
-        setResults(res.data);
-        setShowDropdown(true);
-      } catch {
-        setResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 150);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query]);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -106,7 +162,6 @@ export function CustomerAttachment({
       onAttach(customer.id);
       setAttachedName(customer.displayName);
       setQuery('');
-      setResults([]);
       setShowDropdown(false);
       setShowChangeSearch(false);
     },
@@ -157,14 +212,12 @@ export function CustomerAttachment({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => {
-              if (results.length > 0) setShowDropdown(true);
-            }}
+            onFocus={handleFocus}
             placeholder={customerId ? 'Search for a different customer...' : 'Search customer by name, phone, or email...'}
             className="h-8 w-full rounded-md border border-gray-300 bg-surface pl-8 pr-8 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             autoFocus={showChangeSearch}
           />
-          {isSearching && (
+          {isLoading && (
             <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-gray-400" />
           )}
         </div>
@@ -174,7 +227,6 @@ export function CustomerAttachment({
             onClick={() => {
               setShowChangeSearch(false);
               setQuery('');
-              setResults([]);
               setShowDropdown(false);
             }}
             className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-700"
@@ -202,7 +254,6 @@ export function CustomerAttachment({
                 setAttachedName(null);
                 setShowChangeSearch(false);
                 setQuery('');
-                setResults([]);
                 setShowDropdown(false);
               }}
               className="flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
@@ -210,12 +261,32 @@ export function CustomerAttachment({
               Remove customer from order
             </button>
           )}
-          {results.length === 0 ? (
+          {filtered.length === 0 && !isLoading ? (
             <div className="px-3 py-3 text-center text-sm text-gray-400">
-              No customers found
+              {allCustomers.length === 0 && !query.trim() ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsLoading(true);
+                    loadCustomers()
+                      .then((data) => setAllCustomers(data))
+                      .catch(() => {})
+                      .finally(() => setIsLoading(false));
+                  }}
+                  className="text-indigo-500 hover:text-indigo-600"
+                >
+                  Retry loading customers
+                </button>
+              ) : (
+                'No customers found'
+              )}
+            </div>
+          ) : filtered.length === 0 && isLoading ? (
+            <div className="px-3 py-3 text-center text-sm text-gray-400">
+              Loading customers...
             </div>
           ) : (
-            results.map((customer) => (
+            filtered.map((customer) => (
               <button
                 key={customer.id}
                 type="button"

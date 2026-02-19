@@ -170,25 +170,18 @@ export function useRegisterTabs({
             t.tabNumber === activeTabNumber ? { ...t, orderId: order.id } : t,
           ),
         );
-        // Sync to server
-        apiFetch(`/api/v1/register-tabs/${currentActiveTab.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ orderId: order.id }),
-        }).catch(() => {});
+        // Sync to server (skip pending tabs that don't have a real server id yet)
+        if (!currentActiveTab.id.startsWith('pending-')) {
+          apiFetch(`/api/v1/register-tabs/${currentActiveTab.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ orderId: order.id }),
+          }).catch(() => {});
+        }
       }
-    } else if (currentActiveTab.orderId) {
-      // Order was cleared (payment complete, void, etc.)
-      setTabs((prev) =>
-        prev.map((t) =>
-          t.tabNumber === activeTabNumber ? { ...t, orderId: null } : t,
-        ),
-      );
-      // Sync to server
-      apiFetch(`/api/v1/register-tabs/${currentActiveTab.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ orderId: null }),
-      }).catch(() => {});
     }
+    // IMPORTANT: orderId clearing is handled ONLY by clearActiveTab() which is
+    // called explicitly after payment/void/hold. Never auto-clear here — doing
+    // so races with order rehydration on POS remount and detaches customers.
   }, [pos.currentOrder, activeTabNumber]);
 
   // ── Save active tab to localStorage ────────────────────────────────
@@ -234,7 +227,15 @@ export function useRegisterTabs({
       setActiveTabNumber(activeNumber);
       hasLoaded.current = true;
       setIsLoading(false);
-      pos.setOrder(null);
+
+      // Block sync-back during rehydration so it doesn't auto-clear orderId
+      isSwitching.current = true;
+
+      // If active tab has no order, clear POS state; otherwise leave it for fetch below
+      const activeHasOrder = cached.find((t) => t.tabNumber === activeNumber)?.orderId;
+      if (!activeHasOrder) {
+        pos.setOrder(null);
+      }
 
       // Pre-fetch ALL cached tabs' orders in parallel so tab switching is instant
       const tabsWithOrders = cached.filter((t) => t.orderId);
@@ -252,6 +253,11 @@ export function useRegisterTabs({
           }).catch(() => {});
         }
       }
+
+      // Unblock sync-back after all fetches have been dispatched
+      requestAnimationFrame(() => {
+        isSwitching.current = false;
+      });
     }
 
     // ── Helper to clear a tab's invalid order ───────────────────────
@@ -308,7 +314,15 @@ export function useRegisterTabs({
         // Show tabs immediately — don't block on order fetching
         hasLoaded.current = true;
         setIsLoading(false);
-        pos.setOrder(null);
+
+        // Block sync-back during rehydration so it doesn't auto-clear orderId
+        isSwitching.current = true;
+
+        // If active tab has no order, clear POS state; otherwise leave for fetch
+        const activeServerTab = serverTabs.find((t) => t.tabNumber === activeNumber);
+        if (!activeServerTab?.orderId) {
+          pos.setOrder(null);
+        }
 
         // Fetch ALL tab orders in parallel — don't block other tabs behind active tab.
         // Display the active tab's order as soon as it resolves.
@@ -334,6 +348,11 @@ export function useRegisterTabs({
           });
           Promise.allSettled(fetches);
         }
+
+        // Unblock sync-back after all fetches have been dispatched
+        requestAnimationFrame(() => {
+          isSwitching.current = false;
+        });
       } catch {
         // If server load fails and no cached data, create a local fallback tab
         if (!cancelled && !cached) {
@@ -505,9 +524,11 @@ export function useRegisterTabs({
   const clearActiveTab = useCallback(() => {
     const currentTab = tabs.find((t) => t.tabNumber === activeTabNumber);
 
+    // Clear orderId AND label — the customer name in the label came from the
+    // order's customer, so it must be wiped when the order completes/voids.
     setTabs((prev) =>
       prev.map((t) =>
-        t.tabNumber === activeTabNumber ? { ...t, orderId: null } : t,
+        t.tabNumber === activeTabNumber ? { ...t, orderId: null, label: null } : t,
       ),
     );
 
@@ -515,7 +536,7 @@ export function useRegisterTabs({
     if (currentTab && !currentTab.id.startsWith('pending-')) {
       apiFetch(`/api/v1/register-tabs/${currentTab.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ orderId: null }),
+        body: JSON.stringify({ orderId: null, label: null }),
       }).catch(() => {});
     }
   }, [activeTabNumber, tabs]);

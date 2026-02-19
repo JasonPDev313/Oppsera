@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import type {
   VendorSummary,
@@ -20,85 +21,64 @@ interface UseVendorsFilters {
 }
 
 export function useVendors(filters: UseVendorsFilters = {}) {
-  const [items, setItems] = useState<VendorSummary[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchVendors = useCallback(async (nextCursor?: string) => {
-    try {
-      setIsLoading(true);
-      setError(null);
+  const result = useInfiniteQuery({
+    queryKey: ['vendors', filters] as const,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
       if (filters.search) params.set('search', filters.search);
       if (filters.isActive !== undefined) params.set('isActive', String(filters.isActive));
       if (filters.limit) params.set('limit', String(filters.limit));
-      if (nextCursor) params.set('cursor', nextCursor);
+      if (pageParam) params.set('cursor', pageParam);
 
-      const res = await apiFetch<{ data: VendorSummary[]; meta: { cursor: string | null; hasMore: boolean } }>(
+      return apiFetch<{ data: VendorSummary[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/inventory/vendors?${params}`,
       );
-      if (nextCursor) {
-        setItems((prev) => [...prev, ...res.data]);
-      } else {
-        setItems(res.data);
-      }
-      setCursor(res.meta.cursor);
-      setHasMore(res.meta.hasMore);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load vendors');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filters.search, filters.isActive, filters.limit]);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.hasMore ? (lastPage.meta.cursor ?? undefined) : undefined,
+  });
 
-  useEffect(() => {
-    fetchVendors();
-  }, [fetchVendors]);
+  const items = result.data?.pages.flatMap((p) => p.data) ?? [];
+  const { fetchNextPage, hasNextPage } = result;
+  const hasMore = hasNextPage ?? false;
 
   const loadMore = useCallback(() => {
-    if (cursor && hasMore) fetchVendors(cursor);
-  }, [cursor, hasMore, fetchVendors]);
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
 
   const mutate = useCallback(() => {
-    setCursor(null);
-    fetchVendors();
-  }, [fetchVendors]);
+    return queryClient.invalidateQueries({ queryKey: ['vendors'] });
+  }, [queryClient]);
 
-  return { items, isLoading, error, hasMore, loadMore, mutate };
+  return {
+    items,
+    isLoading: result.isLoading,
+    error: result.error?.message ?? null,
+    hasMore,
+    loadMore,
+    mutate,
+  };
 }
 
 // ── Single Vendor ───────────────────────────────────────────────
 
 export function useVendor(vendorId: string | null) {
-  const [data, setData] = useState<VendorDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const result = useQuery({
+    queryKey: ['vendor', vendorId],
+    queryFn: () =>
+      apiFetch<{ data: VendorDetail }>(`/api/v1/inventory/vendors/${vendorId}`).then((r) => r.data),
+    enabled: !!vendorId,
+  });
 
-  const fetchVendor = useCallback(async () => {
-    if (!vendorId) return;
-    try {
-      setIsLoading(true);
-      setError(null);
-      const res = await apiFetch<{ data: VendorDetail }>(
-        `/api/v1/inventory/vendors/${vendorId}`,
-      );
-      setData(res.data);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load vendor');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [vendorId]);
-
-  useEffect(() => {
-    fetchVendor();
-  }, [fetchVendor]);
-
-  const mutate = useCallback(() => fetchVendor(), [fetchVendor]);
-
-  return { data, isLoading, error, mutate };
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error?.message ?? null,
+    mutate: result.refetch,
+  };
 }
 
 // ── Vendor Catalog ──────────────────────────────────────────────
@@ -110,54 +90,47 @@ interface UseVendorCatalogFilters {
 }
 
 export function useVendorCatalog(vendorId: string | null, filters: UseVendorCatalogFilters = {}) {
-  const [items, setItems] = useState<VendorCatalogEntry[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchCatalog = useCallback(async (nextCursor?: string) => {
-    if (!vendorId) return;
-    try {
-      setIsLoading(true);
-      setError(null);
+  const result = useInfiniteQuery({
+    queryKey: ['vendor-catalog', vendorId, filters] as const,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
       if (filters.search) params.set('search', filters.search);
       if (filters.isActive !== undefined) params.set('isActive', String(filters.isActive));
       if (filters.limit) params.set('limit', String(filters.limit));
-      if (nextCursor) params.set('cursor', nextCursor);
+      if (pageParam) params.set('cursor', pageParam);
 
-      const res = await apiFetch<{ data: VendorCatalogEntry[]; meta: { cursor: string | null; hasMore: boolean } }>(
+      return apiFetch<{ data: VendorCatalogEntry[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/inventory/vendors/${vendorId}/catalog?${params}`,
       );
-      if (nextCursor) {
-        setItems((prev) => [...prev, ...res.data]);
-      } else {
-        setItems(res.data);
-      }
-      setCursor(res.meta.cursor);
-      setHasMore(res.meta.hasMore);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load catalog');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [vendorId, filters.search, filters.isActive, filters.limit]);
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.meta.hasMore ? (lastPage.meta.cursor ?? undefined) : undefined,
+    enabled: !!vendorId,
+  });
 
-  useEffect(() => {
-    fetchCatalog();
-  }, [fetchCatalog]);
+  const items = result.data?.pages.flatMap((p) => p.data) ?? [];
+  const { fetchNextPage, hasNextPage } = result;
+  const hasMore = hasNextPage ?? false;
 
   const loadMore = useCallback(() => {
-    if (cursor && hasMore) fetchCatalog(cursor);
-  }, [cursor, hasMore, fetchCatalog]);
+    if (hasNextPage) fetchNextPage();
+  }, [hasNextPage, fetchNextPage]);
 
   const mutate = useCallback(() => {
-    setCursor(null);
-    fetchCatalog();
-  }, [fetchCatalog]);
+    return queryClient.invalidateQueries({ queryKey: ['vendor-catalog', vendorId] });
+  }, [queryClient, vendorId]);
 
-  return { items, isLoading, error, hasMore, loadMore, mutate };
+  return {
+    items,
+    isLoading: result.isLoading,
+    error: result.error?.message ?? null,
+    hasMore,
+    loadMore,
+    mutate,
+  };
 }
 
 // ── Vendor Search (lightweight, for picker dropdowns) ───────────

@@ -32,5 +32,5 @@ export const GET = withMiddleware(
 
     return NextResponse.json({ data: rows });
   },
-  { entitlement: 'reporting', permission: 'reports.view' },
+  { entitlement: 'reporting', permission: 'reports.view', cache: 'private, max-age=60, stale-while-revalidate=120' },
 );

@@ -53,7 +53,6 @@ export function ReceiptHeader({
   onVoid,
   canPost,
   onAddCharge,
-  onUpdateCharge,
   onRemoveCharge,
 }: ReceiptHeaderProps) {
   const isDraft = receipt.status === 'draft';

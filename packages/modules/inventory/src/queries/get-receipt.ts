@@ -6,7 +6,6 @@ import {
   receiptCharges,
   inventoryItems,
   vendors,
-  itemVendors,
 } from '@oppsera/db';
 import { costPreview } from '../services/costing';
 

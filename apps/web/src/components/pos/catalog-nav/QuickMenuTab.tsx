@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { Star, Clock } from 'lucide-react';
 import { ItemButton } from '../ItemButton';
 import type { CatalogItemForPOS } from '@/types/pos';
@@ -11,15 +12,27 @@ interface QuickMenuTabProps {
   activeTab: 'favorites' | 'recent';
   onTabChange: (tab: 'favorites' | 'recent') => void;
   itemSize?: 'normal' | 'large';
+  isFavorite?: (itemId: string) => boolean;
+  onToggleFavorite?: (itemId: string) => void;
+  canEditItem?: boolean;
+  onEditItem?: (itemId: string) => void;
+  onArchiveItem?: (itemId: string) => void;
+  onViewHistory?: (itemId: string) => void;
 }
 
-export function QuickMenuTab({
+export const QuickMenuTab = memo(function QuickMenuTab({
   favorites,
   recentItems,
   onItemTap,
   activeTab,
   onTabChange,
   itemSize = 'normal',
+  isFavorite,
+  onToggleFavorite,
+  canEditItem,
+  onEditItem,
+  onArchiveItem,
+  onViewHistory,
 }: QuickMenuTabProps) {
   const items = activeTab === 'favorites' ? favorites : recentItems;
   const emptyMessage =
@@ -68,10 +81,16 @@ export function QuickMenuTab({
               item={item}
               onTap={onItemTap}
               size={itemSize}
+              isFavorite={isFavorite?.(item.id)}
+              onToggleFavorite={onToggleFavorite}
+              canEditItem={canEditItem}
+              onEditItem={onEditItem}
+              onArchiveItem={onArchiveItem}
+              onViewHistory={onViewHistory}
             />
           ))}
         </div>
       )}
     </div>
   );
-}
+});

@@ -442,7 +442,10 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       if (!order) {
         order = await openOrder();
       }
-      setIsLoading(true);
+
+      // Optimistic update — UI reflects the attached customer immediately
+      setCurrentOrder((prev) => prev ? { ...prev, customerId } : prev);
+
       try {
         await apiFetch(`/api/v1/orders/${order.id}`, {
           method: 'PATCH',
@@ -455,9 +458,9 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
         const refreshed = await fetchOrder(order.id);
         setCurrentOrder(refreshed);
       } catch (err) {
+        // Revert optimistic update on failure
+        setCurrentOrder((prev) => prev ? { ...prev, customerId: null, customerName: null } : prev);
         await handleMutationError(err);
-      } finally {
-        setIsLoading(false);
       }
     },
     [openOrder, fetchOrder, handleMutationError],
@@ -466,7 +469,12 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   const detachCustomer = useCallback(async (): Promise<void> => {
     const order = orderRef.current;
     if (!order) return;
-    setIsLoading(true);
+
+    // Optimistic update — UI reflects detachment immediately
+    const prevCustomerId = order.customerId;
+    const prevCustomerName = order.customerName;
+    setCurrentOrder((prev) => prev ? { ...prev, customerId: null, customerName: null } : prev);
+
     try {
       await apiFetch(`/api/v1/orders/${order.id}`, {
         method: 'PATCH',
@@ -479,16 +487,16 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       const refreshed = await fetchOrder(order.id);
       setCurrentOrder(refreshed);
     } catch (err) {
+      // Revert optimistic update on failure
+      setCurrentOrder((prev) => prev ? { ...prev, customerId: prevCustomerId, customerName: prevCustomerName } : prev);
       await handleMutationError(err);
-    } finally {
-      setIsLoading(false);
     }
   }, [fetchOrder, handleMutationError]);
 
   // ── Place Order ────────────────────────────────────────────────
 
   const placeOrder = useCallback(async (): Promise<Order> => {
-    const order = orderRef.current;
+    let order = orderRef.current;
     if (!order) throw new Error('No active order to place');
 
     // Already placed — return immediately
@@ -497,15 +505,34 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     // Deduplicate: if a place call is already in-flight, await it
     if (placingPromise.current) return placingPromise.current;
 
+    // Wait for openOrder to finish if we still have a placeholder (id === '')
+    if (!order.id && openOrderPromise.current) {
+      await openOrderPromise.current;
+      order = orderRef.current!;
+    }
+
+    // Still no valid ID — order creation hasn't started or failed
+    if (!order || !order.id) throw new Error('Order is still being created');
+
+    // Already placed (may have resolved after waiting for openOrder)
+    if (order.status === 'placed') return order;
+
     // Wait for any in-flight addItem calls to complete before placing
     if (pendingAddItems.current.length > 0) {
       await Promise.all(pendingAddItems.current);
+      // Re-read after awaiting — addItem may have updated the order
+      order = orderRef.current!;
+      if (!order || !order.id) throw new Error('Order is still being created');
+      if (order.status === 'placed') return order;
     }
+
+    // Capture as const for the closure (TypeScript can't narrow `let` inside async closures)
+    const orderToPlace = order;
 
     const doPlace = async (): Promise<Order> => {
       setIsLoading(true);
       try {
-        const res = await apiFetch<{ data: Record<string, unknown> }>(`/api/v1/orders/${order.id}/place`, {
+        const res = await apiFetch<{ data: Record<string, unknown> }>(`/api/v1/orders/${orderToPlace.id}/place`, {
           method: 'POST',
           headers: locationHeaders,
           body: JSON.stringify({ clientRequestId: clientRequestId() }),
@@ -514,16 +541,29 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
         // recomputed from DB. Overlay server data on local state, but preserve
         // local lines/charges/discounts arrays (not included in server response).
         const placed: Order = {
-          ...order,
+          ...orderToPlace,
           ...(res.data as Partial<Order>),
           status: 'placed',
-          lines: order.lines,
-          charges: order.charges ?? [],
-          discounts: order.discounts ?? [],
+          lines: orderToPlace.lines,
+          charges: orderToPlace.charges ?? [],
+          discounts: orderToPlace.discounts ?? [],
         };
         setCurrentOrder(placed);
         return placed;
       } catch (err) {
+        // If the order is already placed (race between preemptive + user click),
+        // fetch the placed order and return it as success — don't clear the POS.
+        if (err instanceof ApiError && err.statusCode === 409) {
+          try {
+            const refreshed = await fetchOrder(orderToPlace.id);
+            if (refreshed.status === 'placed') {
+              setCurrentOrder(refreshed);
+              return refreshed;
+            }
+          } catch {
+            // Fall through to normal error handling
+          }
+        }
         await handleMutationError(err);
         throw err;
       } finally {
@@ -546,6 +586,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     }): Promise<RecordTenderResult> => {
       const order = orderRef.current;
       if (!order) throw new Error('No active order');
+      if (!order.id) throw new Error('Order is still being created');
       setIsLoading(true);
       try {
         const res = await apiFetch<{ data: RecordTenderResult }>(

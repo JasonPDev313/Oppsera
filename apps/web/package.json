@@ -20,12 +20,14 @@
     "@oppsera/db": "workspace:*",
     "@oppsera/module-catalog": "workspace:*",
     "@oppsera/module-customers": "workspace:*",
+    "@oppsera/module-golf-reporting": "workspace:*",
     "@oppsera/module-inventory": "workspace:*",
     "@oppsera/module-orders": "workspace:*",
     "@oppsera/module-payments": "workspace:*",
-    "@oppsera/module-golf-reporting": "workspace:*",
     "@oppsera/module-reporting": "workspace:*",
     "@oppsera/shared": "workspace:*",
+    "@tanstack/react-query": "^5",
+    "@tanstack/react-virtual": "^3.13.18",
     "dotenv": "^16.4.0",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
@@ -35,6 +37,7 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.1.6",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

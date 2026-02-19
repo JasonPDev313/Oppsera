@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { memo, useCallback, useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Star, StarOff, Pencil } from 'lucide-react';
+import { Star, StarOff, Pencil, Archive, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ITEM_TYPE_BADGES } from '@/types/catalog';
 import { InventoryIndicator } from './InventoryIndicator';
+import { getContrastTextColor } from '@/lib/contrast';
 import type { CatalogItemForPOS } from '@/types/pos';
 import type { ItemTypeGroup } from '@oppsera/shared';
 
@@ -28,9 +29,11 @@ interface ItemButtonProps {
   onToggleFavorite?: (itemId: string) => void;
   canEditItem?: boolean;
   onEditItem?: (itemId: string) => void;
+  onArchiveItem?: (itemId: string) => void;
+  onViewHistory?: (itemId: string) => void;
 }
 
-export function ItemButton({
+export const ItemButton = memo(function ItemButton({
   item,
   onTap,
   size = 'normal',
@@ -38,6 +41,8 @@ export function ItemButton({
   onToggleFavorite,
   canEditItem,
   onEditItem,
+  onArchiveItem,
+  onViewHistory,
 }: ItemButtonProps) {
   const handleClick = useCallback(() => {
     onTap(item);
@@ -46,72 +51,97 @@ export function ItemButton({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  const hasAnyAction = onToggleFavorite || (canEditItem && onEditItem) || (canEditItem && onArchiveItem) || (canEditItem && onViewHistory);
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
-      // Only show if at least one action is available
-      if (!onToggleFavorite && !onEditItem) return;
+      if (!hasAnyAction) return;
       e.preventDefault();
       e.stopPropagation();
       setContextMenu({ x: e.clientX, y: e.clientY });
     },
-    [onToggleFavorite, onEditItem],
+    [hasAnyAction],
   );
 
-  // Close on outside click or scroll
+  // Close on outside click, scroll, or Escape
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
     window.addEventListener('mousedown', close);
     window.addEventListener('scroll', close, true);
+    window.addEventListener('keydown', handleKey);
     return () => {
       window.removeEventListener('mousedown', close);
       window.removeEventListener('scroll', close, true);
+      window.removeEventListener('keydown', handleKey);
     };
   }, [contextMenu]);
 
   const badgeConfig = ITEM_TYPE_BADGES[item.typeGroup];
   const barColor = TYPE_BAR_COLORS[item.typeGroup];
 
+  // Menu color from metadata + auto-contrast text
+  const menuColor = (item.metadata?.menuColor as string) ?? null;
+  const hasMenuColor = !!menuColor && menuColor !== '#FFFFFF';
+  const textColor = hasMenuColor ? getContrastTextColor(menuColor) : null;
+  const isLightText = textColor === '#FFFFFF';
+
   const isNormal = size === 'normal';
   const sizeClasses = isNormal
     ? 'w-full h-[120px] text-sm'
     : 'w-full h-[140px] text-base';
 
+  const menuItemClass = 'flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50';
+
   return (
     <>
       <button
         type="button"
+        data-contextmenu
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className={`${sizeClasses} relative flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-surface shadow-sm transition-all hover:shadow-md hover:border-gray-300 active:scale-95 active:shadow-inner select-none`}
+        className={`${sizeClasses} relative flex flex-col overflow-hidden rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md hover:border-gray-300 active:scale-95 active:shadow-inner select-none ${
+          hasMenuColor ? '' : 'bg-surface'
+        }`}
+        style={hasMenuColor ? { backgroundColor: menuColor } : undefined}
       >
         {/* Type-colored top bar */}
         <div className={`h-1 w-full shrink-0 ${barColor}`} />
 
-        {/* Favorite indicator */}
-        {isFavorite && (
-          <div className="absolute top-2 right-2">
-            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-          </div>
-        )}
-
         {/* Content */}
         <div className="flex flex-1 flex-col justify-between p-2">
           {/* Item name */}
-          <span className="line-clamp-2 text-left font-medium leading-tight text-gray-900">
+          <span
+            className={`line-clamp-2 text-left font-medium leading-tight ${hasMenuColor ? '' : 'text-gray-900'}`}
+            style={textColor ? { color: textColor } : undefined}
+          >
             {item.name}
           </span>
 
           {/* Price */}
-          <span className="text-left font-semibold text-gray-700">
+          <span
+            className={`text-left font-semibold ${hasMenuColor ? '' : 'text-gray-700'}`}
+            style={textColor ? { color: textColor, opacity: 0.85 } : undefined}
+          >
             {formatPrice(item.price)}
           </span>
 
-          {/* Bottom row: type badge + stock */}
+          {/* Bottom row: type badge + favorite + stock */}
           <div className="flex items-center justify-between gap-1">
-            <Badge variant={badgeConfig.variant} className="shrink-0">
-              {badgeConfig.label}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <Badge variant={badgeConfig.variant} className="shrink-0">
+                {badgeConfig.label}
+              </Badge>
+              {isFavorite && (
+                <Star
+                  className={`h-3 w-3 shrink-0 ${isLightText ? 'fill-amber-300 text-amber-300' : 'fill-amber-400 text-amber-400'}`}
+                  aria-label="Favorite item"
+                />
+              )}
+            </div>
             <InventoryIndicator
               onHand={item.onHand}
               isTrackInventory={item.isTrackInventory}
@@ -126,18 +156,37 @@ export function ItemButton({
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-50 min-w-44 rounded-lg border border-gray-200 bg-surface py-1 shadow-xl"
+            className="fixed z-50 min-w-48 rounded-lg border border-gray-200 bg-surface py-1 shadow-xl"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onMouseDown={(e) => e.stopPropagation()}
+            role="menu"
           >
+            {/* Edit — requires canEditItem */}
+            {canEditItem && onEditItem && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onEditItem(item.id);
+                  setContextMenu(null);
+                }}
+                className={menuItemClass}
+              >
+                <Pencil className="h-4 w-4 text-gray-400" />
+                Edit Item
+              </button>
+            )}
+
+            {/* Favorites — always visible */}
             {onToggleFavorite && (
               <button
                 type="button"
+                role="menuitem"
                 onClick={() => {
                   onToggleFavorite(item.id);
                   setContextMenu(null);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                className={menuItemClass}
               >
                 {isFavorite ? (
                   <>
@@ -152,17 +201,41 @@ export function ItemButton({
                 )}
               </button>
             )}
-            {canEditItem && onEditItem && (
+
+            {/* Divider — only show if there are items both above and below */}
+            {(onToggleFavorite || (canEditItem && onEditItem)) && canEditItem && (onViewHistory || onArchiveItem) && (
+              <div className="my-1 border-t border-gray-100" role="separator" />
+            )}
+
+            {/* View History — requires canEditItem */}
+            {canEditItem && onViewHistory && (
               <button
                 type="button"
+                role="menuitem"
                 onClick={() => {
-                  onEditItem(item.id);
+                  onViewHistory(item.id);
                   setContextMenu(null);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                className={menuItemClass}
               >
-                <Pencil className="h-4 w-4 text-gray-400" />
-                Edit Item
+                <History className="h-4 w-4 text-gray-400" />
+                View History
+              </button>
+            )}
+
+            {/* Archive — requires canEditItem */}
+            {canEditItem && onArchiveItem && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  onArchiveItem(item.id);
+                  setContextMenu(null);
+                }}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50"
+              >
+                <Archive className="h-4 w-4" />
+                Archive Item
               </button>
             )}
           </div>,
@@ -170,4 +243,4 @@ export function ItemButton({
         )}
     </>
   );
-}
+});

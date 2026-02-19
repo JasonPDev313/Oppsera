@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { compileReport } from '../compiler';
-import type { FieldCatalogEntry, ReportDefinitionBody } from '../compiler';
+import type { FieldCatalogEntry } from '../compiler';
 
 // ── Test field catalog ──────────────────────────────────────────
 const dailySalesCatalog: FieldCatalogEntry[] = [

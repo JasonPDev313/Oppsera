@@ -1,6 +1,6 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { vendors, itemVendors, receivingReceipts } from '@oppsera/db';
+import { vendors } from '@oppsera/db';
 
 export interface VendorDetail {
   id: string;

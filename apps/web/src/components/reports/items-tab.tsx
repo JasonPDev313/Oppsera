@@ -107,7 +107,7 @@ export function ItemsTab({ data, isLoading, dateFrom, dateTo, locationId }: Item
                 onClick={() => setChartMode('quantity')}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   chartMode === 'quantity'
-                    ? 'bg-white text-gray-900 shadow-sm'
+                    ? 'bg-surface text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -118,7 +118,7 @@ export function ItemsTab({ data, isLoading, dateFrom, dateTo, locationId }: Item
                 onClick={() => setChartMode('revenue')}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   chartMode === 'revenue'
-                    ? 'bg-white text-gray-900 shadow-sm'
+                    ? 'bg-surface text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >

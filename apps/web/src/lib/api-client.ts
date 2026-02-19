@@ -21,7 +21,43 @@ export function clearTokens() {
   localStorage.removeItem(REFRESH_KEY);
 }
 
+// ── Token expiry helpers ──────────────────────────────────────────
+
+/** Decode JWT payload and return the `exp` claim as epoch milliseconds. */
+function getTokenExpiryMs(): number | null {
+  const token = getStoredToken();
+  if (!token) return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1]!));
+    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
 let refreshPromise: Promise<boolean> | null = null;
+
+/**
+ * Proactively refresh the access token if it expires within 5 minutes.
+ * Call this on visibility-change resume so the first user action after
+ * idle never hits a 401 → refresh → retry chain.
+ */
+export async function refreshTokenIfNeeded(): Promise<boolean> {
+  const expiryMs = getTokenExpiryMs();
+  if (expiryMs === null) return false;
+
+  const remainingMs = expiryMs - Date.now();
+  if (remainingMs > 5 * 60 * 1000) return false; // >5 min left — no action needed
+
+  if (!refreshPromise) {
+    refreshPromise = attemptTokenRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
 
 async function attemptTokenRefresh(): Promise<boolean> {
   const refreshToken = getStoredRefreshToken();
@@ -64,10 +100,29 @@ export async function apiFetch<T = unknown>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  let response = await fetch(path, {
-    ...options,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...options,
+      headers,
+    });
+  } catch (fetchErr) {
+    // AbortError = intentional cancellation (e.g., navigating away) — don't log
+    if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') {
+      throw fetchErr;
+    }
+    // "Failed to fetch" = network-level failure (server unreachable, CORS, CSP, etc.)
+    console.error('[apiFetch] Network error:', {
+      path,
+      method,
+      hasToken: !!token,
+      tokenLength: token?.length,
+      headerKeys: Object.keys(headers),
+      bodyLength: typeof options.body === 'string' ? options.body.length : undefined,
+      error: fetchErr,
+    });
+    throw fetchErr;
+  }
 
   // On 401, attempt token refresh (deduplicated)
   if (response.status === 401 && !path.includes('/auth/')) {

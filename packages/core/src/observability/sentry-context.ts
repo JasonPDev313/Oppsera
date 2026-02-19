@@ -15,8 +15,8 @@ function getSentry(): any {
   _sentryChecked = true;
   try {
     // Use runtime string concatenation to prevent webpack from resolving this
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const pkg = '@sentry/' + 'nextjs';
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     _sentry = require(pkg);
   } catch {
     _sentry = null;

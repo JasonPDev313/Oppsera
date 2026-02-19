@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   DollarSign,
@@ -13,7 +13,6 @@ import {
   Printer,
   RotateCcw,
   LogOut,
-  Loader2,
   X,
   Copy,
   Send,
@@ -27,6 +26,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useAuthContext } from '@/components/auth-provider';
+import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { useToast } from '@/components/ui/toast';
 import { usePOSConfig } from '@/hooks/use-pos-config';
 import { usePOS } from '@/hooks/use-pos';
@@ -36,9 +36,9 @@ import { useShift } from '@/hooks/use-shift';
 import { SearchInput } from '@/components/ui/search-input';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Badge } from '@/components/ui/badge';
-import { ItemButton } from '@/components/pos/ItemButton';
 import { Cart } from '@/components/pos/Cart';
 import { CartTotals } from '@/components/pos/CartTotals';
+import { VirtualItemGrid } from '@/components/pos/VirtualItemGrid';
 import { CustomerAttachment } from '@/components/pos/CustomerAttachment';
 import {
   DepartmentTabs,
@@ -49,15 +49,19 @@ import {
 } from '@/components/pos/catalog-nav';
 import { RegisterTabs } from '@/components/pos/RegisterTabs';
 import { useProfileDrawer } from '@/components/customer-profile-drawer';
+import { useItemEditDrawer } from '@/components/inventory/ItemEditDrawerContext';
 
-// Lazy-loaded dialogs — not needed on initial render, reduces bundle by ~40%
+// TenderDialog + ConfirmDialog are critical POS infrastructure — static imports for instant open
+import { TenderDialog } from '@/components/pos/TenderDialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+// Lazy-loaded dialogs — infrequently used, reduces initial bundle
 const ModifierDialog = dynamic(() => import('@/components/pos/ModifierDialog').then(m => ({ default: m.ModifierDialog })), { ssr: false });
 const OptionPickerDialog = dynamic(() => import('@/components/pos/OptionPickerDialog').then(m => ({ default: m.OptionPickerDialog })), { ssr: false });
-const TenderDialog = dynamic(() => import('@/components/pos/TenderDialog').then(m => ({ default: m.TenderDialog })), { ssr: false });
 const TaxExemptDialog = dynamic(() => import('@/components/pos/TaxExemptDialog').then(m => ({ default: m.TaxExemptDialog })), { ssr: false });
 const NewCustomerDialog = dynamic(() => import('@/components/pos/NewCustomerDialog').then(m => ({ default: m.NewCustomerDialog })), { ssr: false });
-const ConfirmDialog = dynamic(() => import('@/components/ui/confirm-dialog').then(m => ({ default: m.ConfirmDialog })), { ssr: false });
 const ToolsView = dynamic(() => import('@/components/pos/ToolsView').then(m => ({ default: m.ToolsView })), { ssr: false });
+const DiscountDialog = dynamic(() => import('@/components/pos/DiscountDialog').then(m => ({ default: m.DiscountDialog })), { ssr: false });
+const ServiceChargeDialog = dynamic(() => import('@/components/pos/ServiceChargeDialog').then(m => ({ default: m.ServiceChargeDialog })), { ssr: false });
 import type { CatalogItemForPOS, AddLineItemInput, HeldOrder, RecordTenderResult } from '@/types/pos';
 import type { FnbMetadata, RetailMetadata } from '@oppsera/shared';
 
@@ -167,16 +171,19 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
 
 // ── F&B POS Page ──────────────────────────────────────────────────
 
-export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) {
+function FnbPOSPage({ isActive = true }: { isActive?: boolean }) {
   const { locations, user } = useAuthContext();
+  const { isModuleEnabled } = useEntitlementsContext();
   const { toast } = useToast();
+  const canEditItem = isModuleEnabled('catalog');
+  const itemGridScrollRef = useRef<HTMLDivElement>(null);
 
   // Location
   const locationId = locations[0]?.id ?? '';
 
   // Hooks
   const { config, isLoading: configLoading } = usePOSConfig(locationId, 'fnb');
-  const catalog = useCatalogForPOS(locationId);
+  const catalog = useCatalogForPOS(locationId, isActive);
   const pos = usePOS(config ?? {
     posMode: 'fnb',
     terminalId: '',
@@ -194,6 +201,56 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
   });
   const shift = useShift(locationId, config?.terminalId ?? '');
   const profileDrawer = useProfileDrawer();
+  const itemEditDrawer = useItemEditDrawer();
+
+  const handleEditItem = useCallback(
+    (itemId: string) => {
+      const posItem = catalog.allItems.find((i) => i.id === itemId);
+      const preSeed = posItem
+        ? {
+            name: posItem.name,
+            itemType: posItem.type,
+            categoryId: posItem.categoryId,
+            priceCents: posItem.price,
+            sku: posItem.sku,
+            barcode: posItem.barcode,
+            isTrackable: posItem.isTrackInventory,
+            metadata: posItem.metadata,
+            onHand: posItem.onHand,
+          }
+        : undefined;
+      itemEditDrawer.open(itemId, { preSeed, onSaveSuccess: catalog.refresh });
+    },
+    [itemEditDrawer, catalog],
+  );
+
+  const handleViewHistory = useCallback(
+    (itemId: string) => {
+      const posItem = catalog.allItems.find((i) => i.id === itemId);
+      const preSeed = posItem
+        ? {
+            name: posItem.name,
+            itemType: posItem.type,
+            categoryId: posItem.categoryId,
+            priceCents: posItem.price,
+            sku: posItem.sku,
+            barcode: posItem.barcode,
+            isTrackable: posItem.isTrackInventory,
+            metadata: posItem.metadata,
+            onHand: posItem.onHand,
+          }
+        : undefined;
+      itemEditDrawer.open(itemId, { section: 'activity', preSeed, onSaveSuccess: catalog.refresh });
+    },
+    [itemEditDrawer, catalog],
+  );
+
+  const handleArchiveItem = useCallback(
+    (_itemId: string) => {
+      toast.info('Archive coming soon — use Edit Item to manage inventory');
+    },
+    [toast],
+  );
 
   // Build orderLabels map for tab display
   const orderLabels = useMemo(() => {
@@ -232,6 +289,23 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [showShiftEndConfirm, setShowShiftEndConfirm] = useState(false);
   const [voidReason, setVoidReason] = useState('');
+
+  // Close all portal-based dialogs when this POS mode becomes inactive.
+  // Portals render to document.body outside the CSS-hidden container,
+  // so they'd remain visible on top of the other POS mode without this.
+  useEffect(() => {
+    if (!isActive) {
+      setShowDiscountDialog(false);
+      setShowServiceChargeDialog(false);
+      setShowRecallDialog(false);
+      setShowTaxExemptDialog(false);
+      setShowNewCustomerDialog(false);
+      setShowPaymentPicker(false);
+      setShowTenderDialog(false);
+      setShowVoidConfirm(false);
+      setShowShiftEndConfirm(false);
+    }
+  }, [isActive]);
 
   // ── Item tap handler (universal) ────────────────────────────────
 
@@ -399,7 +473,12 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
 
   const handlePayClick = useCallback(() => {
     setShowPaymentPicker(true);
-  }, []);
+    // Start placeOrder early — gives it the full time while user picks payment method.
+    // placeOrder deduplicates internally, so TenderDialog's preemptive call safely reuses this.
+    if (pos.currentOrder && pos.currentOrder.status !== 'placed') {
+      pos.placeOrder().catch(() => {});
+    }
+  }, [pos]);
 
   const handlePaymentMethod = useCallback(
     (method: string) => {
@@ -412,16 +491,11 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
         toast.info('Split payment coming soon');
         return;
       }
+      // TenderDialog handles preemptive placeOrder in its own useEffect.
       setSelectedTenderType(method as 'cash' | 'check' | 'voucher');
       setShowTenderDialog(true);
-      // Preemptively place the order while user fills in tender details.
-      if (pos.currentOrder?.status !== 'placed') {
-        pos.placeOrder().catch(() => {
-          // Errors will surface when TenderDialog submits
-        });
-      }
     },
-    [toast, pos],
+    [toast],
   );
 
   const handlePaymentComplete = useCallback(
@@ -618,6 +692,7 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
                   pos.setOrder(order);
                   setViewMode('catalog');
                 }}
+                onItemCreated={() => catalog.refresh()}
                 isLoading={pos.isLoading}
               />
             </div>
@@ -654,7 +729,7 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
                 )}
 
                 {/* Large items grid */}
-                <div className="flex-1 overflow-y-auto p-4">
+                <div ref={itemGridScrollRef} className="flex-1 overflow-y-auto p-4">
                   {catalog.isLoading ? (
                     <div className="flex flex-col items-center justify-center py-16">
                       <LoadingSpinner size="md" label="Loading items..." />
@@ -677,16 +752,19 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
                           </p>
                         </div>
                       ) : (
-                        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
-                          {displayItems.map((item) => (
-                            <ItemButton
-                              key={item.id}
-                              item={item}
-                              onTap={handleItemTap}
-                              size="large"
-                            />
-                          ))}
-                        </div>
+                        <VirtualItemGrid
+                          items={displayItems}
+                          onItemTap={handleItemTap}
+                          scrollRef={itemGridScrollRef}
+                          size="large"
+                          minColumnWidth={140}
+                          isFavorite={catalog.isFavorite}
+                          onToggleFavorite={catalog.toggleFavorite}
+                          canEditItem={canEditItem}
+                          onEditItem={canEditItem ? handleEditItem : undefined}
+                          onArchiveItem={canEditItem ? handleArchiveItem : undefined}
+                          onViewHistory={canEditItem ? handleViewHistory : undefined}
+                        />
                       )}
                     </>
                   )}
@@ -1072,127 +1150,21 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
           document.body,
         )}
 
-      {/* Discount Dialog -- V1 simplified inline */}
-      {showDiscountDialog && typeof document !== 'undefined' &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/50" onClick={() => setShowDiscountDialog(false)} />
-            <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Apply Discount</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowDiscountDialog(false)}
-                  className="rounded-md p-1 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="px-6 py-4 space-y-4">
-                <p className="text-sm text-gray-500">
-                  Subtotal: {formatMoney(pos.currentOrder?.subtotal ?? 0)}
-                </p>
-                <div className="flex gap-2">
-                  <FnbDiscountQuickButton
-                    label="5%"
-                    onClick={() => {
-                      pos.applyDiscount('percentage', 5, '5% discount');
-                      setShowDiscountDialog(false);
-                    }}
-                  />
-                  <FnbDiscountQuickButton
-                    label="10%"
-                    onClick={() => {
-                      pos.applyDiscount('percentage', 10, '10% discount');
-                      setShowDiscountDialog(false);
-                    }}
-                  />
-                  <FnbDiscountQuickButton
-                    label="15%"
-                    onClick={() => {
-                      pos.applyDiscount('percentage', 15, '15% discount');
-                      setShowDiscountDialog(false);
-                    }}
-                  />
-                  <FnbDiscountQuickButton
-                    label="20%"
-                    onClick={() => {
-                      pos.applyDiscount('percentage', 20, '20% discount');
-                      setShowDiscountDialog(false);
-                    }}
-                  />
-                </div>
-                <FnbCustomDiscountInput
-                  onApply={(type, value, reason) => {
-                    pos.applyDiscount(type, value, reason);
-                    setShowDiscountDialog(false);
-                  }}
-                />
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {/* Discount Dialog */}
+      <DiscountDialog
+        open={showDiscountDialog}
+        onClose={() => setShowDiscountDialog(false)}
+        subtotalCents={pos.currentOrder?.subtotal ?? 0}
+        onApplyDiscount={(type, value, reason) => pos.applyDiscount(type, value, reason)}
+      />
 
-      {/* Service Charge Dialog -- V1 simplified inline */}
-      {showServiceChargeDialog && typeof document !== 'undefined' &&
-        createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/50" onClick={() => setShowServiceChargeDialog(false)} />
-            <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Add Service Charge</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowServiceChargeDialog(false)}
-                  className="rounded-md p-1 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="px-6 py-4 space-y-3">
-                <p className="text-sm text-gray-500">
-                  Subtotal: {formatMoney(pos.currentOrder?.subtotal ?? 0)}
-                </p>
-                <div className="flex gap-2">
-                  <FnbChargeQuickButton
-                    label="10% Service"
-                    onClick={() => {
-                      pos.addServiceCharge({
-                        chargeType: 'service_charge',
-                        name: 'Service Charge',
-                        calculationType: 'percentage',
-                        value: 10,
-                        isTaxable: false,
-                      });
-                      setShowServiceChargeDialog(false);
-                    }}
-                  />
-                  <FnbChargeQuickButton
-                    label="15% Service"
-                    onClick={() => {
-                      pos.addServiceCharge({
-                        chargeType: 'service_charge',
-                        name: 'Service Charge',
-                        calculationType: 'percentage',
-                        value: 15,
-                        isTaxable: false,
-                      });
-                      setShowServiceChargeDialog(false);
-                    }}
-                  />
-                </div>
-                <FnbCustomChargeInput
-                  onAdd={(charge) => {
-                    pos.addServiceCharge(charge);
-                    setShowServiceChargeDialog(false);
-                  }}
-                />
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {/* Service Charge Dialog */}
+      <ServiceChargeDialog
+        open={showServiceChargeDialog}
+        onClose={() => setShowServiceChargeDialog(false)}
+        subtotalCents={pos.currentOrder?.subtotal ?? 0}
+        onAddCharge={(charge) => pos.addServiceCharge(charge)}
+      />
 
       {/* Recall Dialog */}
       <RecallDialog
@@ -1264,8 +1236,8 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
         destructive
       />
 
-      {/* Tender Dialog (Cash / Voucher / Check) */}
-      {pos.currentOrder && config && (
+      {/* Tender Dialog (Cash / Voucher / Check) — only render when order has a real ID (not placeholder '') */}
+      {pos.currentOrder && pos.currentOrder.id && config && (
         <TenderDialog
           open={showTenderDialog}
           onClose={() => setShowTenderDialog(false)}
@@ -1310,172 +1282,4 @@ export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) 
   );
 }
 
-// ── F&B Discount Quick Button ─────────────────────────────────────
-
-function FnbDiscountQuickButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
-    >
-      {label}
-    </button>
-  );
-}
-
-// ── F&B Custom Discount Input ─────────────────────────────────────
-
-function FnbCustomDiscountInput({
-  onApply,
-}: {
-  onApply: (type: string, value: number, reason: string) => void;
-}) {
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
-  const [discountValue, setDiscountValue] = useState('');
-  const [discountReason, setDiscountReason] = useState('');
-
-  const handleApply = () => {
-    const val = parseFloat(discountValue);
-    if (isNaN(val) || val <= 0) return;
-    const finalValue = discountType === 'fixed' ? Math.round(val * 100) : val;
-    onApply(discountType, finalValue, discountReason || `${discountValue}${discountType === 'percentage' ? '%' : ''} discount`);
-  };
-
-  return (
-    <div className="space-y-2 border-t border-gray-100 pt-3">
-      <p className="text-xs font-medium text-gray-500 uppercase">Custom Discount</p>
-      <div className="flex gap-2">
-        <select
-          value={discountType}
-          onChange={(e) => setDiscountType(e.target.value as 'percentage' | 'fixed')}
-          className="rounded-lg border border-gray-300 px-2 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none"
-        >
-          <option value="percentage">%</option>
-          <option value="fixed">$</option>
-        </select>
-        <input
-          type="number"
-          value={discountValue}
-          onChange={(e) => setDiscountValue(e.target.value)}
-          placeholder={discountType === 'percentage' ? 'e.g., 10' : 'e.g., 5.00'}
-          min="0"
-          step={discountType === 'percentage' ? '1' : '0.01'}
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
-        />
-      </div>
-      <input
-        type="text"
-        value={discountReason}
-        onChange={(e) => setDiscountReason(e.target.value)}
-        placeholder="Reason (optional)"
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
-      />
-      <button
-        type="button"
-        onClick={handleApply}
-        disabled={!discountValue || parseFloat(discountValue) <= 0}
-        className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
-      >
-        Apply Discount
-      </button>
-    </div>
-  );
-}
-
-// ── F&B Charge Quick Button ───────────────────────────────────────
-
-function FnbChargeQuickButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
-    >
-      {label}
-    </button>
-  );
-}
-
-// ── F&B Custom Charge Input ───────────────────────────────────────
-
-function FnbCustomChargeInput({
-  onAdd,
-}: {
-  onAdd: (charge: {
-    chargeType: string;
-    name: string;
-    calculationType: string;
-    value: number;
-    isTaxable: boolean;
-  }) => void;
-}) {
-  const [chargeCalc, setChargeCalc] = useState<'percentage' | 'fixed'>('percentage');
-  const [chargeValue, setChargeValue] = useState('');
-  const [chargeName, setChargeName] = useState('');
-
-  const handleAdd = () => {
-    const val = parseFloat(chargeValue);
-    if (isNaN(val) || val <= 0) return;
-    const finalValue = chargeCalc === 'fixed' ? Math.round(val * 100) : val;
-    onAdd({
-      chargeType: 'service_charge',
-      name: chargeName || 'Service Charge',
-      calculationType: chargeCalc,
-      value: finalValue,
-      isTaxable: false,
-    });
-  };
-
-  return (
-    <div className="space-y-2 border-t border-gray-100 pt-3">
-      <p className="text-xs font-medium text-gray-500 uppercase">Custom Charge</p>
-      <input
-        type="text"
-        value={chargeName}
-        onChange={(e) => setChargeName(e.target.value)}
-        placeholder="Charge name (optional)"
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
-      />
-      <div className="flex gap-2">
-        <select
-          value={chargeCalc}
-          onChange={(e) => setChargeCalc(e.target.value as 'percentage' | 'fixed')}
-          className="rounded-lg border border-gray-300 px-2 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none"
-        >
-          <option value="percentage">%</option>
-          <option value="fixed">$</option>
-        </select>
-        <input
-          type="number"
-          value={chargeValue}
-          onChange={(e) => setChargeValue(e.target.value)}
-          placeholder={chargeCalc === 'percentage' ? 'e.g., 10' : 'e.g., 5.00'}
-          min="0"
-          step={chargeCalc === 'percentage' ? '1' : '0.01'}
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
-        />
-      </div>
-      <button
-        type="button"
-        onClick={handleAdd}
-        disabled={!chargeValue || parseFloat(chargeValue) <= 0}
-        className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
-      >
-        Add Charge
-      </button>
-    </div>
-  );
-}
+export default memo(FnbPOSPage);

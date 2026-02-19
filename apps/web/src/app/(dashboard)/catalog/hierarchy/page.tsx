@@ -4,13 +4,28 @@ import React, { useState, useCallback } from 'react';
 import { MoreVertical, Plus } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
-import { useDepartments, useSubDepartments, useCategories } from '@/hooks/use-catalog';
+import { useAllCategories, useDepartments, useSubDepartments, useCategories } from '@/hooks/use-catalog';
 import { apiFetch } from '@/lib/api-client';
 
 interface HierarchyItem {
   id: string;
   name: string;
   isActive: boolean;
+}
+
+function HierarchyPaneSkeleton({ title }: { title: string }) {
+  return (
+    <div className="flex flex-col rounded-lg border border-gray-200 bg-surface">
+      <div className="border-b border-gray-200 px-4 py-3">
+        <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+      </div>
+      <div className="flex-1 space-y-1 p-2">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-9 w-full animate-pulse rounded bg-gray-500/10" />
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function HierarchyPane({
@@ -62,8 +77,8 @@ function HierarchyPane({
           <div
             key={item.id}
             onClick={() => onSelect(item.id)}
-            className={`relative flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-50 ${
-              selectedId === item.id ? 'bg-indigo-50' : ''
+            className={`relative flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-500/10 ${
+              selectedId === item.id ? 'bg-indigo-500/10' : ''
             }`}
           >
             {editingId === item.id ? (
@@ -76,7 +91,7 @@ function HierarchyPane({
                   if (e.key === 'Enter') handleRename(item.id);
                   if (e.key === 'Escape') setEditingId(null);
                 }}
-                className="mr-2 flex-1 rounded border border-indigo-300 px-2 py-0.5 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="mr-2 flex-1 rounded border border-indigo-500/40 bg-transparent px-2 py-0.5 text-sm text-gray-900 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 autoFocus
                 onClick={(e) => e.stopPropagation()}
               />
@@ -106,7 +121,7 @@ function HierarchyPane({
                       setEditName(item.name);
                       setMenuOpen(null);
                     }}
-                    className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                    className="w-full px-3 py-1.5 text-left text-sm text-gray-900 hover:bg-gray-500/10"
                   >
                     Edit
                   </button>
@@ -117,7 +132,7 @@ function HierarchyPane({
                       setDeactivateId(item.id);
                       setMenuOpen(null);
                     }}
-                    className="w-full px-3 py-1.5 text-left text-sm text-red-600 hover:bg-gray-50"
+                    className="w-full px-3 py-1.5 text-left text-sm text-red-500 hover:bg-red-500/10"
                   >
                     Deactivate
                   </button>
@@ -142,7 +157,7 @@ function HierarchyPane({
                 if (e.key === 'Escape') setAddMode(false);
               }}
               placeholder="Name..."
-              className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="flex-1 rounded border border-gray-300 bg-transparent px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               autoFocus
             />
             <button
@@ -157,7 +172,7 @@ function HierarchyPane({
           <button
             type="button"
             onClick={() => setAddMode(true)}
-            className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm text-gray-500 transition-colors hover:border-indigo-400 hover:text-indigo-600"
+            className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-400/50 px-3 py-2 text-sm text-gray-500 transition-colors hover:border-indigo-500/50 hover:text-indigo-500"
           >
             <Plus className="h-4 w-4" /> Add {title.replace(/s$/, '')}
           </button>
@@ -186,6 +201,7 @@ export default function HierarchyPage() {
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [selectedSubDeptId, setSelectedSubDeptId] = useState<string | null>(null);
 
+  const { isLoading } = useAllCategories();
   const { data: departments, mutate: refreshDepts } = useDepartments();
   const { data: subDepartments, mutate: refreshSubDepts } = useSubDepartments(selectedDeptId || undefined);
   const { data: categories, mutate: refreshCats } = useCategories(selectedSubDeptId || undefined);
@@ -244,10 +260,23 @@ export default function HierarchyPage() {
     [refreshDepts, refreshSubDepts, refreshCats],
   );
 
+  // Show skeletons while initial data loads
+  if (isLoading && departments.length === 0) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-xl font-semibold text-gray-900">Item Hierarchy</h1>
+        <div className="grid min-h-[500px] grid-cols-1 gap-4 md:grid-cols-3">
+          <HierarchyPaneSkeleton title="Departments" />
+          <HierarchyPaneSkeleton title="Sub-Departments" />
+          <HierarchyPaneSkeleton title="Categories" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold text-gray-900">Item Hierarchy</h1>
-      {/* TODO: Update backend validation in Session 8 to allow 3-level category nesting */}
       <div className="grid min-h-[500px] grid-cols-1 gap-4 md:grid-cols-3">
         <HierarchyPane
           title="Departments"

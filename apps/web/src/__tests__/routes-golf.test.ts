@@ -25,7 +25,7 @@ const {
   const mockGetGolfCustomerKpis = vi.fn();
   const mockToCsv = vi.fn();
 
-  const mockWithMiddleware = vi.fn((handler: Function, _options: unknown) => {
+  const mockWithMiddleware = vi.fn((handler: (...args: any[]) => any, _options: unknown) => {
     return async (request: any) => {
       const ctx = {
         user: { id: 'user_001' },

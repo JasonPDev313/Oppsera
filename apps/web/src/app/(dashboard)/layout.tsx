@@ -33,13 +33,18 @@ import {
   PackageCheck,
   Truck,
 } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
 import { EntitlementsProvider, useEntitlementsContext } from '@/components/entitlements-provider';
+import { QueryProvider } from '@/components/query-provider';
 import { useTheme } from '@/components/theme-provider';
 import { ContextMenuProvider } from '@/components/context-menu-provider';
 import { ProfileDrawerProvider, CustomerProfileDrawer } from '@/components/customer-profile-drawer';
+import { ItemEditDrawerProvider } from '@/components/inventory/ItemEditDrawerContext';
+import { ItemEditDrawer } from '@/components/inventory/ItemEditDrawer';
 import { NavigationGuardProvider, useNavigationGuard } from '@/hooks/use-navigation-guard';
 import { preloadPOSCatalog } from '@/hooks/use-catalog-for-pos';
+import { apiFetch } from '@/lib/api-client';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -126,6 +131,23 @@ function useLiveClock(): { time: string; date: string } {
     time: now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }),
     date: now.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' }),
   };
+}
+
+/** Isolated clock display — updates every second without re-rendering the parent layout. */
+function LiveClockDisplay() {
+  const clock = useLiveClock();
+  return (
+    <>
+      <div className="hidden items-center gap-1.5 md:flex">
+        <CalendarDays className="h-4 w-4 text-gray-400" />
+        <span className="text-sm font-medium text-gray-600">{clock.date}</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Clock className="h-4 w-4 text-gray-400" />
+        <span className="text-sm font-medium tabular-nums text-gray-600">{clock.time}</span>
+      </div>
+    </>
+  );
 }
 
 function SidebarActions({
@@ -377,21 +399,27 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { user, tenant, locations, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
   const { isModuleEnabled } = useEntitlementsContext();
-  const clock = useLiveClock();
   const { guardedClick } = useNavigationGuard();
 
-  // Preload POS catalog into sessionStorage on login so the POS page
-  // renders instantly. Only fetches if no cache exists yet.
-  // Also prefetch POS route chunks so navigating to POS is instant.
+  // Preload POS catalog + category hierarchy + POS route chunks on login
+  // so they're instant when the user navigates to POS or opens the edit drawer.
   useEffect(() => {
     if (isAuthenticated && locations.length > 0) {
       preloadPOSCatalog(locations[0]!.id);
       router.prefetch('/pos/retail');
       router.prefetch('/pos/fnb');
+      // Warm the category hierarchy cache — used by item edit drawer dropdowns
+      queryClient.prefetchQuery({
+        queryKey: ['categories'],
+        queryFn: () =>
+          apiFetch<{ data: unknown[] }>('/api/v1/catalog/categories').then((r) => r.data),
+        staleTime: 5 * 60_000,
+      });
     }
-  }, [isAuthenticated, locations, router]);
+  }, [isAuthenticated, locations, router, queryClient]);
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -422,25 +450,23 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     router.replace('/login');
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !user || needsOnboarding) {
+  // Not loading but not authenticated → redirect handled by effect above
+  if (!isLoading && (!isAuthenticated || !user || needsOnboarding)) {
     return null;
   }
 
+  // Derive display values — use fallbacks during auth loading so the
+  // sidebar renders immediately and the user can navigate right away.
   const tenantName = tenant?.name || 'OppsEra';
-  const userName = user.name || 'User';
-  const userEmail = user.email || '';
+  const userName = user?.name || 'User';
+  const userEmail = user?.email || '';
+  // During auth loading, show all modules — entitlements filter once loaded
+  const checkModule = isLoading ? () => true : isModuleEnabled;
 
   return (
     <ContextMenuProvider>
     <ProfileDrawerProvider>
+    <ItemEditDrawerProvider>
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
@@ -471,7 +497,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           userName={userName}
           userEmail={userEmail}
           onLogout={handleLogout}
-          isModuleEnabled={isModuleEnabled}
+          isModuleEnabled={checkModule}
         />
       </div>
 
@@ -494,7 +520,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             userName={userName}
             userEmail={userEmail}
             onLogout={handleLogout}
-            isModuleEnabled={isModuleEnabled}
+            isModuleEnabled={checkModule}
             collapsed={collapsed}
             onToggleCollapse={toggleCollapse}
           />
@@ -523,14 +549,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="hidden items-center gap-1.5 md:flex">
-              <CalendarDays className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-medium text-gray-600">{clock.date}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-4 w-4 text-gray-400" />
-              <span className="text-sm font-medium tabular-nums text-gray-600">{clock.time}</span>
-            </div>
+            <LiveClockDisplay />
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 transition-colors hover:bg-indigo-700">
               <span className="text-sm font-medium text-white">{getInitials(userName)}</span>
             </div>
@@ -542,12 +561,21 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           pathname.startsWith('/pos')
             ? 'overflow-hidden'
             : 'overflow-y-auto p-4 md:p-6'
-        }`}>{children}</main>
+        }`}>
+          {isLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+            </div>
+          ) : children}
+        </main>
       </div>
 
       {/* Customer Profile Drawer — always mounted, renders when open */}
       <CustomerProfileDrawer />
+      {/* Item Edit Drawer — always mounted, renders when open */}
+      <ItemEditDrawer />
     </div>
+    </ItemEditDrawerProvider>
     </ProfileDrawerProvider>
     </ContextMenuProvider>
   );
@@ -555,10 +583,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <EntitlementsProvider>
-      <NavigationGuardProvider>
-        <DashboardLayoutInner>{children}</DashboardLayoutInner>
-      </NavigationGuardProvider>
-    </EntitlementsProvider>
+    <QueryProvider>
+      <EntitlementsProvider>
+        <NavigationGuardProvider>
+          <DashboardLayoutInner>{children}</DashboardLayoutInner>
+        </NavigationGuardProvider>
+      </EntitlementsProvider>
+    </QueryProvider>
   );
 }
