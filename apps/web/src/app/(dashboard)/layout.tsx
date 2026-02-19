@@ -70,7 +70,7 @@ const navigation: NavItem[] = [
       { name: 'Items', href: '/catalog', icon: List },
       { name: 'Hierarchy', href: '/catalog/hierarchy', icon: FolderTree },
       { name: 'Taxes', href: '/catalog/taxes', icon: Receipt },
-      { name: 'Archived Items', href: '/inventory', icon: Warehouse },
+      { name: 'Stock Levels', href: '/inventory', icon: Warehouse },
       { name: 'Receiving', href: '/inventory/receiving', icon: PackageCheck },
       { name: 'Vendors', href: '/vendors', icon: Truck },
     ],
