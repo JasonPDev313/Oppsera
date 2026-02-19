@@ -30,11 +30,15 @@ import {
   Moon,
   CalendarDays,
   Clock,
+  FileBarChart,
+  LayoutGrid,
+  Flag,
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
-import { useEntitlements } from '@/hooks/use-entitlements';
+import { EntitlementsProvider, useEntitlementsContext } from '@/components/entitlements-provider';
 import { useTheme } from '@/components/theme-provider';
 import { ProfileDrawerProvider, CustomerProfileDrawer } from '@/components/customer-profile-drawer';
+import { NavigationGuardProvider, useNavigationGuard } from '@/hooks/use-navigation-guard';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -89,7 +93,18 @@ const navigation: NavItem[] = [
       { name: 'Billing', href: '/customers/billing', icon: CreditCard },
     ],
   },
-  { name: 'Reports', href: '/reports', icon: BarChart3, moduleKey: 'reporting' },
+  {
+    name: 'Reports',
+    href: '/reports',
+    icon: BarChart3,
+    moduleKey: 'reporting',
+    children: [
+      { name: 'Overview', href: '/reports', icon: BarChart3 },
+      { name: 'Custom Reports', href: '/reports/custom', icon: FileBarChart },
+      { name: 'Dashboards', href: '/dashboards', icon: LayoutGrid },
+      { name: 'Golf Analytics', href: '/reports/golf', icon: Flag, moduleKey: 'golf_ops' },
+    ],
+  },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -181,7 +196,7 @@ function SidebarContent({
   onToggleCollapse,
 }: {
   pathname: string;
-  onLinkClick?: () => void;
+  onLinkClick?: (e: React.MouseEvent) => void;
   userName: string;
   userEmail: string;
   onLogout: () => void;
@@ -265,7 +280,7 @@ function SidebarContent({
                 {/* Expanded: inline children */}
                 {isParentActive && !collapsed && (
                   <div className="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3">
-                    {item.children.map((child) => {
+                    {item.children.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey)).map((child) => {
                       const isChildActive =
                         child.href === '/catalog'
                           ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
@@ -293,7 +308,7 @@ function SidebarContent({
                   <div className="absolute left-full top-0 z-50 hidden pl-3 group-hover/nav:block">
                     <div className="min-w-44 rounded-lg border border-gray-200 bg-surface py-1.5 shadow-lg">
                       <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase">{item.name}</p>
-                      {item.children.map((child) => {
+                      {item.children.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey)).map((child) => {
                         const isChildActive =
                           child.href === '/catalog'
                             ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
@@ -379,14 +394,15 @@ function SidebarContent({
   );
 }
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { user, tenant, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
-  const { isModuleEnabled } = useEntitlements();
+  const { isModuleEnabled } = useEntitlementsContext();
   const clock = useLiveClock();
+  const { guardedClick } = useNavigationGuard();
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -461,7 +477,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <SidebarContent
           pathname={pathname}
-          onLinkClick={() => setSidebarOpen(false)}
+          onLinkClick={(e) => guardedClick(e, () => setSidebarOpen(false))}
           userName={userName}
           userEmail={userEmail}
           onLogout={handleLogout}
@@ -482,6 +498,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         >
           <SidebarContent
             pathname={pathname}
+            onLinkClick={(e) => guardedClick(e)}
             userName={userName}
             userEmail={userEmail}
             onLogout={handleLogout}
@@ -536,5 +553,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <CustomerProfileDrawer />
     </div>
     </ProfileDrawerProvider>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <EntitlementsProvider>
+      <NavigationGuardProvider>
+        <DashboardLayoutInner>{children}</DashboardLayoutInner>
+      </NavigationGuardProvider>
+    </EntitlementsProvider>
   );
 }

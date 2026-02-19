@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissions } from '@/hooks/use-permissions';
-import { useEntitlements } from '@/hooks/use-entitlements';
+import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { AuditLogViewer } from '@/components/audit-log-viewer';
 
 // ── Types ────────────────────────────────────────────────────────
@@ -740,7 +740,8 @@ function ModulesTab() {
   const [entitlementMap, setEntitlementMap] = useState<Map<string, EntitlementInfo>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [enablingModule, setEnablingModule] = useState<string | null>(null);
-  const { isModuleEnabled, refetch: refetchEntitlements } = useEntitlements();
+  const [togglingModule, setTogglingModule] = useState<string | null>(null);
+  const { isModuleEnabled, refetch: refetchEntitlements } = useEntitlementsContext();
   const { can } = usePermissions();
 
   const loadModules = useCallback(async () => {
@@ -783,6 +784,23 @@ function ModulesTab() {
     }
   }, [loadModules, refetchEntitlements]);
 
+  const handleToggleModule = useCallback(async (moduleKey: string, enable: boolean) => {
+    setTogglingModule(moduleKey);
+    try {
+      await apiFetch('/api/v1/entitlements', {
+        method: 'PATCH',
+        body: JSON.stringify({ moduleKey, isEnabled: enable }),
+      });
+      await Promise.all([loadModules(), refetchEntitlements()]);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        alert(err.message);
+      }
+    } finally {
+      setTogglingModule(null);
+    }
+  }, [loadModules, refetchEntitlements]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -803,7 +821,10 @@ function ModulesTab() {
           const ent = entitlementMap.get(mod.key);
           const enabled = isModuleEnabled(mod.key);
           const isComingSoon = mod.phase !== 'v1';
-          const canEnable = !isComingSoon && !enabled && mod.key !== 'platform_core' && can('settings.update');
+          const isCore = mod.key === 'platform_core';
+          const hasEntitlement = !!ent;
+          const canEnable = !isComingSoon && !enabled && !isCore && can('settings.update');
+          const canDisable = enabled && !isCore && can('settings.update');
 
           return (
             <div
@@ -826,6 +847,10 @@ function ModulesTab() {
                   ) : enabled ? (
                     <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
                       Active
+                    </span>
+                  ) : hasEntitlement ? (
+                    <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                      Disabled
                     </span>
                   ) : (
                     <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
@@ -854,7 +879,7 @@ function ModulesTab() {
                   Plan: {ent.planTier}
                 </p>
               )}
-              {canEnable && (
+              {canEnable && !hasEntitlement && (
                 <button
                   type="button"
                   onClick={() => handleEnableModule(mod.key)}
@@ -867,6 +892,36 @@ function ModulesTab() {
                     <Plus className="h-3 w-3" />
                   )}
                   Enable
+                </button>
+              )}
+              {canEnable && hasEntitlement && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleModule(mod.key, true)}
+                  disabled={togglingModule === mod.key}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {togglingModule === mod.key ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3" />
+                  )}
+                  Enable
+                </button>
+              )}
+              {canDisable && (
+                <button
+                  type="button"
+                  onClick={() => handleToggleModule(mod.key, false)}
+                  disabled={togglingModule === mod.key}
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                >
+                  {togglingModule === mod.key ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <X className="h-3 w-3" />
+                  )}
+                  Disable
                 </button>
               )}
             </div>

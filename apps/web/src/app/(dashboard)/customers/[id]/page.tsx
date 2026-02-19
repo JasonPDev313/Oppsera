@@ -1107,19 +1107,19 @@ export default function CustomerDetailPage() {
               }`}
             >
               {tab.label}
-              {tab.key === 'activity' && customer.activities.length > 0 && (
+              {tab.key === 'activity' && (customer.activities?.length ?? 0) > 0 && (
                 <span className="ml-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                  {customer.activities.length}
+                  {customer.activities!.length}
                 </span>
               )}
-              {tab.key === 'memberships' && customer.memberships.length > 0 && (
+              {tab.key === 'memberships' && (customer.memberships?.length ?? 0) > 0 && (
                 <span className="ml-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                  {customer.memberships.length}
+                  {customer.memberships!.length}
                 </span>
               )}
-              {tab.key === 'billing' && customer.billingAccounts.length > 0 && (
+              {tab.key === 'billing' && (customer.billingAccounts?.length ?? 0) > 0 && (
                 <span className="ml-1.5 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                  {customer.billingAccounts.length}
+                  {customer.billingAccounts!.length}
                 </span>
               )}
             </button>

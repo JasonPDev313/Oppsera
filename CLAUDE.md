@@ -32,7 +32,7 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Payments / Tenders | payments | V1 | Done (cash V1) |
 | Inventory | inventory | V1 | Done (movements ledger + events) |
 | Customer Management | customers | V1 | Done (CRM + Universal Profile) |
-| Reporting / Exports | reporting | V1 | Planned |
+| Reporting / Exports | reporting | V1 | Done (complete: backend + frontend + custom builder + dashboards) |
 | F&B POS (dual-mode, shares orders module) | pos_fnb | V1 | Done (frontend) |
 | Restaurant KDS | kds | V2 | Planned |
 | Golf Operations | golf_ops | V2 | Planned |
@@ -66,7 +66,7 @@ oppsera/
 │       ├── payments/                 # @oppsera/module-payments — IMPLEMENTED (cash V1)
 │       ├── inventory/                # @oppsera/module-inventory — IMPLEMENTED (movements ledger + events)
 │       ├── customers/                # @oppsera/module-customers — IMPLEMENTED (CRM + Universal Profile)
-│       ├── reporting/                # @oppsera/module-reporting — scaffolded
+│       ├── reporting/                # @oppsera/module-reporting — IMPLEMENTED (queries + consumers + CSV)
 │       ├── kds/                      # @oppsera/module-kds — scaffolded
 │       ├── golf-ops/                 # @oppsera/module-golf-ops — scaffolded
 │       └── marketing/                # @oppsera/module-marketing — scaffolded
@@ -307,6 +307,24 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - Idempotency: UNIQUE index on (tenantId, referenceType, referenceId, inventoryItemId, movementType) + ON CONFLICT DO NOTHING
   - Frontend: inventory list page (search, filters, color-coded on-hand), detail page with movement history, receive/adjust/shrink dialogs
 - **Shared**: item-type utilities (incl. green_fee/rental → retail mapping), money helpers, ULID, date utils, slug generation, catalog metadata types
+- **Reporting Module** (Session 17 schema + Session 18 consumers + Session 19 queries/routes):
+  - **4 read model tables**: `rm_daily_sales`, `rm_item_sales`, `rm_inventory_on_hand`, `rm_customer_activity`
+  - CQRS read models with `rm_` prefix — pre-aggregated projections updated by event consumers
+  - Unique composite indexes for upsert-by-natural-key pattern (e.g., tenant+location+date)
+  - `NUMERIC(19,4)` for monetary aggregates (not cents — these are reporting summaries)
+  - `processed_events` enhanced with `tenant_id` column for consumer idempotency
+  - RLS: FORCE ROW LEVEL SECURITY + 4 policies per table (16 total)
+  - **4 event consumers**: `handleOrderPlaced` (order.placed.v1), `handleOrderVoided` (order.voided.v1), `handleTenderRecorded` (tender.recorded.v1), `handleInventoryMovement` (inventory.movement.created.v1)
+  - All consumers use atomic idempotency: INSERT into `processed_events` + upsert read model in same transaction
+  - Business date utility: `computeBusinessDate(occurredAt, timezone, dayCloseTime?)` — IANA timezone + day-close-time offset
+  - **4 query services**: `getDailySales` (single/multi-location aggregation), `getItemSales` (top-N with sort), `getInventorySummary` (below-threshold filter), `getDashboardMetrics` (today's KPIs)
+  - **CSV export**: `toCsv(columns, rows)` — RFC 4180 escaping, UTF-8 BOM for Excel
+  - **6 API routes**: `/api/v1/reports/{daily-sales, item-sales, inventory-summary, dashboard}` + 2 CSV export endpoints
+  - Permissions: `reports.view` for data queries, `reports.export` for CSV downloads
+  - Schema: `packages/db/src/schema/reporting.ts`, Migration: `0049_reporting_read_models.sql`
+  - Consumers: `packages/modules/reporting/src/consumers/`
+  - Queries: `packages/modules/reporting/src/queries/`
+  - Routes: `apps/web/src/app/api/v1/reports/`
 - **Customer Management Module** (Session 16 + 16.5):
   - **36 tables** (15 Session 16 + 21 Session 16.5): customers (31 cols), customer_relationships, customer_identifiers, customer_activity_log, membership_plans, memberships, membership_billing_events, billing_accounts, billing_account_members, ar_transactions, ar_allocations, statements, late_fee_policies, customer_privileges, pricing_tiers, customer_contacts, customer_preferences, customer_documents, customer_communications, customer_service_flags, customer_consents, customer_external_ids, customer_auth_accounts, customer_wallet_accounts, customer_alerts, customer_scores, customer_metrics_daily, customer_metrics_lifetime, customer_merge_history, customer_households, customer_household_members, customer_visits, customer_incidents, customer_segments, customer_segment_memberships, customer_payment_methods
   - **38 commands**: 16 Session 16 (CRUD customers, memberships, billing/AR) + 22 Session 16.5 (contacts, preferences, documents, communications, service flags, consents, external IDs, wallets, alerts, households, visits, incidents, segments)
@@ -322,9 +340,31 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - Event consumers: order.placed (AR charge + visit/spend stats), order.voided (AR reversal), tender.recorded (AR payment + FIFO allocation)
   - GL integration: AR charge/payment/writeoff/late_fee journal entries
   - Sidebar navigation: Customers section with All Customers, Memberships, Billing sub-items
+- **Reporting Module** (Sessions 17-21):
+  - **Backend**: 4 read model tables (`rm_daily_sales`, `rm_item_sales`, `rm_inventory_on_hand`, `rm_customer_activity`), 4 event consumers, business date utility, 4 query services, CSV export utility (RFC 4180 + UTF-8 BOM), 6 API routes (4 JSON + 2 CSV export)
+  - **Frontend**: Reports page (`/reports`) with 3-tab layout (Sales, Items, Inventory), 4 KPI metric cards with 60s auto-refresh, Recharts line/bar charts, DataTable integration, CSV export buttons, DateRangePicker with quick-select, location selector
+  - **Components**: 5 report components (DateRangePicker, MetricCards, SalesTab, ItemsTab, InventoryTab), 4 data hooks (useReportsDashboard, useDailySales, useItemSales, useInventorySummary), formatReportMoney + buildExportUrl helpers
+  - **Custom Report Builder** (Session 21 — Semantic Layer):
+    - 3 new tables: `reporting_field_catalog` (system), `report_definitions`, `dashboard_definitions`
+    - Field catalog: 31 fields across 4 datasets (daily_sales, item_sales, inventory, customers)
+    - Query compiler: `compileReport()` — validates fields against catalog, builds parameterized SQL, enforces guardrails (tenant isolation, date range required for time-series, max 365d range, max 10K rows, max 20 cols/15 filters)
+    - 4 commands: `saveReport`, `deleteReport` (soft), `saveDashboard`, `deleteDashboard` (soft)
+    - 5 new queries: `getFieldCatalog`, `getReport`, `listReports`, `runReport`, `getDashboard`, `listDashboards`
+  - **Custom Report Builder Frontend** (Session 22):
+    - Report builder UI: field picker (dimensions/measures), filter builder (typed operators), chart preview (line/bar/table/metric via Recharts), client-side validation mirroring server guardrails
+    - Saved reports list with CRUD, cursor pagination, CSV export, permission-gated actions
+    - Dashboard builder with @dnd-kit drag-and-drop, 12-column CSS Grid, preset tile sizes (S/M/L), auto-refresh
+    - Dashboard viewer (read-only), saved dashboards list
+    - 7 Next.js pages: `/reports/custom`, `/reports/custom/new`, `/reports/custom/[id]`, `/dashboards`, `/dashboards/new`, `/dashboards/[id]`, `/dashboards/[id]/edit`
+    - 3 hooks: `useFieldCatalog`, `useCustomReports` (CRUD + run + export), `useDashboards` (CRUD)
+    - Backend tile cache: in-memory TTL Map, tenant-isolated cache keys
+    - V2-ready `report_snapshots` table (migration 0051, schema only)
+    - Sidebar: Reports now expandable with Overview, Custom Reports, Dashboards sub-items
+    - 13 API routes: field catalog, custom report CRUD+run+export, dashboard CRUD
+  - Permissions: `reports.view`, `reports.export`, `reports.custom.view`, `reports.custom.manage`
 
 ### Test Coverage
-586 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers + 183 web (75 POS + 66 tenders + 42 inventory) + 27 db
+743 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -339,7 +379,6 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
 - Settings → Dashboard tab (widget toggles, notes editor)
 - Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
-- Reporting module (Session 17)
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
@@ -418,6 +457,17 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 70. **DB pool config is env-var-driven** — `DB_POOL_MAX` (default 5), `DB_ADMIN_POOL_MAX` (default 3), `DB_PREPARE_STATEMENTS` (default false). Set `DB_POOL_MAX=2` on Vercel, `DB_POOL_MAX=10` + `DB_PREPARE_STATEMENTS=true` on containers with direct Postgres.
 71. **Permission cache TTL is 15 seconds** — reduced from 60s for faster permission revocation. When a user is demoted/terminated, their stale access window is at most 15s. Future: add immediate invalidation webhook.
 72. **set_config scope must be transaction-scoped** — always use `set_config(key, value, true)` (third param = `true` for SET LOCAL). Session-scoped (`false`) leaks between pooled connections. `withTenant()` already does this correctly.
+73. **Read model tables use `rm_` prefix** — all reporting/CQRS read models are prefixed `rm_` (e.g., `rm_daily_sales`). They are projections updated by event consumers, never by user commands directly.
+74. **Read model monetary columns use NUMERIC(19,4), not cents** — unlike order-layer tables (cents as INTEGER), read models store aggregated dollar amounts as `NUMERIC(19,4)` since they are reporting summaries, not transactional amounts. Always convert with `Number()` when returning to frontend.
+75. **Read models use upsert-by-natural-key** — each `rm_` table has a UNIQUE composite index on its natural key (e.g., `tenant_id + location_id + business_date`). Consumers use `ON CONFLICT ... DO UPDATE` to increment/decrement aggregates atomically.
+76. **processed_events has tenant_id** — the `processed_events` table was enhanced with `tenant_id` for tenant-scoped consumer idempotency. Consumers check `(tenant_id, consumer_name, event_id)` before processing.
+77. **Reporting consumers use atomic idempotency** — each consumer does `INSERT INTO processed_events ... ON CONFLICT DO NOTHING RETURNING id` as the first statement inside `withTenant`. If RETURNING is empty, event was already processed → skip. This is stronger than the bus-level `checkProcessed` because it's inside the same transaction as the read model upsert.
+78. **Business date uses day-close-time offset** — `computeBusinessDate(occurredAt, timezone, dayCloseTime?)` subtracts the day-close offset (default `'00:00'`) from the UTC timestamp before converting to local date. Events between midnight and dayCloseTime belong to the previous business day.
+79. **Voids don't decrement orderCount** — `handleOrderVoided` increments `voidCount`/`voidTotal` and subtracts from `netSales`, but does NOT touch `orderCount`. `avgOrderValue` is recomputed as `netSales / orderCount` with the original count.
+80. **Reporting consumers use raw SQL, not Drizzle fluent API** — `tx.execute(sql`...ON CONFLICT...DO UPDATE SET col = col + ${value}...`)` because Drizzle's `onConflictDoUpdate` doesn't support `EXCLUDED` column references or arithmetic on existing values.
+81. **Multi-location aggregation recomputes avgOrderValue** — when aggregating daily sales across locations, `avgOrderValue = SUM(netSales) / SUM(orderCount)`. Never sum per-location avgOrderValue — that's a mathematical error (average of averages ≠ true average).
+82. **CSV export uses UTF-8 BOM** — `toCsv()` prepends `\uFEFF` (BOM) so Excel auto-detects UTF-8 encoding. Without BOM, Excel may interpret as ANSI and mangle non-ASCII characters.
+83. **Report API routes use two permission levels** — `reports.view` for JSON data queries, `reports.export` for CSV downloads. Both require the `reporting` entitlement. This allows operators to grant dashboard access without export capability.
 
 ## Quick Commands
 

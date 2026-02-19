@@ -60,11 +60,12 @@ export async function listInventoryItems(input: ListInventoryItemsInput): Promis
 
     if (itemIds.length > 0) {
       // Use raw SQL for the aggregate query
+      const idList = sql.join(itemIds.map((id) => sql`${id}`), sql`, `);
       const onHandRows = await tx.execute(
         sql`SELECT inventory_item_id, COALESCE(SUM(quantity_delta), 0) as on_hand
             FROM inventory_movements
             WHERE tenant_id = ${input.tenantId}
-              AND inventory_item_id = ANY(${itemIds})
+              AND inventory_item_id IN (${idList})
             GROUP BY inventory_item_id`
       );
       const onHandArr = Array.from(onHandRows as Iterable<{ inventory_item_id: string; on_hand: string }>);

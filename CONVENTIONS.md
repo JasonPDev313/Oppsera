@@ -2178,16 +2178,46 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - ProfileDrawerContext: React Context provider with `useProfileDrawer()` hook (`open(customerId, { tab, source })`, `close()`)
 - HouseholdTreeView: hierarchical display with Unicode branch chars, primary member crown icon, clickable member navigation
 
+**Milestone 10: Reporting Module (Schema + Consumers + Queries + Routes + Frontend)**
+
+- Session 17: 4 read model tables (`rm_daily_sales`, `rm_item_sales`, `rm_inventory_on_hand`, `rm_customer_activity`) + migration + RLS
+- Session 18: 4 event consumers (`handleOrderPlaced`, `handleOrderVoided`, `handleTenderRecorded`, `handleInventoryMovement`) + business date utility
+- Session 19: 4 query services (`getDailySales`, `getItemSales`, `getInventorySummary`, `getDashboardMetrics`) + CSV export (`toCsv`) + 6 API routes
+- Session 20: Reports frontend — `/reports` page with 3 tabs (Sales, Items, Inventory), 4 KPI metric cards (60s auto-refresh), Recharts charts, CSV export, DateRangePicker, location selector
+- Session 21: Custom Report Builder Backend (Semantic Layer) — `reporting_field_catalog` (31 fields, 4 datasets), `report_definitions`, `dashboard_definitions`, query compiler (`compileReport` with guardrails), CRUD commands + run/export queries, 13 API routes
+- Session 22: Custom Builder Frontend + Performance — Report builder UI (field picker, filter builder, chart preview, validation), saved reports list, dashboard builder (@dnd-kit drag-and-drop, 12-col grid, tile presets), dashboard viewer, saved dashboards list, tile cache (in-memory TTL Map), `report_snapshots` table (V2-ready), sidebar sub-nav for Reports
+- CQRS pattern: read models are pre-aggregated projections, never written to by user commands
+- Atomic idempotency: INSERT processed_events + upsert read model in same transaction
+- Business date: `computeBusinessDate(occurredAt, timezone, dayCloseTime?)` with IANA timezone + day-close-time offset
+- Query services support single-location (direct select) and multi-location (GROUP BY + recomputed avgOrderValue) modes
+- CSV export: RFC 4180 escaping + UTF-8 BOM for Excel compatibility
+- API routes: `reports.view` permission for data queries, `reports.export` for CSV downloads, `reports.custom.view` / `reports.custom.manage` for custom report builder
+- Schema: `packages/db/src/schema/reporting.ts`, Migrations: `0049_reporting_read_models.sql`, `0050_custom_report_builder.sql`
+- Consumers: `packages/modules/reporting/src/consumers/`
+- Compiler: `packages/modules/reporting/src/compiler/report-compiler.ts` — validates fields against catalog, builds parameterized SQL
+- Commands: `packages/modules/reporting/src/commands/` (saveReport, deleteReport, saveDashboard, deleteDashboard)
+- Queries: `packages/modules/reporting/src/queries/`
+- Routes: `apps/web/src/app/api/v1/reports/`, `apps/web/src/app/api/v1/dashboards/`
+- Frontend page: `apps/web/src/app/(dashboard)/reports/page.tsx`
+- Frontend components: `apps/web/src/components/reports/` (DateRangePicker, MetricCards, SalesTab, ItemsTab, InventoryTab)
+- Frontend components (custom): `apps/web/src/components/reports/custom/` (ReportBuilder, FieldPicker, FilterBuilder, ReportPreview, SavedReportsList)
+- Frontend components (dashboards): `apps/web/src/components/dashboards/` (DashboardBuilder, DashboardTile, AddTileModal, DashboardViewer, SavedDashboardsList)
+- Frontend hooks: `apps/web/src/hooks/use-reports.ts`, `use-custom-reports.ts`, `use-field-catalog.ts`, `use-dashboards.ts`
+- Frontend types: `apps/web/src/types/reports.ts`, `apps/web/src/types/custom-reports.ts`
+- Frontend pages: `/reports/custom`, `/reports/custom/new`, `/reports/custom/[reportId]`, `/dashboards`, `/dashboards/new`, `/dashboards/[dashboardId]`, `/dashboards/[dashboardId]/edit`
+- Tile cache: `packages/modules/reporting/src/cache.ts` (TileCache, buildTileCacheKey, getTileCache)
+- Migration: `0051_report_snapshots.sql` (V2-ready snapshot table)
+- Reporting values are in cents (consumers insert order event amounts directly) — format with `value / 100`
+
 ### Test Coverage
 
-569 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 183 web (75 POS + 66 tenders + 42 inventory) + 10 db
+743 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 10 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache)
 
 ### What's Next
 
 - V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
 - Settings → Dashboard tab (widget toggles, notes editor)
 - Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
-- Reporting module (Session 17)
 
 ---
 
@@ -2843,3 +2873,169 @@ await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, tru
 // WRONG — session-scoped, leaks in connection pools:
 await db.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, false)`);
 ```
+
+---
+
+## 52. Reporting / Read Model Architecture
+
+### CQRS Read Models
+
+Reporting uses the CQRS (Command Query Responsibility Segregation) pattern. Read models are pre-aggregated projections maintained by event consumers — never written to by user-facing commands.
+
+```
+packages/db/src/schema/reporting.ts           # 4 rm_ table definitions
+packages/db/migrations/0049_reporting_read_models.sql
+packages/modules/reporting/src/
+├── business-date.ts                          # computeBusinessDate utility
+├── consumers/
+│   ├── order-placed.ts                       # order.placed.v1 → daily_sales + item_sales + customer_activity
+│   ├── order-voided.ts                       # order.voided.v1 → daily_sales + item_sales
+│   ├── tender-recorded.ts                    # tender.recorded.v1 → daily_sales (tender breakdown)
+│   ├── inventory-movement.ts                 # inventory.movement.created.v1 → inventory_on_hand
+│   └── index.ts                              # Barrel exports
+├── queries/
+│   ├── get-daily-sales.ts                    # Single/multi-location daily sales with date range
+│   ├── get-item-sales.ts                     # Top-N item sales with sort + aggregate
+│   ├── get-inventory-summary.ts              # Current inventory snapshot with filters
+│   ├── get-dashboard-metrics.ts              # Today's KPIs (sales, orders, low stock, active customers)
+│   └── index.ts                              # Barrel exports
+├── csv-export.ts                             # toCsv(columns, rows) — RFC 4180 + BOM
+└── index.ts                                  # Module entry point
+
+apps/web/src/app/api/v1/reports/
+├── daily-sales/
+│   ├── route.ts                              # GET — daily sales JSON
+│   └── export/route.ts                       # GET — daily sales CSV
+├── item-sales/
+│   ├── route.ts                              # GET — item sales JSON
+│   └── export/route.ts                       # GET — item sales CSV
+├── inventory-summary/route.ts                # GET — inventory snapshot
+└── dashboard/route.ts                        # GET — dashboard metrics
+```
+
+### Table Naming
+
+All read model tables use the `rm_` prefix:
+
+| Table | Natural Key | Updated By |
+|-------|-------------|------------|
+| `rm_daily_sales` | tenant + location + business_date | order.placed.v1, order.voided.v1 |
+| `rm_item_sales` | tenant + location + date + catalog_item | order.placed.v1, order.voided.v1 |
+| `rm_inventory_on_hand` | tenant + location + inventory_item | inventory events |
+| `rm_customer_activity` | tenant + customer | order.placed.v1 |
+
+### Upsert-by-Natural-Key Pattern
+
+Each read model has a UNIQUE composite index on its natural key. Consumers use `ON CONFLICT ... DO UPDATE` with raw SQL (not Drizzle fluent API) because Drizzle doesn't support `EXCLUDED` references or arithmetic on existing column values:
+
+```typescript
+await (tx as any).execute(sql`
+  INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, order_count, gross_sales, ...)
+  VALUES (${generateUlid()}, ${tenantId}, ${locationId}, ${date}, 1, ${amount}, ...)
+  ON CONFLICT (tenant_id, location_id, business_date)
+  DO UPDATE SET
+    order_count = rm_daily_sales.order_count + 1,
+    gross_sales = rm_daily_sales.gross_sales + ${amount},
+    avg_order_value = CASE WHEN (rm_daily_sales.order_count + 1) > 0
+      THEN (rm_daily_sales.net_sales + ${net}) / (rm_daily_sales.order_count + 1) ELSE 0 END,
+    updated_at = NOW()
+`);
+```
+
+### Money in Read Models
+
+Unlike order-layer tables (cents as INTEGER), read models store aggregated dollar amounts as `NUMERIC(19,4)`. This avoids overflow on high-volume aggregates and keeps reporting queries simple (no cents-to-dollars conversion). Always convert to `Number()` in query mappings before returning to frontend.
+
+### Consumer Idempotency
+
+Each consumer atomically checks-and-inserts into `processed_events` as the FIRST statement inside `withTenant`. This is stronger than the bus-level `checkProcessed` because it's inside the same transaction as the read model upsert:
+
+```typescript
+// Atomic idempotency: INSERT ... ON CONFLICT DO NOTHING RETURNING id
+const inserted = await (tx as any).execute(sql`
+  INSERT INTO processed_events (id, tenant_id, event_id, consumer_name, processed_at)
+  VALUES (${generateUlid()}, ${event.tenantId}, ${event.eventId}, ${CONSUMER_NAME}, NOW())
+  ON CONFLICT (event_id, consumer_name) DO NOTHING
+  RETURNING id
+`);
+const rows = Array.from(inserted as Iterable<{ id: string }>);
+if (rows.length === 0) return; // Already processed — skip
+```
+
+### Business Date Calculation
+
+```typescript
+import { computeBusinessDate } from '@oppsera/module-reporting';
+
+// Standard midnight cutover:
+computeBusinessDate('2026-03-15T18:30:00Z', 'America/New_York'); // → '2026-03-15'
+
+// With day-close offset (events between midnight and 2AM belong to previous day):
+computeBusinessDate('2026-03-15T05:30:00Z', 'America/New_York', '02:00'); // → '2026-03-14'
+```
+
+Uses native `Intl.DateTimeFormat` with IANA timezones — handles DST transitions correctly, no external library needed.
+
+### Void Semantics
+
+Voids do NOT decrement `order_count`. They increment `void_count`/`void_total` and subtract from `net_sales`. `avg_order_value` is recomputed as `net_sales / order_count` using the original count.
+
+### Query Services
+
+Query services follow two modes depending on whether `locationId` is provided:
+
+| Mode | Description | avgOrderValue |
+|------|-------------|---------------|
+| Single-location | Direct SELECT from `rm_` table with date range | Use stored value as-is |
+| Multi-location | GROUP BY businessDate, SUM aggregates | Recompute: `SUM(netSales) / SUM(orderCount)` |
+
+**Critical**: never sum `avgOrderValue` across locations — that's average-of-averages, which is mathematically wrong.
+
+```typescript
+// Multi-location aggregation (from getDailySales)
+const rows = await tx
+  .select({
+    businessDate: rmDailySales.businessDate,
+    orderCount: sql<number>`sum(${rmDailySales.orderCount})::int`,
+    netSales: sql<string>`sum(${rmDailySales.netSales})::numeric(19,4)`,
+    avgOrderValue: sql<string>`case when sum(${rmDailySales.orderCount}) > 0
+      then (sum(${rmDailySales.netSales}) / sum(${rmDailySales.orderCount}))::numeric(19,4)
+      else 0 end`,
+  })
+  .from(rmDailySales)
+  .where(and(...conditions))
+  .groupBy(rmDailySales.businessDate)
+  .orderBy(asc(rmDailySales.businessDate));
+```
+
+### CSV Export
+
+`toCsv(columns, rows)` generates RFC 4180 CSV with:
+- UTF-8 BOM (`\uFEFF`) for Excel auto-detection
+- Proper escaping: commas, double quotes (`""` doubling), embedded newlines
+- CRLF line endings
+- Returns a `Buffer` ready for HTTP response
+
+### API Route Permissions
+
+| Route | Permission | Description |
+|-------|-----------|-------------|
+| `/api/v1/reports/daily-sales` | `reports.view` | Daily sales JSON |
+| `/api/v1/reports/item-sales` | `reports.view` | Item sales JSON |
+| `/api/v1/reports/inventory-summary` | `reports.view` | Inventory snapshot JSON |
+| `/api/v1/reports/dashboard` | `reports.view` | Dashboard KPIs JSON |
+| `/api/v1/reports/daily-sales/export` | `reports.export` | Daily sales CSV download |
+| `/api/v1/reports/item-sales/export` | `reports.export` | Item sales CSV download |
+
+All routes require `entitlement: 'reporting'`. Export routes use the stricter `reports.export` permission to allow operators to grant dashboard access without export capability.
+
+### Read Model Rules
+
+1. **Never write to `rm_` tables from API routes** — only event consumers update read models
+2. **Read models are eventually consistent** — they lag behind the source of truth by event processing delay
+3. **Rebuild capability** — consumers must be re-runnable to rebuild read models from event history
+4. **All `rm_` tables have RLS** — same 4-policy pattern (select/insert/update/delete) as domain tables
+5. **No foreign keys to domain tables** — read models store denormalized copies (`catalog_item_name`, `customer_name`) to avoid cross-module joins
+6. **Consumers use raw SQL for upserts** — Drizzle fluent API doesn't support `ON CONFLICT DO UPDATE SET col = col + value` arithmetic
+7. **Atomic idempotency** — processed_events insert + read model upsert must be in the SAME transaction
+8. **Numeric columns return strings** — Drizzle `numeric` columns return strings; always convert with `Number()` in query mappings

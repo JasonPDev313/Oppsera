@@ -6,7 +6,7 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, entitlements } from '@oppsera/db';
 import { MODULE_REGISTRY, getEntitlementEngine } from '@oppsera/core/entitlements';
 import { auditLog } from '@oppsera/core/audit';
-import { generateUlid, ValidationError, ConflictError } from '@oppsera/shared';
+import { generateUlid, ValidationError, ConflictError, NotFoundError } from '@oppsera/shared';
 
 const MODULE_REGISTRY_MAP = new Map<string, (typeof MODULE_REGISTRY)[number]>(MODULE_REGISTRY.map((m) => [m.key, m]));
 
@@ -62,7 +62,7 @@ export const POST = withMiddleware(
       ]);
     }
 
-    // Check if already enabled
+    // Check if already exists
     const existing = await db.query.entitlements.findFirst({
       where: and(
         eq(entitlements.tenantId, ctx.tenantId),
@@ -70,18 +70,27 @@ export const POST = withMiddleware(
       ),
     });
 
-    if (existing) {
+    if (existing && existing.isEnabled) {
       throw new ConflictError('Module is already enabled');
     }
 
-    // Create entitlement
-    const [row] = await db.insert(entitlements).values({
-      id: generateUlid(),
-      tenantId: ctx.tenantId,
-      moduleKey,
-      planTier: 'free',
-      isEnabled: true,
-    }).returning();
+    let row;
+    if (existing) {
+      // Re-enable a previously disabled entitlement
+      [row] = await db.update(entitlements)
+        .set({ isEnabled: true, updatedAt: new Date() })
+        .where(eq(entitlements.id, existing.id))
+        .returning();
+    } else {
+      // Create new entitlement
+      [row] = await db.insert(entitlements).values({
+        id: generateUlid(),
+        tenantId: ctx.tenantId,
+        moduleKey,
+        planTier: 'free',
+        isEnabled: true,
+      }).returning();
+    }
 
     // Invalidate cache
     await getEntitlementEngine().invalidateEntitlements(ctx.tenantId);
@@ -95,7 +104,71 @@ export const POST = withMiddleware(
         isEnabled: row!.isEnabled,
         planTier: row!.planTier,
       },
-    }, { status: 201 });
+    }, { status: existing ? 200 : 201 });
+  },
+  { permission: 'settings.update' },
+);
+
+// ── Toggle a module on/off ──────────────────────────────────────
+
+const toggleModuleSchema = z.object({
+  moduleKey: z.string().min(1),
+  isEnabled: z.boolean(),
+});
+
+export const PATCH = withMiddleware(
+  async (request: NextRequest, ctx) => {
+    const body = await request.json();
+    const parsed = toggleModuleSchema.safeParse(body);
+
+    if (!parsed.success) {
+      throw new ValidationError(
+        'Validation failed',
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      );
+    }
+
+    const { moduleKey, isEnabled } = parsed.data;
+
+    // Cannot disable platform_core
+    if (moduleKey === 'platform_core' && !isEnabled) {
+      throw new ValidationError('Cannot disable core module', [
+        { field: 'moduleKey', message: 'Platform Core cannot be disabled' },
+      ]);
+    }
+
+    // Find existing entitlement
+    const existing = await db.query.entitlements.findFirst({
+      where: and(
+        eq(entitlements.tenantId, ctx.tenantId),
+        eq(entitlements.moduleKey, moduleKey),
+      ),
+    });
+
+    if (!existing) {
+      throw new NotFoundError('Entitlement not found');
+    }
+
+    // Update isEnabled
+    const [row] = await db.update(entitlements)
+      .set({ isEnabled, updatedAt: new Date() })
+      .where(eq(entitlements.id, existing.id))
+      .returning();
+
+    // Invalidate cache
+    await getEntitlementEngine().invalidateEntitlements(ctx.tenantId);
+
+    const registryEntry = MODULE_REGISTRY_MAP.get(moduleKey);
+    await auditLog(ctx, isEnabled ? 'entitlement.enabled' : 'entitlement.disabled', 'entitlement', row!.id);
+
+    return NextResponse.json({
+      data: {
+        moduleKey: row!.moduleKey,
+        displayName: registryEntry?.name ?? row!.moduleKey,
+        isEnabled: row!.isEnabled,
+        planTier: row!.planTier,
+      },
+    });
   },
   { permission: 'settings.update' },
 );

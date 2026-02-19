@@ -34,3 +34,5 @@ export * from './tee-bookings';
 export * from './events';
 export * from './events-golf';
 export * from './misc';
+export * from './reporting';
+export * from './golf-reporting';

@@ -215,6 +215,7 @@ export const processedEvents = pgTable(
   'processed_events',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id'),
     eventId: text('event_id').notNull(),
     consumerName: text('consumer_name').notNull(),
     processedAt: timestamp('processed_at', { withTimezone: true }).notNull().defaultNow(),

@@ -344,6 +344,48 @@
       "when": 1708100048000,
       "tag": "0048_observability",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1708100049000,
+      "tag": "0049_reporting_read_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1708100050000,
+      "tag": "0050_custom_report_builder",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1708100051000,
+      "tag": "0051_report_snapshots",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1708100052000,
+      "tag": "0052_golf_reporting_read_models",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1708100053000,
+      "tag": "0053_golf_lifecycle_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1708100054000,
+      "tag": "0054_golf_field_catalog",
+      "breakpoints": true
     }
   ]
 }

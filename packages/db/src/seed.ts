@@ -140,6 +140,9 @@ async function seed() {
         'inventory.*',
         'customers.*',
         'reports.view',
+        'reports.export',
+        'reports.custom.view',
+        'reports.custom.manage',
         'settings.view',
       ],
     },
@@ -201,7 +204,7 @@ async function seed() {
   });
   console.log('Role Assignment: owner (tenant-wide)');
 
-  // ── Create V1 entitlements ─────────────────────────────────────
+  // ── Create entitlements (V1 + golf_ops for dev) ───────────────
   const moduleKeys = [
     'platform_core',
     'catalog',
@@ -211,6 +214,7 @@ async function seed() {
     'inventory',
     'customers',
     'reporting',
+    'golf_ops',
   ];
 
   const entitlementLimits = { max_seats: 25, max_locations: 10, max_devices: 10 };
