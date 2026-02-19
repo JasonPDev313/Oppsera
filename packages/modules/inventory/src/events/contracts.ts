@@ -7,6 +7,8 @@ import {
   OrderPlacedDataSchema,
   OrderVoidedDataSchema,
   CatalogItemCreatedDataSchema,
+  CatalogItemArchivedDataSchema,
+  CatalogItemUnarchivedDataSchema,
 } from './types';
 
 registerContracts({
@@ -21,5 +23,7 @@ registerContracts({
     { eventType: 'order.placed.v1', dataSchema: OrderPlacedDataSchema },
     { eventType: 'order.voided.v1', dataSchema: OrderVoidedDataSchema },
     { eventType: 'catalog.item.created.v1', dataSchema: CatalogItemCreatedDataSchema },
+    { eventType: 'catalog.item.archived.v1', dataSchema: CatalogItemArchivedDataSchema },
+    { eventType: 'catalog.item.unarchived.v1', dataSchema: CatalogItemUnarchivedDataSchema },
   ],
 });

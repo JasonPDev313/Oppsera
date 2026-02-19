@@ -239,6 +239,7 @@ export async function recordTender(
       totalTendered: newTotalTendered,
       remainingBalance: order.total - newTotalTendered,
       isFullyPaid,
+      customerId: order.customerId ?? null,
     });
 
     return {

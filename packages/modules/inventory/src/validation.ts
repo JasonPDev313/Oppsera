@@ -59,10 +59,3 @@ export const recordShrinkSchema = z.object({
   terminalId: z.string().optional(),
 });
 export type RecordShrinkInput = z.input<typeof recordShrinkSchema>;
-
-// archiveInventoryItem -- archive/unarchive an inventory item
-export const archiveInventoryItemSchema = z.object({
-  inventoryItemId: z.string().min(1),
-  archive: z.boolean(), // true = archive, false = unarchive
-});
-export type ArchiveInventoryItemInput = z.input<typeof archiveInventoryItemSchema>;

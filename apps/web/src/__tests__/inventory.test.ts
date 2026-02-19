@@ -80,7 +80,7 @@ vi.mock('drizzle-orm', () => ({
   and: vi.fn((...args: unknown[]) => args),
   lt: vi.fn((...args: unknown[]) => args),
   desc: vi.fn((...args: unknown[]) => args),
-  sql: Object.assign(vi.fn((...args: unknown[]) => args), { raw: vi.fn((s: string) => s) }),
+  sql: Object.assign(vi.fn((...args: unknown[]) => args), { raw: vi.fn((s: string) => s), join: vi.fn((...args: unknown[]) => args) }),
   sum: vi.fn((...args: unknown[]) => args),
   ilike: vi.fn((...args: unknown[]) => args),
   inArray: vi.fn((...args: unknown[]) => args),
@@ -1033,27 +1033,21 @@ describe('Inventory Module', () => {
 
   describe('handleOrderPlaced', () => {
     it('creates sale movements for each order line', async () => {
-      const orderLine1 = {
-        catalogItemId: 'CAT_001',
-        qty: '2',
-        itemType: 'retail',
-        packageComponents: null,
-      };
-      const orderLine2 = {
-        catalogItemId: 'CAT_002',
-        qty: '1',
-        itemType: 'retail',
-        packageComponents: null,
-      };
       const invItem1 = makeInventoryItem({ id: 'INV_001', catalogItemId: 'CAT_001', trackInventory: true });
       const invItem2 = makeInventoryItem({ id: 'INV_002', catalogItemId: 'CAT_002', trackInventory: true });
 
-      // Call 1: fetch order lines => 2 lines
-      mockSelect.mockImplementationOnce(() => makeSelectChain([orderLine1, orderLine2]));
-      // Call 2: batch fetch inventory items with inArray => both items
+      // Call 1: batch fetch inventory items with inArray => both items
       mockSelect.mockImplementationOnce(() => makeSelectChain([invItem1, invItem2]));
 
-      const event = makeEvent({ orderId: 'ORD_001', locationId: 'LOC_001', businessDate: '2024-01-15' });
+      const event = makeEvent({
+        orderId: 'ORD_001',
+        locationId: 'LOC_001',
+        businessDate: '2024-01-15',
+        lines: [
+          { catalogItemId: 'CAT_001', qty: 2, packageComponents: null },
+          { catalogItemId: 'CAT_002', qty: 1, packageComponents: null },
+        ],
+      });
       await handleOrderPlaced(event);
 
       // Two execute calls for two sale movements (raw SQL INSERT with ON CONFLICT)
@@ -1062,24 +1056,26 @@ describe('Inventory Module', () => {
     });
 
     it('deducts components for package items', async () => {
-      const packageLine = {
-        catalogItemId: 'CAT_PKG',
-        qty: '1',
-        itemType: 'package',
-        packageComponents: [
-          { catalogItemId: 'CAT_COMP_1', name: 'Comp 1', qty: 2 },
-          { catalogItemId: 'CAT_COMP_2', name: 'Comp 2', qty: 3 },
-        ],
-      };
       const comp1Inv = makeInventoryItem({ id: 'INV_COMP1', catalogItemId: 'CAT_COMP_1', trackInventory: true });
       const comp2Inv = makeInventoryItem({ id: 'INV_COMP2', catalogItemId: 'CAT_COMP_2', trackInventory: true });
 
-      // Call 1: fetch order lines => 1 package line
-      mockSelect.mockImplementationOnce(() => makeSelectChain([packageLine]));
-      // Call 2: batch fetch inventory items for components with inArray
+      // Call 1: batch fetch inventory items for components with inArray
       mockSelect.mockImplementationOnce(() => makeSelectChain([comp1Inv, comp2Inv]));
 
-      const event = makeEvent({ orderId: 'ORD_001', locationId: 'LOC_001' });
+      const event = makeEvent({
+        orderId: 'ORD_001',
+        locationId: 'LOC_001',
+        lines: [
+          {
+            catalogItemId: 'CAT_PKG',
+            qty: 1,
+            packageComponents: [
+              { catalogItemId: 'CAT_COMP_1', name: 'Comp 1', qty: 2 },
+              { catalogItemId: 'CAT_COMP_2', name: 'Comp 2', qty: 3 },
+            ],
+          },
+        ],
+      });
       await handleOrderPlaced(event);
 
       // Two execute calls for two component movements
@@ -1088,20 +1084,18 @@ describe('Inventory Module', () => {
     });
 
     it('skips items without inventory tracking', async () => {
-      const orderLine = {
-        catalogItemId: 'CAT_001',
-        qty: '2',
-        itemType: 'retail',
-        packageComponents: null,
-      };
       const invItem = makeInventoryItem({ id: 'INV_001', catalogItemId: 'CAT_001', trackInventory: false });
 
-      // Call 1: fetch order lines
-      mockSelect.mockImplementationOnce(() => makeSelectChain([orderLine]));
-      // Call 2: batch fetch inventory items with inArray (trackInventory = false)
+      // Call 1: batch fetch inventory items with inArray (trackInventory = false)
       mockSelect.mockImplementationOnce(() => makeSelectChain([invItem]));
 
-      const event = makeEvent({ orderId: 'ORD_001', locationId: 'LOC_001' });
+      const event = makeEvent({
+        orderId: 'ORD_001',
+        locationId: 'LOC_001',
+        lines: [
+          { catalogItemId: 'CAT_001', qty: 2, packageComponents: null },
+        ],
+      });
       await handleOrderPlaced(event);
 
       // No execute calls since trackInventory is false

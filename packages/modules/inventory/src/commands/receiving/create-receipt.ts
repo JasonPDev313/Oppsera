@@ -45,6 +45,7 @@ export async function createDraftReceipt(
         status: 'draft',
         vendorInvoiceNumber: input.vendorInvoiceNumber ?? null,
         receivedDate: input.receivedDate,
+        freightMode: input.freightMode ?? 'allocate',
         shippingCost: (input.shippingCost ?? 0).toString(),
         shippingAllocationMethod: input.shippingAllocationMethod ?? 'none',
         taxAmount: (input.taxAmount ?? 0).toString(),

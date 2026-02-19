@@ -192,8 +192,9 @@ export const receivingReceipts = pgTable(
     status: text('status').notNull().default('draft'), // 'draft', 'posted', 'voided'
     vendorInvoiceNumber: text('vendor_invoice_number'),
     receivedDate: date('received_date').notNull(),
+    freightMode: text('freight_mode').notNull().default('allocate'), // 'expense' | 'allocate'
     shippingCost: numeric('shipping_cost', { precision: 12, scale: 4 }).notNull().default('0'),
-    shippingAllocationMethod: text('shipping_allocation_method').notNull().default('none'), // 'by_cost', 'by_qty', 'by_weight', 'none'
+    shippingAllocationMethod: text('shipping_allocation_method').notNull().default('by_cost'), // 'by_cost', 'by_qty', 'by_weight', 'by_volume', 'manual', 'none'
     taxAmount: numeric('tax_amount', { precision: 12, scale: 4 }).notNull().default('0'),
     subtotal: numeric('subtotal', { precision: 12, scale: 4 }).notNull().default('0'),
     total: numeric('total', { precision: 12, scale: 4 }).notNull().default('0'),
@@ -212,6 +213,7 @@ export const receivingReceipts = pgTable(
     index('idx_receiving_receipts_tenant_status').on(table.tenantId, table.status),
     index('idx_receiving_receipts_tenant_vendor').on(table.tenantId, table.vendorId),
     index('idx_receiving_receipts_tenant_location').on(table.tenantId, table.locationId),
+    index('idx_receiving_receipts_tenant_created').on(table.tenantId, table.createdAt),
   ],
 );
 
@@ -241,6 +243,7 @@ export const receivingReceiptLines = pgTable(
     landedUnitCost: numeric('landed_unit_cost', { precision: 12, scale: 4 }).notNull().default('0'),
     baseQty: numeric('base_qty', { precision: 12, scale: 4 }).notNull().default('0'),
     weight: numeric('weight', { precision: 12, scale: 4 }),
+    volume: numeric('volume', { precision: 12, scale: 4 }),
     lotNumber: text('lot_number'),
     serialNumbers: jsonb('serial_numbers'), // text[]
     expirationDate: date('expiration_date'),
@@ -254,5 +257,34 @@ export const receivingReceiptLines = pgTable(
   (table) => [
     index('idx_receiving_receipt_lines_tenant_receipt').on(table.tenantId, table.receiptId),
     index('idx_receiving_receipt_lines_tenant_item').on(table.tenantId, table.inventoryItemId),
+  ],
+);
+
+// ── Receipt Charges ─────────────────────────────────────────────
+// Individual freight/shipping charge line items per receipt.
+// EXPENSE mode: each charge has a gl_account_code for GL posting.
+// ALLOCATE mode: sum of charges is allocated across receipt lines.
+export const receiptCharges = pgTable(
+  'receipt_charges',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    receiptId: text('receipt_id')
+      .notNull()
+      .references(() => receivingReceipts.id, { onDelete: 'cascade' }),
+    chargeType: text('charge_type').notNull().default('shipping'), // 'shipping', 'freight', 'handling', 'other'
+    description: text('description'),
+    amount: numeric('amount', { precision: 12, scale: 4 }).notNull().default('0'),
+    glAccountCode: text('gl_account_code'),
+    glAccountName: text('gl_account_name'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_receipt_charges_receipt').on(table.receiptId),
+    index('idx_receipt_charges_tenant').on(table.tenantId),
   ],
 );

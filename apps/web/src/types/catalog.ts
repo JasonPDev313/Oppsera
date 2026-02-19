@@ -60,7 +60,6 @@ export interface CatalogItemRow {
   categoryId: string | null;
   taxCategoryId: string | null;
   isTrackable: boolean;
-  isActive: boolean;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -68,6 +67,9 @@ export interface CatalogItemRow {
   departmentName?: string | null;
   subDepartmentName?: string | null;
   categoryName?: string | null;
+  archivedAt?: string | null;
+  archivedBy?: string | null;
+  archivedReason?: string | null;
 }
 
 export interface CategoryRow {

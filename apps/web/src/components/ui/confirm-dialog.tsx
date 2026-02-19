@@ -13,6 +13,7 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   destructive?: boolean;
   isLoading?: boolean;
+  children?: React.ReactNode;
 }
 
 export function ConfirmDialog({
@@ -25,6 +26,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   destructive = false,
   isLoading = false,
+  children,
 }: ConfirmDialogProps) {
   const confirmRef = useRef<HTMLButtonElement>(null);
 
@@ -51,6 +53,7 @@ export function ConfirmDialog({
       <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         {description && <p className="mt-2 text-sm text-gray-500">{description}</p>}
+        {children}
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"

@@ -12,6 +12,7 @@ import {
   catalogItemModifierGroups,
 } from '../schema';
 import type { CreateItemInput } from '../validation';
+import { logItemChange } from '../services/item-change-log';
 
 export async function createItem(ctx: RequestContext, input: CreateItemInput) {
   const item = await publishWithOutbox(ctx, async (tx) => {
@@ -129,6 +130,17 @@ export async function createItem(ctx: RequestContext, input: CreateItemInput) {
         })),
       );
     }
+
+    // Log creation snapshot (before=null → all fields recorded)
+    await logItemChange(tx, {
+      tenantId: ctx.tenantId,
+      itemId: created!.id,
+      before: null,
+      after: created!,
+      userId: ctx.user.id,
+      actionType: 'CREATED',
+      source: 'UI',
+    });
 
     const event = buildEventFromContext(
       ctx,

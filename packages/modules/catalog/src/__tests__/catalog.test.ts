@@ -117,7 +117,9 @@ vi.mock('@oppsera/db', () => ({
     cost: 'catalogItems.cost',
     taxCategoryId: 'catalogItems.taxCategoryId',
     isTrackable: 'catalogItems.isTrackable',
-    isActive: 'catalogItems.isActive',
+    archivedAt: 'catalogItems.archivedAt',
+    archivedBy: 'catalogItems.archivedBy',
+    archivedReason: 'catalogItems.archivedReason',
     createdBy: 'catalogItems.createdBy',
     updatedBy: 'catalogItems.updatedBy',
   },
@@ -150,6 +152,18 @@ vi.mock('@oppsera/db', () => ({
     locationId: 'catalogLocationPrices.locationId',
     price: 'catalogLocationPrices.price',
   },
+  catalogItemChangeLogs: {
+    id: 'catalogItemChangeLogs.id',
+    tenantId: 'catalogItemChangeLogs.tenantId',
+    itemId: 'catalogItemChangeLogs.itemId',
+    actionType: 'catalogItemChangeLogs.actionType',
+    changedByUserId: 'catalogItemChangeLogs.changedByUserId',
+    changedAt: 'catalogItemChangeLogs.changedAt',
+    source: 'catalogItemChangeLogs.source',
+    fieldChanges: 'catalogItemChangeLogs.fieldChanges',
+    summary: 'catalogItemChangeLogs.summary',
+    notes: 'catalogItemChangeLogs.notes',
+  },
   eventOutbox: {
     id: 'eventOutbox.id',
     tenantId: 'eventOutbox.tenantId',
@@ -167,6 +181,7 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((...args: unknown[]) => ['eq', ...args]),
   and: vi.fn((...args: unknown[]) => ['and', ...args]),
   inArray: vi.fn((...args: unknown[]) => ['inArray', ...args]),
+  isNull: vi.fn((...args: unknown[]) => ['isNull', ...args]),
   sql: Object.assign(vi.fn((...args: unknown[]) => args), {
     raw: vi.fn((str: string) => str),
   }),
@@ -278,7 +293,8 @@ import { createTaxCategory } from '../commands/create-tax-category';
 import { createCategory } from '../commands/create-category';
 import { createItem } from '../commands/create-item';
 import { updateItem } from '../commands/update-item';
-import { deactivateItem } from '../commands/deactivate-item';
+import { archiveItem } from '../commands/archive-item';
+import { unarchiveItem } from '../commands/unarchive-item';
 import { createModifierGroup } from '../commands/create-modifier-group';
 import { updateModifierGroup } from '../commands/update-modifier-group';
 import { setLocationPrice } from '../commands/set-location-price';
@@ -524,7 +540,7 @@ describe('Catalog Module', () => {
         categoryId: 'cat_001',
         taxCategoryId: 'tc_001',
         isTrackable: true,
-        isActive: true,
+        archivedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: USER_ID,
@@ -584,7 +600,7 @@ describe('Catalog Module', () => {
         categoryId: null,
         taxCategoryId: null,
         isTrackable: false,
-        isActive: true,
+        archivedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: USER_ID,
@@ -697,7 +713,7 @@ describe('Catalog Module', () => {
         categoryId: null,
         taxCategoryId: null,
         isTrackable: false,
-        isActive: true,
+        archivedAt: null,
         createdBy: USER_ID,
         updatedBy: null,
       };
@@ -745,7 +761,7 @@ describe('Catalog Module', () => {
         categoryId: null,
         taxCategoryId: null,
         isTrackable: false,
-        isActive: true,
+        archivedAt: null,
         createdBy: USER_ID,
         updatedBy: null,
       };
@@ -778,7 +794,7 @@ describe('Catalog Module', () => {
       const inactive = {
         id: 'item_001',
         tenantId: TENANT_A,
-        isActive: false,
+        archivedAt: new Date(),
       };
       mockSelectReturns([inactive]);
 
@@ -788,55 +804,55 @@ describe('Catalog Module', () => {
     });
   });
 
-  // ── Test 11: deactivateItem ──────────────────────────────────────
+  // ── Test 11: archiveItem ──────────────────────────────────────
 
-  describe('deactivateItem', () => {
-    it('deactivates active item and emits event', async () => {
+  describe('archiveItem', () => {
+    it('archives active item and emits event', async () => {
       const ctx = makeCtx();
       const existing = {
         id: 'item_001',
         tenantId: TENANT_A,
         sku: 'POLO-001',
         name: 'Blue Polo',
-        isActive: true,
+        archivedAt: null,
       };
       // Select: fetch existing item
       mockSelectReturns([existing]);
-      // Update: set isActive = false
-      const deactivated = { ...existing, isActive: false, updatedBy: USER_ID };
-      mockUpdateReturns(deactivated);
+      // Update: set archivedAt
+      const archived = { ...existing, archivedAt: new Date(), archivedBy: USER_ID, archivedReason: null };
+      mockUpdateReturns(archived);
 
-      const result = await deactivateItem(ctx, 'item_001');
+      const result = await archiveItem(ctx, 'item_001', {});
 
-      expect(result.isActive).toBe(false);
+      expect(result.archivedAt).toBeTruthy();
 
       const events = getCapturedEvents();
       expect(events).toHaveLength(1);
       expect((events[0] as Record<string, unknown>).eventType).toBe(
-        'catalog.item.deactivated.v1',
+        'catalog.item.archived.v1',
       );
     });
 
-    // ── Test 12: deactivateItem — idempotent ────────────────────────
+    // ── Test 12: archiveItem — idempotent ────────────────────────
 
-    it('returns item as-is when already inactive', async () => {
+    it('returns item as-is when already archived', async () => {
       const ctx = makeCtx();
       const existing = {
         id: 'item_001',
         tenantId: TENANT_A,
         sku: 'POLO-001',
         name: 'Blue Polo',
-        isActive: false,
+        archivedAt: new Date(),
       };
       mockSelectReturns([existing]);
 
-      const result = await deactivateItem(ctx, 'item_001');
+      const result = await archiveItem(ctx, 'item_001', {});
 
-      expect(result.isActive).toBe(false);
+      expect(result.archivedAt).toBeTruthy();
       // No update should have been called
       expect(mockUpdate).not.toHaveBeenCalled();
 
-      // No events emitted for already-inactive
+      // No events emitted for already-archived
       const events = getCapturedEvents();
       expect(events).toHaveLength(0);
     });
@@ -845,9 +861,59 @@ describe('Catalog Module', () => {
       const ctx = makeCtx();
       mockSelectReturns([]);
 
-      await expect(deactivateItem(ctx, 'item_nonexistent')).rejects.toThrow(
+      await expect(archiveItem(ctx, 'item_nonexistent', {})).rejects.toThrow(
         'not found',
       );
+    });
+  });
+
+  // ── Test 11b: unarchiveItem ──────────────────────────────────────
+
+  describe('unarchiveItem', () => {
+    it('unarchives inactive item and emits event', async () => {
+      const ctx = makeCtx();
+      const existing = {
+        id: 'item_001',
+        tenantId: TENANT_A,
+        sku: 'POLO-001',
+        name: 'Blue Polo',
+        archivedAt: new Date(),
+      };
+      // Select: fetch existing item
+      mockSelectReturns([existing]);
+      // Update: clear archivedAt
+      const unarchived = { ...existing, archivedAt: null, archivedBy: null, archivedReason: null };
+      mockUpdateReturns(unarchived);
+
+      const result = await unarchiveItem(ctx, 'item_001');
+
+      expect(result.archivedAt).toBeNull();
+
+      const events = getCapturedEvents();
+      expect(events).toHaveLength(1);
+      expect((events[0] as Record<string, unknown>).eventType).toBe(
+        'catalog.item.unarchived.v1',
+      );
+    });
+
+    it('returns item as-is when already active', async () => {
+      const ctx = makeCtx();
+      const existing = {
+        id: 'item_001',
+        tenantId: TENANT_A,
+        sku: 'POLO-001',
+        name: 'Blue Polo',
+        archivedAt: null,
+      };
+      mockSelectReturns([existing]);
+
+      const result = await unarchiveItem(ctx, 'item_001');
+
+      expect(result.archivedAt).toBeFalsy();
+      expect(mockUpdate).not.toHaveBeenCalled();
+
+      const events = getCapturedEvents();
+      expect(events).toHaveLength(0);
     });
   });
 

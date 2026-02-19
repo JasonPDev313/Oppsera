@@ -13,6 +13,7 @@ import {
   catalogItemModifierGroups,
 } from '../schema';
 import type { UpdateItemInput } from '../validation';
+import { logItemChange } from '../services/item-change-log';
 
 export async function updateItem(
   ctx: RequestContext,
@@ -33,7 +34,7 @@ export async function updateItem(
       throw new NotFoundError('Catalog item', itemId);
     }
 
-    if (!existing.isActive) {
+    if (existing.archivedAt) {
       throw new AppError('ITEM_INACTIVE', 'Cannot update an inactive item', 400);
     }
 
@@ -194,6 +195,17 @@ export async function updateItem(
     };
 
     const detectedChanges = computeChanges(oldForDiff, newForDiff, []);
+
+    // Log field-level changes (skips insert if nothing actually changed)
+    await logItemChange(tx, {
+      tenantId: ctx.tenantId,
+      itemId,
+      before: existing,
+      after: updated!,
+      userId: ctx.user.id,
+      actionType: 'UPDATED',
+      source: 'UI',
+    });
 
     const event = buildEventFromContext(ctx, 'catalog.item.updated.v1', {
       itemId,

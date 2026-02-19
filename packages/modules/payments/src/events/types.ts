@@ -21,6 +21,7 @@ export const TenderRecordedDataSchema = z.object({
   totalTendered: z.number().int(),
   remainingBalance: z.number().int(),
   isFullyPaid: z.boolean(),
+  customerId: z.string().nullable().optional(),
 });
 
 export const TenderReversedDataSchema = z.object({

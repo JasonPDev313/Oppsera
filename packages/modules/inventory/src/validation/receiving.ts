@@ -1,5 +1,42 @@
 import { z } from 'zod';
 
+// ── Freight Mode ────────────────────────────────────────────────
+
+export const freightModeEnum = z.enum(['expense', 'allocate']);
+export type FreightMode = z.infer<typeof freightModeEnum>;
+
+export const allocationMethodEnum = z.enum([
+  'by_cost', 'by_qty', 'by_weight', 'by_volume', 'manual', 'none',
+]);
+export type AllocationMethodEnum = z.infer<typeof allocationMethodEnum>;
+
+// ── Receipt Charges ─────────────────────────────────────────────
+
+export const addReceiptChargeSchema = z.object({
+  receiptId: z.string().min(1),
+  chargeType: z.enum(['shipping', 'freight', 'handling', 'other']).default('shipping'),
+  description: z.string().max(200).optional(),
+  amount: z.number().nonnegative(),
+  glAccountCode: z.string().max(50).optional().nullable(),
+  glAccountName: z.string().max(200).optional().nullable(),
+});
+export type AddReceiptChargeInput = z.input<typeof addReceiptChargeSchema>;
+
+export const updateReceiptChargeSchema = z.object({
+  chargeId: z.string().min(1),
+  chargeType: z.enum(['shipping', 'freight', 'handling', 'other']).optional(),
+  description: z.string().max(200).optional().nullable(),
+  amount: z.number().nonnegative().optional(),
+  glAccountCode: z.string().max(50).optional().nullable(),
+  glAccountName: z.string().max(200).optional().nullable(),
+});
+export type UpdateReceiptChargeInput = z.input<typeof updateReceiptChargeSchema>;
+
+export const removeReceiptChargeSchema = z.object({
+  chargeId: z.string().min(1),
+});
+export type RemoveReceiptChargeInput = z.input<typeof removeReceiptChargeSchema>;
+
 // ── Receipt Header ──────────────────────────────────────────────
 
 export const createReceiptSchema = z.object({
@@ -7,10 +44,9 @@ export const createReceiptSchema = z.object({
   locationId: z.string().min(1),
   receivedDate: z.string().date(),
   vendorInvoiceNumber: z.string().max(100).optional(),
+  freightMode: freightModeEnum.default('allocate'),
   shippingCost: z.number().nonnegative().default(0),
-  shippingAllocationMethod: z
-    .enum(['by_cost', 'by_qty', 'by_weight', 'none'])
-    .default('none'),
+  shippingAllocationMethod: allocationMethodEnum.default('none'),
   taxAmount: z.number().nonnegative().default(0),
   notes: z.string().max(2000).optional(),
 });
@@ -21,10 +57,9 @@ export const updateReceiptSchema = z.object({
   vendorId: z.string().min(1).optional(),
   vendorInvoiceNumber: z.string().max(100).optional().nullable(),
   receivedDate: z.string().date().optional(),
+  freightMode: freightModeEnum.optional(),
   shippingCost: z.number().nonnegative().optional(),
-  shippingAllocationMethod: z
-    .enum(['by_cost', 'by_qty', 'by_weight', 'none'])
-    .optional(),
+  shippingAllocationMethod: allocationMethodEnum.optional(),
   taxAmount: z.number().nonnegative().optional(),
   notes: z.string().max(2000).optional().nullable(),
 });
@@ -34,18 +69,23 @@ export type UpdateReceiptInput = z.input<typeof updateReceiptSchema>;
 
 export const addReceiptLineSchema = z.object({
   receiptId: z.string().min(1),
-  inventoryItemId: z.string().min(1),
+  inventoryItemId: z.string().min(1).optional(),
+  catalogItemId: z.string().min(1).optional(),
   quantityReceived: z.number().positive(),
   uomCode: z.string().min(1).max(20),
   unitCost: z.number().nonnegative(),
   weight: z.number().nonnegative().optional().nullable(),
+  volume: z.number().nonnegative().optional().nullable(),
   lotNumber: z.string().max(100).optional(),
   serialNumbers: z.array(z.string()).optional(),
   expirationDate: z.string().date().optional(),
   notes: z.string().max(1000).optional(),
   purchaseOrderId: z.string().optional(),
   purchaseOrderLineId: z.string().optional(),
-});
+}).refine(
+  (data) => data.inventoryItemId || data.catalogItemId,
+  { message: 'Either inventoryItemId or catalogItemId is required' },
+);
 export type AddReceiptLineInput = z.input<typeof addReceiptLineSchema>;
 
 export const updateReceiptLineSchema = z.object({
@@ -54,6 +94,8 @@ export const updateReceiptLineSchema = z.object({
   uomCode: z.string().min(1).max(20).optional(),
   unitCost: z.number().nonnegative().optional(),
   weight: z.number().nonnegative().optional().nullable(),
+  volume: z.number().nonnegative().optional().nullable(),
+  allocatedShipping: z.number().nonnegative().optional(), // user-override for MANUAL allocation
   lotNumber: z.string().max(100).optional().nullable(),
   serialNumbers: z.array(z.string()).optional().nullable(),
   expirationDate: z.string().date().optional().nullable(),

@@ -2,11 +2,12 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { NotFoundError, ValidationError } from '@oppsera/shared';
+import { NotFoundError, ValidationError, generateUlid } from '@oppsera/shared';
 import {
   receivingReceipts,
   receivingReceiptLines,
   inventoryItems,
+  catalogItems,
   itemUomConversions,
   uoms,
   itemVendors,
@@ -37,25 +38,17 @@ export async function addReceiptLine(
       throw new ValidationError('Can only add lines to draft receipts');
     }
 
-    // 2. Verify inventory item exists at this location
-    const itemRows = await (tx as any)
-      .select()
-      .from(inventoryItems)
-      .where(
-        and(
-          eq(inventoryItems.tenantId, ctx.tenantId),
-          eq(inventoryItems.id, input.inventoryItemId),
-          eq(inventoryItems.locationId, receipt.locationId),
-        ),
-      );
-    const item = itemRows[0];
-    if (!item) throw new NotFoundError('Inventory item');
+    // 2. Resolve inventory item — find existing or auto-create from catalog item
+    const item = await resolveInventoryItem(
+      tx, ctx.tenantId, receipt.locationId, ctx.user.id,
+      input.inventoryItemId, input.catalogItemId,
+    );
 
     // 3. Resolve UOM conversion factor
     const conversionFactor = await resolveConversionFactor(
       tx,
       ctx.tenantId,
-      input.inventoryItemId,
+      item.id,
       input.uomCode,
       item.baseUnit,
     );
@@ -68,7 +61,7 @@ export async function addReceiptLine(
       .where(
         and(
           eq(itemVendors.tenantId, ctx.tenantId),
-          eq(itemVendors.inventoryItemId, input.inventoryItemId),
+          eq(itemVendors.inventoryItemId, item.id),
           eq(itemVendors.vendorId, receipt.vendorId),
         ),
       );
@@ -97,7 +90,7 @@ export async function addReceiptLine(
       .values({
         tenantId: ctx.tenantId,
         receiptId: input.receiptId,
-        inventoryItemId: input.inventoryItemId,
+        inventoryItemId: item.id,
         vendorItemId,
         quantityReceived: input.quantityReceived.toString(),
         uomCode: input.uomCode,
@@ -108,6 +101,7 @@ export async function addReceiptLine(
         landedUnitCost: '0',
         baseQty: '0',
         weight: input.weight != null ? input.weight.toString() : null,
+        volume: input.volume != null ? input.volume.toString() : null,
         lotNumber: input.lotNumber ?? null,
         serialNumbers: input.serialNumbers ?? null,
         expirationDate: input.expirationDate ?? null,
@@ -122,22 +116,26 @@ export async function addReceiptLine(
     const allLines = [...existingLines, newLine];
     const lineInputs: ReceiptLineInput[] = [];
     for (const line of allLines) {
-      const factor =
-        line.id === newLine.id
-          ? conversionFactor
-          : await resolveConversionFactor(tx, ctx.tenantId, line.inventoryItemId, line.uomCode, item.baseUnit);
+      let factor: number;
+      if (line.id === newLine.id) {
+        factor = conversionFactor;
+      } else {
+        factor = await resolveConversionFactorByItemId(tx, ctx.tenantId, line.inventoryItemId, line.uomCode);
+      }
       lineInputs.push({
         id: line.id,
         quantityReceived: Number(line.quantityReceived),
         unitCost: Number(line.unitCost),
         conversionFactor: factor,
         weight: line.weight ? Number(line.weight) : null,
+        volume: line.volume ? Number(line.volume) : null,
       });
     }
 
     const shippingCost = Number(receipt.shippingCost);
     const allocationMethod = receipt.shippingAllocationMethod as AllocationMethod;
-    const { computed, subtotal } = recomputeAllLines(lineInputs, shippingCost, allocationMethod);
+    const freightMode = (receipt.freightMode ?? 'allocate') as 'expense' | 'allocate';
+    const { computed, subtotal } = recomputeAllLines(lineInputs, shippingCost, allocationMethod, freightMode);
 
     // 8. Persist computed values for every line
     for (const c of computed) {
@@ -169,7 +167,7 @@ export async function addReceiptLine(
     const event = buildEventFromContext(ctx, 'inventory.receipt.line_added.v1', {
       receiptId: input.receiptId,
       lineId: newLine.id,
-      inventoryItemId: input.inventoryItemId,
+      inventoryItemId: item.id,
       quantity: input.quantityReceived,
       unitCost: input.unitCost,
     });
@@ -179,6 +177,93 @@ export async function addReceiptLine(
 
   await auditLog(ctx, 'inventory.receipt.line_added', 'receiving_receipt', input.receiptId);
   return result;
+}
+
+/**
+ * Resolve the inventory item to use for a receipt line.
+ * - If inventoryItemId is given, verify it exists at the location.
+ * - If only catalogItemId is given, look up existing inventory item or auto-create one.
+ */
+async function resolveInventoryItem(
+  tx: any,
+  tenantId: string,
+  locationId: string,
+  userId: string,
+  inventoryItemId?: string,
+  catalogItemId?: string,
+): Promise<{ id: string; baseUnit: string }> {
+  // Path 1: direct inventory item ID
+  if (inventoryItemId) {
+    const rows = await (tx as any)
+      .select()
+      .from(inventoryItems)
+      .where(
+        and(
+          eq(inventoryItems.tenantId, tenantId),
+          eq(inventoryItems.id, inventoryItemId),
+          eq(inventoryItems.locationId, locationId),
+        ),
+      );
+    if (rows[0]) return { id: rows[0].id, baseUnit: rows[0].baseUnit };
+    throw new NotFoundError('Inventory item');
+  }
+
+  // Path 2: catalog item — look up or auto-create inventory item
+  if (!catalogItemId) throw new ValidationError('Either inventoryItemId or catalogItemId is required');
+
+  // Check if catalog item exists
+  const catalogRows = await (tx as any)
+    .select()
+    .from(catalogItems)
+    .where(
+      and(
+        eq(catalogItems.tenantId, tenantId),
+        eq(catalogItems.id, catalogItemId),
+      ),
+    );
+  const catItem = catalogRows[0];
+  if (!catItem) throw new NotFoundError('Catalog item');
+
+  // Check if inventory item already exists at this location
+  const existingInv = await (tx as any)
+    .select()
+    .from(inventoryItems)
+    .where(
+      and(
+        eq(inventoryItems.tenantId, tenantId),
+        eq(inventoryItems.catalogItemId, catalogItemId),
+        eq(inventoryItems.locationId, locationId),
+      ),
+    );
+
+  if (existingInv[0]) {
+    return { id: existingInv[0].id, baseUnit: existingInv[0].baseUnit };
+  }
+
+  // Auto-create inventory item from catalog item
+  const [created] = await (tx as any)
+    .insert(inventoryItems)
+    .values({
+      id: generateUlid(),
+      tenantId,
+      locationId,
+      catalogItemId,
+      name: catItem.name,
+      sku: catItem.sku ?? null,
+      itemType: catItem.itemType,
+      status: 'active',
+      trackInventory: true,
+      baseUnit: 'each',
+      purchaseUnit: 'each',
+      purchaseToBaseRatio: '1',
+      costingMethod: 'fifo',
+      allowNegative: false,
+      currentCost: catItem.cost ?? '0',
+      createdBy: userId,
+    })
+    .returning();
+
+  return { id: created.id, baseUnit: created.baseUnit };
 }
 
 /**
@@ -192,16 +277,14 @@ async function resolveConversionFactor(
   uomCode: string,
   baseUnit: string,
 ): Promise<number> {
-  // If uomCode matches baseUnit, factor = 1
   if (uomCode.toLowerCase() === baseUnit.toLowerCase()) return 1;
 
-  // Look up conversion: find UOM by code, then find conversion row
   const uomRows = await (tx as any)
     .select()
     .from(uoms)
     .where(and(eq(uoms.tenantId, tenantId), eq(uoms.code, uomCode)));
   const uom = uomRows[0];
-  if (!uom) return 1; // If UOM not found, assume base
+  if (!uom) return 1;
 
   const convRows = await (tx as any)
     .select()
@@ -215,4 +298,23 @@ async function resolveConversionFactor(
     );
   const conv = convRows[0];
   return conv ? Number(conv.conversionFactor) : 1;
+}
+
+/**
+ * Self-contained conversion factor lookup — looks up item's baseUnit from DB.
+ * Used for existing lines where the caller doesn't have the item loaded.
+ */
+async function resolveConversionFactorByItemId(
+  tx: any,
+  tenantId: string,
+  inventoryItemId: string,
+  uomCode: string,
+): Promise<number> {
+  const itemRows = await (tx as any)
+    .select({ baseUnit: inventoryItems.baseUnit })
+    .from(inventoryItems)
+    .where(and(eq(inventoryItems.tenantId, tenantId), eq(inventoryItems.id, inventoryItemId)));
+  const item = itemRows[0];
+  if (!item) return 1;
+  return resolveConversionFactor(tx, tenantId, inventoryItemId, uomCode, item.baseUnit);
 }

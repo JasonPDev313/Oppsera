@@ -9,7 +9,7 @@ import {
   uniqueIndex,
   jsonb,
 } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+
 import { generateUlid } from '@oppsera/shared';
 import { tenants, locations } from './core';
 import { inventoryItems } from './inventory';

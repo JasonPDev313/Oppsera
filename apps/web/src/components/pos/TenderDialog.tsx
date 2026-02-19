@@ -56,6 +56,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const [isPlaced, setIsPlaced] = useState(order.status === 'placed');
 
   // Reset everything when a NEW order is being worked on (different order ID)
+  // and track version/status changes for the same order (e.g., preemptive place)
   const prevOrderIdRef = useRef(order.id);
   useEffect(() => {
     if (order.id !== prevOrderIdRef.current) {
@@ -65,6 +66,16 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       setCurrentVersion(order.version);
       setIsPlaced(order.status === 'placed');
       setTenderSummary(null);
+    } else {
+      // Same order — pick up version/status changes from preemptive placeOrder
+      if (order.version > versionRef.current) {
+        versionRef.current = order.version;
+        setCurrentVersion(order.version);
+      }
+      if (order.status === 'placed' && !placedRef.current) {
+        placedRef.current = true;
+        setIsPlaced(true);
+      }
     }
   }, [order.id, order.version, order.status]);
 
@@ -137,6 +148,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
     try {
       // Place the order on first payment if not already placed
       let version = currentVersion;
+      let effectiveAmountCents = amountCents;
       if (!isPlaced && onPlaceOrder) {
         const placed = await onPlaceOrder();
         version = placed.version;
@@ -144,13 +156,20 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         versionRef.current = version;
         setIsPlaced(true);
         placedRef.current = true;
+
+        // If the user clicked "Exact" based on a stale total (race condition),
+        // auto-correct to the actual total from the server response.
+        const correctRemaining = placed.total;
+        if (effectiveAmountCents === remaining && effectiveAmountCents !== correctRemaining) {
+          effectiveAmountCents = correctRemaining;
+        }
       }
 
       const body: Record<string, unknown> = {
         clientRequestId: crypto.randomUUID(),
         orderId: order.id,
         tenderType,
-        amountGiven: amountCents,
+        amountGiven: effectiveAmountCents,
         tipAmount: tipCents,
         terminalId: config.terminalId,
         employeeId: user?.id ?? '',
@@ -181,7 +200,6 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         versionRef.current = order.version;
         placedRef.current = false;
         onPaymentComplete(result);
-        setTimeout(() => onClose(), 2000);
       } else {
         // Increment local version so the next split payment uses the correct version
         const newVersion = version + 1;

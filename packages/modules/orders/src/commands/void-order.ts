@@ -38,6 +38,10 @@ export async function voidOrder(ctx: RequestContext, orderId: string, input: Voi
       orderNumber: order.orderNumber,
       reason: input.reason,
       voidedBy: ctx.user.id,
+      locationId: order.locationId,
+      businessDate: order.businessDate,
+      total: order.total,
+      customerId: order.customerId ?? null,
     });
 
     return { result: { ...order, status: 'voided', voidedAt: now, voidReason: input.reason, version: order.version + 1 }, events: [event] };

@@ -20,7 +20,7 @@ export interface ItemDetail {
   defaultPrice: string;
   cost: string | null;
   isTrackable: boolean;
-  isActive: boolean;
+  archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string | null;
@@ -143,7 +143,7 @@ export async function getItem(tenantId: string, itemId: string): Promise<ItemDet
       defaultPrice: item.defaultPrice,
       cost: item.cost,
       isTrackable: item.isTrackable,
-      isActive: item.isActive,
+      archivedAt: item.archivedAt ?? null,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
       createdBy: item.createdBy,

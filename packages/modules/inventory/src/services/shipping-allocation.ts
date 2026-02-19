@@ -10,9 +10,10 @@ export interface AllocationLine {
   extendedCost: number;
   baseQty: number;
   weight: number | null;
+  volume: number | null;
 }
 
-export type AllocationMethod = 'by_cost' | 'by_qty' | 'by_weight' | 'none';
+export type AllocationMethod = 'by_cost' | 'by_qty' | 'by_weight' | 'by_volume' | 'manual' | 'none';
 
 /**
  * Allocate shipping cost to lines. Returns a map of lineId → allocated amount.
@@ -25,6 +26,7 @@ export function allocateShipping(
   lines: AllocationLine[],
   shippingCost: number,
   method: AllocationMethod,
+  manualAllocations?: Map<string, number>,
 ): Map<string, number> {
   const result = new Map<string, number>();
 
@@ -54,6 +56,41 @@ export function allocateShipping(
         basis = new Map(lines.map((l) => [l.id, l.baseQty]));
       }
       break;
+    }
+    case 'by_volume': {
+      const hasVolume = lines.some((l) => l.volume !== null && l.volume > 0);
+      if (hasVolume) {
+        basis = new Map(lines.map((l) => [l.id, l.volume ?? 0]));
+      } else {
+        // Fallback to by_qty if no volumes
+        basis = new Map(lines.map((l) => [l.id, l.baseQty]));
+      }
+      break;
+    }
+    case 'manual': {
+      // Manual allocations: use user-provided amounts, distribute any remainder
+      if (!manualAllocations || manualAllocations.size === 0) {
+        // No manual values → equal split
+        basis = new Map(lines.map((l) => [l.id, 1]));
+        break;
+      }
+      // Apply manual allocations directly
+      let manualSum = 0;
+      for (const line of lines) {
+        const manual = manualAllocations.get(line.id) ?? 0;
+        result.set(line.id, roundTo4(manual));
+        manualSum = roundTo4(manualSum + roundTo4(manual));
+      }
+      // Distribute any remainder to the line with highest extendedCost
+      const manualRemainder = roundTo4(shippingCost - manualSum);
+      if (Math.abs(manualRemainder) >= 0.00005) {
+        const sorted = [...lines].sort(
+          (a, b) => b.extendedCost - a.extendedCost || a.id.localeCompare(b.id),
+        );
+        const topId = sorted[0]!.id;
+        result.set(topId, roundTo4((result.get(topId) ?? 0) + manualRemainder));
+      }
+      return result;
     }
     default:
       for (const line of lines) result.set(line.id, 0);

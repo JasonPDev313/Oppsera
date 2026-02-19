@@ -421,6 +421,41 @@
       "when": 1708100059000,
       "tag": "0059_fix_rls_role_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1708100060000,
+      "tag": "0060_catalog_archive",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1708100061000,
+      "tag": "0061_drop_is_active",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1708100062000,
+      "tag": "0062_receiving_search_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1708100063000,
+      "tag": "0063_catalog_item_change_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1708100064000,
+      "tag": "0064_freight_shipping_modes",
+      "breakpoints": true
     }
   ]
 }

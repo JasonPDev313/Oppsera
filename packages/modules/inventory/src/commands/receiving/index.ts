@@ -5,5 +5,6 @@ export { updateReceiptLine } from './update-receipt-line';
 export { removeReceiptLine } from './remove-receipt-line';
 export { postReceipt } from './post-receipt';
 export { voidReceipt } from './void-receipt';
+export { addReceiptCharge, updateReceiptCharge, removeReceiptCharge } from './manage-receipt-charges';
 export { createVendor } from './create-vendor';
 export { updateVendor } from './update-vendor';

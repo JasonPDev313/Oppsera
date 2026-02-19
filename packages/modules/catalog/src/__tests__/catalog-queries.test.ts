@@ -139,6 +139,7 @@ vi.mock('drizzle-orm', () => ({
   desc: vi.fn((...args: unknown[]) => ['desc', ...args]),
   asc: vi.fn((...args: unknown[]) => ['asc', ...args]),
   inArray: vi.fn((...args: unknown[]) => ['inArray', ...args]),
+  isNull: vi.fn((...args: unknown[]) => ['isNull', ...args]),
   getTableColumns: vi.fn((table: Record<string, unknown>) => table),
   sql: Object.assign(vi.fn((...args: unknown[]) => args), {
     raw: vi.fn((str: string) => str),

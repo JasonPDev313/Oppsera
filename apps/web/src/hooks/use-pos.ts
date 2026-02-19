@@ -19,15 +19,27 @@ function todayBusinessDate(): string {
 
 // ── Hook ───────────────────────────────────────────────────────────
 
-export function usePOS(config: POSConfig) {
+export interface UsePOSOptions {
+  /** Called when addItem gets a 404 — e.g., stale catalog item that was archived */
+  onItemNotFound?: () => void;
+}
+
+export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   const { user } = useAuthContext();
   const { toast } = useToast();
+
+  // Stable ref for optional callbacks
+  const onItemNotFoundRef = useRef(options?.onItemNotFound);
+  onItemNotFoundRef.current = options?.onItemNotFound;
 
   // Location header for all POS API calls
   const locationHeaders = useMemo(() => ({ 'X-Location-Id': config.locationId }), [config.locationId]);
 
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // True while openOrder() is creating a new order (addItem uses optimistic updates,
+  // so Pay/Send buttons should NOT be disabled during this)
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
   const [heldOrderCount, setHeldOrderCount] = useState(0);
 
   // Keep a ref to the current order so callbacks always see the latest
@@ -39,6 +51,7 @@ export function usePOS(config: POSConfig) {
 
   // Deduplicate concurrent openOrder calls (e.g. rapid item taps before order exists)
   const openOrderPromise = useRef<Promise<Order> | null>(null);
+  const placingPromise = useRef<Promise<Order> | null>(null);
 
   // ── Fetch order detail ─────────────────────────────────────────
 
@@ -111,7 +124,9 @@ export function usePOS(config: POSConfig) {
   // ── Open Order ─────────────────────────────────────────────────
 
   const openOrder = useCallback(async (): Promise<Order> => {
-    setIsLoading(true);
+    // Use isCreatingOrder instead of isLoading — addItem calls this during
+    // optimistic updates, so we don't want to disable Pay/Send buttons.
+    setIsCreatingOrder(true);
     try {
       const res = await apiFetch<{ data: Order }>('/api/v1/orders', {
         method: 'POST',
@@ -142,7 +157,7 @@ export function usePOS(config: POSConfig) {
       await handleMutationError(err);
       throw err;
     } finally {
-      setIsLoading(false);
+      setIsCreatingOrder(false);
     }
   }, [config.terminalId, user?.id, handleMutationError]);
 
@@ -268,9 +283,17 @@ export function usePOS(config: POSConfig) {
         const newLine = res.data.line;
         setCurrentOrder((prev) => {
           const existing = prev?.lines ?? [];
+          const newLines = [...existing.filter((l) => l.id !== tempId && l.id !== newLine.id), newLine];
+
+          // Only apply server totals from newer versions — prevents an out-of-order
+          // response (with fewer items) from overwriting a later response's correct totals.
+          if (prev && typeof updatedOrder.version === 'number' && prev.version > updatedOrder.version) {
+            return { ...prev, lines: newLines };
+          }
+
           return {
             ...updatedOrder,
-            lines: [...existing.filter((l) => l.id !== tempId && l.id !== newLine.id), newLine],
+            lines: newLines,
             charges: prev?.charges ?? [],
             discounts: prev?.discounts ?? [],
           };
@@ -290,6 +313,12 @@ export function usePOS(config: POSConfig) {
             total: prev.total - removedSubtotal,
           };
         });
+
+        // Archived/deleted item — trigger catalog refresh to purge stale grid
+        if (err instanceof ApiError && err.statusCode === 404) {
+          onItemNotFoundRef.current?.();
+        }
+
         await handleMutationError(err);
       }
     },
@@ -462,33 +491,49 @@ export function usePOS(config: POSConfig) {
     const order = orderRef.current;
     if (!order) throw new Error('No active order to place');
 
+    // Already placed — return immediately
+    if (order.status === 'placed') return order;
+
+    // Deduplicate: if a place call is already in-flight, await it
+    if (placingPromise.current) return placingPromise.current;
+
     // Wait for any in-flight addItem calls to complete before placing
     if (pendingAddItems.current.length > 0) {
       await Promise.all(pendingAddItems.current);
     }
 
-    setIsLoading(true);
-    try {
-      const res = await apiFetch<{ data: { version: number; placedAt: string } }>(`/api/v1/orders/${order.id}/place`, {
-        method: 'POST',
-        headers: locationHeaders,
-        body: JSON.stringify({ clientRequestId: clientRequestId() }),
-      });
-      // Use the correct post-increment version from the API response
-      const placed: Order = {
-        ...order,
-        status: 'placed',
-        version: res.data.version ?? (order.version ?? 0) + 1,
-        placedAt: res.data.placedAt ?? new Date().toISOString(),
-      };
-      setCurrentOrder(placed);
-      return placed;
-    } catch (err) {
-      await handleMutationError(err);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
+    const doPlace = async (): Promise<Order> => {
+      setIsLoading(true);
+      try {
+        const res = await apiFetch<{ data: Record<string, unknown> }>(`/api/v1/orders/${order.id}/place`, {
+          method: 'POST',
+          headers: locationHeaders,
+          body: JSON.stringify({ clientRequestId: clientRequestId() }),
+        });
+        // Server returns the full order row with correct financial totals
+        // recomputed from DB. Overlay server data on local state, but preserve
+        // local lines/charges/discounts arrays (not included in server response).
+        const placed: Order = {
+          ...order,
+          ...(res.data as Partial<Order>),
+          status: 'placed',
+          lines: order.lines,
+          charges: order.charges ?? [],
+          discounts: order.discounts ?? [],
+        };
+        setCurrentOrder(placed);
+        return placed;
+      } catch (err) {
+        await handleMutationError(err);
+        throw err;
+      } finally {
+        setIsLoading(false);
+        placingPromise.current = null;
+      }
+    };
+
+    placingPromise.current = doPlace();
+    return placingPromise.current;
   }, [toast, handleMutationError]);
 
   // ── Record Tender ────────────────────────────────────────────────
@@ -655,6 +700,7 @@ export function usePOS(config: POSConfig) {
     // State
     currentOrder,
     isLoading,
+    isCreatingOrder,
     heldOrderCount,
 
     // Line Items

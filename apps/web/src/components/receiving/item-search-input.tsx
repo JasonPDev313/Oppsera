@@ -86,10 +86,10 @@ export function ItemSearchInput({
                     <div className="font-medium text-gray-900">{item.name}</div>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       {item.sku && <span>{item.sku}</span>}
-                      {item.matchedIdentifier && (
+                      {item.matchedOn === 'barcode' && item.barcode && (
                         <span className="flex items-center gap-0.5">
                           <Barcode className="h-3 w-3" />
-                          {item.matchedIdentifier}
+                          {item.barcode}
                         </span>
                       )}
                     </div>

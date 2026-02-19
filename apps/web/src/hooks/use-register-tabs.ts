@@ -236,17 +236,21 @@ export function useRegisterTabs({
       setIsLoading(false);
       pos.setOrder(null);
 
-      // Load active tab's order from cache or fetch it
-      const activeOrderTab = cached.find((t) => t.tabNumber === activeNumber && t.orderId);
-      if (activeOrderTab?.orderId) {
-        pos.fetchOrder(activeOrderTab.orderId).then((order) => {
-          if (!cancelled && order.status === 'open') {
-            orderCache.current.set(activeOrderTab.orderId!, order);
-            if (activeTabRef.current === activeNumber) {
-              pos.setOrder(order);
+      // Pre-fetch ALL cached tabs' orders in parallel so tab switching is instant
+      const tabsWithOrders = cached.filter((t) => t.orderId);
+      if (tabsWithOrders.length > 0) {
+        for (const tab of tabsWithOrders) {
+          pos.fetchOrder(tab.orderId!).then((order) => {
+            if (cancelled) return;
+            if (order.status === 'open') {
+              orderCache.current.set(tab.orderId!, order);
+              // Display immediately if this is the active tab
+              if (activeTabRef.current === tab.tabNumber) {
+                pos.setOrder(order);
+              }
             }
-          }
-        }).catch(() => {});
+          }).catch(() => {});
+        }
       }
     }
 
@@ -306,42 +310,29 @@ export function useRegisterTabs({
         setIsLoading(false);
         pos.setOrder(null);
 
-        // Fetch orders in background — active tab first for fastest UX
+        // Fetch ALL tab orders in parallel — don't block other tabs behind active tab.
+        // Display the active tab's order as soon as it resolves.
         const tabsWithOrders = serverTabs.filter((t) => t.orderId !== null);
 
         if (tabsWithOrders.length > 0) {
-          // Prioritize active tab's order
-          const activeOrderTab = tabsWithOrders.find((t) => t.tabNumber === activeNumber);
-          if (activeOrderTab) {
+          const fetches = tabsWithOrders.map(async (tab) => {
             try {
-              const order = await pos.fetchOrder(activeOrderTab.orderId!);
-              if (!cancelled && order.status === 'open') {
-                orderCache.current.set(activeOrderTab.orderId!, order);
-                pos.setOrder(order);
-              } else if (!cancelled) {
-                clearTabOrder(activeOrderTab);
+              const order = await pos.fetchOrder(tab.orderId!);
+              if (cancelled) return;
+              if (order.status === 'open') {
+                orderCache.current.set(tab.orderId!, order);
+                // If this is the active tab, display immediately
+                if (activeTabRef.current === tab.tabNumber) {
+                  pos.setOrder(order);
+                }
+              } else {
+                clearTabOrder(tab);
               }
             } catch {
-              if (!cancelled) clearTabOrder(activeOrderTab);
+              if (!cancelled) clearTabOrder(tab);
             }
-          }
-
-          // Fetch remaining tabs' orders in parallel (fire-and-forget)
-          const otherTabs = tabsWithOrders.filter((t) => t.tabNumber !== activeNumber);
-          if (otherTabs.length > 0 && !cancelled) {
-            Promise.allSettled(otherTabs.map((t) => pos.fetchOrder(t.orderId!)))
-              .then((results) => {
-                if (cancelled) return;
-                results.forEach((result, idx) => {
-                  const tab = otherTabs[idx]!;
-                  if (result.status === 'fulfilled' && result.value.status === 'open') {
-                    orderCache.current.set(tab.orderId!, result.value);
-                  } else {
-                    clearTabOrder(tab);
-                  }
-                });
-              });
-          }
+          });
+          Promise.allSettled(fetches);
         }
       } catch {
         // If server load fails and no cached data, create a local fallback tab

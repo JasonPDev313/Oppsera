@@ -3,11 +3,22 @@ import { withTenant } from '@oppsera/db';
 import {
   receivingReceipts,
   receivingReceiptLines,
+  receiptCharges,
   inventoryItems,
   vendors,
   itemVendors,
 } from '@oppsera/db';
 import { costPreview } from '../services/costing';
+
+export interface ReceiptChargeDetail {
+  id: string;
+  chargeType: string;
+  description: string | null;
+  amount: number;
+  glAccountCode: string | null;
+  glAccountName: string | null;
+  sortOrder: number;
+}
 
 export interface ReceiptLineDetail {
   id: string;
@@ -24,6 +35,7 @@ export interface ReceiptLineDetail {
   landedUnitCost: number;
   baseQty: number;
   weight: number | null;
+  volume: number | null;
   lotNumber: string | null;
   serialNumbers: string[] | null;
   expirationDate: string | null;
@@ -48,6 +60,7 @@ export interface ReceiptDetail {
   status: string;
   vendorInvoiceNumber: string | null;
   receivedDate: string;
+  freightMode: string;
   shippingCost: number;
   shippingAllocationMethod: string;
   taxAmount: number;
@@ -62,6 +75,7 @@ export interface ReceiptDetail {
   createdAt: string;
   updatedAt: string;
   lines: ReceiptLineDetail[];
+  charges: ReceiptChargeDetail[];
 }
 
 export async function getReceipt(
@@ -107,6 +121,28 @@ export async function getReceipt(
         ),
       )
       .orderBy(receivingReceiptLines.sortOrder);
+
+    // Load charges
+    const chargeRows = await tx
+      .select()
+      .from(receiptCharges)
+      .where(
+        and(
+          eq(receiptCharges.tenantId, tenantId),
+          eq(receiptCharges.receiptId, receiptId),
+        ),
+      )
+      .orderBy(receiptCharges.sortOrder);
+
+    const charges: ReceiptChargeDetail[] = chargeRows.map((c) => ({
+      id: c.id,
+      chargeType: c.chargeType,
+      description: c.description ?? null,
+      amount: Number(c.amount),
+      glAccountCode: c.glAccountCode ?? null,
+      glAccountName: c.glAccountName ?? null,
+      sortOrder: c.sortOrder,
+    }));
 
     // Compute on-hand for each item (for cost preview on drafts)
     const itemIds = [...new Set(lineRows.map((r) => r.line.inventoryItemId))];
@@ -159,6 +195,7 @@ export async function getReceipt(
         landedUnitCost: landedUnit,
         baseQty,
         weight: l.weight ? Number(l.weight) : null,
+        volume: l.volume ? Number(l.volume) : null,
         lotNumber: l.lotNumber ?? null,
         serialNumbers: l.serialNumbers as string[] | null,
         expirationDate: l.expirationDate ?? null,
@@ -178,6 +215,7 @@ export async function getReceipt(
       status: receipt.status,
       vendorInvoiceNumber: receipt.vendorInvoiceNumber ?? null,
       receivedDate: receipt.receivedDate,
+      freightMode: receipt.freightMode ?? 'allocate',
       shippingCost: Number(receipt.shippingCost),
       shippingAllocationMethod: receipt.shippingAllocationMethod,
       taxAmount: Number(receipt.taxAmount),
@@ -192,6 +230,7 @@ export async function getReceipt(
       createdAt: receipt.createdAt.toISOString(),
       updatedAt: receipt.updatedAt.toISOString(),
       lines,
+      charges,
     };
   });
 }

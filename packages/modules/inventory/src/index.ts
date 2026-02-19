@@ -10,13 +10,13 @@ export { receiveInventory } from './commands/receive-inventory';
 export { adjustInventory } from './commands/adjust-inventory';
 export { transferInventory } from './commands/transfer-inventory';
 export { recordShrink } from './commands/record-shrink';
-export { archiveInventoryItem } from './commands/archive-inventory-item';
 
 // Queries
 export { listInventoryItems } from './queries/list-inventory-items';
 export type { ListInventoryItemsInput, ListInventoryItemsResult, InventoryItemWithOnHand } from './queries/list-inventory-items';
 export { getInventoryItem } from './queries/get-inventory-item';
 export type { InventoryItemDetail } from './queries/get-inventory-item';
+export { getInventoryItemByCatalogItem } from './queries/get-inventory-item-by-catalog';
 export { getMovements } from './queries/get-movements';
 export type { GetMovementsInput, GetMovementsResult } from './queries/get-movements';
 
@@ -26,14 +26,12 @@ export {
   adjustInventorySchema,
   transferInventorySchema,
   recordShrinkSchema,
-  archiveInventoryItemSchema,
 } from './validation';
 export type {
   ReceiveInventoryInput,
   AdjustInventoryInput,
   TransferInventoryInput,
   RecordShrinkInput,
-  ArchiveInventoryItemInput,
 } from './validation';
 
 // Receiving commands
@@ -43,6 +41,9 @@ export {
   addReceiptLine,
   updateReceiptLine,
   removeReceiptLine,
+  addReceiptCharge,
+  updateReceiptCharge,
+  removeReceiptCharge,
   postReceipt,
   voidReceipt,
   createVendor,
@@ -51,7 +52,7 @@ export {
 
 // Receiving queries
 export { getReceipt } from './queries/get-receipt';
-export type { ReceiptDetail, ReceiptLineDetail } from './queries/get-receipt';
+export type { ReceiptDetail, ReceiptLineDetail, ReceiptChargeDetail } from './queries/get-receipt';
 export { listReceipts } from './queries/list-receipts';
 export type { ListReceiptsInput, ListReceiptsResult, ReceiptSummary } from './queries/list-receipts';
 export { searchItemsForReceiving } from './queries/search-items';
@@ -67,6 +68,9 @@ export {
   updateReceiptSchema,
   addReceiptLineSchema,
   updateReceiptLineSchema,
+  addReceiptChargeSchema,
+  updateReceiptChargeSchema,
+  removeReceiptChargeSchema,
   postReceiptSchema,
   voidReceiptSchema,
   createVendorSchema,
@@ -77,10 +81,15 @@ export type {
   UpdateReceiptInput,
   AddReceiptLineInput,
   UpdateReceiptLineInput,
+  AddReceiptChargeInput,
+  UpdateReceiptChargeInput,
+  RemoveReceiptChargeInput,
   PostReceiptInput,
   VoidReceiptInput,
   CreateVendorInput,
   UpdateVendorInput,
+  FreightMode,
+  AllocationMethodEnum,
 } from './validation/receiving';
 
 // Vendor management commands

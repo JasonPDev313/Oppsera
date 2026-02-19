@@ -85,12 +85,14 @@ export async function updateReceiptLine(
         unitCost: Number(l.unitCost),
         conversionFactor: factor,
         weight: l.weight ? Number(l.weight) : null,
+        volume: l.volume ? Number(l.volume) : null,
       });
     }
 
     const shippingCost = Number(receipt.shippingCost);
     const allocationMethod = receipt.shippingAllocationMethod as AllocationMethod;
-    const { computed, subtotal } = recomputeAllLines(lineInputs, shippingCost, allocationMethod);
+    const freightMode = receipt.freightMode ?? 'allocate';
+    const { computed, subtotal } = recomputeAllLines(lineInputs, shippingCost, allocationMethod, freightMode);
 
     for (const c of computed) {
       await (tx as any)

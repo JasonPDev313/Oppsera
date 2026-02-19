@@ -39,7 +39,7 @@ export default function ReceivingPage() {
     vendorId: vendorFilter || undefined,
   });
 
-  const { items: vendorList } = useVendors();
+  const { items: vendorList } = useVendors(undefined, { minimal: true });
   const { data: reorderSuggestions, isLoading: reorderLoading } = useReorderSuggestions(undefined);
 
   const vendorOptions = [

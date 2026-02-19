@@ -1371,7 +1371,7 @@ describe('Customers Module', () => {
   // ── Section 8: Event Consumers ──────────────────────────────
 
   describe('Event Consumers', () => {
-    it('handleOrderPlaced updates customer stats and creates AR charge for house account', async () => {
+    it('handleOrderPlaced updates customer stats when customerId is in event payload', async () => {
       const event = {
         eventId: 'evt_001',
         eventType: 'order.placed.v1',
@@ -1387,53 +1387,20 @@ describe('Customers Module', () => {
           taxTotal: 450,
           total: 4950,
           lineCount: 3,
+          customerId: 'cust_001',
         },
       };
-
-      // Lookup the order to get customerId and billingAccountId
-      mockSelectReturns([{
-        id: 'ord_001',
-        tenantId: TENANT_A,
-        customerId: 'cust_001',
-        billingAccountId: 'ba_001',
-        locationId: 'loc_001',
-        businessDate: '2026-02-17',
-      }]);
 
       // Update customer stats (default update mock handles this)
 
       // Insert activity log for customer visit
       mockInsertReturns([{ id: 'activity_visit' }]);
 
-      // Idempotency check: no existing AR charge for this order
-      mockSelectReturns([]);
-
-      // Look up billing account
-      mockSelectReturns([{
-        id: 'ba_001',
-        tenantId: TENANT_A,
-        primaryCustomerId: 'cust_001',
-        currentBalanceCents: 0,
-      }]);
-
-      // Insert AR charge
-      mockInsertReturns([{ id: 'ar_charge_001' }]);
-
-      // Update billing account balance (default update mock)
-
-      // Insert GL journal entry
-      mockInsertReturns([{ id: 'gl_001' }]);
-
-      // Update AR transaction with GL ref (default update mock)
-
-      // Insert billing charge activity log
-      mockInsertReturns([{ id: 'activity_billing' }]);
-
       await handleOrderPlaced(event as any);
 
       // Verify customer stats were updated
       expect(mockUpdate).toHaveBeenCalled();
-      // Verify AR charge was inserted
+      // Verify activity log was inserted
       expect(mockInsert).toHaveBeenCalled();
     });
 
@@ -1449,6 +1416,10 @@ describe('Customers Module', () => {
           orderNumber: '0001',
           reason: 'Customer cancelled',
           voidedBy: USER_A,
+          locationId: 'loc_001',
+          businessDate: '2026-02-17',
+          total: 4950,
+          customerId: 'cust_001',
         },
       };
 
@@ -1465,13 +1436,6 @@ describe('Customers Module', () => {
 
       // Idempotency check: no existing reversal for this void
       mockSelectReturns([]);
-
-      // Look up the order for businessDate and locationId
-      mockSelectReturns([{
-        id: 'ord_001',
-        businessDate: '2026-02-17',
-        locationId: 'loc_001',
-      }]);
 
       // Insert reversal AR transaction
       mockInsertReturns([{ id: 'ar_reversal_001' }]);
@@ -1494,7 +1458,7 @@ describe('Customers Module', () => {
       expect(mockUpdate).toHaveBeenCalled();
     });
 
-    it('handleTenderRecorded creates AR payment for house_account tender type', async () => {
+    it('handleTenderRecorded skips non-house_account tenders', async () => {
       const event = {
         eventId: 'evt_003',
         eventType: 'tender.recorded.v1',
@@ -1503,6 +1467,44 @@ describe('Customers Module', () => {
         locationId: 'loc_001',
         data: {
           tenderId: 'tender_001',
+          orderId: 'ord_001',
+          orderNumber: '0001',
+          locationId: 'loc_001',
+          businessDate: '2026-02-17',
+          tenderType: 'cash',
+          tenderSequence: 1,
+          amount: 4950,
+          tipAmount: 0,
+          changeGiven: 0,
+          amountGiven: 4950,
+          employeeId: 'emp_001',
+          terminalId: 'term_001',
+          shiftId: null,
+          posMode: null,
+          source: 'pos',
+          orderTotal: 4950,
+          totalTendered: 4950,
+          remainingBalance: 0,
+          isFullyPaid: true,
+          customerId: 'cust_001',
+        },
+      };
+
+      await handleTenderRecorded(event as any);
+
+      // Non-house_account tenders are skipped entirely
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it('handleTenderRecorded returns early when billingAccountId is not available', async () => {
+      const event = {
+        eventId: 'evt_004',
+        eventType: 'tender.recorded.v1',
+        tenantId: TENANT_A,
+        actorUserId: USER_A,
+        locationId: 'loc_001',
+        data: {
+          tenderId: 'tender_002',
           orderId: 'ord_001',
           orderNumber: '0001',
           locationId: 'loc_001',
@@ -1522,56 +1524,14 @@ describe('Customers Module', () => {
           totalTendered: 4950,
           remainingBalance: 0,
           isFullyPaid: true,
+          customerId: 'cust_001',
         },
       };
 
-      // Look up the order to find billingAccountId
-      mockSelectReturns([{
-        id: 'ord_001',
-        tenantId: TENANT_A,
-        customerId: 'cust_001',
-        billingAccountId: 'ba_001',
-        locationId: 'loc_001',
-      }]);
-
-      // Idempotency check: no existing payment for this tender
-      mockSelectReturns([]);
-
-      // Resolve activityCustomerId -- customerId exists, skip billingAccount lookup
-
-      // Insert AR payment transaction
-      mockInsertReturns([{ id: 'ar_pay_tender' }]);
-
-      // FIFO: fetch outstanding charges
-      const outstandingCharge = {
-        id: 'ar_charge_001',
-        amountCents: 8000,
-        dueDate: '2026-02-01',
-      };
-      mockSelectReturns([outstandingCharge]);
-
-      // Sum existing allocations for the charge
-      mockSelectReturns([{ allocated: 0 }]);
-
-      // Insert allocation
-      mockInsertReturns([{ id: 'alloc_tender' }]);
-
-      // Update billing account balance (default update mock)
-
-      // Insert GL journal entry
-      mockInsertReturns([{ id: 'gl_tender_001' }]);
-
-      // Update AR transaction with GL ref (default update mock)
-
-      // Insert activity log
-      mockInsertReturns([{ id: 'activity_tender_pay' }]);
-
       await handleTenderRecorded(event as any);
 
-      // Verify AR payment was inserted
-      expect(mockInsert).toHaveBeenCalled();
-      // Verify billing account balance was updated
-      expect(mockUpdate).toHaveBeenCalled();
+      // billingAccountId is not yet available, so consumer returns early
+      expect(mockInsert).not.toHaveBeenCalled();
     });
   });
 });

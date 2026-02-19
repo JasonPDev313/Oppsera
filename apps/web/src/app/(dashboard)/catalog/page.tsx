@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, AlertTriangle, Eye, Archive, History } from 'lucide-react';
+import { Package, AlertTriangle, Eye, Power, RotateCcw, History } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
 import { Select } from '@/components/ui/select';
@@ -12,11 +12,11 @@ import { ActionMenu } from '@/components/ui/action-menu';
 import type { ActionMenuItem } from '@/components/ui/action-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
-import { useCatalogItems, useDepartments, useSubDepartments, useCategories } from '@/hooks/use-catalog';
+import { useCatalogItems, useDepartments, useSubDepartments, useCategories, archiveCatalogItem, unarchiveCatalogItem } from '@/hooks/use-catalog';
 import { useInventory } from '@/hooks/use-inventory';
-import { apiFetch } from '@/lib/api-client';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { CatalogItemRow } from '@/types/catalog';
+import { ItemChangeLogModal } from '@/components/catalog/ItemChangeLogModal';
 
 const typeFilterOptions = [
   { value: '', label: 'All Types' },
@@ -65,18 +65,21 @@ export default function CatalogPage() {
   const [subDeptId, setSubDeptId] = useState('');
   const [catId, setCatId] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const [showInactive, setShowInactive] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [lowStockOnly, setLowStockOnly] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState<EnrichedRow | null>(null);
+  const [deactivateTarget, setDeactivateTarget] = useState<EnrichedRow | null>(null);
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [reactivateTarget, setReactivateTarget] = useState<EnrichedRow | null>(null);
+  const [historyItem, setHistoryItem] = useState<{ id: string; name: string } | null>(null);
 
   const { data: departments } = useDepartments();
   const { data: subDepartments } = useSubDepartments(deptId || undefined);
   const { data: categories } = useCategories(subDeptId || undefined);
 
-  const { data: items, isLoading, hasMore, loadMore } = useCatalogItems({
+  const { data: items, isLoading, hasMore, loadMore, mutate } = useCatalogItems({
     categoryId: catId || undefined,
     itemType: typeToBackend[typeFilter],
-    isActive: showInactive ? undefined : true,
+    includeArchived: showAll ? true : undefined,
     search: search || undefined,
   });
 
@@ -138,23 +141,38 @@ export default function CatalogPage() {
     [categories],
   );
 
-  const handleArchive = useCallback(
-    async (item: EnrichedRow) => {
-      if (!item.inventoryItemId) return;
-      const isArchived = item.inventoryStatus === 'archived';
+  const handleDeactivate = useCallback(
+    async () => {
+      if (!deactivateTarget) return;
       try {
-        await apiFetch(`/api/v1/inventory/${item.inventoryItemId}/archive`, {
-          method: 'POST',
-          body: JSON.stringify({ archive: !isArchived }),
-        });
-        toast.success(isArchived ? `"${item.name}" unarchived` : `"${item.name}" archived`);
+        const reason = deactivateReason.trim() || undefined;
+        await archiveCatalogItem(deactivateTarget.id, reason);
+        toast.success(`"${deactivateTarget.name}" deactivated`);
+        mutate();
         mutateInventory();
       } catch {
-        toast.error(`Failed to ${isArchived ? 'unarchive' : 'archive'} item`);
+        toast.error('Failed to deactivate item');
       }
-      setArchiveTarget(null);
+      setDeactivateTarget(null);
+      setDeactivateReason('');
     },
-    [toast, mutateInventory],
+    [deactivateTarget, deactivateReason, toast, mutate, mutateInventory],
+  );
+
+  const handleReactivate = useCallback(
+    async () => {
+      if (!reactivateTarget) return;
+      try {
+        await unarchiveCatalogItem(reactivateTarget.id);
+        toast.success(`"${reactivateTarget.name}" reactivated`);
+        mutate();
+        mutateInventory();
+      } catch {
+        toast.error('Failed to reactivate item');
+      }
+      setReactivateTarget(null);
+    },
+    [reactivateTarget, toast, mutate, mutateInventory],
   );
 
   const buildActions = useCallback(
@@ -166,33 +184,42 @@ export default function CatalogPage() {
           icon: Eye,
           onClick: () => router.push(`/catalog/items/${row.id}`),
         },
+        {
+          key: 'history',
+          label: 'View History',
+          icon: History,
+          onClick: () => setHistoryItem({ id: row.id, name: row.name }),
+        },
       ];
       if (row.inventoryItemId) {
         actions.push({
           key: 'changelog',
           label: 'Stock History',
           icon: History,
-          onClick: () => router.push(`/inventory/${row.inventoryItemId}?tab=movements`),
+          onClick: () => router.push(`/catalog/items/${row.id}`),
         });
-        const isArchived = row.inventoryStatus === 'archived';
+      }
+      if (row.archivedAt) {
         actions.push({
-          key: 'archive',
-          label: isArchived ? 'Unarchive' : 'Archive',
-          icon: Archive,
-          destructive: !isArchived,
+          key: 'reactivate',
+          label: 'Reactivate',
+          icon: RotateCcw,
           dividerBefore: true,
-          onClick: () => {
-            if (isArchived) {
-              handleArchive(row);
-            } else {
-              setArchiveTarget(row);
-            }
-          },
+          onClick: () => setReactivateTarget(row),
+        });
+      } else {
+        actions.push({
+          key: 'deactivate',
+          label: 'Deactivate',
+          icon: Power,
+          destructive: true,
+          dividerBefore: true,
+          onClick: () => setDeactivateTarget(row),
         });
       }
       return actions;
     },
-    [router, handleArchive],
+    [router],
   );
 
   const columns = [
@@ -250,11 +277,11 @@ export default function CatalogPage() {
       ),
     },
     {
-      key: 'isActive',
+      key: 'status',
       header: 'Status',
       render: (row: EnrichedRow) => (
-        <Badge variant={row.isActive ? 'success' : 'neutral'}>
-          {row.isActive ? 'Active' : 'Inactive'}
+        <Badge variant={!row.archivedAt ? 'success' : 'neutral'}>
+          {!row.archivedAt ? 'Active' : 'Inactive'}
         </Badge>
       ),
     },
@@ -337,11 +364,11 @@ export default function CatalogPage() {
         <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
           <input
             type="checkbox"
-            checked={showInactive}
-            onChange={(e) => setShowInactive(e.target.checked)}
+            checked={showAll}
+            onChange={(e) => setShowAll(e.target.checked)}
             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
-          Show inactive
+          Include Inactive
         </label>
       </div>
 
@@ -360,7 +387,7 @@ export default function CatalogPage() {
             isLoading={isLoading}
             emptyMessage={lowStockOnly ? 'No low stock items' : 'No items match your filters'}
             onRowClick={(row) => router.push(`/catalog/items/${row.id}`)}
-            rowClassName={(row) => (row.isActive ? '' : 'opacity-50')}
+            rowClassName={(row) => (!row.archivedAt ? '' : 'opacity-50')}
           />
           {hasMore && !lowStockOnly && (
             <div className="flex justify-center">
@@ -376,15 +403,49 @@ export default function CatalogPage() {
         </>
       )}
 
-      {/* Archive Confirmation */}
+      {/* Deactivate Confirmation */}
       <ConfirmDialog
-        open={!!archiveTarget}
-        title="Archive Item"
-        description={`Are you sure you want to archive "${archiveTarget?.name}"? Archived items won't appear in POS or active inventory views.`}
-        confirmLabel="Archive"
+        open={!!deactivateTarget}
+        title="Deactivate Item"
+        description={`Are you sure you want to deactivate "${deactivateTarget?.name}"? It will no longer appear in POS, receiving, or active views.`}
+        confirmLabel="Deactivate"
         destructive
-        onConfirm={() => archiveTarget && handleArchive(archiveTarget)}
-        onClose={() => setArchiveTarget(null)}
+        onConfirm={handleDeactivate}
+        onClose={() => {
+          setDeactivateTarget(null);
+          setDeactivateReason('');
+        }}
+      >
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Reason (optional)
+          </label>
+          <textarea
+            value={deactivateReason}
+            onChange={(e) => setDeactivateReason(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            rows={3}
+            placeholder="e.g., Product discontinued by manufacturer"
+          />
+        </div>
+      </ConfirmDialog>
+
+      {/* Reactivate Confirmation */}
+      <ConfirmDialog
+        open={!!reactivateTarget}
+        title="Reactivate Item"
+        description={`Are you sure you want to reactivate "${reactivateTarget?.name}"? It will reappear in POS, receiving, and active views.`}
+        confirmLabel="Reactivate"
+        onConfirm={handleReactivate}
+        onClose={() => setReactivateTarget(null)}
+      />
+
+      {/* Change History modal */}
+      <ItemChangeLogModal
+        open={!!historyItem}
+        onClose={() => setHistoryItem(null)}
+        itemId={historyItem?.id ?? ''}
+        itemName={historyItem?.name ?? ''}
       />
     </div>
   );

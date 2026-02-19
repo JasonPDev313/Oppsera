@@ -89,6 +89,12 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       taxTotal: order.taxTotal,
       total: order.total,
       lineCount: lines.length,
+      customerId: order.customerId ?? null,
+      lines: lines.map((l: any) => ({
+        catalogItemId: l.catalogItemId,
+        qty: Number(l.qty),
+        packageComponents: l.packageComponents ?? null,
+      })),
     });
 
     return { result: { ...order, status: 'placed', placedAt: now, receiptSnapshot, version: order.version + 1 }, events: [event] };

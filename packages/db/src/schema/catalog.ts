@@ -71,11 +71,13 @@ export const catalogItems = pgTable(
     taxCategoryId: text('tax_category_id').references(() => taxCategories.id),
     isTrackable: boolean('is_trackable').notNull().default(false),
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
-    isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by'),
     updatedBy: text('updated_by'),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    archivedBy: text('archived_by'),
+    archivedReason: text('archived_reason'),
   },
   (table) => [
     uniqueIndex('uq_catalog_items_tenant_sku')
@@ -84,8 +86,8 @@ export const catalogItems = pgTable(
     uniqueIndex('uq_catalog_items_tenant_barcode')
       .on(table.tenantId, table.barcode)
       .where(sql`barcode IS NOT NULL`),
-    index('idx_catalog_items_active').on(table.tenantId, table.isActive),
     index('idx_catalog_items_category').on(table.tenantId, table.categoryId),
+    index('idx_catalog_items_tenant_archived').on(table.tenantId, table.archivedAt),
   ],
 );
 
@@ -164,5 +166,29 @@ export const catalogLocationPrices = pgTable(
       table.tenantId,
       table.catalogItemId,
     ),
+  ],
+);
+
+// ── Item Change Logs (Append-Only Audit Trail) ─────────────────
+export const catalogItemChangeLogs = pgTable(
+  'catalog_item_change_logs',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull(),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => catalogItems.id, { onDelete: 'cascade' }),
+    actionType: text('action_type').notNull(),
+    changedByUserId: text('changed_by_user_id').notNull(),
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+    source: text('source').notNull(),
+    fieldChanges: jsonb('field_changes').$type<Record<string, { old: unknown; new: unknown }>>().notNull().default({}),
+    summary: text('summary'),
+    notes: text('notes'),
+  },
+  (table) => [
+    index('idx_catalog_item_change_logs_lookup').on(table.tenantId, table.itemId, table.changedAt),
+    index('idx_catalog_item_change_logs_user').on(table.tenantId, table.changedByUserId),
+    index('idx_catalog_item_change_logs_action').on(table.tenantId, table.actionType),
   ],
 );

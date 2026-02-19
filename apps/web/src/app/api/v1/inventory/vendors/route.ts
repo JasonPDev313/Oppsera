@@ -16,6 +16,7 @@ export const GET = withMiddleware(
       isActive: url.searchParams.get('isActive') === 'false' ? false : url.searchParams.get('isActive') === 'true' ? true : undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined,
+      minimal: url.searchParams.get('minimal') === 'true',
     });
     return NextResponse.json({
       data: result.items,

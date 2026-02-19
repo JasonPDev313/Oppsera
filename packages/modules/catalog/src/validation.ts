@@ -148,3 +148,10 @@ export const removeLocationPriceSchema = z.object({
   locationId: z.string().min(1),
 });
 export type RemoveLocationPriceInput = z.infer<typeof removeLocationPriceSchema>;
+
+// === Archive ===
+
+export const archiveItemSchema = z.object({
+  reason: z.string().max(500).transform((v) => v.trim()).optional(),
+});
+export type ArchiveItemInput = z.input<typeof archiveItemSchema>;

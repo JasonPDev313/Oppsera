@@ -88,7 +88,7 @@ oppsera/
 @oppsera/web           ← all packages (orchestration layer — only place that imports multiple modules)
 ```
 
-**NOTE**: Cross-module deps were eliminated in the architecture decoupling pass. Shared helpers (`checkIdempotency`, `saveIdempotencyKey`, `fetchOrderForMutation`, `incrementVersion`, `calculateTaxes`, `CatalogReadApi`) now live in `@oppsera/core/helpers/`. Order and catalog modules provide thin re-exports for backward compat. One remaining violation: customers event consumer queries `orders` and `tenders` tables directly (fix: enrich event payloads).
+**NOTE**: Cross-module deps were eliminated in the architecture decoupling pass. Shared helpers (`checkIdempotency`, `saveIdempotencyKey`, `fetchOrderForMutation`, `incrementVersion`, `calculateTaxes`, `CatalogReadApi`) now live in `@oppsera/core/helpers/`. Order and catalog modules provide thin re-exports for backward compat. Event payloads are self-contained: `order.placed.v1` includes `customerId` and `lines[]`, `order.voided.v1` includes `locationId`/`businessDate`/`total`, `tender.recorded.v1` includes `customerId`.
 
 ## Key Architectural Patterns
 
@@ -275,10 +275,12 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 
 ### What's Built
 - **Platform Core**: auth, RBAC, entitlements, events/outbox, audit, withMiddleware
-- **Catalog Module**: 12 tables, 16 commands, 8 queries, 18 API routes, tax calculation engine, internal read API (`getItemForPOS`)
+- **Catalog Module**: 13 tables, 18 commands, 9 queries, 19 API routes, tax calculation engine, internal read API (`getItemForPOS`)
   - Items: SKU + barcode (UPC) fields with unique constraints, JSONB metadata for type-specific config
   - Categories: 3-level hierarchy (Department → SubDepartment → Category), depth validated
   - Modifier groups: junction table with `isDefault` flag (canonical source of truth)
+  - **Archive semantics** (Session 25): `archivedAt`/`archivedBy`/`archivedReason` replace boolean `isActive`. Migration 0060 adds columns, 0061 drops `is_active`. Commands: `archiveItem`, `unarchiveItem`. Queries filter `archivedAt IS NULL` for active items.
+  - **Item Change Log** (Session 25): Append-only `catalog_item_change_logs` table (migration 0063). Field-level diffs via `computeItemDiff()`, auto-logged on create/update/archive/restore via `logItemChange(tx, params)`. Service: `packages/modules/catalog/src/services/item-change-log.ts`. Query: `getItemChangeLog` with cursor pagination, date/action/user filters, user name + category/taxCategory display name resolution. API: `GET /api/v1/catalog/items/[id]/change-log`. Frontend: `ItemChangeLogModal` (portal-based, collapsible entries, field-level old→new display). RLS: SELECT + INSERT only (append-only enforcement).
 - **Orders Module**: 6 tables + existing `order_line_taxes`, 8 commands, 3 queries, 10 API routes
   - Enterprise: idempotency keys, optimistic locking, receipt snapshots, order number counters
   - Type-aware: F&B (fractional qty, modifiers), Retail (qty=1, option sets), Service, Package (component snapshots)
@@ -289,7 +291,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - Tender reversals via `order.voided.v1` event consumer (auto-reverse all tenders + GL)
   - Append-only tenders with derived reversal status (no UPDATE on financial fields)
   - Idempotency with required `clientRequestId`, optimistic locking on order version
-- **Catalog Frontend**: 6 pages, 10 UI components, data hooks, sidebar navigation
+- **Catalog Frontend**: 6 pages, 12 UI components, data hooks, sidebar navigation (page header renamed "Inventory Items")
 - **Tenant Onboarding**: business type selection, 5-step wizard, atomic provisioning, auth flow guards
 - **POS Frontend**: Dual-mode (Retail + F&B), 17 components, 5 catalog-nav components, 7 hooks, fullscreen layout with barcode scanner
   - Retail POS: 60/40 split, search bar, 4-layer hierarchy, barcode scanning, hold/recall
@@ -297,7 +299,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - Shared: ItemButton, Cart (type-aware), CartTotals, TenderDialog, ModifierDialog, OptionPickerDialog, PackageConfirmDialog, PriceOverrideDialog, ServiceChargeDialog, DiscountDialog
   - Catalog nav: DepartmentTabs, SubDepartmentTabs, CategoryRail, CatalogBreadcrumb, QuickMenuTab
   - Order history: list with filters + detail with receipt viewer + tenders section
-- **Inventory Module**: 2 core tables + 7 receiving/vendor tables + 3 PO tables, 19 commands, 11 queries, 18 API routes
+- **Inventory Module**: 2 core tables + 7 receiving/vendor tables + 3 PO tables, 18 commands, 11 queries, 18 API routes
   - Append-only movements ledger: on-hand = SUM(quantity_delta), never a mutable column
   - Type-aware: F&B fractional qty, Retail integer, Package component-level deduction
   - 4 base commands: receiveInventory, adjustInventory, transferInventory, recordShrink
@@ -307,7 +309,13 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - UOM support: `uoms` table + `itemUomConversions` for pack-to-base conversion (e.g., 1 CS = 24 EA)
   - Cost tracking: unitCost, extendedCost on movements; costingMethod, standardCost, currentCost on items
   - Idempotency: UNIQUE index on (tenantId, referenceType, referenceId, inventoryItemId, movementType) + ON CONFLICT DO NOTHING
-  - Frontend: inventory list page (search, filters, color-coded on-hand), detail page with movement history, receive/adjust/shrink dialogs
+  - Frontend: stock UI unified into catalog item detail page via `StockSection` component; standalone Stock Levels pages deleted
+  - `StockSection`: location selector, stats cards (On Hand, Reorder Point, Par Level, Costing Method), stock details grid, Receive/Adjust/Shrink action buttons, movement history table with pagination
+  - Extracted dialog components: `receive-dialog.tsx`, `adjust-dialog.tsx`, `shrink-dialog.tsx` (portal-based, reusable)
+  - `useInventoryForCatalogItem` hook: resolves catalogItemId + locationId → inventory data (returns null when no record)
+  - `getInventoryItemByCatalogItem` query: backend resolver for catalog→inventory lookup
+  - API: `GET /api/v1/inventory/by-catalog-item?catalogItemId=xxx&locationId=yyy`
+  - Catalog Items list page (`/catalog`) shows On Hand + Reorder Pt columns (enriched from inventory API)
   - **Receiving Subsystem** (Sessions 23-24):
     - 7 new tables: `vendors`, `uoms`, `itemUomConversions`, `itemVendors`, `itemIdentifiers`, `receivingReceipts`, `receivingReceiptLines`
     - Added `currentCost` NUMERIC(12,4) column to `inventoryItems` for live weighted avg / last cost
@@ -323,6 +331,17 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
     - Validation schemas: `packages/modules/inventory/src/validation/receiving.ts`
     - Schema: `packages/db/src/schema/receiving.ts`, Migration: `0056_receiving.sql`
     - 49 tests across 4 test files (shipping allocation, costing, UOM conversion, receiving UI)
+  - **Receiving Frontend** (Session 25):
+    - Receipt list page: `/inventory/receiving` with status/vendor/date filters, cursor pagination
+    - Receipt detail/edit page: `/inventory/receiving/[id]` with editable grid, live totals bar
+    - `ReceivingGrid` component: inline-editable cells for qty, unitCost, UOM selection
+    - `EditableCell` component: click-to-edit with blur/Enter commit, Escape cancel
+    - `ReceiptHeader` component: vendor selector, receipt date, invoice number, shipping cost, freight mode
+    - `use-receiving-editor` hook: manages draft receipt state, auto-save with debounce, line CRUD
+    - `receiving-calc.ts`: pure calculation library (line totals, shipping allocation, receipt summary) — no side effects, easily testable
+    - `ReceiptTotalsBar` component: sticky footer with subtotal, shipping, tax, grand total
+    - `ItemSearchInput` component: barcode→SKU→name fallback search for adding receipt lines
+    - Freight modes: ALLOCATE (distributes shipping across lines) vs EXPENSE (books shipping as separate expense)
   - **Vendor Management** (Session 24):
     - Additive migration 0058: `nameNormalized`, `website`, `defaultPaymentTerms` on vendors; `isActive`, `lastCost`, `lastReceivedAt`, `minOrderQty`, `packSize`, `notes` on itemVendors
     - Rule VM-1: Soft-delete only — vendors deactivated via `isActive=false`, never hard-deleted
@@ -422,6 +441,8 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **Order fetch optimization**: `packages/modules/orders/src/queries/get-order.ts` — streamlined order loading
   - **Middleware performance**: `packages/core/src/auth/with-middleware.ts` — perf tweaks to auth middleware chain
   - **Layout slimmed**: dashboard layout reduced by 32 lines, settings page simplified by 80 lines
+  - **Receiving search indexes**: migration `0062_receiving_search_indexes.sql` — trigram GIN indexes on `catalog_items(name, sku)`, `item_identifiers(value)`, `vendors(name)` for fast ILIKE search
+  - **RLS policy fix**: migration `0059_fix_rls_role_policies.sql` — corrected role restriction on RLS policies
 
 ### Test Coverage
 792 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management)
@@ -439,13 +460,13 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - Vendor Management frontend (types, hooks, components, pages, sidebar link) — backend complete
 - Vendor Management remaining API routes (search, deactivate/reactivate, catalog CRUD endpoints)
 - Purchase Orders module Phases 2-6 (commands, queries, API routes, frontend) — schema done
-- Receiving module frontend (receipt list page, receipt detail/edit page, item search, cost preview, barcode scan)
+- Receiving module frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
 - V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
 - Settings → Dashboard tab (widget toggles, notes editor)
-- Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
+- Run migrations 0060 + 0061 on dev DB (archive semantics + drop isActive)
 
 ## Critical Gotchas (Quick Reference)
 
@@ -498,7 +519,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 47. **Never cache stock levels** — inventory on-hand is always computed from `SUM(quantity_delta)`. Caching introduces stale reads and double-deduction risks. Always query live.
 48. **Defer partitioning until 50M+ rows** — partition only when a single table exceeds 50M rows AND index scans show >100ms P95. Use date-based monthly partitioning, NOT tenant-based (too many partitions).
 49. **Vercel Cron for outbox drain** — the outbox worker runs in-process via `instrumentation.ts`, but Vercel cold starts can leave gaps. Add a Vercel Cron job pinging `/api/v1/internal/drain-outbox` every minute as safety net.
-50. **Event payloads must be self-contained** — consumers should NEVER query other modules' tables. If a consumer needs data not in the event, enrich the event payload at publish time. See §45 known violation for customers consumer.
+50. **Event payloads must be self-contained** — consumers should NEVER query other modules' tables. If a consumer needs data not in the event, enrich the event payload at publish time. All cross-module consumer violations have been resolved via payload enrichment.
 51. **Background jobs use SKIP LOCKED** — `SELECT ... FOR UPDATE SKIP LOCKED` ensures multiple workers never claim the same job. No external queue dependency needed at Stage 1.
 52. **Tenant fairness in job workers** — cap `maxJobsPerTenantPerPoll` to prevent a single tenant from monopolizing the job queue. Default: 5 jobs per tenant per poll cycle.
 53. **Never K8s before Docker Compose proves insufficient** — K8s adds operational complexity. Only migrate when: >10 services, need custom-metric auto-scaling, team has K8s experience, monthly spend >$2K.
@@ -545,6 +566,16 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 94. **Receiving money stored as NUMERIC(12,4) in dollars** — unlike orders (cents as INTEGER), receiving/purchasing amounts are `NUMERIC(12,4)` dollars (same convention as reporting read models). Always convert with `Number()` in query mappings.
 95. **POS catalog uses single-query loader** — `getCatalogForPOS` in `packages/modules/catalog/src/queries/get-catalog-for-pos.ts` loads the full catalog in one optimized query via `POST /api/v1/catalog/pos`. Don't use multiple individual category/item API calls in POS context.
 96. **Golf reporting is a separate module** — `packages/modules/golf-reporting/` is independent from `packages/modules/reporting/`. It has its own schema (`golf-reporting.ts`), consumers, queries, and KPI modules. Don't mix golf-specific read models with the core reporting `rm_` tables.
+97. **Archive semantics replace isActive boolean** — catalog items use `archivedAt IS NULL` for active status, NOT a boolean `isActive` column. The `isActive` column was dropped in migration 0061. Use `archiveItem` / `unarchiveItem` commands. Archived items have `archivedAt`, `archivedBy`, and `archivedReason` fields.
+98. **`catalog_item_change_logs` is append-only** — RLS enforces SELECT + INSERT only (no UPDATE or DELETE policies). The `logItemChange()` function runs inside the same `publishWithOutbox` transaction as the mutation. It skips the insert if `computeItemDiff()` returns null (no actual changes).
+99. **Receiving frontend uses pure calculation library** — `apps/web/src/lib/receiving-calc.ts` contains pure functions for line totals, shipping allocation, and receipt summary. These are client-side previews only — server recomputes everything on post (Rule VM-5). Keep calculations pure (no side effects, no API calls).
+100. **Freight mode determines shipping handling** — ALLOCATE mode distributes `shippingCost` across receipt lines proportionally (by extendedCost). EXPENSE mode books shipping as a separate GL expense, not included in landed cost. Set via `freightMode` on `receivingReceipts` (migration 0064).
+101. **Trigram GIN indexes for search** — migration 0062 adds `pg_trgm` GIN indexes on `catalog_items(name)`, `catalog_items(sku)`, `item_identifiers(value)`, and `vendors(name)` for fast substring search via `ILIKE '%term%'`. These replace sequential scans on receiving item search.
+102. **Supabase local dev** — `supabase/` directory contains `config.toml` for local Postgres v17 + pooler. Use `npx supabase start` for local DB + auth. Database URL for local dev: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`.
+103. **Stock UI lives in catalog item detail page, not a separate page** — The Stock Levels page was deleted. All stock data (on-hand, movements, receive/adjust/shrink) is shown via `StockSection` component in `/catalog/items/[id]`. The data architecture stays split: `catalog_items` (global) + `inventory_items` (per-location). Only the UI was unified.
+104. **POS catalog auto-refreshes every 5 minutes** — `useCatalogForPOS` periodically fetches fresh data so archived items are removed during long shifts. Additionally, `usePOS` accepts `onItemNotFound` callback — triggered on 404 from `addItem`, which pages wire to `catalog.refresh()` for immediate stale-item purge.
+105. **`useInventoryForCatalogItem` resolves catalog→inventory** — Takes `(catalogItemId, locationId?)` and returns the inventory item with computed on-hand, or `null` when no inventory record exists at that location. Backend: `getInventoryItemByCatalogItem` query. API: `GET /api/v1/inventory/by-catalog-item`.
+106. **Inventory dialogs are portal-based extracted components** — `receive-dialog.tsx`, `adjust-dialog.tsx`, `shrink-dialog.tsx` in `apps/web/src/components/inventory/`. Each takes `{ open, onClose, inventoryItemId, onSuccess }`. Uses `createPortal` to `document.body`, z-50. Shared between catalog item detail page and any future usage.
 
 ## Quick Commands
 

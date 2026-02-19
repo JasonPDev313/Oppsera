@@ -1,4 +1,4 @@
-import { eq, and, inArray, asc } from 'drizzle-orm';
+import { eq, and, inArray, asc, isNull } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
 import {
@@ -73,7 +73,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
           and(
             eq(catalogItems.id, itemId),
             eq(catalogItems.tenantId, tenantId),
-            eq(catalogItems.isActive, true),
+            isNull(catalogItems.archivedAt),
           ),
         )
         .limit(1);
@@ -195,7 +195,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
     itemId: string,
   ): Promise<PosItemData | null> {
     const item = await this.getItem(tenantId, itemId);
-    if (!item || !item.isActive) return null;
+    if (!item) return null;
 
     const [price, taxInfo] = await Promise.all([
       this.getEffectivePrice(tenantId, itemId, locationId),

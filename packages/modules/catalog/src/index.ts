@@ -32,7 +32,8 @@ export {
   createCategory,
   createItem,
   updateItem,
-  deactivateItem,
+  archiveItem,
+  unarchiveItem,
   createModifierGroup,
   updateModifierGroup,
   setLocationPrice,
@@ -59,6 +60,10 @@ export {
 } from './queries';
 export { getCatalogForPOS } from './queries/get-catalog-for-pos';
 export type { POSCatalogItem, POSCategory, POSCatalogResult } from './queries/get-catalog-for-pos';
+export { getItemChangeLog } from './queries/get-item-change-log';
+export type { GetItemChangeLogInput, GetItemChangeLogResult } from './queries/get-item-change-log';
+export type { ActionType, ChangeSource, FieldChange, ChangeLogEntry } from './services/item-change-log';
+export { FIELD_DISPLAY } from './services/item-change-log';
 export type { ListItemsInput, ListItemsResult, ListItemRow } from './queries/list-items';
 export type { ItemDetail } from './queries/get-item';
 export type { CategoryWithCount } from './queries/list-categories';
@@ -78,6 +83,7 @@ export {
   removeLocationPriceSchema,
   updateTaxCategorySchema,
   updateCategorySchema,
+  archiveItemSchema,
 } from './validation';
 export type {
   CreateTaxCategoryInput,
@@ -90,6 +96,7 @@ export type {
   RemoveLocationPriceInput,
   UpdateTaxCategoryInput,
   UpdateCategoryInput,
+  ArchiveItemInput,
 } from './validation';
 
 // Re-export tax validation schemas

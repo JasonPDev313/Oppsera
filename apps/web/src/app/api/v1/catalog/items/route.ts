@@ -13,9 +13,8 @@ export const GET = withMiddleware(
     const limit = limitParam ? Math.min(parseInt(limitParam, 10), 5000) : 50;
     const categoryId = url.searchParams.get('categoryId') ?? undefined;
     const itemType = url.searchParams.get('itemType') ?? undefined;
-    const isActiveParam = url.searchParams.get('isActive');
-    const isActive = isActiveParam !== null ? isActiveParam === 'true' : undefined;
     const search = url.searchParams.get('search') ?? undefined;
+    const includeArchived = url.searchParams.get('includeArchived') === 'true';
 
     const result = await listItems({
       tenantId: ctx.tenantId,
@@ -23,8 +22,8 @@ export const GET = withMiddleware(
       limit,
       categoryId,
       itemType,
-      isActive,
       search,
+      includeArchived,
     });
 
     return NextResponse.json({

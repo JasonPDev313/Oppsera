@@ -115,11 +115,11 @@ describe('seed data', () => {
     expect((result[0] as { count: number }).count).toBe(5);
   });
 
-  it('has 8 entitlements', async () => {
+  it('has expected entitlements', async () => {
     const result = await adminDb.execute(
       sql`SELECT COUNT(*)::int AS count FROM entitlements WHERE tenant_id = ${tenantId}`,
     );
-    expect((result[0] as { count: number }).count).toBe(8);
+    expect((result[0] as { count: number }).count).toBe(10);
   });
 
   it('user has the "owner" role assigned', async () => {
@@ -171,7 +171,7 @@ describe('RLS isolation', () => {
       await tx`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
       return tx`SELECT COUNT(*)::int AS count FROM entitlements`;
     });
-    expect((row as { count: number }).count).toBe(8);
+    expect((row as { count: number }).count).toBe(10);
   });
 });
 

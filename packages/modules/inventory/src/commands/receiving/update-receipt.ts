@@ -7,7 +7,9 @@ import {
   receivingReceipts,
   receivingReceiptLines,
   vendors,
+  inventoryItems,
   itemUomConversions,
+  uoms,
 } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { recomputeAllLines, type ReceiptLineInput } from '../../services/receipt-calculator';
@@ -49,6 +51,7 @@ export async function updateDraftReceipt(
     if (input.vendorId !== undefined) updates.vendorId = input.vendorId;
     if (input.vendorInvoiceNumber !== undefined) updates.vendorInvoiceNumber = input.vendorInvoiceNumber;
     if (input.receivedDate !== undefined) updates.receivedDate = input.receivedDate;
+    if (input.freightMode !== undefined) updates.freightMode = input.freightMode;
     if (input.shippingCost !== undefined) updates.shippingCost = input.shippingCost.toString();
     if (input.shippingAllocationMethod !== undefined) updates.shippingAllocationMethod = input.shippingAllocationMethod;
     if (input.taxAmount !== undefined) updates.taxAmount = input.taxAmount.toString();
@@ -60,9 +63,9 @@ export async function updateDraftReceipt(
       .where(eq(receivingReceipts.id, input.receiptId))
       .returning();
 
-    // If shipping changed, rerun allocation on existing lines
+    // If shipping or freight mode changed, rerun allocation on existing lines
     const shippingChanged =
-      input.shippingCost !== undefined || input.shippingAllocationMethod !== undefined;
+      input.shippingCost !== undefined || input.shippingAllocationMethod !== undefined || input.freightMode !== undefined;
 
     if (shippingChanged) {
       const lineRows = await (tx as any)
@@ -86,12 +89,14 @@ export async function updateDraftReceipt(
             unitCost: Number(line.unitCost),
             conversionFactor: factor,
             weight: line.weight ? Number(line.weight) : null,
+            volume: line.volume ? Number(line.volume) : null,
           });
         }
 
         const newShipping = input.shippingCost ?? Number(receipt.shippingCost);
         const newMethod = (input.shippingAllocationMethod ?? receipt.shippingAllocationMethod) as AllocationMethod;
-        const { computed, subtotal } = recomputeAllLines(lineInputs, newShipping, newMethod);
+        const freightMode = (input.freightMode ?? updated.freightMode ?? 'allocate') as 'expense' | 'allocate';
+        const { computed, subtotal } = recomputeAllLines(lineInputs, newShipping, newMethod, freightMode);
 
         // Update each line
         for (const c of computed) {
@@ -136,28 +141,32 @@ async function resolveConversionFactor(
   inventoryItemId: string,
   uomCode: string,
 ): Promise<number> {
-  // If uomCode matches the item's baseUnit, factor=1
-  // Otherwise look up item_uom_conversions
-  const convRows = await tx
+  // Look up the item's base unit
+  const itemRows = await (tx as any)
+    .select({ baseUnit: inventoryItems.baseUnit })
+    .from(inventoryItems)
+    .where(and(eq(inventoryItems.tenantId, tenantId), eq(inventoryItems.id, inventoryItemId)));
+  const item = itemRows[0];
+  if (!item) return 1;
+  if (uomCode.toLowerCase() === item.baseUnit.toLowerCase()) return 1;
+
+  const uomRows = await (tx as any)
+    .select()
+    .from(uoms)
+    .where(and(eq(uoms.tenantId, tenantId), eq(uoms.code, uomCode)));
+  const uom = uomRows[0];
+  if (!uom) return 1;
+
+  const convRows = await (tx as any)
     .select()
     .from(itemUomConversions)
     .where(
       and(
         eq(itemUomConversions.tenantId, tenantId),
         eq(itemUomConversions.inventoryItemId, inventoryItemId),
+        eq(itemUomConversions.fromUomId, uom.id),
       ),
     );
-
-  for (const conv of convRows) {
-    // We need to match fromUom's code — but we only have fromUomId here.
-    // For simplicity, we store uomCode on the line and use the conversion factor
-    // from the matching conversion row. This is resolved at line-add time.
-    // At recompute time, use the stored baseQty / quantityReceived to derive factor.
-  }
-
-  // Fallback: derive from stored values won't work for recompute since we're recomputing.
-  // Better approach: look up via UOM code join
-  // For now, return 1 and rely on add-receipt-line to set the correct baseQty
-  // The full resolution happens in add-receipt-line.ts
-  return 1;
+  const conv = convRows[0];
+  return conv ? Number(conv.conversionFactor) : 1;
 }

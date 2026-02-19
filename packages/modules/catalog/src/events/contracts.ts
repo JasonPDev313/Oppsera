@@ -2,7 +2,8 @@ import { registerContracts } from '@oppsera/core/events/contracts';
 import {
   CatalogItemCreatedDataSchema,
   CatalogItemUpdatedDataSchema,
-  CatalogItemDeactivatedDataSchema,
+  CatalogItemArchivedDataSchema,
+  CatalogItemUnarchivedDataSchema,
   CatalogCategoryCreatedDataSchema,
   CatalogTaxCategoryCreatedDataSchema,
   CatalogModifierGroupCreatedDataSchema,
@@ -19,10 +20,8 @@ registerContracts({
   emits: [
     { eventType: 'catalog.item.created.v1', dataSchema: CatalogItemCreatedDataSchema },
     { eventType: 'catalog.item.updated.v1', dataSchema: CatalogItemUpdatedDataSchema },
-    {
-      eventType: 'catalog.item.deactivated.v1',
-      dataSchema: CatalogItemDeactivatedDataSchema,
-    },
+    { eventType: 'catalog.item.archived.v1', dataSchema: CatalogItemArchivedDataSchema },
+    { eventType: 'catalog.item.unarchived.v1', dataSchema: CatalogItemUnarchivedDataSchema },
     {
       eventType: 'catalog.category.created.v1',
       dataSchema: CatalogCategoryCreatedDataSchema,

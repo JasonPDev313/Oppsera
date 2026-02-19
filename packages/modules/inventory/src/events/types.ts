@@ -49,6 +49,16 @@ export const OrderPlacedDataSchema = z.object({
   taxTotal: z.number().int(),
   total: z.number().int(),
   lineCount: z.number().int(),
+  customerId: z.string().nullable().optional(),
+  lines: z.array(z.object({
+    catalogItemId: z.string(),
+    qty: z.number(),
+    packageComponents: z.array(z.object({
+      catalogItemId: z.string(),
+      name: z.string(),
+      qty: z.number(),
+    })).nullable().optional(),
+  })).optional(),
 });
 
 export const OrderVoidedDataSchema = z.object({
@@ -56,6 +66,9 @@ export const OrderVoidedDataSchema = z.object({
   orderNumber: z.string(),
   reason: z.string(),
   voidedBy: z.string(),
+  locationId: z.string().optional(),
+  businessDate: z.string().optional(),
+  total: z.number().int().optional(),
 });
 
 export const CatalogItemCreatedDataSchema = z.object({
@@ -65,4 +78,17 @@ export const CatalogItemCreatedDataSchema = z.object({
   barcode: z.string().nullable().optional(),
   itemType: z.string(),
   isActive: z.boolean(),
+});
+
+export const CatalogItemArchivedDataSchema = z.object({
+  itemId: z.string(),
+  name: z.string(),
+  sku: z.string().nullable().optional(),
+  reason: z.string().nullable().optional(),
+});
+
+export const CatalogItemUnarchivedDataSchema = z.object({
+  itemId: z.string(),
+  name: z.string(),
+  sku: z.string().nullable().optional(),
 });

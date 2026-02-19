@@ -1,4 +1,4 @@
-import { eq, and, lt, ilike, or, desc, getTableColumns } from 'drizzle-orm';
+import { eq, and, lt, ilike, or, desc, isNull, getTableColumns } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { withTenant } from '@oppsera/db';
 import { catalogItems, catalogCategories } from '../schema';
@@ -9,8 +9,8 @@ export interface ListItemsInput {
   limit?: number;
   categoryId?: string;
   itemType?: string;
-  isActive?: boolean;
   search?: string;
+  includeArchived?: boolean;
 }
 
 export interface ListItemRow extends Omit<typeof catalogItems.$inferSelect, 'metadata'> {
@@ -44,8 +44,8 @@ export async function listItems(input: ListItemsInput): Promise<ListItemsResult>
       conditions.push(eq(catalogItems.itemType, input.itemType));
     }
 
-    if (input.isActive !== undefined) {
-      conditions.push(eq(catalogItems.isActive, input.isActive));
+    if (!input.includeArchived) {
+      conditions.push(isNull(catalogItems.archivedAt));
     }
 
     if (input.search) {

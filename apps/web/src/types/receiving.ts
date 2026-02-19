@@ -1,6 +1,21 @@
 // ── Receipt Status ──────────────────────────────────────────────
 export type ReceiptStatus = 'draft' | 'posted' | 'voided';
 
+// ── Freight Mode ───────────────────────────────────────────────
+export type FreightMode = 'expense' | 'allocate';
+export type AllocationMethod = 'by_cost' | 'by_qty' | 'by_weight' | 'by_volume' | 'manual' | 'none';
+
+// ── Receipt Charge ─────────────────────────────────────────────
+export interface ReceiptCharge {
+  id: string;
+  chargeType: string;
+  description: string | null;
+  amount: number;
+  glAccountCode: string | null;
+  glAccountName: string | null;
+  sortOrder: number;
+}
+
 // ── Vendor ──────────────────────────────────────────────────────
 export interface Vendor {
   id: string;
@@ -38,6 +53,7 @@ export interface ReceiptLine {
   landedUnitCost: number;
   baseQty: number;
   weight: number | null;
+  volume: number | null;
   lotNumber: string | null;
   serialNumbers: string[] | null;
   expirationDate: string | null;
@@ -57,8 +73,9 @@ export interface Receipt {
   status: ReceiptStatus;
   vendorInvoiceNumber: string | null;
   receivedDate: string;
+  freightMode: FreightMode;
   shippingCost: number;
-  shippingAllocationMethod: string;
+  shippingAllocationMethod: AllocationMethod;
   taxAmount: number;
   subtotal: number;
   total: number;
@@ -71,6 +88,7 @@ export interface Receipt {
   createdAt: string;
   updatedAt: string;
   lines: ReceiptLine[];
+  charges: ReceiptCharge[];
 }
 
 // ── Receipt Summary (list view) ─────────────────────────────────
@@ -94,14 +112,17 @@ export interface ReceiptSummary {
 // ── Item Search Result ──────────────────────────────────────────
 export interface ReceivingItemSearchResult {
   id: string;
+  catalogItemId: string;
+  inventoryItemId: string | null;
   name: string;
   sku: string | null;
+  barcode: string | null;
+  itemType: string;
   baseUnit: string;
   costingMethod: string;
   currentCost: number;
   standardCost: number | null;
-  matchedIdentifier: string | null;
-  matchedIdentifierType: string | null;
+  matchedOn: 'barcode' | 'sku' | 'name' | null;
   vendorCost: number | null;
   vendorSku: string | null;
 }

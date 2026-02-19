@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Package,
   ShoppingCart,
-  Warehouse,
   Users,
   BarChart3,
   Settings,
@@ -37,6 +36,7 @@ import {
 import { useAuthContext } from '@/components/auth-provider';
 import { EntitlementsProvider, useEntitlementsContext } from '@/components/entitlements-provider';
 import { useTheme } from '@/components/theme-provider';
+import { ContextMenuProvider } from '@/components/context-menu-provider';
 import { ProfileDrawerProvider, CustomerProfileDrawer } from '@/components/customer-profile-drawer';
 import { NavigationGuardProvider, useNavigationGuard } from '@/hooks/use-navigation-guard';
 
@@ -70,7 +70,6 @@ const navigation: NavItem[] = [
       { name: 'Items', href: '/catalog', icon: List },
       { name: 'Hierarchy', href: '/catalog/hierarchy', icon: FolderTree },
       { name: 'Taxes', href: '/catalog/taxes', icon: Receipt },
-      { name: 'Stock Levels', href: '/inventory', icon: Warehouse },
       { name: 'Receiving', href: '/inventory/receiving', icon: PackageCheck },
       { name: 'Vendors', href: '/vendors', icon: Truck },
     ],
@@ -428,6 +427,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const userEmail = user.email || '';
 
   return (
+    <ContextMenuProvider>
     <ProfileDrawerProvider>
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {/* Mobile sidebar backdrop */}
@@ -531,6 +531,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <CustomerProfileDrawer />
     </div>
     </ProfileDrawerProvider>
+    </ContextMenuProvider>
   );
 }
 

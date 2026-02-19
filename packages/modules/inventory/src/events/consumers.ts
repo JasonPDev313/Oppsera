@@ -1,7 +1,6 @@
 import { eq, and, sql, inArray } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { inventoryItems, inventoryMovements } from '@oppsera/db';
-import { orderLines } from '@oppsera/db';
 import { locations } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
@@ -15,26 +14,21 @@ import type { EventEnvelope } from '@oppsera/shared';
  * (tenant_id, reference_type, reference_id, inventory_item_id, movement_type).
  */
 export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
-  const { orderId, locationId } = event.data as {
+  const { orderId, locationId, businessDate: eventBusinessDate, lines } = event.data as {
     orderId: string;
     locationId: string;
+    businessDate?: string;
+    lines?: Array<{
+      catalogItemId: string;
+      qty: number;
+      packageComponents: Array<{ catalogItemId: string; name: string; qty: number }> | null;
+    }>;
   };
 
-  await withTenant(event.tenantId, async (tx) => {
-    // Get all order lines for this order
-    const lines = await tx
-      .select()
-      .from(orderLines)
-      .where(
-        and(
-          eq(orderLines.tenantId, event.tenantId),
-          eq(orderLines.orderId, orderId),
-        ),
-      );
+  if (!lines || lines.length === 0) return;
 
-    const businessDate =
-      (event.data as { businessDate?: string }).businessDate ||
-      new Date().toISOString().slice(0, 10);
+  await withTenant(event.tenantId, async (tx) => {
+    const businessDate = eventBusinessDate || new Date().toISOString().slice(0, 10);
     const createdBy = event.actorUserId || 'system';
 
     // Aggregate quantities per catalogItemId across all lines and package components.
@@ -43,20 +37,14 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     const qtyByCatalogItemId = new Map<string, number>();
 
     for (const line of lines) {
-      const lineQty = Number(line.qty);
+      const lineQty = line.qty;
 
       if (
         line.packageComponents &&
         Array.isArray(line.packageComponents) &&
-        (line.packageComponents as Array<{ catalogItemId: string; name: string; qty: number }>).length > 0
+        line.packageComponents.length > 0
       ) {
-        const components = line.packageComponents as Array<{
-          catalogItemId: string;
-          name: string;
-          qty: number;
-        }>;
-
-        for (const component of components) {
+        for (const component of line.packageComponents) {
           const componentQty = component.qty * lineQty;
           qtyByCatalogItemId.set(
             component.catalogItemId,
@@ -212,5 +200,49 @@ export async function handleCatalogItemCreated(event: EventEnvelope): Promise<vo
         .values(inventoryItemValues)
         .onConflictDoNothing();
     }
+  });
+}
+
+/**
+ * Handles catalog.item.archived.v1 events.
+ *
+ * When a catalog item is archived, cascade the archive status
+ * to all inventory_items for that catalog item across all locations.
+ */
+export async function handleCatalogItemArchived(event: EventEnvelope): Promise<void> {
+  const { itemId } = event.data as { itemId: string };
+
+  await withTenant(event.tenantId, async (tx) => {
+    await tx
+      .update(inventoryItems)
+      .set({ status: 'archived', updatedAt: new Date() })
+      .where(
+        and(
+          eq(inventoryItems.tenantId, event.tenantId),
+          eq(inventoryItems.catalogItemId, itemId),
+        ),
+      );
+  });
+}
+
+/**
+ * Handles catalog.item.unarchived.v1 events.
+ *
+ * When a catalog item is unarchived, restore all inventory_items
+ * for that catalog item back to 'active' status.
+ */
+export async function handleCatalogItemUnarchived(event: EventEnvelope): Promise<void> {
+  const { itemId } = event.data as { itemId: string };
+
+  await withTenant(event.tenantId, async (tx) => {
+    await tx
+      .update(inventoryItems)
+      .set({ status: 'active', updatedAt: new Date() })
+      .where(
+        and(
+          eq(inventoryItems.tenantId, event.tenantId),
+          eq(inventoryItems.catalogItemId, itemId),
+        ),
+      );
   });
 }

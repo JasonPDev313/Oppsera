@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Power, RotateCcw, History } from 'lucide-react';
+import { ItemChangeLogModal } from '@/components/catalog/ItemChangeLogModal';
+import { StockSection } from '@/components/catalog/stock-section';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Select } from '@/components/ui/select';
@@ -10,7 +12,7 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { FormField } from '@/components/ui/form-field';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { DataTable } from '@/components/ui/data-table';
-import { useCatalogItem, useTaxGroups, useItemTaxGroups, useModifierGroups } from '@/hooks/use-catalog';
+import { useCatalogItem, useTaxGroups, useItemTaxGroups, useModifierGroups, archiveCatalogItem, unarchiveCatalogItem } from '@/hooks/use-catalog';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
@@ -57,7 +59,7 @@ interface ItemDetailResponse {
   cost: string | null;
   categoryId?: string | null;
   isTrackable: boolean;
-  isActive: boolean;
+  archivedAt?: string | null;
   metadata?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -120,22 +122,42 @@ export default function ItemDetailPage() {
   const typeGroup = item ? getItemTypeGroup(item.itemType, item.metadata) : 'retail';
   const typeBadge = ITEM_TYPE_BADGES[typeGroup];
 
-  // ---------- Deactivate ----------
+  // ---------- Deactivate / Reactivate ----------
 
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [deactivateReason, setDeactivateReason] = useState('');
+  const [showReactivate, setShowReactivate] = useState(false);
+  const [reactivating, setReactivating] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const handleDeactivate = async () => {
     setDeactivating(true);
     try {
-      await apiFetch(`/api/v1/catalog/items/${itemId}/deactivate`, { method: 'POST' });
+      const reason = deactivateReason.trim() || undefined;
+      await archiveCatalogItem(itemId, reason);
       toast.success('Item deactivated');
-      router.push('/catalog');
+      refetchItem();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to deactivate item');
     } finally {
       setDeactivating(false);
       setShowDeactivate(false);
+      setDeactivateReason('');
+    }
+  };
+
+  const handleReactivate = async () => {
+    setReactivating(true);
+    try {
+      await unarchiveCatalogItem(itemId);
+      toast.success('Item reactivated');
+      refetchItem();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reactivate item');
+    } finally {
+      setReactivating(false);
+      setShowReactivate(false);
     }
   };
 
@@ -336,27 +358,44 @@ export default function ItemDetailPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={() => setShowHistory(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            <History className="h-4 w-4" />
+            History
+          </button>
+          <button
+            type="button"
             onClick={() => router.push(`/catalog/items/${itemId}/edit`)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             <Edit className="h-4 w-4" />
             Edit
           </button>
-          {item.isActive && (
+          {!item.archivedAt ? (
             <button
               type="button"
               onClick={() => setShowDeactivate(true)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
-              <Trash2 className="h-4 w-4" />
+              <Power className="h-4 w-4" />
               Deactivate
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowReactivate(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-green-500/40 px-4 py-2 text-sm font-medium text-green-600 transition-colors hover:bg-green-500/10 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reactivate
             </button>
           )}
         </div>
       </div>
 
       {/* Inactive banner */}
-      {!item.isActive && (
+      {item.archivedAt && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
           This item is inactive
         </div>
@@ -381,8 +420,8 @@ export default function ItemDetailPage() {
             <DetailRow label="Margin" value={calcMargin(item.defaultPrice, item.cost)} />
             <div className="flex items-center justify-between border-b border-gray-100 pb-3">
               <span className="text-sm font-medium text-gray-500">Status</span>
-              <Badge variant={item.isActive ? 'success' : 'neutral'}>
-                {item.isActive ? 'Active' : 'Inactive'}
+              <Badge variant={!item.archivedAt ? 'success' : 'neutral'}>
+                {!item.archivedAt ? 'Active' : 'Inactive'}
               </Badge>
             </div>
           </div>
@@ -452,12 +491,6 @@ export default function ItemDetailPage() {
 
       {typeGroup === 'retail' && (
         <>
-          {/* Inventory card */}
-          <div className="rounded-lg border border-gray-200 bg-surface p-6">
-            <h2 className="mb-4 text-base font-semibold text-gray-900">Inventory</h2>
-            <DetailRow label="Track Inventory" value={item.isTrackable ? 'Yes' : 'No'} />
-          </div>
-
           {/* Option Sets card */}
           {retailMeta?.optionSets && retailMeta.optionSets.length > 0 && (
             <div className="rounded-lg border border-gray-200 bg-surface p-6">
@@ -553,6 +586,9 @@ export default function ItemDetailPage() {
           )}
         </div>
       )}
+
+      {/* Stock section — per-location inventory data, movements, actions */}
+      <StockSection catalogItemId={itemId} isTrackable={item.isTrackable} />
 
       {/* Tax Groups section */}
       <div className="rounded-lg border border-gray-200 bg-surface p-6">
@@ -723,13 +759,40 @@ export default function ItemDetailPage() {
       {/* Deactivate dialog */}
       <ConfirmDialog
         open={showDeactivate}
-        onClose={() => setShowDeactivate(false)}
+        onClose={() => {
+          setShowDeactivate(false);
+          setDeactivateReason('');
+        }}
         onConfirm={handleDeactivate}
         title="Deactivate Item"
-        description={`Are you sure you want to deactivate "${item.name}"? This item will no longer appear in active listings.`}
+        description={`Are you sure you want to deactivate "${item.name}"? It will no longer appear in POS, receiving, or active views.`}
         confirmLabel="Deactivate"
         destructive
         isLoading={deactivating}
+      >
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Reason (optional)
+          </label>
+          <textarea
+            value={deactivateReason}
+            onChange={(e) => setDeactivateReason(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            rows={3}
+            placeholder="e.g., Product discontinued by manufacturer"
+          />
+        </div>
+      </ConfirmDialog>
+
+      {/* Reactivate dialog */}
+      <ConfirmDialog
+        open={showReactivate}
+        onClose={() => setShowReactivate(false)}
+        onConfirm={handleReactivate}
+        title="Reactivate Item"
+        description={`Are you sure you want to reactivate "${item.name}"? It will reappear in POS, receiving, and active views.`}
+        confirmLabel="Reactivate"
+        isLoading={reactivating}
       />
 
       {/* Edit Tax Groups dialog */}
@@ -844,6 +907,14 @@ export default function ItemDetailPage() {
         confirmLabel="Remove"
         destructive
         isLoading={removingPrice}
+      />
+
+      {/* Change History modal */}
+      <ItemChangeLogModal
+        open={showHistory}
+        onClose={() => setShowHistory(false)}
+        itemId={itemId}
+        itemName={item.name}
       />
     </div>
   );

@@ -7,7 +7,6 @@ import {
   arTransactions,
   arAllocations,
   paymentJournalEntries,
-  orders,
 } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
@@ -28,7 +27,9 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     orderId,
     orderNumber,
     total,
+    locationId: eventLocationId,
     businessDate: eventBusinessDate,
+    customerId: eventCustomerId,
   } = event.data as {
     orderId: string;
     orderNumber: string;
@@ -38,6 +39,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     subtotal: number;
     taxTotal: number;
     lineCount: number;
+    customerId?: string | null;
   };
 
   const businessDate =
@@ -45,20 +47,9 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
   const createdBy = event.actorUserId || 'system';
 
   await withTenant(event.tenantId, async (tx) => {
-    // Look up the order to get customerId and billingAccountId
-    const [order] = await tx
-      .select()
-      .from(orders)
-      .where(
-        and(
-          eq(orders.tenantId, event.tenantId),
-          eq(orders.id, orderId),
-        ),
-      )
-      .limit(1);
-
-    const customerId = order?.customerId ?? null;
-    const billingAccountId = (order as unknown as { billingAccountId?: string })?.billingAccountId ?? null;
+    const customerId = eventCustomerId ?? null;
+    // billingAccountId will be available once house-account orders are implemented
+    const billingAccountId: string | null = null;
 
     // ── Customer stats ──────────────────────────────────────────
     if (customerId) {
@@ -151,7 +142,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
         await tx.insert(paymentJournalEntries).values({
           id: glId,
           tenantId: event.tenantId,
-          locationId: event.locationId ?? order?.locationId ?? '',
+          locationId: event.locationId ?? eventLocationId ?? '',
           referenceType: 'ar_charge',
           referenceId: arTxId,
           orderId,
@@ -200,11 +191,19 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
  * Idempotency: guarded by duplicate check on referenceType='order_void'.
  */
 export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
-  const { orderId, orderNumber, reason } = event.data as {
+  const {
+    orderId,
+    orderNumber,
+    reason,
+    locationId: eventLocationId,
+    businessDate: eventBusinessDate,
+  } = event.data as {
     orderId: string;
     orderNumber: string;
     reason: string;
     voidedBy: string;
+    locationId?: string;
+    businessDate?: string;
   };
 
   const createdBy = event.actorUserId || 'system';
@@ -243,20 +242,8 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
 
     const reversalAmount = -originalCharge.amountCents;
 
-    // Look up the order for businessDate and locationId
-    const [order] = await tx
-      .select()
-      .from(orders)
-      .where(
-        and(
-          eq(orders.tenantId, event.tenantId),
-          eq(orders.id, orderId),
-        ),
-      )
-      .limit(1);
-
     const businessDate =
-      order?.businessDate ?? new Date().toISOString().slice(0, 10);
+      eventBusinessDate ?? new Date().toISOString().slice(0, 10);
 
     // 1. Reversal AR transaction
     const reversalTxId = generateUlid();
@@ -293,7 +280,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
     await tx.insert(paymentJournalEntries).values({
       id: glId,
       tenantId: event.tenantId,
-      locationId: event.locationId ?? order?.locationId ?? '',
+      locationId: event.locationId ?? eventLocationId ?? '',
       referenceType: 'ar_reversal',
       referenceId: reversalTxId,
       orderId,
@@ -374,6 +361,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
     tenderType,
     amount,
     businessDate: eventBusinessDate,
+    customerId: eventCustomerId,
   } = event.data as {
     tenderId: string;
     orderId: string;
@@ -395,6 +383,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
     totalTendered: number;
     remainingBalance: number;
     isFullyPaid: boolean;
+    customerId?: string | null;
   };
 
   // Only process house_account tenders
@@ -405,19 +394,8 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
   const createdBy = event.actorUserId || 'system';
 
   await withTenant(event.tenantId, async (tx) => {
-    // Look up the order to find billingAccountId
-    const [order] = await tx
-      .select()
-      .from(orders)
-      .where(
-        and(
-          eq(orders.tenantId, event.tenantId),
-          eq(orders.id, orderId),
-        ),
-      )
-      .limit(1);
-
-    const billingAccountId = (order as unknown as { billingAccountId?: string })?.billingAccountId;
+    // billingAccountId will be available once house-account orders are implemented
+    const billingAccountId: string | null = null;
     if (!billingAccountId) return;
 
     // Idempotency: skip if we already recorded a payment for this tender
@@ -436,7 +414,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
     if (existing) return;
 
     // Resolve customerId for the activity log
-    const customerId = order?.customerId ?? null;
+    const customerId = eventCustomerId ?? null;
     let activityCustomerId = customerId;
     if (!activityCustomerId) {
       const [billingAccount] = await tx
@@ -533,7 +511,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
     await tx.insert(paymentJournalEntries).values({
       id: glId,
       tenantId: event.tenantId,
-      locationId: event.locationId ?? order?.locationId ?? '',
+      locationId: event.locationId ?? '',
       referenceType: 'ar_payment',
       referenceId: paymentTxId,
       orderId,

@@ -10,6 +10,7 @@ export {
   catalogModifiers,
   catalogItemModifierGroups,
   catalogLocationPrices,
+  catalogItemChangeLogs,
   taxRates,
   taxGroups,
   taxGroupRates,

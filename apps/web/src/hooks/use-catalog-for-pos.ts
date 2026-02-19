@@ -12,6 +12,7 @@ import type { CatalogItemForPOS, CatalogNavState, CatalogNavLevel } from '@/type
 const FAVORITES_KEY_PREFIX = 'pos_favorites_';
 const CACHE_KEY_PREFIX = 'pos_catalog_';
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — keep POS catalog fresh during long shifts
 const MAX_RECENT_ITEMS = 20;
 
 // ── POS API response types ─────────────────────────────────────────
@@ -188,6 +189,33 @@ export function useCatalogForPOS(locationId: string) {
   // Category map ref for quick lookup
   const categoryMapRef = useRef<Map<string, CategoryRow>>(new Map());
 
+  // ── Fetch fresh catalog from API ────────────────────────────────
+
+  const fetchCatalog = useCallback(async (showLoading: boolean) => {
+    if (showLoading) setIsLoading(true);
+    try {
+      const res = await apiFetch<{
+        data: { items: POSRawItem[]; categories: POSRawCategory[] };
+      }>('/api/v1/catalog/pos');
+      saveCachedCatalog(locationId, res.data.items, res.data.categories);
+      const { posItems, categories, catMap } = processCatalogData(
+        res.data.items,
+        res.data.categories,
+      );
+      categoryMapRef.current = catMap;
+      setAllCategories(categories);
+      setAllItems(posItems);
+    } catch (err) {
+      if (showLoading) {
+        const e = err instanceof Error ? err : new Error('Failed to load catalog');
+        toastRef.current.error(e.message);
+      }
+      // Silent failure for background refreshes — stale cache is still usable
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
+  }, [locationId]);
+
   // ── Load catalog via lean POS endpoint + sessionStorage cache ──
 
   useEffect(() => {
@@ -207,52 +235,28 @@ export function useCatalogForPOS(locationId: string) {
         setIsLoading(false);
 
         // Background refresh — don't show loading spinner
-        try {
-          const res = await apiFetch<{
-            data: { items: POSRawItem[]; categories: POSRawCategory[] };
-          }>('/api/v1/catalog/pos');
-          if (cancelled) return;
-          saveCachedCatalog(locationId, res.data.items, res.data.categories);
-          const fresh = processCatalogData(res.data.items, res.data.categories);
-          categoryMapRef.current = fresh.catMap;
-          setAllCategories(fresh.categories);
-          setAllItems(fresh.posItems);
-        } catch {
-          // Background refresh failed — stale cache is still usable
-        }
+        if (!cancelled) await fetchCatalog(false);
         return;
       }
 
       // 2. No cache — fetch and show loading
-      setIsLoading(true);
-      try {
-        const res = await apiFetch<{
-          data: { items: POSRawItem[]; categories: POSRawCategory[] };
-        }>('/api/v1/catalog/pos');
-        if (cancelled) return;
-
-        saveCachedCatalog(locationId, res.data.items, res.data.categories);
-        const { posItems, categories, catMap } = processCatalogData(
-          res.data.items,
-          res.data.categories,
-        );
-        categoryMapRef.current = catMap;
-        setAllCategories(categories);
-        setAllItems(posItems);
-      } catch (err) {
-        if (cancelled) return;
-        const e = err instanceof Error ? err : new Error('Failed to load catalog');
-        toastRef.current.error(e.message);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
+      if (!cancelled) await fetchCatalog(true);
     }
 
     loadCatalog();
     return () => {
       cancelled = true;
     };
-  }, [locationId]);
+  }, [locationId, fetchCatalog]);
+
+  // ── Periodic refresh to keep catalog current during long shifts ──
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchCatalog(false);
+    }, REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [fetchCatalog]);
 
   // ── Category hierarchy maps ────────────────────────────────────
 
@@ -485,5 +489,8 @@ export function useCatalogForPOS(locationId: string) {
 
     // Loading state
     isLoading,
+
+    // Manual refresh (e.g., after item-not-found error to purge stale items)
+    refresh: useCallback(() => fetchCatalog(false), [fetchCatalog]),
   };
 }

@@ -213,7 +213,7 @@ export default function DashboardPage() {
             icon={AlertTriangle}
             iconColor={lowStockItems.length > 0 ? 'text-amber-600 bg-amber-100' : 'text-green-600 bg-green-100'}
             trend={lowStockItems.length > 0 ? 'Needs attention' : 'All good'}
-            href="/inventory"
+            href="/catalog"
           />
         )}
         <MetricCard
@@ -311,7 +311,7 @@ export default function DashboardPage() {
                   <h2 className="text-sm font-semibold text-gray-900">Low Stock Alert</h2>
                 </div>
                 <Link
-                  href="/inventory"
+                  href="/catalog"
                   className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
                 >
                   View all

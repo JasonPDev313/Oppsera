@@ -22,10 +22,17 @@ export const CatalogItemUpdatedDataSchema = z.object({
   ),
 });
 
-export const CatalogItemDeactivatedDataSchema = z.object({
+export const CatalogItemArchivedDataSchema = z.object({
   itemId: z.string(),
-  sku: z.string().nullable(),
   name: z.string(),
+  sku: z.string().nullable(),
+  reason: z.string().nullable().optional(),
+});
+
+export const CatalogItemUnarchivedDataSchema = z.object({
+  itemId: z.string(),
+  name: z.string(),
+  sku: z.string().nullable(),
 });
 
 export const CatalogCategoryCreatedDataSchema = z.object({

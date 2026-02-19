@@ -53,8 +53,8 @@ interface ItemFilters {
   subDepartmentId?: string;
   categoryId?: string;
   itemType?: string;
-  isActive?: boolean;
   search?: string;
+  includeArchived?: boolean;
 }
 
 export function useCatalogItems(filters: ItemFilters) {
@@ -74,8 +74,8 @@ export function useCatalogItems(filters: ItemFilters) {
         const params = new URLSearchParams();
         if (filters.categoryId) params.set('categoryId', filters.categoryId);
         if (filters.itemType) params.set('itemType', filters.itemType);
-        if (filters.isActive !== undefined) params.set('isActive', String(filters.isActive));
         if (filters.search) params.set('search', filters.search);
+        if (filters.includeArchived) params.set('includeArchived', 'true');
         if (appendCursor) params.set('cursor', appendCursor);
         params.set('limit', '25');
 
@@ -99,7 +99,7 @@ export function useCatalogItems(filters: ItemFilters) {
         setIsLoading(false);
       }
     },
-    [filters.categoryId, filters.itemType, filters.isActive, filters.search],
+    [filters.categoryId, filters.itemType, filters.search, filters.includeArchived],
   );
 
   useEffect(() => {
@@ -174,6 +174,21 @@ export function useItemTaxGroups(itemId: string, locationId?: string) {
 
 export function useModifierGroups() {
   return useFetch<ModifierGroupRow[]>('/api/v1/catalog/modifier-groups');
+}
+
+// ── Archive Mutations ─────────────────────────────────────────────
+
+export async function archiveCatalogItem(itemId: string, reason?: string) {
+  return apiFetch(`/api/v1/catalog/items/${itemId}/archive`, {
+    method: 'POST',
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+}
+
+export async function unarchiveCatalogItem(itemId: string) {
+  return apiFetch(`/api/v1/catalog/items/${itemId}/unarchive`, {
+    method: 'POST',
+  });
 }
 
 // ── Retail Option Groups (scaffolded) ─────────────────────────────

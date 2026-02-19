@@ -119,6 +119,7 @@ export const OrderPlacedDataSchema = z.object({
   taxTotal: z.number().int(),
   total: z.number().int(),
   lineCount: z.number().int(),
+  customerId: z.string().nullable().optional(),
 });
 
 // Emitted by orders module
@@ -127,6 +128,10 @@ export const OrderVoidedDataSchema = z.object({
   orderNumber: z.string(),
   reason: z.string(),
   voidedBy: z.string(),
+  locationId: z.string().optional(),
+  businessDate: z.string().optional(),
+  total: z.number().int().optional(),
+  customerId: z.string().nullable().optional(),
 });
 
 // Emitted by tenders module
@@ -151,6 +156,7 @@ export const TenderRecordedDataSchema = z.object({
   totalTendered: z.number().int(),
   remainingBalance: z.number().int(),
   isFullyPaid: z.boolean(),
+  customerId: z.string().nullable().optional(),
 });
 
 // ── Session 16.5 Event Schemas ──────────────────────────────────

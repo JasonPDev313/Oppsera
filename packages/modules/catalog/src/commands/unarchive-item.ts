@@ -5,8 +5,9 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { catalogItems } from '../schema';
+import { logItemChange } from '../services/item-change-log';
 
-export async function deactivateItem(ctx: RequestContext, itemId: string) {
+export async function unarchiveItem(ctx: RequestContext, itemId: string) {
   const item = await publishWithOutbox(ctx, async (tx) => {
     const [existing] = await tx
       .select()
@@ -20,31 +21,44 @@ export async function deactivateItem(ctx: RequestContext, itemId: string) {
       throw new NotFoundError('Catalog item', itemId);
     }
 
-    // Idempotent: already inactive → return as-is
-    if (!existing.isActive) {
+    // Idempotent: not archived → return as-is
+    if (!existing.archivedAt) {
       return { result: existing, events: [] };
     }
 
     const [updated] = await tx
       .update(catalogItems)
       .set({
-        isActive: false,
+        archivedAt: null,
+        archivedBy: null,
+        archivedReason: null,
         updatedBy: ctx.user.id,
         updatedAt: new Date(),
       })
       .where(eq(catalogItems.id, itemId))
       .returning();
 
-    const event = buildEventFromContext(ctx, 'catalog.item.deactivated.v1', {
+    await logItemChange(tx, {
+      tenantId: ctx.tenantId,
       itemId,
-      sku: existing.sku,
+      before: existing,
+      after: updated!,
+      userId: ctx.user.id,
+      actionType: 'RESTORED',
+      source: 'UI',
+      summary: 'Restored item',
+    });
+
+    const event = buildEventFromContext(ctx, 'catalog.item.unarchived.v1', {
+      itemId,
       name: existing.name,
+      sku: existing.sku,
     });
 
     return { result: updated!, events: [event] };
   });
 
-  await auditLog(ctx, 'catalog.item.deactivated', 'catalog_item', itemId);
+  await auditLog(ctx, 'catalog.item.unarchived', 'catalog_item', itemId);
 
   return item;
 }

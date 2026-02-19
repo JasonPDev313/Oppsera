@@ -1,4 +1,4 @@
-import { eq, and, sql, asc } from 'drizzle-orm';
+import { eq, and, sql, asc, isNull } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { catalogCategories, catalogItems } from '../schema';
 
@@ -39,7 +39,7 @@ export async function listCategories(
         catalogItems,
         and(
           eq(catalogItems.categoryId, catalogCategories.id),
-          eq(catalogItems.isActive, true),
+          isNull(catalogItems.archivedAt),
         ),
       )
       .where(and(...conditions))

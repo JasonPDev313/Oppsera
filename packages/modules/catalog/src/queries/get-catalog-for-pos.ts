@@ -1,4 +1,4 @@
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, isNull } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { catalogItems, catalogCategories } from '../schema';
 
@@ -55,7 +55,7 @@ export async function getCatalogForPOS(tenantId: string): Promise<POSCatalogResu
         .where(
           and(
             eq(catalogItems.tenantId, tenantId),
-            eq(catalogItems.isActive, true),
+            isNull(catalogItems.archivedAt),
           ),
         ),
       tx

@@ -12,6 +12,7 @@ export interface ReceiptLineInput {
   unitCost: number;
   conversionFactor: number; // 1 if already base UOM
   weight: number | null;
+  volume: number | null;
 }
 
 export interface ComputedReceiptLine {
@@ -42,6 +43,8 @@ export function recomputeAllLines(
   lines: ReceiptLineInput[],
   shippingCost: number,
   allocationMethod: AllocationMethod,
+  freightMode: 'expense' | 'allocate' = 'allocate',
+  manualAllocations?: Map<string, number>,
 ): { computed: ComputedReceiptLine[]; subtotal: number } {
   // Step 1: compute extendedCost and baseQty per line
   const precomputed = lines.map((line) => {
@@ -49,14 +52,16 @@ export function recomputeAllLines(
     return { ...line, extendedCost, baseQty };
   });
 
-  // Step 2: allocate shipping across lines
+  // Step 2: allocate shipping across lines (skip if EXPENSE mode — charges go to GL, not item costs)
+  const effectiveShipping = freightMode === 'expense' ? 0 : shippingCost;
   const allocationLines = precomputed.map((p) => ({
     id: p.id,
     extendedCost: p.extendedCost,
     baseQty: p.baseQty,
     weight: p.weight,
+    volume: p.volume,
   }));
-  const allocations = allocateShipping(allocationLines, shippingCost, allocationMethod);
+  const allocations = allocateShipping(allocationLines, effectiveShipping, allocationMethod, manualAllocations);
 
   // Step 3: compute landed cost per line
   const computed: ComputedReceiptLine[] = precomputed.map((p) => {

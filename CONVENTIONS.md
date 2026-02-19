@@ -1372,6 +1372,33 @@ export const catalogItemModifierGroups = pgTable(
 
 **Rule:** The junction table is the canonical source of truth. Metadata may reference the same IDs for backward compat, but reads should query the junction table.
 
+### Archive Semantics (Replacing isActive)
+
+Catalog items use **`archivedAt`** (timestamptz, nullable) instead of a boolean `isActive` column. Active items have `archivedAt IS NULL`.
+
+```typescript
+// Schema columns (added in migration 0060, isActive dropped in 0061):
+archivedAt: timestamp('archived_at', { withTimezone: true }),
+archivedBy: text('archived_by'),
+archivedReason: text('archived_reason'),
+```
+
+**Why?** Timestamps provide audit context (when, by whom, why) that a boolean cannot. The `archivedReason` field is optional and populated via the archive confirmation dialog.
+
+**Query filtering:**
+```typescript
+// Active items only (default)
+conditions.push(isNull(catalogItems.archivedAt));
+// Include archived items (when showAll is true)
+// Simply omit the isNull condition
+```
+
+**Commands:**
+- `archiveItem(ctx, itemId, { reason? })` — sets `archivedAt`, `archivedBy`, `archivedReason`
+- `unarchiveItem(ctx, itemId)` — clears all three archived fields to null
+
+**UI pattern:** The Items page has an "Include Inactive" checkbox. Archived rows display with `opacity-50` and show "Inactive" badge. Action menu shows "Reactivate" for archived items, "Deactivate" for active items.
+
 ### Category Nesting Depth Validation
 
 Categories support a 3-level hierarchy: Department → SubDepartment → Category. Enforce via parent chain walking in the `createCategory` command:
@@ -1569,7 +1596,8 @@ V1 stores in localStorage keyed by `pos_config_{locationId}`. Provides sensible 
 ### usePOS (Main State Machine)
 
 ```typescript
-const pos = usePOS(config);
+const catalog = useCatalogForPOS(locationId);
+const pos = usePOS(config, { onItemNotFound: catalog.refresh });
 // pos.currentOrder, pos.isLoading, pos.heldOrderCount
 // pos.addItem(input), pos.removeItem(lineId)
 // pos.placeOrder(), pos.voidOrder(reason), pos.holdOrder(), pos.recallOrder(orderId)
@@ -1583,6 +1611,9 @@ Key behaviors:
 - **Idempotency:** Every API call includes `crypto.randomUUID()` as `clientRequestId`
 - **Conflict handling:** On 409 `ApiError`, auto-refetches the order and shows toast
 - **Hold/Recall:** Hold clears local state (order stays `open` in DB), Recall fetches and loads
+- **Item-not-found:** On 404 from `addItem`, calls `onItemNotFound` callback (triggers catalog refresh)
+
+**Important:** `useCatalogForPOS` must be declared BEFORE `usePOS` so `catalog.refresh` is available as the callback.
 
 ### useCatalogForPOS
 
@@ -1591,9 +1622,12 @@ const catalog = useCatalogForPOS(locationId);
 // catalog.departments, catalog.nav, catalog.currentItems, catalog.breadcrumb
 // catalog.searchQuery, catalog.setSearchQuery, catalog.lookupByBarcode(code)
 // catalog.favorites, catalog.toggleFavorite(id), catalog.recentItems, catalog.addToRecent(id)
+// catalog.refresh()  — manually trigger a background catalog refresh
 ```
 
 Loads ALL categories + active items on mount. Builds hierarchy maps for O(1) navigation. Favorites in localStorage, recents in memory (capped at 20).
+
+**Freshness:** Auto-refreshes every 5 minutes via `setInterval` to keep the catalog current during long POS shifts. Also exposes `refresh()` for on-demand use (wired to `usePOS.onItemNotFound` for immediate stale-item purge when archived items are tapped).
 
 ### useShift
 
@@ -2039,6 +2073,20 @@ inventory_recipes, inventory_recipe_components
 
 Created as empty stubs with basic structure and RLS. Ready for V2 implementation.
 
+### Frontend — Unified in Catalog
+
+Stock data is displayed in the catalog item detail page (`/catalog/items/[id]`) via `StockSection`. No separate Stock Levels pages exist.
+
+```
+/catalog/items/[id]
+  └── StockSection (location selector, stats, details, actions, movement history)
+        ├── useInventoryForCatalogItem(catalogItemId, locationId)
+        ├── useMovements(inventoryItemId)  // chained
+        └── ReceiveDialog / AdjustDialog / ShrinkDialog (portal-based)
+```
+
+The Catalog Items list page (`/catalog`) enriches rows with On Hand + Reorder Point via a parallel inventory API call (not a DB JOIN — keeps modules independent).
+
 ---
 
 ## 42. Tenant Onboarding
@@ -2261,6 +2309,34 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
   - Middleware performance tweaks in `withMiddleware`
   - Dashboard layout slimmed (-32 lines), settings page simplified (-80 lines)
 
+**Milestone 13: Catalog Refactor + Receiving Frontend + Item Change Log**
+
+- Session 25: Archive semantics, receiving frontend, item change log
+- **Catalog archive refactor**: `archivedAt`/`archivedBy`/`archivedReason` replace `isActive` boolean. Migrations 0060 (add columns) + 0061 (drop `is_active`). Commands: `archiveItem`, `unarchiveItem` (replaced `deactivateItem`). All queries filter `archivedAt IS NULL` for active items.
+- **Items page enhancements**: Renamed header "Inventory Items". Added On Hand, Reorder Point, Status columns. Action menu: View/Edit, View History, Stock History, Deactivate/Reactivate.
+- **Item Change Log**: Append-only `catalog_item_change_logs` table (migration 0063). Service: `computeItemDiff()` + `logItemChange()`. Hooked into create/update/archive/unarchive commands. Query: `getItemChangeLog` with cursor pagination, filters, user name + lookup resolution. API: `GET /api/v1/catalog/items/[id]/change-log`. Frontend: `ItemChangeLogModal` (portal-based, collapsible entries).
+- **Receiving frontend**: Receipt list page, receipt detail/edit page, editable grid, receipt totals bar, item search input. Components: `ReceivingGrid`, `EditableCell`, `ReceiptHeader`, `ReceiptTotalsBar`. Hook: `use-receiving-editor`. Pure calc library: `receiving-calc.ts`.
+- **Freight modes**: ALLOCATE vs EXPENSE shipping handling (migration 0064). ALLOCATE distributes shipping into landed cost; EXPENSE books as separate GL expense.
+- **Search optimization**: Trigram GIN indexes on catalog items, identifiers, and vendors (migration 0062).
+- **RLS fix**: Migration 0059 corrects role restriction on RLS policies.
+- **Supabase local dev**: `supabase/` directory with `config.toml` for local Postgres v17 + pooler.
+- **Context7 MCP integration**: `.claude/rules/context7.md` — mandatory doc lookup for Next.js 15, React 19, Drizzle, Tailwind v4, and other fast-changing libraries.
+- New files: `archive-item.ts`, `unarchive-item.ts`, `item-change-log.ts` (service), `get-item-change-log.ts` (query), `ItemChangeLogModal.tsx`, `use-item-change-log.ts`, `editable-cell.tsx`, `receipt-header.tsx`, `receiving-grid.tsx`, `use-receiving-editor.ts`, `receiving-calc.ts`
+
+**Milestone 14: Unified Stock UI + POS Catalog Freshness**
+
+- Session 26: Stock Levels → Catalog merge, POS inactive items fix
+- **Stock Levels deleted**: `/inventory` (list) and `/inventory/[id]` (detail) pages removed. All stock UI moved into catalog item detail page via `StockSection` component.
+- **New components**: `StockSection` (location selector, stats cards, stock details, action buttons, movement history), extracted `ReceiveDialog`, `AdjustDialog`, `ShrinkDialog` as reusable portal-based components.
+- **New backend**: `getInventoryItemByCatalogItem` query (resolves catalogItemId + locationId → inventory data). API: `GET /api/v1/inventory/by-catalog-item`.
+- **New hook**: `useInventoryForCatalogItem(catalogItemId, locationId?)` — returns inventory item or null.
+- **Catalog item detail enhanced**: Renders `StockSection` below existing content. Removed simple "Track Inventory: Yes/No" card.
+- **Sidebar updated**: Removed "Stock Levels" link from Inventory section. Receiving routes untouched.
+- **Dashboard links updated**: Low Stock links now navigate to `/catalog` instead of deleted `/inventory`.
+- **POS catalog freshness**: `useCatalogForPOS` now auto-refreshes every 5 minutes via `setInterval`. Exposed `refresh()` method for on-demand use.
+- **POS item-not-found handling**: `usePOS` now accepts `{ onItemNotFound }` callback. On 404 from `addItem`, calls the callback. POS pages wire it to `catalog.refresh()` to purge stale archived items from the grid.
+- New files: `stock-section.tsx`, `receive-dialog.tsx`, `adjust-dialog.tsx`, `shrink-dialog.tsx`, `use-inventory-for-catalog-item.ts`, `get-inventory-item-by-catalog.ts`, `by-catalog-item/route.ts`
+
 ### Test Coverage
 
 792 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 10 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + golf-reporting tests
@@ -2269,10 +2345,10 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 
 - Vendor Management frontend (types, hooks, components, pages, sidebar link) + remaining API routes
 - Purchase Orders Phases 2-6 (commands, queries, API routes, frontend)
-- Receiving frontend (receipt list, receipt detail/edit, item search, cost preview, barcode scan)
+- Receiving frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
 - V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
 - Settings → Dashboard tab (widget toggles, notes editor)
-- Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
+- Run migrations 0060 + 0061 on dev DB (archive semantics + drop isActive)
 
 ---
 
@@ -3500,3 +3576,240 @@ Dashboard layout and settings page were slimmed down:
 - Removed redundant wrapper components
 - Simplified conditional rendering logic
 - Reduced component tree depth
+
+---
+
+## 58. Catalog Item Change Log Architecture
+
+### Purpose
+
+Append-only, field-level audit trail for catalog items. Provides "what changed, when, by whom, why" context that the generic `audit_log` table doesn't capture (creation snapshots, source tracking, notes, field-level diffs with display names).
+
+### Table
+
+`catalog_item_change_logs` (migration 0063) — Drizzle schema in `packages/db/src/schema/catalog.ts`.
+
+**RLS enforcement: SELECT + INSERT only (append-only).** No UPDATE or DELETE policies exist. This means no one can modify or remove change log entries.
+
+### Service
+
+`packages/modules/catalog/src/services/item-change-log.ts` provides:
+
+```typescript
+// Types
+type ActionType = 'CREATED' | 'UPDATED' | 'ARCHIVED' | 'RESTORED' | 'COST_UPDATED' | 'INVENTORY_ADJUSTED' | 'IMPORTED';
+type ChangeSource = 'UI' | 'API' | 'IMPORT' | 'SYSTEM';
+interface FieldChange { old: unknown; new: unknown; }
+
+// Diff utility — compares before/after states, returns null if no changes
+computeItemDiff(before: Record<string, unknown> | null, after: Record<string, unknown>): Record<string, FieldChange> | null;
+
+// Log utility — inserts inside the same transaction, skips if no diff
+logItemChange(tx, { tenantId, itemId, before, after, userId, actionType, source, summary?, notes? }): Promise<void>;
+
+// Display mapping — used by both server and client for formatting
+FIELD_DISPLAY: Record<string, { label: string; format?: 'currency' | 'date' | 'boolean' | 'lookup' | 'text' }>;
+```
+
+### Integration Pattern
+
+Every catalog command that mutates an item calls `logItemChange()` inside the `publishWithOutbox` callback:
+
+```typescript
+const result = await publishWithOutbox(ctx, async (tx) => {
+  // ... mutation logic ...
+  const [updated] = await tx.update(catalogItems).set(updates).where(...).returning();
+
+  // Log field-level changes (skips if nothing changed)
+  await logItemChange(tx, {
+    tenantId: ctx.tenantId,
+    itemId,
+    before: existing,  // null for CREATED
+    after: updated!,
+    userId: ctx.user.id,
+    actionType: 'UPDATED',
+    source: 'UI',
+  });
+
+  return { result: updated!, events: [event] };
+});
+```
+
+### Query
+
+`getItemChangeLog(input)` — cursor-paginated, filters by date range/action type/user. Joins `users` table for display names. Batch-resolves `categoryId` and `taxCategoryId` lookup fields by injecting `oldDisplay`/`newDisplay` into the fieldChanges response.
+
+### Frontend
+
+`ItemChangeLogModal` — portal-based modal (z-50, fixed positioning) with:
+- Filter row: action type dropdown + date pickers
+- Collapsible entry cards: date/time, user name, action badge, summary
+- Expanded view: field-level old→new display with formatting (currency, boolean, date, lookup, text)
+- "Load More" pagination at bottom
+
+### Key Rules
+
+1. **Never UPDATE or DELETE change log entries** — append-only, enforced by RLS
+2. **Always run logItemChange inside the transaction** — ensures log entries are committed atomically with the mutation
+3. **Don't log if nothing changed** — `computeItemDiff` returns null for identical states; `logItemChange` skips the insert
+4. **IGNORED_FIELDS are excluded from diffs** — `id`, `tenantId`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy` are never logged as field changes
+
+---
+
+## 59. Receiving Frontend Architecture
+
+### Pages
+
+```
+/inventory/receiving          → Receipt list (status/vendor/date filters, cursor pagination)
+/inventory/receiving/[id]     → Receipt detail/edit (editable grid for draft, read-only for posted/voided)
+```
+
+### Key Components
+
+| Component | Purpose |
+|-----------|---------|
+| `ReceiptHeader` | Vendor selector, receipt date, invoice number, shipping cost, freight mode |
+| `ReceivingGrid` | Inline-editable data grid for receipt lines (qty, unitCost, UOM) |
+| `EditableCell` | Click-to-edit cell — blur/Enter commits, Escape cancels |
+| `ReceiptTotalsBar` | Sticky footer: subtotal, shipping, tax, grand total |
+| `ItemSearchInput` | Barcode→SKU→name fallback search for adding lines |
+
+### Pure Calculation Library
+
+`apps/web/src/lib/receiving-calc.ts` contains pure functions with no side effects:
+
+```typescript
+// Line-level calculations
+calcLineTotal(qty: number, unitCost: number): number;
+calcLandedCost(extendedCost: number, allocatedShipping: number): number;
+calcLandedUnitCost(landedCost: number, baseQty: number): number;
+
+// Shipping allocation (client-side preview)
+allocateShippingPreview(lines: ReceiptLine[], shippingCost: number, method: string): Map<string, number>;
+
+// Receipt summary
+calcReceiptSummary(lines: ReceiptLine[], shippingCost: number): { subtotal, shipping, total };
+```
+
+**Rule:** These are preview-only calculations. The server recomputes everything from scratch on post (Rule VM-5). Never trust client-computed values for business logic.
+
+### Editor Hook
+
+`use-receiving-editor` manages the full receipt editing state:
+- Draft receipt CRUD (header + lines)
+- Debounced auto-save (configurable delay)
+- Optimistic line updates with rollback on error
+- Tracks dirty state for unsaved changes warning
+
+### Freight Modes
+
+| Mode | Behavior |
+|------|----------|
+| `ALLOCATE` | Distributes `shippingCost` across lines proportionally (by extendedCost) — shipping is part of landed cost |
+| `EXPENSE` | Books shipping as a separate GL expense — not included in item landed cost |
+
+Added via migration 0064 (`freightMode` column on `receiving_receipts`, default `ALLOCATE`).
+
+### Key Rules
+
+1. **Client calculations are previews only** — server recomputes on post
+2. **EditableCell commits on blur AND Enter** — never rely on only one trigger
+3. **Freight mode affects landed cost** — ALLOCATE includes shipping in per-item cost; EXPENSE does not
+4. **Debounced saves prevent excessive API calls** — but ensure the final save fires on unmount/navigate
+
+---
+
+## 60. Unified Stock UI in Catalog
+
+### Architecture Decision
+
+The app has two data domains that work together:
+- `catalog_items` — central tenant-wide product catalog (one row per SKU, global template)
+- `inventory_items` — per-location stock records (one per SKU per location, with location-specific config)
+
+The Stock Levels page was deleted. All stock UI now lives in the catalog item detail page (`/catalog/items/[id]`), powered by the `StockSection` component. The data architecture is unchanged — only the UI was unified.
+
+### Component: StockSection
+
+Located at `apps/web/src/components/catalog/stock-section.tsx`.
+
+Props: `{ catalogItemId: string; isTrackable: boolean }`
+
+Contains:
+- **Location selector** — for tenants with multiple locations
+- **Stats cards** — On Hand (color-coded), Reorder Point, Par Level, Costing Method
+- **Stock details grid** — Base Unit, Purchase Unit, Ratio, Reorder Qty, Allow Negative, Status
+- **Action buttons** — Receive (blue), Adjust (gray), Record Shrink (red)
+- **Movement history table** — Date, Type badge, Qty Delta (color-coded), Cost, Reference, Reason — with Load More pagination
+- **Empty states** — "No inventory record at this location" when item exists in catalog but not at selected location; "Inventory tracking is disabled" when `isTrackable === false`
+
+### Data Flow
+
+```
+StockSection
+  → useInventoryForCatalogItem(catalogItemId, locationId)
+    → GET /api/v1/inventory/by-catalog-item?catalogItemId=xxx&locationId=yyy
+      → getInventoryItemByCatalogItem(tenantId, catalogItemId, locationId)
+        → Returns InventoryItemDetail with computed on-hand, or null
+
+  → useMovements(inventoryItemId)  // chained — only fetches once inventoryItemId is resolved
+    → GET /api/v1/inventory/{inventoryItemId}/movements
+```
+
+### Extracted Dialogs
+
+Three dialog components were extracted from the old stock detail page as reusable portal-based components:
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `ReceiveDialog` | `apps/web/src/components/inventory/receive-dialog.tsx` | Record received inventory (qty, cost, business date) |
+| `AdjustDialog` | `apps/web/src/components/inventory/adjust-dialog.tsx` | Adjust stock (delta qty, reason, business date) |
+| `ShrinkDialog` | `apps/web/src/components/inventory/shrink-dialog.tsx` | Record shrink (qty, type, reason, business date) |
+
+Each takes `{ open, onClose, inventoryItemId, onSuccess }`. Uses `createPortal` to `document.body`, z-50.
+
+### Deleted Pages
+
+| Page | Old Route | Replacement |
+|------|-----------|-------------|
+| Stock Levels list | `/inventory` | `/catalog` (Items list already shows On Hand + Reorder Pt columns) |
+| Stock detail | `/inventory/[id]` | `/catalog/items/[id]` (StockSection at bottom of item detail) |
+
+**Kept intact**: `/inventory/receiving/` routes, all inventory API routes.
+
+### Key Rules
+
+1. **Never create a separate Stock Levels page** — stock data belongs in the catalog item detail
+2. **StockSection uses chained data fetching** — movements only load after inventoryItemId resolves
+3. **Catalog Items list shows stock columns** — enriched via parallel inventory API call, not a database JOIN
+
+---
+
+## 61. POS Catalog Freshness
+
+### Problem
+
+POS terminals stay open for entire shifts (8+ hours). Without periodic refresh, items archived after the POS loaded remain visible. Tapping an archived item triggers a backend 404 ("Catalog item not found").
+
+### Solution
+
+The `useCatalogForPOS` hook has two freshness mechanisms:
+
+1. **Periodic background refresh** — every 5 minutes (`REFRESH_INTERVAL_MS`), fetches fresh catalog from the API and updates state. No loading spinner shown.
+2. **On-demand refresh via `onItemNotFound`** — `usePOS` detects 404 errors in `addItem` and calls the `onItemNotFound` callback. POS pages wire this to `catalog.refresh()` for immediate stale-item purge.
+
+### Wiring
+
+```typescript
+// In retail/page.tsx and fnb/page.tsx:
+const catalog = useCatalogForPOS(locationId);
+const pos = usePOS(config, { onItemNotFound: catalog.refresh });
+```
+
+### Key Rules
+
+1. **`useCatalogForPOS` must be declared BEFORE `usePOS`** — so `catalog.refresh` is available as the callback
+2. **Background refresh is silent** — no toast or loading state on periodic refresh
+3. **sessionStorage cache is 5 min TTL** — matches the refresh interval
+4. **On initial load with cache**, items are displayed immediately from cache, then a background refresh replaces them with fresh data

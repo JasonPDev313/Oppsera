@@ -8,6 +8,8 @@ export interface ListVendorsInput {
   isActive?: boolean;
   cursor?: string;
   limit?: number;
+  /** When true, skip expensive LATERAL joins (itemCount, lastReceiptDate). Use for dropdowns. */
+  minimal?: boolean;
 }
 
 export interface VendorSummary {
@@ -34,7 +36,6 @@ export async function listVendors(input: ListVendorsInput): Promise<ListVendorsR
   const limit = Math.min(input.limit ?? 50, 100);
 
   return withTenant(input.tenantId, async (tx) => {
-    // Single query: vendors + item count + last receipt date via LEFT JOIN LATERAL
     const conditions = [sql`v.tenant_id = ${input.tenantId}`];
     if (input.isActive !== undefined) conditions.push(sql`v.is_active = ${input.isActive}`);
     if (input.cursor) conditions.push(sql`v.id < ${input.cursor}`);
@@ -43,6 +44,43 @@ export async function listVendors(input: ListVendorsInput): Promise<ListVendorsR
       conditions.push(sql`(v.name ILIKE ${pattern} OR v.account_number ILIKE ${pattern})`);
     }
 
+    const whereClause = sql.join(conditions, sql` AND `);
+
+    // Fast path: skip expensive LATERAL joins when caller only needs id + name
+    if (input.minimal) {
+      const rows = await tx.execute(sql`
+        SELECT v.id, v.name, v.account_number, v.contact_name, v.contact_email,
+               v.contact_phone, v.payment_terms, v.is_active, v.created_at
+        FROM vendors v
+        WHERE ${whereClause}
+        ORDER BY v.name ASC
+        LIMIT ${limit + 1}
+      `);
+
+      const allRows = Array.from(rows as Iterable<any>);
+      const hasMore = allRows.length > limit;
+      const items = hasMore ? allRows.slice(0, limit) : allRows;
+
+      return {
+        items: items.map((v: any) => ({
+          id: v.id,
+          name: v.name,
+          accountNumber: v.account_number ?? null,
+          contactName: v.contact_name ?? null,
+          contactEmail: v.contact_email ?? null,
+          contactPhone: v.contact_phone ?? null,
+          paymentTerms: v.payment_terms ?? null,
+          isActive: v.is_active,
+          itemCount: 0,
+          lastReceiptDate: null,
+          createdAt: v.created_at instanceof Date ? v.created_at.toISOString() : String(v.created_at),
+        })),
+        cursor: hasMore ? items[items.length - 1]!.id : null,
+        hasMore,
+      };
+    }
+
+    // Full path: includes item count + last receipt date via LEFT JOIN LATERAL
     const rows = await tx.execute(sql`
       SELECT v.id, v.name, v.account_number, v.contact_name, v.contact_email,
              v.contact_phone, v.payment_terms, v.is_active, v.created_at,
@@ -59,7 +97,7 @@ export async function listVendors(input: ListVendorsInput): Promise<ListVendorsR
         FROM receiving_receipts rr
         WHERE rr.vendor_id = v.id AND rr.tenant_id = v.tenant_id AND rr.status = 'posted'
       ) rc ON true
-      WHERE ${sql.join(conditions, sql` AND `)}
+      WHERE ${whereClause}
       ORDER BY v.name ASC
       LIMIT ${limit + 1}
     `);
