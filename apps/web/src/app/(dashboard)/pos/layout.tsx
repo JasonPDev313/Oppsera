@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { X, MapPin, Monitor, User } from 'lucide-react';
+import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import RetailPOSLoading from './retail/loading';
@@ -104,9 +104,33 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   // Barcode scanner listener
   useBarcodeScannerListener();
 
-  // Determine which POS mode is active from the URL
-  const isRetail = pathname.startsWith('/pos/retail');
-  const isFnB = pathname.startsWith('/pos/fnb');
+  // ── Mode state ─────────────────────────────────────────────────
+  // React state drives the CSS toggle for instant switching.
+  // URL is synced via router.replace (deferred, non-blocking).
+  // Sidebar link clicks update pathname → synced back via useEffect.
+  const [mode, setMode] = useState<'retail' | 'fnb'>(
+    pathname.startsWith('/pos/fnb') ? 'fnb' : 'retail',
+  );
+
+  // Sync mode when pathname changes (e.g., sidebar navigation)
+  useEffect(() => {
+    if (pathname.startsWith('/pos/fnb') && mode !== 'fnb') setMode('fnb');
+    else if (pathname.startsWith('/pos/retail') && mode !== 'retail') setMode('retail');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit `mode` to avoid loops
+  }, [pathname]);
+
+  const isRetail = mode === 'retail';
+  const isFnB = mode === 'fnb';
+
+  // Instant mode switch — state change is immediate, URL update is deferred.
+  const switchMode = useCallback(
+    (newMode: 'retail' | 'fnb') => {
+      if (newMode === mode) return;
+      setMode(newMode);
+      router.replace(`/pos/${newMode}`, { scroll: false });
+    },
+    [mode, router],
+  );
 
   // Lazily mount each POS mode on first visit, keep mounted afterwards
   // so switching back is instant (CSS toggle, no re-mount).
@@ -151,8 +175,39 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-full flex-col bg-gray-50">
       {/* ── Top Bar ──────────────────────────────────────────────── */}
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-surface px-4 shadow-sm">
-        {/* Left: Location, terminal, employee */}
+        {/* Left: Mode toggle, location, terminal, employee */}
         <div className="flex items-center gap-4">
+          {/* Retail / F&B mode toggle — instant switch via React state */}
+          <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
+            <button
+              type="button"
+              onClick={() => switchMode('retail')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                isRetail
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <ShoppingCart className="h-3.5 w-3.5" />
+              Retail
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('fnb')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                isFnB
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <UtensilsCrossed className="h-3.5 w-3.5" />
+              F&B
+            </button>
+          </div>
+
+          {/* Divider */}
+          <div className="h-5 w-px bg-gray-200" />
+
           {/* Location */}
           <div className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4 text-indigo-600" />
@@ -201,9 +256,9 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
       {/* ── Content Area ─────────────────────────────────────────── */}
       {/* Both POS modes are mounted in this layout and toggled via CSS.
-          This eliminates the Next.js route transition delay when switching
-          between Retail POS ↔ F&B POS. Each mode loads independently and
-          continues running in the background when the other is active. */}
+          Mode switching uses React state for instant visual toggle — no
+          Next.js route transition needed. Each mode loads independently
+          and continues running in the background when the other is active. */}
       <div className="relative flex-1 overflow-hidden">
         {visited.retail && (
           <div className={`absolute inset-0 ${isRetail ? '' : 'pointer-events-none invisible'}`}>

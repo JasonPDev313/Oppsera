@@ -384,11 +384,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Preload POS catalog into sessionStorage on login so the POS page
   // renders instantly. Only fetches if no cache exists yet.
+  // Also prefetch POS route chunks so navigating to POS is instant.
   useEffect(() => {
     if (isAuthenticated && locations.length > 0) {
       preloadPOSCatalog(locations[0]!.id);
+      router.prefetch('/pos/retail');
+      router.prefetch('/pos/fnb');
     }
-  }, [isAuthenticated, locations]);
+  }, [isAuthenticated, locations, router]);
 
   // Load collapsed state from localStorage
   useEffect(() => {
@@ -472,9 +475,11 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         />
       </div>
 
-      {/* Desktop sidebar */}
+      {/* Desktop sidebar — z-40 keeps it above POS overlay backdrops (z-30)
+          so the user can always click sidebar links, even when a payment
+          picker or other POS overlay is open. */}
       <div
-        className={`hidden md:flex md:shrink-0 transition-all duration-200 ease-in-out ${
+        className={`relative z-40 hidden md:flex md:shrink-0 transition-all duration-200 ease-in-out ${
           collapsed ? 'md:w-16' : 'md:w-64'
         }`}
       >
@@ -496,8 +501,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* Main content area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Main content area — relative z-0 creates a stacking context so
+          POS fixed/absolute overlays (z-30, z-40) stay scoped here and
+          never paint above the sidebar (z-40). Portals to document.body
+          (dialogs at z-50/z-60) are unaffected since they're outside this
+          container. */}
+      <div className="relative z-0 flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-surface px-4 md:px-6">
           <div className="flex items-center gap-3">
