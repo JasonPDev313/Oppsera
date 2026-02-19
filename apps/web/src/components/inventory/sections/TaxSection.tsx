@@ -3,7 +3,6 @@
 import { useState, useCallback } from 'react';
 import { X, Plus, Loader2 } from 'lucide-react';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
-import { Badge } from '@/components/ui/badge';
 import { useAuthContext } from '@/components/auth-provider';
 import { useTaxGroups, useItemTaxGroups } from '@/hooks/use-catalog';
 import { apiFetch } from '@/lib/api-client';
@@ -81,12 +80,6 @@ export function TaxSection({ itemId }: TaxSectionProps) {
               >
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-gray-900">{group.taxGroupName}</span>
-                  <Badge
-                    variant={group.calculationMode === 'inclusive' ? 'purple' : 'info'}
-                    className="text-[10px]"
-                  >
-                    {group.calculationMode}
-                  </Badge>
                 </div>
                 <button
                   type="button"
@@ -115,7 +108,7 @@ export function TaxSection({ itemId }: TaxSectionProps) {
               <option value="">Select tax group...</option>
               {unassignedGroups.map((group) => (
                 <option key={group.id} value={group.id}>
-                  {group.name} ({group.calculationMode}) — {(group.totalRate * 100).toFixed(2)}%
+                  {group.name} — {(group.totalRate * 100).toFixed(2)}%
                 </option>
               ))}
             </select>

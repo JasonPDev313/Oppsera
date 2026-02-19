@@ -17,17 +17,14 @@ import {
   Eye,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
+import {
+  type CachedCustomer,
+  filterCustomersLocal,
+  searchCustomersServer,
+  cancelServerSearch,
+  isCacheComplete,
+} from '@/lib/customer-cache';
 import type { RegisterTab, TabNumber } from '@/types/pos';
-
-// ── Customer search result (same shape as CustomerAttachment) ────────
-
-interface CustomerSearchResult {
-  id: string;
-  displayName: string;
-  email: string | null;
-  phone: string | null;
-  type: 'person' | 'organization';
-}
 
 // ── Props ────────────────────────────────────────────────────────────
 
@@ -43,7 +40,7 @@ interface RegisterTabsProps {
   /** Current order's customerId (for showing detach option) */
   customerId?: string | null;
   customerName?: string | null;
-  onAttachCustomer?: (customerId: string) => void;
+  onAttachCustomer?: (customerId: string, customerName?: string) => void;
   onDetachCustomer?: () => void;
   onSaveTab?: (tabNumber: TabNumber) => void;
   onChangeServer?: (tabNumber: TabNumber, employeeId: string, employeeName: string) => void;
@@ -95,7 +92,7 @@ export function RegisterTabs({
     y: number;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<CustomerSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<CachedCustomer[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -248,7 +245,7 @@ export function RegisterTabs({
     }
   }, [customerSearch]);
 
-  // Debounced customer search
+  // Customer search — instant local filter, debounced server fallback
   useEffect(() => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
 
@@ -258,24 +255,35 @@ export function RegisterTabs({
       return;
     }
 
+    // Instant: filter from shared cache
+    const localHits = filterCustomersLocal(trimmed);
+    setSearchResults(localHits);
+
+    // If cache covers all customers or we have enough local hits, skip server call
+    if (isCacheComplete() || localHits.length >= 5) return;
+
+    // Debounced server fallback for large customer bases
+    setIsSearching(true);
     searchDebounceRef.current = setTimeout(async () => {
-      setIsSearching(true);
       try {
-        const res = await apiFetch<{ data: CustomerSearchResult[] }>(
-          `/api/v1/customers/search?search=${encodeURIComponent(trimmed)}`,
-        );
-        setSearchResults(res.data);
+        const serverHits = await searchCustomersServer(trimmed);
+        const localIds = new Set(localHits.map((c) => c.id));
+        const extra = serverHits.filter((c) => !localIds.has(c.id));
+        setSearchResults([...localHits, ...extra].slice(0, 10));
       } catch {
-        setSearchResults([]);
+        // Keep local results
       } finally {
         setIsSearching(false);
       }
-    }, 250);
+    }, 200);
 
     return () => {
       if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     };
   }, [searchQuery]);
+
+  // Cleanup server search on unmount
+  useEffect(() => () => cancelServerSearch(), []);
 
   // Close customer search on outside click
   useEffect(() => {
@@ -290,9 +298,9 @@ export function RegisterTabs({
   }, [customerSearch]);
 
   const handleSelectCustomer = useCallback(
-    (customer: CustomerSearchResult) => {
+    (customer: CachedCustomer) => {
       if (!customerSearch) return;
-      onAttachCustomer?.(customer.id);
+      onAttachCustomer?.(customer.id, customer.displayName);
 
       // Auto-rename tab to "FirstName LastInitial" (e.g. "Jason P")
       const parts = customer.displayName.trim().split(/\s+/);

@@ -23,6 +23,7 @@ interface POSRawItem {
   barcode: string | null;
   itemType: string;
   defaultPrice: string;
+  priceIncludesTax: boolean;
   isTrackable: boolean;
   metadata: Record<string, unknown> | null;
   categoryId: string | null;
@@ -136,7 +137,7 @@ function convertToPOSItem(
     isTrackInventory: item.isTrackable,
     onHand: null, // V1 — inventory module not wired yet
     metadata: item.metadata ?? {},
-    tax: { calculationMode: 'exclusive', taxRates: [] }, // V1 placeholder
+    tax: { calculationMode: item.priceIncludesTax ? 'inclusive' : 'exclusive', taxRates: [] },
     categoryId,
     departmentId: categoryId ? findDepartmentId(categoryId, categoryMap) : '',
   };

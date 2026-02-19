@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { refreshTokenIfNeeded } from '@/lib/api-client';
+import { warmCustomerCache } from '@/lib/customer-cache';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import RetailPOSLoading from './retail/loading';
 import FnBPOSLoading from './fnb/loading';
@@ -145,6 +146,9 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
   // Barcode scanner listener
   useBarcodeScannerListener();
+
+  // Pre-warm customer cache so search is instant
+  useEffect(() => { warmCustomerCache(); }, []);
 
   // Proactive warm-up when returning from idle (token refresh + function warm + data refresh)
   usePOSVisibilityRefresh();

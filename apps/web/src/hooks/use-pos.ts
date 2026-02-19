@@ -436,7 +436,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   // ── Customer ───────────────────────────────────────────────────
 
   const attachCustomer = useCallback(
-    async (customerId: string): Promise<void> => {
+    async (customerId: string, customerName?: string): Promise<void> => {
       // Auto-open an order if none exists (so customer can be attached before adding items)
       let order = orderRef.current;
       if (!order) {
@@ -444,7 +444,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       }
 
       // Optimistic update — UI reflects the attached customer immediately
-      setCurrentOrder((prev) => prev ? { ...prev, customerId } : prev);
+      setCurrentOrder((prev) => prev ? { ...prev, customerId, customerName: customerName ?? prev.customerName } : prev);
 
       try {
         await apiFetch(`/api/v1/orders/${order.id}`, {
@@ -561,7 +561,11 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
               return refreshed;
             }
           } catch {
-            // Fall through to normal error handling
+            // fetchOrder failed (network hiccup) but the order IS likely placed.
+            // Do NOT fall through to handleMutationError — it would clear the order
+            // via setCurrentOrder(null) and undermine the caller's recovery logic.
+            // Throw directly so the caller (TenderDialog) can attempt its own recovery.
+            throw err;
           }
         }
         await handleMutationError(err);

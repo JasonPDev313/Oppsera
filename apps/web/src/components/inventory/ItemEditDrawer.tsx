@@ -29,6 +29,7 @@ export interface ItemFormState {
   sku: string;
   barcode: string;
   description: string;
+  priceIncludesTax: boolean;
   isTrackable: boolean;
   metadata: Record<string, unknown>;
 }
@@ -42,6 +43,7 @@ function buildInitialForm(item: {
   sku: string | null;
   barcode: string | null;
   description: string | null;
+  priceIncludesTax?: boolean;
   isTrackable: boolean;
   metadata?: Record<string, unknown>;
 }): ItemFormState {
@@ -54,6 +56,7 @@ function buildInitialForm(item: {
     sku: item.sku ?? '',
     barcode: item.barcode ?? '',
     description: item.description ?? '',
+    priceIncludesTax: item.priceIncludesTax ?? false,
     isTrackable: item.isTrackable,
     metadata: item.metadata ?? {},
   };
@@ -70,6 +73,7 @@ function buildPreSeedForm(seed: ItemPreSeed): ItemFormState {
     sku: seed.sku ?? '',
     barcode: seed.barcode ?? '',
     description: '',
+    priceIncludesTax: false,
     isTrackable: seed.isTrackable,
     metadata: seed.metadata,
   };
@@ -95,6 +99,7 @@ function computeDirtyFields(
   if (current.description !== original.description) {
     changes.description = current.description || null;
   }
+  if (current.priceIncludesTax !== original.priceIncludesTax) changes.priceIncludesTax = current.priceIncludesTax;
   if (current.isTrackable !== original.isTrackable) changes.isTrackable = current.isTrackable;
   if (JSON.stringify(current.metadata) !== JSON.stringify(original.metadata)) {
     changes.metadata = current.metadata;

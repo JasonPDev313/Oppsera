@@ -3,59 +3,24 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { User, UserPlus, RefreshCw, Eye, Search, Loader2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-
-interface CustomerSearchResult {
-  id: string;
-  displayName: string;
-  email: string | null;
-  phone: string | null;
-  type: 'person' | 'organization';
-}
+import {
+  type CachedCustomer,
+  getCustomerCache,
+  getCustomerCacheSync,
+  filterCustomersLocal,
+  searchCustomersServer,
+  cancelServerSearch,
+  isCacheComplete,
+  isCacheReady,
+  warmCustomerCache,
+} from '@/lib/customer-cache';
 
 interface CustomerAttachmentProps {
   customerId: string | null;
   customerName?: string | null;
-  onAttach: (customerId: string) => void;
+  onAttach: (customerId: string, customerName?: string) => void;
   onDetach: () => void;
   onViewProfile?: (customerId: string) => void;
-}
-
-// Module-level cache — shared across mounts, survives re-renders
-let _customerCache: CustomerSearchResult[] | null = null;
-let _cacheLoadedAt = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-const FETCH_TIMEOUT = 8_000; // 8s — fail fast rather than spin forever
-
-async function loadCustomers(signal?: AbortSignal): Promise<CustomerSearchResult[]> {
-  if (_customerCache && Date.now() - _cacheLoadedAt < CACHE_TTL) {
-    return _customerCache;
-  }
-  try {
-    const res = await apiFetch<{ data: CustomerSearchResult[] }>(
-      '/api/v1/customers/search',
-      signal ? { signal } : {},
-    );
-    _customerCache = res.data;
-    _cacheLoadedAt = Date.now();
-  } catch {
-    // Keep stale cache if fetch fails — return whatever we have
-  }
-  return _customerCache ?? [];
-}
-
-function filterCustomers(
-  customers: CustomerSearchResult[],
-  query: string,
-): CustomerSearchResult[] {
-  const q = query.toLowerCase();
-  return customers
-    .filter(
-      (c) =>
-        c.displayName.toLowerCase().includes(q) ||
-        c.email?.toLowerCase().includes(q) ||
-        c.phone?.includes(q),
-    )
-    .slice(0, 10);
 }
 
 export function CustomerAttachment({
@@ -66,46 +31,32 @@ export function CustomerAttachment({
   onViewProfile,
 }: CustomerAttachmentProps) {
   const [query, setQuery] = useState('');
-  const [allCustomers, setAllCustomers] = useState<CustomerSearchResult[]>(
-    _customerCache ?? [],
-  );
+  const [allCustomers, setAllCustomers] = useState<CachedCustomer[]>(getCustomerCacheSync);
+  const [serverResults, setServerResults] = useState<CachedCustomer[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [attachedName, setAttachedName] = useState<string | null>(null);
   const [showChangeSearch, setShowChangeSearch] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Eagerly load all customers on mount
+  // Load cache on mount (instant if already warm)
   useEffect(() => {
-    if (_customerCache && Date.now() - _cacheLoadedAt < CACHE_TTL) {
-      setAllCustomers(_customerCache);
+    if (isCacheReady()) {
+      setAllCustomers(getCustomerCacheSync());
       return;
     }
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
     setIsLoading(true);
-    loadCustomers(controller.signal)
-      .then((data) => {
-        if (!controller.signal.aborted) setAllCustomers(data);
-      })
-      .catch(() => {
-        // Swallow — loadCustomers already handles errors internally
-      })
-      .finally(() => {
-        clearTimeout(timer);
-        if (!controller.signal.aborted) setIsLoading(false);
-      });
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
+    getCustomerCache()
+      .then((data) => setAllCustomers(data))
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, []);
 
   // Auto-resolve customer name when customerId is present but name is unknown
   useEffect(() => {
     if (!customerId || customerName || attachedName) return;
 
-    // Try resolving from cache first — no API call needed
     const cached = allCustomers.find((c) => c.id === customerId);
     if (cached) {
       setAttachedName(cached.displayName);
@@ -121,28 +72,53 @@ export function CustomerAttachment({
           setAttachedName(res.data.displayName);
         }
       })
-      .catch(() => {
-        // Silently fail — will show customerId as fallback
-      });
+      .catch(() => {});
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [customerId, customerName, attachedName, allCustomers]);
 
-  // Filter locally — instant, no API call
-  const filtered = useMemo(() => {
+  // Client-side filter (instant) + debounced server fallback for incomplete cache
+  const localResults = useMemo(() => {
     const trimmed = query.trim();
     if (trimmed.length < 1) return allCustomers.slice(0, 10);
-    return filterCustomers(allCustomers, trimmed);
+    return filterCustomersLocal(trimmed);
   }, [query, allCustomers]);
+
+  // Debounced server search — only fires when cache is incomplete AND local yields few results
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setServerResults(null);
+
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+    if (isCacheComplete() && localResults.length > 0) return;
+    if (localResults.length >= 5) return;
+
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchCustomersServer(trimmed);
+        setServerResults(results);
+      } catch {
+        // Swallow — local results are still shown
+      }
+    }, 200);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query, localResults.length]);
+
+  // Merge local + server results (deduplicated, local first)
+  const filtered = useMemo(() => {
+    if (!serverResults || serverResults.length === 0) return localResults;
+    const localIds = new Set(localResults.map((c) => c.id));
+    const extra = serverResults.filter((c) => !localIds.has(c.id));
+    return [...localResults, ...extra].slice(0, 10);
+  }, [localResults, serverResults]);
 
   const handleFocus = useCallback(() => {
     setShowDropdown(true);
-    // Refresh cache in the background if stale
-    if (Date.now() - _cacheLoadedAt > CACHE_TTL) {
-      loadCustomers().then((data) => setAllCustomers(data)).catch(() => {});
-    }
+    warmCustomerCache();
   }, []);
 
   // Close dropdown on outside click
@@ -157,9 +133,12 @@ export function CustomerAttachment({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Cleanup server search on unmount
+  useEffect(() => () => cancelServerSearch(), []);
+
   const handleSelect = useCallback(
-    (customer: CustomerSearchResult) => {
-      onAttach(customer.id);
+    (customer: CachedCustomer) => {
+      onAttach(customer.id, customer.displayName);
       setAttachedName(customer.displayName);
       setQuery('');
       setShowDropdown(false);
@@ -268,7 +247,7 @@ export function CustomerAttachment({
                   type="button"
                   onClick={() => {
                     setIsLoading(true);
-                    loadCustomers()
+                    getCustomerCache()
                       .then((data) => setAllCustomers(data))
                       .catch(() => {})
                       .finally(() => setIsLoading(false));

@@ -347,14 +347,12 @@ function TaxGroupsTab() {
   // Create form
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
-  const [createMode, setCreateMode] = useState<'exclusive' | 'inclusive'>('exclusive');
   const [createRateIds, setCreateRateIds] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
 
   // Edit form
   const [editGroup, setEditGroup] = useState<TaxGroupRow | null>(null);
   const [editName, setEditName] = useState('');
-  const [editMode, setEditMode] = useState<'exclusive' | 'inclusive'>('exclusive');
   const [editRateIds, setEditRateIds] = useState<string[]>([]);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -371,14 +369,12 @@ function TaxGroupsTab() {
         body: JSON.stringify({
           name: createName.trim(),
           locationId,
-          calculationMode: createMode,
           rateIds: createRateIds,
         }),
       });
       toast.success(`Tax group "${createName.trim()}" created`);
       setShowCreate(false);
       setCreateName('');
-      setCreateMode('exclusive');
       setCreateRateIds([]);
       refresh();
     } catch (err) {
@@ -391,7 +387,6 @@ function TaxGroupsTab() {
   const handleStartEdit = (group: TaxGroupRow) => {
     setEditGroup(group);
     setEditName(group.name);
-    setEditMode(group.calculationMode as 'exclusive' | 'inclusive');
     setEditRateIds(group.rates.map((r) => r.id));
   };
 
@@ -399,12 +394,11 @@ function TaxGroupsTab() {
     if (!editGroup || !editName.trim()) return;
     setEditSaving(true);
     try {
-      // Update name/mode via PATCH
+      // Update name via PATCH
       await apiFetch(`/api/v1/catalog/tax-groups/${editGroup.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           name: editName.trim(),
-          calculationMode: editMode,
         }),
       });
 
@@ -495,23 +489,6 @@ function TaxGroupsTab() {
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </FormField>
-                <FormField label="Calculation Mode" required>
-                  <div className="flex gap-4">
-                    {(['exclusive', 'inclusive'] as const).map((mode) => (
-                      <label key={mode} className="flex items-center gap-2 text-sm text-gray-700">
-                        <input
-                          type="radio"
-                          name="createMode"
-                          value={mode}
-                          checked={createMode === mode}
-                          onChange={() => setCreateMode(mode)}
-                          className="border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        {mode === 'exclusive' ? 'Exclusive (added on top)' : 'Inclusive (extracted)'}
-                      </label>
-                    ))}
-                  </div>
-                </FormField>
                 <FormField label="Tax Rates" helpText="Select the rates to include in this group">
                   <Select
                     options={activeRateOptions}
@@ -569,9 +546,6 @@ function TaxGroupsTab() {
                     <div>
                       <h4 className="text-sm font-semibold text-gray-900">{group.name}</h4>
                       <div className="mt-1 flex items-center gap-2">
-                        <Badge variant={group.calculationMode === 'exclusive' ? 'info' : 'purple'}>
-                          {group.calculationMode}
-                        </Badge>
                         <Badge variant={group.isActive ? 'success' : 'neutral'}>
                           {group.isActive ? 'Active' : 'Inactive'}
                         </Badge>
@@ -652,23 +626,6 @@ function TaxGroupsTab() {
                   onChange={(e) => setEditName(e.target.value)}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
-              </FormField>
-              <FormField label="Calculation Mode" required>
-                <div className="flex gap-4">
-                  {(['exclusive', 'inclusive'] as const).map((mode) => (
-                    <label key={mode} className="flex items-center gap-2 text-sm text-gray-700">
-                      <input
-                        type="radio"
-                        name="editMode"
-                        value={mode}
-                        checked={editMode === mode}
-                        onChange={() => setEditMode(mode)}
-                        className="border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      {mode === 'exclusive' ? 'Exclusive' : 'Inclusive'}
-                    </label>
-                  ))}
-                </div>
               </FormField>
               <FormField label="Tax Rates">
                 <Select

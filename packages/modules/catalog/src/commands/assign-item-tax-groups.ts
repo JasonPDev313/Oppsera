@@ -2,7 +2,7 @@ import { eq, and, inArray } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
-import { NotFoundError, ValidationError } from '@oppsera/shared';
+import { NotFoundError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { catalogItems, taxGroups, catalogItemLocationTaxGroups } from '../schema';
 import { locations } from '@oppsera/db';
@@ -62,13 +62,6 @@ export async function assignItemTaxGroups(
         );
       }
 
-      // V1 CONSTRAINT: All groups must share the same calculation mode
-      const modes = new Set(groups.map((g) => g.calculationMode));
-      if (modes.size > 1) {
-        throw new ValidationError(
-          'All tax groups assigned to an item at a location must use the same calculation mode (all exclusive or all inclusive)',
-        );
-      }
     }
 
     // Full replacement: delete existing, insert new

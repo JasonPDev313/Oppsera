@@ -59,6 +59,7 @@ export interface CatalogItemRow {
   cost: string | null;
   categoryId: string | null;
   taxCategoryId: string | null;
+  priceIncludesTax: boolean;
   isTrackable: boolean;
   metadata?: Record<string, unknown>;
   createdAt: string;
@@ -110,7 +111,6 @@ export interface TaxGroupRow {
   id: string;
   name: string;
   locationId: string;
-  calculationMode: string;
   isActive: boolean;
   rates: Array<{ id: string; name: string; rateDecimal: number }>;
   totalRate: number;

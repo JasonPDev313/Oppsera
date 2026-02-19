@@ -174,7 +174,7 @@ export function useItemTaxGroups(itemId: string, locationId?: string) {
   const result = useQuery({
     queryKey: ['item-tax-groups', itemId, locationId],
     queryFn: () =>
-      apiFetch<{ data: Array<{ taxGroupId: string; taxGroupName: string; calculationMode: string }> }>(url!).then((r) => r.data),
+      apiFetch<{ data: Array<{ taxGroupId: string; taxGroupName: string }> }>(url!).then((r) => r.data),
     enabled: url !== null,
   });
 

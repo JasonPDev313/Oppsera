@@ -113,6 +113,7 @@ export async function createItem(ctx: RequestContext, input: CreateItemInput) {
         cost: input.cost != null ? String(input.cost) : null,
         categoryId: input.categoryId ?? null,
         taxCategoryId: input.taxCategoryId ?? null,
+        priceIncludesTax: input.priceIncludesTax,
         isTrackable: input.isTrackable,
         metadata: input.metadata ?? null,
         createdBy: ctx.user.id,

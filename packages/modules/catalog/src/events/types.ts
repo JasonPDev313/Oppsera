@@ -78,7 +78,6 @@ export const TaxGroupCreatedDataSchema = z.object({
   taxGroupId: z.string(),
   locationId: z.string(),
   name: z.string(),
-  calculationMode: z.string(),
   taxRateIds: z.array(z.string()),
 });
 

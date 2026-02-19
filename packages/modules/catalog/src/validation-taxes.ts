@@ -21,14 +21,12 @@ export type UpdateTaxRateInput = z.infer<typeof updateTaxRateSchema>;
 export const createTaxGroupSchema = z.object({
   locationId: z.string().min(1),
   name: z.string().min(1).max(200).transform((v) => v.trim()),
-  calculationMode: z.enum(['exclusive', 'inclusive']),
   taxRateIds: z.array(z.string().min(1)).min(1),
 });
 export type CreateTaxGroupInput = z.infer<typeof createTaxGroupSchema>;
 
 export const updateTaxGroupSchema = z.object({
   name: z.string().min(1).max(200).transform((v) => v.trim()).optional(),
-  calculationMode: z.enum(['exclusive', 'inclusive']).optional(),
   isActive: z.boolean().optional(),
 });
 export type UpdateTaxGroupInput = z.infer<typeof updateTaxGroupSchema>;

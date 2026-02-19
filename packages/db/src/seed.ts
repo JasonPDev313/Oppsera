@@ -498,15 +498,15 @@ async function seed() {
   };
 
   await db.insert(taxGroups).values([
-    { id: tgIds.mainRetail, tenantId, locationId: locationIds[0]!, name: 'Retail Tax', calculationMode: 'exclusive', createdBy: userId },
-    { id: tgIds.mainFood, tenantId, locationId: locationIds[0]!, name: 'Food & Bev Tax', calculationMode: 'exclusive', createdBy: userId },
-    { id: tgIds.mainAlcohol, tenantId, locationId: locationIds[0]!, name: 'Alcohol Tax', calculationMode: 'exclusive', createdBy: userId },
-    { id: tgIds.mainExempt, tenantId, locationId: locationIds[0]!, name: 'Tax Exempt', calculationMode: 'exclusive', createdBy: userId },
+    { id: tgIds.mainRetail, tenantId, locationId: locationIds[0]!, name: 'Retail Tax', createdBy: userId },
+    { id: tgIds.mainFood, tenantId, locationId: locationIds[0]!, name: 'Food & Bev Tax', createdBy: userId },
+    { id: tgIds.mainAlcohol, tenantId, locationId: locationIds[0]!, name: 'Alcohol Tax', createdBy: userId },
+    { id: tgIds.mainExempt, tenantId, locationId: locationIds[0]!, name: 'Tax Exempt', createdBy: userId },
   ]);
 
   await db.insert(taxGroups).values([
-    { id: tgIds.southRetail, tenantId, locationId: locationIds[1]!, name: 'Retail Tax', calculationMode: 'exclusive', createdBy: userId },
-    { id: tgIds.southFood, tenantId, locationId: locationIds[1]!, name: 'Food & Bev Tax', calculationMode: 'exclusive', createdBy: userId },
+    { id: tgIds.southRetail, tenantId, locationId: locationIds[1]!, name: 'Retail Tax', createdBy: userId },
+    { id: tgIds.southFood, tenantId, locationId: locationIds[1]!, name: 'Food & Bev Tax', createdBy: userId },
   ]);
   console.log('Tax Groups: 6 created (4 Main Clubhouse, 2 South Course)');
 

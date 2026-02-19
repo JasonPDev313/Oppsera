@@ -135,6 +135,25 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
     return sum;
   }, [item, selectedFraction, singleSelections, multiSelections, relevantGroups]);
 
+  // ── Required group validation ────────────────────────────────
+
+  const missingRequired = useMemo(() => {
+    const missing: Set<string> = new Set();
+    for (const group of relevantGroups) {
+      if (!group.isRequired) continue;
+      const isSingle = group.selectionType === 'single';
+      if (isSingle) {
+        if (!singleSelections[group.id]) missing.add(group.id);
+      } else {
+        const sel = multiSelections[group.id];
+        if (!sel || sel.size === 0) missing.add(group.id);
+      }
+    }
+    return missing;
+  }, [relevantGroups, singleSelections, multiSelections]);
+
+  const canAdd = missingRequired.size === 0;
+
   // ── Handlers ──────────────────────────────────────────────────
 
   function handleSingleSelect(groupId: string, modId: string) {
@@ -161,7 +180,7 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
   }
 
   function handleAdd() {
-    if (!item) return;
+    if (!item || !canAdd) return;
 
     const modifiers: AddLineItemInput['modifiers'] = [];
 
@@ -258,13 +277,16 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
           {relevantGroups.map((group) => {
             const isSingle = group.selectionType === 'single';
             const activeModifiers = (group.modifiers ?? []).filter((m) => m.isActive);
+            const isMissing = missingRequired.has(group.id);
 
             return (
               <div key={group.id}>
                 <h4 className="mb-2 text-sm font-semibold text-gray-700">
                   {group.name}
                   {group.isRequired ? (
-                    <span className="ml-1 text-xs font-normal text-red-500">(required)</span>
+                    <span className={`ml-1 text-xs font-normal ${isMissing ? 'text-red-500' : 'text-green-600'}`}>
+                      {isMissing ? '(required — select one)' : '(required)'}
+                    </span>
                   ) : (
                     <span className="ml-1 text-xs font-normal text-gray-400">(optional)</span>
                   )}
@@ -357,7 +379,12 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
             <button
               type="button"
               onClick={handleAdd}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+              disabled={!canAdd}
+              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+                canAdd
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'cursor-not-allowed bg-gray-300 text-gray-500'
+              }`}
             >
               Add to Order
             </button>

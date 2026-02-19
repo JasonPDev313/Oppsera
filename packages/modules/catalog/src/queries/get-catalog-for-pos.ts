@@ -9,6 +9,7 @@ export interface POSCatalogItem {
   barcode: string | null;
   itemType: string;
   defaultPrice: string;
+  priceIncludesTax: boolean;
   isTrackable: boolean;
   metadata: Record<string, unknown> | null;
   categoryId: string | null;
@@ -47,6 +48,7 @@ export async function getCatalogForPOS(tenantId: string): Promise<POSCatalogResu
           barcode: catalogItems.barcode,
           itemType: catalogItems.itemType,
           defaultPrice: catalogItems.defaultPrice,
+          priceIncludesTax: catalogItems.priceIncludesTax,
           isTrackable: catalogItems.isTrackable,
           metadata: catalogItems.metadata,
           categoryId: catalogItems.categoryId,

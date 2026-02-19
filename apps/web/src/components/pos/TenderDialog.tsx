@@ -32,11 +32,9 @@ interface TenderDialogProps {
   shiftId?: string;
   onPaymentComplete: (result: RecordTenderResult) => void;
   onPartialPayment?: (remaining: number, version: number) => void;
-  /** Called before the first tender to place the order. Returns the placed order with updated version. */
-  onPlaceOrder?: () => Promise<Order>;
 }
 
-export function TenderDialog({ open, onClose, order, config, tenderType, shiftId, onPaymentComplete, onPartialPayment, onPlaceOrder }: TenderDialogProps) {
+export function TenderDialog({ open, onClose, order, config, tenderType, shiftId, onPaymentComplete, onPartialPayment }: TenderDialogProps) {
   const { user } = useAuthContext();
   const { toast } = useToast();
   const locationHeaders = { 'X-Location-Id': order.locationId };
@@ -48,85 +46,38 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<RecordTenderResult | null>(null);
 
-  // Track order version locally so split payments send the correct version.
-  // Use a ref to persist across close/reopen cycles for the same order.
-  const versionRef = useRef(order.version);
-  const placedRef = useRef(order.status === 'placed');
-  const [currentVersion, setCurrentVersion] = useState(order.version);
-  const [isPlaced, setIsPlaced] = useState(order.status === 'placed');
+  // Track whether the order has been placed (for fetchTenders guard).
+  // Starts from the order prop, set to true after first successful payment.
+  const isPlacedRef = useRef(order.status === 'placed');
 
-  // Preemptive placeOrder — starts when dialog opens so Pay only needs 1 API call
-  const placePromiseRef = useRef<Promise<Order> | null>(null);
-
-  // Reset everything when a NEW order is being worked on (different order ID)
-  // and track version/status changes for the same order (e.g., preemptive place)
+  // Reset when working on a new order
   const prevOrderIdRef = useRef(order.id);
   useEffect(() => {
     if (order.id !== prevOrderIdRef.current) {
       prevOrderIdRef.current = order.id;
-      versionRef.current = order.version;
-      placedRef.current = order.status === 'placed';
-      setCurrentVersion(order.version);
-      setIsPlaced(order.status === 'placed');
+      isPlacedRef.current = order.status === 'placed';
       setTenderSummary(null);
-    } else {
-      // Same order — pick up version/status changes from preemptive placeOrder
-      if (order.version > versionRef.current) {
-        versionRef.current = order.version;
-        setCurrentVersion(order.version);
-      }
-      if (order.status === 'placed' && !placedRef.current) {
-        placedRef.current = true;
-        setIsPlaced(true);
-      }
+    } else if (order.status === 'placed') {
+      isPlacedRef.current = true;
     }
-  }, [order.id, order.version, order.status]);
+  }, [order.id, order.status]);
 
-  // When dialog opens, restore from refs (which survive close/reopen) and fetch tenders.
-  // Also preemptively place the order so Pay only needs one API call.
+  // When dialog opens, fetch tenders for split payment reopens
   useEffect(() => {
     if (!open) {
-      // Clear form inputs on close but preserve version tracking via refs
       setAmountGiven('');
       setTipAmount('');
       setCheckNumber('');
       setLastResult(null);
-      placePromiseRef.current = null;
       return;
     }
-    // Restore version from ref (persists across close/reopen for same order)
-    setCurrentVersion(versionRef.current);
-    setIsPlaced(placedRef.current);
-
-    // Preemptive placeOrder — fire immediately when dialog opens so the order is
-    // already placed by the time the user enters an amount and hits Pay.
-    if (!placedRef.current && onPlaceOrder && !placePromiseRef.current) {
-      const promise = onPlaceOrder();
-      placePromiseRef.current = promise;
-      promise.then((placed) => {
-        versionRef.current = placed.version;
-        placedRef.current = true;
-        setCurrentVersion(placed.version);
-        setIsPlaced(true);
-        placePromiseRef.current = null;
-      }).catch(() => {
-        // placeOrder failed — handleSubmit will retry
-        placePromiseRef.current = null;
-      });
-    }
-
-    // Always fetch tenders when opening — handles both first-time and partial-payment reopens.
-    // Also re-fetch when isPlaced changes (preemptive placeOrder completing while dialog is open).
     fetchTenders();
-  }, [open, order.id, isPlaced]);
+  }, [open, order.id]);
 
   const fetchTenders = async () => {
-    // Guard against placeholder orders (id === '') during rapid item adds
     if (!order.id) return;
-    // Don't fetch tenders for unplaced orders — DB total is 0 until placeOrder
-    // computes it, so the server would return remainingBalance=0. For unplaced
-    // orders there can't be tenders anyway, so use the client-side total.
-    if (!placedRef.current) {
+    // Don't fetch tenders for unplaced orders — there can't be any yet
+    if (!isPlacedRef.current) {
       setTenderSummary(null);
       if (tenderType === 'check') {
         setAmountGiven((order.total / 100).toFixed(2));
@@ -139,14 +90,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         { headers: locationHeaders },
       );
       setTenderSummary(res.data);
-      // Pre-fill check amount to remaining balance
       if (tenderType === 'check') {
         setAmountGiven((res.data.summary.remainingBalance / 100).toFixed(2));
       }
     } catch {
-      // First tender — no existing tenders
       setTenderSummary(null);
-      // Pre-fill check amount to full order total
       if (tenderType === 'check') {
         setAmountGiven((order.total / 100).toFixed(2));
       }
@@ -167,8 +115,9 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
     setAmountGiven((remaining / 100).toFixed(2));
   };
 
-  const handleSubmit = async () => {
-    if (amountCents <= 0) {
+  const handleSubmit = async (overrideAmountCents?: number) => {
+    const submitAmountCents = overrideAmountCents ?? amountCents;
+    if (submitAmountCents <= 0) {
       toast.error('Amount must be greater than zero');
       return;
     }
@@ -182,67 +131,20 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
     }
     setIsSubmitting(true);
     try {
-      // Await preemptive placeOrder if still in-flight, or place now as fallback.
-      // placeOrder() internally recovers from "already placed" 409s, so this is safe.
-      let version = currentVersion;
-      let effectiveAmountCents = amountCents;
-      if (!placedRef.current && onPlaceOrder) {
-        try {
-          const placed = await (placePromiseRef.current ?? onPlaceOrder());
-          placePromiseRef.current = null;
-          version = placed.version;
-          setCurrentVersion(version);
-          versionRef.current = version;
-          setIsPlaced(true);
-          placedRef.current = true;
-
-          // If the user clicked "Exact" based on a stale total (race condition),
-          // auto-correct to the actual total from the server response.
-          const correctRemaining = placed.total;
-          if (effectiveAmountCents === remaining && effectiveAmountCents !== correctRemaining) {
-            effectiveAmountCents = correctRemaining;
-          }
-        } catch {
-          // placeOrder failed (network, server error, etc.)
-          // Don't abort — the order may already be placed on the server.
-          // Re-fetch to check. If it IS placed, continue to tender.
-          try {
-            const res = await apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
-              headers: locationHeaders,
-            });
-            const fetched = res.data;
-            if (fetched.status === 'placed') {
-              version = fetched.version;
-              setCurrentVersion(version);
-              versionRef.current = version;
-              setIsPlaced(true);
-              placedRef.current = true;
-              placePromiseRef.current = null;
-            } else {
-              toast.error('Failed to place order — please try again');
-              setIsSubmitting(false);
-              return;
-            }
-          } catch {
-            toast.error('Failed to place order — please try again');
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      }
-
+      // Single API call: places the order (if still open) + records the tender.
+      // The server handles version tracking internally — no client-side version needed.
       const body: Record<string, unknown> = {
         clientRequestId: crypto.randomUUID(),
+        placeClientRequestId: crypto.randomUUID(),
         orderId: order.id,
         tenderType,
-        amountGiven: effectiveAmountCents,
+        amountGiven: submitAmountCents,
         tipAmount: tipCents,
         terminalId: config.terminalId,
         employeeId: user?.id ?? '',
         businessDate: todayBusinessDate(),
         shiftId: shiftId ?? undefined,
         posMode: config.posMode,
-        version,
       };
 
       if (tenderType === 'check') {
@@ -250,7 +152,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       }
 
       const res = await apiFetch<{ data: RecordTenderResult }>(
-        `/api/v1/orders/${order.id}/tenders`,
+        `/api/v1/orders/${order.id}/place-and-pay`,
         {
           method: 'POST',
           headers: locationHeaders,
@@ -259,21 +161,14 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       );
       const result = res.data;
       setLastResult(result);
+      isPlacedRef.current = true;
 
       if (result.isFullyPaid) {
         toast.success(`Payment complete! ${tenderType === 'cash' && result.changeGiven > 0 ? `Change: ${formatMoney(result.changeGiven)}` : ''}`);
-        // Reset refs for next order
-        versionRef.current = order.version;
-        placedRef.current = false;
         onPaymentComplete(result);
       } else {
-        // Increment local version so the next split payment uses the correct version
-        const newVersion = version + 1;
-        setCurrentVersion(newVersion);
-        versionRef.current = newVersion;
-        placedRef.current = true;
         toast.info(`Partial payment recorded. Remaining: ${formatMoney(result.remainingBalance)}`);
-        onPartialPayment?.(result.remainingBalance, newVersion);
+        onPartialPayment?.(result.remainingBalance, 0);
         setAmountGiven('');
         setTipAmount('');
         setCheckNumber('');
@@ -282,8 +177,6 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
     } catch (err) {
       if (err instanceof ApiError && err.statusCode === 409) {
         toast.error('Payment conflict — please try again');
-        // Try to re-fetch tenders to get the real state
-        await fetchTenders();
       } else {
         const e = err instanceof Error ? err : new Error('Payment failed');
         toast.error(e.message);
@@ -298,7 +191,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   // Show the "fully paid" success state
   if (lastResult?.isFullyPaid) {
     return createPortal(
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/50" />
         <div className="relative w-full max-w-md rounded-2xl bg-surface p-8 text-center shadow-xl">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
@@ -321,7 +214,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const headerColor = tenderType === 'check' ? 'text-blue-600' : 'text-green-600';
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-2xl bg-surface shadow-xl">
         {/* Header */}
@@ -433,10 +326,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               </div>
               <button
                 type="button"
-                onClick={setExact}
-                className="w-full rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100"
+                onClick={() => { setExact(); handleSubmit(remaining); }}
+                disabled={isSubmitting}
+                className="w-full rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Exact — {formatMoney(remaining)}
+                {isSubmitting ? 'Processing...' : `Pay Exact — ${formatMoney(remaining)}`}
               </button>
 
               {/* Cash: Tip section (only if enabled) */}
@@ -490,7 +384,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
           </button>
           <button
             type="button"
-            onClick={handleSubmit}
+            onClick={() => handleSubmit()}
             disabled={isSubmitting || amountCents <= 0 || (tenderType === 'check' && !checkNumber.trim())}
             className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               tenderType === 'check'

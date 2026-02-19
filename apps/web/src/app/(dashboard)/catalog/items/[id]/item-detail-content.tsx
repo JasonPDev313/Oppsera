@@ -188,7 +188,7 @@ export default function ItemDetailPage() {
   }, [assignedTaxGroups]);
 
   const taxGroupOptions = useMemo(
-    () => (availableTaxGroups ?? []).map((g) => ({ value: g.id, label: `${g.name} (${g.calculationMode})` })),
+    () => (availableTaxGroups ?? []).map((g) => ({ value: g.id, label: `${g.name} — ${(g.totalRate * 100).toFixed(2)}%` })),
     [availableTaxGroups],
   );
 
@@ -197,8 +197,7 @@ export default function ItemDetailPage() {
     const groups = availableTaxGroups.filter((g) => assignedTaxGroups.some((a) => a.taxGroupId === g.id));
     if (groups.length === 0) return null;
     const totalRate = groups.reduce((sum, g) => sum + g.totalRate, 0);
-    const mode = groups[0]?.calculationMode ?? 'unknown';
-    return { totalRate: (totalRate * 100).toFixed(2), mode };
+    return { totalRate: (totalRate * 100).toFixed(2) };
   }, [assignedTaxGroups, availableTaxGroups]);
 
   const handleSaveTaxGroups = async () => {
@@ -624,13 +623,6 @@ export default function ItemDetailPage() {
                         ),
                       },
                       {
-                        key: 'calculationMode',
-                        header: 'Mode',
-                        render: (row) => (
-                          <Badge variant="info">{row.calculationMode as string}</Badge>
-                        ),
-                      },
-                      {
                         key: 'rates',
                         header: 'Rates',
                         render: (row) => {
@@ -672,7 +664,7 @@ export default function ItemDetailPage() {
                         <span className="font-medium">
                           {locationMap.get(taxLocationId) ?? taxLocationId}
                         </span>
-                        : {effectiveTaxInfo.totalRate}% ({effectiveTaxInfo.mode})
+                        : {effectiveTaxInfo.totalRate}%
                       </p>
                     )}
                   </div>

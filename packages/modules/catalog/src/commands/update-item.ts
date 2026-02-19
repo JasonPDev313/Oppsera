@@ -143,6 +143,7 @@ export async function updateItem(
       updates.cost = input.cost != null ? String(input.cost) : null;
     if (input.categoryId !== undefined) updates.categoryId = input.categoryId;
     if (input.taxCategoryId !== undefined) updates.taxCategoryId = input.taxCategoryId;
+    if (input.priceIncludesTax !== undefined) updates.priceIncludesTax = input.priceIncludesTax;
     if (input.isTrackable !== undefined) updates.isTrackable = input.isTrackable;
     if (input.metadata !== undefined) updates.metadata = input.metadata;
 
@@ -180,6 +181,7 @@ export async function updateItem(
       cost: existing.cost != null ? Number(existing.cost) : null,
       categoryId: existing.categoryId,
       taxCategoryId: existing.taxCategoryId,
+      priceIncludesTax: existing.priceIncludesTax,
       isTrackable: existing.isTrackable,
     };
     const newForDiff: Record<string, unknown> = {
@@ -191,6 +193,7 @@ export async function updateItem(
       cost: updated!.cost != null ? Number(updated!.cost) : null,
       categoryId: updated!.categoryId,
       taxCategoryId: updated!.taxCategoryId,
+      priceIncludesTax: updated!.priceIncludesTax,
       isTrackable: updated!.isTrackable,
     };
 

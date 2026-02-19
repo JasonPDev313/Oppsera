@@ -6,7 +6,6 @@ export interface TaxGroupWithRates {
   id: string;
   name: string;
   locationId: string;
-  calculationMode: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -64,7 +63,6 @@ export async function listTaxGroups(
         id: g.id,
         name: g.name,
         locationId: g.locationId,
-        calculationMode: g.calculationMode,
         isActive: g.isActive,
         createdAt: g.createdAt,
         updatedAt: g.updatedAt,

@@ -46,7 +46,6 @@ export const taxGroups = pgTable(
       .notNull()
       .references(() => locations.id),
     name: text('name').notNull(),
-    calculationMode: text('calculation_mode').notNull(),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

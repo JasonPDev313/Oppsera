@@ -64,7 +64,6 @@ export async function createTaxGroup(ctx: RequestContext, input: CreateTaxGroupI
         tenantId: ctx.tenantId,
         locationId: input.locationId,
         name: input.name,
-        calculationMode: input.calculationMode,
         createdBy: ctx.user.id,
       })
       .returning();
@@ -83,7 +82,6 @@ export async function createTaxGroup(ctx: RequestContext, input: CreateTaxGroupI
       taxGroupId: created!.id,
       locationId: input.locationId,
       name: input.name,
-      calculationMode: input.calculationMode,
       taxRateIds: input.taxRateIds,
     });
 

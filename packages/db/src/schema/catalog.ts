@@ -69,6 +69,7 @@ export const catalogItems = pgTable(
     defaultPrice: numeric('default_price', { precision: 10, scale: 2 }).notNull(),
     cost: numeric('cost', { precision: 10, scale: 2 }),
     taxCategoryId: text('tax_category_id').references(() => taxCategories.id),
+    priceIncludesTax: boolean('price_includes_tax').notNull().default(false),
     isTrackable: boolean('is_trackable').notNull().default(false),
     metadata: jsonb('metadata').$type<Record<string, unknown>>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

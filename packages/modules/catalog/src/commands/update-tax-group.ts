@@ -26,7 +26,6 @@ export async function updateTaxGroup(
 
     const updates: Record<string, unknown> = { updatedAt: new Date(), updatedBy: ctx.user.id };
     if (input.name !== undefined) updates.name = input.name;
-    if (input.calculationMode !== undefined) updates.calculationMode = input.calculationMode;
     if (input.isActive !== undefined) updates.isActive = input.isActive;
 
     const [result] = await tx

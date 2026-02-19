@@ -103,7 +103,6 @@ vi.mock('@oppsera/db', () => ({
     tenantId: 'taxGroups.tenantId',
     locationId: 'taxGroups.locationId',
     name: 'taxGroups.name',
-    calculationMode: 'taxGroups.calculationMode',
     isActive: 'taxGroups.isActive',
   },
   taxGroupRates: {
@@ -405,7 +404,6 @@ describe('Tax System', () => {
         tenantId: TENANT_A,
         locationId: LOCATION_A,
         name: 'Retail Tax',
-        calculationMode: 'exclusive',
         isActive: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -420,13 +418,11 @@ describe('Tax System', () => {
       const result = await createTaxGroup(ctx, {
         locationId: LOCATION_A,
         name: 'Retail Tax',
-        calculationMode: 'exclusive',
         taxRateIds: ['tr_001', 'tr_002'],
       });
 
       expect(result.id).toBe('tg_001');
       expect(result.name).toBe('Retail Tax');
-      expect(result.calculationMode).toBe('exclusive');
 
       const events = getCapturedEvents();
       expect(events).toHaveLength(1);
@@ -454,7 +450,6 @@ describe('Tax System', () => {
         createTaxGroup(ctx, {
           locationId: LOCATION_A,
           name: 'Retail Tax',
-          calculationMode: 'exclusive',
           taxRateIds: ['tr_001'],
         }),
       ).rejects.toThrow('already exists');
@@ -518,10 +513,10 @@ describe('Tax System', () => {
       mockSelectReturns([{ id: 'item_001', tenantId: TENANT_A }]);
       // Location exists
       mockSelectReturns([{ id: LOCATION_A, tenantId: TENANT_A }]);
-      // Tax groups exist at location, same mode
+      // Tax groups exist at location
       mockSelectReturns([
-        { id: 'tg_001', tenantId: TENANT_A, locationId: LOCATION_A, calculationMode: 'exclusive', isActive: true },
-        { id: 'tg_002', tenantId: TENANT_A, locationId: LOCATION_A, calculationMode: 'exclusive', isActive: true },
+        { id: 'tg_001', tenantId: TENANT_A, locationId: LOCATION_A, isActive: true },
+        { id: 'tg_002', tenantId: TENANT_A, locationId: LOCATION_A, isActive: true },
       ]);
       // Delete existing assignments (default mock)
       // Insert new assignments
@@ -550,30 +545,7 @@ describe('Tax System', () => {
       );
     });
 
-    // ── Test 7: V1 mode mismatch rejection ────────────────────────
-
-    it('throws ValidationError when groups have mixed calculation modes', async () => {
-      const ctx = makeCtx();
-      // Item exists
-      mockSelectReturns([{ id: 'item_001', tenantId: TENANT_A }]);
-      // Location exists
-      mockSelectReturns([{ id: LOCATION_A, tenantId: TENANT_A }]);
-      // Tax groups exist but have mixed modes
-      mockSelectReturns([
-        { id: 'tg_001', tenantId: TENANT_A, locationId: LOCATION_A, calculationMode: 'exclusive', isActive: true },
-        { id: 'tg_002', tenantId: TENANT_A, locationId: LOCATION_A, calculationMode: 'inclusive', isActive: true },
-      ]);
-
-      await expect(
-        assignItemTaxGroups(ctx, {
-          catalogItemId: 'item_001',
-          locationId: LOCATION_A,
-          taxGroupIds: ['tg_001', 'tg_002'],
-        }),
-      ).rejects.toThrow('same calculation mode');
-    });
-
-    // ── Test 8: full replacement (empty array clears assignments) ──
+    // ── Test 7: full replacement (empty array clears assignments) ──
 
     it('clears all assignments when given empty taxGroupIds', async () => {
       const ctx = makeCtx();
@@ -624,8 +596,8 @@ describe('Tax System', () => {
       mockSelectReturns([{ taxGroupId: 'tg_001' }, { taxGroupId: 'tg_002' }]);
       // Select 2: active tax groups
       mockSelectReturns([
-        { id: 'tg_001', tenantId: TENANT_A, name: 'Retail Tax', calculationMode: 'exclusive', isActive: true },
-        { id: 'tg_002', tenantId: TENANT_A, name: 'County Tax', calculationMode: 'exclusive', isActive: true },
+        { id: 'tg_001', tenantId: TENANT_A, name: 'Retail Tax', isActive: true },
+        { id: 'tg_002', tenantId: TENANT_A, name: 'County Tax', isActive: true },
       ]);
       // Select 3: group rate associations
       mockSelectReturns([
@@ -685,7 +657,7 @@ describe('Tax System', () => {
 
       // Location A has 1 group with 1 rate
       mockSelectReturns([{ taxGroupId: 'tg_A1' }]);
-      mockSelectReturns([{ id: 'tg_A1', tenantId: TENANT_A, name: 'Tax A', calculationMode: 'exclusive', isActive: true }]);
+      mockSelectReturns([{ id: 'tg_A1', tenantId: TENANT_A, name: 'Tax A', isActive: true }]);
       mockSelectReturns([{ taxRateId: 'tr_A1', sortOrder: 0 }]);
       mockSelectReturns([{ id: 'tr_A1', name: 'Rate A', rateDecimal: '0.0600', isActive: true }]);
 
@@ -704,7 +676,7 @@ describe('Tax System', () => {
 
       // Location B has 1 group with 2 rates
       mockSelectReturns([{ taxGroupId: 'tg_B1' }]);
-      mockSelectReturns([{ id: 'tg_B1', tenantId: TENANT_A, name: 'Tax B', calculationMode: 'inclusive', isActive: true }]);
+      mockSelectReturns([{ id: 'tg_B1', tenantId: TENANT_A, name: 'Tax B', isActive: true }]);
       mockSelectReturns([{ taxRateId: 'tr_B1', sortOrder: 0 }, { taxRateId: 'tr_B2', sortOrder: 1 }]);
       mockSelectReturns([
         { id: 'tr_B1', name: 'Rate B1', rateDecimal: '0.0600', isActive: true },
@@ -712,7 +684,8 @@ describe('Tax System', () => {
       ]);
 
       const infoB = await api2.getItemTaxes(TENANT_A, LOCATION_B, 'item_001');
-      expect(infoB.calculationMode).toBe('inclusive');
+      // getItemTaxes always returns 'exclusive' as default — caller (getItemForPOS) overrides from item.priceIncludesTax
+      expect(infoB.calculationMode).toBe('exclusive');
       expect(infoB.totalRate).toBeCloseTo(0.075);
       expect(infoB.taxRates).toHaveLength(2);
     });
@@ -828,18 +801,16 @@ describe('Tax System', () => {
       const valid = createTaxGroupSchema.safeParse({
         locationId: 'loc_01',
         name: 'Test Group',
-        calculationMode: 'exclusive',
         taxRateIds: ['tr_01'],
       });
       expect(valid.success).toBe(true);
 
-      const invalidMode = createTaxGroupSchema.safeParse({
+      const missingRates = createTaxGroupSchema.safeParse({
         locationId: 'loc_01',
         name: 'Test',
-        calculationMode: 'unknown',
-        taxRateIds: ['tr_01'],
+        taxRateIds: [],
       });
-      expect(invalidMode.success).toBe(false);
+      expect(missingRates.success).toBe(false);
     });
 
     it('validates assignItemTaxGroups schema', () => {

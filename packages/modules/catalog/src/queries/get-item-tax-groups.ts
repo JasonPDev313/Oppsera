@@ -5,7 +5,6 @@ import { catalogItemLocationTaxGroups, taxGroups } from '../schema';
 export interface ItemTaxGroupAssignment {
   taxGroupId: string;
   taxGroupName: string;
-  calculationMode: string;
 }
 
 export async function getItemTaxGroupsAtLocation(
@@ -36,7 +35,6 @@ export async function getItemTaxGroupsAtLocation(
     return groups.map((g) => ({
       taxGroupId: g.id,
       taxGroupName: g.name,
-      calculationMode: g.calculationMode,
     }));
   });
 }

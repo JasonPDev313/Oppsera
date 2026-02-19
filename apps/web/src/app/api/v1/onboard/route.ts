@@ -279,7 +279,6 @@ export const POST = withMiddleware(
         tenantId,
         locationId,
         name: 'Standard',
-        calculationMode: 'exclusive',
         isActive: true,
       }).returning();
 

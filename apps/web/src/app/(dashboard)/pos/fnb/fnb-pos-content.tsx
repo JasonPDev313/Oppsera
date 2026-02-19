@@ -562,6 +562,22 @@ function FnbPOSPage({ isActive = true }: { isActive?: boolean }) {
     [catalog],
   );
 
+  // ── Attach customer + auto-rename tab ──────────────────────────
+  const handleAttachCustomer = useCallback(
+    (customerId: string, customerName?: string) => {
+      pos.attachCustomer(customerId, customerName);
+      if (customerName) {
+        const parts = customerName.trim().split(/\s+/);
+        const shortName =
+          parts.length >= 2
+            ? `${parts[0]} ${parts[parts.length - 1]![0]!.toUpperCase()}`
+            : parts[0] ?? '';
+        registerTabs.renameTab(registerTabs.activeTabNumber, shortName);
+      }
+    },
+    [pos, registerTabs],
+  );
+
   // ── Items to display ────────────────────────────────────────────
 
   const displayItems = useMemo(() => {
@@ -596,7 +612,7 @@ function FnbPOSPage({ isActive = true }: { isActive?: boolean }) {
         onRenameTab={registerTabs.renameTab}
         orderLabels={orderLabels}
         customerId={pos.currentOrder?.customerId ?? null}
-        onAttachCustomer={pos.attachCustomer}
+        onAttachCustomer={handleAttachCustomer}
         onDetachCustomer={pos.detachCustomer}
         onChangeServer={registerTabs.changeServer}
         onViewProfile={(id) => profileDrawer.open(id, { source: 'pos' })}
@@ -795,7 +811,7 @@ function FnbPOSPage({ isActive = true }: { isActive?: boolean }) {
               <CustomerAttachment
                 customerId={pos.currentOrder?.customerId ?? null}
                 customerName={pos.currentOrder?.customerName ?? null}
-                onAttach={pos.attachCustomer}
+                onAttach={handleAttachCustomer}
                 onDetach={pos.detachCustomer}
                 onViewProfile={(id) => profileDrawer.open(id, { source: 'pos' })}
               />
@@ -1247,7 +1263,6 @@ function FnbPOSPage({ isActive = true }: { isActive?: boolean }) {
           shiftId={shift.currentShift?.id}
           onPaymentComplete={handlePaymentComplete}
           onPartialPayment={handlePartialPayment}
-          onPlaceOrder={pos.placeOrder}
         />
       )}
 
@@ -1267,14 +1282,7 @@ function FnbPOSPage({ isActive = true }: { isActive?: boolean }) {
         onClose={() => setShowNewCustomerDialog(false)}
         onCreated={(customerId, displayName) => {
           setShowNewCustomerDialog(false);
-          pos.attachCustomer(customerId);
-          // Auto-rename the active tab to the customer's name
-          const parts = displayName.trim().split(/\s+/);
-          const shortName =
-            parts.length >= 2
-              ? `${parts[0]} ${parts[parts.length - 1]![0]!.toUpperCase()}`
-              : parts[0] ?? '';
-          registerTabs.renameTab(registerTabs.activeTabNumber, shortName);
+          handleAttachCustomer(customerId, displayName);
           toast.success(`Customer "${displayName}" created and attached`);
         }}
       />

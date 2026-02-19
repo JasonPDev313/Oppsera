@@ -6,6 +6,8 @@ export interface SearchCustomersInput {
   tenantId: string;
   search?: string;
   identifier?: string;
+  /** Max results to return (default 10, max 500) */
+  limit?: number;
 }
 
 export interface SearchCustomerResult {
@@ -29,6 +31,8 @@ const NOT_MERGED = not(ilike(customers.displayName, '[MERGED]%'));
 export async function searchCustomers(
   input: SearchCustomersInput,
 ): Promise<SearchCustomerResult[]> {
+  const cap = Math.min(Math.max(input.limit ?? 10, 1), 500);
+
   return withTenant(input.tenantId, async (tx) => {
     // If searching by identifier, find matching customer IDs first
     if (input.identifier) {
@@ -42,7 +46,7 @@ export async function searchCustomers(
             eq(customerIdentifiers.isActive, true),
           ),
         )
-        .limit(10);
+        .limit(cap);
 
       if (identifierMatches.length === 0) {
         return [];
@@ -60,7 +64,7 @@ export async function searchCustomers(
             NOT_MERGED,
           ),
         )
-        .limit(10);
+        .limit(cap);
     }
 
     // Text search: try prefix match on displayName first (fast B-tree),
@@ -78,7 +82,7 @@ export async function searchCustomers(
           ),
         )
         .orderBy(customers.displayName)
-        .limit(10);
+        .limit(cap);
 
       if (prefixResults.length > 0) return prefixResults;
 
@@ -99,7 +103,7 @@ export async function searchCustomers(
           ),
         )
         .orderBy(customers.displayName)
-        .limit(10);
+        .limit(cap);
     }
 
     // No search term — return most recent customers
@@ -113,6 +117,6 @@ export async function searchCustomers(
         ),
       )
       .orderBy(sql`${customers.lastVisitAt} DESC NULLS LAST`)
-      .limit(10);
+      .limit(cap);
   });
 }

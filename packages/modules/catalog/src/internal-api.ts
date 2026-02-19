@@ -1,6 +1,5 @@
 import { eq, and, inArray, asc, isNull } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { AppError } from '@oppsera/shared';
 import {
   catalogItems,
   catalogLocationPrices,
@@ -164,7 +163,10 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
       itemType: item.itemType,
       isTrackable: item.isTrackable,
       unitPriceCents: Math.round(price * 100),
-      taxInfo,
+      taxInfo: {
+        ...taxInfo,
+        calculationMode: item.priceIncludesTax ? 'inclusive' as const : 'exclusive' as const,
+      },
       metadata: item.metadata ?? null,
     };
   }
@@ -188,7 +190,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
         );
 
       if (assignments.length === 0) {
-        return { calculationMode: 'exclusive', taxGroups: [], taxRates: [], totalRate: 0 };
+        return { calculationMode: 'exclusive' as const, taxGroups: [], taxRates: [], totalRate: 0 };
       }
 
       const groupIds = assignments.map((a) => a.taxGroupId);
@@ -206,19 +208,12 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
         );
 
       if (groups.length === 0) {
-        return { calculationMode: 'exclusive', taxGroups: [], taxRates: [], totalRate: 0 };
+        return { calculationMode: 'exclusive' as const, taxGroups: [], taxRates: [], totalRate: 0 };
       }
 
-      // 3. V1 CONSTRAINT: All groups must share the same calculation mode
-      const modes = new Set(groups.map((g) => g.calculationMode));
-      if (modes.size > 1) {
-        throw new AppError(
-          'TAX_MODE_MISMATCH',
-          `Item has tax groups with mixed calculation modes at location ${locationId}`,
-          400,
-        );
-      }
-      const calculationMode = groups[0]!.calculationMode as 'exclusive' | 'inclusive';
+      // calculationMode is now derived from item.priceIncludesTax by the caller (getItemForPOS).
+      // This method returns a default that gets overridden.
+      const defaultMode = 'exclusive' as const;
 
       // 4. Load all tax rates from these groups via tax_group_rates
       const activeGroupIds = groups.map((g) => g.id);
@@ -233,7 +228,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
 
       if (groupRateRows.length === 0) {
         return {
-          calculationMode,
+          calculationMode: defaultMode,
           taxGroups: groups.map((g) => ({ id: g.id, name: g.name })),
           taxRates: [],
           totalRate: 0,
@@ -263,7 +258,7 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
       const totalRate = taxRatesList.reduce((sum, r) => sum + r.rateDecimal, 0);
 
       return {
-        calculationMode,
+        calculationMode: defaultMode,
         taxGroups: groups.map((g) => ({ id: g.id, name: g.name })),
         taxRates: taxRatesList,
         totalRate,

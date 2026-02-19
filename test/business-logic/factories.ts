@@ -89,13 +89,11 @@ export async function createTestTaxConfig(
     rateName?: string;
     rateDecimal?: string;
     groupName?: string;
-    calculationMode?: 'exclusive' | 'inclusive';
   } = {},
 ): Promise<TestTaxConfig> {
   const taxRateId = testUlid();
   const taxGroupId = testUlid();
   const rateDecimal = options.rateDecimal || '0.0850';
-  const calculationMode = options.calculationMode || 'exclusive';
 
   // Create tax rate
   await adminDb.execute(sql`
@@ -105,8 +103,8 @@ export async function createTestTaxConfig(
 
   // Create tax group
   await adminDb.execute(sql`
-    INSERT INTO tax_groups (id, tenant_id, location_id, name, calculation_mode, is_active)
-    VALUES (${taxGroupId}, ${tenantId}, ${locationId}, ${options.groupName || 'Test Tax Group'}, ${calculationMode}, true)
+    INSERT INTO tax_groups (id, tenant_id, location_id, name, is_active)
+    VALUES (${taxGroupId}, ${tenantId}, ${locationId}, ${options.groupName || 'Test Tax Group'}, true)
   `);
 
   // Link rate to group

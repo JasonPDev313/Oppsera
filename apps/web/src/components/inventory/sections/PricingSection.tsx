@@ -56,12 +56,8 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
     return rate;
   }, [assignedTaxGroups, availableTaxGroups]);
 
-  // Derive effective tax mode from the assigned tax group's calculationMode
-  const effectiveMode = useMemo(() => {
-    if (!assignedTaxGroups?.length || !availableTaxGroups) return null;
-    const group = availableTaxGroups.find((g) => g.id === assignedTaxGroups[0]!.taxGroupId);
-    return (group?.calculationMode as 'exclusive' | 'inclusive') ?? null;
-  }, [assignedTaxGroups, availableTaxGroups]);
+  // Tax mode comes from the item's priceIncludesTax flag
+  const effectiveMode: 'inclusive' | 'exclusive' = form.priceIncludesTax ? 'inclusive' : 'exclusive';
 
   // Exclusive: compute after-tax price (what customer pays)
   const afterTaxPrice = useMemo(() => {
@@ -365,9 +361,27 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
           )}
         </div>
 
+        {/* Price Includes Tax toggle */}
+        <div className="border-t border-gray-100 pt-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.priceIncludesTax}
+              onChange={(e) => onUpdate({ priceIncludesTax: e.target.checked })}
+              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <span className="text-xs font-medium text-gray-700">Price Includes Tax</span>
+          </label>
+          <p className="mt-1 ml-6 text-[11px] text-gray-400">
+            {form.priceIncludesTax
+              ? 'The sale price already includes tax — tax will be extracted at checkout'
+              : 'Tax will be added on top of the sale price at checkout'}
+          </p>
+        </div>
+
         {/* Tax Price Display */}
         <div className="border-t border-gray-100 pt-3">
-          {effectiveMode && totalTaxRate > 0 ? (
+          {totalTaxRate > 0 ? (
             <>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-gray-700">Tax Calculation</span>
@@ -403,17 +417,10 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                   </div>
                 </div>
               )}
-              <p className="mt-1 text-[11px] text-gray-400">
-                {effectiveMode === 'inclusive'
-                  ? 'Sale price already includes tax — base price shown above'
-                  : 'Tax will be added on top of the sale price at checkout'}
-              </p>
             </>
           ) : (
             <p className="text-[11px] text-gray-400">
-              {!assignedTaxGroups?.length
-                ? 'No tax groups assigned — assign in Tax section to see price breakdown'
-                : 'Tax calculation mode determined by assigned tax group'}
+              No tax groups assigned — assign in Tax section to see price breakdown
             </p>
           )}
         </div>
