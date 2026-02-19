@@ -31,6 +31,8 @@ import {
   FileBarChart,
   LayoutGrid,
   Flag,
+  PackageCheck,
+  Truck,
 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { EntitlementsProvider, useEntitlementsContext } from '@/components/entitlements-provider';
@@ -69,6 +71,8 @@ const navigation: NavItem[] = [
       { name: 'Hierarchy', href: '/catalog/hierarchy', icon: FolderTree },
       { name: 'Taxes', href: '/catalog/taxes', icon: Receipt },
       { name: 'Archived Items', href: '/inventory', icon: Warehouse },
+      { name: 'Receiving', href: '/inventory/receiving', icon: PackageCheck },
+      { name: 'Vendors', href: '/vendors', icon: Truck },
     ],
   },
   { name: 'Sales History', href: '/orders', icon: ClipboardList, moduleKey: 'pos_retail' },

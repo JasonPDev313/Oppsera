@@ -1954,6 +1954,14 @@ customer.segment.created.v1, customer.segment.member.added/removed.v1
 48. **Never use session-mode pooling with RLS** — RLS relies on `SET LOCAL` (transaction-scoped). Session-mode poolers persist session state across transactions from different tenants, causing data leaks. Always use transaction-mode pooling.
 49. **Never skip tenant fairness in job workers** — without `maxJobsPerTenantPerPoll` caps, a single noisy tenant can monopolize the job queue, starving all other tenants.
 50. **Never adopt K8s before Docker Compose proves insufficient** — K8s adds massive operational overhead. Progress through: Vercel → VPS Docker Compose → Docker Swarm → K8s. Only K8s when >10 services, custom auto-scaling needed, and monthly spend >$2K.
+51. **Never hard-delete vendors** — always use `deactivateVendor()` to set `isActive = false` (Rule VM-1). Vendors have FK references from receipts and item_vendors that would break on DELETE.
+52. **Never skip name normalization on vendor create/update/reactivate** — always compute `nameNormalized = name.trim().toLowerCase()` and check UNIQUE constraint `(tenant_id, name_normalized)` against active vendors.
+53. **Never allow multiple preferred vendors per item** — enforce single `isPreferred = true` per `inventoryItemId` inside the transaction. Clear all others before setting the new preferred.
+54. **Never trust client-computed receipt values on post** — `postReceipt()` recomputes all line calculations (extendedCost, baseQty, shipping allocation, landedCost, landedUnitCost) from scratch before posting (Rule VM-5).
+55. **Never update vendor costs outside the postReceipt transaction** — `updateVendorItemCostAfterReceipt()` must run inside the same `publishWithOutbox` transaction to maintain consistency between inventory movements and vendor pricing.
+56. **Never create circular imports between schema files** — when schema A needs to reference schema B's table AND vice versa, use a plain text column in one direction and add the FK constraint via ALTER TABLE in the migration SQL only. Example: `receiving_receipts.purchase_order_id` is plain text in Drizzle, FK added in migration.
+57. **Never load POS catalog with multiple API calls** — use the single-query `POST /api/v1/catalog/pos` endpoint that returns categories + items + modifiers + tax info in one round trip. Individual category/item APIs are for CRUD operations, not POS display.
+58. **Never mix golf reporting with core reporting tables** — golf reporting lives in `packages/modules/golf-reporting/` with its own schema, consumers, and read models. Don't import golf-reporting from core reporting or vice versa.
 
 ---
 
@@ -2209,12 +2217,59 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - Migration: `0051_report_snapshots.sql` (V2-ready snapshot table)
 - Reporting values are in cents (consumers insert order event amounts directly) — format with `value / 100`
 
+**Milestone 11: Receiving Module + Vendor Management + Purchase Orders Schema**
+
+- Sessions 23-24: Full Receiving Workflow with multi-line receipts, vendor tracking, UOM conversions, shipping cost allocation, weighted average costing
+- **7 new tables**: `vendors`, `uoms`, `itemUomConversions`, `itemVendors`, `itemIdentifiers`, `receivingReceipts`, `receivingReceiptLines`
+- Added `currentCost` NUMERIC(12,4) column to `inventoryItems`
+- 4 pure services: shipping allocation (by_cost/by_qty/by_weight/none), UOM conversion, costing (weighted avg + last cost), receipt calculator
+- 8 receiving commands: createDraftReceipt, updateDraftReceipt, addReceiptLine, updateReceiptLine, removeReceiptLine, postReceipt (critical transaction), voidReceipt, createVendor, updateVendor
+- 4 receiving queries: getReceipt (with cost preview), listReceipts, searchItemsForReceiving, getReorderSuggestions
+- 11 API routes under `/api/v1/inventory/receiving/` + `/api/v1/inventory/vendors/`
+- 9 validation schemas in `validation/receiving.ts` + `validation/vendor-management.ts`
+- Receipt lifecycle: DRAFT → POSTED → VOIDED (status-based, no hard deletes)
+- postReceipt: single transaction (recompute + inventory movements + cost updates + vendor cost upsert + event)
+- Shipping allocation: precise remainder distribution ensures exact sum
+- 49 tests (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management)
+- **Vendor Management**: additive migration 0058, name normalization (`LOWER(TRIM(name))`) with UNIQUE constraint, 5 vendor management commands (deactivate/reactivate vendor, add/update/deactivate catalog items), 3 queries (getVendor with stats, enhanced listVendors, getVendorCatalog + getItemVendors), integration hooks (getVendorItemDefaults, updateVendorItemCostAfterReceipt), preferred vendor enforcement (single preferred per item)
+- **Purchase Orders Schema** (Phase 1 only): 3 tables in `purchasing.ts` (purchaseOrders, purchaseOrderLines, purchaseOrderRevisions), migration 0057, optimistic locking, revision snapshots, added purchaseOrderId FK to receivingReceipts
+- Schema: `packages/db/src/schema/receiving.ts` (receiving/vendor tables), `packages/db/src/schema/purchasing.ts` (PO tables)
+- Migrations: `0056_receiving.sql`, `0057_purchase_orders.sql`, `0058_vendor_management.sql`
+- Services: `packages/modules/inventory/src/services/` (6 files)
+- Commands: `packages/modules/inventory/src/commands/receiving/` + `commands/vendor-management/`
+- Queries: `packages/modules/inventory/src/queries/` (7 new files)
+- Routes: `apps/web/src/app/api/v1/inventory/receiving/` + `vendors/`
+
+**Milestone 12: Golf Reporting Module + Speed Improvements**
+
+- Session 24: Full Golf Reporting module — separate from core reporting
+- **New module**: `packages/modules/golf-reporting/` with own schema, consumers, queries, KPIs, seeds
+- **Schema**: `packages/db/src/schema/golf-reporting.ts` (323 lines) — golf-specific read model + lifecycle tables
+- **Migrations**: `0052_golf_reporting_read_models.sql`, `0053_golf_lifecycle_tables.sql`, `0054_golf_field_catalog.sql`
+- **11 event consumers**: tee-time lifecycle (created/modified/canceled/checked-in/completed), channel daily aggregation, folio events (charge/payment), pace tracking
+- **5 query services**: golf dashboard metrics, revenue analytics, utilization rates, daypart analysis, customer golf analytics
+- **3 KPI modules**: channel performance, pace of play, tee-sheet utilization
+- **Seeds**: default golf dashboards for common reporting views
+- **Frontend**: 5 golf report components, 3 hooks (`useGolfReports`, `useReportFilters`, `useNavigationGuard`), types (`golf-reports.ts`)
+- **API routes**: full golf reports suite under `/api/v1/reports/golf/`
+- **4 test files** covering consumers and query services
+- **Speed Improvements**:
+  - POS catalog optimization: new `getCatalogForPOS` single-query loader (`POST /api/v1/catalog/pos`) — replaces multiple API calls
+  - POS hooks refactored: `useCatalogForPOS` (+170 lines), `useRegisterTabs` (+191 lines) rewritten for performance
+  - Customer search indexes: migration `0055_customer_search_indexes.sql`
+  - Customer search query optimization, order fetch optimization
+  - Middleware performance tweaks in `withMiddleware`
+  - Dashboard layout slimmed (-32 lines), settings page simplified (-80 lines)
+
 ### Test Coverage
 
-743 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 10 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache)
+792 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 10 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + golf-reporting tests
 
 ### What's Next
 
+- Vendor Management frontend (types, hooks, components, pages, sidebar link) + remaining API routes
+- Purchase Orders Phases 2-6 (commands, queries, API routes, frontend)
+- Receiving frontend (receipt list, receipt detail/edit, item search, cost preview, barcode scan)
 - V1 Dashboard (live widgets: Total Sales, Active Employees, Low Inventory, Notes)
 - Settings → Dashboard tab (widget toggles, notes editor)
 - Rename "Catalog" → "Inventory Items" across sidebar, pages, routes
@@ -3039,3 +3094,409 @@ All routes require `entitlement: 'reporting'`. Export routes use the stricter `r
 6. **Consumers use raw SQL for upserts** — Drizzle fluent API doesn't support `ON CONFLICT DO UPDATE SET col = col + value` arithmetic
 7. **Atomic idempotency** — processed_events insert + read model upsert must be in the SAME transaction
 8. **Numeric columns return strings** — Drizzle `numeric` columns return strings; always convert with `Number()` in query mappings
+
+---
+
+## 53. Receiving Module Architecture
+
+### Receipt Lifecycle
+
+```
+DRAFT → POSTED → VOIDED
+```
+
+- **DRAFT**: editable — lines can be added/updated/removed, header fields can be changed
+- **POSTED**: immutable — inventory movements created, costs updated, event emitted
+- **VOIDED**: immutable — offsetting movements created, costs reversed
+
+### Schema File
+
+All receiving/vendor tables live in `packages/db/src/schema/receiving.ts`:
+
+```
+vendors, uoms, itemUomConversions, itemVendors, itemIdentifiers,
+receivingReceipts, receivingReceiptLines
+```
+
+### Receipt Number Format
+
+`RCV-YYYYMMDD-XXXXXX` — 6 chars from ULID for uniqueness. Generated server-side in `createDraftReceipt`.
+
+### Money Convention
+
+Receiving uses **NUMERIC(12,4) in dollars** (not cents). Same convention as reporting read models. Reason: receipts deal with vendor invoices denominated in dollars, and landed cost calculations require 4-decimal precision.
+
+### Shipping Allocation
+
+`allocateShipping(lines, shippingCost, method)` distributes shipping across receipt lines:
+
+| Method | Formula |
+|--------|---------|
+| `by_cost` | `line.extendedCost / totalExtendedCost × shippingCost` |
+| `by_qty` | `line.baseQty / totalBaseQty × shippingCost` |
+| `by_weight` | `line.weight / totalWeight × shippingCost` (fallback to by_qty if all null) |
+| `none` | All zeros |
+
+**Remainder distribution**: Round each allocation to 4dp. Distribute remainder one unit at a time to lines ordered by `extendedCost` DESC, tie-break by `id` ASC. `SUM(allocated)` MUST exactly equal `shippingCost`.
+
+### UOM Conversion
+
+```typescript
+toBaseQty(quantity, conversionFactor) → quantity × factor
+// factor=1 if already base UOM (e.g., EA)
+// factor=24 for 1 CS = 24 EA
+```
+
+Conversion factors stored in `itemUomConversions` table per item+UOM pair.
+
+### Costing
+
+```typescript
+weightedAvgCost(currentOnHand, currentCost, incomingQty, incomingUnitCost) → newAvgCost
+// Edge case: if currentOnHand=0, returns incomingUnitCost
+```
+
+`landedUnitCost = (extendedCost + allocatedShipping) / baseQty`
+
+### postReceipt Transaction
+
+The critical transaction inside `publishWithOutbox`:
+
+```
+1. Verify status='draft', get all lines (must have ≥1)
+2. Recompute everything from scratch (Rule VM-5)
+3. For each line:
+   a. INSERT inventory_movement (type='receive', qty=+baseQty)
+   b. Get new onHand via getOnHand()
+   c. Recalculate inventoryItems.currentCost per costingMethod
+   d. UPDATE inventoryItems.currentCost
+   e. Check stock alerts
+   f. Update vendor item costs (Rule VM-4)
+4. UPDATE receipt: status='posted', postedAt, postedBy, final totals
+5. Emit inventory.receipt.posted.v1
+```
+
+### voidReceipt Transaction
+
+```
+1. Verify status='posted'
+2. For each line: INSERT offsetting movement (type='void_reversal', qty=-baseQty)
+3. Reverse inventoryItems.currentCost (weighted avg reversal)
+4. UPDATE receipt: status='voided', voidedAt, voidedBy
+5. Emit inventory.receipt.voided.v1
+```
+
+### File Structure
+
+```
+packages/modules/inventory/src/
+├── commands/receiving/
+│   ├── create-receipt.ts
+│   ├── update-receipt.ts
+│   ├── add-receipt-line.ts
+│   ├── update-receipt-line.ts
+│   ├── remove-receipt-line.ts
+│   ├── post-receipt.ts
+│   ├── void-receipt.ts
+│   ├── create-vendor.ts
+│   ├── update-vendor.ts
+│   └── index.ts
+├── services/
+│   ├── shipping-allocation.ts
+│   ├── uom-conversion.ts
+│   ├── costing.ts
+│   ├── receipt-calculator.ts
+│   ├── vendor-name.ts
+│   └── vendor-integration.ts
+├── queries/
+│   ├── get-receipt.ts
+│   ├── list-receipts.ts
+│   ├── search-items.ts
+│   ├── reorder-suggestions.ts
+│   ├── get-vendor.ts
+│   ├── list-vendors.ts
+│   └── get-vendor-catalog.ts
+└── validation/
+    ├── receiving.ts
+    └── vendor-management.ts
+```
+
+### API Routes
+
+```
+POST   /api/v1/inventory/receiving           → createDraftReceipt
+GET    /api/v1/inventory/receiving           → listReceipts
+GET    /api/v1/inventory/receiving/:id       → getReceipt
+PATCH  /api/v1/inventory/receiving/:id       → updateDraftReceipt
+POST   /api/v1/inventory/receiving/:id/lines → addReceiptLine
+PATCH  /api/v1/inventory/receiving/:id/lines/:lineId → updateReceiptLine
+DELETE /api/v1/inventory/receiving/:id/lines/:lineId → removeReceiptLine
+POST   /api/v1/inventory/receiving/:id/post  → postReceipt
+POST   /api/v1/inventory/receiving/:id/void  → voidReceipt
+GET    /api/v1/inventory/receiving/search-items → searchItemsForReceiving
+GET    /api/v1/inventory/receiving/reorder-suggestions → getReorderSuggestions
+```
+
+All routes use `{ entitlement: 'inventory', permission: 'inventory.view' | 'inventory.manage' }`.
+
+### Key Rules
+
+1. **Receipt posting recomputes from scratch** — server never trusts client-computed values
+2. **Shipping allocation sum is exact** — remainder distribution guarantees no rounding drift
+3. **UOM conversions are item-specific** — same UOM code can have different factors for different items
+4. **Barcode search falls through** — `searchItemsForReceiving` checks `item_identifiers.value` first, then `inventoryItems.sku`, then `inventoryItems.name ILIKE`
+5. **Receipt lines reference `itemVendors`** — optional FK enables auto-fill of vendor SKU/cost
+6. **Lot/serial/expiration** — stored on receipt lines for traceability (V1 data capture only, no lot-level inventory tracking yet)
+
+---
+
+## 54. Vendor Management Architecture
+
+### Vendor Lifecycle
+
+Vendors are always soft-deleted (Rule VM-1). Never hard DELETE from the `vendors` table.
+
+```
+Active (isActive=true) → Deactivated (isActive=false) → Reactivated (isActive=true)
+```
+
+### Name Uniqueness (Rule VM-2)
+
+```typescript
+normalizeVendorName(name: string): string {
+  return name.trim().toLowerCase();
+}
+```
+
+Stored in `name_normalized` column. UNIQUE constraint: `(tenant_id, name_normalized)`.
+
+**Checked on:**
+- Create vendor — reject if duplicate active name
+- Update vendor (name change) — recompute `name_normalized`, reject if duplicate (excluding self)
+- Reactivate vendor — re-check against currently active vendors
+
+### Vendor Catalog (Item-Vendor Mappings)
+
+`item_vendors` table links inventory items to vendors with vendor-specific data:
+
+| Field | Purpose |
+|-------|---------|
+| `vendorSku` | Vendor's SKU for this item |
+| `vendorCost` | Vendor's list price |
+| `lastCost` | Last actual cost from most recent receipt |
+| `lastReceivedAt` | Date of last receipt containing this item |
+| `leadTimeDays` | Vendor's typical lead time |
+| `minOrderQty` | Minimum order quantity |
+| `packSize` | Pack description (e.g., "Case of 24") |
+| `isPreferred` | Only one preferred vendor per item |
+| `isActive` | Soft-delete flag (Rule VM-3) |
+
+### Preferred Vendor Enforcement
+
+Only one vendor can be `isPreferred = true` per `inventoryItemId`. Enforced in transaction:
+
+```
+1. If setting isPreferred=true:
+   a. UPDATE item_vendors SET isPreferred=false WHERE inventoryItemId=? AND isPreferred=true
+   b. Then set the target row's isPreferred=true
+```
+
+### Integration with Receiving (Rule VM-4)
+
+`updateVendorItemCostAfterReceipt(tx, tenantId, vendorId, inventoryItemId, landedUnitCost)`:
+- Called inside `postReceipt()` transaction for each receipt line
+- If `item_vendors` row exists → update `lastCost`, `vendorCost`, `lastReceivedAt`
+- If row doesn't exist → auto-create with `isPreferred=false`, `isActive=true`
+
+### Vendor Queries
+
+| Query | Returns |
+|-------|---------|
+| `getVendor(tenantId, vendorId)` | Full vendor detail + aggregate stats (activeCatalogItemCount, totalReceiptCount, totalSpend, lastReceiptDate) |
+| `listVendors(tenantId, filters)` | Paginated list with itemCount + lastReceiptDate enrichment per vendor |
+| `searchVendors(tenantId, query)` | Lightweight search (max 20, active only) for vendor picker dropdowns |
+| `getVendorCatalog(tenantId, vendorId, filters)` | Paginated vendor catalog with item details |
+| `getItemVendors(tenantId, inventoryItemId)` | Reverse lookup — which vendors supply this item (preferred first) |
+| `getVendorItemDefaults(tenantId, vendorId, inventoryItemId)` | Auto-fill data for receipt line (vendorSku, vendorCost, lastCost, leadTimeDays, isPreferred) |
+
+### Validation Schemas
+
+```
+packages/modules/inventory/src/validation/vendor-management.ts
+├── vendorSchema            — full vendor create (name required, email/URL validated)
+├── updateVendorManagementSchema — partial update (name optional)
+├── addVendorCatalogItemSchema   — link vendor to item
+├── updateVendorCatalogItemSchema — update vendor catalog entry
+└── vendorListFilterSchema  — list filters (search, isActive, pagination, sort)
+```
+
+### Key Anti-Patterns
+
+1. **Never hard-delete vendors** — always use `deactivateVendor()` (Rule VM-1)
+2. **Never skip name normalization on vendor mutations** — create, update, and reactivate all must check `name_normalized` uniqueness
+3. **Never allow multiple preferred vendors per item** — enforce single preferred in transaction
+4. **Never query vendor costs outside postReceipt transaction** — `updateVendorItemCostAfterReceipt()` must run inside the same `publishWithOutbox` transaction as movement inserts
+5. **Never trust client-computed receipt values** — server recomputes all costs, allocations, and totals from scratch on post (Rule VM-5)
+
+---
+
+## 55. Purchase Orders Architecture (Schema Only — Phase 1)
+
+### Tables
+
+Three tables defined in `packages/db/src/schema/purchasing.ts`:
+
+**`purchaseOrders`**
+- Status lifecycle: `DRAFT → SUBMITTED → SENT → PARTIALLY_RECEIVED → CLOSED → CANCELED`
+- Optimistic locking via `version` integer column (Rule PO-1)
+- PO number format: tenant-unique, auto-generated
+- Monetary: subtotal, shippingCost, taxAmount, total as NUMERIC(12,4)
+- Lifecycle timestamps: submittedAt/By, sentAt/By, closedAt/By, canceledAt/By
+
+**`purchaseOrderLines`**
+- `qtyOrdered` (what was ordered), `qtyOrderedBase` (converted to base UOM), `qtyReceived` (running total from receipts)
+- Monetary: unitCost, extendedCost as NUMERIC(12,4)
+- Optional FK to `itemVendors` for vendor-specific pricing
+
+**`purchaseOrderRevisions`**
+- Created when a SUBMITTED or SENT PO is edited (Rule PO-3)
+- Stores frozen JSONB `snapshot` of full PO state at revision time
+- Sequential `revisionNumber` per PO, unique constraint `(tenantId, purchaseOrderId, revisionNumber)`
+- `changedBy` tracks who made the revision
+
+### Receiving Integration
+
+`receivingReceipts.purchaseOrderId` links receipts to POs (nullable plain text column, FK via ALTER TABLE in migration). When a receipt is posted against a PO, `purchaseOrderLines.qtyReceived` is incremented.
+
+### Circular Import Avoidance
+
+`purchasing.ts` imports from `receiving.ts` (for `vendors`, `itemVendors` references). The reverse reference (`receivingReceipts.purchaseOrderId → purchaseOrders`) is handled as a plain text column in Drizzle with the FK constraint added only in the migration SQL — prevents circular schema imports.
+
+### Migration
+
+`0057_purchase_orders.sql`: CREATE TABLE for 3 PO tables + ALTER TABLE for receiving_receipts FK + RLS (12 policies) + indexes.
+
+### Phases Remaining
+
+- Phase 2: Commands (create/update/submit/send/close/cancel PO, add/update/remove lines)
+- Phase 3: Queries (get/list POs, PO status tracking)
+- Phase 4: Receiving integration (link receipts to PO lines, auto-fill from PO)
+- Phase 5: API routes
+- Phase 6: Frontend
+
+---
+
+## 56. Golf Reporting Module Architecture
+
+### Separate Module
+
+Golf reporting lives in `packages/modules/golf-reporting/` — separate from the core `reporting` module. It has its own schema, consumers, queries, and KPI modules.
+
+### Schema
+
+`packages/db/src/schema/golf-reporting.ts` — golf-specific read model tables and lifecycle tables. Migrations: `0052`, `0053`, `0054`.
+
+### Event Consumers (11)
+
+Consume golf-specific events (tee-time lifecycle, channel bookings, folio events, pace tracking):
+
+```
+packages/modules/golf-reporting/src/consumers/
+├── tee-time lifecycle consumers (created, modified, canceled, checked-in, completed)
+├── channel daily aggregation consumer
+├── folio event consumers (charge, payment)
+├── pace tracking consumers
+└── index.ts
+```
+
+### Query Services (5)
+
+| Service | Purpose |
+|---------|---------|
+| Golf dashboard metrics | Today's KPIs (rounds, revenue, utilization) |
+| Revenue analytics | Revenue by source, category, period |
+| Utilization rates | Tee-sheet utilization by time/day |
+| Daypart analysis | Morning/afternoon/twilight performance |
+| Customer golf analytics | Player frequency, spend, handicap distribution |
+
+### KPI Modules (3)
+
+- **Channel performance**: booking source analysis (online, phone, walk-in, third-party)
+- **Pace of play**: round duration tracking, pace alerts, bottleneck identification
+- **Tee-sheet utilization**: capacity vs actual fills, weather impact
+
+### Frontend
+
+```
+apps/web/src/components/golf-reports/
+├── ChannelsTab.tsx       — booking channel breakdown
+├── CustomersTab.tsx      — player analytics
+├── MetricCards.tsx        — golf-specific KPIs
+├── PaceOpsTab.tsx         — pace of play operations
+├── RevenueTab.tsx         — revenue analytics
+└── UtilizationTab.tsx     — tee-sheet utilization
+```
+
+Hooks: `useGolfReports`, `useReportFilters`, `useNavigationGuard`
+
+### Key Rules
+
+1. **Golf reporting is independent** — never import from `@oppsera/module-reporting` in golf-reporting (use events)
+2. **Golf read models use their own prefix convention** — separate from core `rm_` tables
+3. **Default dashboards are seeded** — golf module includes seed data for common golf reporting views
+
+---
+
+## 57. Performance Optimization Patterns
+
+### POS Catalog Single-Query Loader
+
+The original POS catalog loading used multiple API calls (categories, items, modifiers). The optimized version uses a single query:
+
+```typescript
+// packages/modules/catalog/src/queries/get-catalog-for-pos.ts
+// Single query that returns: categories + items + modifiers + tax info
+// Called via POST /api/v1/catalog/pos
+
+const catalog = await getCatalogForPOS(tenantId, locationId);
+// Returns everything useCatalogForPOS needs in one round trip
+```
+
+**Rule:** Always use the POS-optimized endpoint for initial catalog load. Individual item/category APIs are for CRUD operations, not POS display.
+
+### Customer Search Indexes
+
+Migration `0055_customer_search_indexes.sql` adds targeted indexes for customer search performance:
+
+```sql
+-- Indexes added for common search patterns:
+-- Name search (ILIKE), phone lookup, email lookup, identifier scan
+```
+
+**Rule:** When adding new search patterns, add corresponding indexes. Use `EXPLAIN ANALYZE` to verify index usage.
+
+### Hook Performance Patterns
+
+POS hooks were refactored for performance:
+
+1. **`useCatalogForPOS`** — reduced re-renders by memoizing hierarchy maps, batching state updates
+2. **`useRegisterTabs`** — optimized tab management with lazy initialization
+
+**Key patterns:**
+- Use `useMemo` for derived data (hierarchy maps, filtered lists)
+- Use `useCallback` for event handlers passed to child components
+- Avoid unnecessary state that can be derived from existing state
+- Batch related state updates to prevent cascading re-renders
+
+### Middleware Performance
+
+`withMiddleware` was optimized to reduce overhead per request:
+- Reduced unnecessary async operations in the hot path
+- Streamlined permission/entitlement checks
+
+### Layout Optimization
+
+Dashboard layout and settings page were slimmed down:
+- Removed redundant wrapper components
+- Simplified conditional rendering logic
+- Reduced component tree depth

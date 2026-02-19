@@ -36,6 +36,90 @@ export type {
   ArchiveInventoryItemInput,
 } from './validation';
 
+// Receiving commands
+export {
+  createDraftReceipt,
+  updateDraftReceipt,
+  addReceiptLine,
+  updateReceiptLine,
+  removeReceiptLine,
+  postReceipt,
+  voidReceipt,
+  createVendor,
+  updateVendor,
+} from './commands/receiving';
+
+// Receiving queries
+export { getReceipt } from './queries/get-receipt';
+export type { ReceiptDetail, ReceiptLineDetail } from './queries/get-receipt';
+export { listReceipts } from './queries/list-receipts';
+export type { ListReceiptsInput, ListReceiptsResult, ReceiptSummary } from './queries/list-receipts';
+export { searchItemsForReceiving } from './queries/search-items';
+export type { SearchItemResult } from './queries/search-items';
+export { getReorderSuggestions } from './queries/reorder-suggestions';
+export type { ReorderSuggestion } from './queries/reorder-suggestions';
+export { listVendors } from './queries/list-vendors';
+export type { ListVendorsInput, ListVendorsResult, VendorSummary } from './queries/list-vendors';
+
+// Receiving validation
+export {
+  createReceiptSchema,
+  updateReceiptSchema,
+  addReceiptLineSchema,
+  updateReceiptLineSchema,
+  postReceiptSchema,
+  voidReceiptSchema,
+  createVendorSchema,
+  updateVendorSchema,
+} from './validation/receiving';
+export type {
+  CreateReceiptInput,
+  UpdateReceiptInput,
+  AddReceiptLineInput,
+  UpdateReceiptLineInput,
+  PostReceiptInput,
+  VoidReceiptInput,
+  CreateVendorInput,
+  UpdateVendorInput,
+} from './validation/receiving';
+
+// Vendor management commands
+export {
+  deactivateVendor,
+  reactivateVendor,
+  addVendorCatalogItem,
+  updateVendorCatalogItem,
+  deactivateVendorCatalogItem,
+} from './commands/vendor-management';
+
+// Vendor management queries
+export { getVendor } from './queries/get-vendor';
+export type { VendorDetail } from './queries/get-vendor';
+export { searchVendors } from './queries/list-vendors';
+export type { VendorSearchResult } from './queries/list-vendors';
+export { getVendorCatalog, getItemVendors } from './queries/get-vendor-catalog';
+export type { VendorCatalogEntry, GetVendorCatalogInput, GetVendorCatalogResult, ItemVendorEntry } from './queries/get-vendor-catalog';
+
+// Vendor management validation
+export {
+  vendorSchema,
+  updateVendorManagementSchema,
+  addVendorCatalogItemSchema,
+  updateVendorCatalogItemSchema,
+  vendorListFilterSchema,
+} from './validation/vendor-management';
+export type {
+  VendorInput,
+  UpdateVendorManagementInput,
+  AddVendorCatalogItemInput,
+  UpdateVendorCatalogItemInput,
+  VendorListFilterInput,
+} from './validation/vendor-management';
+
+// Vendor integration hooks
+export { getVendorItemDefaults } from './services/vendor-integration';
+export type { VendorItemDefaults } from './services/vendor-integration';
+
 // Helpers
 export { getOnHand } from './helpers/get-on-hand';
 export { checkStockAlerts } from './helpers/stock-alerts';

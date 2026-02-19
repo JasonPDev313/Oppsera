@@ -41,6 +41,7 @@ export const inventoryItems = pgTable(
     reorderQuantity: numeric('reorder_quantity', { precision: 10, scale: 4 }),
     parLevel: numeric('par_level', { precision: 10, scale: 4 }),
     allowNegative: boolean('allow_negative').notNull().default(false),
+    currentCost: numeric('current_cost', { precision: 12, scale: 4 }).default('0'),
     metadata: jsonb('metadata'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
