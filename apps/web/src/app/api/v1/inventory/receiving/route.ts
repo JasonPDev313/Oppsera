@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listReceipts, createDraftReceipt, createReceiptSchema } from '@oppsera/module-inventory';
+import { db, locations } from '@oppsera/db';
+import { eq, and } from 'drizzle-orm';
+
+async function resolveDefaultLocationId(tenantId: string): Promise<string | undefined> {
+  const loc = await db.query.locations.findFirst({
+    where: and(eq(locations.tenantId, tenantId), eq(locations.isActive, true)),
+    columns: { id: true },
+  });
+  return loc?.id;
+}
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -25,7 +35,8 @@ export const GET = withMiddleware(
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
-    const input = createReceiptSchema.parse(body);
+    const locationId = body.locationId || ctx.locationId || await resolveDefaultLocationId(ctx.tenantId);
+    const input = createReceiptSchema.parse({ ...body, locationId });
     const receipt = await createDraftReceipt(ctx, input);
     return NextResponse.json({ data: receipt }, { status: 201 });
   },
