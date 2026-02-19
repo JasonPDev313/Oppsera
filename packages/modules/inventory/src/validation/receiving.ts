@@ -78,19 +78,19 @@ export type VoidReceiptInput = z.input<typeof voidReceiptSchema>;
 
 export const createVendorSchema = z.object({
   name: z.string().min(1).max(200),
-  accountNumber: z.string().max(50).optional(),
-  contactName: z.string().max(200).optional(),
-  contactEmail: z.string().email().max(254).optional(),
-  contactPhone: z.string().max(30).optional(),
-  paymentTerms: z.string().max(50).optional(),
-  addressLine1: z.string().max(200).optional(),
-  addressLine2: z.string().max(200).optional(),
-  city: z.string().max(100).optional(),
-  state: z.string().max(50).optional(),
-  postalCode: z.string().max(20).optional(),
-  country: z.string().max(2).optional(),
-  taxId: z.string().max(50).optional(),
-  notes: z.string().max(2000).optional(),
+  accountNumber: z.string().max(50).optional().nullable(),
+  contactName: z.string().max(200).optional().nullable(),
+  contactEmail: z.string().email().max(254).optional().nullable(),
+  contactPhone: z.string().max(30).optional().nullable(),
+  paymentTerms: z.string().max(50).optional().nullable(),
+  addressLine1: z.string().max(200).optional().nullable(),
+  addressLine2: z.string().max(200).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(50).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  country: z.string().max(2).optional().nullable(),
+  taxId: z.string().max(50).optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
 });
 export type CreateVendorInput = z.input<typeof createVendorSchema>;
 
