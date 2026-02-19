@@ -456,6 +456,13 @@
       "when": 1708100064000,
       "tag": "0064_freight_shipping_modes",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1708100065000,
+      "tag": "0065_list_page_indexes",
+      "breakpoints": true
     }
   ]
 }

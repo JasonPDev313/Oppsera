@@ -1,13 +1,6 @@
-'use client';
-
-import dynamic from 'next/dynamic';
-import FnBPOSLoading from './loading';
-
-const FnBPOSContent = dynamic(() => import('./fnb-pos-content'), {
-  loading: () => <FnBPOSLoading />,
-  ssr: false,
-});
-
+// Content is rendered by the POS layout (pos/layout.tsx) which mounts both
+// Retail and F&B POS components and toggles visibility for instant switching.
+// This page exists solely to give Next.js a route target for /pos/fnb.
 export default function FnbPOSPage() {
-  return <FnBPOSContent />;
+  return null;
 }

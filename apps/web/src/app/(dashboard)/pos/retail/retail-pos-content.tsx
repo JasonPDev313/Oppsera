@@ -169,7 +169,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
 
 // ── Retail POS Page ───────────────────────────────────────────────
 
-export default function RetailPOSPage() {
+export default function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   const { locations, user } = useAuthContext();
   const { isModuleEnabled } = useEntitlementsContext();
   const router = useRouter();
@@ -336,6 +336,7 @@ export default function RetailPOSPage() {
   // ── Barcode scan handler ────────────────────────────────────────
 
   useEffect(() => {
+    if (!isActive) return;
     const handler = (e: Event) => {
       const code = (e as CustomEvent).detail as string;
       const item = catalog.lookupByBarcode(code);
@@ -348,7 +349,7 @@ export default function RetailPOSPage() {
     };
     window.addEventListener('barcode-scan', handler);
     return () => window.removeEventListener('barcode-scan', handler);
-  }, [catalog, toast, handleItemTap]);
+  }, [isActive, catalog, toast, handleItemTap]);
 
   // ── Order actions ───────────────────────────────────────────────
 

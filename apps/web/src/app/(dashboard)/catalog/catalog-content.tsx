@@ -13,7 +13,6 @@ import type { ActionMenuItem } from '@/components/ui/action-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import { useCatalogItems, useDepartments, useSubDepartments, useCategories, archiveCatalogItem, unarchiveCatalogItem } from '@/hooks/use-catalog';
-import { useInventory } from '@/hooks/use-inventory';
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { CatalogItemRow } from '@/types/catalog';
 import { ItemChangeLogModal } from '@/components/catalog/ItemChangeLogModal';
@@ -81,50 +80,20 @@ export default function CatalogPage() {
     itemType: typeToBackend[typeFilter],
     includeArchived: showAll ? true : undefined,
     search: search || undefined,
+    includeInventory: true,
   });
 
-  // Fetch inventory data in parallel for stock columns
-  const { data: inventoryItems, mutate: mutateInventory } = useInventory({
-    search: search || undefined,
-    itemType: typeToBackend[typeFilter],
-    lowStockOnly,
-  });
-
-  // Build a lookup map: catalogItemId → inventory data
-  const stockMap = useMemo(() => {
-    const map = new Map<string, { onHand: number; reorderPoint: string | null; baseUnit: string; inventoryItemId: string; status: string }>();
-    for (const inv of inventoryItems) {
-      map.set(inv.catalogItemId, {
-        onHand: inv.onHand,
-        reorderPoint: inv.reorderPoint,
-        baseUnit: inv.baseUnit,
-        inventoryItemId: inv.id,
-        status: inv.status,
-      });
-    }
-    return map;
-  }, [inventoryItems]);
-
-  // When lowStockOnly is checked, filter to only items that appear in inventory low stock results
+  // Items already come enriched with inventory data from the server.
+  // Apply low-stock client-side filter when enabled.
   const enrichedItems: EnrichedRow[] = useMemo(() => {
-    const catalogRows = (items ?? []) as EnrichedRow[];
-    const enriched = catalogRows.map((item) => {
-      const stock = stockMap.get(item.id);
-      return {
-        ...item,
-        onHand: stock?.onHand,
-        reorderPoint: stock?.reorderPoint,
-        baseUnit: stock?.baseUnit,
-        inventoryItemId: stock?.inventoryItemId,
-        inventoryStatus: stock?.status,
-      };
+    const rows = (items ?? []) as EnrichedRow[];
+    if (!lowStockOnly) return rows;
+    return rows.filter((item) => {
+      if (item.onHand === undefined) return false;
+      const rp = item.reorderPoint ? parseFloat(item.reorderPoint) : null;
+      return rp !== null && item.onHand <= rp;
     });
-    if (lowStockOnly) {
-      const lowStockCatalogIds = new Set(inventoryItems.map((inv) => inv.catalogItemId));
-      return enriched.filter((item) => lowStockCatalogIds.has(item.id));
-    }
-    return enriched;
-  }, [items, stockMap, lowStockOnly, inventoryItems]);
+  }, [items, lowStockOnly]);
 
   const deptOptions = useMemo(
     () => [{ value: '', label: 'All Departments' }, ...departments.map((d) => ({ value: d.id, label: d.name }))],
@@ -149,14 +118,14 @@ export default function CatalogPage() {
         await archiveCatalogItem(deactivateTarget.id, reason);
         toast.success(`"${deactivateTarget.name}" deactivated`);
         mutate();
-        mutateInventory();
+
       } catch {
         toast.error('Failed to deactivate item');
       }
       setDeactivateTarget(null);
       setDeactivateReason('');
     },
-    [deactivateTarget, deactivateReason, toast, mutate, mutateInventory],
+    [deactivateTarget, deactivateReason, toast, mutate],
   );
 
   const handleReactivate = useCallback(
@@ -166,13 +135,13 @@ export default function CatalogPage() {
         await unarchiveCatalogItem(reactivateTarget.id);
         toast.success(`"${reactivateTarget.name}" reactivated`);
         mutate();
-        mutateInventory();
+
       } catch {
         toast.error('Failed to reactivate item');
       }
       setReactivateTarget(null);
     },
-    [reactivateTarget, toast, mutate, mutateInventory],
+    [reactivateTarget, toast, mutate],
   );
 
   const buildActions = useCallback(

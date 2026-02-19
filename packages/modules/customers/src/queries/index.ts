@@ -1,5 +1,5 @@
 export { listCustomers } from './list-customers';
-export type { ListCustomersInput, ListCustomersResult } from './list-customers';
+export type { ListCustomersInput, ListCustomersResult, CustomerListItem } from './list-customers';
 
 export { getCustomer } from './get-customer';
 export type { GetCustomerInput, CustomerDetail } from './get-customer';

@@ -39,6 +39,7 @@ import { useTheme } from '@/components/theme-provider';
 import { ContextMenuProvider } from '@/components/context-menu-provider';
 import { ProfileDrawerProvider, CustomerProfileDrawer } from '@/components/customer-profile-drawer';
 import { NavigationGuardProvider, useNavigationGuard } from '@/hooks/use-navigation-guard';
+import { preloadPOSCatalog } from '@/hooks/use-catalog-for-pos';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -376,10 +377,18 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { user, tenant, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
+  const { user, tenant, locations, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
   const { isModuleEnabled } = useEntitlementsContext();
   const clock = useLiveClock();
   const { guardedClick } = useNavigationGuard();
+
+  // Preload POS catalog into sessionStorage on login so the POS page
+  // renders instantly. Only fetches if no cache exists yet.
+  useEffect(() => {
+    if (isAuthenticated && locations.length > 0) {
+      preloadPOSCatalog(locations[0]!.id);
+    }
+  }, [isAuthenticated, locations]);
 
   // Load collapsed state from localStorage
   useEffect(() => {

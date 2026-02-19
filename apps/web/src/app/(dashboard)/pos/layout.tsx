@@ -1,10 +1,25 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import { X, MapPin, Monitor, User } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import RetailPOSLoading from './retail/loading';
+import FnBPOSLoading from './fnb/loading';
+
+// Mount both POS content components in the layout so switching between
+// Retail ↔ F&B is an instant CSS toggle instead of a full route transition.
+const RetailPOSContent = dynamic(() => import('./retail/retail-pos-content'), {
+  loading: () => <RetailPOSLoading />,
+  ssr: false,
+});
+
+const FnBPOSContent = dynamic(() => import('./fnb/fnb-pos-content'), {
+  loading: () => <FnBPOSLoading />,
+  ssr: false,
+});
 
 // ── Terminal ID ───────────────────────────────────────────────────
 
@@ -82,11 +97,24 @@ function useBarcodeScannerListener(): void {
 
 export default function POSLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, locations, isLoading, isAuthenticated } = useAuthContext();
   const terminalId = useTerminalId();
 
   // Barcode scanner listener
   useBarcodeScannerListener();
+
+  // Determine which POS mode is active from the URL
+  const isRetail = pathname.startsWith('/pos/retail');
+  const isFnB = pathname.startsWith('/pos/fnb');
+
+  // Lazily mount each POS mode on first visit, keep mounted afterwards
+  // so switching back is instant (CSS toggle, no re-mount).
+  const [visited, setVisited] = useState({ retail: isRetail, fnb: isFnB });
+  useEffect(() => {
+    if (isRetail && !visited.retail) setVisited((v) => ({ ...v, retail: true }));
+    if (isFnB && !visited.fnb) setVisited((v) => ({ ...v, fnb: true }));
+  }, [isRetail, isFnB, visited.retail, visited.fnb]);
 
   // Auth guard
   useEffect(() => {
@@ -172,7 +200,24 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* ── Content Area ─────────────────────────────────────────── */}
-      <div className="flex-1 overflow-hidden">{children}</div>
+      {/* Both POS modes are mounted in this layout and toggled via CSS.
+          This eliminates the Next.js route transition delay when switching
+          between Retail POS ↔ F&B POS. Each mode loads independently and
+          continues running in the background when the other is active. */}
+      <div className="relative flex-1 overflow-hidden">
+        {visited.retail && (
+          <div className={`absolute inset-0 ${isRetail ? '' : 'pointer-events-none invisible'}`}>
+            <RetailPOSContent isActive={isRetail} />
+          </div>
+        )}
+        {visited.fnb && (
+          <div className={`absolute inset-0 ${isFnB ? '' : 'pointer-events-none invisible'}`}>
+            <FnBPOSContent isActive={isFnB} />
+          </div>
+        )}
+        {/* Fallback for any future POS sub-routes */}
+        {!isRetail && !isFnB && children}
+      </div>
     </div>
   );
 }

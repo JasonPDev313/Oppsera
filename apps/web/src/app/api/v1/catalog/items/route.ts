@@ -16,6 +16,8 @@ export const GET = withMiddleware(
     const search = url.searchParams.get('search') ?? undefined;
     const includeArchived = url.searchParams.get('includeArchived') === 'true';
 
+    const includeInventory = url.searchParams.get('includeInventory') === 'true';
+
     const result = await listItems({
       tenantId: ctx.tenantId,
       cursor,
@@ -24,6 +26,8 @@ export const GET = withMiddleware(
       itemType,
       search,
       includeArchived,
+      includeInventory,
+      locationId: includeInventory ? ctx.locationId : undefined,
     });
 
     return NextResponse.json({

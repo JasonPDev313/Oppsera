@@ -167,7 +167,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
 
 // ── F&B POS Page ──────────────────────────────────────────────────
 
-export default function FnbPOSPage() {
+export default function FnbPOSPage({ isActive = true }: { isActive?: boolean }) {
   const { locations, user } = useAuthContext();
   const { toast } = useToast();
 
@@ -324,6 +324,7 @@ export default function FnbPOSPage() {
   // ── Barcode scan handler (still works for F&B if scanned) ──────
 
   useEffect(() => {
+    if (!isActive) return;
     const handler = (e: Event) => {
       const code = (e as CustomEvent).detail as string;
       const item = catalog.lookupByBarcode(code);
@@ -336,7 +337,7 @@ export default function FnbPOSPage() {
     };
     window.addEventListener('barcode-scan', handler);
     return () => window.removeEventListener('barcode-scan', handler);
-  }, [catalog, toast, handleItemTap]);
+  }, [isActive, catalog, toast, handleItemTap]);
 
   // ── Repeat last item ────────────────────────────────────────────
 

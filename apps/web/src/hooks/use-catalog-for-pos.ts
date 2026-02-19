@@ -11,7 +11,6 @@ import type { CatalogItemForPOS, CatalogNavState, CatalogNavLevel } from '@/type
 
 const FAVORITES_KEY_PREFIX = 'pos_favorites_';
 const CACHE_KEY_PREFIX = 'pos_catalog_';
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — keep POS catalog fresh during long shifts
 const MAX_RECENT_ITEMS = 20;
 
@@ -69,12 +68,7 @@ function loadCachedCatalog(locationId: string): CachedCatalog | null {
   try {
     const raw = sessionStorage.getItem(`${CACHE_KEY_PREFIX}${locationId}`);
     if (!raw) return null;
-    const cached = JSON.parse(raw) as CachedCatalog;
-    if (Date.now() - cached.cachedAt > CACHE_TTL_MS) {
-      sessionStorage.removeItem(`${CACHE_KEY_PREFIX}${locationId}`);
-      return null;
-    }
-    return cached;
+    return JSON.parse(raw) as CachedCatalog;
   } catch {
     return null;
   }
@@ -493,4 +487,23 @@ export function useCatalogForPOS(locationId: string) {
     // Manual refresh (e.g., after item-not-found error to purge stale items)
     refresh: useCallback(() => fetchCatalog(false), [fetchCatalog]),
   };
+}
+
+/**
+ * Preload the POS catalog into sessionStorage so it's ready instantly
+ * when the user navigates to the POS page. Call this from the dashboard
+ * layout on mount — it only fetches if no cache exists yet.
+ */
+export function preloadPOSCatalog(locationId: string): void {
+  if (typeof window === 'undefined') return;
+  // Already cached — nothing to do
+  if (loadCachedCatalog(locationId)) return;
+
+  apiFetch<{ data: { items: POSRawItem[]; categories: POSRawCategory[] } }>('/api/v1/catalog/pos')
+    .then((res) => {
+      saveCachedCatalog(locationId, res.data.items, res.data.categories);
+    })
+    .catch(() => {
+      // Non-critical — POS will fetch on mount if preload fails
+    });
 }

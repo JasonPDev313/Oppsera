@@ -55,6 +55,8 @@ interface ItemFilters {
   itemType?: string;
   search?: string;
   includeArchived?: boolean;
+  /** Include on-hand, reorderPoint, etc. from inventory (single query) */
+  includeInventory?: boolean;
 }
 
 export function useCatalogItems(filters: ItemFilters) {
@@ -76,6 +78,7 @@ export function useCatalogItems(filters: ItemFilters) {
         if (filters.itemType) params.set('itemType', filters.itemType);
         if (filters.search) params.set('search', filters.search);
         if (filters.includeArchived) params.set('includeArchived', 'true');
+        if (filters.includeInventory) params.set('includeInventory', 'true');
         if (appendCursor) params.set('cursor', appendCursor);
         params.set('limit', '25');
 
@@ -99,7 +102,7 @@ export function useCatalogItems(filters: ItemFilters) {
         setIsLoading(false);
       }
     },
-    [filters.categoryId, filters.itemType, filters.search, filters.includeArchived],
+    [filters.categoryId, filters.itemType, filters.search, filters.includeArchived, filters.includeInventory],
   );
 
   useEffect(() => {
@@ -117,10 +120,64 @@ export function useCatalogItem(id: string) {
   return useFetch<CatalogItemRow>(id ? `/api/v1/catalog/items/${id}` : null);
 }
 
-// ── Hierarchy ─────────────────────────────────────────────────────
+// ── Hierarchy (shared cache — single fetch for all 3 hooks) ───────
+
+// Module-level cache so useDepartments/useSubDepartments/useCategories
+// share one API call instead of firing 3 identical requests.
+let _catCache: { data: CategoryRow[] | null; promise: Promise<CategoryRow[]> | null; ts: number } = {
+  data: null,
+  promise: null,
+  ts: 0,
+};
+const CAT_CACHE_TTL = 30_000; // 30s
 
 function useAllCategories() {
-  return useFetch<CategoryRow[]>('/api/v1/catalog/categories');
+  const [data, setData] = useState<CategoryRow[] | null>(_catCache.data);
+  const [isLoading, setIsLoading] = useState(!_catCache.data);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchData = useCallback(async () => {
+    const now = Date.now();
+    // Serve from cache if fresh
+    if (_catCache.data && now - _catCache.ts < CAT_CACHE_TTL) {
+      setData(_catCache.data);
+      setIsLoading(false);
+      return;
+    }
+    // Deduplicate in-flight requests
+    if (!_catCache.promise) {
+      _catCache.promise = apiFetch<{ data: CategoryRow[] }>('/api/v1/catalog/categories')
+        .then((res) => {
+          _catCache.data = res.data;
+          _catCache.ts = Date.now();
+          return res.data;
+        })
+        .finally(() => {
+          _catCache.promise = null;
+        });
+    }
+    setIsLoading(true);
+    try {
+      const result = await _catCache.promise!;
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Failed to load categories'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const mutate = useCallback(() => {
+    _catCache.data = null;
+    _catCache.ts = 0;
+    fetchData();
+  }, [fetchData]);
+
+  return { data, isLoading, error, mutate };
 }
 
 export function useDepartments() {

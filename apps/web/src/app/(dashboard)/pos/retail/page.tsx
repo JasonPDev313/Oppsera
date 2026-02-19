@@ -1,13 +1,6 @@
-'use client';
-
-import dynamic from 'next/dynamic';
-import RetailPOSLoading from './loading';
-
-const RetailPOSContent = dynamic(() => import('./retail-pos-content'), {
-  loading: () => <RetailPOSLoading />,
-  ssr: false,
-});
-
+// Content is rendered by the POS layout (pos/layout.tsx) which mounts both
+// Retail and F&B POS components and toggles visibility for instant switching.
+// This page exists solely to give Next.js a route target for /pos/retail.
 export default function RetailPOSPage() {
-  return <RetailPOSContent />;
+  return null;
 }

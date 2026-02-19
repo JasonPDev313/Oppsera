@@ -10,11 +10,64 @@ export interface ListCustomersInput {
   limit?: number;
 }
 
+/** Slim projection for the list view — skips heavy JSONB profile columns. */
+export interface CustomerListItem {
+  id: string;
+  tenantId: string;
+  type: string;
+  email: string | null;
+  phone: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  organizationName: string | null;
+  displayName: string;
+  notes: string | null;
+  tags: unknown;
+  marketingConsent: boolean;
+  taxExempt: boolean;
+  taxExemptCertificateNumber: string | null;
+  totalVisits: number;
+  totalSpend: number;
+  lastVisitAt: Date | null;
+  metadata: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string | null;
+}
+
 export interface ListCustomersResult {
-  items: (typeof customers.$inferSelect)[];
+  items: CustomerListItem[];
   cursor: string | null;
   hasMore: boolean;
 }
+
+// Select only the columns the frontend Customer type needs.
+// The customers table has 56 columns including heavy JSONB blobs
+// (complianceData, aiFields, behavioralProfile, etc.) that the
+// list view never uses. This projection skips ~35 columns.
+const listColumns = {
+  id: customers.id,
+  tenantId: customers.tenantId,
+  type: customers.type,
+  email: customers.email,
+  phone: customers.phone,
+  firstName: customers.firstName,
+  lastName: customers.lastName,
+  organizationName: customers.organizationName,
+  displayName: customers.displayName,
+  notes: customers.notes,
+  tags: customers.tags,
+  marketingConsent: customers.marketingConsent,
+  taxExempt: customers.taxExempt,
+  taxExemptCertificateNumber: customers.taxExemptCertificateNumber,
+  totalVisits: customers.totalVisits,
+  totalSpend: customers.totalSpend,
+  lastVisitAt: customers.lastVisitAt,
+  metadata: customers.metadata,
+  createdAt: customers.createdAt,
+  updatedAt: customers.updatedAt,
+  createdBy: customers.createdBy,
+};
 
 export async function listCustomers(input: ListCustomersInput): Promise<ListCustomersResult> {
   const limit = Math.min(input.limit ?? 50, 100);
@@ -55,7 +108,7 @@ export async function listCustomers(input: ListCustomersInput): Promise<ListCust
     }
 
     const rows = await tx
-      .select()
+      .select(listColumns)
       .from(customers)
       .where(and(...conditions))
       .orderBy(asc(customers.displayName), asc(customers.id))
