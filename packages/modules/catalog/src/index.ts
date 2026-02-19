@@ -57,6 +57,8 @@ export {
   listTaxGroups,
   getItemTaxGroupsAtLocation,
 } from './queries';
+export { getCatalogForPOS } from './queries/get-catalog-for-pos';
+export type { POSCatalogItem, POSCategory, POSCatalogResult } from './queries/get-catalog-for-pos';
 export type { ListItemsInput, ListItemsResult, ListItemRow } from './queries/list-items';
 export type { ItemDetail } from './queries/get-item';
 export type { CategoryWithCount } from './queries/list-categories';

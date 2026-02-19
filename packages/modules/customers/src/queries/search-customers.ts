@@ -1,4 +1,4 @@
-import { eq, and, ilike, or, not } from 'drizzle-orm';
+import { eq, and, ilike, or, not, inArray, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { customers, customerIdentifiers } from '@oppsera/db';
 
@@ -15,6 +15,16 @@ export interface SearchCustomerResult {
   phone: string | null;
   type: string;
 }
+
+const SELECT_FIELDS = {
+  id: customers.id,
+  displayName: customers.displayName,
+  email: customers.email,
+  phone: customers.phone,
+  type: customers.type,
+} as const;
+
+const NOT_MERGED = not(ilike(customers.displayName, '[MERGED]%'));
 
 export async function searchCustomers(
   input: SearchCustomersInput,
@@ -39,58 +49,53 @@ export async function searchCustomers(
       }
 
       const customerIds = identifierMatches.map((m) => m.customerId);
-      const { inArray } = await import('drizzle-orm');
 
-      const rows = await tx
-        .select({
-          id: customers.id,
-          displayName: customers.displayName,
-          email: customers.email,
-          phone: customers.phone,
-          type: customers.type,
-        })
+      return tx
+        .select(SELECT_FIELDS)
         .from(customers)
         .where(
           and(
             eq(customers.tenantId, input.tenantId),
             inArray(customers.id, customerIds),
-            not(ilike(customers.displayName, '[MERGED]%')),
+            NOT_MERGED,
           ),
         )
         .limit(10);
-
-      return rows;
     }
 
     // Text search on display name, email, phone
-    const conditions = [
-      eq(customers.tenantId, input.tenantId),
-      not(ilike(customers.displayName, '[MERGED]%')),
-    ];
-
+    // Uses pg_trgm GIN index (0055 migration) for fast ILIKE
     if (input.search) {
       const pattern = `%${input.search}%`;
-      conditions.push(
-        or(
-          ilike(customers.displayName, pattern),
-          ilike(customers.email, pattern),
-          ilike(customers.phone, pattern),
-        )!,
-      );
+      return tx
+        .select(SELECT_FIELDS)
+        .from(customers)
+        .where(
+          and(
+            eq(customers.tenantId, input.tenantId),
+            NOT_MERGED,
+            or(
+              ilike(customers.displayName, pattern),
+              ilike(customers.email, pattern),
+              ilike(customers.phone, pattern),
+            ),
+          ),
+        )
+        .orderBy(customers.displayName)
+        .limit(10);
     }
 
-    const rows = await tx
-      .select({
-        id: customers.id,
-        displayName: customers.displayName,
-        email: customers.email,
-        phone: customers.phone,
-        type: customers.type,
-      })
+    // No search term — return most recent customers
+    return tx
+      .select(SELECT_FIELDS)
       .from(customers)
-      .where(and(...conditions))
+      .where(
+        and(
+          eq(customers.tenantId, input.tenantId),
+          NOT_MERGED,
+        ),
+      )
+      .orderBy(sql`${customers.lastVisitAt} DESC NULLS LAST`)
       .limit(10);
-
-    return rows;
   });
 }

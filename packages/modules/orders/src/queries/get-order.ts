@@ -1,6 +1,6 @@
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, getTableColumns } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
+import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes, customers } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 
 export interface OrderDetail {
@@ -12,6 +12,7 @@ export interface OrderDetail {
   source: string;
   version: number;
   customerId: string | null;
+  customerName: string | null;
   subtotal: number;
   taxTotal: number;
   serviceChargeTotal: number;
@@ -71,15 +72,21 @@ export interface OrderDetail {
 
 export async function getOrder(tenantId: string, orderId: string): Promise<OrderDetail> {
   return withTenant(tenantId, async (tx) => {
-    const [order] = await tx
-      .select()
+    const [row] = await tx
+      .select({
+        ...getTableColumns(orders),
+        customerName: customers.displayName,
+      })
       .from(orders)
+      .leftJoin(customers, eq(orders.customerId, customers.id))
       .where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)))
       .limit(1);
 
-    if (!order) {
+    if (!row) {
       throw new NotFoundError('Order', orderId);
     }
+
+    const order = { ...row, customerName: row.customerName ?? null };
 
     const [lines, charges, discounts] = await Promise.all([
       tx.select().from(orderLines).where(eq(orderLines.orderId, orderId)),

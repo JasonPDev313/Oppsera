@@ -36,6 +36,28 @@ export function CustomerAttachment({
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Auto-resolve customer name when customerId is present but name is unknown
+  useEffect(() => {
+    if (!customerId || customerName || attachedName) return;
+
+    let cancelled = false;
+    apiFetch<{ data: { displayName: string } }>(
+      `/api/v1/customers/${encodeURIComponent(customerId)}`,
+    )
+      .then((res) => {
+        if (!cancelled && res.data.displayName) {
+          setAttachedName(res.data.displayName);
+        }
+      })
+      .catch(() => {
+        // Silently fail — will show customerId as fallback
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [customerId, customerName, attachedName]);
+
   // Search customers as user types
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -60,7 +82,7 @@ export function CustomerAttachment({
       } finally {
         setIsSearching(false);
       }
-    }, 250);
+    }, 150);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);

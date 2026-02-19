@@ -4,13 +4,42 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { apiFetch } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { getItemTypeGroup } from '@oppsera/shared';
-import type { CatalogItemRow, CategoryRow } from '@/types/catalog';
+import type { CategoryRow } from '@/types/catalog';
 import type { CatalogItemForPOS, CatalogNavState, CatalogNavLevel } from '@/types/pos';
 
 // ── Constants ──────────────────────────────────────────────────────
 
 const FAVORITES_KEY_PREFIX = 'pos_favorites_';
+const CACHE_KEY_PREFIX = 'pos_catalog_';
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_RECENT_ITEMS = 20;
+
+// ── POS API response types ─────────────────────────────────────────
+
+interface POSRawItem {
+  id: string;
+  name: string;
+  sku: string | null;
+  barcode: string | null;
+  itemType: string;
+  defaultPrice: string;
+  isTrackable: boolean;
+  metadata: Record<string, unknown> | null;
+  categoryId: string | null;
+}
+
+interface POSRawCategory {
+  id: string;
+  name: string;
+  parentId: string | null;
+  sortOrder: number;
+}
+
+interface CachedCatalog {
+  items: POSRawItem[];
+  categories: POSRawCategory[];
+  cachedAt: number;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -34,6 +63,36 @@ function saveFavorites(locationId: string, ids: Set<string>): void {
   }
 }
 
+function loadCachedCatalog(locationId: string): CachedCatalog | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(`${CACHE_KEY_PREFIX}${locationId}`);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as CachedCatalog;
+    if (Date.now() - cached.cachedAt > CACHE_TTL_MS) {
+      sessionStorage.removeItem(`${CACHE_KEY_PREFIX}${locationId}`);
+      return null;
+    }
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedCatalog(
+  locationId: string,
+  items: POSRawItem[],
+  categories: POSRawCategory[],
+): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const cached: CachedCatalog = { items, categories, cachedAt: Date.now() };
+    sessionStorage.setItem(`${CACHE_KEY_PREFIX}${locationId}`, JSON.stringify(cached));
+  } catch {
+    // Storage full — silently ignore
+  }
+}
+
 /**
  * Walk up the category tree from a category to find its root department.
  * categoryMap: id -> CategoryRow
@@ -52,8 +111,22 @@ function findDepartmentId(categoryId: string, categoryMap: Map<string, CategoryR
   return current?.id ?? categoryId;
 }
 
+function buildCategoryMap(categories: POSRawCategory[]): Map<string, CategoryRow> {
+  const map = new Map<string, CategoryRow>();
+  for (const cat of categories) {
+    map.set(cat.id, {
+      id: cat.id,
+      name: cat.name,
+      parentId: cat.parentId,
+      sortOrder: cat.sortOrder,
+      isActive: true, // POS endpoint only returns active categories
+    });
+  }
+  return map;
+}
+
 function convertToPOSItem(
-  item: CatalogItemRow,
+  item: POSRawItem,
   categoryMap: Map<string, CategoryRow>,
 ): CatalogItemForPOS {
   const categoryId = item.categoryId ?? '';
@@ -63,15 +136,25 @@ function convertToPOSItem(
     sku: item.sku,
     barcode: item.barcode,
     type: item.itemType,
-    typeGroup: getItemTypeGroup(item.itemType, item.metadata),
+    typeGroup: getItemTypeGroup(item.itemType, item.metadata ?? {}),
     price: Math.round(parseFloat(item.defaultPrice) * 100),
     isTrackInventory: item.isTrackable,
-    onHand: null, // V1 — inventory module not built yet
+    onHand: null, // V1 — inventory module not wired yet
     metadata: item.metadata ?? {},
     tax: { calculationMode: 'exclusive', taxRates: [] }, // V1 placeholder
     categoryId,
     departmentId: categoryId ? findDepartmentId(categoryId, categoryMap) : '',
   };
+}
+
+function processCatalogData(
+  rawItems: POSRawItem[],
+  rawCategories: POSRawCategory[],
+): { posItems: CatalogItemForPOS[]; categories: CategoryRow[]; catMap: Map<string, CategoryRow> } {
+  const catMap = buildCategoryMap(rawCategories);
+  const posItems = rawItems.map((item) => convertToPOSItem(item, catMap));
+  const categories = Array.from(catMap.values());
+  return { posItems, categories, catMap };
 }
 
 // ── Hook ───────────────────────────────────────────────────────────
@@ -105,52 +188,55 @@ export function useCatalogForPOS(locationId: string) {
   // Category map ref for quick lookup
   const categoryMapRef = useRef<Map<string, CategoryRow>>(new Map());
 
-  // ── Load all categories and items ──────────────────────────────
+  // ── Load catalog via lean POS endpoint + sessionStorage cache ──
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadAll() {
+    async function loadCatalog() {
+      // 1. Try sessionStorage cache first — instant load
+      const cached = loadCachedCatalog(locationId);
+      if (cached) {
+        const { posItems, categories, catMap } = processCatalogData(
+          cached.items,
+          cached.categories,
+        );
+        categoryMapRef.current = catMap;
+        setAllCategories(categories);
+        setAllItems(posItems);
+        setIsLoading(false);
+
+        // Background refresh — don't show loading spinner
+        try {
+          const res = await apiFetch<{
+            data: { items: POSRawItem[]; categories: POSRawCategory[] };
+          }>('/api/v1/catalog/pos');
+          if (cancelled) return;
+          saveCachedCatalog(locationId, res.data.items, res.data.categories);
+          const fresh = processCatalogData(res.data.items, res.data.categories);
+          categoryMapRef.current = fresh.catMap;
+          setAllCategories(fresh.categories);
+          setAllItems(fresh.posItems);
+        } catch {
+          // Background refresh failed — stale cache is still usable
+        }
+        return;
+      }
+
+      // 2. No cache — fetch and show loading
       setIsLoading(true);
       try {
-        // Fetch categories and first page of items in parallel
-        const [catRes, itemsFirstPage] = await Promise.all([
-          apiFetch<{ data: CategoryRow[] }>('/api/v1/catalog/categories'),
-          apiFetch<{
-            data: CatalogItemRow[];
-            meta: { cursor: string | null; hasMore: boolean };
-          }>('/api/v1/catalog/items?isActive=true&limit=5000'),
-        ]);
-
+        const res = await apiFetch<{
+          data: { items: POSRawItem[]; categories: POSRawCategory[] };
+        }>('/api/v1/catalog/pos');
         if (cancelled) return;
 
-        const categories = catRes.data;
-        let rawItems = [...itemsFirstPage.data];
-        let nextCursor = itemsFirstPage.meta.cursor;
-
-        // Paginate through remaining items
-        while (nextCursor) {
-          const page = await apiFetch<{
-            data: CatalogItemRow[];
-            meta: { cursor: string | null; hasMore: boolean };
-          }>(`/api/v1/catalog/items?isActive=true&limit=5000&cursor=${nextCursor}`);
-
-          if (cancelled) return;
-
-          rawItems = [...rawItems, ...page.data];
-          nextCursor = page.meta.cursor;
-        }
-
-        // Build category map
-        const catMap = new Map<string, CategoryRow>();
-        for (const cat of categories) {
-          catMap.set(cat.id, cat);
-        }
+        saveCachedCatalog(locationId, res.data.items, res.data.categories);
+        const { posItems, categories, catMap } = processCatalogData(
+          res.data.items,
+          res.data.categories,
+        );
         categoryMapRef.current = catMap;
-
-        // Convert items
-        const posItems = rawItems.map((item) => convertToPOSItem(item, catMap));
-
         setAllCategories(categories);
         setAllItems(posItems);
       } catch (err) {
@@ -162,7 +248,7 @@ export function useCatalogForPOS(locationId: string) {
       }
     }
 
-    loadAll();
+    loadCatalog();
     return () => {
       cancelled = true;
     };

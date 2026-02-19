@@ -37,6 +37,9 @@ export function usePOS(config: POSConfig) {
   // Track in-flight addItem calls so placeOrder can await them
   const pendingAddItems = useRef<Promise<void>[]>([]);
 
+  // Deduplicate concurrent openOrder calls (e.g. rapid item taps before order exists)
+  const openOrderPromise = useRef<Promise<Order> | null>(null);
+
   // ── Fetch order detail ─────────────────────────────────────────
 
   const fetchOrder = useCallback(
@@ -76,9 +79,10 @@ export function usePOS(config: POSConfig) {
     }
   }, [config.locationId]);
 
-  // Refresh held count on mount only (hold/recall call fetchHeldOrderCount explicitly)
+  // Refresh held count after initial render (deferred so it doesn't block POS load)
   useEffect(() => {
-    fetchHeldOrderCount();
+    const id = requestIdleCallback(() => fetchHeldOrderCount());
+    return () => cancelIdleCallback(id);
   }, [fetchHeldOrderCount]);
 
   // ── Error handler with 409 auto-refetch ────────────────────────
@@ -121,7 +125,18 @@ export function usePOS(config: POSConfig) {
         }),
       });
       const order = res.data;
-      setCurrentOrder(order);
+      // Preserve any optimistic lines that were added before the order was created
+      setCurrentOrder((prev) => {
+        const optimisticLines = (prev?.lines ?? []).filter(l => l.id.startsWith('temp-'));
+        if (optimisticLines.length === 0) return order;
+        const optimisticSubtotal = optimisticLines.reduce((sum, l) => sum + l.lineSubtotal, 0);
+        return {
+          ...order,
+          lines: [...(order.lines ?? []), ...optimisticLines],
+          subtotal: order.subtotal + optimisticSubtotal,
+          total: order.total + optimisticSubtotal,
+        };
+      });
       return order;
     } catch (err) {
       await handleMutationError(err);
@@ -136,13 +151,7 @@ export function usePOS(config: POSConfig) {
   const addItem = useCallback(
     async (input: AddLineItemInput): Promise<void> => {
       try {
-        // Auto-open order if none exists (this is the only blocking step)
-        let order = orderRef.current;
-        if (!order) {
-          order = await openOrder();
-        }
-
-        // ── Optimistic update: show item in cart immediately ──────────
+        // ── Optimistic update FIRST — show item in cart immediately ──
         const display = input._display;
         const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         if (display) {
@@ -171,14 +180,58 @@ export function usePOS(config: POSConfig) {
             taxCalculationMode: 'inclusive',
           };
           setCurrentOrder((prev) => {
-            if (!prev) return prev;
+            if (prev) {
+              return {
+                ...prev,
+                lines: [...(prev.lines ?? []), tempLine],
+                subtotal: prev.subtotal + lineSubtotal,
+                total: prev.total + lineSubtotal,
+              };
+            }
+            // No order yet — create a placeholder for instant display
+            const now = new Date().toISOString();
             return {
-              ...prev,
-              lines: [...(prev.lines ?? []), tempLine],
-              subtotal: prev.subtotal + lineSubtotal,
-              total: prev.total + lineSubtotal,
+              id: '',
+              tenantId: '',
+              locationId: config.locationId,
+              orderNumber: '...',
+              status: 'open',
+              source: 'pos',
+              version: 0,
+              subtotal: lineSubtotal,
+              taxTotal: 0,
+              serviceChargeTotal: 0,
+              discountTotal: 0,
+              total: lineSubtotal,
+              customerId: null,
+              businessDate: todayBusinessDate(),
+              terminalId: config.terminalId,
+              employeeId: user?.id ?? null,
+              taxExempt: false,
+              taxExemptReason: null,
+              notes: null,
+              lines: [tempLine],
+              charges: [],
+              discounts: [],
+              createdAt: now,
+              updatedAt: now,
+              placedAt: null,
+              paidAt: null,
+              voidedAt: null,
+              voidReason: null,
             };
           });
+        }
+
+        // Auto-open order if none exists (deduplicated for rapid taps)
+        let order = orderRef.current;
+        if (!order || !order.id) {
+          if (!openOrderPromise.current) {
+            openOrderPromise.current = openOrder().finally(() => {
+              openOrderPromise.current = null;
+            });
+          }
+          order = await openOrderPromise.current;
         }
 
         // ── Server call (background) ─────────────────────────────────

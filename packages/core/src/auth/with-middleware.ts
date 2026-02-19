@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { AppError, NotFoundError, generateUlid } from '@oppsera/shared';
+import { AppError, NotFoundError, AuthorizationError, generateUlid } from '@oppsera/shared';
 import { eq, and } from 'drizzle-orm';
 import { db, locations, sql } from '@oppsera/db';
 import { authenticate, resolveTenant } from './middleware';
@@ -8,6 +8,7 @@ import { requestContext } from './context';
 import type { RequestContext } from './context';
 import { requirePermission } from '../permissions/middleware';
 import { requireEntitlement } from '../entitlements/middleware';
+import { getPermissionEngine } from '../permissions/engine';
 
 type RouteHandler = (
   request: NextRequest,
@@ -44,6 +45,17 @@ async function resolveLocation(
 
   if (!location.isActive) {
     throw new NotFoundError('Location');
+  }
+
+  // Verify user has at least one role assignment for this location (or a tenant-wide role).
+  // Uses the permission engine's 15s cache — no extra DB query on hot path.
+  const permissions = await getPermissionEngine().getUserPermissions(
+    ctx.tenantId,
+    ctx.user.id,
+    locationId,
+  );
+  if (permissions.size === 0) {
+    throw new AuthorizationError('No access to this location');
   }
 
   await db.execute(sql`SELECT set_config('app.current_location_id', ${locationId}, true)`);

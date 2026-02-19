@@ -83,6 +83,37 @@ function saveActiveTab(terminalId: string, tabNumber: TabNumber): void {
   }
 }
 
+// ── Tab list sessionStorage cache ─────────────────────────────────
+
+const TABS_CACHE_PREFIX = 'oppsera:tabs-cache:';
+
+interface CachedTabs {
+  tabs: RegisterTab[];
+  cachedAt: number;
+}
+
+function loadCachedTabs(terminalId: string): RegisterTab[] | null {
+  try {
+    const raw = sessionStorage.getItem(`${TABS_CACHE_PREFIX}${terminalId}`);
+    if (!raw) return null;
+    const cached = JSON.parse(raw) as CachedTabs;
+    // 10 minute TTL
+    if (Date.now() - cached.cachedAt > 10 * 60 * 1000) return null;
+    return cached.tabs;
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedTabs(terminalId: string, tabs: RegisterTab[]): void {
+  try {
+    const data: CachedTabs = { tabs, cachedAt: Date.now() };
+    sessionStorage.setItem(`${TABS_CACHE_PREFIX}${terminalId}`, JSON.stringify(data));
+  } catch {
+    // Ignore
+  }
+}
+
 // ── Hook ────────────────────────────────────────────────────────────
 
 export function useRegisterTabs({
@@ -105,6 +136,12 @@ export function useRegisterTabs({
 
   // Prevent sync-back during initial load
   const hasLoaded = useRef(false);
+
+  // Track active tab number via ref for async callbacks
+  const activeTabRef = useRef<TabNumber>(1);
+
+  // Keep activeTabRef in sync
+  activeTabRef.current = activeTabNumber;
 
   // ── Derived ────────────────────────────────────────────────────────
 
@@ -161,6 +198,13 @@ export function useRegisterTabs({
     saveActiveTab(terminalId, activeTabNumber);
   }, [activeTabNumber, terminalId]);
 
+  // ── Persist tab list to sessionStorage cache ──────────────────────
+
+  useEffect(() => {
+    if (!terminalId || !hasLoaded.current || tabs.length === 0) return;
+    saveCachedTabs(terminalId, tabs);
+  }, [tabs, terminalId]);
+
   // ── Load tabs from server on mount ─────────────────────────────────
 
   useEffect(() => {
@@ -178,6 +222,48 @@ export function useRegisterTabs({
 
     let cancelled = false;
 
+    // ── Show cached tabs instantly (stale-while-revalidate) ─────────
+    const cached = loadCachedTabs(terminalId);
+    if (cached && cached.length > 0) {
+      setTabs(cached);
+      const savedActive = loadActiveTab(terminalId);
+      const activeNumber =
+        savedActive && cached.some((t) => t.tabNumber === savedActive)
+          ? savedActive
+          : cached[0]!.tabNumber;
+      setActiveTabNumber(activeNumber);
+      hasLoaded.current = true;
+      setIsLoading(false);
+      pos.setOrder(null);
+
+      // Load active tab's order from cache or fetch it
+      const activeOrderTab = cached.find((t) => t.tabNumber === activeNumber && t.orderId);
+      if (activeOrderTab?.orderId) {
+        pos.fetchOrder(activeOrderTab.orderId).then((order) => {
+          if (!cancelled && order.status === 'open') {
+            orderCache.current.set(activeOrderTab.orderId!, order);
+            if (activeTabRef.current === activeNumber) {
+              pos.setOrder(order);
+            }
+          }
+        }).catch(() => {});
+      }
+    }
+
+    // ── Helper to clear a tab's invalid order ───────────────────────
+    const clearTabOrder = (tab: RegisterTab) => {
+      setTabs((prev) =>
+        prev.map((t) => (t.id === tab.id ? { ...t, orderId: null } : t)),
+      );
+      if (!tab.id.startsWith('pending-')) {
+        apiFetch(`/api/v1/register-tabs/${tab.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ orderId: null }),
+        }).catch(() => {});
+      }
+    };
+
+    // ── Background refresh from server ──────────────────────────────
     async function loadTabs() {
       try {
         const resp = await apiFetch<{ data: ServerTab[] }>(
@@ -201,6 +287,9 @@ export function useRegisterTabs({
           serverTabs = [toRegisterTab(createResp.data)];
         }
 
+        // Update cache for next visit
+        saveCachedTabs(terminalId, serverTabs);
+
         setTabs(serverTabs);
 
         // Restore active tab from localStorage, or use first tab
@@ -212,67 +301,54 @@ export function useRegisterTabs({
 
         setActiveTabNumber(activeNumber);
 
-        // Fetch each tab's open order from API in parallel
+        // Show tabs immediately — don't block on order fetching
+        hasLoaded.current = true;
+        setIsLoading(false);
+        pos.setOrder(null);
+
+        // Fetch orders in background — active tab first for fastest UX
         const tabsWithOrders = serverTabs.filter((t) => t.orderId !== null);
 
         if (tabsWithOrders.length > 0) {
-          const results = await Promise.allSettled(
-            tabsWithOrders.map((t) => pos.fetchOrder(t.orderId!)),
-          );
-
-          if (cancelled) return;
-
-          const validOrderIds = new Set<string>();
-
-          results.forEach((result, idx) => {
-            const orderId = tabsWithOrders[idx]!.orderId!;
-            if (result.status === 'fulfilled' && result.value.status === 'open') {
-              orderCache.current.set(orderId, result.value);
-              validOrderIds.add(orderId);
-            }
-          });
-
-          // Clear tabs whose orders are no longer valid
-          setTabs((prev) =>
-            prev.map((t) => {
-              if (t.orderId && !validOrderIds.has(t.orderId)) {
-                // Sync cleared orderId to server
-                apiFetch(`/api/v1/register-tabs/${t.id}`, {
-                  method: 'PATCH',
-                  body: JSON.stringify({ orderId: null }),
-                }).catch(() => {});
-                return { ...t, orderId: null };
+          // Prioritize active tab's order
+          const activeOrderTab = tabsWithOrders.find((t) => t.tabNumber === activeNumber);
+          if (activeOrderTab) {
+            try {
+              const order = await pos.fetchOrder(activeOrderTab.orderId!);
+              if (!cancelled && order.status === 'open') {
+                orderCache.current.set(activeOrderTab.orderId!, order);
+                pos.setOrder(order);
+              } else if (!cancelled) {
+                clearTabOrder(activeOrderTab);
               }
-              return t;
-            }),
-          );
-
-          // Set the active tab's order
-          const activeOrderId =
-            serverTabs.find((t) => t.tabNumber === activeNumber)?.orderId ?? null;
-
-          if (activeOrderId && validOrderIds.has(activeOrderId)) {
-            const cachedOrder = orderCache.current.get(activeOrderId);
-            if (cachedOrder) {
-              pos.setOrder(cachedOrder);
+            } catch {
+              if (!cancelled) clearTabOrder(activeOrderTab);
             }
-          } else {
-            pos.setOrder(null);
           }
-        } else {
-          pos.setOrder(null);
-        }
 
-        hasLoaded.current = true;
+          // Fetch remaining tabs' orders in parallel (fire-and-forget)
+          const otherTabs = tabsWithOrders.filter((t) => t.tabNumber !== activeNumber);
+          if (otherTabs.length > 0 && !cancelled) {
+            Promise.allSettled(otherTabs.map((t) => pos.fetchOrder(t.orderId!)))
+              .then((results) => {
+                if (cancelled) return;
+                results.forEach((result, idx) => {
+                  const tab = otherTabs[idx]!;
+                  if (result.status === 'fulfilled' && result.value.status === 'open') {
+                    orderCache.current.set(tab.orderId!, result.value);
+                  } else {
+                    clearTabOrder(tab);
+                  }
+                });
+              });
+          }
+        }
       } catch {
-        // If server load fails, create a local fallback tab
-        if (!cancelled) {
+        // If server load fails and no cached data, create a local fallback tab
+        if (!cancelled && !cached) {
           setTabs([{ id: 'local-1', tabNumber: 1, orderId: null, employeeId, employeeName }]);
           setActiveTabNumber(1);
           hasLoaded.current = true;
-        }
-      } finally {
-        if (!cancelled) {
           setIsLoading(false);
         }
       }
@@ -293,7 +369,7 @@ export function useRegisterTabs({
 
       // Save current order to cache before switching
       const currentOrder = pos.currentOrder;
-      if (currentOrder) {
+      if (currentOrder && currentOrder.id) {
         orderCache.current.set(currentOrder.id, currentOrder);
       }
 
@@ -305,6 +381,19 @@ export function useRegisterTabs({
       if (targetTab?.orderId) {
         const cachedOrder = orderCache.current.get(targetTab.orderId) ?? null;
         pos.setOrder(cachedOrder);
+
+        // If not in cache yet, fetch in background
+        if (!cachedOrder) {
+          pos.fetchOrder(targetTab.orderId).then((order) => {
+            if (order.status === 'open') {
+              orderCache.current.set(order.id, order);
+              // Only update POS if user is still on this tab
+              if (activeTabRef.current === tabNumber) {
+                pos.setOrder(order);
+              }
+            }
+          }).catch(() => {});
+        }
       } else {
         pos.setOrder(null);
       }

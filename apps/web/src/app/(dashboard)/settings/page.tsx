@@ -718,54 +718,28 @@ function RoleFormDialog({
 
 // ── Modules Tab ──────────────────────────────────────────────────
 
-interface ModuleInfo {
-  key: string;
-  name: string;
-  phase: string;
-  description: string;
-}
-
-interface EntitlementInfo {
-  moduleKey: string;
-  displayName: string;
-  isEnabled: boolean;
-  planTier: string;
-  limits: Record<string, number>;
-  activatedAt: string;
-  expiresAt: string | null;
-}
+// Static module registry — matches packages/core/src/entitlements/registry.ts
+// Inlined to avoid an API call for data that never changes at runtime.
+const MODULES = [
+  { key: 'platform_core', name: 'Platform Core', phase: 'v1', description: 'Identity, auth, RBAC, audit logging' },
+  { key: 'catalog', name: 'Product Catalog', phase: 'v1', description: 'Items, categories, modifiers, pricing, tax categories' },
+  { key: 'pos_retail', name: 'Retail POS', phase: 'v1', description: 'Orders, line items, discounts, tax calculation' },
+  { key: 'pos_restaurant', name: 'Restaurant POS', phase: 'v1', description: 'Tables, seats, coursing, kitchen tickets' },
+  { key: 'payments', name: 'Payments & Tenders', phase: 'v1', description: 'Cash (V1), card, split, refund (V2)' },
+  { key: 'inventory', name: 'Inventory Management', phase: 'v1', description: 'Stock movements, receiving, adjustments, transfers' },
+  { key: 'customers', name: 'Customer Management', phase: 'v1', description: 'Profiles, search, visit/spend tracking' },
+  { key: 'marketing', name: 'Marketing Automation', phase: 'v2', description: 'Segments, campaigns, triggered journeys' },
+  { key: 'kds', name: 'Kitchen Display', phase: 'v2', description: 'Kitchen order tickets, bump screen' },
+  { key: 'golf_ops', name: 'Golf Operations', phase: 'v1', description: 'Tee sheet, starter sheet, pace-of-play' },
+  { key: 'reporting', name: 'Reports & Exports', phase: 'v1', description: 'Read models, daily sales, CSV/PDF export' },
+  { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
+];
 
 function ModulesTab() {
-  const [modules, setModules] = useState<ModuleInfo[]>([]);
-  const [entitlementMap, setEntitlementMap] = useState<Map<string, EntitlementInfo>>(new Map());
-  const [isLoading, setIsLoading] = useState(true);
   const [enablingModule, setEnablingModule] = useState<string | null>(null);
   const [togglingModule, setTogglingModule] = useState<string | null>(null);
-  const { isModuleEnabled, refetch: refetchEntitlements } = useEntitlementsContext();
+  const { entitlements, isModuleEnabled, refetch: refetchEntitlements } = useEntitlementsContext();
   const { can } = usePermissions();
-
-  const loadModules = useCallback(async () => {
-    try {
-      const [modulesResp, entResp] = await Promise.all([
-        apiFetch<{ data: { modules: ModuleInfo[] } }>('/api/v1/entitlements/modules'),
-        apiFetch<{ data: { entitlements: EntitlementInfo[] } }>('/api/v1/entitlements'),
-      ]);
-      setModules(modulesResp.data.modules);
-      const map = new Map<string, EntitlementInfo>();
-      for (const e of entResp.data.entitlements) {
-        map.set(e.moduleKey, e);
-      }
-      setEntitlementMap(map);
-    } catch {
-      // Ignore
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadModules();
-  }, [loadModules]);
 
   const handleEnableModule = useCallback(async (moduleKey: string) => {
     setEnablingModule(moduleKey);
@@ -774,7 +748,7 @@ function ModulesTab() {
         method: 'POST',
         body: JSON.stringify({ moduleKey }),
       });
-      await Promise.all([loadModules(), refetchEntitlements()]);
+      await refetchEntitlements();
     } catch (err) {
       if (err instanceof ApiError) {
         alert(err.message);
@@ -782,7 +756,7 @@ function ModulesTab() {
     } finally {
       setEnablingModule(null);
     }
-  }, [loadModules, refetchEntitlements]);
+  }, [refetchEntitlements]);
 
   const handleToggleModule = useCallback(async (moduleKey: string, enable: boolean) => {
     setTogglingModule(moduleKey);
@@ -791,7 +765,7 @@ function ModulesTab() {
         method: 'PATCH',
         body: JSON.stringify({ moduleKey, isEnabled: enable }),
       });
-      await Promise.all([loadModules(), refetchEntitlements()]);
+      await refetchEntitlements();
     } catch (err) {
       if (err instanceof ApiError) {
         alert(err.message);
@@ -799,15 +773,7 @@ function ModulesTab() {
     } finally {
       setTogglingModule(null);
     }
-  }, [loadModules, refetchEntitlements]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-      </div>
-    );
-  }
+  }, [refetchEntitlements]);
 
   return (
     <div>
@@ -817,8 +783,8 @@ function ModulesTab() {
       </p>
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {modules.map((mod) => {
-          const ent = entitlementMap.get(mod.key);
+        {MODULES.map((mod) => {
+          const ent = entitlements.get(mod.key);
           const enabled = isModuleEnabled(mod.key);
           const isComingSoon = mod.phase !== 'v1';
           const isCore = mod.key === 'platform_core';

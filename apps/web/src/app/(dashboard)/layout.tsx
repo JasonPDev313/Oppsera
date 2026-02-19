@@ -14,12 +14,10 @@ import {
   Menu,
   X,
   LogOut,
-  Lock,
   ChevronDown,
   List,
   FolderTree,
   Receipt,
-  Monitor,
   UtensilsCrossed,
   ClipboardList,
   CreditCard,
@@ -59,16 +57,8 @@ interface NavItem {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  {
-    name: 'POS',
-    href: '/pos',
-    icon: Monitor,
-    moduleKey: 'pos_retail',
-    children: [
-      { name: 'Retail POS', href: '/pos/retail', icon: ShoppingCart },
-      { name: 'F&B POS', href: '/pos/fnb', icon: UtensilsCrossed },
-    ],
-  },
+  { name: 'Retail POS', href: '/pos/retail', icon: ShoppingCart, moduleKey: 'pos_retail' },
+  { name: 'F&B POS', href: '/pos/fnb', icon: UtensilsCrossed, moduleKey: 'pos_restaurant' },
   {
     name: 'Inventory',
     href: '/catalog',
@@ -227,23 +217,7 @@ function SidebarContent({
                 (item.children?.some((child) => pathname.startsWith(child.href)) ?? false);
 
           if (!enabled) {
-            return (
-              <div
-                key={item.name}
-                className={`group flex items-center rounded-lg text-sm font-medium text-gray-300 cursor-not-allowed ${
-                  collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
-                }`}
-                title={collapsed ? `${item.name} (locked)` : 'Enable this module in Settings'}
-              >
-                <item.icon className="h-5 w-5 shrink-0 text-gray-300" />
-                {!collapsed && (
-                  <>
-                    {item.name}
-                    <Lock className="ml-auto h-3.5 w-3.5 text-gray-300" />
-                  </>
-                )}
-              </div>
-            );
+            return null;
           }
 
           if (item.children) {
