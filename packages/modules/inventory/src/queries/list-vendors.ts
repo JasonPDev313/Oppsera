@@ -34,51 +34,6 @@ export async function listVendors(input: ListVendorsInput): Promise<ListVendorsR
   const limit = Math.min(input.limit ?? 50, 100);
 
   return withTenant(input.tenantId, async (tx) => {
-    const conditions: string[] = [`v.tenant_id = $1`];
-    const params: unknown[] = [input.tenantId];
-    let paramIdx = 2;
-
-    if (input.isActive !== undefined) {
-      conditions.push(`v.is_active = $${paramIdx}`);
-      params.push(input.isActive);
-      paramIdx++;
-    }
-    if (input.cursor) {
-      conditions.push(`v.id < $${paramIdx}`);
-      params.push(input.cursor);
-      paramIdx++;
-    }
-    if (input.search) {
-      conditions.push(`(v.name ILIKE $${paramIdx} OR v.account_number ILIKE $${paramIdx})`);
-      params.push(`%${input.search}%`);
-      paramIdx++;
-    }
-
-    // Use raw SQL for the joined aggregation query
-    const result = await tx.execute(
-      sql.raw(`
-        SELECT v.*,
-               COALESCE(ic.item_count, 0)::int AS item_count,
-               rc.last_receipt_date
-        FROM vendors v
-        LEFT JOIN LATERAL (
-          SELECT COUNT(*)::int AS item_count
-          FROM item_vendors iv
-          WHERE iv.tenant_id = v.tenant_id AND iv.vendor_id = v.id AND iv.is_active = true
-        ) ic ON true
-        LEFT JOIN LATERAL (
-          SELECT MAX(received_date) AS last_receipt_date
-          FROM receiving_receipts rr
-          WHERE rr.tenant_id = v.tenant_id AND rr.vendor_id = v.id AND rr.status = 'posted'
-        ) rc ON true
-        WHERE ${conditions.join(' AND ')}
-        ORDER BY v.name ASC
-        LIMIT ${limit + 1}
-      `),
-    );
-
-    // Since sql.raw doesn't support parameterized bindings well, let's use the Drizzle sql template instead
-    // Rewrite with Drizzle sql template
     const whereClause: ReturnType<typeof eq>[] = [
       eq(vendors.tenantId, input.tenantId),
     ];
