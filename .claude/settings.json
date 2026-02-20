@@ -10,7 +10,8 @@
       "Bash(pnpm dev:*)",
       "Bash(git -C c:/Users/Jason/Dev/Oppsera status --short)",
       "Bash(powershell.exe -Command \"Stop-Process -Id 1722680 -Force\")",
-      "Bash(golf \")"
+      "Bash(golf \")",
+      "Bash(printf:*)"
     ]
   }
 }
