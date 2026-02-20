@@ -423,7 +423,7 @@ describe('Register Tabs & Customer Persistence (76-80)', () => {
     it('sync-back effect is blocked while isSwitching is true', () => {
       let isSwitching = true;
       const tab: Tab = { id: 'tab-1', tabNumber: 1, orderId: 'order-abc', label: 'John D' };
-      const currentOrder: Order | null = null;
+      const _currentOrder: Order | null = null;
 
       // Sync-back effect logic: if isSwitching, bail out immediately
       let syncBackRan = false;

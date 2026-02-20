@@ -256,7 +256,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   );
 
   const handleArchiveItem = useCallback(
-    (itemId: string) => {
+    (_itemId: string) => {
       toast.info('Archive coming soon — use Edit Item to manage inventory');
     },
     [toast],
