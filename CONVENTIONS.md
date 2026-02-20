@@ -4046,3 +4046,79 @@ TenderDialog fires a preemptive `placeOrder()` when it opens so the order is alr
 1. **Never `setCurrentOrder(null)` on a placeOrder 409** — the order exists on the server; clearing it strands the user
 2. **Always deduplicate placeOrder** — preemptive (dialog open) + handleSubmit (Pay click) must share the same promise
 3. **TenderDialog manages its own version tracking** — `versionRef` and `currentVersion` state persist across dialog close/reopen for the same order via refs
+
+## 65. Room Layout Builder Architecture
+
+### Overview
+
+Room Layout Builder is a standalone module (`packages/modules/room-layouts/`) providing a full drag-and-drop floor plan editor for restaurant/golf/hybrid venues. It uses a draft-publish version control model with Konva.js canvas rendering and Zustand state management.
+
+### Database (3 tables)
+
+| Table | Purpose |
+|---|---|
+| `floor_plan_rooms` | Room metadata, dimensions, active/archived, currentVersionId, draftVersionId |
+| `floor_plan_versions` | Immutable version snapshots (draft/published/archived), JSONB snapshotJson |
+| `floor_plan_templates_v2` | Reusable template snapshots with category (dining/banquet/bar/patio/custom) |
+
+Schema: `packages/db/src/schema/room-layouts.ts`, Migration: `packages/db/migrations/0070_room_layouts.sql`
+
+### Version Control Model
+
+```
+saveDraft() → creates/updates draft version → room.draftVersionId
+publishVersion() → archives old published, promotes draft → room.currentVersionId, clears draftVersionId
+revertToVersion() → loads old snapshot → saves as new draft
+```
+
+- Versions are immutable (append-only history)
+- `getRoomForEditor` prefers draft over published for loading
+- `handlePublish` in editor always saves draft first (even if `isDirty=false`)
+
+### Backend Commands & Queries
+
+**11 commands:** createRoom, updateRoom, archiveRoom, unarchiveRoom, saveDraft (no idempotency — autosave), publishVersion, revertToVersion, duplicateRoom (reassigns all object/layer ULIDs), createTemplate, updateTemplate, deleteTemplate, applyTemplate
+
+**7 queries:** listRooms, getRoom, getRoomForEditor, getVersionHistory, getVersion, listTemplates, getTemplate
+
+**8 events emitted** (no consumers): room created/updated/archived/restored, version saved/published/reverted, template created
+
+### API Routes (17 total)
+
+All under `/api/v1/room-layouts/`:
+- Room CRUD: `GET /`, `POST /`, `GET /:roomId`, `PATCH /:roomId`, `DELETE /:roomId`
+- Editor: `GET /:roomId/editor`, `PUT /:roomId/draft`, `POST /:roomId/publish`, `POST /:roomId/revert`, `POST /:roomId/duplicate`
+- Versions: `GET /:roomId/versions`, `GET /:roomId/versions/:versionId`
+- Templates: `GET /templates`, `POST /templates`, `PATCH /templates/:templateId`, `DELETE /templates/:templateId`, `POST /templates/:templateId/apply`
+
+Permissions: `room_layouts.view` (read), `room_layouts.manage` (write)
+
+### Frontend Architecture
+
+**Zustand Store** (`apps/web/src/stores/room-layout-editor.ts`):
+- Room metadata, canvas objects, layers, selection, tool state, undo/redo (50 entries), viewport (zoom/pan), persistence tracking (isDirty, lastSavedAt, isSaving)
+- `loadFromSnapshot()` initializes from API, `getSnapshot()` serializes for save
+- Stage ref stored module-level (not in Zustand) for Konva PNG export
+
+**Hooks** (`apps/web/src/hooks/use-room-layouts.ts`):
+- `useRoomLayouts(options)` — room list with cursor pagination
+- `useRoomEditor(roomId)` — editor data loader (single instance per page)
+- `useRoomTemplates(filters)` — template list
+- `useRoomLayoutAutosave()` — 3s debounce autosave watching isDirty
+
+**34 components** across:
+- Editor: shell, toolbar, palette, inspector, layers, canvas, status bar, align tools, color picker, version history
+- Canvas objects: table, wall, door, text, service zone, station, generic (+ grid, selection box, snap guides, transform handler, context menu)
+- Dialogs: create room, edit room, duplicate room, publish, mode manager
+- Templates: save-as-template, template gallery (with SVG thumbnails), apply template
+
+### Key Rules
+
+1. **Always one `useRoomEditor` call per page** — duplicate calls create independent hook instances; the second instance's data never reaches the first
+2. **Publish always saves draft first** — even when `isDirty=false`, `draftVersionId` may be null after a prior publish
+3. **`applyTemplateApi` sends roomId in body** — route is `/templates/:templateId/apply`, roomId is in the POST body
+4. **`createRoomFromTemplateApi` is two-step** — create blank room with template dimensions, then apply template snapshot (backend `createRoom` has no template support)
+5. **All backgrounds use `bg-surface`** — no `bg-white` or `dark:` prefixed classes; hover states use opacity-based colors (`hover:bg-gray-200/50`)
+6. **Objects store position in feet, dimensions in pixels** — `x`/`y` are room coordinates (feet), `width`/`height` are pixels. Convert with `scalePxPerFt`.
+7. **`reassignObjectIds()` on duplicate** — generates new ULIDs for all objects and layers, preserving layerId references
+8. **Default layer ID is `'default'`** — always exists, cannot be deleted
