@@ -87,12 +87,18 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       businessDate: order.businessDate,
       subtotal: order.subtotal,
       taxTotal: order.taxTotal,
+      discountTotal: order.discountTotal ?? 0,
       total: order.total,
       lineCount: lines.length,
       customerId: order.customerId ?? null,
       lines: lines.map((l: any) => ({
         catalogItemId: l.catalogItemId,
+        catalogItemName: l.catalogItemName ?? 'Unknown',
         qty: Number(l.qty),
+        unitPrice: l.unitPrice ?? 0,
+        lineSubtotal: l.lineSubtotal ?? 0,
+        lineTax: l.lineTax ?? 0,
+        lineTotal: l.lineTotal ?? 0,
         packageComponents: l.packageComponents ?? null,
       })),
     });

@@ -8,11 +8,11 @@ interface OrderVoidedData {
   orderId: string;
   locationId: string;
   occurredAt?: string;
-  amount: number;
-  lines: Array<{
+  total: number;
+  lines?: Array<{
     catalogItemId: string;
-    quantity: number;
-    lineTotal: number;
+    qty?: number;
+    lineTotal?: number;
   }>;
 }
 
@@ -61,7 +61,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
     const businessDate = computeBusinessDate(occurredAt, timezone);
 
     // Step 3: Upsert rm_daily_sales — voids don't decrement orderCount
-    const voidAmount = data.amount;
+    const voidAmount = data.total ?? 0;
     await (tx as any).execute(sql`
       INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, void_count, void_total, net_sales, avg_order_value, updated_at)
       VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${1}, ${voidAmount}, ${-voidAmount}, ${0}, NOW())
@@ -78,17 +78,21 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
         updated_at = NOW()
     `);
 
-    // Step 4: Upsert rm_item_sales per voided line
-    for (const line of data.lines) {
-      await (tx as any).execute(sql`
-        INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_voided, void_revenue, updated_at)
-        VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${'Voided Item'}, ${line.quantity}, ${line.lineTotal}, NOW())
-        ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
-        DO UPDATE SET
-          quantity_voided = rm_item_sales.quantity_voided + ${line.quantity},
-          void_revenue = rm_item_sales.void_revenue + ${line.lineTotal},
-          updated_at = NOW()
-      `);
+    // Step 4: Upsert rm_item_sales per voided line (if lines present in payload)
+    if (data.lines) {
+      for (const line of data.lines) {
+        const qty = line.qty ?? 1;
+        const lineTotal = line.lineTotal ?? 0;
+        await (tx as any).execute(sql`
+          INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_voided, void_revenue, updated_at)
+          VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${'Voided Item'}, ${qty}, ${lineTotal}, NOW())
+          ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
+          DO UPDATE SET
+            quantity_voided = rm_item_sales.quantity_voided + ${qty},
+            void_revenue = rm_item_sales.void_revenue + ${lineTotal},
+            updated_at = NOW()
+        `);
+      }
     }
   });
 }

@@ -369,7 +369,7 @@ function TaxGroupsTab() {
         body: JSON.stringify({
           name: createName.trim(),
           locationId,
-          rateIds: createRateIds,
+          taxRateIds: createRateIds,
         }),
       });
       toast.success(`Tax group "${createName.trim()}" created`);

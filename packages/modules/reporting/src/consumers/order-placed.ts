@@ -10,22 +10,17 @@ interface OrderPlacedData {
   occurredAt?: string;
   customerId?: string;
   customerName?: string;
+  subtotal: number;
+  taxTotal: number;
+  discountTotal?: number;
+  total: number;
   lines: Array<{
     catalogItemId: string;
-    name: string;
-    quantity: number;
-    unitPrice: number;
-    lineSubtotal: number;
-    discount: number;
-    tax: number;
-    lineTotal: number;
+    catalogItemName?: string;
+    qty: number;
+    lineTotal?: number;
+    packageComponents?: unknown;
   }>;
-  totals: {
-    gross: number;
-    discount: number;
-    tax: number;
-    net: number;
-  };
 }
 
 const CONSUMER_NAME = 'reporting.orderPlaced';
@@ -72,8 +67,11 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     // Step 3: Compute business date
     const businessDate = computeBusinessDate(occurredAt, timezone);
 
-    // Step 4: Upsert rm_daily_sales
-    const { gross, discount, tax, net } = data.totals;
+    // Step 4: Upsert rm_daily_sales — map from flat event payload
+    const gross = data.subtotal ?? 0;
+    const discount = data.discountTotal ?? 0;
+    const tax = data.taxTotal ?? 0;
+    const net = data.total ?? 0;
     await (tx as any).execute(sql`
       INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, order_count, gross_sales, discount_total, tax_total, net_sales, avg_order_value, updated_at)
       VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${1}, ${gross}, ${discount}, ${tax}, ${net}, ${net}, NOW())
@@ -94,14 +92,17 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
 
     // Step 5: Upsert rm_item_sales per line
     for (const line of data.lines) {
+      const itemName = line.catalogItemName ?? 'Unknown';
+      const qty = line.qty ?? 1;
+      const lineTotal = line.lineTotal ?? 0;
       await (tx as any).execute(sql`
         INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_sold, gross_revenue, updated_at)
-        VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${line.name}, ${line.quantity}, ${line.lineTotal}, NOW())
+        VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${itemName}, ${qty}, ${lineTotal}, NOW())
         ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
         DO UPDATE SET
-          quantity_sold = rm_item_sales.quantity_sold + ${line.quantity},
-          gross_revenue = rm_item_sales.gross_revenue + ${line.lineTotal},
-          catalog_item_name = ${line.name},
+          quantity_sold = rm_item_sales.quantity_sold + ${qty},
+          gross_revenue = rm_item_sales.gross_revenue + ${lineTotal},
+          catalog_item_name = ${itemName},
           updated_at = NOW()
       `);
     }
