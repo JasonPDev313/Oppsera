@@ -38,3 +38,4 @@ export * from './reporting';
 export * from './golf-reporting';
 export * from './receiving';
 export * from './purchasing';
+export * from './room-layouts';

@@ -36,6 +36,7 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | F&B POS (dual-mode, shares orders module) | pos_fnb | V1 | Done (frontend) |
 | Restaurant KDS | kds | V2 | Planned |
 | Golf Reporting | golf_reporting | V1 | Done (read models + consumers + frontend) |
+| Room Layouts | room_layouts | V1 | Done (editor + templates + versioning) |
 | Golf Operations | golf_ops | V2 | Planned |
 
 ## Monorepo Structure
@@ -434,6 +435,24 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **Types**: `apps/web/src/types/golf-reports.ts`
   - **API routes**: full golf reports suite under `/api/v1/reports/golf/`
   - **4 test files** covering consumers and query services
+- **Room Layouts Module** (Sessions 1-13):
+  - **Backend**: `packages/modules/room-layouts/` — 3 DB tables (rooms, room_versions, room_templates) with RLS (12 policies), 8 commands (createRoom, updateRoom, archiveRoom, unarchiveRoom, saveDraft, publishVersion, revertToVersion, duplicateRoom), 5 queries (listRooms, getRoom, getRoomForEditor, getVersionHistory, listTemplates), 3 template commands (createTemplate, updateTemplate, deleteTemplate), 2 template queries (applyTemplate, listTemplates), slug generation with conflict handling
+  - **Schema**: `packages/db/src/schema/room-layouts.ts`, Migration: `0068_room_layouts.sql`
+  - **Frontend Editor** (Konva.js + react-konva): Full drag-and-drop floor plan editor with 3-layer canvas architecture (grid, objects, UI), Zustand + immer state management, 13 object types (table, chair, wall, door, window, stage, bar, buffet, dance_floor, divider, text_label, decoration, service_zone, station), snap-to-grid, multi-select with Shift+click and marquee selection, Transformer for resize/rotate, context menu, z-index manipulation, copy/paste/duplicate (Ctrl+C/V/D), undo/redo with 50-entry history cap
+  - **Canvas Objects**: TableNode (shape-aware: round/square/rectangle/oval with seat count + table number), WallNode, DoorNode, TextNode, ServiceZoneNode (dashed border with label), StationNode (color-coded circle markers: POS/Wait/Bus/Host/Bar), GenericNode (fallback)
+  - **Panels**: PalettePanel (drag-to-add with 5 groups: Tables, Seating, Walls & Doors, Zones & Service, Stations), InspectorPanel (dynamic property editing per object type), LayersPanel (CRUD, visibility/lock toggles, drag reorder), AlignTools (6 align + 2 distribute options for multi-select)
+  - **Templates**: SaveAsTemplateDialog (name, description, category), TemplateGallery (portal dialog with search + category filter, SVG thumbnails), ApplyTemplateDialog (two-step: select → confirm), template CRUD API
+  - **Version History**: VersionHistory sidebar (list versions with numbers, publish notes, restore), PublishDialog (publish with optional note)
+  - **Room Modes**: ModeManagerDialog (CRUD modes, set default, copy from existing), mode selector in toolbar
+  - **Export**: PNG export (Konva `stage.toDataURL()` with 2x pixel ratio), JSON snapshot export
+  - **Validation**: Room validation (name 1-100, dimensions 5-500ft, grid 0.25-10ft, scale 5-100px/ft), object validation (valid types, bounds check, seat requirements), publish validation (min 1 object, table numbers, capacity > 0, overlap detection)
+  - **Error Boundary**: CanvasErrorBoundary wraps Konva Stage — on crash shows "Canvas Error" with "Reload Editor" button, preserves snapshot in Zustand
+  - **Floor Plan Viewer**: Read-only Konva component with auto-fit scaling for embedding in other views
+  - **Code-split**: `page.tsx` = thin `next/dynamic` wrapper, heavy content in `editor-content.tsx` / `room-layouts-content.tsx`
+  - **Integration**: `room_layouts` in MODULE_REGISTRY, entitlement-gated sidebar under Settings, permission seeds (Owner/Manager: view+manage, Supervisor: view+manage, Cashier/Server/Staff: view), onboarding provisioning for restaurant/golf/hybrid business types
+  - **Hooks**: `useRoomLayouts`, `useRoom`, `useRoomEditor`, `useRoomTemplates`, `useRoomLayoutAutosave`
+  - **API routes**: 12 routes under `/api/v1/room-layouts/` (rooms CRUD, draft, publish, revert, duplicate, editor, versions, templates)
+  - **199 tests** across 11 test files (store: 65, validation: 61, canvas utils: 41, templates: 10, helpers: 11, export: 11)
 - **Speed Improvements** (Session 24):
   - **POS catalog optimization**: new `getCatalogForPOS` single-query loader in `packages/modules/catalog/src/queries/get-catalog-for-pos.ts` — replaces multiple API calls with one optimized query
   - **New API route**: `POST /api/v1/catalog/pos` — POS-optimized catalog endpoint
@@ -470,7 +489,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **New tax test scenarios**: 9+ test cases in `test/business-logic/unit/calculations/tax.test.ts` covering inclusive/exclusive, compound, rounding, cart totals
 
 ### Test Coverage
-797 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers + 246 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management)
+1198 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers + 246 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 202 other (business-logic unit tests)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -611,6 +630,13 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 116. **POS loading paths use `isSwitching` guard** — when `useRegisterTabs` loads from cache or server, `isSwitching.current = true` blocks the sync-back effect during the rehydration window. Released via `requestAnimationFrame` after order fetches are dispatched. Without this, the sync-back effect races with order rehydration and clears orderId.
 117. **`placeOrder()` recovers from "already placed" 409** — when a preemptive placeOrder races with handleSubmit, the second call gets a 409. Instead of clearing the order via `handleMutationError`, `doPlace()` catches the 409, fetches the placed order, and returns it as success. TenderDialog's `handleSubmit` also has a fallback: on placeOrder failure, it re-fetches the order and continues if status is 'placed'.
 118. **TenderDialog preemptive placeOrder pattern** — when TenderDialog opens, it fires `onPlaceOrder()` in a useEffect so the order is placed by the time the user enters an amount and clicks Pay. `handleSubmit` awaits `placePromiseRef.current` (the preemptive promise) to avoid double-calling. Both `placeOrder()` (via `placingPromise.current`) and TenderDialog (via `placePromiseRef.current`) deduplicate concurrent place calls.
+119. **Room Layout editor uses 3-layer Konva architecture** — GridLayer (cached, not redrawn per frame), ObjectLayer (filtered by layer visibility, sorted by zIndex), UI Layer (Transformer + SelectionBox). All in `apps/web/src/components/room-layouts/editor/canvas/`.
+120. **Room Layout store stage ref is module-level** — `setEditorStageRef()` / `getEditorStageRef()` live outside the Zustand store to avoid serialization issues. CanvasArea registers in a useEffect, EditorShell reads for PNG export.
+121. **Room Layout objects store position in feet, dimensions in pixels** — `x`/`y` are in feet (room coordinate system), `width`/`height` are in pixels. Convert with `scalePxPerFt`. Konva renders at `x * scalePxPerFt`, `y * scalePxPerFt`.
+122. **Room Layout templates use SVG thumbnails** — `TemplateThumbnail` renders a lightweight SVG preview, not a full Konva mini-stage. `computeFitScale` ensures the room fits within the thumbnail dimensions.
+123. **Room Layout validation is warning-based** — out-of-bounds objects and missing table numbers are warnings, not errors. Only duplicate IDs and missing required fields are errors. `validateForPublish` returns both levels.
+124. **Room Layout error boundary preserves data** — `CanvasErrorBoundary` wraps only the Konva `<Stage>`. On canvas crash, Zustand state (snapshot) is preserved. "Reload Editor" button resets the error boundary without losing data.
+125. **Room Layout dialogs are portal-based** — all dialogs (SaveAsTemplate, ApplyTemplate, ModeManager, VersionHistory, CreateRoom) use `createPortal(... , document.body)` with z-50, matching the POS dialog pattern.
 
 ## Quick Commands
 

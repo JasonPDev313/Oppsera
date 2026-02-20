@@ -1,0 +1,12 @@
+export { createRoom } from './create-room';
+export { updateRoom } from './update-room';
+export { archiveRoom } from './archive-room';
+export { unarchiveRoom } from './unarchive-room';
+export { saveDraft } from './save-draft';
+export { publishVersion } from './publish-version';
+export { revertToVersion } from './revert-to-version';
+export { createTemplate } from './create-template';
+export { updateTemplate } from './update-template';
+export { deleteTemplate } from './delete-template';
+export { applyTemplate } from './apply-template';
+export { duplicateRoom } from './duplicate-room';
