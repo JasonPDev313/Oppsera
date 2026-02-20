@@ -477,6 +477,20 @@
       "when": 1708100067000,
       "tag": "0067_query_audit_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1708100068000,
+      "tag": "0068_item_price_includes_tax",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1708100069000,
+      "tag": "0069_drop_tax_group_calc_mode",
+      "breakpoints": true
     }
   ]
 }

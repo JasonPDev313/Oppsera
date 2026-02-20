@@ -174,7 +174,7 @@ function HierarchyPane({
             onClick={() => setAddMode(true)}
             className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-400/50 px-3 py-2 text-sm text-gray-500 transition-colors hover:border-indigo-500/50 hover:text-indigo-500"
           >
-            <Plus className="h-4 w-4" /> Add {title.replace(/s$/, '')}
+            <Plus className="h-4 w-4" /> Add {title.replace(/ies$/, 'y').replace(/s$/, '')}
           </button>
         )}
       </div>
