@@ -110,9 +110,12 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     const normalizedEmail = email.toLowerCase().trim();
     const trimmedName = name.trim();
 
-    const { data, error } = await this.supabase.auth.signUp({
+    // Use admin API to create user with auto-confirm — avoids email verification
+    // requirement that blocks login on hosted Supabase.
+    const { data, error } = await this.supabase.auth.admin.createUser({
       email: normalizedEmail,
       password,
+      email_confirm: true,
     });
 
     if (error) {
