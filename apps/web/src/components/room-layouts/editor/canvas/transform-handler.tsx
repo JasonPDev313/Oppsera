@@ -61,8 +61,8 @@ export function TransformHandler({ stageRef }: TransformHandlerProps) {
       node.scaleX(1);
       node.scaleY(1);
 
-      let newWidth = Math.max(MIN_SIZE_FT * scalePxPerFt, node.width() * scaleX);
-      let newHeight = Math.max(MIN_SIZE_FT * scalePxPerFt, node.height() * scaleY);
+      const newWidth = Math.max(MIN_SIZE_FT * scalePxPerFt, node.width() * scaleX);
+      const newHeight = Math.max(MIN_SIZE_FT * scalePxPerFt, node.height() * scaleY);
 
       let newX = node.x() / scalePxPerFt;
       let newY = node.y() / scalePxPerFt;

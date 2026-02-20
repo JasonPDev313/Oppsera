@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { apiFetch, setTokens, clearTokens, getStoredToken } from '@/lib/api-client';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { apiFetch, ApiError, setTokens, clearTokens, getStoredToken } from '@/lib/api-client';
 
 interface AuthUserProfile {
   id: string;
@@ -52,6 +52,8 @@ export function useAuth() {
   const [locations, setLocations] = useState<LocationProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const retryCount = useRef(0);
+
   const fetchMe = useCallback(async () => {
     const token = getStoredToken();
     if (!token) {
@@ -64,11 +66,30 @@ export function useAuth() {
       setUser(response.data.user);
       setTenant(response.data.tenant);
       setLocations(response.data.locations);
-    } catch {
-      setUser(null);
-      setTenant(null);
-      setLocations([]);
-      clearTokens();
+      retryCount.current = 0;
+    } catch (err) {
+      // Only clear tokens on actual auth failures (401).
+      // Transient server errors (500, network, DB timeout) should NOT log the user out.
+      const isAuthFailure = err instanceof ApiError && err.statusCode === 401;
+
+      if (isAuthFailure) {
+        setUser(null);
+        setTenant(null);
+        setLocations([]);
+        clearTokens();
+      } else if (retryCount.current < 2) {
+        // Retry up to 2 times for transient errors (cold start, DB pool exhaustion)
+        retryCount.current += 1;
+        const delay = retryCount.current * 1500; // 1.5s, 3s
+        setTimeout(() => { fetchMe(); }, delay);
+        return; // Don't set isLoading false yet — still retrying
+      } else {
+        // Exhausted retries — clear state but keep tokens so user can refresh
+        setUser(null);
+        setTenant(null);
+        setLocations([]);
+        retryCount.current = 0;
+      }
     } finally {
       setIsLoading(false);
     }

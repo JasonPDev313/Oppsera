@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard } from 'lucide-react';
+import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard, Grid3X3, List } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
@@ -736,9 +736,103 @@ const MODULES = [
   { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
 ];
 
+function ModuleStatusBadge({ mod, enabled, hasEntitlement }: { mod: typeof MODULES[number]; enabled: boolean; hasEntitlement: boolean }) {
+  const isComingSoon = mod.phase !== 'v1';
+  if (isComingSoon) {
+    return (
+      <span className="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700">
+        Coming Soon
+      </span>
+    );
+  }
+  if (enabled) {
+    return (
+      <span className="inline-flex rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-700">
+        Active
+      </span>
+    );
+  }
+  if (hasEntitlement) {
+    return (
+      <span className="inline-flex rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-600">
+        Disabled
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex rounded-full bg-gray-500/15 px-2 py-0.5 text-xs font-medium text-gray-500">
+      Not Enabled
+    </span>
+  );
+}
+
+function ModuleActions({
+  mod,
+  enabled: _enabled,
+  hasEntitlement,
+  enablingModule,
+  togglingModule,
+  canEnable,
+  canDisable,
+  onEnable,
+  onToggle,
+}: {
+  mod: typeof MODULES[number];
+  enabled?: boolean;
+  hasEntitlement: boolean;
+  enablingModule: string | null;
+  togglingModule: string | null;
+  canEnable: boolean;
+  canDisable: boolean;
+  onEnable: (key: string) => void;
+  onToggle: (key: string, enable: boolean) => void;
+}) {
+  if (canEnable && !hasEntitlement) {
+    return (
+      <button
+        type="button"
+        onClick={() => onEnable(mod.key)}
+        disabled={enablingModule === mod.key}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+      >
+        {enablingModule === mod.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+        Enable
+      </button>
+    );
+  }
+  if (canEnable && hasEntitlement) {
+    return (
+      <button
+        type="button"
+        onClick={() => onToggle(mod.key, true)}
+        disabled={togglingModule === mod.key}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+      >
+        {togglingModule === mod.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+        Enable
+      </button>
+    );
+  }
+  if (canDisable) {
+    return (
+      <button
+        type="button"
+        onClick={() => onToggle(mod.key, false)}
+        disabled={togglingModule === mod.key}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+      >
+        {togglingModule === mod.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+        Disable
+      </button>
+    );
+  }
+  return null;
+}
+
 function ModulesTab() {
   const [enablingModule, setEnablingModule] = useState<string | null>(null);
   const [togglingModule, setTogglingModule] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { entitlements, isModuleEnabled, refetch: refetchEntitlements } = useEntitlementsContext();
   const { can } = usePermissions();
 
@@ -778,123 +872,170 @@ function ModulesTab() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900">Modules</h2>
-      <p className="mt-1 text-sm text-gray-500">
-        Modules enabled for your account. Enable available modules or contact support for upgrades.
-      </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">Modules</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Modules enabled for your account. Enable available modules or contact support for upgrades.
+          </p>
+        </div>
+        <div className="flex items-center rounded-lg border border-gray-200 p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode('grid')}
+            className={`rounded-md p-1.5 ${viewMode === 'grid' ? 'bg-gray-200/70 text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+            title="Grid view"
+          >
+            <Grid3X3 className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`rounded-md p-1.5 ${viewMode === 'list' ? 'bg-gray-200/70 text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+            title="List view"
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {MODULES.map((mod) => {
-          const ent = entitlements.get(mod.key);
-          const enabled = isModuleEnabled(mod.key);
-          const isComingSoon = mod.phase !== 'v1';
-          const isCore = mod.key === 'platform_core';
-          const hasEntitlement = !!ent;
-          const canEnable = !isComingSoon && !enabled && !isCore && can('settings.update');
-          const canDisable = enabled && !isCore && can('settings.update');
+      {viewMode === 'grid' ? (
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {MODULES.map((mod) => {
+            const ent = entitlements.get(mod.key);
+            const enabled = isModuleEnabled(mod.key);
+            const isComingSoon = mod.phase !== 'v1';
+            const isCore = mod.key === 'platform_core';
+            const hasEntitlement = !!ent;
+            const canEnable = !isComingSoon && !enabled && !isCore && can('settings.update');
+            const canDisable = enabled && !isCore && can('settings.update');
 
-          return (
-            <div
-              key={mod.key}
-              className={`rounded-lg border p-4 ${
-                enabled
-                  ? 'border-gray-200 bg-surface'
-                  : 'border-gray-100 bg-gray-50'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <h3 className={`text-sm font-semibold ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>
-                  {mod.name}
-                </h3>
-                <div className="flex gap-1.5">
-                  {isComingSoon ? (
-                    <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                      Coming Soon
-                    </span>
-                  ) : enabled ? (
-                    <span className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                      Active
-                    </span>
-                  ) : hasEntitlement ? (
-                    <span className="inline-flex rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                      Disabled
-                    </span>
-                  ) : (
-                    <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                      Not Enabled
-                    </span>
-                  )}
+            return (
+              <div
+                key={mod.key}
+                className={`rounded-lg border p-4 ${
+                  enabled
+                    ? 'border-gray-200 bg-surface'
+                    : 'border-gray-200/60 bg-gray-500/5'
+                }`}
+              >
+                <div className="flex items-start justify-between">
+                  <h3 className={`text-sm font-semibold ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {mod.name}
+                  </h3>
+                  <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} />
+                </div>
+                <p className={`mt-1.5 text-xs ${enabled ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {mod.description}
+                </p>
+                {ent && enabled && Object.keys(ent.limits).length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {Object.entries(ent.limits).map(([key, value]) => (
+                      <span
+                        key={key}
+                        className="inline-flex rounded bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-700"
+                      >
+                        {value} {key.replace('max_', '').replace('_', ' ')}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {ent && (
+                  <p className="mt-2 text-xs text-gray-400">
+                    Plan: {ent.planTier}
+                  </p>
+                )}
+                <div className="mt-3">
+                  <ModuleActions
+                    mod={mod}
+                    enabled={enabled}
+                    hasEntitlement={hasEntitlement}
+                    enablingModule={enablingModule}
+                    togglingModule={togglingModule}
+                    canEnable={canEnable}
+                    canDisable={canDisable}
+                    onEnable={handleEnableModule}
+                    onToggle={handleToggleModule}
+                  />
                 </div>
               </div>
-              <p className={`mt-1.5 text-xs ${enabled ? 'text-gray-500' : 'text-gray-400'}`}>
-                {mod.description}
-              </p>
-              {ent && enabled && Object.keys(ent.limits).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {Object.entries(ent.limits).map(([key, value]) => (
-                    <span
-                      key={key}
-                      className="inline-flex rounded bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700"
-                    >
-                      {value} {key.replace('max_', '').replace('_', ' ')}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {ent && (
-                <p className="mt-2 text-xs text-gray-400">
-                  Plan: {ent.planTier}
-                </p>
-              )}
-              {canEnable && !hasEntitlement && (
-                <button
-                  type="button"
-                  onClick={() => handleEnableModule(mod.key)}
-                  disabled={enablingModule === mod.key}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {enablingModule === mod.key ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Plus className="h-3 w-3" />
-                  )}
-                  Enable
-                </button>
-              )}
-              {canEnable && hasEntitlement && (
-                <button
-                  type="button"
-                  onClick={() => handleToggleModule(mod.key, true)}
-                  disabled={togglingModule === mod.key}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {togglingModule === mod.key ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Plus className="h-3 w-3" />
-                  )}
-                  Enable
-                </button>
-              )}
-              {canDisable && (
-                <button
-                  type="button"
-                  onClick={() => handleToggleModule(mod.key, false)}
-                  disabled={togglingModule === mod.key}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                >
-                  {togglingModule === mod.key ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <X className="h-3 w-3" />
-                  )}
-                  Disable
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="mt-6 overflow-hidden rounded-lg border border-gray-200">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-500/5">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Module</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
+                <th className="hidden px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:table-cell">Plan</th>
+                <th className="hidden px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 md:table-cell">Limits</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {MODULES.map((mod) => {
+                const ent = entitlements.get(mod.key);
+                const enabled = isModuleEnabled(mod.key);
+                const isComingSoon = mod.phase !== 'v1';
+                const isCore = mod.key === 'platform_core';
+                const hasEntitlement = !!ent;
+                const canEnable = !isComingSoon && !enabled && !isCore && can('settings.update');
+                const canDisable = enabled && !isCore && can('settings.update');
+
+                return (
+                  <tr key={mod.key} className="hover:bg-gray-200/30">
+                    <td className="px-4 py-3">
+                      <p className={`text-sm font-medium ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>{mod.name}</p>
+                      <p className={`mt-0.5 text-xs ${enabled ? 'text-gray-500' : 'text-gray-400'}`}>{mod.description}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} />
+                    </td>
+                    <td className="hidden px-4 py-3 sm:table-cell">
+                      {ent ? (
+                        <span className="text-xs text-gray-500">{ent.planTier}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400">&mdash;</span>
+                      )}
+                    </td>
+                    <td className="hidden px-4 py-3 md:table-cell">
+                      {ent && enabled && Object.keys(ent.limits).length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {Object.entries(ent.limits).map(([key, value]) => (
+                            <span
+                              key={key}
+                              className="inline-flex rounded bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-700"
+                            >
+                              {value} {key.replace('max_', '').replace('_', ' ')}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">&mdash;</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <ModuleActions
+                        mod={mod}
+                        enabled={enabled}
+                        hasEntitlement={hasEntitlement}
+                        enablingModule={enablingModule}
+                        togglingModule={togglingModule}
+                        canEnable={canEnable}
+                        canDisable={canDisable}
+                        onEnable={handleEnableModule}
+                        onToggle={handleToggleModule}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

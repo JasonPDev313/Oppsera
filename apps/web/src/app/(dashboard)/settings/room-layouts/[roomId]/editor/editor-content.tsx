@@ -25,7 +25,6 @@ export default function EditorContent() {
     setLastSavedAt,
     setPublishing,
     isPublishing,
-    isDirty,
   } = useEditorStore();
 
   // Fetch on mount

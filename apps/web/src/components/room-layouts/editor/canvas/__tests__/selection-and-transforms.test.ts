@@ -44,7 +44,6 @@ describe('Drag bounds clamping', () => {
     const maxX = state().widthFt - objWidthFt;
 
     state().updateObject(obj.id, { x: 50 });
-    const updated = state().objects[0]!;
     // Store doesn't clamp — clamping happens in the UI layer (dragEnd / nudge)
     // This test verifies the clamping formula
     const clampedX = Math.max(0, Math.min(50, maxX));

@@ -5,10 +5,6 @@ import { Rect } from 'react-konva';
 import type Konva from 'konva';
 import { useEditorStore } from '@/stores/room-layout-editor';
 
-interface SelectionBoxProps {
-  stageRef: React.RefObject<Konva.Stage | null>;
-}
-
 interface MarqueeState {
   isDrawing: boolean;
   startX: number;

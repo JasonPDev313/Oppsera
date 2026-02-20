@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Search, MoreHorizontal, Pencil, Copy, Archive, RotateCcw, LayoutDashboard } from 'lucide-react';
-import { useRoomLayouts, createRoomApi, archiveRoomApi, unarchiveRoomApi, duplicateRoomApi } from '@/hooks/use-room-layouts';
+import { useRoomLayouts, archiveRoomApi, unarchiveRoomApi } from '@/hooks/use-room-layouts';
 import type { RoomRow } from '@/types/room-layouts';
 import { CreateRoomDialog } from '@/components/room-layouts/dialogs/create-room-dialog';
 import { EditRoomDialog } from '@/components/room-layouts/dialogs/edit-room-dialog';
