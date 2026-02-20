@@ -1,4 +1,4 @@
-import { eq, and, lt, ilike, desc, asc } from 'drizzle-orm';
+import { eq, and, lt, ilike, asc } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { floorPlanRooms, floorPlanVersions } from '../schema';
 

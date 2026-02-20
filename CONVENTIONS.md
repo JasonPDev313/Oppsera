@@ -4122,3 +4122,23 @@ Permissions: `room_layouts.view` (read), `room_layouts.manage` (write)
 6. **Objects store position in feet, dimensions in pixels** — `x`/`y` are room coordinates (feet), `width`/`height` are pixels. Convert with `scalePxPerFt`.
 7. **`reassignObjectIds()` on duplicate** — generates new ULIDs for all objects and layers, preserving layerId references
 8. **Default layer ID is `'default'`** — always exists, cannot be deleted
+
+---
+
+## 48. Auth Troubleshooting (Vercel / Supabase)
+
+Three issues that can stack to create a login redirect loop on Vercel:
+
+### Issue 1: Seeded users don't exist in Supabase Auth
+The seed script creates users in the app's `users` table but NOT in Supabase Auth (`auth.users`). Locally with `DEV_AUTH_BYPASS=true`, the `DevAuthAdapter` bypasses Supabase entirely so it works fine. On Vercel (production), `SupabaseAuthAdapter` calls `supabase.auth.signInWithPassword()` which checks Supabase Auth — users won't exist there. Use the `/api/v1/auth/link-account` endpoint (or `supabase.auth.admin.createUser()`) to create the Supabase Auth account and update `authProviderId` in the `users` table.
+
+### Issue 2: `validateToken()` swallowing DB errors as 401s
+On Vercel cold starts, DB connection timeouts can occur. If `validateToken()` catches ALL errors and returns `null`, DB timeouts become false 401s, which clear tokens and bounce users to login. The catch block must ONLY return `null` for `jwt.JsonWebTokenError` and `jwt.TokenExpiredError`. All other errors must be re-thrown so middleware returns 500, not 401.
+
+### Issue 3: `login()` not waiting for `/api/v1/me`
+The login function must await the `/api/v1/me` call (with retries) BEFORE returning. If it fires `fetchMe()` as fire-and-forget, `router.push('/dashboard')` executes with `user=null` and the dashboard redirects back to `/login`. Use an inline await-based retry (not `setTimeout`).
+
+### Prevention
+- **Local dev**: Use `npx supabase start` for a fully local Postgres + Auth stack, or keep `DEV_AUTH_BYPASS=true` and avoid re-seeding the remote DB
+- **`authProviderId`**: Must match the Supabase Auth user's UUID (`sub` claim in JWT). Seeded users have null `authProviderId` — they must be linked before Vercel login works
+- **Diagnostic endpoint**: `/api/v1/auth/debug` traces the full auth chain (DB connectivity, env vars, JWT verify, user lookup by `authProviderId`)

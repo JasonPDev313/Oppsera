@@ -12,7 +12,8 @@
       "Bash(powershell.exe -Command \"Stop-Process -Id 1722680 -Force\")",
       "Bash(golf \")",
       "Bash(printf:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(wmic:*)"
     ]
   }
 }
