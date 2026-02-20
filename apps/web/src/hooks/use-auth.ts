@@ -105,8 +105,36 @@ export function useAuth() {
       body: JSON.stringify({ email, password }),
     });
     setTokens(response.data.accessToken, response.data.refreshToken);
-    await fetchMe();
-  }, [fetchMe]);
+
+    // Fetch user profile with await-based retry for Vercel cold starts.
+    // Unlike fetchMe() (which uses fire-and-forget setTimeout retry and never throws),
+    // this inline retry blocks until success or throws on exhaustion — so the login
+    // page won't redirect to /dashboard until user state is actually populated.
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const meResponse = await apiFetch<MeResponse>('/api/v1/me');
+        setUser(meResponse.data.user);
+        setTenant(meResponse.data.tenant);
+        setLocations(meResponse.data.locations);
+        setIsLoading(false);
+        return; // Success — login page can now safely redirect
+      } catch (err) {
+        lastError = err;
+        // Auth failure (401) means tokens are bad — don't retry
+        if (err instanceof ApiError && err.statusCode === 401) {
+          clearTokens();
+          throw err;
+        }
+        // Transient error — wait and retry (1.5s, 3s)
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 1500));
+        }
+      }
+    }
+    // All retries exhausted — throw so login page shows error instead of redirecting
+    throw lastError;
+  }, []);
 
   const signup = useCallback(async (email: string, password: string, name: string) => {
     await apiFetch<SignupResponse>('/api/v1/auth/signup', {
