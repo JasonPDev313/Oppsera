@@ -88,7 +88,7 @@ oppsera/
 @oppsera/web           ← all packages (orchestration layer — only place that imports multiple modules)
 ```
 
-**NOTE**: Cross-module deps were eliminated in the architecture decoupling pass. Shared helpers (`checkIdempotency`, `saveIdempotencyKey`, `fetchOrderForMutation`, `incrementVersion`, `calculateTaxes`, `CatalogReadApi`) now live in `@oppsera/core/helpers/`. Order and catalog modules provide thin re-exports for backward compat. Event payloads are self-contained: `order.placed.v1` includes `customerId` and `lines[]`, `order.voided.v1` includes `locationId`/`businessDate`/`total`, `tender.recorded.v1` includes `customerId`.
+**NOTE**: Cross-module deps were eliminated in the architecture decoupling pass. Shared helpers (`checkIdempotency`, `saveIdempotencyKey`, `fetchOrderForMutation`, `incrementVersion`, `calculateTaxes`, `CatalogReadApi`) now live in `@oppsera/core/helpers/`. Pure domain math with no external deps (`computePackageAllocations`) lives in `@oppsera/shared/src/utils/`. Order and catalog modules provide thin re-exports for backward compat. Event payloads are self-contained: `order.placed.v1` includes `customerId` and `lines[]`, `order.voided.v1` includes `locationId`/`businessDate`/`total`, `tender.recorded.v1` includes `customerId`.
 
 ## Key Architectural Patterns
 
@@ -470,7 +470,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **New tax test scenarios**: 9+ test cases in `test/business-logic/unit/calculations/tax.test.ts` covering inclusive/exclusive, compound, rounding, cart totals
 
 ### Test Coverage
-797 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers + 246 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management)
+812 tests: 134 core + 68 catalog + 52 orders + 37 shared + 100 customers + 246 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -490,6 +490,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
 - Run migrations 0066-0067 on dev DB
+- ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
 
 ## Critical Gotchas (Quick Reference)
 
@@ -622,6 +623,10 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
    curl -X PATCH "$SUPABASE_URL/rest/v1/users?email=eq.<email>" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d '{"auth_provider_id":"<uuid>"}'
    ```
    `DEV_AUTH_BYPASS=true` bypasses all of this on localhost — lookup is by email only, password ignored.
+121. **`computePackageAllocations` lives in `@oppsera/shared`, not a module** — pure math, no DB, no side effects. Lives at `packages/shared/src/utils/package-allocation.ts`, exported from `@oppsera/shared`. Import it from any module without violating cross-module rules. Do NOT place pure allocation logic in a module package — it can't be shared from there.
+122. **`addLineItem` now populates `packageComponents` for ALL packages** — previously always `null`, now enriched with `componentUnitPriceCents`, `componentExtendedCents`, `allocatedRevenueCents`, and `allocationWeight` for every package item. This activated the existing inventory component deduction in the inventory consumer (gotcha #20) for both `fixed` and `sum_of_components` pricing modes. For `fixed` mode, component prices are fetched live from catalog at order time.
+123. **Package component prices are fetched outside the transaction** — `addLineItem` resolves component prices (via `catalogApi.getEffectivePrice()`, batched with `Promise.all`) before entering the `publishWithOutbox` transaction. This avoids N serial DB round-trips inside the transaction and prevents lock contention. Always keep non-mutating reads outside the transaction boundary.
+124. **Reporting consumer splits component revenue for enriched packages** — `handleOrderPlaced` checks `packageComponents[0].allocatedRevenueCents != null`. If present, records each component separately in `rm_item_sales` using `allocatedRevenueCents / 100` as dollars. If absent (old packages, null components), falls back to recording the package line itself — backward-compatible.
 
 ## Quick Commands
 

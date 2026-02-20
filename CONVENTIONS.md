@@ -1351,6 +1351,13 @@ metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 
 Shared metadata types: `FnbMetadata`, `RetailMetadata`, `ServiceMetadata`, `PackageMetadata`, `CatalogItemMetadata` (union). Defined in `packages/shared/src/types/catalog-metadata.ts`, re-exported by `@oppsera/shared`.
 
+`PackageMetadata` key fields:
+- `isPackage: true` — presence flag; detected by `addLineItem` and POS tap handler
+- `pricingMode?: 'fixed' | 'sum_of_components'` — `fixed` = manual price; `sum_of_components` = computed from component sum
+- `packageComponents[].componentUnitPrice?: number` — component price override in **dollars** stored in catalog; if absent, `addLineItem` fetches live price via `catalogApi.getEffectivePrice()` at order time
+
+Revenue allocation helper: `computePackageAllocations(packageSalePriceCents, components)` in `@oppsera/shared`. Called by `addLineItem` to produce `allocatedRevenueCents` per component stored on `order_lines.packageComponents`.
+
 ### Junction Table `isDefault` Pattern
 
 When a many-to-many junction needs to distinguish default vs optional associations, add a boolean flag on the junction table itself (not in metadata):
@@ -1548,7 +1555,7 @@ apps/web/src/components/pos/
 ├── CustomerAttachment.tsx   # Customer search/attach/detach
 ├── ModifierDialog.tsx       # F&B item configurator (fractions, modifiers, notes)
 ├── OptionPickerDialog.tsx   # Retail option set picker (required validation)
-├── PackageConfirmDialog.tsx # Package component list with type badges
+├── PackageConfirmDialog.tsx # Package component list; pricing table in sum_of_components mode
 ├── PriceOverrideDialog.tsx  # Price override with reason + manager PIN
 ├── ServiceChargeDialog.tsx  # Service charge (percentage/fixed, taxable)
 ├── DiscountDialog.tsx       # Discount (percentage/fixed with preview)
@@ -1581,7 +1588,7 @@ Retail uses `normal`, F&B uses `large`. This keeps the component reusable while 
 | `FnbLineItem`     | Modifiers, special instructions, fraction picker | +/- cycling `allowedFractions` |
 | `RetailLineItem`  | Selected options (Size: M, Color: Blue)          | None (qty=1)                   |
 | `ServiceLineItem` | Duration from metadata                           | None (qty=1)                   |
-| `PackageLineItem` | "Includes: item1, item2, ..." from components    | None (qty=1)                   |
+| `PackageLineItem` | "Includes: item1, item2, ..." from components. In `sum_of_components` mode shows per-component unit price and allocation %. | None (qty=1) |
 
 All renderers show: price override indicator (strikethrough + new price + reason badge), notes, line total with tax.
 
@@ -2384,7 +2391,7 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 
 ### Test Coverage
 
-792 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 10 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + golf-reporting tests
+812 tests: 134 core + 68 catalog + 52 orders + 37 shared (22 original + 15 package-allocation) + 100 customers + 246 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management)
 
 ### What's Next
 
@@ -2393,6 +2400,7 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - Receiving frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
 - Settings → Dashboard tab (widget toggles, notes editor)
 - Run migrations 0060-0065 on dev DB
+- ~~Package "Price as sum of components"~~ ✓ DONE (Session 27)
 
 ---
 

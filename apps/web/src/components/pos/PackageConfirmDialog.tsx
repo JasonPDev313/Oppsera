@@ -15,6 +15,10 @@ function formatPrice(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function formatDollars(dollars: number): string {
+  return `$${dollars.toFixed(2)}`;
+}
+
 // ── Component ─────────────────────────────────────────────────────
 
 interface PackageConfirmDialogProps {
@@ -35,6 +39,15 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
   }, [item]);
 
   const components = useMemo(() => metadata.packageComponents ?? [], [metadata]);
+  const isSumMode = metadata.pricingMode === 'sum_of_components';
+
+  const componentsSubtotal = useMemo(() => {
+    if (!isSumMode) return null;
+    return components.reduce(
+      (sum, c) => sum + (c.componentUnitPrice ?? 0) * c.qty,
+      0,
+    );
+  }, [components, isSumMode]);
 
   // ── Keyboard & focus ──────────────────────────────────────────
 
@@ -94,38 +107,88 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
         <div className="px-6 py-4">
           <p className="mb-3 text-sm font-medium text-gray-700">This package includes:</p>
 
-          <ul className="space-y-2">
-            {components.map((comp) => {
-              const typeGroup = getItemTypeGroup(comp.itemType);
-              const badge = ITEM_TYPE_BADGES[typeGroup];
+          {isSumMode && components.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-xs text-gray-500">
+                  <th className="pb-1 text-left font-medium">Item</th>
+                  <th className="pb-1 text-right font-medium">Unit</th>
+                  <th className="pb-1 text-right font-medium">Qty</th>
+                  <th className="pb-1 text-right font-medium">Extended</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {components.map((comp) => {
+                  const unitPrice = comp.componentUnitPrice ?? 0;
+                  const extended = unitPrice * comp.qty;
+                  const subtotal = componentsSubtotal ?? 1;
+                  const allocPct = subtotal > 0 ? Math.round((extended / subtotal) * 100) : 0;
+                  const typeGroup = getItemTypeGroup(comp.itemType);
+                  const badge = ITEM_TYPE_BADGES[typeGroup];
 
-              return (
-                <li
-                  key={comp.catalogItemId}
-                  className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-400">&bull;</span>
-                    <span className="text-sm text-gray-900">
-                      {comp.itemName} ({comp.qty}x)
-                    </span>
-                  </div>
-                  <Badge variant={badge.variant}>{badge.label}</Badge>
-                </li>
-              );
-            })}
-          </ul>
+                  return (
+                    <tr key={comp.catalogItemId}>
+                      <td className="py-1.5 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant={badge.variant} className="text-xs">{badge.label}</Badge>
+                          <span className="text-gray-900">{comp.itemName}</span>
+                        </div>
+                      </td>
+                      <td className="py-1.5 text-right text-gray-600">{formatDollars(unitPrice)}</td>
+                      <td className="py-1.5 text-right text-gray-600">{comp.qty}</td>
+                      <td className="py-1.5 text-right">
+                        <span className="font-medium text-gray-900">{formatDollars(extended)}</span>
+                        <span className="ml-1 text-xs text-gray-400">({allocPct}%)</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr className="border-t border-gray-200">
+                  <td colSpan={3} className="pt-2 text-sm font-medium text-gray-700">Total</td>
+                  <td className="pt-2 text-right text-base font-semibold text-gray-900">
+                    {formatDollars(componentsSubtotal ?? 0)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          ) : (
+            <>
+              <ul className="space-y-2">
+                {components.map((comp) => {
+                  const typeGroup = getItemTypeGroup(comp.itemType);
+                  const badge = ITEM_TYPE_BADGES[typeGroup];
 
-          {components.length === 0 && (
-            <p className="text-sm text-gray-400 italic">No components listed.</p>
+                  return (
+                    <li
+                      key={comp.catalogItemId}
+                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-400">&bull;</span>
+                        <span className="text-sm text-gray-900">
+                          {comp.itemName} ({comp.qty}x)
+                        </span>
+                      </div>
+                      <Badge variant={badge.variant}>{badge.label}</Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {components.length === 0 && (
+                <p className="text-sm text-gray-400 italic">No components listed.</p>
+              )}
+
+              <div className="mt-4 border-t border-gray-200 pt-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Package price:</span>
+                  <span className="text-lg font-semibold text-gray-900">{formatPrice(item.price)}</span>
+                </div>
+              </div>
+            </>
           )}
-
-          <div className="mt-4 border-t border-gray-200 pt-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">Package price:</span>
-              <span className="text-lg font-semibold text-gray-900">{formatPrice(item.price)}</span>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}

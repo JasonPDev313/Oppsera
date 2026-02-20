@@ -4,6 +4,14 @@ import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
 import { computeBusinessDate } from '../business-date';
 
+interface PackageComponent {
+  catalogItemId: string;
+  itemName?: string;
+  catalogItemName?: string;
+  qty: number;
+  allocatedRevenueCents?: number;
+}
+
 interface OrderPlacedData {
   orderId: string;
   locationId: string;
@@ -19,7 +27,7 @@ interface OrderPlacedData {
     catalogItemName?: string;
     qty: number;
     lineTotal?: number;
-    packageComponents?: unknown;
+    packageComponents?: PackageComponent[] | null;
   }>;
 }
 
@@ -90,21 +98,45 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
         updated_at = NOW()
     `);
 
-    // Step 5: Upsert rm_item_sales per line
+    // Step 5: Upsert rm_item_sales per line (or per component for enriched packages)
     for (const line of data.lines) {
-      const itemName = line.catalogItemName ?? 'Unknown';
-      const qty = line.qty ?? 1;
-      const lineTotal = line.lineTotal ?? 0;
-      await (tx as any).execute(sql`
-        INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_sold, gross_revenue, updated_at)
-        VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${itemName}, ${qty}, ${lineTotal}, NOW())
-        ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
-        DO UPDATE SET
-          quantity_sold = rm_item_sales.quantity_sold + ${qty},
-          gross_revenue = rm_item_sales.gross_revenue + ${lineTotal},
-          catalog_item_name = ${itemName},
-          updated_at = NOW()
-      `);
+      const comps = line.packageComponents;
+      const hasComponentAllocation =
+        comps && comps.length > 0 && comps[0]!.allocatedRevenueCents != null;
+
+      if (hasComponentAllocation) {
+        // Package with allocation: record each component's revenue separately
+        for (const comp of comps!) {
+          const compName = comp.itemName ?? comp.catalogItemName ?? 'Unknown';
+          const compQty = comp.qty ?? 1;
+          const compRevenueDollars = (comp.allocatedRevenueCents ?? 0) / 100;
+          await (tx as any).execute(sql`
+            INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_sold, gross_revenue, updated_at)
+            VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${comp.catalogItemId}, ${compName}, ${compQty}, ${compRevenueDollars}, NOW())
+            ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
+            DO UPDATE SET
+              quantity_sold = rm_item_sales.quantity_sold + ${compQty},
+              gross_revenue = rm_item_sales.gross_revenue + ${compRevenueDollars},
+              catalog_item_name = ${compName},
+              updated_at = NOW()
+          `);
+        }
+      } else {
+        // Regular item OR package without allocation (backward-compat): record line itself
+        const itemName = line.catalogItemName ?? 'Unknown';
+        const qty = line.qty ?? 1;
+        const lineTotal = line.lineTotal ?? 0;
+        await (tx as any).execute(sql`
+          INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_sold, gross_revenue, updated_at)
+          VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${itemName}, ${qty}, ${lineTotal}, NOW())
+          ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
+          DO UPDATE SET
+            quantity_sold = rm_item_sales.quantity_sold + ${qty},
+            gross_revenue = rm_item_sales.gross_revenue + ${lineTotal},
+            catalog_item_name = ${itemName},
+            updated_at = NOW()
+        `);
+      }
     }
 
     // Step 6: Upsert rm_customer_activity (if customerId present)
