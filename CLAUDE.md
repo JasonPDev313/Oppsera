@@ -611,6 +611,17 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 116. **POS loading paths use `isSwitching` guard** — when `useRegisterTabs` loads from cache or server, `isSwitching.current = true` blocks the sync-back effect during the rehydration window. Released via `requestAnimationFrame` after order fetches are dispatched. Without this, the sync-back effect races with order rehydration and clears orderId.
 117. **`placeOrder()` recovers from "already placed" 409** — when a preemptive placeOrder races with handleSubmit, the second call gets a 409. Instead of clearing the order via `handleMutationError`, `doPlace()` catches the 409, fetches the placed order, and returns it as success. TenderDialog's `handleSubmit` also has a fallback: on placeOrder failure, it re-fetches the order and continues if status is 'placed'.
 118. **TenderDialog preemptive placeOrder pattern** — when TenderDialog opens, it fires `onPlaceOrder()` in a useEffect so the order is placed by the time the user enters an amount and clicks Pay. `handleSubmit` awaits `placePromiseRef.current` (the preemptive promise) to avoid double-calling. Both `placeOrder()` (via `placingPromise.current`) and TenderDialog (via `placePromiseRef.current`) deduplicate concurrent place calls.
+119. **`vercel.json` must not duplicate Vercel Dashboard settings** — When the Dashboard sets `rootDirectory: apps/web`, any `outputDirectory`, `buildCommand`, or `installCommand` in `vercel.json` are resolved *relative to that root*. Setting `outputDirectory: "apps/web/.next"` creates a double-nested path (`/vercel/path0/apps/web/apps/web/.next`) and breaks the build. Keep `vercel.json` minimal — only `$schema` and `regions`. All build/install/output/framework settings live in the Dashboard (or Vercel API) only. **Correct Dashboard settings for this monorepo**: Root Directory = `apps/web`, Framework = Next.js, Install Command = `cd ../.. && pnpm install`, Build Command = `cd ../.. && pnpm turbo build --filter=@oppsera/web...`, Output Directory = default (leave blank).
+120. **`db:seed` does NOT create Supabase Auth users** — the seed creates app-level DB records only (`users` table, memberships, etc.) and leaves `users.auth_provider_id` as null. The production `SupabaseAuthAdapter.validateToken()` looks up users by `auth_provider_id` — if it's null, login silently fails even with valid Supabase credentials (the frontend just clears the form). To fix for a new environment: (1) create the Supabase Auth user via admin API (or confirm it already exists), (2) update the app's users table to link the UUID. Quick recovery commands:
+   ```bash
+   # 1. Find the Supabase Auth UUID for the user
+   curl "$SUPABASE_URL/auth/v1/admin/users" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY"
+   # 2. Reset their password if needed
+   curl -X PUT "$SUPABASE_URL/auth/v1/admin/users/<uuid>" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d '{"password":"<newpassword>"}'
+   # 3. Link the UUID to the app's users table
+   curl -X PATCH "$SUPABASE_URL/rest/v1/users?email=eq.<email>" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d '{"auth_provider_id":"<uuid>"}'
+   ```
+   `DEV_AUTH_BYPASS=true` bypasses all of this on localhost — lookup is by email only, password ignored.
 
 ## Quick Commands
 
