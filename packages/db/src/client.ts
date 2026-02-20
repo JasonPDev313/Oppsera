@@ -18,7 +18,7 @@ function getDb(): DrizzleDB {
     }
     const client = postgres(connectionString, {
       max: parseInt(process.env.DB_POOL_MAX || '5', 10),
-      prepare: process.env.DB_PREPARE_STATEMENTS !== 'true',
+      prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
     });
     globalForDb.__oppsera_db = drizzle(client, { schema });
   }
@@ -69,7 +69,7 @@ export function createAdminClient() {
     }
     const adminConn = postgres(adminUrl, {
       max: parseInt(process.env.DB_ADMIN_POOL_MAX || '3', 10),
-      prepare: process.env.DB_PREPARE_STATEMENTS !== 'true',
+      prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
     });
     globalForAdmin.__oppsera_admin_db = drizzle(adminConn, { schema });
   }
