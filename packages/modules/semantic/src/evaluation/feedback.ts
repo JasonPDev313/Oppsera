@@ -12,6 +12,7 @@ import type {
   AdminReviewInput,
   PromoteExampleInput,
   FeedbackTag,
+  QualityFlag,
 } from './types';
 import { computeQualityScore, computeQualityFlags } from './capture';
 
@@ -46,12 +47,12 @@ export async function submitUserRating(
 
   // Compute updated quality score with the new user rating
   const adminScore = turn.adminScore !== null ? turn.adminScore : undefined;
-  const existingFlags = Array.isArray(turn.qualityFlags) ? turn.qualityFlags as string[] : [];
+  const existingFlags = Array.isArray(turn.qualityFlags) ? turn.qualityFlags as QualityFlag[] : [];
 
   const updatedPartial = {
     userRating: input.rating ?? (turn.userRating !== null ? turn.userRating : undefined),
     adminScore: adminScore,
-    qualityFlags: existingFlags as string[],
+    qualityFlags: existingFlags as QualityFlag[],
     rowCount: turn.rowCount,
     executionError: turn.executionError,
     llmConfidence: turn.llmConfidence !== null ? Number(turn.llmConfidence) : null,
@@ -74,7 +75,7 @@ export async function submitUserRating(
       userFeedbackText: input.text ?? turn.userFeedbackText,
       userFeedbackTags: input.tags ?? turn.userFeedbackTags as FeedbackTag[],
       userFeedbackAt: now,
-      qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : turn.qualityFlags as string[],
+      qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : turn.qualityFlags as QualityFlag[],
       qualityScore: newScore !== null ? newScore.toString() : turn.qualityScore,
       updatedAt: now,
     })
@@ -109,7 +110,7 @@ export async function submitAdminReview(
   const updatedPartial = {
     adminScore: input.score,
     userRating: turn.userRating !== null ? turn.userRating : undefined,
-    qualityFlags: Array.isArray(turn.qualityFlags) ? turn.qualityFlags as string[] : [],
+    qualityFlags: Array.isArray(turn.qualityFlags) ? turn.qualityFlags as QualityFlag[] : [],
     rowCount: turn.rowCount,
     executionError: turn.executionError,
     llmConfidence: turn.llmConfidence !== null ? Number(turn.llmConfidence) : null,
@@ -135,7 +136,7 @@ export async function submitAdminReview(
       adminCorrectedNarrative: input.correctedNarrative ?? null,
       adminReviewedAt: now,
       adminActionTaken: input.actionTaken,
-      qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : turn.qualityFlags as string[],
+      qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : turn.qualityFlags as QualityFlag[],
       qualityScore: newScore !== null ? newScore.toString() : turn.qualityScore,
       updatedAt: now,
     })
