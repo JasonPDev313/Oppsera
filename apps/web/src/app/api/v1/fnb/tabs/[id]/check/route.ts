@@ -7,7 +7,7 @@ import { getCheckSummary } from '@oppsera/module-fnb';
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const parts = new URL(request.url).pathname.split('/');
-    const tabId = parts[parts.length - 2]!;
+    const _tabId = parts[parts.length - 2]!;
     const url = new URL(request.url);
     const orderId = url.searchParams.get('orderId');
 

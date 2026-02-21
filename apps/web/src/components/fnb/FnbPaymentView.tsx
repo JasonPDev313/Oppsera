@@ -15,7 +15,7 @@ interface FnbPaymentViewProps {
   userId: string;
 }
 
-export function FnbPaymentView({ userId }: FnbPaymentViewProps) {
+export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const { tab } = useFnbTab({ tabId });

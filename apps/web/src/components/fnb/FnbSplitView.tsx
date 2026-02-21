@@ -16,7 +16,7 @@ interface FnbSplitViewProps {
   userId: string;
 }
 
-export function FnbSplitView({ userId }: FnbSplitViewProps) {
+export function FnbSplitView({ userId: _userId }: FnbSplitViewProps) {
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const workspace = store.splitWorkspace;

@@ -37,7 +37,7 @@ export function FnbFloorView({ userId }: FnbFloorViewProps) {
   const [seatTargetTable, setSeatTargetTable] = useState<FnbTableWithStatus | null>(null);
   const [actionMenuTable, setActionMenuTable] = useState<FnbTableWithStatus | null>(null);
 
-  const selectedTable = useMemo(
+  const _selectedTable = useMemo(
     () => tables.find((t) => t.tableId === selectedTableId) ?? null,
     [tables, selectedTableId],
   );

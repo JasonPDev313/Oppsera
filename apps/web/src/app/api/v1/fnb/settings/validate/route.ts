@@ -6,7 +6,7 @@ import { validateFnbSettings, validateFnbSettingsSchema } from '@oppsera/module-
 
 // POST /api/v1/fnb/settings/validate — validate settings without saving
 export const POST = withMiddleware(
-  async (request: NextRequest, ctx) => {
+  async (request: NextRequest, _ctx) => {
     const body = await request.json();
     const parsed = validateFnbSettingsSchema.safeParse(body);
     if (!parsed.success) {

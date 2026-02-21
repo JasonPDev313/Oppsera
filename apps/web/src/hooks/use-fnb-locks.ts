@@ -144,8 +144,7 @@ export function useSoftLock({
     return () => {
       stopRenewing();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityId, autoAcquire]);
+  }, [entityId, autoAcquire]); // eslint-disable-line
 
   // Release on unmount
   useEffect(() => {
@@ -155,8 +154,7 @@ export function useSoftLock({
         apiFetch(`/api/v1/fnb/locks/${myLock.lockId}/release`, { method: 'POST' }).catch(() => {});
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myLock?.lockId]);
+  }, [myLock?.lockId]); // eslint-disable-line
 
   return {
     myLock,

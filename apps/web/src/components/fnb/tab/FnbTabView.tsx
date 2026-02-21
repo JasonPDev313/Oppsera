@@ -13,7 +13,7 @@ interface FnbTabViewProps {
   userId: string;
 }
 
-export function FnbTabView({ userId }: FnbTabViewProps) {
+export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const activeSeat = store.activeSeatNumber;

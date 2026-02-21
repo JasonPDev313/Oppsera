@@ -1,7 +1,6 @@
 'use client';
 
 import type { KdsTicketItem } from '@/types/fnb';
-import { DeltaBadge } from './DeltaBadge';
 
 interface TicketItemRowProps {
   item: KdsTicketItem;

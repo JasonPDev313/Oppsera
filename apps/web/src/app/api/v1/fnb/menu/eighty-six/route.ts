@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { eightySixItem, eightySixItemSchema, restoreItem, restoreItemSchema } from '@oppsera/module-fnb';
+import { eightySixItem, eightySixItemSchema } from '@oppsera/module-fnb';
 
 // POST /api/v1/fnb/menu/eighty-six — 86 an item
 export const POST = withMiddleware(

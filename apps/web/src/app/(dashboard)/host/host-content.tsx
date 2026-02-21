@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useFnbFloor } from '@/hooks/use-fnb-floor';
 import { useFnbSections } from '@/hooks/use-fnb-sections';

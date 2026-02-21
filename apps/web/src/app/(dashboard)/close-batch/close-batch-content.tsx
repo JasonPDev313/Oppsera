@@ -28,7 +28,7 @@ export default function CloseBatchContent() {
     startBatch,
     lockBatch,
     postBatch,
-    reconcileBatch,
+    reconcileBatch: _reconcileBatch,
     recordCashCount,
   } = useCloseBatch({ closeBatchId: activeBatchId ?? undefined });
 
