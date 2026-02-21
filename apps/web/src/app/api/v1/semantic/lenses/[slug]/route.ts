@@ -10,6 +10,7 @@ import {
   reactivateCustomLens,
   LensNotFoundError,
   SystemLensModificationError,
+  type UpdateLensInput,
 } from '@oppsera/module-semantic/lenses';
 import { getLens } from '@oppsera/module-semantic/registry';
 
@@ -88,7 +89,7 @@ export const PATCH = withMiddleware(
     }
 
     try {
-      const lens = await updateCustomLens({ tenantId: ctx.tenantId, slug, ...parsed.data });
+      const lens = await updateCustomLens({ tenantId: ctx.tenantId, slug, ...parsed.data } as UpdateLensInput);
       return NextResponse.json({ data: lens });
     } catch (err) {
       if (err instanceof LensNotFoundError) {
