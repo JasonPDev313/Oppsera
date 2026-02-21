@@ -96,7 +96,7 @@ export class DrizzleAuditLogger implements AuditLogger {
       entityId: row.entity_id as string,
       changes: row.changes as Record<string, { old: unknown; new: unknown }> | undefined,
       metadata: row.metadata as Record<string, unknown> | undefined,
-      createdAt: (row.created_at as Date).toISOString(),
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
     }));
 
     let cursor: string | undefined;

@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { and, eq, max } from 'drizzle-orm';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { getOrdersWriteApi } from '@oppsera/core/helpers/orders-write-api';
 import { AppError, NotFoundError, ValidationError } from '@oppsera/shared';
-import { db, orders, registerTabs } from '@oppsera/db';
-import { addLineItem, openOrder } from '@oppsera/module-orders';
 import {
   PMS_PERMISSIONS,
   checkIn,
   getFolioByReservation,
   getReservation,
 } from '@oppsera/module-pms';
+import { createRegisterTabWithAutoNumber } from '@/lib/register-tab-helpers';
 
 const checkInToPosSchema = z.object({
   terminalId: z.string().min(1),
@@ -59,6 +58,7 @@ export const POST = withMiddleware(
       ]);
     }
 
+    // Only call checkIn if not already checked in
     if (existing.status !== 'CHECKED_IN') {
       if (!existing.roomId) {
         throw new ValidationError('Room must be assigned before check-in', [
@@ -71,82 +71,63 @@ export const POST = withMiddleware(
       });
     }
 
-    const reservation = await getReservation(ctx.tenantId, reservationId);
+    // Parallel: re-fetch reservation + folio at the same time
+    const [reservation, folio] = await Promise.all([
+      getReservation(ctx.tenantId, reservationId),
+      getFolioByReservation(ctx.tenantId, reservationId),
+    ]);
     if (!reservation) {
       throw new NotFoundError('Reservation', reservationId);
     }
 
-    const folio = await getFolioByReservation(ctx.tenantId, reservationId);
     const balanceDueCents = Math.max(0, Number(folio?.summary.balanceDue ?? reservation.totalCents));
     const guestName = normalizeGuestName(reservation.guestFirstName, reservation.guestLastName);
     const displayGuestName = guestName || reservation.guestEmail || `Reservation ${reservation.id.slice(-6)}`;
 
-    const order = await openOrder(ctx, {
+    // Metadata passed inline — no separate DB update needed
+    const ordersApi = getOrdersWriteApi();
+    const order = await ordersApi.openOrder(ctx, {
       source: 'pos',
       terminalId: parsed.data.terminalId,
       employeeId: ctx.user.id,
       customerId: reservation.guestCustomerId ?? undefined,
       notes: `PMS reservation ${reservation.id}`,
+      metadata: {
+        sourceModule: 'pms',
+        reservationId: reservation.id,
+        folioId: folio?.id ?? null,
+        propertyId: reservation.propertyId,
+      },
     });
 
-    await db
-      .update(orders)
-      .set({
-        metadata: {
-          sourceModule: 'pms',
-          reservationId: reservation.id,
-          folioId: folio?.id ?? null,
-          propertyId: reservation.propertyId,
-        },
-        updatedBy: ctx.user.id,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(orders.id, order.id), eq(orders.tenantId, ctx.tenantId)));
-
-    if (balanceDueCents > 0) {
-      await addLineItem(ctx, order.id, {
-        catalogItemId: parsed.data.catalogItemId,
-        qty: 1,
-        priceOverride: {
-          unitPrice: balanceDueCents,
-          reason: 'custom',
-          approvedBy: ctx.user.id,
-        },
-        notes: `PMS reservation ${reservation.id} balance due`,
-      });
-    }
-
-    const [tabAgg] = await db
-      .select({ maxTab: max(registerTabs.tabNumber) })
-      .from(registerTabs)
-      .where(
-        and(
-          eq(registerTabs.tenantId, ctx.tenantId),
-          eq(registerTabs.terminalId, parsed.data.terminalId),
-        ),
-      );
-
-    const nextTabNumber = Number(tabAgg?.maxTab ?? 0) + 1;
-    const [tab] = await db
-      .insert(registerTabs)
-      .values({
-        tenantId: ctx.tenantId,
+    // Parallel: add line item + create register tab (tab only needs order.id)
+    const [, tab] = await Promise.all([
+      balanceDueCents > 0
+        ? ordersApi.addLineItem(ctx, order.id, {
+            catalogItemId: parsed.data.catalogItemId,
+            qty: 1,
+            priceOverride: {
+              unitPrice: balanceDueCents,
+              reason: 'custom',
+              approvedBy: ctx.user.id,
+            },
+            notes: `PMS reservation ${reservation.id} balance due`,
+          })
+        : Promise.resolve(null),
+      createRegisterTabWithAutoNumber(ctx, {
         terminalId: parsed.data.terminalId,
-        tabNumber: nextTabNumber,
         orderId: order.id,
         label: displayGuestName.slice(0, 50),
-        employeeId: ctx.user.id,
-        employeeName: ctx.user.name ?? null,
-      })
-      .returning();
+      }),
+    ]);
 
     return NextResponse.json({
       data: {
         reservationId: reservation.id,
         status: reservation.status,
         orderId: order.id,
-        tabId: tab!.id,
-        tabNumber: tab!.tabNumber,
+        tabId: tab.id,
+        tabNumber: tab.tabNumber,
         terminalId: parsed.data.terminalId,
         customerId: reservation.guestCustomerId ?? null,
         balanceDueCents,

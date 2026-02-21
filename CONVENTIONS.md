@@ -5387,3 +5387,481 @@ apps/web/src/
 - **Draft lines in Zustand**: unsent items stored locally in store, committed on "Send" via API.
 - **CSS design tokens**: all colors via `var(--fnb-*)`, responsive overrides via `@media` in `fnb-design-tokens.css`.
 
+## 87. Profit Centers & Terminal Architecture
+
+### Overview
+
+Profit centers are business-operational units (Bar, Restaurant, Pro Shop) that group terminals under a location. The 5-level hierarchy: **Tenant → Site → Venue → Profit Center → Terminal**.
+
+### Database Tables
+
+The DB table is `terminal_locations` (historical name), but the domain concept is **Profit Center**. The `title` column maps to `name` in TypeScript.
+
+```
+terminal_locations (profit centers)
+├── id, tenant_id, location_id (FK → locations)
+├── title (→ "name" in API), code, description, icon
+├── tips_applicable, sort_order, is_active
+├── receipt config: default_merchant/customer_receipt_print/type
+└── Indexes: (tenant_id, location_id) WHERE is_active
+
+terminals
+├── id, tenant_id, terminal_location_id (FK → terminal_locations)
+├── title (→ "name"), terminal_number, device_identifier, ip_address
+├── location_id (FK → locations), is_active
+├── settings: pin lock, auto-logout, signature tip, seat count, etc.
+└── Indexes: (tenant_id, location_id), (tenant_id, terminal_location_id)
+```
+
+Additional tables: `terminalCardReaders`, `terminalCardReaderSettings`, `dayEndClosings`, `dayEndClosingPaymentTypes`, `dayEndClosingCashCounts`, `terminalLocationTipSuggestions`, `terminalLocationFloorPlans`, `drawerEvents`, `registerNotes`, `printers`, `printJobs`.
+
+### Location Hierarchy
+
+```sql
+-- locations table additions (migration 0095)
+parent_location_id TEXT REFERENCES locations(id)
+location_type TEXT DEFAULT 'site'  -- 'site' or 'venue'
+
+-- Constraints:
+-- chk_location_type: location_type IN ('site', 'venue')
+-- chk_location_parent_consistency:
+--   site → parent_location_id IS NULL
+--   venue → parent_location_id IS NOT NULL
+```
+
+### Module Location
+
+```
+packages/core/src/profit-centers/
+├── commands/
+│   ├── create-profit-center.ts      # With site-level guardrail
+│   ├── update-profit-center.ts
+│   ├── deactivate-profit-center.ts
+│   ├── ensure-default-profit-center.ts  # Idempotent find-or-create (code='DEFAULT')
+│   ├── create-terminal.ts
+│   ├── update-terminal.ts
+│   └── deactivate-terminal.ts
+├── queries/
+│   ├── list-profit-centers.ts       # With locationId filter + terminalCount
+│   ├── get-profit-center.ts
+│   ├── list-terminals.ts
+│   ├── get-terminal.ts
+│   ├── list-terminals-by-location.ts  # Joins through terminal_locations
+│   └── get-terminal-selection-data.ts # Hierarchical selection data
+├── types.ts                         # ProfitCenter, Terminal, TerminalSession
+├── validation.ts                    # Zod schemas (allowSiteLevel flag)
+└── index.ts                         # Re-exports
+```
+
+### Key Patterns
+
+**Site-level guardrail**: `createProfitCenter` checks if the location is a site with child venues. Rejects with 422 unless `allowSiteLevel: true`. Frontend shows warning banner + confirmation checkbox.
+
+**Default profit center**: `ensureDefaultProfitCenter(ctx, locationId)` is idempotent — matches on `code = 'DEFAULT'` (not title, which users can rename). Returns `{ id, created }`. Used by Simple mode in the settings UI.
+
+**`effectiveLocationId` resolution**: In the settings UI orchestrator:
+```typescript
+const effectiveLocationId = selectedVenueId
+  ?? (selectedSiteId && !selectedSiteHasVenues ? selectedSiteId : null);
+```
+
+### API Routes
+
+```
+GET/POST /api/v1/profit-centers              # List (with ?locationId filter) / Create
+GET/PATCH/DELETE /api/v1/profit-centers/:id   # Detail / Update / Deactivate
+POST /api/v1/profit-centers/ensure-default    # Idempotent find-or-create Default PC
+GET/POST /api/v1/profit-centers/:id/terminals # List / Create terminals
+GET/PATCH/DELETE /api/v1/terminals/:id        # Terminal detail / Update / Deactivate
+GET /api/v1/terminals/by-location             # Terminals across all PCs at a location
+GET /api/v1/terminal-session/locations        # Selection screen: sites + venues
+GET /api/v1/terminal-session/profit-centers   # Selection screen: PCs for location
+GET /api/v1/terminal-session/terminals        # Selection screen: terminals for PC
+```
+
+### Frontend Components
+
+**Settings 3-panel layout** (`/settings/profit-centers`):
+- `LocationsPane` — read-only site/venue tree, expand/collapse, auto-expand single site
+- `ProfitCenterPane` — CRUD list, selection highlight, MoreVertical menu, code badge, terminal count pill
+- `TerminalPane` — CRUD list, terminal number badge, device identifier
+- `profit-centers-content.tsx` — orchestrator with Simple/Advanced mode toggle (localStorage), selection cascade, site-level warning banner
+
+**Terminal session flow** (on POS entry):
+- `TerminalSelectionScreen` — full-screen 4-level cascading selection, auto-selects single options
+- `TerminalSessionProvider` — React Context + `localStorage('oppsera:terminal-session')`
+- `useTerminalSelection` — hook managing all 4 selection levels with derived state
+
+### Key Rules
+
+1. **Never expose `title`** — always map to `name` in queries and API responses
+2. **Profit centers use `isActive` soft-delete** — never hard-delete from `terminal_locations`
+3. **Terminal session is required for POS** — all POS operations read from `TerminalSessionProvider` context
+4. **`ensureDefaultProfitCenter` matches on `code`, not `title`** — users can rename the Default PC
+5. **Selection cascade resets downstream** — selecting a site clears venue, profit center, and terminal selections
+
+## 88. Admin Tenant Management
+
+### Overview
+
+Platform admin feature for managing tenants, their organizational hierarchy, and module entitlements. Accessible at `/tenants` in the admin app. Uses `withAdminAuth` middleware (NOT tenant-scoped `withMiddleware`).
+
+### Admin Context
+
+Admin routes that call core commands need a `RequestContext`:
+
+```typescript
+// apps/admin/src/lib/admin-context.ts
+export function buildAdminCtx(session: AdminSession, tenantId: string): RequestContext {
+  return {
+    tenantId,
+    user: { id: `admin:${session.adminId}`, email: session.email, ... },
+    requestId: `admin-${generateUlid()}`,
+    isPlatformAdmin: true,
+  };
+}
+```
+
+### API Routes (12 endpoints)
+
+```
+GET/POST /api/v1/tenants                          # List (cursor pagination) / Create
+GET/PATCH /api/v1/tenants/:id                      # Detail (with counts) / Update
+GET/POST /api/v1/tenants/:id/locations             # Location CRUD
+PATCH/DELETE /api/v1/tenants/:id/locations/:locId  # Update / Delete location
+GET/POST /api/v1/tenants/:id/profit-centers        # PC CRUD (calls core commands)
+PATCH/DELETE /api/v1/tenants/:id/profit-centers/:pcId
+GET/POST /api/v1/tenants/:id/terminals             # Terminal CRUD (calls core commands)
+PATCH/DELETE /api/v1/tenants/:id/terminals/:tId
+GET/PATCH /api/v1/tenants/:id/entitlements         # Module access management
+```
+
+### Frontend Components
+
+- **OrgHierarchyBuilder**: 4-column grid managing Sites → Venues → Profit Centers → Terminals with cascading selection and modal forms
+- **HierarchyPanel**: Generic reusable panel (title, item list, selected highlight, create button)
+- **EntitlementToggleList**: Toggle switches per module with plan tier dropdown
+- **CreateTenantModal**: Name, slug (uniqueness-checked), status, timezone, first site name
+
+### Key Rules
+
+1. **Always use `buildAdminCtx`** when admin routes call core commands
+2. **Slug uniqueness** is enforced at the API level with 409 Conflict response
+3. **Tenant creation** atomically creates the tenant + initial site in one transaction
+4. **All admin modals use `createPortal`** to `document.body` with z-50
+
+## 89. Cross-Module Write APIs
+
+### Pattern
+
+For modules that need to write to another module's domain (e.g., PMS creating orders), use a cross-module write API singleton:
+
+```typescript
+// packages/core/src/helpers/{module}-write-api.ts
+interface OrdersWriteApi {
+  openOrder(ctx: RequestContext, input: OpenOrderInput): Promise<{ id: string }>;
+  addLineItem(ctx: RequestContext, orderId: string, input: AddLineInput): Promise<void>;
+}
+let _instance: OrdersWriteApi | null = null;
+export function setOrdersWriteApi(api: OrdersWriteApi) { _instance = api; }
+export function getOrdersWriteApi(): OrdersWriteApi { return _instance!; }
+
+// apps/web/src/lib/orders-bootstrap.ts — wired in instrumentation.ts
+setOrdersWriteApi({ openOrder: ..., addLineItem: ... });
+```
+
+### Existing Cross-Module APIs
+
+| API | Location | Purpose |
+|-----|----------|---------|
+| `CatalogReadApi` | `@oppsera/core/helpers/catalog-read-api` | Read catalog items from orders/POS |
+| `AccountingPostingApi` | `@oppsera/core/helpers/accounting-posting-api` | Post GL entries from AP/AR/POS |
+| `OrdersWriteApi` | `@oppsera/core/helpers/orders-write-api` | Create/modify orders from PMS |
+
+### Key Rules
+
+1. **Interface lives in `@oppsera/core/helpers/`** — never in a module package
+2. **Implementation lives in `apps/web/src/lib/`** — wired via instrumentation.ts
+3. **Getter throws if not initialized** — ensures bootstrap ran before use
+4. **Read APIs are singleton getter/setter** — same pattern as write APIs
+
+## 90. Entitlement Access Modes
+
+### Three-Mode Access Control
+
+Entitlements evolved from binary (on/off) to three-mode:
+
+| Mode | Meaning |
+|------|---------|
+| `off` | Module fully disabled — middleware blocks all requests |
+| `view` | Read-only access — GETs allowed, mutations blocked |
+| `full` | Full access — all operations allowed |
+
+### Types
+
+```typescript
+// packages/core/src/entitlements/registry.ts
+export type AccessMode = 'off' | 'view' | 'full';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
+export type ModuleCategory = 'core' | 'commerce' | 'operations' | 'finance' | 'analytics' | 'integrations';
+```
+
+### Module Definitions
+
+Each module in `MODULE_REGISTRY` now includes:
+
+```typescript
+interface ModuleDefinition {
+  key: string;
+  name: string;
+  phase: 'v1' | 'v2' | 'v3';
+  description: string;
+  dependencies: string[];      // Must be view or full before this module can activate
+  riskLevel: RiskLevel;         // high/critical require a reason to change
+  supportsViewMode: boolean;    // Some modules are all-or-nothing (payments, platform_core)
+  category: ModuleCategory;     // Grouping for admin UI
+}
+```
+
+### Middleware: `writeAccess` Option
+
+```typescript
+// Read endpoint — allows VIEW mode through
+withMiddleware(handler, { entitlement: 'catalog' });
+
+// Write endpoint — blocks VIEW mode with 403
+withMiddleware(handler, { entitlement: 'catalog', writeAccess: true });
+```
+
+`requireEntitlementWrite(moduleKey)` throws `ModuleViewOnlyError` (403) when mode is `view`.
+
+### Dependency Validation
+
+```typescript
+// packages/core/src/entitlements/dependencies.ts
+validateModeChange(moduleKey, targetMode, currentEntitlements) → DependencyCheckResult
+computeDependencyChain(moduleKey) → ModuleDefinition[]
+```
+
+- **Enabling a module**: all `dependencies` must be `view` or `full` (not `off`)
+- **Disabling a module**: all dependents must already be `off` — NO auto-cascade
+- **Reason required**: `riskLevel === 'high' || 'critical'` when setting mode to `off`
+- Both functions are **pure** — no DB access, no side effects
+
+### Entitlement Change Log
+
+Append-only `entitlement_change_log` table tracks all mode changes with:
+- `previousMode` / `newMode`
+- `changedBy` (admin user ID)
+- `changeReason` (required for high/critical risk)
+- `changeSource` ('manual' | 'bulk' | 'system')
+
+### Key Rules
+
+1. **`platform_core` cannot be disabled** — `validateModeChange` hard-blocks `off` for it
+2. **Binary compat preserved** — `isModuleEnabled()` returns `mode !== 'off'`, so existing `requireEntitlement` middleware still works unchanged
+3. **Engine loads `accessMode` from DB** — falls back to `isEnabled ? 'full' : 'off'` for rows missing the column (pre-migration)
+4. **`ModuleViewOnlyError` is 403** — same HTTP status as `ModuleNotEnabledError`, but distinct error code `MODULE_VIEW_ONLY`
+5. **Module templates** — `module_templates` table stores preset module configurations (by business type) that admins can apply to tenants
+
+## 91. Admin Portal RBAC (Platform Admin Roles)
+
+### Overview
+
+The admin portal now has granular RBAC beyond the legacy `role` column on `platform_admins`.
+
+### Schema (migration 0097)
+
+- **`platform_admin_roles`** — named roles (Super Admin, Admin, Support, Analyst, Read-Only). `isSystem = true` for built-in roles.
+- **`platform_admin_role_permissions`** — granular permission grants per role:
+  - `module`: 'tenants' | 'users' | 'billing' | 'ai_train' | 'evaluations' | 'system'
+  - `submodule`: 'staff' | 'customers' | 'examples' | 'eval_history' | null
+  - `action`: 'view' | 'create' | 'edit' | 'invite' | 'reset_password' | 'suspend' | 'export' | 'delete'
+  - `scope`: 'global' | 'tenant' | 'self'
+- **`platform_admin_role_assignments`** — many-to-many: admins can have multiple roles
+- **`platform_admin_audit_log`** — captures all admin portal actions with before/after snapshots
+
+### Extended `platform_admins`
+
+New columns: `phone`, `status` ('active' | 'invited' | 'suspended' | 'deleted'), `invitedByAdminId`, `inviteTokenHash`, `inviteExpiresAt`, `passwordResetRequired`.
+
+### Permission Checking
+
+```typescript
+// apps/admin/src/lib/with-admin-permission.ts
+withAdminPermission(handler, { module: 'tenants', action: 'edit' })
+```
+
+### Admin Audit Logging
+
+```typescript
+// apps/admin/src/lib/admin-audit.ts
+await auditAdminAction(adminId, 'staff.created', 'staff', entityId, { before, after, reason, tenantId });
+```
+
+### Key Rules
+
+1. **Legacy `role` column preserved** — login route and `withAdminAuth` still check it for backward compat
+2. **`isActive` kept in sync with `status`** — `status = 'suspended'` → `isActive = false`
+3. **No RLS on platform tables** — these are NOT tenant-scoped
+4. **System roles cannot be deleted** — `isSystem = true` flag prevents deletion
+5. **Invite flow** — create admin with `status = 'invited'`, set `inviteTokenHash` + `inviteExpiresAt`, send invite email with token
+
+## 92. Admin User Management
+
+### Overview
+
+Admin pages for managing platform staff and tenant customers, accessible at `/users` in the admin app.
+
+### Staff Management (`/users` → Staff tab)
+
+- **API Routes**: `GET/POST /api/v1/admin/staff` (list/invite), `PATCH /api/v1/admin/staff/[id]` (update/suspend/reactivate)
+- **Commands**: `inviteStaff`, `updateStaff`, `suspendStaff`, `reactivateStaff`, `resetStaffPassword`
+- **Queries**: `listStaff`, `getStaffById`
+- **Hooks**: `useStaff` (list, pagination, search, role filter)
+
+### Customer Management (`/users` → Customers tab)
+
+- **API Routes**: `GET /api/v1/admin/customers` (list, cross-tenant search)
+- **Queries**: `searchCustomersAdmin` (cross-tenant, name/email/phone/identifier search)
+- **Hooks**: `useCustomersAdmin` (search, tenant filter, pagination)
+
+### Key Rules
+
+1. **Staff commands enforce uniqueness** — email must be unique across all platform admins
+2. **Suspend = soft-delete** — sets `status = 'suspended'`, `isActive = false`. Never hard-delete.
+3. **Admin actions are audit-logged** — every staff CRUD operation logs to `platform_admin_audit_log`
+4. **Customer queries are cross-tenant** — platform admins can search customers across all tenants (admin context, not tenant-scoped)
+
+## 93. F&B POS Improvements
+
+### Floor/Tab CSS Toggle Architecture
+
+F&B POS now uses CSS-based mount/toggle for Floor and Tab views (same pattern as the Retail/F&B dual-mount):
+
+```tsx
+// fnb-pos-content.tsx — Floor + Tab stay mounted, toggle via CSS
+<div className={currentScreen === 'floor' ? 'h-full' : 'hidden'}>
+  <FnbFloorView userId={userId} />
+</div>
+<div className={currentScreen === 'tab' ? 'h-full' : 'hidden'}>
+  <FnbTabView userId={userId} />
+</div>
+// Payment + Split still mount on-demand
+{currentScreen === 'payment' && <FnbPaymentView />}
+{currentScreen === 'split' && <FnbSplitView />}
+```
+
+### Table Grid View
+
+New `TableGridView` component provides an alternative grid-based table layout (alongside the canvas-based `FnbFloorCanvas`). Toggle between Canvas and Grid views via `LayoutGrid` / `Map` icons in the floor toolbar.
+
+### Auto-Fit Floor Canvas
+
+`FnbFloorView` now computes bounding box of all tables and auto-calculates `viewScale` to fit all tables into the viewport. No more manual zoom to find tables.
+
+### Zustand Store Updates
+
+- `fnb-pos-store.ts`: added `selectedMenuCategory` state for persistent menu category selection across screen transitions
+
+### Key Rules
+
+1. **Floor + Tab stay mounted** — prevents data loss and expensive re-fetches on screen switch
+2. **Payment + Split mount on-demand** — less frequent, acceptable to remount
+3. **`useFnbTab` hook enhanced** — now accepts `tabId` for targeted operations, improved status tracking
+4. **`useFnbMenu` hook enhanced** — persistent search term and category selection
+
+## 94. Terminal Session Integration
+
+### POS Terminal Resolution
+
+POS layout now uses the `TerminalSessionProvider` for terminal identification instead of URL params / localStorage:
+
+```typescript
+// apps/web/src/app/(dashboard)/pos/layout.tsx
+function useTerminalId(): string {
+  const { session } = useTerminalSession();
+  return session?.terminalId ?? 'POS-01';
+}
+```
+
+### Dashboard Layout Gate
+
+The dashboard layout wraps children in `TerminalSessionProvider` + `TerminalSessionGate`:
+
+```typescript
+// If no terminal session selected and not skipped, shows TerminalSelectionScreen
+<TerminalSessionProvider>
+  <TerminalSessionGate>
+    <DashboardLayoutInner>{children}</DashboardLayoutInner>
+  </TerminalSessionGate>
+</TerminalSessionProvider>
+```
+
+Users can skip terminal selection (for non-POS workflows) via the skip button.
+
+### Key Rules
+
+1. **Terminal session is required for POS** — `useTerminalId()` reads from session context, falls back to `'POS-01'`
+2. **Non-POS workflows can skip** — the `TerminalSessionGate` has a `skipped` state
+3. **Session persists in localStorage** — `oppsera:terminal-session` key, survives page refresh
+
+## 95. User Management Tab (Settings)
+
+### Overview
+
+`/settings` user management tab completely rewritten to support role assignment, permission display, and multi-location memberships.
+
+### Features
+
+- Role selector dropdown (Owner, Manager, Supervisor, Cashier, Server, Staff)
+- Location-specific membership display with status badges
+- Invite user flow with role + location selection
+- Permission summary view per role
+- User search and filter
+
+### Key Rules
+
+1. **Settings page reorganized** — heavy content moved out of `settings-content.tsx` into dedicated tab files
+2. **User management is tenant-scoped** — uses normal `withMiddleware` (not admin routes)
+3. **Role changes emit events** — for audit trail
+
+## 96. Order Metadata Support
+
+### Overview
+
+Orders now support arbitrary `metadata` (JSONB) for cross-module context:
+
+```typescript
+// Open an order with metadata
+openOrder(ctx, { ...input, metadata: { source: 'pms', reservationId: 'abc' } });
+
+// Update metadata on existing order
+updateOrder(ctx, orderId, { metadata: { guestName: 'John Doe' } });
+```
+
+### Key Rules
+
+1. **Schema**: `metadata: z.record(z.string(), z.unknown()).optional()` — Zod validates as `Record<string, unknown>`
+2. **Used by PMS integration** — `check-in-to-pos` route attaches reservation context to orders
+3. **Never query by metadata fields** — metadata is opaque JSONB for display/context, not for filtering
+
+## 97. Seed Data Updates
+
+### Location Hierarchy
+
+Seed now creates proper site → venue hierarchy:
+- **Site**: "Sunset Golf Resort" (physical address, files taxes)
+- **Venue 1**: "Main Clubhouse" (under site)
+- **Venue 2**: "South Course Pro Shop" (under site)
+
+### Profit Centers & Terminals
+
+Seed creates:
+- 2 profit centers (one per venue)
+- 2 terminals (one per profit center)
+
+### Entitlement Access Modes
+
+New `accessMode` column seeded as `'full'` for all enabled modules.
+

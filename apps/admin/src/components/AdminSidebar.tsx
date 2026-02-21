@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -7,15 +8,55 @@ import {
   ListChecks,
   BookOpen,
   AlertTriangle,
+  BrainCircuit,
+  Building2,
+  List,
+  ChevronDown,
+  ChevronRight,
   LogOut,
+  Users,
+  UserCog,
+  Shield,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
-const NAV = [
-  { href: '/eval/feed', label: 'Eval Feed', icon: ListChecks },
-  { href: '/eval/dashboard', label: 'Quality Dashboard', icon: LayoutDashboard },
-  { href: '/eval/examples', label: 'Golden Examples', icon: BookOpen },
-  { href: '/eval/patterns', label: 'Patterns', icon: AlertTriangle },
+interface NavModule {
+  label: string;
+  icon: typeof BrainCircuit;
+  prefix: string;
+  children: { href: string; label: string; icon: typeof ListChecks }[];
+}
+
+const MODULES: NavModule[] = [
+  {
+    label: 'Tenant Management',
+    icon: Building2,
+    prefix: '/tenants',
+    children: [
+      { href: '/tenants', label: 'All Tenants', icon: List },
+    ],
+  },
+  {
+    label: 'User Management',
+    icon: Users,
+    prefix: '/users',
+    children: [
+      { href: '/users/staff', label: 'Staff', icon: UserCog },
+      { href: '/users/customers', label: 'Customers', icon: Users },
+      { href: '/users/roles', label: 'Roles & Permissions', icon: Shield },
+    ],
+  },
+  {
+    label: 'Train OppsEra AI',
+    icon: BrainCircuit,
+    prefix: '/train-ai',
+    children: [
+      { href: '/train-ai/feed', label: 'Eval Feed', icon: ListChecks },
+      { href: '/train-ai/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/train-ai/examples', label: 'Golden Examples', icon: BookOpen },
+      { href: '/train-ai/patterns', label: 'Patterns', icon: AlertTriangle },
+    ],
+  },
 ];
 
 export function AdminSidebar() {
@@ -36,24 +77,10 @@ export function AdminSidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active = pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              }`}
-            >
-              <Icon size={16} />
-              {label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        {MODULES.map((mod) => (
+          <SidebarModule key={mod.prefix} module={mod} pathname={pathname} />
+        ))}
       </nav>
 
       {/* User */}
@@ -72,5 +99,49 @@ export function AdminSidebar() {
         </div>
       )}
     </aside>
+  );
+}
+
+function SidebarModule({ module: mod, pathname }: { module: NavModule; pathname: string }) {
+  const isActive = pathname.startsWith(mod.prefix);
+  const [expanded, setExpanded] = useState(isActive);
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          isActive
+            ? 'text-white bg-slate-800'
+            : 'text-slate-400 hover:text-white hover:bg-slate-800'
+        }`}
+      >
+        <mod.icon size={16} />
+        <span className="flex-1 text-left">{mod.label}</span>
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+      </button>
+
+      {expanded && (
+        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
+          {mod.children.map(({ href, label, icon: Icon }) => {
+            const active = pathname.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                  active
+                    ? 'bg-indigo-600 text-white font-medium'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Icon size={14} />
+                {label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

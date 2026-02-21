@@ -13,6 +13,7 @@ export const openOrderSchema = z.object({
   terminalId: z.string().min(1).optional(),
   employeeId: z.string().min(1).optional(),
   shiftId: z.string().min(1).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export type OpenOrderInput = z.input<typeof openOrderSchema>;
 
@@ -76,6 +77,7 @@ export const updateOrderSchema = z.object({
   ...idempotencyMixin,
   customerId: z.string().min(1).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
 

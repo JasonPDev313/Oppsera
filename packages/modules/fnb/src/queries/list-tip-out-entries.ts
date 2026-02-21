@@ -47,7 +47,7 @@ export async function listTipOutEntries(
       amountCents: Number(r.amount_cents),
       calculationMethod: r.calculation_method as string,
       calculationBasis: (r.calculation_basis as string) ?? null,
-      createdAt: (r.created_at as Date).toISOString(),
+      createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
     }));
   });
 }

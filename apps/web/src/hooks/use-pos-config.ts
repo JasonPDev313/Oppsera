@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { POSConfig } from '@/types/pos';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 
 const STORAGE_KEY_PREFIX = 'pos_config_';
 
@@ -62,6 +63,8 @@ function saveConfigToStorage(locationId: string, config: POSConfig): void {
 }
 
 export function usePOSConfig(locationId: string, defaultMode: 'retail' | 'fnb' = 'retail') {
+  const { session } = useTerminalSession();
+
   const [config, setConfigState] = useState<POSConfig | null>(() => {
     const stored = loadConfigFromStorage(locationId);
     if (stored) return { ...stored, locationId };
@@ -95,5 +98,14 @@ export function usePOSConfig(locationId: string, defaultMode: 'retail' | 'fnb' =
     [locationId],
   );
 
-  return { config, setConfig, isLoading };
+  // Override synthetic terminalId/locationId with real session values
+  const resolvedConfig = config
+    ? {
+        ...config,
+        terminalId: session?.terminalId ?? config.terminalId,
+        locationId: session?.locationId ?? config.locationId,
+      }
+    : config;
+
+  return { config: resolvedConfig, setConfig, isLoading };
 }

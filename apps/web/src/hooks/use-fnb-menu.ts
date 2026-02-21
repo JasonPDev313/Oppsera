@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
 
 // ── Types ───────────────────────────────────────────────────────
@@ -75,7 +75,10 @@ export function useFnbMenu(): UseFnbMenuReturn {
   const [activeCategoryId, setActiveCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Load catalog + allergens
+  // Track whether initial department auto-select has been done (ref to avoid re-fetch)
+  const initialDeptSetRef = useRef(false);
+
+  // Load catalog + allergens (stable callback — no state deps that trigger re-fetch)
   const fetchMenu = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -94,8 +97,9 @@ export function useFnbMenu(): UseFnbMenuReturn {
       ]);
       setAllergens(allergRes.data ?? []);
 
-      // Auto-select first department
-      if (catRes.data.departments?.length && !activeDepartmentId) {
+      // Auto-select first department only once (ref prevents re-fetch loop)
+      if (catRes.data.departments?.length && !initialDeptSetRef.current) {
+        initialDeptSetRef.current = true;
         setActiveDepartment(catRes.data.departments[0]!.id);
       }
       setError(null);
@@ -104,7 +108,7 @@ export function useFnbMenu(): UseFnbMenuReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [activeDepartmentId]);
+  }, []);
 
   useEffect(() => {
     fetchMenu();

@@ -7,7 +7,7 @@ import { authenticate, resolveTenant } from './middleware';
 import { requestContext } from './context';
 import type { RequestContext } from './context';
 import { requirePermission } from '../permissions/middleware';
-import { requireEntitlement } from '../entitlements/middleware';
+import { requireEntitlement, requireEntitlementWrite } from '../entitlements/middleware';
 import { getPermissionEngine } from '../permissions/engine';
 
 type RouteHandler = (
@@ -21,6 +21,8 @@ interface MiddlewareOptions {
   requireTenant?: boolean;
   permission?: string;
   entitlement?: string;
+  /** When true, requires FULL access mode (blocks VIEW). Default: false (allows VIEW through). */
+  writeAccess?: boolean;
   /** Cache-Control header value for GET requests. e.g., 'private, max-age=60, stale-while-revalidate=300' */
   cache?: string;
 }
@@ -97,7 +99,11 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
           }
 
           if (options?.entitlement) {
-            await requireEntitlement(options.entitlement)(ctx);
+            if (options.writeAccess) {
+              await requireEntitlementWrite(options.entitlement)(ctx);
+            } else {
+              await requireEntitlement(options.entitlement)(ctx);
+            }
           }
 
           if (options?.permission) {

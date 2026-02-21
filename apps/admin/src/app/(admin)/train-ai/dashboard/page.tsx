@@ -52,25 +52,25 @@ export default function EvalDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <QualityKpiCard
               label="Avg User Rating"
-              value={data.avgUserRating !== null ? data.avgUserRating.toFixed(1) : null}
+              value={data.avgUserRating != null ? data.avgUserRating.toFixed(1) : null}
               sub="out of 5"
             />
             <QualityKpiCard
               label="Avg Quality Score"
               value={
-                data.avgQualityScore !== null
+                data.avgQualityScore != null
                   ? `${Math.round(data.avgQualityScore * 100)}%`
                   : null
               }
             />
             <QualityKpiCard
               label="Hallucination Rate"
-              value={`${data.hallucinationRate.toFixed(1)}%`}
+              value={data.hallucinationRate != null ? `${data.hallucinationRate.toFixed(1)}%` : null}
               good="down"
             />
             <QualityKpiCard
               label="Clarification Rate"
-              value={`${data.clarificationRate.toFixed(1)}%`}
+              value={data.clarificationRate != null ? `${data.clarificationRate.toFixed(1)}%` : null}
               good="down"
             />
           </div>
@@ -78,16 +78,16 @@ export default function EvalDashboardPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <QualityKpiCard
               label="Total Turns"
-              value={data.totalTurns.toLocaleString()}
+              value={data.totalTurns != null ? data.totalTurns.toLocaleString() : '0'}
             />
             <QualityKpiCard
               label="Reviewed"
-              value={`${data.reviewedTurns} (${data.totalTurns > 0 ? Math.round((data.reviewedTurns / data.totalTurns) * 100) : 0}%)`}
+              value={`${data.reviewedTurns ?? 0} (${(data.totalTurns ?? 0) > 0 ? Math.round(((data.reviewedTurns ?? 0) / data.totalTurns!) * 100) : 0}%)`}
             />
             <QualityKpiCard
               label="Avg Exec Time"
               value={
-                data.avgExecutionTimeMs !== null ? `${Math.round(data.avgExecutionTimeMs)}ms` : null
+                data.avgExecutionTimeMs != null ? `${Math.round(data.avgExecutionTimeMs)}ms` : null
               }
             />
           </div>
@@ -149,7 +149,7 @@ export default function EvalDashboardPage() {
                       <span className="text-slate-300">{item.lensId ?? '(no lens)'}</span>
                       <div className="flex items-center gap-3 text-slate-400">
                         <span>{item.count} turns</span>
-                        {item.avgRating !== null && (
+                        {item.avgRating != null && (
                           <span className="text-amber-400">{item.avgRating.toFixed(1)}★</span>
                         )}
                         {item.topVerdict && (

@@ -60,3 +60,9 @@ export class ModuleNotEnabledError extends AppError {
     super('MODULE_NOT_ENABLED', `The ${moduleKey} module is not enabled for this account`, 403);
   }
 }
+
+export class ModuleViewOnlyError extends AppError {
+  constructor(moduleKey: string) {
+    super('MODULE_VIEW_ONLY', `The ${moduleKey} module is in view-only mode`, 403);
+  }
+}

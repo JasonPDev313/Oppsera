@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
-import { tenants } from './core';
+import { tenants, locations } from './core';
 
 // ── Terminal Locations ────────────────────────────────────────────
 
@@ -29,10 +29,19 @@ export const terminalLocations = pgTable(
     defaultMerchantReceiptType: text('default_merchant_receipt_type').default('full'),
     defaultCustomerReceiptType: text('default_customer_receipt_type').default('full'),
     tipsApplicable: boolean('tips_applicable').notNull().default(true),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    code: text('code'),
+    description: text('description'),
+    isActive: boolean('is_active').notNull().default(true),
+    icon: text('icon'),
+    sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_terminal_locations_tenant').on(table.tenantId)],
+  (table) => [
+    index('idx_terminal_locations_tenant').on(table.tenantId),
+    index('idx_terminal_locations_location').on(table.tenantId, table.locationId),
+  ],
 );
 
 // ── Terminals ────────────────────────────────────────────────────
@@ -62,11 +71,18 @@ export const terminals = pgTable(
     requiresCustomerForTable: boolean('requires_customer_for_table').notNull().default(false),
     requireSeatCountForTable: boolean('require_seat_count_for_table').notNull().default(false),
     receiptPrinterId: text('receipt_printer_id'),
+    locationId: text('location_id').references(() => locations.id),
+    terminalNumber: integer('terminal_number'),
+    deviceIdentifier: text('device_identifier'),
+    ipAddress: text('ip_address'),
+    isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('idx_terminals_tenant_location').on(table.tenantId, table.terminalLocationId),
+    index('idx_terminals_location').on(table.tenantId, table.locationId),
+    index('idx_terminals_profit_center').on(table.tenantId, table.terminalLocationId),
   ],
 );
 

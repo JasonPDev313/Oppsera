@@ -45,12 +45,17 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   const userId = user?.id ?? 'unknown';
 
   // ── Internal Screen Router (Zustand-driven) ──────────────────
-  // No URL routes — instant switch via React state for dual-mount compat.
+  // Floor + Tab stay mounted and toggle via CSS for instant switching.
+  // Payment + Split are mounted on-demand (less frequent transitions).
 
   return (
     <div className="h-full" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
-      {currentScreen === 'floor' && <FnbFloorView userId={userId} />}
-      {currentScreen === 'tab' && <FnbTabView userId={userId} />}
+      <div className={currentScreen === 'floor' ? 'h-full' : 'hidden'}>
+        <FnbFloorView userId={userId} />
+      </div>
+      <div className={currentScreen === 'tab' ? 'h-full' : 'hidden'}>
+        <FnbTabView userId={userId} />
+      </div>
       {currentScreen === 'payment' && <FnbPaymentView userId={userId} />}
       {currentScreen === 'split' && <FnbSplitView userId={userId} />}
     </div>

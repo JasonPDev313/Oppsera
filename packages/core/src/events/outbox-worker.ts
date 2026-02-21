@@ -89,10 +89,11 @@ export class OutboxWorker {
 
       // Batch-mark all successfully published rows in a single UPDATE
       if (publishedIds.length > 0) {
+        const idList = sql.join(publishedIds.map(id => sql`${id}`), sql`, `);
         await tx.execute(sql`
           UPDATE event_outbox
           SET published_at = NOW()
-          WHERE id = ANY(${publishedIds})
+          WHERE id IN (${idList})
         `);
       }
 

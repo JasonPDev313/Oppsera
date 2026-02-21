@@ -23,6 +23,15 @@ export async function register() {
       // module-catalog may not be available in all builds
     }
 
+    // ── Register orders write API (for PMS and other cross-module order creation) ──
+    try {
+      const { initializeOrdersWriteApi } = await import('./lib/orders-bootstrap');
+      await initializeOrdersWriteApi();
+      console.log('Initialized OrdersWriteApi singleton');
+    } catch (e) {
+      console.error('Failed to initialize OrdersWriteApi:', e);
+    }
+
     // ── Register module event consumers ──────────────────────────
     const bus = getEventBus();
 

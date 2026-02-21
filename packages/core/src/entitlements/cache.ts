@@ -1,5 +1,8 @@
+import type { AccessMode } from './registry';
+
 export interface EntitlementCacheEntry {
   isEnabled: boolean;
+  accessMode: AccessMode;
   expiresAt: string | null;
   limits: Record<string, number>;
 }

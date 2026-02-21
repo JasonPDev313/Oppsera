@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@oppsera/core": "workspace:^",
     "@oppsera/db": "workspace:*",
     "@oppsera/module-semantic": "workspace:*",
     "@oppsera/shared": "workspace:*",

@@ -31,6 +31,7 @@ export interface FnbPosState {
   splitWorkspace: FnbSplitWorkspace | null;
 
   // UI preferences
+  floorViewMode: 'layout' | 'grid';
   sidebarMode: 'my-tables' | 'stats' | 'waitlist';
   sidebarOpen: boolean;
   menuColumns: 2 | 3 | 4;
@@ -69,6 +70,7 @@ export interface FnbPosActions {
   clearSplit: () => void;
 
   // UI preferences
+  setFloorViewMode: (mode: 'layout' | 'grid') => void;
   setSidebarMode: (mode: 'my-tables' | 'stats' | 'waitlist') => void;
   toggleSidebar: () => void;
   setMenuColumns: (columns: 2 | 3 | 4) => void;
@@ -92,6 +94,7 @@ const initialState: FnbPosState = {
   activeSeatNumber: 1,
   activeCourseNumber: 1,
   splitWorkspace: null,
+  floorViewMode: 'layout',
   sidebarMode: 'my-tables',
   sidebarOpen: true,
   menuColumns: 3,
@@ -268,6 +271,12 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
     },
 
     // ── UI Preferences ──────────────────────────────────────────
+
+    setFloorViewMode: (mode) => {
+      set((state) => {
+        state.floorViewMode = mode;
+      });
+    },
 
     setSidebarMode: (mode) => {
       set((state) => {

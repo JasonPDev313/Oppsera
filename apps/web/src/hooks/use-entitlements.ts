@@ -4,10 +4,13 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 
+type AccessMode = 'off' | 'view' | 'full';
+
 interface EntitlementInfo {
   moduleKey: string;
   displayName: string;
   isEnabled: boolean;
+  accessMode: AccessMode;
   planTier: string;
   limits: Record<string, number>;
   activatedAt: string;
@@ -61,6 +64,16 @@ export function useEntitlements() {
     };
   }, [entitlements]);
 
+  const getAccessMode = useMemo(() => {
+    return (moduleKey: string): AccessMode => {
+      if (moduleKey === 'platform_core') return 'full';
+      const entry = entitlements.get(moduleKey);
+      if (!entry) return 'off';
+      if (entry.expiresAt && new Date(entry.expiresAt) < new Date()) return 'off';
+      return entry.accessMode ?? (entry.isEnabled ? 'full' : 'off');
+    };
+  }, [entitlements]);
+
   const getLimit = useMemo(() => {
     return (moduleKey: string, limitKey: string): number | undefined => {
       const entry = entitlements.get(moduleKey);
@@ -72,6 +85,7 @@ export function useEntitlements() {
   return {
     entitlements,
     isModuleEnabled,
+    getAccessMode,
     getLimit,
     isLoading,
     refetch: fetchEntitlements,

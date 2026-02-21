@@ -28,6 +28,10 @@ export async function updateOrder(ctx: RequestContext, orderId: string, input: U
       updates.notes = input.notes;
       changes.notes = { from: order.notes, to: input.notes };
     }
+    if (input.metadata !== undefined) {
+      updates.metadata = input.metadata;
+      changes.metadata = { from: order.metadata, to: input.metadata };
+    }
 
     await (tx as any).update(orders).set(updates).where(eq(orders.id, orderId));
     await incrementVersion(tx, orderId);

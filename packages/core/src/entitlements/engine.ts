@@ -3,6 +3,7 @@ import { db, entitlements } from '@oppsera/db';
 import type { EntitlementCheck } from './index';
 import { getEntitlementCache } from './cache';
 import type { EntitlementCacheEntry } from './cache';
+import type { AccessMode } from './registry';
 
 const CACHE_TTL = 60;
 
@@ -26,6 +27,7 @@ export class DefaultEntitlementEngine implements EntitlementCheck {
     for (const row of rows) {
       map.set(row.moduleKey, {
         isEnabled: row.isEnabled,
+        accessMode: (row.accessMode ?? (row.isEnabled ? 'full' : 'off')) as AccessMode,
         expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
         limits: (row.limits ?? {}) as Record<string, number>,
       });
@@ -35,15 +37,19 @@ export class DefaultEntitlementEngine implements EntitlementCheck {
     return map;
   }
 
-  async isModuleEnabled(tenantId: string, moduleKey: string): Promise<boolean> {
-    if (moduleKey === 'platform_core') return true;
+  async getAccessMode(tenantId: string, moduleKey: string): Promise<AccessMode> {
+    if (moduleKey === 'platform_core') return 'full';
 
     const map = await this.loadEntitlements(tenantId);
     const entry = map.get(moduleKey);
-    if (!entry) return false;
-    if (!entry.isEnabled) return false;
-    if (entry.expiresAt && new Date(entry.expiresAt) < new Date()) return false;
-    return true;
+    if (!entry) return 'off';
+    if (entry.expiresAt && new Date(entry.expiresAt) < new Date()) return 'off';
+    return entry.accessMode;
+  }
+
+  async isModuleEnabled(tenantId: string, moduleKey: string): Promise<boolean> {
+    const mode = await this.getAccessMode(tenantId, moduleKey);
+    return mode !== 'off';
   }
 
   async getModuleLimits(tenantId: string, moduleKey: string): Promise<Record<string, number> | null> {
@@ -58,7 +64,7 @@ export class DefaultEntitlementEngine implements EntitlementCheck {
     const enabled: string[] = ['platform_core'];
     for (const [key, entry] of map) {
       if (key === 'platform_core') continue;
-      if (!entry.isEnabled) continue;
+      if (entry.accessMode === 'off') continue;
       if (entry.expiresAt && new Date(entry.expiresAt) < new Date()) continue;
       enabled.push(key);
     }

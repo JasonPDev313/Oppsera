@@ -63,6 +63,8 @@ import { ItemEditDrawer } from '@/components/inventory/ItemEditDrawer';
 import { NavigationGuardProvider, useNavigationGuard } from '@/hooks/use-navigation-guard';
 import { preloadPOSCatalog } from '@/hooks/use-catalog-for-pos';
 import { apiFetch } from '@/lib/api-client';
+import { TerminalSessionProvider, useTerminalSession } from '@/components/terminal-session-provider';
+import { TerminalSelectionScreen } from '@/components/terminal-selection-screen';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -190,6 +192,7 @@ const navigation: NavItem[] = [
     icon: Settings,
     children: [
       { name: 'General', href: '/settings', icon: Settings },
+      { name: 'Profit Centers', href: '/settings/profit-centers', icon: Building2 },
       { name: 'Room Layouts', href: '/settings/room-layouts', icon: LayoutDashboard, moduleKey: 'room_layouts' },
     ],
   },
@@ -689,12 +692,24 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   );
 }
 
+function TerminalSessionGate({ children }: { children: React.ReactNode }) {
+  const { session, isLoading } = useTerminalSession();
+  const [skipped, setSkipped] = useState(false);
+  if (isLoading) return null;
+  if (!session && !skipped) return <TerminalSelectionScreen onSkip={() => setSkipped(true)} />;
+  return <>{children}</>;
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <QueryProvider>
       <EntitlementsProvider>
         <NavigationGuardProvider>
-          <DashboardLayoutInner>{children}</DashboardLayoutInner>
+          <TerminalSessionProvider>
+            <TerminalSessionGate>
+              <DashboardLayoutInner>{children}</DashboardLayoutInner>
+            </TerminalSessionGate>
+          </TerminalSessionProvider>
         </NavigationGuardProvider>
       </EntitlementsProvider>
     </QueryProvider>

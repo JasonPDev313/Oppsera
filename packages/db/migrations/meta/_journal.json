@@ -652,6 +652,48 @@
       "when": 1708100092000,
       "tag": "0092_user_management",
       "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1708100093000,
+      "tag": "0093_profit_center_extensions",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1708100094000,
+      "tag": "0094_optimize_rls_current_setting",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1708100095000,
+      "tag": "0095_location_hierarchy",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1708100096000,
+      "tag": "0096_unindexed_foreign_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1708100097000,
+      "tag": "0097_admin_user_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1708100098000,
+      "tag": "0098_entitlement_access_modes",
+      "breakpoints": true
     }
   ]
 }

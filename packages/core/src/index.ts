@@ -26,16 +26,21 @@ export {
   getUserRoles,
   getEffectivePermissions,
 } from './permissions';
-export type { EntitlementCheck } from './entitlements';
+export type { EntitlementCheck, AccessMode, RiskLevel, ModuleCategory, ModuleDefinition, DependencyCheckResult } from './entitlements';
 export {
   DefaultEntitlementEngine,
   getEntitlementEngine,
   setEntitlementEngine,
   requireEntitlement,
+  requireEntitlementWrite,
   InMemoryEntitlementCache,
   getEntitlementCache,
   setEntitlementCache,
   MODULE_REGISTRY,
+  getModuleDefinition,
+  getDependents,
+  validateModeChange,
+  computeDependencyChain,
   checkSeatLimit,
   checkLocationLimit,
 } from './entitlements';
@@ -90,6 +95,8 @@ export { getCatalogReadApi, setCatalogReadApi } from './helpers/catalog-read-api
 export type { CatalogReadApi, ItemTaxInfo, PosItemData } from './helpers/catalog-read-api';
 export { getAccountingPostingApi, setAccountingPostingApi } from './helpers/accounting-posting-api';
 export type { AccountingPostingApi, AccountingPostJournalInput } from './helpers/accounting-posting-api';
+export { getOrdersWriteApi, setOrdersWriteApi } from './helpers/orders-write-api';
+export type { OrdersWriteApi, OrdersWriteOpenInput, OrdersWriteAddLineInput, OrdersWriteUpdateInput, OrdersWriteResult } from './helpers/orders-write-api';
 
 // ── Observability ───────────────────────────────────────────────────
 export {
@@ -121,6 +128,9 @@ export type {
   Runbook,
   RunbookStep,
 } from './observability';
+
+// ── Profit Centers & Terminals ──────────────────────────────────────
+export * from './profit-centers';
 
 // ── Security ─────────────────────────────────────────────────────
 export { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from './security';

@@ -9,6 +9,8 @@ import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
 interface UseFnbTabOptions {
   tabId: string | null;
   pollIntervalMs?: number;
+  /** Set to false to pause polling (e.g. when screen is hidden). Initial fetch always fires. */
+  pollEnabled?: boolean;
 }
 
 interface AddTabItemInput {
@@ -38,12 +40,25 @@ interface UseFnbTabReturn {
   isActing: boolean;
 }
 
-export function useFnbTab({ tabId, pollIntervalMs = 5000 }: UseFnbTabOptions): UseFnbTabReturn {
+export function useFnbTab({ tabId, pollIntervalMs = 5000, pollEnabled = true }: UseFnbTabOptions): UseFnbTabReturn {
   const [tab, setTab] = useState<FnbTabDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isActing, setIsActing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const prevTabIdRef = useRef<string | null>(null);
+
+  // Clear stale data when switching to a different tab
+  useEffect(() => {
+    if (tabId !== prevTabIdRef.current) {
+      if (prevTabIdRef.current !== null) {
+        // Switching tabs — clear old data so skeleton shows immediately
+        setTab(null);
+        setError(null);
+      }
+      prevTabIdRef.current = tabId;
+    }
+  }, [tabId]);
 
   const fetchTab = useCallback(async () => {
     if (!tabId) return;
@@ -67,18 +82,18 @@ export function useFnbTab({ tabId, pollIntervalMs = 5000 }: UseFnbTabOptions): U
     }
   }, [tabId]);
 
-  // Initial fetch
+  // Initial fetch (always fires when tabId changes)
   useEffect(() => {
     fetchTab();
     return () => abortRef.current?.abort();
   }, [fetchTab]);
 
-  // Polling
+  // Polling (paused when screen is hidden)
   useEffect(() => {
-    if (!tabId || pollIntervalMs <= 0) return;
+    if (!tabId || pollIntervalMs <= 0 || !pollEnabled) return;
     const interval = setInterval(fetchTab, pollIntervalMs);
     return () => clearInterval(interval);
-  }, [tabId, pollIntervalMs, fetchTab]);
+  }, [tabId, pollIntervalMs, fetchTab, pollEnabled]);
 
   // ── Actions ──────────────────────────────────────────────────
 

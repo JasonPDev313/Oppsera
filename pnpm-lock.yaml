@@ -32,6 +32,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@oppsera/core':
+        specifier: workspace:^
+        version: link:../../packages/core
       '@oppsera/db':
         specifier: workspace:*
         version: link:../../packages/db

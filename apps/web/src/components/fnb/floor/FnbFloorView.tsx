@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { RefreshCw, Plus, Minus, Maximize2 } from 'lucide-react';
+import { RefreshCw, Plus, Minus, Maximize2, LayoutGrid, Map } from 'lucide-react';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbFloor, useFnbRooms, useTableActions } from '@/hooks/use-fnb-floor';
 import { openTabApi } from '@/hooks/use-fnb-tab';
@@ -12,6 +12,7 @@ import { BottomDock } from './BottomDock';
 import { ContextSidebar } from './ContextSidebar';
 import { SeatGuestsModal } from './SeatGuestsModal';
 import { TableActionMenu } from './TableActionMenu';
+import { TableGridView } from './TableGridView';
 
 interface FnbFloorViewProps {
   userId: string;
@@ -64,9 +65,38 @@ export function FnbFloorView({ userId }: FnbFloorViewProps) {
 
   const [userZoom, setUserZoom] = useState(1);
 
+  // Compute bounding box of all tables in raw pixels (pre-viewScale)
+  const tableBounds = useMemo(() => {
+    if (tables.length === 0 || !scalePxPerFt) return null;
+    const MIN_SIZE = 60;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const t of tables) {
+      const x = t.positionX * scalePxPerFt;
+      const y = t.positionY * scalePxPerFt;
+      const w = Math.max(t.width || MIN_SIZE, MIN_SIZE);
+      const h = Math.max(t.height || MIN_SIZE, MIN_SIZE);
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + w > maxX) maxX = x + w;
+      if (y + h > maxY) maxY = y + h;
+    }
+    const pad = 40;
+    return {
+      minX: minX - pad,
+      minY: minY - pad,
+      width: maxX - minX + pad * 2,
+      height: maxY - minY + pad * 2,
+    };
+  }, [tables, scalePxPerFt]);
+
+  // Auto-fit: zoom to fit table bounding box (not the whole room)
   useEffect(() => {
     const el = viewportRef.current;
-    if (!el || !roomWidthPx || !roomHeightPx) return;
+    if (!el) return;
+
+    const contentW = tableBounds?.width ?? roomWidthPx;
+    const contentH = tableBounds?.height ?? roomHeightPx;
+    if (!contentW || !contentH) return;
 
     const updateScale = () => {
       const { clientWidth, clientHeight } = el;
@@ -74,14 +104,15 @@ export function FnbFloorView({ userId }: FnbFloorViewProps) {
       const availW = clientWidth - padding;
       const availH = clientHeight - padding;
       if (availW <= 0 || availH <= 0) return;
-      setViewScale(Math.min(availW / roomWidthPx, availH / roomHeightPx, 1));
+      // No cap at 1.0 — zoom in when tables occupy a small portion of the room
+      setViewScale(Math.min(availW / contentW, availH / contentH));
     };
 
     updateScale();
     const observer = new ResizeObserver(updateScale);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [roomWidthPx, roomHeightPx]);
+  }, [tableBounds, roomWidthPx, roomHeightPx]);
 
   const effectiveScale = viewScale * userZoom;
 
@@ -302,6 +333,36 @@ export function FnbFloorView({ userId }: FnbFloorViewProps) {
               <RefreshCw className={`h-3 w-3 ${actions.isActing ? 'animate-spin' : ''}`} />
               Sync
             </button>
+            {/* View mode toggle */}
+            <div
+              className="flex rounded-lg overflow-hidden"
+              style={{ border: '1px solid rgba(148, 163, 184, 0.2)' }}
+            >
+              <button
+                type="button"
+                onClick={() => store.setFloorViewMode('layout')}
+                className="flex items-center justify-center h-7 w-8 transition-colors"
+                style={{
+                  backgroundColor: store.floorViewMode === 'layout' ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
+                  color: store.floorViewMode === 'layout' ? '#fff' : 'var(--fnb-text-muted)',
+                }}
+                title="Layout view"
+              >
+                <Map className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => store.setFloorViewMode('grid')}
+                className="flex items-center justify-center h-7 w-8 transition-colors"
+                style={{
+                  backgroundColor: store.floorViewMode === 'grid' ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
+                  color: store.floorViewMode === 'grid' ? '#fff' : 'var(--fnb-text-muted)',
+                }}
+                title="Grid view"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => store.toggleMySectionOnly()}
@@ -316,13 +377,13 @@ export function FnbFloorView({ userId }: FnbFloorViewProps) {
           </div>
         </div>
 
-        {/* Spatial floor plan area */}
+        {/* Floor plan / grid area */}
         <div
           ref={viewportRef}
-          className="flex-1 overflow-auto p-4 relative"
-          onWheel={handleWheel}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          className="flex-1 overflow-auto relative"
+          onWheel={store.floorViewMode === 'layout' ? handleWheel : undefined}
+          onTouchMove={store.floorViewMode === 'layout' ? handleTouchMove : undefined}
+          onTouchEnd={store.floorViewMode === 'layout' ? handleTouchEnd : undefined}
         >
           {/* Toast message */}
           {toastMessage && (
@@ -334,48 +395,6 @@ export function FnbFloorView({ userId }: FnbFloorViewProps) {
               }}
             >
               {toastMessage.text}
-            </div>
-          )}
-
-          {/* Zoom controls */}
-          {tables.length > 0 && (
-            <div
-              className="absolute top-2 right-2 z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md"
-              style={{ backgroundColor: 'var(--fnb-bg-surface)' }}
-            >
-              <button
-                type="button"
-                onClick={() => setUserZoom((z) => Math.min(3, z * 1.2))}
-                className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
-                style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
-                title="Zoom in"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-              <span
-                className="text-[10px] text-center font-medium py-0.5"
-                style={{ color: 'var(--fnb-text-muted)' }}
-              >
-                {Math.round(effectiveScale * 100)}%
-              </span>
-              <button
-                type="button"
-                onClick={() => setUserZoom((z) => Math.max(0.5, z / 1.2))}
-                className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
-                style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
-                title="Zoom out"
-              >
-                <Minus className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setUserZoom(1)}
-                className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
-                style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
-                title="Fit to screen"
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-              </button>
             </div>
           )}
 
@@ -400,25 +419,84 @@ export function FnbFloorView({ userId }: FnbFloorViewProps) {
                 </button>
               </div>
             </div>
+          ) : store.floorViewMode === 'grid' ? (
+            <TableGridView
+              tables={tables}
+              selectedTableId={selectedTableId}
+              onTap={handleTableTap}
+              onLongPress={handleTableLongPress}
+            />
           ) : (
-            <div
-              className="relative mx-auto"
-              style={{
-                width: roomWidthPx * effectiveScale,
-                height: roomHeightPx * effectiveScale,
-              }}
-            >
-              {tables.map((table) => (
-                <FnbTableNode
-                  key={table.tableId}
-                  table={table}
-                  isSelected={table.tableId === selectedTableId}
-                  onTap={handleTableTap}
-                  onLongPress={handleTableLongPress}
-                  scalePxPerFt={scalePxPerFt}
-                  viewScale={effectiveScale}
-                />
-              ))}
+            <div className="p-4 relative h-full">
+              {/* Zoom controls */}
+              <div
+                className="absolute top-2 right-2 z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md"
+                style={{ backgroundColor: 'var(--fnb-bg-surface)' }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setUserZoom((z) => Math.min(3, z * 1.2))}
+                  className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
+                  style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+                  title="Zoom in"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <span
+                  className="text-[10px] text-center font-medium py-0.5"
+                  style={{ color: 'var(--fnb-text-muted)' }}
+                >
+                  {Math.round(effectiveScale * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setUserZoom((z) => Math.max(0.5, z / 1.2))}
+                  className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
+                  style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+                  title="Zoom out"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserZoom(1)}
+                  className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
+                  style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+                  title="Fit to screen"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              <div
+                className="relative mx-auto overflow-hidden"
+                style={{
+                  width: (tableBounds?.width ?? roomWidthPx) * effectiveScale,
+                  height: (tableBounds?.height ?? roomHeightPx) * effectiveScale,
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: -(tableBounds?.minX ?? 0) * effectiveScale,
+                    top: -(tableBounds?.minY ?? 0) * effectiveScale,
+                    width: roomWidthPx * effectiveScale,
+                    height: roomHeightPx * effectiveScale,
+                  }}
+                >
+                  {tables.map((table) => (
+                    <FnbTableNode
+                      key={table.tableId}
+                      table={table}
+                      isSelected={table.tableId === selectedTableId}
+                      onTap={handleTableTap}
+                      onLongPress={handleTableLongPress}
+                      scalePxPerFt={scalePxPerFt}
+                      viewScale={effectiveScale}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>

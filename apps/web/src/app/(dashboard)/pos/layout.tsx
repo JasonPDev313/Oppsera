@@ -8,6 +8,7 @@ import { useAuthContext } from '@/components/auth-provider';
 import { refreshTokenIfNeeded } from '@/lib/api-client';
 import { warmCustomerCache } from '@/lib/customer-cache';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { useTerminalSession } from '@/components/terminal-session-provider';
 import '@/styles/fnb-design-tokens.css';
 import RetailPOSLoading from './retail/loading';
 import FnBPOSLoading from './fnb/loading';
@@ -27,25 +28,8 @@ const FnBPOSContent = dynamic(() => import('./fnb/fnb-pos-content'), {
 // ── Terminal ID ───────────────────────────────────────────────────
 
 function useTerminalId(): string {
-  const [terminalId, setTerminalId] = useState('POS-01');
-
-  useEffect(() => {
-    // Check URL search params first, then localStorage
-    const params = new URLSearchParams(window.location.search);
-    const fromParams = params.get('terminal');
-    if (fromParams) {
-      setTerminalId(fromParams);
-      localStorage.setItem('pos_terminal_id', fromParams);
-      return;
-    }
-
-    const stored = localStorage.getItem('pos_terminal_id');
-    if (stored) {
-      setTerminalId(stored);
-    }
-  }, []);
-
-  return terminalId;
+  const { session } = useTerminalSession();
+  return session?.terminalId ?? 'POS-01';
 }
 
 // ── Barcode Scanner Listener ──────────────────────────────────────

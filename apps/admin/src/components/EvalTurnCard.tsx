@@ -26,7 +26,7 @@ export function EvalTurnCard({ turn }: Props) {
 
   return (
     <Link
-      href={`/eval/turns/${turn.id}`}
+      href={`/train-ai/turns/${turn.id}`}
       className="block bg-slate-800 rounded-xl border border-slate-700 p-5 hover:border-indigo-500/50 transition-colors"
     >
       {/* Header row */}

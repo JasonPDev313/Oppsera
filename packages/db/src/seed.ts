@@ -35,6 +35,8 @@ import {
   billingAccountMembers,
   customerContacts,
   customerPreferences,
+  terminalLocations,
+  terminals,
 } from './schema';
 
 async function seed() {
@@ -63,35 +65,46 @@ async function seed() {
   });
   console.log(`Tenant: ${tenantId} (Sunset Golf & Grill)`);
 
-  // ── Create locations ───────────────────────────────────────────
+  // ── Create locations (site → venue hierarchy) ─────────────────
+  const siteId = generateUlid();
   const locationIds = [generateUlid(), generateUlid()];
 
+  // Site = physical address (files taxes, has address)
+  await db.insert(locations).values({
+    id: siteId,
+    tenantId,
+    name: 'Sunset Golf Resort',
+    locationType: 'site',
+    timezone: 'America/New_York',
+    addressLine1: '100 Fairway Dr',
+    city: 'Sunset Beach',
+    state: 'NC',
+    postalCode: '28468',
+    country: 'US',
+  });
+
+  // Venues = operational units under the site
   await db.insert(locations).values([
     {
       id: locationIds[0],
       tenantId,
       name: 'Main Clubhouse',
+      locationType: 'venue',
+      parentLocationId: siteId,
       timezone: 'America/New_York',
-      addressLine1: '100 Fairway Dr',
-      city: 'Sunset Beach',
-      state: 'NC',
-      postalCode: '28468',
-      country: 'US',
     },
     {
       id: locationIds[1],
       tenantId,
       name: 'South Course Pro Shop',
+      locationType: 'venue',
+      parentLocationId: siteId,
       timezone: 'America/New_York',
-      addressLine1: '200 Links Rd',
-      city: 'Sunset Beach',
-      state: 'NC',
-      postalCode: '28468',
-      country: 'US',
     },
   ]);
-  console.log(`Location 1: ${locationIds[0]} (Main Clubhouse)`);
-  console.log(`Location 2: ${locationIds[1]} (South Course Pro Shop)`);
+  console.log(`Site:     ${siteId} (Sunset Golf Resort)`);
+  console.log(`Venue 1:  ${locationIds[0]} (Main Clubhouse)`);
+  console.log(`Venue 2:  ${locationIds[1]} (South Course Pro Shop)`);
 
   // ── Create user ────────────────────────────────────────────────
   const userId = generateUlid();
@@ -818,6 +831,67 @@ async function seed() {
   ]);
   console.log('Customer Memberships: 2 enrolled (Johnson=Gold, Smith=Silver)');
 
+  // ── Profit Centers & Terminals ─────────────────────────────────
+  const profitCenterIds = {
+    main: generateUlid(),
+    south: generateUlid(),
+  };
+
+  await db.insert(terminalLocations).values([
+    {
+      id: profitCenterIds.main,
+      tenantId,
+      locationId: locationIds[0]!,
+      title: 'Profit Center 1',
+      code: 'PC1',
+      description: 'Main Clubhouse profit center',
+      tipsApplicable: true,
+      isActive: true,
+      sortOrder: 0,
+    },
+    {
+      id: profitCenterIds.south,
+      tenantId,
+      locationId: locationIds[1]!,
+      title: 'Profit Center 2',
+      code: 'PC2',
+      description: 'South Course Pro Shop profit center',
+      tipsApplicable: true,
+      isActive: true,
+      sortOrder: 1,
+    },
+  ]);
+  console.log(`Profit Center 1: ${profitCenterIds.main} (Main Clubhouse)`);
+  console.log(`Profit Center 2: ${profitCenterIds.south} (South Course Pro Shop)`);
+
+  const terminalIds = {
+    pos1: generateUlid(),
+    pos2: generateUlid(),
+  };
+
+  await db.insert(terminals).values([
+    {
+      id: terminalIds.pos1,
+      tenantId,
+      terminalLocationId: profitCenterIds.main,
+      locationId: locationIds[0]!,
+      title: 'POS 1',
+      terminalNumber: 1,
+      isActive: true,
+    },
+    {
+      id: terminalIds.pos2,
+      tenantId,
+      terminalLocationId: profitCenterIds.south,
+      locationId: locationIds[1]!,
+      title: 'POS 1',
+      terminalNumber: 1,
+      isActive: true,
+    },
+  ]);
+  console.log(`Terminal 1: ${terminalIds.pos1} (POS 1 @ Main Clubhouse)`);
+  console.log(`Terminal 2: ${terminalIds.pos2} (POS 1 @ South Course Pro Shop)`);
+
   // ── Summary ────────────────────────────────────────────────────
   console.log('\n=== Seed Summary ===');
   console.log(`Tenant ID:      ${tenantId}`);
@@ -831,6 +905,8 @@ async function seed() {
   console.log('Customers:      4 customers, 3 identifiers, 3 contacts, 3 preferences');
   console.log('Memberships:    2 plans, 2 enrollments');
   console.log('Billing:        2 house accounts, 2 members');
+  console.log('Locations:      1 site, 2 venues (Main Clubhouse, South Course Pro Shop)');
+  console.log('Terminals:      2 profit centers, 2 terminals (1 per venue)');
   console.log('====================\n');
 
   await client.end();

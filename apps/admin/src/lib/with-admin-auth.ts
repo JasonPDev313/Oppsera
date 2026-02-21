@@ -18,6 +18,12 @@ export function withAdminAuth(handler: AdminHandler, minRole: AdminRole = 'viewe
       return NextResponse.json({ error: { message: 'Forbidden' } }, { status: 403 });
     }
     const params = context?.params ? await context.params : undefined;
-    return handler(req, session, params);
+    try {
+      return await handler(req, session, params);
+    } catch (err) {
+      console.error(`[admin-api] ${req.method} ${req.nextUrl.pathname} error:`, err);
+      const message = err instanceof Error ? err.message : 'Internal server error';
+      return NextResponse.json({ error: { code: 'INTERNAL_ERROR', message } }, { status: 500 });
+    }
   };
 }

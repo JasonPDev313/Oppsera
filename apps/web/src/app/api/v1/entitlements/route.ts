@@ -22,6 +22,7 @@ export const GET = withMiddleware(
         moduleKey: row.moduleKey,
         displayName: registryEntry?.name ?? row.moduleKey,
         isEnabled: row.isEnabled,
+        accessMode: (row as Record<string, unknown>).accessMode as string ?? (row.isEnabled ? 'full' : 'off'),
         planTier: row.planTier,
         limits: row.limits,
         activatedAt: row.activatedAt,

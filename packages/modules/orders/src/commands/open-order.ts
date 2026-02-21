@@ -32,6 +32,7 @@ export async function openOrder(ctx: RequestContext, input: OpenOrderInput) {
       terminalId: input.terminalId ?? null,
       employeeId: input.employeeId ?? null,
       shiftId: input.shiftId ?? null,
+      metadata: input.metadata ?? null,
       createdBy: ctx.user.id,
       updatedBy: ctx.user.id,
     }).returning();

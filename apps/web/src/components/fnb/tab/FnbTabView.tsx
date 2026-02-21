@@ -1,5 +1,7 @@
 'use client';
 
+import { useCallback } from 'react';
+import { ChevronLeft } from 'lucide-react';
 import { useFnbTab } from '@/hooks/use-fnb-tab';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { TabHeader } from './TabHeader';
@@ -13,11 +15,84 @@ interface FnbTabViewProps {
   userId: string;
 }
 
+// ── Skeleton for left + center panes while tab data loads ──────
+
+function TabSkeleton({ onBack }: { onBack: () => void }) {
+  const shimmer = { backgroundColor: 'var(--fnb-bg-elevated)' };
+  return (
+    <>
+      {/* Seat rail skeleton */}
+      <div
+        className="shrink-0 flex flex-col items-center gap-2 pt-3 border-r"
+        style={{ width: 56, borderColor: 'rgba(148, 163, 184, 0.15)' }}
+      >
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="h-10 w-10 rounded-full animate-pulse" style={shimmer} />
+        ))}
+      </div>
+
+      {/* Center skeleton */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div
+          className="flex items-center gap-3 px-4 py-3 border-b"
+          style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}
+        >
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center justify-center h-8 w-8 rounded-lg transition-colors hover:opacity-80"
+            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="h-5 w-32 rounded animate-pulse" style={shimmer} />
+          <div className="ml-auto h-5 w-20 rounded animate-pulse" style={shimmer} />
+        </div>
+
+        {/* Course tabs */}
+        <div
+          className="flex gap-2 px-4 py-2 border-b"
+          style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}
+        >
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-7 w-20 rounded-lg animate-pulse" style={shimmer} />
+          ))}
+        </div>
+
+        {/* Ticket body */}
+        <div className="flex-1 p-4 space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="h-4 w-4 rounded animate-pulse" style={shimmer} />
+              <div className="h-4 flex-1 rounded animate-pulse" style={shimmer} />
+              <div className="h-4 w-16 rounded animate-pulse" style={shimmer} />
+            </div>
+          ))}
+        </div>
+
+        {/* Action bar */}
+        <div
+          className="flex gap-2 px-4 py-3 border-t"
+          style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}
+        >
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-10 flex-1 rounded-lg animate-pulse" style={shimmer} />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Main Tab View ──────────────────────────────────────────────
+
 export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const activeSeat = store.activeSeatNumber;
   const activeCourse = store.activeCourseNumber;
+  const isTabScreen = store.currentScreen === 'tab';
 
   const {
     tab,
@@ -27,13 +102,13 @@ export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
     sendCourse,
     addItems,
     isActing,
-  } = useFnbTab({ tabId });
+  } = useFnbTab({ tabId, pollEnabled: isTabScreen });
 
   const draftLines = tabId ? (store.draftLines[tabId] ?? []) : [];
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     store.goBack();
-  };
+  }, [store]);
 
   const handleSendAll = async () => {
     if (!tab || !tabId) return;
@@ -97,124 +172,111 @@ export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
     store.setCourse(courseNumber);
   };
 
-  if (isLoading && !tab) {
-    return (
-      <div
-        className="flex h-full items-center justify-center"
-        style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
-      >
-        <div className="text-center">
-          <div className="h-8 w-8 border-2 rounded-full animate-spin mx-auto mb-2"
-            style={{ borderColor: 'var(--fnb-text-muted)', borderTopColor: 'var(--fnb-status-seated)' }} />
-          <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>Loading tab...</p>
-        </div>
-      </div>
-    );
-  }
+  // Item tap handler — works even during loading (adds to Zustand draft lines)
+  const handleItemTap = useCallback((itemId: string, itemName: string, priceCents: number, itemType: string) => {
+    if (!tabId) return;
+    store.addDraftLine(tabId, {
+      localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      catalogItemId: itemId,
+      catalogItemName: itemName,
+      unitPriceCents: priceCents,
+      qty: 1,
+      itemType,
+      seatNumber: activeSeat || 1,
+      modifiers: [] as Array<{ modifierId: string; name: string; priceAdjustment: number }>,
+      specialInstructions: null,
+      courseNumber: activeCourse,
+      addedAt: Date.now(),
+    });
+  }, [tabId, store, activeSeat, activeCourse]);
 
-  if (error && !tab) {
-    return (
-      <div
-        className="flex h-full items-center justify-center"
-        style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
-      >
-        <div className="text-center">
-          <p className="text-sm mb-2" style={{ color: 'var(--fnb-status-dirty)' }}>{error}</p>
-          <button
-            type="button"
-            onClick={handleBack}
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
-            style={{ backgroundColor: 'var(--fnb-status-seated)' }}
-          >
-            Back to Floor
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // ── Determine left + center content ────────────────────────────
 
-  if (!tab) {
-    return (
-      <div
-        className="flex h-full items-center justify-center"
-        style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
-      >
-        <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>No tab selected</p>
-      </div>
-    );
-  }
+  const showSkeleton = (isLoading && !tab) || (!tab && !error && tabId);
+  const showError = error && !tab;
+  const showEmpty = !tab && !error && !tabId;
 
-  // Compute unsent items per seat for badges (server lines + local drafts)
-  const unsentBySeat: Record<number, number> = {};
-  for (const line of tab.lines ?? []) {
-    if (line.status === 'draft' || line.status === 'unsent') {
-      const seat = line.seatNumber ?? 1;
+  // Compute unsent items per seat when tab is loaded
+  let unsentBySeat: Record<number, number> = {};
+  let hasUnsentItems = draftLines.length > 0;
+  if (tab) {
+    for (const line of tab.lines ?? []) {
+      if (line.status === 'draft' || line.status === 'unsent') {
+        const seat = line.seatNumber ?? 1;
+        unsentBySeat[seat] = (unsentBySeat[seat] ?? 0) + 1;
+      }
+    }
+    for (const draft of draftLines) {
+      const seat = draft.seatNumber ?? 1;
       unsentBySeat[seat] = (unsentBySeat[seat] ?? 0) + 1;
     }
+    hasUnsentItems = Object.keys(unsentBySeat).length > 0 || draftLines.length > 0;
   }
-  for (const draft of draftLines) {
-    const seat = draft.seatNumber ?? 1;
-    unsentBySeat[seat] = (unsentBySeat[seat] ?? 0) + 1;
-  }
-  const hasUnsentItems = Object.keys(unsentBySeat).length > 0 || draftLines.length > 0;
 
   return (
     <div className="flex h-full" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
-      {/* Left pane: Seat rail */}
-      <SeatRail
-        seatCount={tab.partySize ?? 1}
-        activeSeat={activeSeat}
-        onSelectSeat={handleSelectSeat}
-        onAddSeat={handleAddSeat}
-        unsentBySeat={unsentBySeat}
-      />
+      {/* Left + Center: Tab content, skeleton, error, or empty */}
+      {showSkeleton ? (
+        <TabSkeleton onBack={handleBack} />
+      ) : showError ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-sm mb-2" style={{ color: 'var(--fnb-status-dirty)' }}>{error}</p>
+            <button
+              type="button"
+              onClick={handleBack}
+              className="rounded-lg px-4 py-2 text-sm font-semibold text-white"
+              style={{ backgroundColor: 'var(--fnb-status-seated)' }}
+            >
+              Back to Floor
+            </button>
+          </div>
+        </div>
+      ) : showEmpty ? (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>No tab selected</p>
+        </div>
+      ) : tab ? (
+        <>
+          {/* Left pane: Seat rail */}
+          <SeatRail
+            seatCount={tab.partySize ?? 1}
+            activeSeat={activeSeat}
+            onSelectSeat={handleSelectSeat}
+            onAddSeat={handleAddSeat}
+            unsentBySeat={unsentBySeat}
+          />
 
-      {/* Center pane: Order ticket */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <TabHeader tab={tab} onBack={handleBack} />
-        <CourseSelector
-          activeCourse={activeCourse}
-          onSelectCourse={handleSelectCourse}
-        />
-        <OrderTicket
-          tab={tab}
-          activeSeat={activeSeat}
-          draftLines={draftLines}
-          onSendCourse={sendCourse}
-          onFireCourse={fireCourse}
-        />
-        <TabActionBar
-          onSendAll={handleSendAll}
-          onFireNext={handleFireNext}
-          onPay={handlePay}
-          onSplit={handleSplit}
-          onVoid={handleVoid}
-          hasUnsentItems={hasUnsentItems}
-          disabled={isActing}
-        />
-      </div>
+          {/* Center pane: Order ticket */}
+          <div className="flex-1 flex flex-col min-w-0">
+            <TabHeader tab={tab} onBack={handleBack} />
+            <CourseSelector
+              activeCourse={activeCourse}
+              onSelectCourse={handleSelectCourse}
+            />
+            <OrderTicket
+              tab={tab}
+              activeSeat={activeSeat}
+              draftLines={draftLines}
+              onSendCourse={sendCourse}
+              onFireCourse={fireCourse}
+            />
+            <TabActionBar
+              onSendAll={handleSendAll}
+              onFireNext={handleFireNext}
+              onPay={handlePay}
+              onSplit={handleSplit}
+              onVoid={handleVoid}
+              hasUnsentItems={hasUnsentItems}
+              disabled={isActing}
+            />
+          </div>
+        </>
+      ) : null}
 
-      {/* Right pane: Menu panel */}
+      {/* Right pane: Menu panel (ALWAYS rendered — preloads and stays interactive during loading) */}
       <div className="border-l shrink-0" style={{ width: '340px', borderColor: 'rgba(148, 163, 184, 0.15)' }}>
-        <FnbMenuPanel
-          onItemTap={(itemId, itemName, priceCents, itemType) => {
-            if (!tabId) return;
-            // Add draft line to store
-            store.addDraftLine(tabId, {
-              localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-              catalogItemId: itemId,
-              catalogItemName: itemName,
-              unitPriceCents: priceCents,
-              qty: 1,
-              itemType,
-              seatNumber: activeSeat || 1,
-              modifiers: [] as Array<{ modifierId: string; name: string; priceAdjustment: number }>,
-              specialInstructions: null,
-              courseNumber: activeCourse,
-              addedAt: Date.now(),
-            });
-          }}
-        />
+        <FnbMenuPanel onItemTap={handleItemTap} />
       </div>
     </div>
   );

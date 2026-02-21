@@ -6,5 +6,5 @@ export default async function HomePage() {
   if (!session) {
     redirect('/login');
   }
-  redirect('/eval/feed');
+  redirect('/train-ai/feed');
 }

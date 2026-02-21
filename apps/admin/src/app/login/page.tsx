@@ -29,7 +29,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace('/eval/feed');
+      router.replace('/train-ai/feed');
     } catch {
       setError('Network error — please try again');
     } finally {

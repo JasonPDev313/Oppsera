@@ -43,6 +43,11 @@ export const locations = pgTable(
     longitude: numeric('longitude', { precision: 10, scale: 7 }),
     isActive: boolean('is_active').notNull().default(true),
 
+    // ── Location hierarchy (migration 0095) ──
+    // 'site' = physical address (files taxes), 'venue' = operational unit within a site
+    parentLocationId: text('parent_location_id'),
+    locationType: text('location_type').notNull().default('site'),
+
     // ── Location gap fields (migration 0042) ──
     phone: text('phone'),
     email: text('email'),
@@ -54,7 +59,10 @@ export const locations = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_locations_tenant').on(table.tenantId)],
+  (table) => [
+    index('idx_locations_tenant').on(table.tenantId),
+    index('idx_locations_parent').on(table.tenantId, table.parentLocationId),
+  ],
 );
 
 // ── Users ────────────────────────────────────────────────────────
@@ -258,15 +266,58 @@ export const entitlements = pgTable(
     moduleKey: text('module_key').notNull(),
     planTier: text('plan_tier').notNull().default('standard'),
     isEnabled: boolean('is_enabled').notNull().default(true),
+    accessMode: text('access_mode').notNull().default('full'),
     limits: jsonb('limits').notNull().default('{}'),
     activatedAt: timestamp('activated_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
+    changedBy: text('changed_by'),
+    changeReason: text('change_reason'),
+    previousMode: text('previous_mode'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('uq_entitlements_tenant_module').on(table.tenantId, table.moduleKey),
   ],
+);
+
+// ── Entitlement Change Log (append-only) ──────────────────────────
+export const entitlementChangeLog = pgTable(
+  'entitlement_change_log',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    moduleKey: text('module_key').notNull(),
+    previousMode: text('previous_mode').notNull(),
+    newMode: text('new_mode').notNull(),
+    changedBy: text('changed_by').notNull(),
+    changeReason: text('change_reason'),
+    changeSource: text('change_source').notNull().default('manual'),
+    metadata: jsonb('metadata').default('{}'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_entitlement_change_log_tenant').on(table.tenantId, table.createdAt),
+    index('idx_entitlement_change_log_module').on(table.tenantId, table.moduleKey, table.createdAt),
+  ],
+);
+
+// ── Module Templates ──────────────────────────────────────────────
+export const moduleTemplates = pgTable(
+  'module_templates',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    name: text('name').notNull(),
+    description: text('description'),
+    businessType: text('business_type'),
+    isSystem: boolean('is_system').notNull().default(false),
+    modules: jsonb('modules').notNull().default('[]'),
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
 );
 
 // ── Audit Log (partitioned by month on created_at) ──────────────
