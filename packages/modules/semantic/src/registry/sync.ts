@@ -151,7 +151,7 @@ async function upsertLenses(
         ${generateUlid()}, ${l.slug}, ${l.displayName}, ${l.description ?? null}, ${l.domain},
         ${l.allowedMetrics ?? null}, ${l.allowedDimensions ?? null},
         ${l.defaultMetrics ?? null}, ${l.defaultDimensions ?? null},
-        ${l.defaultFilters ? pg.json(l.defaultFilters) : null},
+        ${l.defaultFilters ? pg.json(l.defaultFilters as object) : null},
         ${l.systemPromptFragment ?? null}, ${l.exampleQuestions ?? null},
         TRUE, ${l.isSystem}, NOW(), NOW()
       )
