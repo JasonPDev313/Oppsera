@@ -1,0 +1,52 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@oppsera/shared": [
+        "../../packages/shared/src"
+      ],
+      "@oppsera/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@oppsera/db": [
+        "../../packages/db/src"
+      ],
+      "@oppsera/db/*": [
+        "../../packages/db/src/*"
+      ],
+      "@oppsera/module-semantic": [
+        "../../packages/modules/semantic/src"
+      ],
+      "@oppsera/module-semantic/*": [
+        "../../packages/modules/semantic/src/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "allowJs": true,
+    "incremental": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "next.config.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next"
+  ]
+}
