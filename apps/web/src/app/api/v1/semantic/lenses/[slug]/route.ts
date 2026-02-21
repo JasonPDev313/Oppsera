@@ -10,7 +10,6 @@ import {
   reactivateCustomLens,
   LensNotFoundError,
   SystemLensModificationError,
-  type UpdateLensInput,
 } from '@oppsera/module-semantic/lenses';
 import { getLens } from '@oppsera/module-semantic/registry';
 
@@ -19,7 +18,7 @@ import { getLens } from '@oppsera/module-semantic/registry';
 const lensFilterSchema = z.object({
   dimensionSlug: z.string().min(1),
   operator: z.enum(['eq', 'in', 'gte', 'lte', 'between']),
-  value: z.unknown(),
+  value: z.unknown().default(null),
 });
 
 const updateLensSchema = z.object({
@@ -89,7 +88,7 @@ export const PATCH = withMiddleware(
     }
 
     try {
-      const lens = await updateCustomLens({ tenantId: ctx.tenantId, slug, ...parsed.data } as UpdateLensInput);
+      const lens = await updateCustomLens({ tenantId: ctx.tenantId, slug, ...parsed.data });
       return NextResponse.json({ data: lens });
     } catch (err) {
       if (err instanceof LensNotFoundError) {
