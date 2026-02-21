@@ -1026,7 +1026,9 @@ const badges: Record<ItemTypeGroup, ...> = {};  // works
 | Catalog (prices, costs)         | Dollars | `NUMERIC(12,2)` / string | `"29.99"` |
 | Orders (totals, line amounts)   | Cents   | `INTEGER`                | `2999`    |
 | Tenders (amounts, change, tips) | Cents   | `INTEGER`                | `2999`    |
-| GL Journal Entries              | Cents   | `INTEGER`                | `2999`    |
+| GL Journal Entries              | Dollars | `NUMERIC(12,2)` / string | `"29.99"` |
+| AP Bills / AR Invoices          | Dollars | `NUMERIC(12,2)` / string | `"29.99"` |
+| Receiving / Landed Cost         | Dollars | `NUMERIC(12,4)` / string | `"29.9900"`|
 
 ### Conversion Pattern
 
@@ -2382,17 +2384,37 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - **Portal dialog cleanup on POS switch**: `useEffect` in each POS content component closes all portaled dialog states when `isActive` becomes false, preventing leaked dialogs across POS modes.
 - New files: `page-skeleton.tsx`, `dashboard/loading.tsx`, `catalog/loading.tsx`, `orders/loading.tsx`, `settings/loading.tsx`, `catalog-content.tsx`, `orders-content.tsx`, `settings-content.tsx`, `item-detail-content.tsx`, `item-edit-content.tsx`, `customer-detail-content.tsx`, `billing-detail-content.tsx`, `order-detail-content.tsx`, `taxes-content.tsx`, `memberships-content.tsx`, `vendors-content.tsx`, `vendor-detail-content.tsx`, `reports-content.tsx`, `golf-reports-content.tsx`, `receipt-detail-content.tsx`, `0065_list_page_indexes.sql`
 
+**Milestone 16: Room Layout Builder**
+
+- Sessions 1-14 (room-builder branch): Full drag-and-drop floor plan editor with Konva.js
+- See §65 for complete architecture docs
+
+**Milestone 17: Accounting Core + GL + AP + AR (Sessions 28-34)**
+
+- Session 28: GL core schema (9 tables), posting engine, validation, helpers, errors (migration 0071)
+- Session 29: GL mappings (4 tables), bank registry, GL reports (trial balance, detail, summary), reconciliation framework, 22 API routes (migration 0072)
+- Session 30: AP schema (5 tables + vendor extensions), bill lifecycle (create/post/void), payment terms (migration 0074)
+- Session 31: AP payments (create/post/void), vendor credits (negative bills), AP reports (aging, vendor ledger, cash requirements, 1099, asset purchases), landed cost allocations, 12 API routes
+- Session 32: POS posting adapter (`handleTenderForAccounting`), legacy bridge adapter, AccountingPostingApi wiring, tenant COA bootstrap, close period workflow (migration 0075)
+- Session 33: AR schema (4 tables), invoice/receipt lifecycle, AR-GL reconciliation, bridge adapter (migration 0076)
+- Session 34: Financial statements (P&L, balance sheet, sales tax, cash flow, period comparison, health summary), retained earnings, statement layouts (migration 0077)
+- Architecture: See CONVENTIONS.md §66-70 for full details
+- Total: ~26 tables, ~41 commands, ~37 queries, ~72 API routes, ~175 tests
+
 ### Test Coverage
 
-792 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers (44 Session 16 + 56 Session 16.5) + 241 web (75 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 10 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + golf-reporting tests
+1403 tests: 134 core + 68 catalog + 52 orders + 22 shared + 100 customers + 246 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting + 49 inventory-receiving + 199 room-layouts + 202 business-logic + ~205 accounting/AP/AR
 
 ### What's Next
 
+- Accounting frontend (COA management, journal browser, mapping UI, report viewers, statement viewers)
+- AP frontend (bill entry, payment batch, aging dashboard, vendor ledger)
+- AR frontend (invoice entry, receipt entry, aging dashboard, customer ledger)
 - Vendor Management remaining API routes (search, deactivate/reactivate, catalog CRUD endpoints)
 - Purchase Orders Phases 2-6 (commands, queries, API routes, frontend)
 - Receiving frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
 - Settings → Dashboard tab (widget toggles, notes editor)
-- Run migrations 0060-0065 on dev DB
+- Run migrations 0066-0077 on dev DB
 
 ---
 
@@ -4122,6 +4144,466 @@ Permissions: `room_layouts.view` (read), `room_layouts.manage` (write)
 6. **Objects store position in feet, dimensions in pixels** — `x`/`y` are room coordinates (feet), `width`/`height` are pixels. Convert with `scalePxPerFt`.
 7. **`reassignObjectIds()` on duplicate** — generates new ULIDs for all objects and layers, preserving layerId references
 8. **Default layer ID is `'default'`** — always exists, cannot be deleted
+
+---
+
+## 66. Accounting Core / GL Architecture
+
+### Overview
+
+The Accounting Core module (`packages/modules/accounting/`) provides double-entry General Ledger, Chart of Accounts, GL account mappings, financial reporting, and period close workflows. All other financial modules (AP, AR, POS) post to the GL through a singleton API — they never import the accounting module directly.
+
+### Money Representation
+
+GL amounts are **NUMERIC(12,2) in dollars** (strings in TypeScript). This is different from the orders/payments layer (INTEGER cents). Convert at boundaries:
+
+```typescript
+// POS adapter: cents → dollars for GL posting
+const dollarAmount = (amountCents / 100).toFixed(2);
+
+// Query result: dollar string → number for frontend
+const balance = Number(row.balance);
+```
+
+### Database (9 core + 4 mapping + 2 statement tables)
+
+| Table | Purpose |
+|---|---|
+| `gl_accounts` | Chart of Accounts (account number, type, normal balance, control account flags) |
+| `gl_classifications` | Account groupings (Current Assets, Long-term Liabilities, etc.) |
+| `gl_journal_entries` | Journal headers (status, source module, posting period, business date) |
+| `gl_journal_lines` | Debit/credit lines (account, amounts, dimension tags) |
+| `gl_journal_number_counters` | Atomic sequential numbering per tenant |
+| `accounting_settings` | One row per tenant (currency, fiscal year, control account defaults, feature toggles) |
+| `gl_unmapped_events` | Tracks missing GL mappings encountered during posting |
+| `gl_account_templates` | System-level seed data for tenant COA bootstrap |
+| `gl_classification_templates` | System-level seed data for classification bootstrap |
+| `sub_department_gl_defaults` | Maps catalog sub-departments → revenue/COGS/inventory GL accounts |
+| `payment_type_gl_defaults` | Maps payment types → cash/clearing/fee GL accounts |
+| `tax_group_gl_defaults` | Maps tax groups → tax payable GL accounts |
+| `bank_accounts` | Registry linking physical banks to GL accounts |
+| `accounting_close_periods` | Month-end close tracking (open/in_review/closed) |
+| `financial_statement_layouts` | Tenant-configurable P&L and balance sheet structure |
+| `financial_statement_layout_templates` | System-level statement layout seeds |
+
+Schema: `packages/db/src/schema/accounting.ts`, `packages/db/src/schema/accounting-mappings.ts`
+Migrations: `0071_accounting_core.sql` through `0077_financial_statements.sql`
+
+### Double-Entry Posting Rules
+
+Every journal entry must satisfy: **sum(debits) === sum(credits)**
+
+```
+Normal Balances:
+  Assets    → Debit  (increases with debits)
+  Expenses  → Debit  (increases with debits)
+  Liabilities → Credit (increases with credits)
+  Equity      → Credit (increases with credits)
+  Revenue     → Credit (increases with credits)
+```
+
+The posting engine auto-corrects rounding within `roundingToleranceCents` (default 5) by appending a rounding line to `defaultRoundingAccountId`. Beyond tolerance → `UnbalancedJournalError`.
+
+### AccountingPostingApi — Cross-Module GL Access
+
+Defined in `@oppsera/core/helpers/accounting-posting-api.ts`. This is how AP, AR, and the POS adapter post to GL without importing `@oppsera/module-accounting`:
+
+```typescript
+interface AccountingPostingApi {
+  postEntry(ctx: RequestContext, input: AccountingPostJournalInput):
+    Promise<{ id: string; journalNumber: number; status: string }>;
+  getAccountBalance(tenantId: string, accountId: string, asOfDate?: string):
+    Promise<number>;
+  getSettings(tenantId: string):
+    Promise<{ defaultAPControlAccountId: string | null; defaultARControlAccountId: string | null; baseCurrency: string }>;
+}
+```
+
+**Singleton pattern**: `setAccountingPostingApi(api)` called once in `apps/web/src/lib/accounting-bootstrap.ts`, wired in `instrumentation.ts`. Retrieved via `getAccountingPostingApi()`.
+
+### Journal Entry Idempotency
+
+The unique partial index `(tenantId, sourceModule, sourceReferenceId) WHERE sourceReferenceId IS NOT NULL` prevents duplicate GL postings from adapters/bridges. The posting engine checks this index and returns the existing entry instead of double-posting.
+
+### Control Account Enforcement
+
+GL accounts with `isControlAccount = true` and a `controlAccountType` (ap, ar, sales_tax, undeposited_funds, bank) restrict which `sourceModule` values can post to them. Manual entries to control accounts require the `accounting.control_account.post` permission.
+
+### Posting Period Locking
+
+`accounting_settings.lockPeriodThrough` (YYYY-MM) prevents posting into locked periods. The close workflow transitions periods through: open → in_review → closed.
+
+### GL Mapping Resolution
+
+The mapping engine resolves POS entities to GL accounts:
+
+```typescript
+resolveSubDepartmentAccounts(tx, tenantId, subDepartmentId): Promise<SubDeptGL | null>
+resolvePaymentTypeAccounts(tx, tenantId, paymentTypeId): Promise<PaymentTypeGL | null>
+resolveTaxGroupAccount(tx, tenantId, taxGroupId): Promise<string | null>
+```
+
+Returns `null` if mapping missing — callers log to `gl_unmapped_events` via `logUnmappedEvent()`.
+
+### POS Posting Adapter
+
+`handleTenderForAccounting(event: EventEnvelope)` consumes `tender.recorded.v1` events:
+
+```
+GL Entry (Retail Sale):
+  Debit:  Cash/Card/Undeposited Funds (from payment type mapping) — tender amount
+  Credit: Revenue accounts (from sub-department mapping, one per dept) — line amounts
+  Credit: Sales Tax Payable (from tax group mapping) — tax amounts
+  If enableCogsPosting:
+    Debit:  COGS (from sub-department) — cost amounts
+    Credit: Inventory Asset (from sub-department) — cost amounts
+```
+
+**Critical**: The POS adapter **never blocks tenders**. If any GL mapping is missing, it skips the GL post, logs to `gl_unmapped_events`, and emits `accounting.posting.skipped.v1`. POS must always succeed.
+
+### Financial Statements
+
+| Query | Purpose |
+|---|---|
+| `getProfitAndLoss` | Revenue - Expenses by classification for date range, optional location filter, comparative period |
+| `getBalanceSheet` | A/L/E cumulative balances as-of date, includes current-year net income in equity |
+| `getSalesTaxLiability` | Tax collected vs remitted by tax group |
+| `getCashFlowSimplified` | Net income + AP change - AR change |
+| `getPeriodComparison` | Two periods side-by-side with variance $ and % |
+| `getFinancialHealthSummary` | Dashboard KPIs: net income, AP/AR/cash balances, trial balance status |
+
+### GL Balance Calculation Patterns
+
+```sql
+-- Revenue (credit-normal): credit_amount - debit_amount
+-- Expense (debit-normal): debit_amount - credit_amount
+-- Assets (debit-normal): debit_amount - credit_amount
+-- Liabilities (credit-normal): credit_amount - debit_amount
+CASE WHEN a.normal_balance = 'debit'
+  THEN SUM(jl.debit_amount) - SUM(jl.credit_amount)
+  ELSE SUM(jl.credit_amount) - SUM(jl.debit_amount)
+END AS balance
+```
+
+### Retained Earnings
+
+Year-end close creates a journal entry closing all revenue/expense accounts to the Retained Earnings account. The balance sheet includes current-year net income in equity (computed live, not stored) for periods before the formal close.
+
+### Close Checklist
+
+Computed live from queries (not stored):
+1. Open draft journal entries (should be 0)
+2. Unresolved unmapped events (should be 0)
+3. Trial balance in balance
+4. AP subledger reconciled to GL control
+5. AR subledger reconciled to GL control
+
+### Key Commands
+
+| Command | GL Effect |
+|---|---|
+| `postJournalEntry` | Core engine — validates, numbers, posts/drafts |
+| `postDraftEntry` | Transitions draft → posted |
+| `voidJournalEntry` | Creates reversal entry (debits↔credits swapped), marks original voided |
+| `saveStatementLayout` | Create/update configurable statement sections |
+| `generateRetainedEarnings` | Year-end close: closes revenue/expense to RE account |
+| `bootstrapTenantAccounting` | Copies COA template for business type, creates settings row |
+
+### Key Rules
+
+1. **Never write GL tables directly** — always use `postJournalEntry()` or `AccountingPostingApi.postEntry()`
+2. **Posted journal entries are immutable** — corrections via void + reversal only
+3. **Currency is locked to USD** — posting engine rejects non-USD with `CurrencyMismatchError`
+4. **GL amounts are dollars (NUMERIC(12,2))**, not cents
+5. **postgres.js returns strings for numeric columns** — always `Number()` in query mappings
+6. **`forcePost: true`** bypasses draft mode — used by automated adapters (POS, AP, AR)
+7. **`hasControlAccountPermission: true`** in bootstrap wiring bypasses control account checks for system posting
+
+---
+
+## 67. Accounts Payable (AP) Architecture
+
+### Overview
+
+The AP module (`packages/modules/ap/`) manages vendor bills, payments, vendor credits, and payable tracking. It posts to the GL via `AccountingPostingApi` — never imports `@oppsera/module-accounting` directly.
+
+### Database (5 tables + vendor extensions)
+
+| Table | Purpose |
+|---|---|
+| `ap_bills` | Vendor invoices (status lifecycle, denormalized balanceDue) |
+| `ap_bill_lines` | Line items with lineType (expense/inventory/asset/freight) |
+| `ap_payments` | Payments to vendors (bank account, payment method) |
+| `ap_payment_allocations` | Junction: payments → bills (composite PK) |
+| `ap_bill_landed_cost_allocations` | Freight distribution to inventory lines |
+| `vendors` (extended) | Added: vendorNumber, defaultExpenseAccountId, defaultAPAccountId, paymentTermsId, is1099Eligible |
+
+Schema: `packages/db/src/schema/ap.ts`
+Migration: `0074_accounts_payable.sql`
+
+### Bill Lifecycle
+
+```
+draft → posted → partial → paid
+                ↘ voided (only if no allocations)
+```
+
+### GL Posting Patterns
+
+**Post Bill** (Dr Expense, Cr AP Control):
+```
+For each bill line:
+  Debit: line.accountId (expense/inventory/asset) — line.amount
+Credit: AP control account — bill.totalAmount
+  (vendor.defaultAPAccountId ?? settings.defaultAPControlAccountId)
+
+sourceModule: 'ap', sourceReferenceId: bill.id
+```
+
+**Post Payment** (Dr AP Control, Cr Bank):
+```
+Debit: AP control account — payment.amount
+Credit: Bank GL account (from bankAccountId → bank_accounts.glAccountId)
+
+sourceModule: 'ap', sourceReferenceId: payment.id
+```
+
+**Vendor Credit** (negative bill):
+```
+Stored as bill with negative totalAmount/balanceDue.
+GL: Debit AP control, Credit expense accounts (reverses normal bill posting)
+Applied against future bills via allocation.
+```
+
+**Void Bill** (reversal entry — debits↔credits flipped):
+```
+For each original line:
+  Credit: line.accountId — line.amount (reverses original debit)
+Debit: AP control — bill.totalAmount (reverses original credit)
+
+Pre-condition: No payment allocations exist. BillHasPaymentsError if any.
+```
+
+### Denormalized Balance Tracking
+
+```typescript
+// Updated inside transaction when payment posted:
+bill.amountPaid += alloc.amountApplied
+bill.balanceDue = bill.totalAmount - bill.amountPaid
+bill.status = (balanceDue <= 0) ? 'paid' : 'partial'
+```
+
+**Never recompute from allocations in hot paths** — use the denormalized columns. All updates happen atomically in the same transaction as the GL posting.
+
+### AP Control Account Resolution Order
+
+1. `vendor.defaultAPAccountId` (vendor-specific)
+2. `settings.defaultAPControlAccountId` (tenant default)
+3. Error if neither configured
+
+### Aging Buckets
+
+Current (not yet due) | 1-30 days | 31-60 days | 61-90 days | 90+ days past due. Based on `dueDate`, not `billDate`. Uses denormalized `balanceDue` directly.
+
+### Vendor Ledger
+
+Union query: bills (debits increase payable) + payments (credits decrease payable), ordered by date with running balance. Cursor-paginated.
+
+### Key Error Classes
+
+| Error | Code | HTTP | When |
+|---|---|---|---|
+| `BillStatusError` | BILL_STATUS_ERROR | 409 | Wrong status for operation |
+| `DuplicateBillNumberError` | DUPLICATE_BILL_NUMBER | 409 | Same vendor+billNumber |
+| `BillTotalMismatchError` | BILL_TOTAL_MISMATCH | 400 | Lines don't sum to totalAmount |
+| `PaymentExceedsBillError` | PAYMENT_EXCEEDS_BILL | 400 | Allocation > balanceDue |
+| `BillHasPaymentsError` | BILL_HAS_PAYMENTS | 409 | Cannot void billed with allocations |
+
+### Key Rules
+
+1. **Vendors table is shared** — AP extends the existing vendors table from inventory/receiving via ALTER TABLE. Never recreate.
+2. **Void requires zero allocations** — must void payments first, then void the bill
+3. **Vendor credits are negative bills** — reuses bill table + allocation logic
+4. **AP amounts are NUMERIC(12,2) in dollars** — same as GL, different from orders (cents)
+5. **Bill line `lineType` drives posting behavior** — expense/inventory/asset/freight each debit different account categories
+6. **`toFixed(2)` at UPDATE time** — prevents floating-point drift in denormalized fields
+
+---
+
+## 68. Accounts Receivable (AR) Architecture
+
+### Overview
+
+The AR module (`packages/modules/ar/`) manages customer invoices, receipt processing, and receivable tracking. It bridges from existing operational AR tables (`ar_transactions`, `billing_accounts` from Session 16) into GL control accounts — not a parallel system.
+
+### Database (4 tables)
+
+| Table | Purpose |
+|---|---|
+| `ar_invoices` | Formal invoices (membership, events, manual, POS house account) |
+| `ar_invoice_lines` | Revenue lines with GL account + optional tax group |
+| `ar_receipts` | Customer payments against invoices |
+| `ar_receipt_allocations` | Junction: receipts → invoices (composite PK) |
+
+Schema: `packages/db/src/schema/ar.ts`
+Migration: `0076_accounts_receivable.sql`
+
+### Invoice Lifecycle
+
+```
+draft → posted → partial → paid
+                ↘ voided (only if no allocations)
+```
+
+### GL Posting Patterns
+
+**Post Invoice** (Dr AR Control, Cr Revenue):
+```
+Debit: AR control account — invoice.totalAmount
+  (settings.defaultARControlAccountId — no customer-specific override)
+For each invoice line:
+  Credit: line.accountId (revenue GL account) — line.amount
+
+sourceModule: 'ar', sourceReferenceId: invoice.id
+```
+
+**Post Receipt** (Dr Cash/Bank, Cr AR Control):
+```
+Debit: Bank GL account (from bankAccountId → bank_accounts.glAccountId)
+Credit: AR control account — receipt.amount
+
+sourceModule: 'ar', sourceReferenceId: receipt.id
+```
+
+**Void Invoice** (reversal entry):
+```
+Credit: AR control — invoice.totalAmount (reverses original debit)
+For each line:
+  Debit: line.accountId — line.amount (reverses original credit)
+
+Pre-condition: No receipt allocations exist.
+```
+
+### Denormalized Balance Tracking
+
+Same pattern as AP:
+```typescript
+invoice.amountPaid += alloc.amountApplied
+invoice.balanceDue = invoice.totalAmount - invoice.amountPaid
+invoice.status = (balanceDue <= 0) ? 'paid' : 'partial'
+```
+
+### Source Types
+
+Invoices track their origin via `sourceType`:
+- `manual` — operator-created invoices
+- `membership` — auto-generated from membership billing
+- `event` — event deposit invoices
+- `pos_house_account` — bridged from POS house account charges
+
+Receipts track origin via `sourceType`:
+- `manual` — operator-entered payments
+- `pos_tender` — bridged from POS tender for house account
+- `online_payment` — future online payment gateway
+
+### AR Reconciliation
+
+Compares AR subledger to GL control account:
+```
+AR Subledger = SUM(invoices.totalAmount WHERE status IN posted/partial/paid)
+             - SUM(receipts.amount WHERE status = posted)
+GL AR        = Balance of AR control account from gl_journal_lines
+Difference   = GL - Subledger (should be ~0)
+```
+
+### Aging Buckets
+
+Same as AP: Current | 1-30 | 31-60 | 61-90 | 90+ days past due. Based on invoice `dueDate`. Uses denormalized `balanceDue`.
+
+### Customer Ledger
+
+Union query: invoices (increase AR) + receipts (decrease AR, shown as negative), ordered by date with running balance + opening/closing balance.
+
+### Bridge Adapter
+
+`bridgeArTransaction()` takes existing `ar_transactions` rows and creates corresponding `ar_invoices`/`ar_receipts` + GL entries. Idempotent via `sourceReferenceId`. This bridges the operational AR (house accounts from Session 16) into the accounting GL.
+
+### Key Rules
+
+1. **AR bridges existing operational AR** — does not replace `ar_transactions`/`billing_accounts` from Session 16
+2. **AR control account is tenant-level only** — no customer-specific control accounts (unlike AP which has vendor-level)
+3. **Void requires zero allocations** — must void receipts first, then void the invoice
+4. **Invoice numbers are unique per tenant** — not per customer
+5. **AR amounts are NUMERIC(12,2) in dollars** — same as GL and AP
+
+---
+
+## 69. Subledger Reconciliation Pattern
+
+### How It Works
+
+Both AP and AR maintain a parallel balance to the GL control account. The reconciliation query compares them:
+
+```
+GL Control Balance = SUM(debit_amount - credit_amount) for control account lines
+Subledger Balance  = SUM(bills/invoices) - SUM(payments/receipts)
+Difference         = GL - Subledger
+isReconciled       = Math.abs(difference) < 0.01
+```
+
+### When They Diverge
+
+Common causes:
+- Manual journal entry posted to control account (bypasses subledger)
+- Bill/invoice voided but GL reversal failed
+- Bridge adapter has unprocessed transactions
+- Rounding differences from multi-allocation payments
+
+### Close Checklist Integration
+
+Period close checks reconciliation automatically. If `difference >= $0.01`, the checklist item fails and the period cannot be closed.
+
+---
+
+## 70. Cross-Module Financial Posting Patterns
+
+### Module → GL Flow
+
+```
+POS Tender → handleTenderForAccounting() → AccountingPostingApi.postEntry()
+AP Bill    → postBill() → AccountingPostingApi.postEntry()
+AP Payment → postPayment() → AccountingPostingApi.postEntry()
+AR Invoice → postInvoice() → AccountingPostingApi.postEntry()
+AR Receipt → postReceipt() → AccountingPostingApi.postEntry()
+```
+
+### Synthetic RequestContext for Automated Posting
+
+Adapters that run outside user requests (event consumers) create a synthetic context:
+
+```typescript
+const syntheticCtx: RequestContext = {
+  tenantId: event.tenantId,
+  user: { id: 'system', email: 'system@oppsera.com', role: 'system' },
+  requestId: `pos-gl-${tenderId}`,
+};
+```
+
+### GL Entry `sourceModule` Values
+
+| Value | Origin |
+|---|---|
+| `manual` | User-created journal entries |
+| `pos` | POS posting adapter (tender → GL) |
+| `pos_legacy` | Legacy bridge adapter (payment_journal_entries migration) |
+| `ap` | AP bills and payments |
+| `ar` | AR invoices and receipts |
+| `membership` | Future: membership billing |
+| `payroll` | Future: payroll posting |
+
+### Idempotency
+
+All automated postings use `sourceReferenceId` (bill.id, invoice.id, tender.id). The unique partial index on `(tenantId, sourceModule, sourceReferenceId) WHERE sourceReferenceId IS NOT NULL` prevents double-posting. The posting engine returns the existing entry if a duplicate is detected.
 
 ---
 
