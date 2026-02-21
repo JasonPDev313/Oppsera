@@ -14,10 +14,10 @@ function renderMarkdown(text: string): React.ReactNode {
   return text.split('\n').map((line, i) => {
     // Headings: ## or ###
     if (/^###\s+/.test(line)) {
-      return <h4 key={i} className="text-sm font-semibold mt-3 mb-1">{line.replace(/^###\s+/, '')}</h4>;
+      return <h4 key={i} className="text-sm font-semibold mt-3 mb-1 text-foreground">{line.replace(/^###\s+/, '')}</h4>;
     }
     if (/^##\s+/.test(line)) {
-      return <h3 key={i} className="text-base font-semibold mt-3 mb-1">{line.replace(/^##\s+/, '')}</h3>;
+      return <h3 key={i} className="text-base font-semibold mt-3 mb-1 text-foreground">{line.replace(/^##\s+/, '')}</h3>;
     }
     // Bullet list
     if (/^[-*]\s+/.test(line)) {
@@ -39,7 +39,7 @@ function formatInline(text: string): React.ReactNode {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
     }
     if (part.startsWith('`') && part.endsWith('`')) {
-      return <code key={i} className="bg-gray-200 px-1 py-0.5 rounded text-xs font-mono">{part.slice(1, -1)}</code>;
+      return <code key={i} className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{part.slice(1, -1)}</code>;
     }
     return part;
   });
@@ -53,7 +53,7 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
 
   if (rows.length === 0) {
     return (
-      <div className="text-xs text-gray-500 italic mt-2">No data rows returned.</div>
+      <div className="text-xs text-muted-foreground italic mt-2">No data rows returned.</div>
     );
   }
 
@@ -61,25 +61,25 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
 
   return (
     <div className="mt-2">
-      <div className="overflow-x-auto rounded border border-gray-200">
+      <div className="overflow-x-auto rounded border border-border">
         <table className="min-w-full text-xs">
-          <thead className="bg-gray-50">
+          <thead className="bg-muted">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col}
-                  className="px-3 py-2 text-left font-medium text-gray-600 uppercase tracking-wide whitespace-nowrap"
+                  className="px-3 py-2 text-left font-medium text-muted-foreground uppercase tracking-wide whitespace-nowrap"
                 >
                   {col.replace(/_/g, ' ')}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-border">
             {visibleRows.map((row, i) => (
-              <tr key={i} className="hover:bg-gray-200/50">
+              <tr key={i} className="hover:bg-accent">
                 {columns.map((col) => (
-                  <td key={col} className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                  <td key={col} className="px-3 py-2 text-foreground whitespace-nowrap">
                     {String(row[col] ?? '')}
                   </td>
                 ))}
@@ -91,7 +91,7 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
       {rowCount > 5 && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="mt-1 text-xs text-indigo-500 hover:text-indigo-400"
+          className="mt-1 text-xs text-primary hover:text-primary/80"
         >
           {expanded ? 'Show fewer rows' : `Show all ${rowCount} rows`}
         </button>
@@ -123,7 +123,7 @@ function PlanDebugPanel({
     <div className="mt-2 text-xs">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-gray-400 hover:text-gray-600"
+        className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
       >
         {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         <Database className="h-3 w-3" />
@@ -134,26 +134,26 @@ function PlanDebugPanel({
           </span>
         )}
         {llmConfidence != null && (
-          <span className="ml-1 text-gray-400">
+          <span className="ml-1 text-muted-foreground">
             {Math.round(llmConfidence * 100)}% confidence
           </span>
         )}
       </button>
 
       {open && (
-        <div className="mt-2 space-y-2 bg-gray-100 rounded p-2 font-mono">
+        <div className="mt-2 space-y-2 bg-muted rounded p-2 font-mono">
           {plan && (
             <div>
-              <div className="text-gray-500 mb-1">Plan:</div>
-              <pre className="text-gray-700 whitespace-pre-wrap text-xs overflow-x-auto">
+              <div className="text-muted-foreground mb-1">Plan:</div>
+              <pre className="text-foreground whitespace-pre-wrap text-xs overflow-x-auto">
                 {JSON.stringify(plan, null, 2)}
               </pre>
             </div>
           )}
           {compiledSql && (
             <div>
-              <div className="text-gray-500 mb-1">SQL:</div>
-              <pre className="text-gray-700 whitespace-pre-wrap text-xs overflow-x-auto">
+              <div className="text-muted-foreground mb-1">SQL:</div>
+              <pre className="text-foreground whitespace-pre-wrap text-xs overflow-x-auto">
                 {compiledSql}
               </pre>
             </div>
@@ -166,7 +166,7 @@ function PlanDebugPanel({
               </ul>
             </div>
           )}
-          <div className="text-gray-400 text-xs pt-1 border-t border-gray-200">
+          <div className="text-muted-foreground text-xs pt-1 border-t border-border">
             {llmLatencyMs != null && <span>LLM: {llmLatencyMs}ms</span>}
             {cacheStatus && <span className="ml-3">Cache: {cacheStatus}</span>}
           </div>
@@ -189,7 +189,7 @@ export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBub
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm">
+        <div className="max-w-[80%] bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm">
           {message.content}
         </div>
       </div>
@@ -201,7 +201,7 @@ export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBub
     <div className="flex justify-start">
       <div className="max-w-[90%] w-full">
         {/* Sparkle indicator */}
-        <div className="flex items-center gap-1.5 mb-1.5 text-indigo-500">
+        <div className="flex items-center gap-1.5 mb-1.5 text-primary">
           <Zap className="h-3.5 w-3.5" />
           <span className="text-xs font-medium">AI Insights</span>
         </div>
@@ -216,7 +216,7 @@ export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBub
 
         {/* Normal response */}
         {!message.error && (
-          <div className="bg-surface-raised border border-gray-200 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+          <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
             {/* Clarification badge */}
             {message.isClarification && (
               <div className="mb-2 text-xs text-amber-500 bg-amber-500/10 px-2 py-1 rounded inline-block">
@@ -225,7 +225,7 @@ export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBub
             )}
 
             {/* Narrative */}
-            <div className="prose prose-sm max-w-none text-gray-700">
+            <div className="prose prose-sm max-w-none text-card-foreground">
               {renderMarkdown(message.content)}
             </div>
 
@@ -253,7 +253,7 @@ export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBub
           </div>
         )}
 
-        <div className="mt-1 text-xs text-gray-400 pl-1">
+        <div className="mt-1 text-xs text-muted-foreground pl-1">
           {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </div>
       </div>

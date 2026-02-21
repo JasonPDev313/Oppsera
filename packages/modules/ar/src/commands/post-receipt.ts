@@ -112,7 +112,15 @@ export async function postReceipt(ctx: RequestContext, input: PostReceiptInput) 
         .where(eq(arInvoices.id, alloc.invoiceId))
         .limit(1);
 
-      if (invoice) {
+      if (!invoice) {
+        throw new AppError(
+          'INVOICE_NOT_FOUND',
+          `Receipt allocation references non-existent invoice ${alloc.invoiceId}`,
+          400,
+        );
+      }
+
+      {
         const newPaid = (Number(invoice.amountPaid) + Number(alloc.amountApplied)).toFixed(2);
         const newBalance = (Number(invoice.totalAmount) - Number(newPaid)).toFixed(2);
         const newStatus = Number(newBalance) <= 0 ? 'paid' : 'partial';

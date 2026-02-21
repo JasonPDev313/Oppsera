@@ -31,8 +31,8 @@ const REQUIRED_MODULE_KEYS = [
   'semantic',
   'room_layouts',
   'accounting',
-  'accounts_payable',
-  'accounts_receivable',
+  'ap',
+  'ar',
 ];
 
 async function main() {

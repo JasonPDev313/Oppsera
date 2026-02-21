@@ -1,0 +1,179 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import {
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  Zap,
+  Activity,
+  ArrowRight,
+} from 'lucide-react';
+import { formatAccountingMoney } from '@/types/accounting';
+import type { AccountingSettings, MappingCoverage } from '@/types/accounting';
+import { useQuery } from '@tanstack/react-query';
+import { apiFetch } from '@/lib/api-client';
+
+interface RecentPosGLEntry {
+  id: string;
+  journalNumber: number;
+  sourceReferenceId: string;
+  businessDate: string;
+  totalAmount: number;
+  status: string;
+}
+
+export function PosIntegrationStatus() {
+  const { data: settings } = useQuery({
+    queryKey: ['accounting-settings-pos'],
+    queryFn: () =>
+      apiFetch<{ data: AccountingSettings }>('/api/v1/accounting/settings')
+        .then((r) => r.data)
+        .catch(() => null),
+    staleTime: 30_000,
+  });
+
+  const { data: coverage } = useQuery({
+    queryKey: ['mapping-coverage-pos'],
+    queryFn: () =>
+      apiFetch<{ data: MappingCoverage }>('/api/v1/accounting/mappings/coverage')
+        .then((r) => r.data)
+        .catch(() => null),
+    staleTime: 30_000,
+  });
+
+  const { data: unmappedCount } = useQuery({
+    queryKey: ['unmapped-count-pos'],
+    queryFn: () =>
+      apiFetch<{ data: { id: string }[]; meta: { hasMore: boolean } }>(
+        '/api/v1/accounting/unmapped-events?limit=1',
+      )
+        .then((r) => (r.meta?.hasMore ? '10+' : String(r.data.length)))
+        .catch(() => '0'),
+    staleTime: 30_000,
+  });
+
+  const { data: recentEntries } = useQuery({
+    queryKey: ['pos-gl-entries'],
+    queryFn: () =>
+      apiFetch<{ data: RecentPosGLEntry[] }>(
+        '/api/v1/accounting/journals?sourceModule=pos&limit=10',
+      )
+        .then((r) => r.data)
+        .catch(() => []),
+    staleTime: 30_000,
+  });
+
+  const isEnabled = settings?.autoPostMode === 'auto_post';
+
+  return (
+    <div className="space-y-6">
+      {/* Status Banner */}
+      <div
+        className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${
+          isEnabled
+            ? 'border-green-200 bg-green-50 text-green-800'
+            : 'border-gray-200 bg-gray-50 text-gray-700'
+        }`}
+      >
+        {isEnabled ? (
+          <Zap className="h-5 w-5 shrink-0 text-green-600" />
+        ) : (
+          <Activity className="h-5 w-5 shrink-0 text-gray-400" />
+        )}
+        <div className="flex-1">
+          <p className="font-medium">
+            POS → GL Posting: {isEnabled ? 'Enabled (Auto-post)' : settings?.autoPostMode === 'draft_only' ? 'Draft Only' : 'Not Configured'}
+          </p>
+          {!isEnabled && (
+            <p className="text-sm opacity-80">
+              POS transactions are not being posted to the general ledger.
+            </p>
+          )}
+        </div>
+        <Link
+          href="/accounting/settings"
+          className="text-sm font-medium underline"
+        >
+          Configure
+        </Link>
+      </div>
+
+      {/* Mapping Coverage */}
+      {coverage && (
+        <div className="rounded-lg border border-gray-200 bg-surface p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-700">Mapping Coverage</h3>
+            <span className="text-sm font-bold text-gray-900">{coverage.overallPercentage}%</span>
+          </div>
+          <div className="space-y-2">
+            <MappingRow label="Departments" mapped={coverage.departments.mapped} total={coverage.departments.total} />
+            <MappingRow label="Payment Types" mapped={coverage.paymentTypes.mapped} total={coverage.paymentTypes.total} />
+            <MappingRow label="Tax Groups" mapped={coverage.taxGroups.mapped} total={coverage.taxGroups.total} />
+          </div>
+          {coverage.overallPercentage < 100 && (
+            <Link
+              href="/accounting/mappings"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            >
+              Complete mappings <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Unmapped Events */}
+      {unmappedCount && unmappedCount !== '0' && (
+        <Link
+          href="/accounting/mappings"
+          className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 hover:bg-amber-100"
+        >
+          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+          <span>
+            <strong>{unmappedCount}</strong> POS transactions skipped GL posting (unmapped)
+          </span>
+        </Link>
+      )}
+
+      {/* Recent POS GL Entries */}
+      <div className="rounded-lg border border-gray-200 bg-surface p-5">
+        <h3 className="mb-3 text-sm font-semibold text-gray-700">Recent POS Journal Entries</h3>
+        {recentEntries && recentEntries.length > 0 ? (
+          <div className="space-y-2">
+            {recentEntries.map((entry) => (
+              <Link
+                key={entry.id}
+                href={`/accounting/journals/${entry.id}`}
+                className="flex items-center gap-3 rounded border border-gray-100 px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                <span className="font-mono text-gray-500">#{entry.journalNumber}</span>
+                <span className="flex-1 truncate text-gray-600">{entry.sourceReferenceId}</span>
+                <span className="tabular-nums text-gray-700">{formatAccountingMoney(entry.totalAmount)}</span>
+                <span className="text-gray-400">{entry.businessDate}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500">No POS entries recorded yet.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MappingRow({ label, mapped, total }: { label: string; mapped: number; total: number }) {
+  const pct = total > 0 ? Math.round((mapped / total) * 100) : 0;
+  const Icon = pct === 100 ? CheckCircle : pct > 0 ? AlertTriangle : XCircle;
+  const iconColor = pct === 100 ? 'text-green-500' : pct > 0 ? 'text-amber-500' : 'text-red-400';
+
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <Icon className={`h-4 w-4 ${iconColor}`} />
+      <span className="flex-1 text-gray-600">{label}</span>
+      <span className="tabular-nums text-gray-500">
+        {mapped}/{total}
+      </span>
+    </div>
+  );
+}

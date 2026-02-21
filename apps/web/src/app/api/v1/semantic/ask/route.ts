@@ -84,7 +84,7 @@ export const POST = withMiddleware(
     } catch (err) {
       console.error('[semantic/ask] Pipeline error:', err);
       return NextResponse.json(
-        { error: { code: 'PIPELINE_ERROR', message: err instanceof Error ? err.message : 'Semantic pipeline failed' } },
+        { error: { code: 'PIPELINE_ERROR', message: 'Unable to process your query. Please try rephrasing or try again later.' } },
         { status: 500 },
       );
     }

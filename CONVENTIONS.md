@@ -474,6 +474,8 @@ Audit log writes **never throw** — failures are caught and logged to console. 
 
 **Vitest** — all test files: `__tests__/*.test.ts`
 
+Coverage: `@vitest/coverage-v8` configured in all 16 vitest configs. Run `pnpm test:coverage` for reports (text + json-summary + lcov). See §83 for CI integration.
+
 ### Mock Pattern (vi.hoisted)
 
 ```typescript
@@ -4194,12 +4196,61 @@ All LLM calls go through the adapter. Direct `fetch()` to Anthropic/OpenAI in mo
 ### Component hierarchy
 ```
 InsightsContent (insights-content.tsx)
-  └── ChatMessageBubble (semantic/chat-message.tsx)
-        ├── QueryResultTable
-        ├── PlanDebugPanel (showDebug=true only)
-        └── FeedbackWidget (insights/FeedbackWidget.tsx, evalTurnId required)
-              └── RatingStars (insights/RatingStars.tsx)
+  ├── flex h-[calc(100vh-64px)]        ← outer two-column layout
+  │   ├── Chat column (flex-1 min-w-0)
+  │   │   ├── Header (debug toggle, export, clear, sidebar toggles)
+  │   │   ├── Loaded session banner (indigo, shows when viewing a recalled session)
+  │   │   ├── Message area (overflow-y-auto, max-w-4xl mx-auto)
+  │   │   │   ├── Empty state with suggested questions
+  │   │   │   └── ChatMessageBubble (semantic/chat-message.tsx)
+  │   │   │         ├── QueryResultTable
+  │   │   │         ├── PlanDebugPanel (showDebug=true only)
+  │   │   │         └── FeedbackWidget (insights/FeedbackWidget.tsx, evalTurnId required)
+  │   │   │               └── RatingStars (insights/RatingStars.tsx)
+  │   │   └── ChatInput (auto-resize, border-t)
+  │   ├── Desktop sidebar (hidden lg:flex w-80, border-l)
+  │   │   └── ChatHistorySidebar (insights/ChatHistorySidebar.tsx)
+  │   └── Mobile overlay (fixed inset-0 z-30 lg:hidden)
+  │       └── ChatHistorySidebar (with onClose prop)
 ```
+
+### Chat history sidebar
+The sidebar is an **inline flexbox peer** of the chat column, NOT a portal overlay. Both columns scroll independently.
+
+**Responsive behavior:**
+| Viewport | Behavior |
+|---|---|
+| Desktop (lg: 1024px+) | Persistent 320px inline panel, toggleable via `PanelRightOpen`/`PanelRightClose` icon |
+| Mobile (< 1024px) | Hidden; `History` icon opens fixed overlay (z-30) with backdrop |
+
+**State management:**
+- `historyOpen` — desktop toggle, persisted in `localStorage('insights_history_open')`, default `true`
+- `mobileHistoryOpen` — mobile overlay toggle, not persisted
+- `activeDbSessionId` — highlights current session in sidebar
+- `refreshKey` — counter incremented after `sendMessage`, triggers delayed sidebar refresh
+
+**Session loading flow:**
+1. User clicks session in sidebar → `handleSelectSession(dbSessionId)`
+2. Fetch `GET /api/v1/semantic/sessions/:id` → receives session metadata + turns
+3. Call `initFromSession(session.id, turns)` → resets chat to loaded conversation
+4. Set `loadedSessionDate`, `loadedTurns`, `activeDbSessionId` for UI state
+5. Close mobile overlay if open
+
+**Sidebar refresh after send:**
+After `sendMessage()` completes, increment `refreshKey`. `ChatHistorySidebar` detects the change via `useRefreshOnChange(key, refresh)` hook, which calls `refresh()` with a 1-second delay. The delay accounts for the async eval turn capture (fire-and-forget).
+
+### `useSessionHistory` hook
+Shared between `ChatHistorySidebar` and `/insights/history` page. Provides:
+- `sessions: SessionSummary[]` — paginated session list
+- `isLoading`, `isLoadingMore` — loading states
+- `hasMore` — whether more pages exist
+- `loadMore()` — fetch next page (cursor-based)
+- `refresh()` — re-fetch page 1, reset cursor
+
+Also exports `formatRelativeTime(isoDate)` — returns "Just now", "Xm ago", "Xh ago", "Yesterday", weekday, or "Mon DD".
+
+### Session export
+`exportSessionAsTxt(title, startedAt, turns)` in `lib/export-chat.ts` formats a conversation as plain text and triggers a browser download. Filename: `ai-insights-YYYY-MM-DD.txt`. Available from both the history page (per-session export button) and the insights header (for loaded sessions).
 
 ### FeedbackWidget states
 - `idle` → thumbs up/down quick action
@@ -4211,6 +4262,9 @@ The pipeline captures an eval turn and returns `evalTurnId` in `PipelineOutput`.
 
 ### Debug panel
 Hidden by default, toggled by the debug button in the header. Shows intent plan JSON, compiled SQL, compilation errors, LLM latency, and cache status. Never shown in production to non-owners without explicit opt-in.
+
+### `initFromSession()` and `LoadedTurn`
+`useSemanticChat.initFromSession(dbSessionId, turns)` resets the session and maps each DB turn to a user+assistant message pair via `evalTurnToChatMessages()`. The `LoadedTurn` interface mirrors the API response from `GET /api/v1/semantic/sessions/[sessionId]` (subset of eval turn columns needed for chat reconstruction: userMessage, narrative, llmPlan, compiledSql, compilationErrors, resultSample, rowCount, cacheStatus, llmConfidence, llmLatencyMs, wasClarification, clarificationMessage, userRating, userThumbsUp, evalTurnId).
 
 ---
 
@@ -5033,5 +5087,69 @@ The login function must await the `/api/v1/me` call (with retries) BEFORE return
 ### Prevention
 - **Local dev**: Use `npx supabase start` for a fully local Postgres + Auth stack, or keep `DEV_AUTH_BYPASS=true` and avoid re-seeding the remote DB
 - **`authProviderId`**: Must match the Supabase Auth user's UUID (`sub` claim in JWT). Seeded users have null `authProviderId` — they must be linked before Vercel login works
-- **Diagnostic endpoint**: `/api/v1/auth/debug` traces the full auth chain (DB connectivity, env vars, JWT verify, user lookup by `authProviderId`)
+- **Diagnostic endpoint**: `/api/v1/auth/debug` has been disabled (returns 410 Gone). Use Supabase admin CLI or dashboard for auth troubleshooting.
+
+---
+
+## 82. Frontend Query String Helper
+
+All frontend data hooks use `buildQueryString()` from `apps/web/src/lib/query-string.ts` instead of inline `URLSearchParams`:
+
+```typescript
+import { buildQueryString } from '@/lib/query-string';
+
+// Returns '?vendorId=abc&status=posted' or '' if all values are empty/null/undefined
+const qs = buildQueryString({ vendorId, status, startDate, endDate });
+return apiFetch<{ data: T[] }>(`/api/v1/ap/bills${qs}`);
+```
+
+Rules:
+- Skips `undefined`, `null`, and `''` values
+- Booleans: only appends if `true` (as string `'true'`), skips `false`
+- Returns `?key=val&...` with leading `?` if non-empty, or `''` if empty
+- Used by: `use-ap.ts`, `use-ar.ts`, `use-journals.ts`, `use-mappings.ts`
+
+---
+
+## 83. CI/CD Workflow
+
+### GitHub Actions
+
+`.github/workflows/lint-typecheck.yml` runs on push/PR to `main` and `workflow_dispatch`:
+
+```
+Lint → Type Check → Test → Build
+```
+
+- Node 20, pnpm 9, pnpm store caching
+- Build uses placeholder Supabase env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+- Timeout: 10 minutes
+
+### Test Coverage
+
+All packages support `pnpm test:coverage` via `@vitest/coverage-v8`:
+
+- **Provider**: v8 (fast, native)
+- **Reporters**: `text` (console), `json-summary` (CI parsing), `lcov` (IDE/Codecov integration)
+- **Output**: `./coverage/` in each package (gitignored)
+- **Turbo task**: `test:coverage` with `outputs: ["coverage/**"]` for caching
+- **Workspace**: `vitest.workspace.ts` at root defines all packages for parallel execution
+
+Run: `pnpm test:coverage` (all packages) or `pnpm --filter @oppsera/module-X test:coverage` (single package).
+
+---
+
+## 84. Accounting Frontend Component Architecture
+
+### Chart of Accounts Page
+
+`accounts-content.tsx` is the orchestrator, delegating rendering to extracted sub-components:
+
+| Component | File | Purpose |
+|---|---|---|
+| `AccountFilterBar` | `components/accounting/account-filter-bar.tsx` | Search input, status filter tabs (active/inactive/all), view mode toggle (flat/tree) |
+| `AccountTreeView` | `components/accounting/account-tree-view.tsx` | Renders accounts grouped by type (asset/liability/equity/revenue/expense), collapsible sections, tree nesting via `buildTree()`, handles row click for editing |
+| `AccountDialog` | `components/accounting/account-dialog.tsx` | Create/edit GL account form (portal-based). Form state resets on close via `useEffect` watching `open` prop — explicitly resets to `defaultForm` when `open=false` |
+
+Pattern: State lives in the parent (`accounts-content.tsx`), sub-components receive props. This keeps the main file ~155 lines instead of ~320.
 

@@ -36,6 +36,15 @@ import {
   MessageSquare,
   Layers,
   History,
+  Landmark,
+  BookOpen,
+  ArrowRightLeft,
+  Building2,
+  Scale,
+  FileSpreadsheet,
+  DollarSign,
+  Lock,
+  Wallet,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
@@ -117,6 +126,27 @@ const navigation: NavItem[] = [
       { name: 'Chat', href: '/insights', icon: MessageSquare },
       { name: 'Lenses', href: '/insights/lenses', icon: Layers },
       { name: 'History', href: '/insights/history', icon: History },
+    ],
+  },
+  {
+    name: 'Accounting',
+    href: '/accounting',
+    icon: Landmark,
+    moduleKey: 'accounting',
+    children: [
+      { name: 'Dashboard', href: '/accounting', icon: Landmark },
+      { name: 'Chart of Accounts', href: '/accounting/accounts', icon: BookOpen },
+      { name: 'Journal Entries', href: '/accounting/journals', icon: FileSpreadsheet },
+      { name: 'GL Mappings', href: '/accounting/mappings', icon: ArrowRightLeft },
+      { name: 'Bank Accounts', href: '/accounting/banks', icon: Building2 },
+      { name: 'Reports', href: '/accounting/reports/trial-balance', icon: BarChart3 },
+      { name: 'Statements', href: '/accounting/statements/profit-loss', icon: Scale },
+      { name: 'AP Bills', href: '/ap/bills', icon: Receipt, moduleKey: 'ap' },
+      { name: 'AP Payments', href: '/ap/payments', icon: DollarSign, moduleKey: 'ap' },
+      { name: 'AR Invoices', href: '/ar/invoices', icon: Wallet, moduleKey: 'ar' },
+      { name: 'AR Receipts', href: '/ar/receipts', icon: CreditCard, moduleKey: 'ar' },
+      { name: 'Reconciliation', href: '/accounting/reconciliation', icon: ArrowRightLeft },
+      { name: 'Period Close', href: '/accounting/close', icon: Lock },
     ],
   },
   {

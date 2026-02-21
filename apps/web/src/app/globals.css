@@ -29,9 +29,27 @@
   --color-purple-900: #1e3a8a;
   --color-purple-950: #172554;
 
-  /* Theme-aware surface colors */
+  /* Theme-aware surface colors (legacy) */
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
+
+  /* ── Semantic design tokens ──────────────────────────────────────── */
+  /* These provide consistent contrast in both light and dark modes.   */
+  /* Use these instead of raw gray-* classes in new/refactored code.   */
+
+  --color-background: var(--sem-background);
+  --color-foreground: var(--sem-foreground);
+  --color-card: var(--sem-card);
+  --color-card-foreground: var(--sem-card-foreground);
+  --color-muted: var(--sem-muted);
+  --color-muted-foreground: var(--sem-muted-foreground);
+  --color-border: var(--sem-border);
+  --color-input: var(--sem-input);
+  --color-ring: var(--sem-ring);
+  --color-primary: var(--sem-primary);
+  --color-primary-foreground: var(--sem-primary-foreground);
+  --color-accent: var(--sem-accent);
+  --color-accent-foreground: var(--sem-accent-foreground);
 }
 
 /* ── Dark mode (default) ─────────────────────────────────────────── */
@@ -53,6 +71,21 @@
   --color-gray-800: #f0f3f6;
   --color-gray-900: #f0f6fc;
   --color-gray-950: #ffffff;
+
+  /* Semantic tokens — dark mode */
+  --sem-background: #0d1117;       /* page background — deepest tier */
+  --sem-foreground: #e6edf3;       /* primary text — high contrast on bg */
+  --sem-card: #161b22;             /* panels/cards — 1 tier above bg */
+  --sem-card-foreground: #e6edf3;  /* text on cards */
+  --sem-muted: #1c2128;            /* subtle fills, hovers */
+  --sem-muted-foreground: #8b949e; /* secondary text — readable but subdued */
+  --sem-border: #30363d;           /* dividers, panel edges */
+  --sem-input: #30363d;            /* input borders */
+  --sem-ring: #58a6ff;             /* focus ring — visible blue */
+  --sem-primary: #2563eb;          /* primary actions */
+  --sem-primary-foreground: #ffffff;
+  --sem-accent: #1c2128;           /* hover/active fills */
+  --sem-accent-foreground: #e6edf3;
 }
 
 /* ── Light mode ──────────────────────────────────────────────────── */
@@ -74,4 +107,68 @@
   --color-gray-800: #1f2937;
   --color-gray-900: #111827;
   --color-gray-950: #030712;
+
+  /* Semantic tokens — light mode */
+  --sem-background: #ffffff;       /* page background */
+  --sem-foreground: #111827;       /* primary text */
+  --sem-card: #f9fafb;             /* panels/cards — 1 tier above bg */
+  --sem-card-foreground: #111827;  /* text on cards */
+  --sem-muted: #f3f4f6;            /* subtle fills, hovers */
+  --sem-muted-foreground: #4b5563; /* secondary text — readable but subdued */
+  --sem-border: #e5e7eb;           /* dividers, panel edges */
+  --sem-input: #d1d5db;            /* input borders (slightly stronger) */
+  --sem-ring: #2563eb;             /* focus ring */
+  --sem-primary: #2563eb;          /* primary actions */
+  --sem-primary-foreground: #ffffff;
+  --sem-accent: #f3f4f6;           /* hover/active fills */
+  --sem-accent-foreground: #111827;
+}
+
+/* ── Print styles for financial statements ─────────────────────── */
+
+@media print {
+  /* Hide navigation, sidebar, and controls */
+  nav,
+  aside,
+  [data-sidebar],
+  [data-no-print],
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset backgrounds for print */
+  body,
+  main,
+  [data-main-content] {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Statement formatting */
+  .font-mono {
+    font-family: 'Courier New', monospace !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+
+  th, td {
+    border-bottom: 1px solid #ccc !important;
+    padding: 4px 8px !important;
+  }
+
+  /* Page breaks */
+  .page-break-before {
+    page-break-before: always !important;
+  }
+
+  /* Footer */
+  @page {
+    margin: 1cm;
+  }
 }

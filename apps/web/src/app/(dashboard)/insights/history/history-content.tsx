@@ -1,142 +1,181 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { History, MessageSquare, ThumbsUp, ThumbsDown, Star } from 'lucide-react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { History, MessageSquare, ExternalLink, Download, Star } from 'lucide-react';
+import { useSessionHistory, formatRelativeTime } from '@/hooks/use-session-history';
+import type { SessionSummary } from '@/hooks/use-session-history';
 import { apiFetch } from '@/lib/api-client';
-import { RatingStars } from '@/components/insights/RatingStars';
+import { exportSessionAsTxt } from '@/lib/export-chat';
 
 // ── Types ──────────────────────────────────────────────────────────
 
-interface EvalTurnSummary {
+interface SessionDetailTurn {
   id: string;
-  userMessage: string;
   turnNumber: number;
-  sessionId: string;
+  userMessage: string;
+  narrative: string | null;
   wasClarification: boolean;
-  rowCount: number | null;
-  executionError: string | null;
-  cacheStatus: string | null;
-  userRating: number | null;
-  userThumbsUp: boolean | null;
-  qualityScore: number | null;
+  clarificationMessage: string | null;
   createdAt: string;
 }
 
-interface EvalFeedResponse {
+interface SessionDetailResponse {
   data: {
-    turns: EvalTurnSummary[];
-    cursor: string | null;
-    hasMore: boolean;
+    session: { id: string; startedAt: string };
+    turns: SessionDetailTurn[];
   };
 }
 
 // ── HistoryContent ─────────────────────────────────────────────────
 
 export default function HistoryContent() {
-  const [turns, setTurns] = useState<EvalTurnSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const { sessions, isLoading, isLoadingMore, error, hasMore, loadMore } = useSessionHistory({ limit: 20 });
+  const [exportingId, setExportingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setIsLoading(true);
-    apiFetch<EvalFeedResponse>('/api/v1/semantic/eval/feed?limit=25')
-      .then((res) => setTurns(res.data.turns))
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load history'))
-      .finally(() => setIsLoading(false));
-  }, []);
+  const handleOpen = (sessionId: string) => {
+    router.push(`/insights?session=${sessionId}`);
+  };
+
+  const handleExport = async (session: SessionSummary) => {
+    setExportingId(session.id);
+    try {
+      const res = await apiFetch<SessionDetailResponse>(
+        `/api/v1/semantic/sessions/${session.id}`,
+      );
+      const title = session.firstMessage ?? 'AI Insights Conversation';
+      exportSessionAsTxt(title, session.startedAt, res.data.turns);
+    } catch {
+      // Silently fail — user will notice the download didn't happen
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+  const truncate = (text: string, max: number) =>
+    text.length > max ? text.slice(0, max) + '\u2026' : text;
 
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center">
-          <History className="h-5 w-5 text-indigo-600" />
+        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+          <History className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Query History</h1>
-          <p className="text-sm text-gray-500">Past AI Insights queries and their quality scores</p>
+          <h1 className="text-xl font-semibold text-foreground">Chat History</h1>
+          <p className="text-sm text-muted-foreground">Past AI Insights conversations</p>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-primary" />
         </div>
       )}
 
+      {/* Error */}
       {error && (
         <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-400">
           {error}
         </div>
       )}
 
-      {!isLoading && !error && turns.length === 0 && (
+      {/* Empty state */}
+      {!isLoading && !error && sessions.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mb-4">
-            <MessageSquare className="h-7 w-7 text-gray-400" />
+          <div className="w-14 h-14 bg-muted rounded-2xl flex items-center justify-center mb-4">
+            <MessageSquare className="h-7 w-7 text-muted-foreground" />
           </div>
-          <h3 className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">No queries yet</h3>
-          <p className="text-sm text-gray-500 max-w-xs">
-            Start asking questions in AI Insights Chat and your query history will appear here.
+          <h3 className="text-base font-semibold text-foreground mb-1">No conversations yet</h3>
+          <p className="text-sm text-muted-foreground max-w-xs">
+            Start asking questions in AI Insights and your conversation history will appear here.
           </p>
         </div>
       )}
 
-      {!isLoading && turns.length > 0 && (
+      {/* Session list */}
+      {!isLoading && sessions.length > 0 && (
         <div className="space-y-2">
-          {turns.map((turn) => (
+          {sessions.map((session) => (
             <div
-              key={turn.id}
-              className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3"
+              key={session.id}
+              className="rounded-xl border border-border bg-card px-4 py-3"
             >
               <div className="flex items-start gap-3">
-                <MessageSquare className="h-4 w-4 text-indigo-500 flex-shrink-0 mt-0.5" />
+                <MessageSquare className="h-4 w-4 text-primary shrink-0 mt-1" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2">{turn.userMessage}</p>
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <span className="text-xs text-gray-400">
-                      {new Date(turn.createdAt).toLocaleString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                  <p className="text-sm font-medium text-foreground line-clamp-2">
+                    {session.firstMessage
+                      ? truncate(session.firstMessage, 80)
+                      : 'Untitled conversation'}
+                  </p>
+                  <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(session.startedAt)}
                     </span>
-                    {turn.wasClarification && (
-                      <span className="text-xs text-amber-600 dark:text-amber-400">Clarification</span>
-                    )}
-                    {turn.executionError && (
-                      <span className="text-xs text-red-500">Error</span>
-                    )}
-                    {turn.cacheStatus === 'HIT' && (
-                      <span className="text-xs text-green-600 dark:text-green-400">Cached</span>
-                    )}
-                    {turn.rowCount != null && (
-                      <span className="text-xs text-gray-400">{turn.rowCount} rows</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatRelativeTime(session.startedAt)}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-xs text-foreground bg-muted px-2 py-0.5 rounded-full">
+                      <MessageSquare className="h-3 w-3" />
+                      {session.messageCount} {session.messageCount === 1 ? 'message' : 'messages'}
+                    </span>
+                    {session.avgUserRating != null && (
+                      <span className="inline-flex items-center gap-0.5 text-xs text-amber-600 dark:text-amber-400">
+                        <Star className="h-3 w-3 fill-current" />
+                        {session.avgUserRating.toFixed(1)}
+                      </span>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {turn.userThumbsUp === true && (
-                    <ThumbsUp className="h-3.5 w-3.5 text-green-600 fill-current" />
-                  )}
-                  {turn.userThumbsUp === false && (
-                    <ThumbsDown className="h-3.5 w-3.5 text-red-500 fill-current" />
-                  )}
-                  {turn.userRating != null && (
-                    <RatingStars value={turn.userRating} readOnly size="sm" />
-                  )}
-                  {turn.qualityScore != null && (
-                    <div className="flex items-center gap-0.5">
-                      <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
-                      <span className="text-xs text-gray-500">{Math.round(turn.qualityScore * 100)}%</span>
-                    </div>
-                  )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={() => handleOpen(session.id)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent rounded-lg transition-colors"
+                    title="Open conversation"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Open
+                  </button>
+                  <button
+                    onClick={() => handleExport(session)}
+                    disabled={exportingId === session.id}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
+                    title="Export as .txt"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    Export
+                  </button>
                 </div>
               </div>
             </div>
           ))}
+
+          {/* Load more */}
+          {hasMore && (
+            <div className="flex justify-center pt-4">
+              <button
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="px-4 py-2 text-sm font-medium text-primary hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isLoadingMore ? 'Loading...' : 'Load more'}
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

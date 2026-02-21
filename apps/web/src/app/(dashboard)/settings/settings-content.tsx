@@ -44,6 +44,9 @@ const PERMISSION_GROUPS: Record<string, string[]> = {
   Inventory: ['inventory.view', 'inventory.receive', 'inventory.adjust', 'inventory.transfer'],
   Customers: ['customers.view', 'customers.create', 'customers.update', 'customers.merge'],
   Reports: ['reports.view', 'reports.export'],
+  Accounting: ['accounting.view', 'accounting.manage'],
+  'Accounts Payable': ['ap.view', 'ap.manage'],
+  'Accounts Receivable': ['ar.view', 'ar.manage'],
   Settings: ['settings.view', 'settings.update'],
   Users: ['users.view', 'users.manage'],
 };
@@ -734,6 +737,9 @@ const MODULES = [
   { key: 'room_layouts', name: 'Room Layouts', phase: 'v1', description: 'Floor plan editor, templates, version management' },
   { key: 'reporting', name: 'Reports & Exports', phase: 'v1', description: 'Read models, daily sales, CSV/PDF export' },
   { key: 'semantic', name: 'OppsEra AI Assistant', phase: 'v1', description: 'Ask questions in plain English, get instant analytics, charts, and insights powered by AI' },
+  { key: 'accounting', name: 'Accounting & GL', phase: 'v1', description: 'General ledger, chart of accounts, journal entries, financial statements' },
+  { key: 'ap', name: 'Accounts Payable', phase: 'v1', description: 'Vendor bills, payments, aging, payment terms' },
+  { key: 'ar', name: 'Accounts Receivable', phase: 'v1', description: 'Customer invoices, receipts, aging, statements' },
   { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
 ];
 

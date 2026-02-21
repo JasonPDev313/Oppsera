@@ -42,7 +42,7 @@ export function ChatInput({ onSend, onCancel, isLoading, disabled, placeholder }
   };
 
   return (
-    <div className="flex items-end gap-2 bg-surface-raised border border-gray-200 rounded-2xl px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-indigo-500/30">
+    <div className="flex items-end gap-2 bg-card border border-input rounded-2xl px-3 py-2 shadow-sm focus-within:ring-2 focus-within:ring-ring/40">
       <textarea
         ref={textareaRef}
         value={value}
@@ -51,12 +51,12 @@ export function ChatInput({ onSend, onCancel, isLoading, disabled, placeholder }
         placeholder={placeholder ?? 'Ask a question about your data\u2026'}
         rows={1}
         disabled={disabled}
-        className="flex-1 resize-none bg-transparent text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none min-h-9 max-h-40 py-1.5 disabled:opacity-50"
+        className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-9 max-h-40 py-1.5 disabled:opacity-50"
       />
       {isLoading ? (
         <button
           onClick={onCancel}
-          className="shrink-0 p-2 rounded-xl bg-gray-500 text-white hover:bg-gray-400 transition-colors"
+          className="shrink-0 p-2 rounded-xl bg-muted-foreground text-background hover:opacity-80 transition-colors"
           aria-label="Stop generating"
           title="Stop"
         >
@@ -66,7 +66,7 @@ export function ChatInput({ onSend, onCancel, isLoading, disabled, placeholder }
         <button
           onClick={handleSend}
           disabled={!value.trim() || disabled}
-          className="shrink-0 p-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="shrink-0 p-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           aria-label="Send message"
         >
           <Send className="h-4 w-4" />

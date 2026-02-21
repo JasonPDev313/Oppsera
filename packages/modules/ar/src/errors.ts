@@ -5,7 +5,7 @@ export class InvoiceStatusError extends AppError {
     super(
       'INVOICE_STATUS_ERROR',
       `Invoice ${invoiceId} is ${currentStatus}, expected ${expectedStatus}`,
-      400,
+      409,
     );
   }
 }
@@ -27,7 +27,7 @@ export class ReceiptStatusError extends AppError {
     super(
       'RECEIPT_STATUS_ERROR',
       `Receipt ${receiptId} is ${currentStatus}, expected ${expectedStatus}`,
-      400,
+      409,
     );
   }
 }

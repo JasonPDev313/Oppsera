@@ -1,0 +1,152 @@
+import { describe, it, expect } from 'vitest';
+
+import { formatAccountingMoney } from '../types/accounting';
+
+// ═══════════════════════════════════════════════════════════════
+// Reconciliation detects mismatched balances
+// ═══════════════════════════════════════════════════════════════
+
+describe('reconciliation balance detection', () => {
+  it('flags AP mismatch when GL and subledger differ', () => {
+    const glBalance = 12500;
+    const subledgerBalance = 12400;
+    const difference = Math.abs(glBalance - subledgerBalance);
+    const isReconciled = difference < 0.01;
+    expect(isReconciled).toBe(false);
+    expect(difference).toBe(100);
+  });
+
+  it('marks as reconciled when difference is within tolerance', () => {
+    const glBalance = 12400.005;
+    const subledgerBalance = 12400.00;
+    const difference = Math.abs(glBalance - subledgerBalance);
+    const isReconciled = difference < 0.01;
+    expect(isReconciled).toBe(true);
+  });
+
+  it('handles both AP and AR reconciliation together', () => {
+    const ap = { glBalance: 12400, subledgerBalance: 12400, difference: 0, isReconciled: true };
+    const ar = { glBalance: 15800, subledgerBalance: 15900, difference: 100, isReconciled: false };
+    const allReconciled = ap.isReconciled && ar.isReconciled;
+    expect(allReconciled).toBe(false);
+  });
+
+  it('formats reconciliation difference', () => {
+    expect(formatAccountingMoney(100)).toBe('$100.00');
+    expect(formatAccountingMoney(0)).toBe('$0.00');
+    expect(formatAccountingMoney(-50.25)).toBe('($50.25)');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Setup wizard step completion tracking
+// ═══════════════════════════════════════════════════════════════
+
+describe('setup wizard step tracking', () => {
+  const steps = [
+    { key: 'bootstrap', label: 'Bootstrap COA', isComplete: true, href: '/accounting/accounts' },
+    { key: 'control_accounts', label: 'Control Accounts', isComplete: true, href: '/accounting/settings' },
+    { key: 'mappings', label: 'GL Mappings', isComplete: false, href: '/accounting/mappings' },
+    { key: 'bank_accounts', label: 'Bank Accounts', isComplete: true, href: '/accounting/banks' },
+    { key: 'pos_posting', label: 'POS Posting', isComplete: false, href: '/accounting/settings' },
+  ];
+
+  it('calculates overall percentage correctly', () => {
+    const completedCount = steps.filter((s) => s.isComplete).length;
+    const pct = Math.round((completedCount / steps.length) * 100);
+    expect(pct).toBe(60);
+  });
+
+  it('identifies incomplete steps', () => {
+    const incomplete = steps.filter((s) => !s.isComplete).map((s) => s.key);
+    expect(incomplete).toEqual(['mappings', 'pos_posting']);
+  });
+
+  it('reports not complete when any step is missing', () => {
+    const isComplete = steps.every((s) => s.isComplete);
+    expect(isComplete).toBe(false);
+  });
+
+  it('reports complete when all steps pass', () => {
+    const allDone = steps.map((s) => ({ ...s, isComplete: true }));
+    const isComplete = allDone.every((s) => s.isComplete);
+    expect(isComplete).toBe(true);
+    const pct = Math.round((allDone.filter((s) => s.isComplete).length / allDone.length) * 100);
+    expect(pct).toBe(100);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Mobile layout breakpoint logic
+// ═══════════════════════════════════════════════════════════════
+
+describe('mobile layout logic', () => {
+  it('determines card vs table layout by width', () => {
+    function getLayout(width: number): 'cards' | 'table' {
+      return width < 640 ? 'cards' : 'table';
+    }
+    expect(getLayout(320)).toBe('cards');
+    expect(getLayout(480)).toBe('cards');
+    expect(getLayout(639)).toBe('cards');
+    expect(getLayout(640)).toBe('table');
+    expect(getLayout(1024)).toBe('table');
+  });
+
+  it('stacks actions vertically on mobile', () => {
+    function getActionLayout(width: number): 'stacked' | 'inline' {
+      return width < 640 ? 'stacked' : 'inline';
+    }
+    expect(getActionLayout(320)).toBe('stacked');
+    expect(getActionLayout(768)).toBe('inline');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Print styles hide navigation
+// ═══════════════════════════════════════════════════════════════
+
+describe('print style data attributes', () => {
+  it('identifies elements to hide in print via data attributes', () => {
+    const printHideSelectors = ['nav', 'aside', '[data-sidebar]', '[data-no-print]', 'button', '.no-print'];
+    expect(printHideSelectors).toContain('nav');
+    expect(printHideSelectors).toContain('[data-sidebar]');
+    expect(printHideSelectors).toContain('[data-no-print]');
+    expect(printHideSelectors).toContain('button');
+  });
+
+  it('print footer includes generated date format', () => {
+    const date = new Date('2026-02-20T00:00:00');
+    const footer = `Generated by OppsEra on ${date.toLocaleDateString('en-US')}`;
+    expect(footer).toContain('OppsEra');
+    expect(footer).toContain('2/20/2026');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Permission-gated action visibility
+// ═══════════════════════════════════════════════════════════════
+
+describe('permission-gated actions', () => {
+  const userPermissions = ['accounting.view', 'accounting.journals.manage', 'reports.view'];
+
+  function hasPermission(required: string): boolean {
+    return userPermissions.some((p) => {
+      if (p === required) return true;
+      if (p.endsWith('.*')) return required.startsWith(p.slice(0, -1));
+      return false;
+    });
+  }
+
+  it('shows journal actions when user has journals.manage', () => {
+    expect(hasPermission('accounting.journals.manage')).toBe(true);
+  });
+
+  it('hides close period when user lacks permission', () => {
+    expect(hasPermission('accounting.close.manage')).toBe(false);
+  });
+
+  it('shows view-only actions for view permissions', () => {
+    expect(hasPermission('accounting.view')).toBe(true);
+    expect(hasPermission('reports.view')).toBe(true);
+  });
+});

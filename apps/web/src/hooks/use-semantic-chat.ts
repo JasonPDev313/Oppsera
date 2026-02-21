@@ -37,6 +37,28 @@ export interface QueryPlan {
   limit?: number | null;
 }
 
+/** Subset of eval turn fields returned by the session detail API */
+export interface LoadedTurn {
+  id: string;
+  turnNumber: number;
+  userMessage: string;
+  narrative: string | null;
+  llmPlan: Record<string, unknown> | null;
+  compiledSql: string | null;
+  compilationErrors: string[] | null;
+  resultSample: Record<string, unknown>[] | null;
+  rowCount: number | null;
+  cacheStatus: 'HIT' | 'MISS' | 'SKIP' | null;
+  llmConfidence: number | null;
+  llmLatencyMs: number | null;
+  wasClarification: boolean;
+  clarificationMessage: string | null;
+  userRating: number | null;
+  userThumbsUp: boolean | null;
+  evalTurnId: string;
+  createdAt: string;
+}
+
 // ── Hook ──────────────────────────────────────────────────────────
 
 interface UseSemanticChatOptions {
@@ -210,6 +232,19 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     sessionIdRef.current = `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   }, []);
 
+  /** Load a previous session's turns into chat state so the user can continue the conversation. */
+  const initFromSession = useCallback((dbSessionId: string, turns: LoadedTurn[]) => {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+    sessionIdRef.current = dbSessionId;
+    turnNumberRef.current = turns.length + 1;
+
+    const mapped = turns.flatMap(evalTurnToChatMessages);
+    setMessages(mapped);
+    setError(null);
+    setIsLoading(false);
+  }, []);
+
   return {
     messages,
     isLoading,
@@ -217,6 +252,47 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     sendMessage,
     cancelRequest,
     clearMessages,
+    initFromSession,
     sessionId: sessionIdRef.current,
   };
+}
+
+// ── Helper: convert DB eval turn → pair of ChatMessages ──────────
+
+function evalTurnToChatMessages(turn: LoadedTurn): ChatMessage[] {
+  const userMsg: ChatMessage = {
+    id: `user_loaded_${turn.id}`,
+    role: 'user',
+    content: turn.userMessage,
+    timestamp: new Date(turn.createdAt).getTime(),
+  };
+
+  let assistantContent: string;
+  if (turn.wasClarification) {
+    assistantContent = turn.clarificationMessage ?? 'Could you clarify your question?';
+  } else if (turn.narrative) {
+    assistantContent = turn.narrative;
+  } else {
+    assistantContent = 'No response was generated for this question.';
+  }
+
+  const assistantMsg: ChatMessage = {
+    id: `asst_loaded_${turn.id}`,
+    role: 'assistant',
+    content: assistantContent,
+    evalTurnId: turn.evalTurnId,
+    plan: turn.llmPlan as QueryPlan | null,
+    rows: (turn.resultSample as Record<string, unknown>[]) ?? undefined,
+    rowCount: turn.rowCount ?? undefined,
+    isClarification: turn.wasClarification,
+    compiledSql: turn.compiledSql,
+    compilationErrors: turn.compilationErrors ?? undefined,
+    llmConfidence: turn.llmConfidence,
+    llmLatencyMs: turn.llmLatencyMs ?? undefined,
+    cacheStatus: turn.cacheStatus ?? undefined,
+    error: null,
+    timestamp: new Date(turn.createdAt).getTime(),
+  };
+
+  return [userMsg, assistantMsg];
 }

@@ -548,13 +548,14 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - Bridge command for migrating existing operational ar_transactions
 
 ### Test Coverage
-1700+ tests: 134 core + 68 catalog + 52 orders + 37 shared + 100 customers + 424 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 125 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge) + 60 ap (bill lifecycle + payment lifecycle) + 23 ar (invoice + receipt lifecycle)
+1980+ tests: 134 core + 68 catalog + 52 orders + 37 shared + 100 customers + 498 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 23 ap-routes + 27 ar-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 125 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 101 payments (35 validation + 17 gl-journal + 13 record-tender + 13 reverse-tender + 13 adjust-tip + 10 consumers)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
 - **Admin API**: `/api/health` (public, minimal), `/api/admin/health` (full diagnostics), `/api/admin/metrics/system`, `/api/admin/metrics/tenants`, `/api/admin/migration-readiness`
 - **Container Migration Plan**: Docker multi-stage builds, docker-compose, Terraform (AWS ECS Fargate + RDS + ElastiCache), CI/CD (GitHub Actions), deployment config abstraction, feature flags, full Vercel/Supabase limits audit with 2026 pricing, cost projections, migration trigger framework (16/21 pre-migration checklist items complete)
-- **Security Hardening**: Security headers (CSP, HSTS, X-Frame-Options, etc.), in-memory sliding window rate limiter on all auth endpoints, auth event audit logging (login/signup/logout), env-var-driven DB pool + prepared statement config. Full audit at `infra/SECURITY_AUDIT.md`
+- **Security Hardening**: Security headers (CSP, HSTS, X-Frame-Options, etc.) on both web and admin apps, in-memory sliding window rate limiter on all auth endpoints, auth event audit logging (login/signup/logout), env-var-driven DB pool + prepared statement config, debug/link-account endpoints disabled (410 Gone), semantic pipeline errors sanitized (generic message to clients). Full audit at `infra/SECURITY_AUDIT.md`
+- **CI/CD**: GitHub Actions workflow (`.github/workflows/lint-typecheck.yml`) — lint, type-check, test, build on push/PR to main. Vitest coverage reporting via `@vitest/coverage-v8` (v8 provider, lcov + json-summary reporters) across all 16 packages. Run `pnpm test:coverage` for coverage reports.
 - **Legacy Migration Pipeline**: 14 files in `tools/migration/` (~4,030 lines) — config, ID mapping, transformers, validators, pipeline, cutover/rollback, monitoring
 - **Load Testing**: k6 scenarios for auth, catalog, orders, inventory, customers (in `load-tests/`)
 - **Business Logic Tests**: 30 test files in `test/` covering all domain invariants
@@ -578,9 +579,10 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **Custom Lenses**: `createCustomLens`, `updateCustomLens`, `deactivateCustomLens`, `reactivateCustomLens`, `getCustomLens`, `listCustomLenses`. Slug validation. Partial unique indexes (system vs tenant). API routes: GET/POST `/api/v1/semantic/lenses`, GET/PATCH/DELETE `/api/v1/semantic/lenses/[slug]`.
   - **Cache Layer**: Query result LRU cache (`getFromQueryCache`/`setInQueryCache`/`invalidateQueryCache`). Sliding window rate limiter (30 req/min per tenant). Admin cache invalidation API.
   - **Observability**: Per-tenant + global metrics (p50/p95 latency, cache hit rate, token usage, error rate). `GET /api/v1/semantic/admin/metrics`.
-  - **Chat UI**: `useSemanticChat` hook (multi-turn, 10-message context window, session management), `ChatMessageBubble` (markdown + table + debug panel), `ChatInput` (auto-resize), `FeedbackWidget` (thumbs + 5-star + tags + text), `RatingStars` component. `InsightsContent` page at `/insights` with suggested questions. Sub-pages: `/insights/history` (query history feed with filters), `/insights/lenses` (system + custom lens management). Sidebar nav "AI Insights" with Sparkles icon + Chat, Lenses, History children.
+  - **Chat UI**: `useSemanticChat` hook (multi-turn, 10-message context window, session management, `initFromSession()` for recall), `ChatMessageBubble` (markdown + table + debug panel), `ChatInput` (auto-resize), `FeedbackWidget` (thumbs + 5-star + tags + text), `RatingStars` component. `InsightsContent` page at `/insights` with suggested questions + inline chat history sidebar. Sub-pages: `/insights/history` (session list with Open/Export buttons), `/insights/lenses` (system + custom lens management). Sidebar nav "AI Insights" with Sparkles icon + Chat, Lenses, History children.
+  - **Chat History Sidebar**: Inline flexbox panel (320px, right of chat) on desktop `lg:` 1024px+, slide-in overlay with backdrop on mobile. `ChatHistorySidebar` component (`components/insights/ChatHistorySidebar.tsx`) with session list, active highlighting, "New Chat", "Load more", "View all history" link. `useSessionHistory` hook (`hooks/use-session-history.ts`) shared between sidebar and standalone history page — cursor-paginated session list with `refresh()`. `exportSessionAsTxt()` utility (`lib/export-chat.ts`) for .txt download. Desktop toggle persisted in `localStorage('insights_history_open')`. Sidebar refreshes via `refreshKey` prop with 1s delay after `sendMessage` (eval capture is async).
   - **Sync Scripts**: `src/sync/sync-registry.ts` + `src/sync/golf-seed.ts`. Run with `pnpm --filter @oppsera/module-semantic semantic:sync`.
-  - **API Routes**: `/ask` (conversational, rate-limited), `/query` (raw data), `/metrics`, `/dimensions`, `/lenses`, `/lenses/[slug]`, `/eval/feed` (query history), `/eval/turns/[id]/feedback`, `/admin/invalidate`, `/admin/metrics`.
+  - **API Routes**: `/ask` (conversational, rate-limited), `/query` (raw data), `/metrics`, `/dimensions`, `/lenses`, `/lenses/[slug]`, `/sessions` (session list, cursor-paginated), `/sessions/[sessionId]` (session detail + turns for chat reconstruction), `/eval/feed` (query history), `/eval/turns/[id]/feedback`, `/admin/invalidate`, `/admin/metrics`.
   - **Tests**: 276 semantic module tests (registry, compiler, 30 pipeline incl. OPPS ERA LENS section parsing, lenses, cache, observability, eval) + 178 web route tests.
 - **Admin App** (`apps/admin/`):
   - Separate Next.js app on port 3001 for platform operators (NOT tenant-scoped)
@@ -613,6 +615,18 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
 - For existing tenants: run `tools/scripts/add-semantic-entitlement.ts` to grant semantic access
 - ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
+- ~~Debug/link-account endpoints secured~~ ✓ DONE (Session 35)
+- ~~Semantic error message sanitization~~ ✓ DONE (Session 35)
+- ~~Admin app security headers~~ ✓ DONE (Session 35)
+- ~~Payments module unit tests (0 → 101)~~ ✓ DONE (Session 35)
+- ~~AR tests expanded (23 → 129)~~ ✓ DONE (Session 35)
+- ~~CI workflow (lint + type-check + test + build)~~ ✓ DONE (Session 35)
+- ~~AR InvoiceStatusError → 409~~ ✓ DONE (Session 35)
+- ~~AR customer validation in createInvoice~~ ✓ DONE (Session 35)
+- ~~buildQueryString() helper extracted~~ ✓ DONE (Session 35)
+- ~~accounts-content.tsx split into sub-components~~ ✓ DONE (Session 35)
+- ~~Test coverage reporting configured~~ ✓ DONE (Session 35)
+- ~~POS/Accounting/AP/AR API route contract tests (74 tests)~~ ✓ DONE (Session 35)
 
 ## Critical Gotchas (Quick Reference)
 
@@ -815,6 +829,18 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 188. **Mapping coverage diagnostic** — `getMappingCoverage()` reports how many sub-departments, payment types, and tax groups have GL mappings vs don't. Powers the accounting dashboard "mapping coverage" card. Always check coverage before going live with GL posting.
 189. **Legacy bridge adapter is batch + idempotent** — `migrateLegacyJournalEntries()` reads `payment_journal_entries` (old JSONB-based GL) and creates proper `gl_journal_entries`. Processes in batches of 100. Idempotent via `sourceModule: 'pos_legacy'` + `sourceReferenceId`.
 190. **CONVENTIONS.md has full architecture docs for accounting** — See §66 (Accounting/GL), §67 (AP), §68 (AR), §69 (Subledger Reconciliation), §70 (Cross-Module Financial Posting). Always read these before modifying any financial module.
+191. **Chat history sidebar is inline flexbox, not a portal** — `ChatHistorySidebar` is a peer of the chat column inside a `flex h-[calc(100vh-64px)]` container. Desktop: `hidden lg:flex w-80 shrink-0 border-l`. Mobile: `fixed inset-0 z-30 lg:hidden` overlay with backdrop. Do NOT use `createPortal` for the sidebar — it scrolls independently alongside the chat.
+192. **`useSessionHistory` is the shared session list hook** — both `ChatHistorySidebar` and `/insights/history` page use `useSessionHistory({ limit: 20 })`. It provides `sessions`, `loadMore`, `refresh`, `hasMore`, `isLoading`, `isLoadingMore`. Call `refresh()` after sending a message (with delay — eval capture is async). Never duplicate session fetching logic.
+193. **Sidebar refresh uses `refreshKey` prop pattern** — parent increments a counter after `sendMessage`, child detects via `useRefreshOnChange(key, refresh)` hook and triggers a 1-second delayed refresh. The delay accounts for async eval turn capture (fire-and-forget in the pipeline).
+194. **`initFromSession()` maps DB turns to ChatMessages** — `useSemanticChat.initFromSession(dbSessionId, turns)` resets session state and maps each `LoadedTurn` to user+assistant message pairs via `evalTurnToChatMessages()`. The `LoadedTurn` interface mirrors the API response shape from `GET /api/v1/semantic/sessions/[sessionId]`.
+195. **`buildQueryString()` is the shared URL param helper** — `apps/web/src/lib/query-string.ts` exports `buildQueryString(filters)` which skips undefined/null/empty values, converts booleans to `'true'`, and returns `?key=val` or `''`. All frontend hooks (`use-ap.ts`, `use-ar.ts`, `use-journals.ts`, `use-mappings.ts`) use this instead of inline `URLSearchParams`. Never duplicate query string logic.
+196. **Debug and link-account endpoints return 410 Gone** — `/api/v1/auth/debug` and `/api/v1/auth/link-account` are disabled in production. They return `{ error: { code: 'GONE', message: '...' } }` with status 410. Use Supabase admin CLI for account linking instead.
+197. **AR status errors are 409, not 400** — `InvoiceStatusError` and `ReceiptStatusError` both return HTTP 409 (Conflict) to match AP conventions (`BillStatusError`). Status conflicts are resource state issues, not bad user input.
+198. **AR `createInvoice` validates customer exists** — before creating an invoice, the command queries the `customers` table to verify the `customerId` belongs to the tenant. Throws `NotFoundError('Customer', customerId)` if missing. This matches AP's vendor validation pattern.
+199. **AR `postReceipt` throws on missing invoice** — when a receipt allocation references a non-existent invoice, `postReceipt` throws `AppError('INVOICE_NOT_FOUND', ...)` with 400 instead of silently skipping. Ensures data integrity during posting.
+200. **Accounts-content uses extracted sub-components** — `AccountFilterBar` (search, status tabs, view mode toggle) and `AccountTreeView` (collapsible type sections, tree/flat rendering) are in `apps/web/src/components/accounting/`. The main `accounts-content.tsx` orchestrates state and passes props.
+201. **Vitest coverage uses v8 provider** — all 16 vitest configs include `coverage: { provider: 'v8', reporter: ['text', 'json-summary', 'lcov'] }`. Run `pnpm test:coverage` for the full report via turbo. The `vitest.workspace.ts` at root defines the workspace for parallel coverage. `@vitest/coverage-v8` is installed at root and hoisted.
+202. **CI runs lint → type-check → test → build** — `.github/workflows/lint-typecheck.yml` runs on push/PR to main. Uses pnpm 9, Node 20, with pnpm store caching. Build step uses placeholder Supabase env vars.
 
 ## Quick Commands
 
@@ -822,6 +848,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 pnpm dev              # Start dev server
 pnpm build            # Build all packages
 pnpm test             # Run all tests
+pnpm test:coverage    # Run tests with coverage reporting
 pnpm lint             # Lint all packages
 pnpm type-check       # TypeScript check all packages
 pnpm db:migrate       # Run DB migrations

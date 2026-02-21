@@ -17,6 +17,7 @@
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "semantic:sync": "tsx src/sync/sync-registry.ts",
     "semantic:seed-lenses": "tsx src/sync/golf-seed.ts"
   },

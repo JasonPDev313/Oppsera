@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 
@@ -9,5 +10,9 @@ const InsightsContent = dynamic(() => import('./insights-content'), {
 });
 
 export default function InsightsPage() {
-  return <InsightsContent />;
+  return (
+    <Suspense fallback={<PageSkeleton rows={6} />}>
+      <InsightsContent />
+    </Suspense>
+  );
 }
