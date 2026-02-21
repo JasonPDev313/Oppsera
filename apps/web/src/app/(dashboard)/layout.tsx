@@ -32,6 +32,10 @@ import {
   Flag,
   PackageCheck,
   Truck,
+  Sparkles,
+  MessageSquare,
+  Layers,
+  History,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
@@ -102,6 +106,17 @@ const navigation: NavItem[] = [
       { name: 'Custom Reports', href: '/reports/custom', icon: FileBarChart },
       { name: 'Dashboards', href: '/dashboards', icon: LayoutGrid },
       { name: 'Golf Analytics', href: '/reports/golf', icon: Flag, moduleKey: 'golf_ops' },
+    ],
+  },
+  {
+    name: 'AI Insights',
+    href: '/insights',
+    icon: Sparkles,
+    moduleKey: 'semantic',
+    children: [
+      { name: 'Chat', href: '/insights', icon: MessageSquare },
+      { name: 'Lenses', href: '/insights/lenses', icon: Layers },
+      { name: 'History', href: '/insights/history', icon: History },
     ],
   },
   { name: 'Settings', href: '/settings', icon: Settings },

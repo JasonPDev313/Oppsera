@@ -732,6 +732,7 @@ const MODULES = [
   { key: 'kds', name: 'Kitchen Display', phase: 'v2', description: 'Kitchen order tickets, bump screen' },
   { key: 'golf_ops', name: 'Golf Operations', phase: 'v1', description: 'Tee sheet, starter sheet, pace-of-play' },
   { key: 'reporting', name: 'Reports & Exports', phase: 'v1', description: 'Read models, daily sales, CSV/PDF export' },
+  { key: 'semantic', name: 'OppsEra AI Assistant', phase: 'v1', description: 'Ask questions in plain English, get instant analytics, charts, and insights powered by AI' },
   { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
 ];
 

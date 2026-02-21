@@ -1,0 +1,148 @@
+import type { QueryPlan } from '../compiler/types';
+
+// ── LLM adapter interface ─────────────────────────────────────────
+// Abstraction over different LLM providers (Anthropic, OpenAI, etc.)
+// The adapter is swappable — tests use a MockLLMAdapter.
+
+export interface LLMMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface LLMResponse {
+  content: string;
+  tokensInput: number;
+  tokensOutput: number;
+  model: string;
+  provider: string;
+  latencyMs: number;
+  stopReason: 'end_turn' | 'max_tokens' | 'stop_sequence' | string;
+}
+
+export interface LLMAdapter {
+  complete(messages: LLMMessage[], options?: LLMCompletionOptions): Promise<LLMResponse>;
+  provider: string;
+  model: string;
+}
+
+export interface LLMCompletionOptions {
+  maxTokens?: number;
+  temperature?: number;
+  systemPrompt?: string;
+  stopSequences?: string[];
+}
+
+// ── Intent resolution types ───────────────────────────────────────
+
+export interface IntentContext {
+  tenantId: string;
+  locationId?: string;
+  userId: string;
+  userRole: string;
+  sessionId: string;
+  lensSlug?: string;
+  // Conversation history for multi-turn context
+  history?: LLMMessage[];
+  // Current date in tenant timezone (for relative date resolution)
+  currentDate: string;
+  timezone?: string;
+}
+
+export interface ResolvedIntent {
+  plan: QueryPlan;
+  confidence: number;          // 0–1, LLM's self-reported confidence
+  isClarification: boolean;    // true if LLM asked a question instead of planning
+  clarificationText?: string;  // the clarification question
+  rawResponse: string;         // raw LLM JSON output
+  tokensInput: number;
+  tokensOutput: number;
+  latencyMs: number;
+  provider: string;
+  model: string;
+}
+
+// ── Execution types ───────────────────────────────────────────────
+
+export interface QueryResult {
+  rows: Record<string, unknown>[];
+  rowCount: number;
+  executionTimeMs: number;
+  truncated: boolean;          // true if results were limited
+  fingerprint?: string;        // hash for dedup / caching
+}
+
+// ── Narrative types ───────────────────────────────────────────────
+
+export interface NarrativeSection {
+  // THE OPPS ERA LENS section types
+  type: 'answer' | 'options' | 'recommendation' | 'quick_wins' | 'roi_snapshot'
+    | 'what_to_track' | 'conversation_driver' | 'assumptions' | 'data_sources'
+    // General-purpose types
+    | 'takeaway' | 'action' | 'risk'
+    // Legacy types kept for backward compat
+    | 'summary' | 'detail' | 'insight' | 'caveat' | 'suggestion';
+  content: string;
+}
+
+export interface NarrativeResponse {
+  text: string;                // full markdown response
+  sections: NarrativeSection[];
+  tokensInput: number;
+  tokensOutput: number;
+  latencyMs: number;
+}
+
+// ── Pipeline types ────────────────────────────────────────────────
+
+export interface PipelineInput {
+  message: string;
+  context: IntentContext;
+  examples?: import('../evaluation/types').EvalExample[];
+  skipNarrative?: boolean;     // return raw data without narrative (for API mode)
+}
+
+export interface PipelineOutput {
+  narrative: string | null;
+  sections: NarrativeSection[];
+  data: QueryResult | null;
+  plan: QueryPlan | null;
+  isClarification: boolean;
+  clarificationText: string | null;
+  // Eval turn ID — ULID of the captured turn, null if capture failed or was skipped
+  evalTurnId: string | null;
+  // Metadata for eval capture
+  llmConfidence: number | null;
+  llmLatencyMs: number;
+  executionTimeMs: number | null;
+  tokensInput: number;
+  tokensOutput: number;
+  provider: string;
+  model: string;
+  compiledSql: string | null;
+  compilationErrors: string[];
+  tablesAccessed: string[];
+  cacheStatus: 'HIT' | 'MISS' | 'SKIP';
+}
+
+// ── Errors ────────────────────────────────────────────────────────
+
+export class LLMError extends Error {
+  constructor(
+    message: string,
+    public code: 'PROVIDER_ERROR' | 'PARSE_ERROR' | 'RATE_LIMIT' | 'CONTEXT_OVERFLOW',
+    public retryable: boolean = false,
+  ) {
+    super(message);
+    this.name = 'LLMError';
+  }
+}
+
+export class ExecutionError extends Error {
+  constructor(
+    message: string,
+    public code: 'QUERY_TIMEOUT' | 'QUERY_ERROR' | 'RESULT_TOO_LARGE',
+  ) {
+    super(message);
+    this.name = 'ExecutionError';
+  }
+}

@@ -6,19 +6,27 @@
       "cache": false
     },
     "build": {
-      "dependsOn": ["^build"],
-      "outputs": [".next/**", "dist/**"],
+      "dependsOn": [
+        "^build"
+      ],
+      "outputs": [
+        ".next/**",
+        "dist/**"
+      ],
       "env": [
         "DATABASE_URL",
         "NEXT_PUBLIC_SUPABASE_URL",
         "NEXT_PUBLIC_SUPABASE_ANON_KEY",
         "SUPABASE_SERVICE_ROLE_KEY",
         "SUPABASE_JWT_SECRET",
-        "SUPABASE_JWT_JWK"
+        "SUPABASE_JWT_JWK",
+        "ADMIN_AUTH_SECRET"
       ]
     },
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": [
+        "^build"
+      ]
     },
     "lint": {},
     "type-check": {},
@@ -26,7 +34,9 @@
       "cache": false
     },
     "db:seed": {
-      "dependsOn": ["db:migrate"],
+      "dependsOn": [
+        "db:migrate"
+      ],
       "cache": false
     }
   }

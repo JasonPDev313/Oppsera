@@ -38,3 +38,6 @@ export * from './reporting';
 export * from './golf-reporting';
 export * from './receiving';
 export * from './purchasing';
+export * from './evaluation';
+export * from './platform';
+export * from './semantic';

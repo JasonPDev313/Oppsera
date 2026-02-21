@@ -37,26 +37,30 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Restaurant KDS | kds | V2 | Planned |
 | Golf Reporting | golf_reporting | V1 | Done (read models + consumers + frontend) |
 | Golf Operations | golf_ops | V2 | Planned |
+| AI Insights (Semantic Layer) | semantic | V1 | Done (registry + compiler + LLM pipeline + lenses + cache + observability) |
 
 ## Monorepo Structure
 
 ```
 oppsera/
-├── apps/web/                         # Next.js frontend + API routes
-│   ├── src/app/(auth)/               # Auth pages (login, signup, onboard)
-│   ├── src/app/(dashboard)/          # Main app with sidebar layout
-│   │   ├── pos/layout.tsx            # Fullscreen POS overlay (z-50, barcode listener)
-│   │   ├── pos/retail/page.tsx       # Retail POS shell
-│   │   ├── pos/fnb/page.tsx          # F&B POS shell
-│   │   ├── orders/page.tsx           # Order history list
-│   │   └── orders/[orderId]/page.tsx # Order detail
-│   ├── src/app/api/v1/               # API route handlers
-│   ├── src/components/ui/            # Reusable UI components
-│   ├── src/components/pos/           # POS components (ItemButton, Cart, dialogs, catalog-nav/)
-│   ├── src/components/customer-profile-drawer/  # Universal Profile drawer (11 tabs)
-│   ├── src/hooks/                    # React hooks (use-auth, use-catalog, use-pos, use-customers, etc.)
-│   ├── src/lib/                      # Utilities (api-client)
-│   └── src/types/                    # Frontend type definitions (catalog.ts, pos.ts, customers.ts)
+├── apps/
+│   ├── web/                          # Next.js frontend + API routes
+│   │   ├── src/app/(auth)/           # Auth pages (login, signup, onboard)
+│   │   ├── src/app/(dashboard)/      # Main app with sidebar layout
+│   │   │   ├── pos/                  # Dual-mode POS (retail + F&B)
+│   │   │   ├── orders/               # Order history + detail
+│   │   │   └── insights/             # AI Insights chat + history + lenses
+│   │   ├── src/app/api/v1/           # API route handlers (incl. /semantic/)
+│   │   ├── src/components/           # UI, POS, semantic, insights components
+│   │   ├── src/hooks/                # React hooks (incl. use-semantic-chat, use-feedback)
+│   │   ├── src/lib/                  # Utilities (api-client)
+│   │   └── src/types/                # Frontend type definitions
+│   └── admin/                        # Platform admin panel (eval QA, quality dashboards)
+│       ├── src/app/(admin)/eval/     # Eval feed, dashboard, examples, patterns, turn detail
+│       ├── src/app/api/v1/eval/      # Admin eval API routes
+│       ├── src/app/api/auth/         # Admin auth (JWT + bcrypt, separate from tenant auth)
+│       ├── src/components/           # AdminSidebar, EvalTurnCard, PlanViewer, SqlViewer, etc.
+│       └── src/hooks/                # use-admin-auth, use-eval, use-tenants
 ├── packages/
 │   ├── shared/                       # @oppsera/shared — types, Zod schemas, utils, constants
 │   ├── core/                         # @oppsera/core — auth, RBAC, events, audit, entitlements
@@ -69,10 +73,12 @@ oppsera/
 │       ├── customers/                # @oppsera/module-customers — IMPLEMENTED (CRM + Universal Profile)
 │       ├── reporting/                # @oppsera/module-reporting — IMPLEMENTED (queries + consumers + CSV)
 │       ├── golf-reporting/           # @oppsera/module-golf-reporting — IMPLEMENTED (golf analytics)
+│       ├── semantic/                 # @oppsera/module-semantic — IMPLEMENTED (AI insights)
 │       ├── kds/                      # @oppsera/module-kds — scaffolded
 │       ├── golf-ops/                 # @oppsera/module-golf-ops — scaffolded
-│       └── marketing/                # @oppsera/module-marketing — scaffolded
+│       └── marketing/               # @oppsera/module-marketing — scaffolded
 ├── tools/scripts/
+├── scripts/                          # Utility scripts (switch-env.sh)
 ├── CONVENTIONS.md                    # Development conventions (read this too)
 ├── turbo.json
 └── docker-compose.yml
@@ -470,7 +476,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **New tax test scenarios**: 9+ test cases in `test/business-logic/unit/calculations/tax.test.ts` covering inclusive/exclusive, compound, rounding, cart totals
 
 ### Test Coverage
-812 tests: 134 core + 68 catalog + 52 orders + 37 shared + 100 customers + 246 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management)
+1304 tests: 134 core + 68 catalog + 52 orders + 37 shared + 100 customers + 424 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 269 semantic (62 golf-registry + 25 registry + 35 lenses + 22 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -481,6 +487,33 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - **Load Testing**: k6 scenarios for auth, catalog, orders, inventory, customers (in `load-tests/`)
 - **Business Logic Tests**: 30 test files in `test/` covering all domain invariants
 
+- **Semantic Layer (AI Insights)** (Sessions 0–10):
+  - **Schema**: `packages/db/src/schema/semantic.ts` (6 tables: metrics, dimensions, metric-dimensions, table-sources, lenses) + `evaluation.ts` (4 tables: eval-sessions, eval-turns, eval-examples, eval-quality-daily) + `platform.ts` (platform-admins). Migrations 0070–0073.
+  - **Registry**: In-memory with stale-while-revalidate (5min TTL + 10min SWR window). 16 core metrics, 8 core dimensions, 8 golf metrics, 6 golf dimensions, 60+ metric-dimension relations, 4 system lenses. `syncRegistryToDb()` + `invalidateRegistryCache()`.
+  - **Query Compiler**: `compilePlan()` — validates metrics/dimensions against registry, builds parameterized SQL with GROUP BY, WHERE, ORDER BY, LIMIT. Enforces tenant isolation, date range, max rows (10K), max cols (20), max filters (15).
+  - **LLM Pipeline**: `runPipeline()` — intent resolution → compilation → execution → narrative. Anthropic adapter (Claude Haiku). Clarification short-circuit. Query cache (5min LRU, 200 entries). Observability metrics recording. Best-effort eval capture.
+  - **Evaluation Layer**: `semanticEvalSessions` (conversation tracking) + `semanticEvalTurns` (57 columns: input, LLM plan, compilation, execution, user feedback, admin review, quality scoring) + `semanticEvalExamples` (golden few-shot training data) + `semanticEvalQualityDaily` (pre-aggregated read model). Quality score formula: 40% admin + 30% user + 30% heuristics. Capture service (fire-and-forget). Feedback commands (user rating 1-5 + tags, admin verdict + corrected plan). `promoteToExample()` for few-shot curation. 8 golf training examples.
+  - **Custom Lenses**: `createCustomLens`, `updateCustomLens`, `deactivateCustomLens`, `reactivateCustomLens`, `getCustomLens`, `listCustomLenses`. Slug validation. Partial unique indexes (system vs tenant). API routes: GET/POST `/api/v1/semantic/lenses`, GET/PATCH/DELETE `/api/v1/semantic/lenses/[slug]`.
+  - **Cache Layer**: Query result LRU cache (`getFromQueryCache`/`setInQueryCache`/`invalidateQueryCache`). Sliding window rate limiter (30 req/min per tenant). Admin cache invalidation API.
+  - **Observability**: Per-tenant + global metrics (p50/p95 latency, cache hit rate, token usage, error rate). `GET /api/v1/semantic/admin/metrics`.
+  - **Chat UI**: `useSemanticChat` hook (multi-turn, 10-message context window, session management), `ChatMessageBubble` (markdown + table + debug panel), `ChatInput` (auto-resize), `FeedbackWidget` (thumbs + 5-star + tags + text), `RatingStars` component. `InsightsContent` page at `/insights` with suggested questions. Sub-pages: `/insights/history` (query history feed with filters), `/insights/lenses` (system + custom lens management). Sidebar nav "AI Insights" with Sparkles icon + Chat, Lenses, History children.
+  - **Sync Scripts**: `src/sync/sync-registry.ts` + `src/sync/golf-seed.ts`. Run with `pnpm --filter @oppsera/module-semantic semantic:sync`.
+  - **API Routes**: `/ask` (conversational, rate-limited), `/query` (raw data), `/metrics`, `/dimensions`, `/lenses`, `/lenses/[slug]`, `/eval/feed` (query history), `/eval/turns/[id]/feedback`, `/admin/invalidate`, `/admin/metrics`.
+  - **Tests**: 269 semantic module tests (registry, compiler, pipeline, lenses, cache, observability, eval) + 178 web route tests.
+- **Admin App** (`apps/admin/`):
+  - Separate Next.js app on port 3001 for platform operators (NOT tenant-scoped)
+  - **Auth**: Email/password → JWT (HS256, 8h TTL) + HttpOnly cookie. `platformAdmins` table with bcrypt password hashing. 3 roles: viewer, admin, super_admin. `withAdminAuth(handler, minRole)` middleware.
+  - **Eval Feed**: `/eval/feed` — paginated eval turns with filters (status, sortBy, search), `EvalTurnCard` component
+  - **Turn Detail**: `/eval/turns/[turnId]` — full turn context (user message, LLM plan via `PlanViewer`, compiled SQL via `SqlViewer`, result sample table, user feedback, admin review form)
+  - **Quality Dashboard**: `/eval/dashboard` — KPI cards + Recharts trend charts (hallucination rate, rating distribution, exec time, by-lens breakdown)
+  - **Golden Examples**: `/eval/examples` — manage few-shot training data (filter by category/difficulty, delete)
+  - **Patterns**: `/eval/patterns` — identify recurring problematic plan hashes with common verdicts/flags
+  - **Components**: AdminSidebar, EvalTurnCard, QualityFlagPills, QualityKpiCard, VerdictBadge, RatingStars, PlanViewer, SqlViewer, TenantSelector
+  - **API Routes**: 12 endpoints under `/api/v1/eval/` (feed, turns, review, promote, dashboard, examples, patterns, sessions, tenants, compare, aggregation trigger)
+  - **Tests**: 45 tests (28 auth + 17 eval API)
+  - **Entitlement**: `semantic` module added to core entitlements registry. Script: `tools/scripts/add-semantic-entitlement.ts` for existing tenants.
+  - **Utility**: `scripts/switch-env.sh` (toggle local/remote Supabase)
+
 ### What's Next
 - Vendor Management remaining API routes (search, deactivate/reactivate, catalog CRUD endpoints)
 - Purchase Orders module Phases 2-6 (commands, queries, API routes, frontend) — schema done
@@ -489,7 +522,9 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
-- Run migrations 0066-0067 on dev DB
+- Run migrations 0066-0067, 0070-0073 on dev DB
+- Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
+- For existing tenants: run `tools/scripts/add-semantic-entitlement.ts` to grant semantic access
 - ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
 
 ## Critical Gotchas (Quick Reference)
@@ -627,6 +662,13 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 122. **`addLineItem` now populates `packageComponents` for ALL packages** — previously always `null`, now enriched with `componentUnitPriceCents`, `componentExtendedCents`, `allocatedRevenueCents`, and `allocationWeight` for every package item. This activated the existing inventory component deduction in the inventory consumer (gotcha #20) for both `fixed` and `sum_of_components` pricing modes. For `fixed` mode, component prices are fetched live from catalog at order time.
 123. **Package component prices are fetched outside the transaction** — `addLineItem` resolves component prices (via `catalogApi.getEffectivePrice()`, batched with `Promise.all`) before entering the `publishWithOutbox` transaction. This avoids N serial DB round-trips inside the transaction and prevents lock contention. Always keep non-mutating reads outside the transaction boundary.
 124. **Reporting consumer splits component revenue for enriched packages** — `handleOrderPlaced` checks `packageComponents[0].allocatedRevenueCents != null`. If present, records each component separately in `rm_item_sales` using `allocatedRevenueCents / 100` as dollars. If absent (old packages, null components), falls back to recording the package line itself — backward-compatible.
+125. **Semantic registry uses stale-while-revalidate (SWR) caching** — `getCache()` in `registry.ts` returns stale data for up to 10 minutes (SWR_WINDOW_MS) while refreshing in background after the 5-minute TTL (CACHE_TTL_MS). Requests within TTL return immediately. Requests in the SWR window return stale data and kick off a non-blocking refresh. Requests older than SWR_WINDOW_MS block and refresh synchronously. Call `invalidateRegistryCache()` after `syncRegistryToDb()` to force a fresh load.
+126. **Semantic query cache key includes tenant + SQL + params** — `getFromQueryCache(tenantId, sql, params)` uses a djb2 hash of all three. Same SQL with different tenants or params = different keys. Max 200 entries, 5-minute TTL, LRU eviction. Call `invalidateQueryCache(tenantId?)` to flush. The pipeline auto-sets the cache after each successful DB execution.
+127. **Semantic rate limiter is per-tenant sliding window** — `checkSemanticRateLimit(tenantId)` defaults to 30 requests/minute per tenant. Returns `{ allowed, remaining, resetAt, retryAfterMs }`. The `/api/v1/semantic/ask` route checks this before running the pipeline and returns 429 with `Retry-After` and `X-RateLimit-Reset` headers when blocked.
+128. **Semantic observability uses in-memory metrics** — `recordSemanticRequest()` accumulates per-tenant stats (p50/p95 latency, cache hit rate, token usage, error rate). View via `GET /api/v1/semantic/admin/metrics` (requires `semantic.admin` permission). Reset with `resetSemanticMetrics()` in tests. Stage 2: emit via OTLP.
+129. **Sync registry before first deploy** — run `pnpm --filter @oppsera/module-semantic semantic:sync` after running migrations 0070-0073. This seeds metrics, dimensions, relations, system lenses, and eval examples. Without this, the semantic layer has no registry data and all queries return "Unknown metric" errors.
+130. **Custom lenses use partial unique indexes** — `semantic_lenses` has two partial unique indexes: `uq_semantic_lenses_system_slug` (slug WHERE tenant_id IS NULL) for system lenses, and `uq_semantic_lenses_tenant_slug` (tenant_id, slug WHERE tenant_id IS NOT NULL) for custom tenant lenses. A tenant can create a lens with the same slug as a system lens — they coexist. The custom lens takes priority in GET lookups.
+131. **Pipeline `vi.mock` for cache and metrics in tests** — when testing pipeline.ts behavior, always mock `../../cache/query-cache` (return null from `getFromQueryCache`) and `../../observability/metrics` (stub `recordSemanticRequest`). Without these mocks, cache state leaks between tests and causes non-deterministic failures (gotcha #58 applies here too).
 
 ## Quick Commands
 

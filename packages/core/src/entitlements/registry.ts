@@ -11,6 +11,7 @@ export const MODULE_REGISTRY = [
   { key: 'golf_ops', name: 'Golf Operations', phase: 'v1', description: 'Tee sheet, starter sheet, pace-of-play' },
   { key: 'reporting', name: 'Reports & Exports', phase: 'v1', description: 'Read models, daily sales, CSV/PDF export' },
   { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
+  { key: 'semantic', name: 'AI Insights (Semantic Layer)', phase: 'v1', description: 'Natural-language analytics, query compiler, LLM pipeline, custom lenses' },
 ] as const;
 
 export type ModuleKey = (typeof MODULE_REGISTRY)[number]['key'];

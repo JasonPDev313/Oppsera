@@ -215,6 +215,7 @@ async function seed() {
     'customers',
     'reporting',
     'golf_ops',
+    'semantic',
   ];
 
   const entitlementLimits = { max_seats: 25, max_locations: 10, max_devices: 10 };

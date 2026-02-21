@@ -2389,9 +2389,28 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - **Portal dialog cleanup on POS switch**: `useEffect` in each POS content component closes all portaled dialog states when `isActive` becomes false, preventing leaked dialogs across POS modes.
 - New files: `page-skeleton.tsx`, `dashboard/loading.tsx`, `catalog/loading.tsx`, `orders/loading.tsx`, `settings/loading.tsx`, `catalog-content.tsx`, `orders-content.tsx`, `settings-content.tsx`, `item-detail-content.tsx`, `item-edit-content.tsx`, `customer-detail-content.tsx`, `billing-detail-content.tsx`, `order-detail-content.tsx`, `taxes-content.tsx`, `memberships-content.tsx`, `vendors-content.tsx`, `vendor-detail-content.tsx`, `reports-content.tsx`, `golf-reports-content.tsx`, `receipt-detail-content.tsx`, `0065_list_page_indexes.sql`
 
+**Milestone 16: Semantic Layer (AI Insights) + Admin App**
+
+- Sessions 0–10: Full AI Insights module — registry, compiler, LLM pipeline, lenses, cache, observability, evaluation
+- **Semantic Module** (`packages/modules/semantic/`): 8 sub-path exports (registry, compiler, llm, lenses, cache, observability, evaluation, setup)
+- **Schema**: `semantic.ts` (6 tables: metrics, dimensions, metric-dimensions, table-sources, lenses) + `evaluation.ts` (4 tables: eval-sessions, eval-turns, eval-examples, eval-quality-daily) + `platform.ts` (platform-admins). Migrations 0070–0073
+- **Registry**: In-memory SWR cache. 8 core metrics + 8 golf metrics, 6 core dimensions + 6 golf dimensions, 60+ relations, 4 system lenses, 8 golf examples. `syncRegistryToDb()` + CLI `semantic:sync`
+- **Query Compiler**: `compilePlan()` — registry validation → parameterized SQL with GROUP BY, WHERE, ORDER BY, LIMIT. Guardrails: 10K rows, 365d range, 20 cols, 15 filters, tenant isolation
+- **LLM Pipeline**: `runPipeline()` — intent resolution (Claude Haiku) → compilation → SQL execution → narrative generation. Query cache (5min LRU, 200 entries). Clarification short-circuit. Best-effort eval capture
+- **Evaluation Layer**: Quality scoring (40% admin + 30% user + 30% heuristics). Capture service (fire-and-forget). User feedback (1-5 stars + tags + text). Admin review (verdict + corrected plan). Example promotion for few-shot learning. Quality daily aggregation
+- **Custom Lenses**: CRUD commands with slug validation. Partial unique indexes (system vs tenant). System + custom can share slug (custom takes priority)
+- **Cache Layer**: LRU query cache (200 entries, 5min TTL, djb2 key hash). Per-tenant rate limiter (30 req/min sliding window). Admin invalidation API
+- **Observability**: In-memory per-tenant + global metrics (p50/p95 latency, cache hit rate, token usage, error rate)
+- **Chat UI**: 3 pages (`/insights`, `/insights/history`, `/insights/lenses`). `useSemanticChat` hook (multi-turn, 10-message context). `ChatMessageBubble` (markdown + table + debug panel). `FeedbackWidget` (thumbs + stars + tags). Sidebar "AI Insights" with Sparkles icon
+- **API Routes**: 10 endpoints under `/api/v1/semantic/` — `/ask`, `/query`, `/metrics`, `/dimensions`, `/lenses`, `/lenses/[slug]`, `/eval/feed`, `/eval/turns/[id]/feedback`, `/admin/invalidate`, `/admin/metrics`
+- **Admin App** (`apps/admin/`): Separate Next.js app on port 3001. JWT auth with bcrypt + `platformAdmins` table. 3 roles: viewer/admin/super_admin. 5 pages: eval feed, turn detail, quality dashboard, golden examples, patterns. 12 API routes. `withAdminAuth(handler, minRole)` middleware
+- **Entitlement**: `semantic` module added to core entitlements registry. `tools/scripts/add-semantic-entitlement.ts` for existing tenants
+- **Utility script**: `scripts/switch-env.sh` (toggle local/remote Supabase)
+- New files: ~120 files across packages/modules/semantic/, apps/admin/, apps/web/src/app/(dashboard)/insights/, apps/web/src/app/api/v1/semantic/, apps/web/src/components/semantic/, apps/web/src/components/insights/
+
 ### Test Coverage
 
-812 tests: 134 core + 68 catalog + 52 orders + 37 shared (22 original + 15 package-allocation) + 100 customers + 246 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management)
+1304 tests: 134 core + 68 catalog + 52 orders + 37 shared (22 original + 15 package-allocation) + 100 customers + 424 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 269 semantic (62 golf-registry + 25 registry + 35 lenses + 22 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api)
 
 ### What's Next
 
@@ -2399,7 +2418,9 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - Purchase Orders Phases 2-6 (commands, queries, API routes, frontend)
 - Receiving frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
 - Settings → Dashboard tab (widget toggles, notes editor)
-- Run migrations 0060-0065 on dev DB
+- Run migrations 0060-0065, 0070-0073 on dev DB
+- Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
+- For existing tenants: run `tools/scripts/add-semantic-entitlement.ts`
 - ~~Package "Price as sum of components"~~ ✓ DONE (Session 27)
 
 ---
@@ -4054,3 +4075,252 @@ TenderDialog fires a preemptive `placeOrder()` when it opens so the order is alr
 1. **Never `setCurrentOrder(null)` on a placeOrder 409** — the order exists on the server; clearing it strands the user
 2. **Always deduplicate placeOrder** — preemptive (dialog open) + handleSubmit (Pay click) must share the same promise
 3. **TenderDialog manages its own version tracking** — `versionRef` and `currentVersion` state persist across dialog close/reopen for the same order via refs
+
+---
+
+## 65. Semantic Layer Architecture
+
+### Module Location
+`packages/modules/semantic/` — exported as `@oppsera/module-semantic`
+
+### Sub-path exports (package.json `exports`)
+| Import path | Contents |
+|---|---|
+| `@oppsera/module-semantic/llm` | `runPipeline`, LLM adapters, pipeline types |
+| `@oppsera/module-semantic/compiler` | `compilePlan`, compiler types |
+| `@oppsera/module-semantic/registry` | `buildRegistryCatalog`, `getLens`, registry cache |
+| `@oppsera/module-semantic/evaluation` | Eval capture, feedback, queries, examples |
+| `@oppsera/module-semantic/cache` | Query cache, rate limiter |
+| `@oppsera/module-semantic/observability` | Per-tenant + global metrics |
+
+### Pipeline Stages
+```
+message → intent resolver (LLM) → compiler → executor (SQL) → narrative (LLM) → eval capture
+```
+Each stage is independently testable with mock adapters.
+
+### Cache Layers
+1. **Registry cache** (in-memory): lenses + metric/dimension definitions. SWR: fresh <5min, stale-background-refresh 5-10min, sync refresh >10min.
+2. **Query cache** (in-memory LRU): compiled SQL + params → result rows. 200-entry max, 5-min TTL, keyed by `djb2(tenantId|sql|params)`.
+
+### Entitlement guard
+All semantic routes use `{ entitlement: 'semantic', permission: 'semantic.query' }` in `withMiddleware`. The insights layout also checks `isModuleEnabled('semantic')` client-side for UI gating.
+
+---
+
+## 66. LLM Integration Conventions
+
+### Adapter pattern
+LLM calls go through `LLMAdapter` interface (`packages/modules/semantic/src/llm/adapters/`). The adapter is swappable via `setLLMAdapter()` — tests inject `MockLLMAdapter` without any real API calls.
+
+### Never call LLM APIs directly
+All LLM calls go through the adapter. Direct `fetch()` to Anthropic/OpenAI in module code is forbidden. Use `getLLMAdapter().complete(messages, options)`.
+
+### Prompt engineering
+- System prompt is built in `intent-resolver.ts` from field catalog + examples + lens fragment
+- Few-shot examples come from `getExampleManager().getExamples()` (golden examples promoted by admin)
+- Never hard-code tenant data or tenant IDs in prompts
+
+### API keys
+- Stored in env var `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` for future providers)
+- Never log API keys — adapters must strip them from error messages
+- Rotate keys via env var change + redeploy; no DB storage
+
+### Token budgets
+- Intent resolution: 4,096 tokens output max
+- Narrative generation: 1,024 tokens output max (summaries only)
+- Total per request: ~8,000 tokens in + ~5,120 tokens out
+
+---
+
+## 67. Semantic Security Conventions
+
+### SQL injection prevention
+- The query compiler generates parameterized SQL only — values go into `params[]`, never string-concatenated
+- Tenant isolation is enforced in the executor via `SET LOCAL app.current_tenant_id` + RLS
+- The executor validates the compiled SQL is a SELECT (no DDL, DML)
+
+### Rate limiting
+- Per-tenant sliding window: 30 queries per 60 seconds (in-memory at Stage 1, Redis at Stage 2)
+- Rate limit is checked in the `/ask` route handler before pipeline execution
+- Returns 429 with `Retry-After` and `X-RateLimit-Reset` headers
+
+### Admin routes
+- `/api/v1/semantic/admin/*` requires `semantic.admin` permission
+- Never expose raw SQL, tenant data, or LLM prompts in admin metrics
+
+---
+
+## 68. Chat UI Conventions (AI Insights)
+
+### Component hierarchy
+```
+InsightsContent (insights-content.tsx)
+  └── ChatMessageBubble (semantic/chat-message.tsx)
+        ├── QueryResultTable
+        ├── PlanDebugPanel (showDebug=true only)
+        └── FeedbackWidget (insights/FeedbackWidget.tsx, evalTurnId required)
+              └── RatingStars (insights/RatingStars.tsx)
+```
+
+### FeedbackWidget states
+- `idle` → thumbs up/down quick action
+- `expanded` → 5-star + tag pills + textarea + submit
+- `done` → "Thanks!" checkmark
+
+### evalTurnId threading
+The pipeline captures an eval turn and returns `evalTurnId` in `PipelineOutput`. The ask route exposes it in the response. `ChatMessage.evalTurnId` stores it. `FeedbackWidget` uses it to POST to `/api/v1/semantic/eval/turns/[id]/feedback`. If eval capture fails (DB unavailable), `evalTurnId` is null and the FeedbackWidget is hidden.
+
+### Debug panel
+Hidden by default, toggled by the debug button in the header. Shows intent plan JSON, compiled SQL, compilation errors, LLM latency, and cache status. Never shown in production to non-owners without explicit opt-in.
+
+---
+
+## 69. Observability Conventions (Semantic Module)
+
+### Metrics tracking
+`recordSemanticRequest()` is called at the end of every successful `runPipeline()`. It updates in-memory per-tenant metrics: request count, p50/p95 latency, cache hit rate, token usage, error rate.
+
+### Percentile computation
+Latency samples are stored in a rolling window (capped at 500 samples per tenant). Percentiles use sorted array + ceil index: `p95 = samples[ceil(0.95 * n) - 1]`.
+
+### Admin metrics endpoint
+`GET /api/v1/semantic/admin/metrics` returns global + per-tenant metrics. Requires `semantic.admin` permission. Returns `{ global: GlobalMetricsSummary, tenants: TenantMetricsSummary[] }`.
+
+### Cache invalidation endpoint
+`POST /api/v1/semantic/admin/invalidate` flushes registry cache, query cache, or both. Body: `{ scope: 'registry' | 'queries' | 'all', tenantId?: string }`. Use for deployments that change field definitions or lens configs.
+
+---
+
+## 70. Evaluation & Feedback Conventions
+
+### Eval turn capture
+Every pipeline run calls `captureEvalTurnBestEffort()` which is awaited but swallows errors (never blocks the response). Returns `string | null` — the new eval turn's ULID.
+
+### User feedback
+- Submitted via `POST /api/v1/semantic/eval/turns/[id]/feedback`
+- Fields: `thumbsUp?: boolean`, `rating?: 1-5`, `tags?: FeedbackTag[]`, `text?: string`
+- At least one field required (validated server-side)
+- Users can only rate their own turns (enforced in `submitUserRating`)
+
+### Quality score
+Composite of 40% admin score + 30% user rating + 30% heuristics (flag deductions). Range: 0.00–1.00. Stored as `NUMERIC(3,2)` in `semantic_eval_turns.quality_score`. Recomputed on every feedback update.
+
+### Eval feed
+`GET /api/v1/semantic/eval/feed` returns paginated turn history for the current tenant. Used by the History page. Admin feed (cross-tenant) is only available via the admin app.
+
+### Golden examples
+Admins can promote high-quality turns to golden examples via `promoteToExample()`. Examples are loaded into the LLM prompt as few-shot demonstrations. The `ExampleManager` interface is swappable for testing.
+
+---
+
+## 71. Semantic Lens Conventions
+
+### Lens types
+- **System lenses**: `tenant_id IS NULL` — created via `sync-registry.ts` CLI or seed scripts. Not editable by tenants.
+- **Tenant lenses**: `tenant_id = <id>` — created via the API. Override or extend system lenses for the tenant.
+
+### Unique constraints (partial indexes)
+```sql
+-- One slug per system scope
+UNIQUE (slug) WHERE tenant_id IS NULL
+-- One slug per tenant scope
+UNIQUE (tenant_id, slug) WHERE tenant_id IS NOT NULL
+```
+
+### Registry cache invalidation
+After creating/updating/deleting a lens, call `POST /api/v1/semantic/admin/invalidate { scope: 'registry' }` to flush the cached field catalog. The cache auto-refreshes after 10 minutes (SWR window).
+
+### Sync script
+`packages/modules/semantic/src/sync/sync-registry.ts` — run via `pnpm --filter @oppsera/module-semantic semantic:sync` to upsert field definitions and system lenses into the DB. Use `SEMANTIC_DRY_RUN=true` for a preview.
+
+---
+
+## 72. Semantic Module Setup
+
+### Provisioning
+When creating a new tenant with the `semantic` entitlement, run the following:
+1. Enable the `semantic` entitlement in `tenant_entitlements`
+2. Grant default RBAC permissions from `SEMANTIC_ROLE_PERMISSIONS` in `setup/register-entitlements.ts`
+3. Run `semantic:sync` to ensure system lenses are in the DB
+
+### Event constants
+Use `SEMANTIC_EVENT_TYPES` from `setup/register-events.ts` for all semantic event type strings. Never use raw string literals — typos are silent failures in event routing.
+
+### Test mocking pattern
+Pipeline tests must mock `../../cache/query-cache` and `../../observability/metrics` to prevent module-level state (Maps) from leaking between test runs:
+```typescript
+vi.mock('../../cache/query-cache', () => ({
+  getFromQueryCache: vi.fn().mockReturnValue(null),
+  setInQueryCache: vi.fn(),
+}));
+vi.mock('../../observability/metrics', () => ({
+  recordSemanticRequest: vi.fn(),
+}));
+```
+Eval capture must also be mocked to prevent real DB writes:
+```typescript
+vi.mock('../evaluation/capture', () => ({
+  getEvalCaptureService: vi.fn().mockReturnValue({
+    recordTurn: vi.fn().mockResolvedValue('mock-eval-turn-id'),
+  }),
+}));
+```
+
+---
+
+## 73. Admin App Architecture
+
+### Purpose
+Platform operations panel for OppsEra internal admins. Used to review, audit, and improve the quality of AI-generated semantic layer responses. **NOT** tenant-scoped — uses `platformAdmins` table.
+
+### Location
+`apps/admin/` — separate Next.js app, port 3001.
+
+### Auth Flow
+```
+POST /api/auth/login { email, password }
+  → bcryptjs.compare(password, admin.passwordHash)
+  → Create JWT (HS256, 8h TTL) via jose
+  → Set HttpOnly cookie (oppsera_admin_session)
+  → Middleware validates JWT on every request
+```
+
+### Role Hierarchy
+```
+viewer (1) → admin (2) → super_admin (3)
+```
+Checked via `requireRole(session, minRole)`. Viewers can browse, admins can review/promote, super_admins get full access.
+
+### Route Protection Pattern
+```typescript
+export const POST = withAdminAuth(async (req, session, params) => {
+  // session: { adminId, email, name, role }
+  // handler logic
+}, 'admin'); // minimum role required
+```
+
+### Pages
+| Page | Path | Auth Level | Purpose |
+|------|------|-----------|---------|
+| Eval Feed | `/eval/feed` | viewer | Browse eval turns with filters |
+| Turn Detail | `/eval/turns/[turnId]` | viewer | Full turn context + admin review form |
+| Dashboard | `/eval/dashboard` | viewer | KPI cards + trend charts |
+| Examples | `/eval/examples` | viewer/admin | Manage golden few-shot examples |
+| Patterns | `/eval/patterns` | viewer | Identify recurring problem plan hashes |
+
+### API Routes
+12 endpoints under `/api/v1/eval/`: feed, turns/[id], turns/[id]/review (admin), turns/[id]/promote (admin), dashboard, examples, examples/[id] (admin delete), patterns, sessions/[id], tenants, compare, aggregation/trigger (admin).
+
+### Components
+`AdminSidebar`, `EvalTurnCard`, `QualityFlagPills`, `QualityKpiCard`, `VerdictBadge`, `RatingStars`, `PlanViewer` (JSON tree viewer), `SqlViewer` (SQL code viewer), `TenantSelector`.
+
+### Key Integrations
+- `@oppsera/module-semantic/evaluation` — all eval queries + commands
+- `@oppsera/db` — `platformAdmins` table for login
+- Charts: `recharts` (LineChart, BarChart for quality trends)
+
+### Anti-Patterns
+- Never share auth between admin app and tenant app — completely separate JWT + cookie systems
+- Never expose admin endpoints via the tenant web app API routes
+- Never store admin passwords in env vars — always use `platformAdmins` table with bcrypt hashes

@@ -28,7 +28,9 @@
       "Bash(pnpm --filter @oppsera/shared test:*)",
       "Bash(pnpm --filter @oppsera/module-orders exec tsc:*)",
       "Bash(pnpm --filter @oppsera/module-reporting exec tsc:*)",
-      "Bash(pnpm --filter @oppsera/web exec tsc:*)"
+      "Bash(pnpm --filter @oppsera/web exec tsc:*)",
+      "Bash(npx tsx:*)",
+      "Bash(ss:*)"
     ]
   }
 }
