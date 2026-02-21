@@ -631,6 +631,28 @@
       "when": 1708100089000,
       "tag": "0089_pms_rate_plan_default_rate",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1708100090000,
+      "tag": "0090_permission_covering_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1708100091000,
+      "tag": "0091_fnb_tab_items",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1708100092000,
+      "tag": "0092_user_management",
+      "breakpoints": true
     }
   ]
 }
+

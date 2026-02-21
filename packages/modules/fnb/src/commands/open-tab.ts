@@ -1,9 +1,9 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { fnbTabs, fnbTabCounters, fnbTabCourses, fnbTableLiveStatus } from '@oppsera/db';
+import { fnbTabs, fnbTabCourses } from '@oppsera/db';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { OpenTabInput } from '../validation';
@@ -33,15 +33,15 @@ export async function openTab(
       Array.from(counterResult as Iterable<Record<string, unknown>>)[0]!.last_number,
     );
 
-    // If dine-in with a table, validate the table exists and update live status
+    // If dine-in with a table, validate the table exists in fnb_tables
     if (input.tableId) {
-      const liveStatusRows = await (tx as any).execute(
-        sql`SELECT id, status FROM fnb_table_live_status
-            WHERE tenant_id = ${ctx.tenantId} AND table_id = ${input.tableId}
+      const tableRows = await (tx as any).execute(
+        sql`SELECT id FROM fnb_tables
+            WHERE id = ${input.tableId} AND tenant_id = ${ctx.tenantId}
             LIMIT 1`,
       );
-      const liveStatusArr = Array.from(liveStatusRows as Iterable<Record<string, unknown>>);
-      if (liveStatusArr.length === 0) {
+      const tableArr = Array.from(tableRows as Iterable<Record<string, unknown>>);
+      if (tableArr.length === 0) {
         throw new AppError('TABLE_NOT_FOUND', `Table ${input.tableId} not found`, 404);
       }
     }
@@ -79,22 +79,19 @@ export async function openTab(
         courseStatus: 'unsent',
       });
 
-    // Update table live status if dine-in
+    // Upsert table live status if dine-in (defensive: creates row if missing)
     if (input.tableId) {
-      await (tx as any)
-        .update(fnbTableLiveStatus)
-        .set({
-          currentTabId: created!.id,
-          currentServerUserId: input.serverUserId,
-          status: 'seated',
-          partySize: input.partySize ?? null,
-          seatedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(and(
-          eq(fnbTableLiveStatus.tenantId, ctx.tenantId),
-          eq(fnbTableLiveStatus.tableId, input.tableId),
-        ));
+      await (tx as any).execute(
+        sql`INSERT INTO fnb_table_live_status (tenant_id, table_id, status, current_tab_id, current_server_user_id, party_size, seated_at, updated_at)
+            VALUES (${ctx.tenantId}, ${input.tableId}, 'seated', ${created!.id}, ${input.serverUserId}, ${input.partySize ?? null}, NOW(), NOW())
+            ON CONFLICT (tenant_id, table_id) DO UPDATE SET
+              status = 'seated',
+              current_tab_id = EXCLUDED.current_tab_id,
+              current_server_user_id = EXCLUDED.current_server_user_id,
+              party_size = EXCLUDED.party_size,
+              seated_at = EXCLUDED.seated_at,
+              updated_at = EXCLUDED.updated_at`,
+      );
     }
 
     const event = buildEventFromContext(ctx, FNB_EVENTS.TAB_OPENED, {

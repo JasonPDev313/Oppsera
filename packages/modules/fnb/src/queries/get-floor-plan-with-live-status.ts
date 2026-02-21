@@ -66,7 +66,7 @@ export interface FloorPlanWithLiveStatus {
  * then overlays live table statuses on top of each table object.
  */
 export async function getFloorPlanWithLiveStatus(
-  input: GetFloorPlanWithStatusFilterInput,
+  input: GetFloorPlanWithStatusFilterInput & { lite?: boolean },
 ): Promise<FloorPlanWithLiveStatus> {
   return withTenant(input.tenantId, async (tx) => {
     // Get room info
@@ -87,9 +87,9 @@ export async function getFloorPlanWithLiveStatus(
     if (rooms.length === 0) throw new NotFoundError('Room', input.roomId);
     const room = rooms[0]!;
 
-    // Get published version with snapshot
+    // Get published version (skip snapshot_json in lite mode — saves 10-100KB per poll)
     let versionData = null;
-    if (room.current_version_id) {
+    if (room.current_version_id && !input.lite) {
       const versionRows = await tx.execute(sql`
         SELECT id, version_number, snapshot_json, published_at
         FROM floor_plan_versions
@@ -104,6 +104,25 @@ export async function getFloorPlanWithLiveStatus(
           id: String(v.id),
           versionNumber: Number(v.version_number),
           snapshotJson: v.snapshot_json as Record<string, unknown>,
+          publishedAt: v.published_at ? String(v.published_at) : null,
+        };
+      }
+    } else if (room.current_version_id && input.lite) {
+      // Lite mode: fetch only version metadata, no snapshot
+      const versionRows = await tx.execute(sql`
+        SELECT id, version_number, published_at
+        FROM floor_plan_versions
+        WHERE id = ${String(room.current_version_id)}
+          AND tenant_id = ${input.tenantId}
+        LIMIT 1
+      `);
+      const versions = Array.from(versionRows as Iterable<Record<string, unknown>>);
+      if (versions.length > 0) {
+        const v = versions[0]!;
+        versionData = {
+          id: String(v.id),
+          versionNumber: Number(v.version_number),
+          snapshotJson: {} as Record<string, unknown>,
           publishedAt: v.published_at ? String(v.published_at) : null,
         };
       }

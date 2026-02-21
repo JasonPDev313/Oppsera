@@ -48,6 +48,7 @@ export async function getReservation(tenantId: string, reservationId: string) {
         guestFirstName: pmsGuests.firstName,
         guestLastName: pmsGuests.lastName,
         guestEmail: pmsGuests.email,
+        guestCustomerId: pmsGuests.customerId,
         folioId: pmsFolios.id,
         folioStatus: pmsFolios.status,
         folioTotalCents: pmsFolios.totalCents,

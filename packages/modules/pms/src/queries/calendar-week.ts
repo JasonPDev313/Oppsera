@@ -1,5 +1,5 @@
-import { withTenant, sql, pmsRooms, pmsRoomTypes, rmPmsCalendarSegments, pmsRoomBlocks, rmPmsDailyOccupancy } from '@oppsera/db';
-import type { RoomStatus, ReservationStatus } from '../types';
+import { withTenant, sql } from '@oppsera/db';
+import type { RoomStatus } from '../types';
 
 export interface CalendarRoom {
   roomId: string;
@@ -50,15 +50,39 @@ export interface CalendarWeekResponse {
   };
 }
 
+function computeColorKey(status: string): string {
+  switch (status) {
+    case 'HOLD':
+      return 'hold';
+    case 'CONFIRMED':
+      return 'confirmed';
+    case 'CHECKED_IN':
+      return 'in-house';
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * Convert a value that may be a Date object or string to a YYYY-MM-DD string.
+ * postgres.js may return DATE columns as strings or Date objects depending on config.
+ */
+function toDateString(val: unknown): string {
+  if (val instanceof Date) {
+    return val.toISOString().split('T')[0]!;
+  }
+  return String(val ?? '');
+}
+
 export async function getCalendarWeek(
   tenantId: string,
   propertyId: string,
   startDate: string,
 ): Promise<CalendarWeekResponse> {
   // Calculate end date = start + 7
-  const start = new Date(startDate);
+  const start = new Date(startDate + 'T00:00:00Z');
   const end = new Date(start);
-  end.setDate(end.getDate() + 7);
+  end.setUTCDate(end.getUTCDate() + 7);
   const endDate = end.toISOString().split('T')[0]!;
 
   return withTenant(tenantId, async (tx) => {
@@ -85,68 +109,108 @@ export async function getCalendarWeek(
       isOutOfOrder: r.is_out_of_order,
     }));
 
-    // Query 2: Calendar segments for date range
+    const totalRooms = rooms.length;
+
+    // Query 2: Build calendar segments directly from pms_reservations using generate_series.
+    // This bypasses the read model (rm_pms_calendar_segments) which depends on event
+    // consumers running successfully. At this scale, the direct query is fast enough.
     const segmentRows = await tx.execute(sql`
-      SELECT room_id, business_date, reservation_id, status,
-             guest_name, check_in_date, check_out_date,
-             source_type, color_key
-      FROM rm_pms_calendar_segments
-      WHERE tenant_id = ${tenantId}
-        AND property_id = ${propertyId}
-        AND business_date >= ${startDate}
-        AND business_date < ${endDate}
-      ORDER BY room_id, business_date
+      SELECT
+        res.room_id,
+        to_char(d.d, 'YYYY-MM-DD') AS business_date,
+        res.id AS reservation_id,
+        res.status,
+        COALESCE(
+          NULLIF(
+            concat_ws(
+              ' ',
+              (res.primary_guest_json::jsonb ->> 'firstName'),
+              (res.primary_guest_json::jsonb ->> 'lastName')
+            ),
+            ''
+          ),
+          'Guest'
+        ) AS guest_name,
+        to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
+        to_char(res.check_out_date, 'YYYY-MM-DD') AS check_out_date,
+        res.source_type
+      FROM pms_reservations res
+      CROSS JOIN LATERAL generate_series(
+        GREATEST(res.check_in_date, ${startDate}::date),
+        LEAST(res.check_out_date, ${endDate}::date) - interval '1 day',
+        '1 day'
+      ) AS d(d)
+      WHERE res.tenant_id = ${tenantId}
+        AND res.property_id = ${propertyId}
+        AND res.room_id IS NOT NULL
+        AND res.status IN ('HOLD', 'CONFIRMED', 'CHECKED_IN')
+        AND res.check_in_date < ${endDate}::date
+        AND res.check_out_date > ${startDate}::date
+      ORDER BY res.room_id, d.d
     `);
 
     const segments: CalendarSegment[] = Array.from(segmentRows as Iterable<any>).map((s) => ({
       roomId: s.room_id,
-      businessDate: s.business_date,
+      businessDate: toDateString(s.business_date),
       reservationId: s.reservation_id,
       status: s.status,
       guestName: s.guest_name,
-      checkInDate: s.check_in_date,
-      checkOutDate: s.check_out_date,
+      checkInDate: toDateString(s.check_in_date),
+      checkOutDate: toDateString(s.check_out_date),
       sourceType: s.source_type,
-      colorKey: s.color_key,
+      colorKey: computeColorKey(s.status),
     }));
 
     // Query 3: OOO blocks for date range
     const blockRows = await tx.execute(sql`
-      SELECT room_id, start_date, end_date, reason
+      SELECT room_id,
+             to_char(start_date, 'YYYY-MM-DD') AS start_date,
+             to_char(end_date, 'YYYY-MM-DD') AS end_date,
+             reason
       FROM pms_room_blocks
       WHERE tenant_id = ${tenantId}
         AND property_id = ${propertyId}
         AND block_type = 'MAINTENANCE'
         AND is_active = true
-        AND start_date < ${endDate}
-        AND end_date > ${startDate}
+        AND start_date < ${endDate}::date
+        AND end_date > ${startDate}::date
     `);
 
     const oooBlocks: OooBlock[] = Array.from(blockRows as Iterable<any>).map((b) => ({
       roomId: b.room_id,
-      startDate: b.start_date,
-      endDate: b.end_date,
+      startDate: toDateString(b.start_date),
+      endDate: toDateString(b.end_date),
       reason: b.reason ?? null,
     }));
 
-    // Build occupancy by date from read model
+    // Query 4: Compute occupancy per date directly from reservations
     const occRows = await tx.execute(sql`
-      SELECT business_date, rooms_occupied, rooms_available, arrivals, departures
-      FROM rm_pms_daily_occupancy
-      WHERE tenant_id = ${tenantId}
-        AND property_id = ${propertyId}
-        AND business_date >= ${startDate}
-        AND business_date < ${endDate}
-      ORDER BY business_date
+      SELECT
+        to_char(d.d, 'YYYY-MM-DD') AS business_date,
+        COUNT(DISTINCT res.room_id)::int AS rooms_occupied,
+        COUNT(DISTINCT CASE WHEN res.check_in_date = d.d THEN res.id END)::int AS arrivals,
+        COUNT(DISTINCT CASE WHEN res.check_out_date = d.d THEN res.id END)::int AS departures
+      FROM generate_series(${startDate}::date, ${endDate}::date - interval '1 day', '1 day') AS d(d)
+      LEFT JOIN pms_reservations res
+        ON res.tenant_id = ${tenantId}
+        AND res.property_id = ${propertyId}
+        AND res.room_id IS NOT NULL
+        AND res.status IN ('HOLD', 'CONFIRMED', 'CHECKED_IN')
+        AND res.check_in_date <= d.d
+        AND res.check_out_date > d.d
+      GROUP BY d.d
+      ORDER BY d.d
     `);
 
     const occupancyByDate: Record<string, OccupancyByDate> = {};
     for (const row of Array.from(occRows as Iterable<any>)) {
-      occupancyByDate[row.business_date] = {
-        occupied: row.rooms_occupied,
-        available: row.rooms_available,
-        arrivals: row.arrivals,
-        departures: row.departures,
+      const dateKey = toDateString(row.business_date);
+      const occupied = Number(row.rooms_occupied ?? 0);
+      occupancyByDate[dateKey] = {
+        occupied,
+        available: Math.max(0, totalRooms - occupied),
+        arrivals: Number(row.arrivals ?? 0),
+        departures: Number(row.departures ?? 0),
       };
     }
 
@@ -157,7 +221,7 @@ export async function getCalendarWeek(
       segments,
       oooBlocks,
       meta: {
-        totalRooms: rooms.length,
+        totalRooms,
         occupancyByDate,
         lastUpdatedAt: new Date().toISOString(),
       },

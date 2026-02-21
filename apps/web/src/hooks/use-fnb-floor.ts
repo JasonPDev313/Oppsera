@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import type {
   FloorPlanWithLiveStatus,
@@ -23,59 +24,40 @@ interface UseFnbFloorReturn {
 }
 
 export function useFnbFloor({ roomId, pollIntervalMs = 5000 }: UseFnbFloorOptions): UseFnbFloorReturn {
-  const [data, setData] = useState<FloorPlanWithLiveStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchFloor = useCallback(async () => {
-    if (!roomId) return;
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['fnb-floor', roomId],
+    queryFn: async ({ signal }) => {
+      const json = await apiFetch<{ data: FloorPlanWithLiveStatus }>(
+        `/api/v1/fnb/tables/floor-plan?roomId=${roomId}&lite=true`,
+        { signal },
+      );
+      return json.data;
+    },
+    enabled: !!roomId,
+    staleTime: 3_000,
+    refetchInterval: pollIntervalMs,
+    refetchOnWindowFocus: true,
+  });
 
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    try {
-      setIsLoading(true);
-      const json = await apiFetch<{ data: FloorPlanWithLiveStatus }>(`/api/v1/fnb/tables/floor-plan?roomId=${roomId}`, {
-        signal: controller.signal,
-      });
-      setData(json.data);
-      setError(null);
-    } catch (e) {
-      if (e instanceof DOMException && e.name === 'AbortError') return;
-      setError(e instanceof Error ? e.message : 'Unknown error');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [roomId]);
-
-  // Initial fetch
-  useEffect(() => {
-    fetchFloor();
-    return () => abortRef.current?.abort();
-  }, [fetchFloor]);
-
-  // Polling
-  useEffect(() => {
-    if (!roomId || pollIntervalMs <= 0) return;
-    const interval = setInterval(fetchFloor, pollIntervalMs);
-    return () => clearInterval(interval);
-  }, [roomId, pollIntervalMs, fetchFloor]);
+  const refresh = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['fnb-floor', roomId] });
+  }, [queryClient, roomId]);
 
   // Listen for POS visibility resume
   useEffect(() => {
-    const handler = () => { fetchFloor(); };
+    const handler = () => { refresh(); };
     window.addEventListener('pos-visibility-resume', handler);
     return () => window.removeEventListener('pos-visibility-resume', handler);
-  }, [fetchFloor]);
+  }, [refresh]);
 
   return {
-    data,
+    data: data ?? null,
     tables: data?.tables ?? [],
     isLoading,
-    error,
-    refresh: fetchFloor,
+    error: error ? (error instanceof Error ? error.message : 'Unknown error') : null,
+    refresh,
   };
 }
 
@@ -95,32 +77,20 @@ interface UseFnbRoomsReturn {
 }
 
 export function useFnbRooms(): UseFnbRoomsReturn {
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['fnb-rooms'],
+    queryFn: async () => {
+      const json = await apiFetch<{ data: Room[] }>('/api/v1/room-layouts');
+      return json.data ?? [];
+    },
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const json = await apiFetch<{ data: Room[] }>('/api/v1/room-layouts');
-        if (!cancelled) {
-          setRooms(json.data ?? []);
-          setError(null);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Unknown error');
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
-
-  return { rooms, isLoading, error };
+  return {
+    rooms: data ?? [],
+    isLoading,
+    error: error ? (error instanceof Error ? error.message : 'Unknown error') : null,
+  };
 }
 
 // ── Table Actions Hook ──────────────────────────────────────────

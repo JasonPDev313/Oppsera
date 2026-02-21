@@ -5,9 +5,14 @@ import { eq, and } from 'drizzle-orm';
 import { db, processedEvents } from '@oppsera/db';
 import type { EventBus, EventHandler } from './bus';
 
+interface NamedHandler {
+  handler: EventHandler;
+  consumerName: string;
+}
+
 export class InMemoryEventBus implements EventBus {
-  private handlers = new Map<string, EventHandler[]>();
-  private patternHandlers = new Map<string, EventHandler[]>();
+  private handlers = new Map<string, NamedHandler[]>();
+  private patternHandlers = new Map<string, NamedHandler[]>();
   private deadLetterQueue: Array<{
     event: EventEnvelope;
     error: Error;
@@ -16,15 +21,17 @@ export class InMemoryEventBus implements EventBus {
   private maxRetries = 3;
   private running = false;
 
-  subscribe(eventType: string, handler: EventHandler): void {
+  subscribe(eventType: string, handler: EventHandler, consumerName?: string): void {
     const existing = this.handlers.get(eventType) || [];
-    existing.push(handler);
+    const name = consumerName ?? `${eventType}:handler_${existing.length}`;
+    existing.push({ handler, consumerName: name });
     this.handlers.set(eventType, existing);
   }
 
-  subscribePattern(pattern: string, handler: EventHandler): void {
+  subscribePattern(pattern: string, handler: EventHandler, consumerName?: string): void {
     const existing = this.patternHandlers.get(pattern) || [];
-    existing.push(handler);
+    const name = consumerName ?? `${pattern}:handler_${existing.length}`;
+    existing.push({ handler, consumerName: name });
     this.patternHandlers.set(pattern, existing);
   }
 
@@ -62,15 +69,15 @@ export class InMemoryEventBus implements EventBus {
     const result: Array<{ handler: EventHandler; consumerName: string }> = [];
 
     const exact = this.handlers.get(eventType) || [];
-    exact.forEach((handler, i) => {
-      result.push({ handler, consumerName: `${eventType}:handler_${i}` });
-    });
+    for (const entry of exact) {
+      result.push(entry);
+    }
 
     for (const [pattern, handlers] of this.patternHandlers) {
       if (this.matchPattern(pattern, eventType)) {
-        handlers.forEach((handler, i) => {
-          result.push({ handler, consumerName: `${pattern}:handler_${i}` });
-        });
+        for (const entry of handlers) {
+          result.push(entry);
+        }
       }
     }
 

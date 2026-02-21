@@ -4,14 +4,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   mockExecute,
-  mockSetTenantContext,
   mockFindManyEntitlements,
   mockFindFirstLocations,
   mockSelect,
   mockTransaction,
 } = vi.hoisted(() => ({
   mockExecute: vi.fn().mockResolvedValue([]),
-  mockSetTenantContext: vi.fn().mockResolvedValue(undefined),
   mockFindManyEntitlements: vi.fn().mockResolvedValue([]),
   mockFindFirstLocations: vi.fn(),
   mockSelect: vi.fn(),
@@ -53,7 +51,6 @@ vi.mock('@oppsera/db', () => ({
   withTenant: async (_tenantId: string, cb: (tx: unknown) => Promise<unknown>) => {
     return mockTransaction(cb);
   },
-  setTenantContext: mockSetTenantContext,
   sql: vi.fn((...args: unknown[]) => args),
   entitlements: {
     tenantId: 'entitlements.tenantId',
@@ -390,8 +387,8 @@ describe('Limit checking helpers', () => {
 });
 
 describe('MODULE_REGISTRY', () => {
-  it('contains 17 module definitions', () => {
-    expect(MODULE_REGISTRY).toHaveLength(17);
+  it('contains 18 module definitions', () => {
+    expect(MODULE_REGISTRY).toHaveLength(18);
   });
 
   it('contains all expected V1 modules', () => {

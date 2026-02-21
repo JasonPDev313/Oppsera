@@ -13,9 +13,11 @@ export const GET = withMiddleware(
       throw new AppError('BAD_REQUEST', 'roomId query parameter is required', 400);
     }
 
+    const lite = url.searchParams.get('lite') === 'true';
     const result = await getFloorPlanWithLiveStatus({
       tenantId: ctx.tenantId,
       roomId,
+      lite,
     });
 
     return NextResponse.json({ data: result });

@@ -25,6 +25,22 @@ export interface TabTransferRecord {
   transferredAt: string;
 }
 
+export interface TabLineItem {
+  id: string;
+  catalogItemId: string;
+  catalogItemName: string;
+  seatNumber: number;
+  courseNumber: number;
+  qty: number;
+  unitPriceCents: number;
+  extendedPriceCents: number;
+  modifiers: unknown[];
+  specialInstructions: string | null;
+  status: string;
+  sentAt: string | null;
+  firedAt: string | null;
+}
+
 export interface FnbTabDetail {
   id: string;
   tabNumber: number;
@@ -52,6 +68,7 @@ export interface FnbTabDetail {
   metadata: Record<string, unknown> | null;
   courses: TabCourseDetail[];
   transfers: TabTransferRecord[];
+  lines: TabLineItem[];
 }
 
 export async function getTabDetail(
@@ -120,6 +137,31 @@ export async function getTabDetail(
       transferredAt: tr.transferred_at as string,
     }));
 
+    // Get tab items (line items)
+    const itemRows = await tx.execute(
+      sql`SELECT id, catalog_item_id, catalog_item_name, seat_number,
+                 course_number, quantity, unit_price_cents, extended_price_cents,
+                 modifiers, special_instructions, status, sent_at, fired_at
+          FROM fnb_tab_items
+          WHERE tab_id = ${input.tabId} AND tenant_id = ${input.tenantId}
+          ORDER BY course_number ASC, sort_order ASC, created_at ASC`,
+    );
+    const lines = Array.from(itemRows as Iterable<Record<string, unknown>>).map((li) => ({
+      id: li.id as string,
+      catalogItemId: li.catalog_item_id as string,
+      catalogItemName: li.catalog_item_name as string,
+      seatNumber: Number(li.seat_number),
+      courseNumber: Number(li.course_number),
+      qty: Number(li.quantity),
+      unitPriceCents: Number(li.unit_price_cents),
+      extendedPriceCents: Number(li.extended_price_cents),
+      modifiers: (li.modifiers as unknown[]) ?? [],
+      specialInstructions: (li.special_instructions as string) ?? null,
+      status: li.status as string,
+      sentAt: (li.sent_at as string) ?? null,
+      firedAt: (li.fired_at as string) ?? null,
+    }));
+
     return {
       id: r.id as string,
       tabNumber: Number(r.tab_number),
@@ -147,6 +189,7 @@ export async function getTabDetail(
       metadata: (r.metadata as Record<string, unknown>) ?? null,
       courses,
       transfers,
+      lines,
     };
   });
 }

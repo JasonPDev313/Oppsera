@@ -515,12 +515,6 @@ describe('OutboxWorker', () => {
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
           limit: vi.fn().mockResolvedValue([]),
-          orderBy: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-        orderBy: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([]),
         }),
       }),
     });
@@ -533,11 +527,16 @@ describe('OutboxWorker', () => {
       }),
     });
 
-    // Default update chain
-    mockUpdate.mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
-      }),
+    // Transaction mock: processBatch uses db.transaction with tx.execute for
+    // FOR UPDATE SKIP LOCKED claim + batch UPDATE for marking published.
+    mockTransaction.mockImplementation(async (cb: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        execute: vi.fn().mockResolvedValue([]),
+        insert: mockInsert,
+        select: mockSelect,
+        update: mockUpdate,
+      };
+      return cb(tx);
     });
   });
 
@@ -547,36 +546,33 @@ describe('OutboxWorker', () => {
     bus.subscribe('test.dummy_event.created.v1', handler);
 
     const event = makeEvent();
-    const outboxRows = [
+    const claimedRows = [
       {
         id: 'outbox_01',
-        tenantId: TENANT_ID,
-        eventType: 'test.dummy_event.created.v1',
-        eventId: event.eventId,
-        idempotencyKey: event.idempotencyKey,
         payload: event,
-        occurredAt: new Date(),
-        publishedAt: null,
-        createdAt: new Date(),
+        event_type: 'test.dummy_event.created.v1',
+        event_id: event.eventId,
       },
     ];
 
-    // Mock the select chain to return unpublished events
-    mockSelect.mockReturnValueOnce({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue(outboxRows),
-          }),
+    // Mock transaction: first tx.execute returns claimed rows, second is the batch UPDATE
+    mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
+      let callCount = 0;
+      const tx = {
+        execute: vi.fn().mockImplementation(() => {
+          callCount++;
+          return callCount === 1 ? Promise.resolve(claimedRows) : Promise.resolve(undefined);
         }),
-      }),
+        insert: mockInsert,
+        select: mockSelect,
+      };
+      return cb(tx);
     });
 
     const count = await worker.processBatch();
 
     expect(count).toBe(1);
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(mockUpdate).toHaveBeenCalled();
   });
 
   // Test 13: does not re-publish already published events
@@ -584,15 +580,12 @@ describe('OutboxWorker', () => {
     const handler = vi.fn().mockResolvedValue(undefined);
     bus.subscribe('test.dummy_event.created.v1', handler);
 
-    // Return empty result (no unpublished events)
-    mockSelect.mockReturnValueOnce({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-      }),
+    // Transaction returns empty claimed rows
+    mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
+      const tx = {
+        execute: vi.fn().mockResolvedValue([]),
+      };
+      return cb(tx);
     });
 
     const count = await worker.processBatch();
@@ -628,12 +621,6 @@ describe('Full round trip', () => {
     mockSelect.mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue([]),
-          orderBy: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-          }),
-        }),
-        orderBy: vi.fn().mockReturnValue({
           limit: vi.fn().mockResolvedValue([]),
         }),
       }),
@@ -676,27 +663,28 @@ describe('Full round trip', () => {
     expect(mockTransaction).toHaveBeenCalled();
     expect(mockInsert).toHaveBeenCalled();
 
-    // Step 2: Simulate worker picking up the event from outbox
-    mockSelect.mockReturnValueOnce({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([
+    // Step 2: Simulate worker picking up the event from outbox (via transaction + tx.execute)
+    mockTransaction.mockImplementationOnce(async (cb: (tx: unknown) => Promise<unknown>) => {
+      let callCount = 0;
+      const tx = {
+        execute: vi.fn().mockImplementation(() => {
+          callCount++;
+          if (callCount === 1) {
+            return Promise.resolve([
               {
                 id: 'outbox_rt',
-                tenantId: TENANT_ID,
-                eventType: event.eventType,
-                eventId: event.eventId,
-                idempotencyKey: event.idempotencyKey,
                 payload: event,
-                occurredAt: new Date(),
-                publishedAt: null,
-                createdAt: new Date(),
+                event_type: event.eventType,
+                event_id: event.eventId,
               },
-            ]),
-          }),
+            ]);
+          }
+          return Promise.resolve(undefined);
         }),
-      }),
+        insert: mockInsert,
+        select: mockSelect,
+      };
+      return cb(tx);
     });
 
     const count = await worker.processBatch();

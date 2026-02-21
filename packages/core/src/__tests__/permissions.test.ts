@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   mockExecute,
-  mockSetTenantContext,
   mockFindFirstRoles,
   mockFindFirstLocations,
   mockFindFirstMemberships,
@@ -20,7 +19,6 @@ const {
   mockTransaction,
 } = vi.hoisted(() => ({
   mockExecute: vi.fn().mockResolvedValue([]),
-  mockSetTenantContext: vi.fn().mockResolvedValue(undefined),
   mockFindFirstRoles: vi.fn(),
   mockFindFirstLocations: vi.fn(),
   mockFindFirstMemberships: vi.fn(),
@@ -102,7 +100,6 @@ vi.mock('@oppsera/db', () => ({
   withTenant: async (tenantId: string, cb: (tx: unknown) => Promise<unknown>) => {
     return mockTransaction(cb);
   },
-  setTenantContext: mockSetTenantContext,
   sql: vi.fn((...args: unknown[]) => args),
   roles: {
     id: 'roles.id',

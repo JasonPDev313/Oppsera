@@ -4,7 +4,6 @@ import {
   MembershipInactiveError,
   generateUlid,
 } from '@oppsera/shared';
-import { setTenantContext } from '@oppsera/db';
 import { getAuthAdapter } from './get-adapter';
 import type { AuthUser } from './index';
 import type { RequestContext } from './context';
@@ -43,9 +42,6 @@ export async function resolveTenant(user: AuthUser): Promise<RequestContext> {
   if (user.membershipStatus !== 'active') {
     throw new MembershipInactiveError();
   }
-
-  // Set the RLS session variable for this request
-  await setTenantContext(user.tenantId);
 
   return {
     user,

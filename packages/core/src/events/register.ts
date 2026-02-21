@@ -24,18 +24,20 @@ export function registerModuleEvents(
 ): void {
   if (registration.exact) {
     for (const reg of registration.exact) {
-      bus.subscribe(reg.eventType, reg.handler);
+      const stableConsumerName = `${moduleName}/${reg.consumerName}`;
+      bus.subscribe(reg.eventType, reg.handler, stableConsumerName);
       console.log(
-        `Registered consumer: ${moduleName}/${reg.consumerName} -> ${reg.eventType}`,
+        `Registered consumer: ${stableConsumerName} -> ${reg.eventType}`,
       );
     }
   }
 
   if (registration.patterns) {
     for (const reg of registration.patterns) {
-      bus.subscribePattern(reg.pattern, reg.handler);
+      const stableConsumerName = `${moduleName}/${reg.consumerName}`;
+      bus.subscribePattern(reg.pattern, reg.handler, stableConsumerName);
       console.log(
-        `Registered pattern consumer: ${moduleName}/${reg.consumerName} -> ${reg.pattern}`,
+        `Registered pattern consumer: ${stableConsumerName} -> ${reg.pattern}`,
       );
     }
   }

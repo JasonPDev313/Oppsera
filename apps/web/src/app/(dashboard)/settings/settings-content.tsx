@@ -6,6 +6,7 @@ import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { AuditLogViewer } from '@/components/audit-log-viewer';
+import { UserManagementTab } from './user-management-tab';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -118,7 +119,7 @@ export default function SettingsPage() {
 
       {/* Tab content */}
       <div className="mt-6">
-        {activeTab === 'users' && <UsersTab canManage={can('users.manage')} />}
+        {activeTab === 'users' && <UserManagementTab canManage={can('users.manage')} />}
         {activeTab === 'roles' && <RolesTab canManage={can('users.manage')} />}
         {activeTab === 'modules' && <ModulesTab />}
         {activeTab === 'dashboard' && <DashboardSettingsTab />}

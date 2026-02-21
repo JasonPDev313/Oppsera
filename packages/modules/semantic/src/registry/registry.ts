@@ -5,7 +5,7 @@ import {
   semanticMetricDimensions,
   semanticLenses,
 } from '@oppsera/db';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, isNull, inArray } from 'drizzle-orm';
 import type {
   MetricDef,
   DimensionDef,
@@ -121,7 +121,11 @@ async function loadCache(): Promise<RegistryCache> {
   const metricRows = await db.select().from(semanticMetrics).where(eq(semanticMetrics.isActive, true));
   const dimRows = await db.select().from(semanticDimensions).where(eq(semanticDimensions.isActive, true));
   const relRows = await db.select().from(semanticMetricDimensions);
-  const lensRows = await db.select().from(semanticLenses).where(eq(semanticLenses.isActive, true));
+  // Only cache system lenses (tenant_id IS NULL). Tenant-specific lenses are
+  // fetched on demand in getLens() to avoid nondeterministic slug collisions.
+  const lensRows = await db.select().from(semanticLenses).where(
+    and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
+  );
 
   const metrics = new Map<string, MetricDef>();
   for (const row of metricRows) {
@@ -209,7 +213,20 @@ export async function listLenses(domain?: string): Promise<LensDef[]> {
   return domain ? all.filter((l) => l.domain === domain) : all;
 }
 
-export async function getLens(slug: string): Promise<LensDef | null> {
+export async function getLens(slug: string, tenantId?: string): Promise<LensDef | null> {
+  // Tenant-specific lens takes precedence over system lens (gotcha #130).
+  if (tenantId) {
+    const [tenantLens] = await db.select().from(semanticLenses).where(
+      and(
+        eq(semanticLenses.slug, slug),
+        eq(semanticLenses.tenantId, tenantId),
+        eq(semanticLenses.isActive, true),
+      ),
+    );
+    if (tenantLens) return rowToLens(tenantLens);
+  }
+
+  // Fall back to cached system lens
   const cache = await getCache();
   return cache.lenses.get(slug) ?? null;
 }

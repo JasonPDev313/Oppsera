@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   boolean,
+  integer,
   timestamp,
   jsonb,
   numeric,
@@ -57,25 +58,44 @@ export const locations = pgTable(
 );
 
 // ── Users ────────────────────────────────────────────────────────
-export const users = pgTable('users', {
-  id: text('id').primaryKey().$defaultFn(generateUlid),
-  email: text('email').notNull().unique(),
-  name: text('name').notNull(),
-  authProviderId: text('auth_provider_id').unique(),
-  isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
-
-  // ── Employee fields (migration 0031) ──
-  phone: text('phone'),
-  posPin: text('pos_pin'),
-  overridePin: text('override_pin'),
-  employeeColor: text('employee_color'),
-  externalPayrollId: text('external_payroll_id'),
-  profileImageUrl: text('profile_image_url'),
-  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
-
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+export const users = pgTable(
+  'users',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').references(() => tenants.id),
+    email: text('email').notNull(),
+    username: text('username'),
+    name: text('name').notNull(),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    displayName: text('display_name'),
+    status: text('status').notNull().default('active'),
+    primaryRoleId: text('primary_role_id'),
+    tabColor: text('tab_color'),
+    externalPayrollEmployeeId: text('external_payroll_employee_id'),
+    passwordHash: text('password_hash'),
+    passwordResetRequired: boolean('password_reset_required').notNull().default(false),
+    authProviderId: text('auth_provider_id').unique(),
+    isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
+    phone: text('phone'),
+    posPin: text('pos_pin'),
+    overridePin: text('override_pin'),
+    employeeColor: text('employee_color'),
+    externalPayrollId: text('external_payroll_id'),
+    profileImageUrl: text('profile_image_url'),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    createdByUserId: text('created_by_user_id'),
+    updatedByUserId: text('updated_by_user_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_users_tenant_email').on(table.tenantId, table.email),
+    uniqueIndex('uq_users_tenant_username').on(table.tenantId, table.username),
+    index('idx_users_tenant').on(table.tenantId),
+    index('idx_users_tenant_status').on(table.tenantId, table.status),
+  ],
+);
 
 // ── Memberships ──────────────────────────────────────────────────
 export const memberships = pgTable(
@@ -96,6 +116,18 @@ export const memberships = pgTable(
     index('idx_memberships_user').on(table.userId),
   ],
 );
+
+export const userSecurity = pgTable('user_security', {
+  userId: text('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  uniqueLoginPinHash: text('unique_login_pin_hash'),
+  posOverridePinHash: text('pos_override_pin_hash'),
+  mfaEnabled: boolean('mfa_enabled').notNull().default(false),
+  failedLoginCount: integer('failed_login_count').notNull().default(0),
+  lockedUntil: timestamp('locked_until', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
 
 // ── Roles ────────────────────────────────────────────────────────
 export const roles = pgTable(
@@ -143,7 +175,76 @@ export const roleAssignments = pgTable(
     locationId: text('location_id').references(() => locations.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_role_assignments_user').on(table.tenantId, table.userId)],
+  (table) => [
+    index('idx_role_assignments_user').on(table.tenantId, table.userId),
+    index('idx_role_assignments_perm_lookup').on(table.tenantId, table.userId, table.locationId, table.roleId),
+  ],
+);
+
+export const userRoles = pgTable(
+  'user_roles',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    roleId: text('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_user_roles_user_role').on(table.userId, table.roleId),
+    index('idx_user_roles_tenant_user').on(table.tenantId, table.userId),
+  ],
+);
+
+export const userLocations = pgTable(
+  'user_locations',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    locationId: text('location_id')
+      .notNull()
+      .references(() => locations.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_user_locations_user_location').on(table.userId, table.locationId),
+    index('idx_user_locations_tenant_user').on(table.tenantId, table.userId),
+  ],
+);
+
+export const userInvites = pgTable(
+  'user_invites',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    email: text('email').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    invitedByUserId: text('invited_by_user_id').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_user_invites_token_hash').on(table.tokenHash),
+    index('idx_user_invites_tenant_email').on(table.tenantId, table.email),
+    index('idx_user_invites_user').on(table.userId),
+  ],
 );
 
 // ── Entitlements ─────────────────────────────────────────────────
@@ -247,3 +348,4 @@ export const tenantSettings = pgTable(
     ),
   ],
 );
+

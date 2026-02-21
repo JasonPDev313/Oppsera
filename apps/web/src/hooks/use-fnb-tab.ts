@@ -11,6 +11,17 @@ interface UseFnbTabOptions {
   pollIntervalMs?: number;
 }
 
+interface AddTabItemInput {
+  catalogItemId: string;
+  catalogItemName: string;
+  unitPriceCents: number;
+  qty: number;
+  seatNumber: number;
+  courseNumber: number;
+  modifiers: Array<{ modifierId: string; name: string; priceAdjustment: number }>;
+  specialInstructions: string | null;
+}
+
 interface UseFnbTabReturn {
   tab: FnbTabDetail | null;
   isLoading: boolean;
@@ -23,6 +34,7 @@ interface UseFnbTabReturn {
   reopenTab: (expectedVersion: number) => Promise<void>;
   fireCourse: (courseNumber: number) => Promise<void>;
   sendCourse: (courseNumber: number) => Promise<void>;
+  addItems: (items: AddTabItemInput[]) => Promise<void>;
   isActing: boolean;
 }
 
@@ -128,6 +140,14 @@ export function useFnbTab({ tabId, pollIntervalMs = 5000 }: UseFnbTabOptions): U
     }));
   }, [tabId, act]);
 
+  const addItemsFn = useCallback(async (items: AddTabItemInput[]) => {
+    if (!tabId || items.length === 0) return;
+    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}/items`, {
+      method: 'POST',
+      body: JSON.stringify({ tabId, items }),
+    }));
+  }, [tabId, act]);
+
   return {
     tab,
     isLoading,
@@ -139,6 +159,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 5000 }: UseFnbTabOptions): U
     reopenTab: reopenTabFn,
     fireCourse: fireCourseFn,
     sendCourse: sendCourseFn,
+    addItems: addItemsFn,
     isActing,
   };
 }
@@ -188,10 +209,16 @@ export async function openTabApi(input: {
   partySize?: number;
   guestName?: string;
   serviceType?: string;
+  locationId?: string;
 }): Promise<{ id: string; tabNumber: number }> {
+  const { locationId, ...body } = input;
+  const headers: Record<string, string> = {};
+  if (locationId) headers['x-location-id'] = locationId;
+
   const json = await apiFetch<{ data: { id: string; tabNumber: number } }>('/api/v1/fnb/tabs', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify(body),
+    headers,
   });
   return json.data;
 }

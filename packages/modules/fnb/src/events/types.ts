@@ -23,6 +23,7 @@ export const FNB_EVENTS = {
   TAB_VOIDED: 'fnb.tab.voided.v1',
   TAB_TRANSFERRED: 'fnb.tab.transferred.v1',
   TAB_REOPENED: 'fnb.tab.reopened.v1',
+  TAB_ITEMS_ADDED: 'fnb.tab.items_added.v1',
   TAB_SPLIT: 'fnb.tab.split.v1',
   COURSE_SENT: 'fnb.course.sent.v1',
   COURSE_FIRED: 'fnb.course.fired.v1',
@@ -259,6 +260,13 @@ export interface TabSplitPayload {
   locationId: string;
   strategy: string;
   newTabIds: string[];
+}
+
+export interface TabItemsAddedPayload {
+  tabId: string;
+  locationId: string;
+  itemCount: number;
+  courseNumbers: number[];
 }
 
 export interface CourseSentPayload {

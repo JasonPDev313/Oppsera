@@ -135,15 +135,15 @@ importers:
       '@oppsera/module-payments':
         specifier: workspace:*
         version: link:../../packages/modules/payments
-      '@oppsera/module-pms':
-        specifier: workspace:*
-        version: link:../../packages/modules/pms
       '@oppsera/module-reporting':
         specifier: workspace:*
         version: link:../../packages/modules/reporting
       '@oppsera/module-room-layouts':
         specifier: workspace:*
         version: link:../../packages/modules/room-layouts
+      '@oppsera/module-semantic':
+        specifier: workspace:*
+        version: link:../../packages/modules/semantic
       '@oppsera/shared':
         specifier: workspace:*
         version: link:../../packages/shared

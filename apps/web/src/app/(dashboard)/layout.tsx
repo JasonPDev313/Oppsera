@@ -71,6 +71,7 @@ interface SubNavItem {
   href: string;
   icon: typeof LayoutDashboard;
   moduleKey?: string;
+  group?: string;
 }
 
 interface NavItem {
@@ -157,9 +158,9 @@ const navigation: NavItem[] = [
       { name: 'Front Desk', href: '/pms/front-desk', icon: ConciergeBell },
       { name: 'Housekeeping', href: '/pms/housekeeping', icon: Brush },
       { name: 'Guests', href: '/pms/guests', icon: Users },
-      { name: 'Rooms', href: '/pms/rooms', icon: DoorOpen },
-      { name: 'Room Types', href: '/pms/room-types', icon: LayoutGrid },
-      { name: 'Rate Plans', href: '/pms/rate-plans', icon: DollarSign },
+      { name: 'Rate Plans', href: '/pms/rate-plans', icon: DollarSign, group: 'PMS Settings' },
+      { name: 'Room Types', href: '/pms/room-types', icon: LayoutGrid, group: 'PMS Settings' },
+      { name: 'Rooms', href: '/pms/rooms', icon: DoorOpen, group: 'PMS Settings' },
     ],
   },
   {
@@ -367,27 +368,37 @@ function SidebarContent({
                 {/* Expanded: inline children */}
                 {isParentActive && !collapsed && (
                   <div className="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3">
-                    {item.children.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey)).map((child) => {
-                      const isChildActive =
-                        child.href === '/catalog'
-                          ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
-                          : pathname.startsWith(child.href);
-                      return (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          onClick={onLinkClick}
-                          className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                            isChildActive
-                              ? 'text-indigo-600'
-                              : 'text-gray-500 hover:text-gray-900'
-                          }`}
-                        >
-                          <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
-                          {child.name}
-                        </Link>
-                      );
-                    })}
+                    {(() => {
+                      const filtered = item.children!.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey));
+                      let lastGroup: string | undefined;
+                      return filtered.map((child) => {
+                        const isChildActive =
+                          child.href === '/catalog'
+                            ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
+                            : pathname.startsWith(child.href);
+                        const showGroupHeader = child.group && child.group !== lastGroup;
+                        lastGroup = child.group;
+                        return (
+                          <div key={child.href}>
+                            {showGroupHeader && (
+                              <p className="mt-2 mb-1 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">{child.group}</p>
+                            )}
+                            <Link
+                              href={child.href}
+                              onClick={onLinkClick}
+                              className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                                isChildActive
+                                  ? 'text-indigo-600'
+                                  : 'text-gray-500 hover:text-gray-900'
+                              }`}
+                            >
+                              <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
+                              {child.name}
+                            </Link>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
                 {/* Collapsed: hover flyout — pl-3 creates invisible bridge so mouse can cross the gap */}
@@ -395,27 +406,37 @@ function SidebarContent({
                   <div className="absolute left-full top-0 z-50 hidden pl-3 group-hover/nav:block">
                     <div className="min-w-44 rounded-lg border border-gray-200 bg-surface py-1.5 shadow-lg">
                       <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase">{item.name}</p>
-                      {item.children.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey)).map((child) => {
-                        const isChildActive =
-                          child.href === '/catalog'
-                            ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
-                            : pathname.startsWith(child.href);
-                        return (
-                          <Link
-                            key={child.href}
-                            href={child.href}
-                            onClick={onLinkClick}
-                            className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
-                              isChildActive
-                                ? 'bg-indigo-50 text-indigo-600'
-                                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                            }`}
-                          >
-                            <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
-                            {child.name}
-                          </Link>
-                        );
-                      })}
+                      {(() => {
+                        const filtered = item.children!.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey));
+                        let lastGroup: string | undefined;
+                        return filtered.map((child) => {
+                          const isChildActive =
+                            child.href === '/catalog'
+                              ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
+                              : pathname.startsWith(child.href);
+                          const showGroupHeader = child.group && child.group !== lastGroup;
+                          lastGroup = child.group;
+                          return (
+                            <div key={child.href}>
+                              {showGroupHeader && (
+                                <p className="mt-1 px-3 py-1 text-xs font-semibold text-gray-400 uppercase border-t border-gray-100">{child.group}</p>
+                              )}
+                              <Link
+                                href={child.href}
+                                onClick={onLinkClick}
+                                className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
+                                  isChildActive
+                                    ? 'bg-indigo-50 text-indigo-600'
+                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                }`}
+                              >
+                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                {child.name}
+                              </Link>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 )}

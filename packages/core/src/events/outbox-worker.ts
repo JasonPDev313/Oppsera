@@ -1,6 +1,5 @@
 import { EventEnvelopeSchema } from '@oppsera/shared';
-import { eq, isNull, asc } from 'drizzle-orm';
-import { db, eventOutbox } from '@oppsera/db';
+import { db, sql } from '@oppsera/db';
 import type { EventBus } from './bus';
 
 export class OutboxWorker {
@@ -55,43 +54,53 @@ export class OutboxWorker {
   }
 
   async processBatch(): Promise<number> {
-    const unpublished = await db
-      .select()
-      .from(eventOutbox)
-      .where(isNull(eventOutbox.publishedAt))
-      .orderBy(asc(eventOutbox.createdAt))
-      .limit(this.batchSize);
+    // Use FOR UPDATE SKIP LOCKED inside a transaction to prevent duplicate
+    // publishes when multiple workers (or Vercel instances) run concurrently.
+    return db.transaction(async (tx) => {
+      const claimed = await tx.execute(sql`
+        SELECT id, payload, event_type, event_id
+        FROM event_outbox
+        WHERE published_at IS NULL
+        ORDER BY created_at ASC
+        LIMIT ${this.batchSize}
+        FOR UPDATE SKIP LOCKED
+      `) as unknown as Array<{ id: string; payload: unknown; event_type: string; event_id: string }>;
 
-    if (unpublished.length === 0) return 0;
+      if (claimed.length === 0) return 0;
 
-    let publishedCount = 0;
+      let publishedCount = 0;
+      const publishedIds: string[] = [];
 
-    for (const row of unpublished) {
-      try {
-        const event = EventEnvelopeSchema.parse(row.payload);
-
-        await this.eventBus.publish(event);
-
-        await db
-          .update(eventOutbox)
-          .set({ publishedAt: new Date() })
-          .where(eq(eventOutbox.id, row.id));
-
-        publishedCount++;
-      } catch (error) {
-        console.error('Failed to publish outbox event:', {
-          outboxId: row.id,
-          eventType: row.eventType,
-          eventId: row.eventId,
-          error,
-        });
+      for (const row of claimed) {
+        try {
+          const event = EventEnvelopeSchema.parse(row.payload);
+          await this.eventBus.publish(event);
+          publishedIds.push(row.id);
+          publishedCount++;
+        } catch (error) {
+          console.error('Failed to publish outbox event:', {
+            outboxId: row.id,
+            eventType: row.event_type,
+            eventId: row.event_id,
+            error,
+          });
+        }
       }
-    }
 
-    if (publishedCount > 0) {
-      console.log(`Outbox worker published ${publishedCount} events`);
-    }
+      // Batch-mark all successfully published rows in a single UPDATE
+      if (publishedIds.length > 0) {
+        await tx.execute(sql`
+          UPDATE event_outbox
+          SET published_at = NOW()
+          WHERE id = ANY(${publishedIds})
+        `);
+      }
 
-    return publishedCount;
+      if (publishedCount > 0) {
+        console.log(`Outbox worker published ${publishedCount} events`);
+      }
+
+      return publishedCount;
+    });
   }
 }

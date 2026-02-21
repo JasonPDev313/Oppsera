@@ -124,3 +124,26 @@ export type {
 
 // ── Security ─────────────────────────────────────────────────────
 export { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from './security';
+export {
+  normalizeEmail,
+  normalizeUsername,
+  validatePin,
+  hashSecret,
+  verifySecret,
+  listUsers,
+  getUserById,
+  inviteUser,
+  createUser,
+  updateUser,
+  resetPassword,
+  resetPins,
+  acceptInvite,
+} from './users';
+export type {
+  UserStatus,
+  InviteUserInput,
+  CreateUserInput,
+  UpdateUserInput,
+  ResetPinInput,
+  AcceptInviteInput,
+} from './users';

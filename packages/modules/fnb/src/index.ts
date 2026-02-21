@@ -71,6 +71,7 @@ export { transferTab } from './commands/transfer-tab';
 export { reopenTab } from './commands/reopen-tab';
 export { fireCourse } from './commands/fire-course';
 export { sendCourse } from './commands/send-course';
+export { addTabItems } from './commands/add-tab-items';
 export { splitTab } from './commands/split-tab';
 
 // Queries
@@ -494,7 +495,7 @@ export {
   // Session 3
   openTabSchema, updateTabSchema, closeTabSchema, voidTabSchema,
   transferTabSchema, reopenTabSchema, fireCourseSchema, sendCourseSchema,
-  splitTabSchema, listTabsFilterSchema, getTabDetailSchema,
+  addTabItemsSchema, splitTabSchema, listTabsFilterSchema, getTabDetailSchema,
   // Session 4
   createKitchenTicketSchema, updateTicketItemStatusSchema,
   updateTicketStatusSchema, createDeltaChitSchema, voidTicketSchema,
@@ -592,7 +593,7 @@ export type {
   GetHostStandViewInput,
   OpenTabInput, UpdateTabInput, CloseTabInput, VoidTabInput,
   TransferTabInput, ReopenTabInput, FireCourseInput, SendCourseInput,
-  SplitTabInput, ListTabsFilterInput, GetTabDetailInput,
+  AddTabItemsInput, SplitTabInput, ListTabsFilterInput, GetTabDetailInput,
   CreateKitchenTicketInput, UpdateTicketItemStatusInput,
   UpdateTicketStatusInput, CreateDeltaChitInput, VoidTicketInput,
   CreateRoutingRuleInput, UpdateRoutingRuleInput,

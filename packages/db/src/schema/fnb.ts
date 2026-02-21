@@ -480,6 +480,45 @@ export const fnbTabCourses = pgTable(
   ],
 );
 
+// ── F&B Tab Items (Line Items) ──────────────────────────────────
+export const fnbTabItems = pgTable(
+  'fnb_tab_items',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tabId: text('tab_id')
+      .notNull()
+      .references(() => fnbTabs.id),
+    catalogItemId: text('catalog_item_id').notNull(),
+    catalogItemName: text('catalog_item_name').notNull(),
+    seatNumber: integer('seat_number').notNull().default(1),
+    courseNumber: integer('course_number').notNull().default(1),
+    qty: numeric('quantity', { precision: 10, scale: 4 }).notNull().default('1'),
+    unitPriceCents: integer('unit_price_cents').notNull(),
+    extendedPriceCents: integer('extended_price_cents').notNull(),
+    modifiers: jsonb('modifiers').notNull().default([]),
+    specialInstructions: text('special_instructions'),
+    status: text('status').notNull().default('draft'), // draft | sent | fired | served | voided
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    firedAt: timestamp('fired_at', { withTimezone: true }),
+    voidedAt: timestamp('voided_at', { withTimezone: true }),
+    voidedBy: text('voided_by'),
+    voidReason: text('void_reason'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
+  },
+  (table) => [
+    index('idx_fnb_tab_items_tab_course').on(table.tabId, table.courseNumber),
+    index('idx_fnb_tab_items_tab_seat').on(table.tabId, table.seatNumber),
+    index('idx_fnb_tab_items_tenant_tab').on(table.tenantId, table.tabId),
+    index('idx_fnb_tab_items_status').on(table.tabId, table.status),
+  ],
+);
+
 // ── F&B Tab Transfers (Audit) ─────────────────────────────────────
 export const fnbTabTransfers = pgTable(
   'fnb_tab_transfers',

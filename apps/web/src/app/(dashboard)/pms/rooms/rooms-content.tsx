@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { DoorOpen, Plus, X, Loader2 } from 'lucide-react';
+import { DoorOpen, Plus, X, Loader2, Pencil } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -85,6 +85,16 @@ export default function RoomsContent() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Edit room dialog
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [editRoomNumber, setEditRoomNumber] = useState('');
+  const [editRoomTypeId, setEditRoomTypeId] = useState('');
+  const [editFloor, setEditFloor] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [editRoomTypes, setEditRoomTypes] = useState<RoomType[]>([]);
+  const [editRoomTypesLoading, setEditRoomTypesLoading] = useState(false);
+
   // ── Load properties ─────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
@@ -93,7 +103,6 @@ export default function RoomsContent() {
         const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
         if (cancelled) return;
         const items = res.data ?? [];
-        console.log('[PMS Rooms] Properties loaded:', items.length, items.map(p => ({ id: p.id, name: p.name })));
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
           setSelectedPropertyId(items[0]!.id);
@@ -134,7 +143,7 @@ export default function RoomsContent() {
     fetchRooms();
   }, [fetchRooms]);
 
-  // ── Load room types when dialog opens ──────────────────────────
+  // ── Load room types when create dialog opens ──────────────────
   useEffect(() => {
     if (!isDialogOpen || !selectedPropertyId) return;
     let cancelled = false;
@@ -142,10 +151,8 @@ export default function RoomsContent() {
     (async () => {
       try {
         const qs = buildQueryString({ propertyId: selectedPropertyId });
-        console.log('[PMS Rooms] Loading room types for property:', selectedPropertyId);
         const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`);
         if (cancelled) return;
-        console.log('[PMS Rooms] Room types loaded:', res.data?.length, res.data);
         setRoomTypes(res.data ?? []);
       } catch (err) {
         console.error('[PMS Rooms] Failed to load room types:', err);
@@ -156,7 +163,7 @@ export default function RoomsContent() {
     return () => { cancelled = true; };
   }, [isDialogOpen, selectedPropertyId]);
 
-  // Reset form when dialog opens/closes
+  // Reset create form when dialog opens/closes
   useEffect(() => {
     if (isDialogOpen) {
       setFormRoomNumber('');
@@ -166,9 +173,45 @@ export default function RoomsContent() {
     }
   }, [isDialogOpen]);
 
+  // ── Load room types when edit dialog opens ────────────────────
+  useEffect(() => {
+    if (!editingRoom || !selectedPropertyId) return;
+    let cancelled = false;
+    setEditRoomTypesLoading(true);
+    (async () => {
+      try {
+        const qs = buildQueryString({ propertyId: selectedPropertyId });
+        const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`);
+        if (cancelled) return;
+        setEditRoomTypes(res.data ?? []);
+      } catch (err) {
+        console.error('[PMS Rooms] Failed to load room types for edit:', err);
+      } finally {
+        if (!cancelled) setEditRoomTypesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [editingRoom, selectedPropertyId]);
+
   const closeDialog = useCallback(() => {
     router.push('/pms/rooms', { scroll: false });
   }, [router]);
+
+  const openEditDialog = useCallback((room: Room) => {
+    setEditingRoom(room);
+    setEditRoomNumber(room.roomNumber);
+    setEditRoomTypeId(room.roomTypeId);
+    setEditFloor(room.floor ?? '');
+    setEditError(null);
+  }, []);
+
+  const closeEditDialog = useCallback(() => {
+    setEditingRoom(null);
+    setEditRoomNumber('');
+    setEditRoomTypeId('');
+    setEditFloor('');
+    setEditError(null);
+  }, []);
 
   const handleCreateRoom = useCallback(async () => {
     setFormError(null);
@@ -191,23 +234,63 @@ export default function RoomsContent() {
       roomNumber: formRoomNumber.trim(),
       floor: formFloor.trim() || undefined,
     };
-    console.log('[PMS] Creating room:', payload);
     try {
-      const result = await apiFetch('/api/v1/pms/rooms', {
+      await apiFetch('/api/v1/pms/rooms', {
         method: 'POST',
         body: JSON.stringify(payload),
       });
-      console.log('[PMS] Room created:', result);
       closeDialog();
       fetchRooms();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create room';
-      console.error('[PMS] Room creation failed:', msg, err);
       setFormError(msg);
     } finally {
       setIsSubmitting(false);
     }
   }, [formRoomNumber, formRoomTypeId, formFloor, selectedPropertyId, closeDialog, fetchRooms]);
+
+  const handleUpdateRoom = useCallback(async () => {
+    if (!editingRoom) return;
+    setEditError(null);
+    if (!editRoomNumber.trim()) {
+      setEditError('Room number is required');
+      return;
+    }
+    if (!editRoomTypeId) {
+      setEditError('Room type is required');
+      return;
+    }
+    setIsEditSubmitting(true);
+    const payload: Record<string, string> = {};
+    if (editRoomNumber.trim() !== editingRoom.roomNumber) {
+      payload.roomNumber = editRoomNumber.trim();
+    }
+    if (editRoomTypeId !== editingRoom.roomTypeId) {
+      payload.roomTypeId = editRoomTypeId;
+    }
+    const newFloor = editFloor.trim() || '';
+    const oldFloor = editingRoom.floor ?? '';
+    if (newFloor !== oldFloor) {
+      payload.floor = newFloor || '';
+    }
+    if (Object.keys(payload).length === 0) {
+      closeEditDialog();
+      return;
+    }
+    try {
+      await apiFetch(`/api/v1/pms/rooms/${editingRoom.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
+      closeEditDialog();
+      fetchRooms();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update room';
+      setEditError(msg);
+    } finally {
+      setIsEditSubmitting(false);
+    }
+  }, [editingRoom, editRoomNumber, editRoomTypeId, editFloor, closeEditDialog, fetchRooms]);
 
   // ── Property dropdown options ───────────────────────────────────
   const propertyOptions = useMemo(
@@ -262,13 +345,26 @@ export default function RoomsContent() {
           return <span className="text-sm text-red-600">{r.outOfOrderReason}</span>;
         },
       },
+      {
+        key: 'actions',
+        header: '',
+        width: '60px',
+        render: (row: RoomRow) => (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openEditDialog(row as Room);
+            }}
+            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-200/50 hover:text-gray-600"
+            title="Edit room"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        ),
+      },
     ],
-    [],
-  );
-
-  const handleRowClick = useCallback(
-    (row: RoomRow) => router.push(`/pms/rooms/${row.id}`),
-    [router],
+    [openEditDialog],
   );
 
   return (
@@ -339,7 +435,6 @@ export default function RoomsContent() {
           data={rooms as RoomRow[]}
           isLoading={isLoading}
           emptyMessage="No rooms match your filter"
-          onRowClick={handleRowClick}
         />
       )}
 
@@ -448,6 +543,118 @@ export default function RoomsContent() {
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {isSubmitting ? 'Creating...' : 'Create Room'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* Edit Room Dialog */}
+      {editingRoom &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={closeEditDialog}
+            />
+            {/* Panel */}
+            <div className="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Edit Room</h2>
+                <button
+                  type="button"
+                  onClick={closeEditDialog}
+                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {editError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {editError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {/* Room Number */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Room Number <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editRoomNumber}
+                    onChange={(e) => setEditRoomNumber(e.target.value)}
+                    placeholder="e.g. 101"
+                    maxLength={20}
+                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Room Type */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Room Type <span className="text-red-500">*</span>
+                  </label>
+                  {editRoomTypesLoading ? (
+                    <div className="flex items-center gap-2 py-2 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading room types...
+                    </div>
+                  ) : editRoomTypes.length === 0 ? (
+                    <p className="py-2 text-sm text-gray-500">
+                      No room types found.
+                    </p>
+                  ) : (
+                    <Select
+                      options={editRoomTypes.map((rt) => ({
+                        value: rt.id,
+                        label: `${rt.name} (${rt.code})`,
+                      }))}
+                      value={editRoomTypeId}
+                      onChange={(v) => setEditRoomTypeId(v as string)}
+                      placeholder="Select room type"
+                    />
+                  )}
+                </div>
+
+                {/* Floor */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Floor
+                  </label>
+                  <input
+                    type="text"
+                    value={editFloor}
+                    onChange={(e) => setEditFloor(e.target.value)}
+                    placeholder="e.g. 1st, Ground"
+                    maxLength={20}
+                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeEditDialog}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUpdateRoom}
+                  disabled={isEditSubmitting || editRoomTypes.length === 0}
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isEditSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isEditSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </div>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { AppError, NotFoundError, AuthorizationError, generateUlid } from '@oppsera/shared';
 import { eq, and } from 'drizzle-orm';
-import { db, locations, sql } from '@oppsera/db';
+import { db, locations } from '@oppsera/db';
 import { authenticate, resolveTenant } from './middleware';
 import { requestContext } from './context';
 import type { RequestContext } from './context';
@@ -59,8 +59,6 @@ async function resolveLocation(
   if (permissions.size === 0) {
     throw new AuthorizationError('No access to this location');
   }
-
-  await db.execute(sql`SELECT set_config('app.current_location_id', ${locationId}, true)`);
 
   return locationId;
 }

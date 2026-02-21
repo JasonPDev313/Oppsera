@@ -32,14 +32,12 @@ const {
   mockFindFirstTenants,
   mockInsert,
   mockExecute,
-  mockSetTenantContext,
 } = vi.hoisted(() => ({
   mockFindFirstUsers: vi.fn(),
   mockFindFirstMemberships: vi.fn(),
   mockFindFirstTenants: vi.fn(),
   mockInsert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
   mockExecute: vi.fn().mockResolvedValue(undefined),
-  mockSetTenantContext: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@oppsera/db', () => ({
@@ -53,7 +51,6 @@ vi.mock('@oppsera/db', () => ({
     execute: mockExecute,
     transaction: vi.fn(),
   },
-  setTenantContext: mockSetTenantContext,
   sql: vi.fn(),
   users: { id: 'users.id', email: 'users.email', authProviderId: 'users.authProviderId' },
   memberships: { id: 'memberships.id', userId: 'memberships.userId', tenantId: 'memberships.tenantId', status: 'memberships.status' },
@@ -252,7 +249,7 @@ describe('resolveTenant middleware', () => {
     await expect(resolveTenant(user)).rejects.toThrow(MembershipInactiveError);
   });
 
-  it('sets tenant context and returns RequestContext on success', async () => {
+  it('returns RequestContext on success', async () => {
     const user = {
       id: 'usr_01H',
       email: 'test@test.com',
@@ -264,7 +261,6 @@ describe('resolveTenant middleware', () => {
 
     const ctx = await resolveTenant(user);
 
-    expect(mockSetTenantContext).toHaveBeenCalledWith('tnt_01H');
     expect(ctx.tenantId).toBe('tnt_01H');
     expect(ctx.user).toBe(user);
     expect(ctx.requestId).toBeDefined();

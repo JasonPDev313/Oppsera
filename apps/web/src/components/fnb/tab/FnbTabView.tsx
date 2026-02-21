@@ -25,16 +25,35 @@ export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
     error,
     fireCourse,
     sendCourse,
+    addItems,
     isActing,
   } = useFnbTab({ tabId });
+
+  const draftLines = tabId ? (store.draftLines[tabId] ?? []) : [];
 
   const handleBack = () => {
     store.goBack();
   };
 
   const handleSendAll = async () => {
-    if (!tab) return;
-    // Send all unsent courses
+    if (!tab || !tabId) return;
+
+    // 1. Persist any draft lines first
+    if (draftLines.length > 0) {
+      await addItems(draftLines.map((d) => ({
+        catalogItemId: d.catalogItemId,
+        catalogItemName: d.catalogItemName,
+        unitPriceCents: d.unitPriceCents,
+        qty: d.qty,
+        seatNumber: d.seatNumber,
+        courseNumber: d.courseNumber,
+        modifiers: d.modifiers,
+        specialInstructions: d.specialInstructions,
+      })));
+      store.clearDraft(tabId);
+    }
+
+    // 2. Send all unsent courses
     const courses = tab.courses ?? [];
     for (const course of courses) {
       if (course.courseStatus === 'unsent') {
@@ -125,7 +144,7 @@ export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
     );
   }
 
-  // Compute unsent items per seat for badges
+  // Compute unsent items per seat for badges (server lines + local drafts)
   const unsentBySeat: Record<number, number> = {};
   for (const line of tab.lines ?? []) {
     if (line.status === 'draft' || line.status === 'unsent') {
@@ -133,7 +152,11 @@ export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
       unsentBySeat[seat] = (unsentBySeat[seat] ?? 0) + 1;
     }
   }
-  const hasUnsentItems = Object.keys(unsentBySeat).length > 0;
+  for (const draft of draftLines) {
+    const seat = draft.seatNumber ?? 1;
+    unsentBySeat[seat] = (unsentBySeat[seat] ?? 0) + 1;
+  }
+  const hasUnsentItems = Object.keys(unsentBySeat).length > 0 || draftLines.length > 0;
 
   return (
     <div className="flex h-full" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
@@ -156,6 +179,7 @@ export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
         <OrderTicket
           tab={tab}
           activeSeat={activeSeat}
+          draftLines={draftLines}
           onSendCourse={sendCourse}
           onFireCourse={fireCourse}
         />

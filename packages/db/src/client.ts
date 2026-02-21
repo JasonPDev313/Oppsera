@@ -48,17 +48,6 @@ export async function withTenant<T>(
   });
 }
 
-/**
- * @deprecated Use withTenant() instead. SET LOCAL only works inside a transaction.
- * This function is kept for backward compatibility but wraps in a transaction internally.
- */
-export async function setTenantContext(tenantId: string) {
-  // SET LOCAL only persists within a transaction, so we use set_config(..., false)
-  // which sets for the session. Callers should use withTenant() for proper isolation.
-  await db.execute(sql`SELECT set_config('app.current_tenant_id', ${tenantId}, false)`);
-  return db;
-}
-
 const globalForAdmin = globalThis as unknown as { __oppsera_admin_db?: DrizzleDB };
 
 export function createAdminClient() {

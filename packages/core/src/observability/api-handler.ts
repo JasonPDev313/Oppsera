@@ -24,7 +24,7 @@ import { authenticate, resolveTenant } from '../auth/middleware';
 import { requirePermission } from '../permissions/middleware';
 import { requireEntitlement } from '../entitlements/middleware';
 import { eq, and } from 'drizzle-orm';
-import { db, locations, sql } from '@oppsera/db';
+import { db, locations } from '@oppsera/db';
 
 type ApiResult = Record<string, unknown> | { data: unknown; meta?: unknown };
 
@@ -56,7 +56,6 @@ async function resolveLocationForApi(
 
   if (!location || !location.isActive) return undefined;
 
-  await db.execute(sql`SELECT set_config('app.current_location_id', ${locationId}, false)`);
   return locationId;
 }
 

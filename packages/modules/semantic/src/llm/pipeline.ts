@@ -27,19 +27,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
 
   // ── 1. Load registry catalog ──────────────────────────────────
   console.log('[semantic] Pipeline start — loading registry...');
-  const domain = lensSlug
-    ? (await getLens(lensSlug))?.domain
-    : undefined;
+  const lens = lensSlug ? await getLens(lensSlug, tenantId) : null;
+  const domain = lens?.domain;
 
   const catalog = await buildRegistryCatalog(domain);
   console.log(`[semantic] Registry loaded in ${Date.now() - startMs}ms (${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims)`);
 
-  // Resolve lens prompt fragment if lens is active
-  let lensPromptFragment: string | null = null;
-  if (lensSlug) {
-    const lens = await getLens(lensSlug);
-    lensPromptFragment = lens?.systemPromptFragment ?? null;
-  }
+  const lensPromptFragment = lens?.systemPromptFragment ?? null;
 
   // ── 2. Intent resolution ──────────────────────────────────────
   console.log('[semantic] Resolving intent via LLM...');

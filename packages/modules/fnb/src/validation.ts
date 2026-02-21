@@ -386,6 +386,27 @@ export const sendCourseSchema = z.object({
 
 export type SendCourseInput = z.input<typeof sendCourseSchema>;
 
+export const addTabItemsSchema = z.object({
+  ...idempotencyMixin,
+  tabId: z.string().min(1),
+  items: z.array(z.object({
+    catalogItemId: z.string().min(1),
+    catalogItemName: z.string().min(1),
+    unitPriceCents: z.number().int(),
+    qty: z.number().min(0.01),
+    seatNumber: z.number().int().min(1),
+    courseNumber: z.number().int().min(1),
+    modifiers: z.array(z.object({
+      modifierId: z.string(),
+      name: z.string(),
+      priceAdjustment: z.number().int(),
+    })).default([]),
+    specialInstructions: z.string().nullable().default(null),
+  })).min(1),
+});
+
+export type AddTabItemsInput = z.input<typeof addTabItemsSchema>;
+
 export const splitTabSchema = z.object({
   ...idempotencyMixin,
   strategy: z.enum(SPLIT_STRATEGIES),
