@@ -45,6 +45,11 @@ import {
   DollarSign,
   Lock,
   Wallet,
+  Hotel,
+  BedDouble,
+  DoorOpen,
+  ConciergeBell,
+  Brush,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
@@ -126,6 +131,22 @@ const navigation: NavItem[] = [
       { name: 'Chat', href: '/insights', icon: MessageSquare },
       { name: 'Lenses', href: '/insights/lenses', icon: Layers },
       { name: 'History', href: '/insights/history', icon: History },
+    ],
+  },
+  {
+    name: 'Property Mgmt',
+    href: '/pms',
+    icon: Hotel,
+    moduleKey: 'pms',
+    children: [
+      { name: 'Calendar', href: '/pms/calendar', icon: CalendarDays },
+      { name: 'Reservations', href: '/pms/reservations', icon: BedDouble },
+      { name: 'Front Desk', href: '/pms/front-desk', icon: ConciergeBell },
+      { name: 'Housekeeping', href: '/pms/housekeeping', icon: Brush },
+      { name: 'Guests', href: '/pms/guests', icon: Users },
+      { name: 'Rooms', href: '/pms/rooms', icon: DoorOpen },
+      { name: 'Room Types', href: '/pms/room-types', icon: LayoutGrid },
+      { name: 'Rate Plans', href: '/pms/rate-plans', icon: DollarSign },
     ],
   },
   {

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { NextRequest } from 'next/server';
 
 // ── Mocks ────────────────────────────────────────────────────────
 
@@ -62,11 +63,11 @@ const ADMIN_SESSION = {
   role: 'admin' as const,
 };
 
-function makeRequest(url: string, options: RequestInit = {}): Request {
+function makeRequest(url: string, options: RequestInit = {}): NextRequest {
   return new Request(`http://localhost${url}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
-  });
+  }) as unknown as NextRequest;
 }
 
 // ── Tests ────────────────────────────────────────────────────────

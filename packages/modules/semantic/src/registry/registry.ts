@@ -351,3 +351,4 @@ export function setRegistryCache(cache: RegistryCache): void {
 
 // For testing: expose cache shape
 export type { RegistryCache };
+export { UnknownMetricError, UnknownDimensionError };

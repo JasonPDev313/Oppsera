@@ -14,6 +14,7 @@ export const MODULE_REGISTRY = [
   { key: 'accounting', name: 'Accounting & GL', phase: 'v1', description: 'General ledger, chart of accounts, journal entries, period close' },
   { key: 'ap', name: 'Accounts Payable', phase: 'v1', description: 'AP bills, vendor payments, payment terms, aging' },
   { key: 'ar', name: 'Accounts Receivable', phase: 'v1', description: 'AR invoices, customer receipts, aging, statements' },
+  { key: 'pms', name: 'Property Management', phase: 'v1', description: 'Reservations, calendar, front desk, housekeeping, folios, guest profiles' },
   { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
   { key: 'semantic', name: 'AI Insights (Semantic Layer)', phase: 'v1', description: 'Natural-language analytics, query compiler, LLM pipeline, custom lenses' },
 ] as const;

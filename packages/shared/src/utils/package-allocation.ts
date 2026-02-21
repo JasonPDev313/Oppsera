@@ -15,6 +15,8 @@ export interface ComponentAllocationInput {
   qty: number;
   /** Unit price in cents for this component. Must be >= 0. */
   componentUnitPriceCents: number;
+  /** Resolved subdepartment ID for GL mapping. Passthrough — not used in allocation math. */
+  subDepartmentId?: string | null;
 }
 
 export interface ComponentAllocation extends ComponentAllocationInput {
@@ -24,6 +26,8 @@ export interface ComponentAllocation extends ComponentAllocationInput {
   allocatedRevenueCents: number;
   /** 0–1 weight used for allocation (for display only). */
   allocationWeight: number;
+  /** Resolved subdepartment ID for GL mapping. Copied from input. */
+  subDepartmentId: string | null;
 }
 
 /**
@@ -95,6 +99,7 @@ export function computePackageAllocations(
 
   return extended.map((c, i) => ({
     ...c,
+    subDepartmentId: c.subDepartmentId ?? null,
     allocatedRevenueCents: allocations[i]!,
     allocationWeight:
       componentsSubtotalCents > 0

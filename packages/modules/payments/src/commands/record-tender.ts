@@ -155,6 +155,19 @@ export async function recordTender(
       }),
     );
 
+    // Build enriched lines for accounting event (V2 adapter)
+    const enrichedLines = (lines as any[]).map((l: any) => ({
+      catalogItemId: l.catalogItemId as string,
+      catalogItemName: l.catalogItemName as string,
+      subDepartmentId: (l.subDepartmentId as string) ?? null,
+      qty: Number(l.qty),
+      extendedPriceCents: l.lineSubtotal as number,
+      taxGroupId: (l.taxGroupId as string) ?? null,
+      taxAmountCents: l.lineTax as number,
+      costCents: (l.costPrice as number) ?? null,
+      packageComponents: l.packageComponents ?? null,
+    }));
+
     // 7. Generate GL journal entry
     const { allocationSnapshot } = await generateJournalEntry(
       tx,
@@ -224,6 +237,7 @@ export async function recordTender(
       locationId: ctx.locationId,
       businessDate: input.businessDate,
       tenderType: input.tenderType,
+      paymentMethod: input.tenderType,
       tenderSequence,
       amount: tenderAmount,
       tipAmount: input.tipAmount ?? 0,
@@ -239,6 +253,7 @@ export async function recordTender(
       remainingBalance: order.total - newTotalTendered,
       isFullyPaid,
       customerId: order.customerId ?? null,
+      lines: enrichedLines,
     });
 
     return {

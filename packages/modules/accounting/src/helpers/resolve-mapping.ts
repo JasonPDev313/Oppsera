@@ -123,6 +123,28 @@ export async function resolveTaxGroupAccount(
 }
 
 /**
+ * Resolve the GL account for a PMS folio entry type.
+ * Returns null if no mapping is found.
+ */
+export async function resolveFolioEntryTypeAccount(
+  tx: Database,
+  tenantId: string,
+  entryType: string,
+): Promise<string | null> {
+  const rows = await tx.execute(sql`
+    SELECT account_id
+    FROM pms_folio_entry_type_gl_defaults
+    WHERE tenant_id = ${tenantId}
+      AND entry_type = ${entryType}
+    LIMIT 1
+  `);
+
+  const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+  if (arr.length === 0) return null;
+  return arr[0]!.account_id ? String(arr[0]!.account_id) : null;
+}
+
+/**
  * Log an unmapped event for later resolution.
  * Called when a GL mapping is missing during automated posting.
  */

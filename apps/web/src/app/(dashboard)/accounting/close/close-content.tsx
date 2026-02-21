@@ -236,7 +236,7 @@ export default function CloseContent() {
                 {closePeriod.isPending ? 'Closing...' : 'Close Period'}
               </button>
             )}
-            {isFiscalYearEnd && detail.status !== 'closed' && (
+            {isFiscalYearEnd && (
               <button
                 onClick={() => setShowRetainedEarnings(true)}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"

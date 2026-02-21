@@ -39,23 +39,23 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
     componentExtendedCents: number;
     allocatedRevenueCents: number;
     allocationWeight: number;
+    subDepartmentId: string | null;
   };
 
   let resolvedPackageComponents: EnrichedComponent[] | null = null;
 
   if (packageMeta?.packageComponents && packageMeta.packageComponents.length > 0) {
-    // Fetch component prices in parallel; prefer metadata override, else live catalog price
-    const componentPriceCents = await Promise.all(
+    // Fetch component prices + subdepartment IDs in parallel (outside tx for performance)
+    const componentData = await Promise.all(
       packageMeta.packageComponents.map(async (comp) => {
-        if (comp.componentUnitPrice != null) {
-          return Math.round(comp.componentUnitPrice * 100);
-        }
-        const priceDollars = await catalogApi.getEffectivePrice(
-          ctx.tenantId,
-          comp.catalogItemId,
-          ctx.locationId!,
-        );
-        return Math.round(priceDollars * 100);
+        const pricePromise = comp.componentUnitPrice != null
+          ? Promise.resolve(Math.round(comp.componentUnitPrice * 100))
+          : catalogApi.getEffectivePrice(ctx.tenantId, comp.catalogItemId, ctx.locationId!).then(
+              (d) => Math.round(d * 100),
+            );
+        const subDeptPromise = catalogApi.getSubDepartmentForItem(ctx.tenantId, comp.catalogItemId);
+        const [priceCents, subDeptId] = await Promise.all([pricePromise, subDeptPromise]);
+        return { priceCents, subDeptId };
       }),
     );
 
@@ -68,7 +68,8 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       itemName: comp.itemName,
       itemType: comp.itemType,
       qty: comp.qty,
-      componentUnitPriceCents: componentPriceCents[i]!,
+      componentUnitPriceCents: componentData[i]!.priceCents,
+      subDepartmentId: componentData[i]!.subDeptId,
     }));
 
     resolvedPackageComponents = computePackageAllocations(unitPriceCents, allocationInputs);
@@ -108,6 +109,8 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       catalogItemName: posItem.name,
       catalogItemSku: posItem.sku,
       itemType: posItem.itemType,
+      subDepartmentId: posItem.subDepartmentId ?? null,
+      taxGroupId: posItem.taxInfo.taxGroups[0]?.id ?? null,
       qty: String(input.qty),
       unitPrice,
       originalUnitPrice: input.priceOverride ? posItem.unitPriceCents : null,

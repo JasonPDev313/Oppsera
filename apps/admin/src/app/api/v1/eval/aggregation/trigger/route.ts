@@ -7,11 +7,9 @@ export const POST = withAdminAuth(
     const body = await req.json().catch(() => ({}));
     const { tenantId, date } = body as { tenantId?: string; date?: string };
 
-    const targetDate = date ? new Date(date) : new Date();
-
     const result = await aggregateQualityDaily({
-      tenantId: tenantId ?? null,
-      date: targetDate,
+      tenantId: tenantId ?? undefined,
+      dateRange: date ? { start: date, end: date } : undefined,
     });
 
     return NextResponse.json({ data: result });

@@ -22,7 +22,10 @@
       "Bash(npx tsx:*)",
       "Bash(printf:*)",
       "Bash(gh api:*)",
-      "Bash(wmic:*)"
+      "Bash(wmic:*)",
+      "Bash(psql:*)",
+      "Bash(npx --yes tsx -e:*)",
+      "Read(//c/Users/Jason/Dev Laptop/Oppsera/**)"
     ]
   }
 }

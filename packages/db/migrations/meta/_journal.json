@@ -575,6 +575,34 @@
       "when": 1708100081000,
       "tag": "0081_financial_statements",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1708100082000,
+      "tag": "0082_fnb_table_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1708100083000,
+      "tag": "0083_pms_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1708100084000,
+      "tag": "0084_pms_accounting_integration",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1708100085000,
+      "tag": "0085_order_line_gl_columns",
+      "breakpoints": true
     }
   ]
 }

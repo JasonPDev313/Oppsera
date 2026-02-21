@@ -16,13 +16,11 @@ export const POST = withAdminAuth(
       );
     }
 
-    await submitAdminReview({
-      turnId: id,
-      adminId: session.adminId,
+    await submitAdminReview(id, session.adminId, {
       verdict: parsed.data.verdict,
       score: parsed.data.score,
       notes: parsed.data.notes,
-      action: parsed.data.action,
+      actionTaken: parsed.data.actionTaken,
     });
 
     return NextResponse.json({ data: { ok: true } });

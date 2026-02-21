@@ -33,7 +33,7 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Inventory | inventory | V1 | Done (movements + receiving + vendor management) |
 | Customer Management | customers | V1 | Done (CRM + Universal Profile) |
 | Reporting / Exports | reporting | V1 | Done (complete: backend + frontend + custom builder + dashboards) |
-| F&B POS (dual-mode, shares orders module) | pos_fnb | V1 | Done (frontend) |
+| F&B POS (dual-mode, shares orders module) | pos_fnb | V1 | Done (frontend + backend module) |
 | Restaurant KDS | kds | V2 | Planned |
 | Golf Reporting | golf_reporting | V1 | Done (read models + consumers + frontend) |
 | Room Layouts | room_layouts | V1 | Done (editor + templates + versioning) |
@@ -83,6 +83,7 @@ oppsera/
 │       ├── accounting/               # @oppsera/module-accounting — IMPLEMENTED (GL, COA, posting, statements)
 │       ├── ap/                       # @oppsera/module-ap — IMPLEMENTED (bills, payments, vendors, aging)
 │       ├── ar/                       # @oppsera/module-ar — IMPLEMENTED (invoices, receipts, aging)
+│       ├── fnb/                      # @oppsera/module-fnb — IMPLEMENTED (F&B POS domain: 103 commands, 63 queries, 1011 tests)
 │       └── marketing/               # @oppsera/module-marketing — scaffolded
 ├── tools/scripts/
 ├── scripts/                          # Utility scripts (switch-env.sh)
@@ -101,7 +102,7 @@ oppsera/
 @oppsera/web           ← all packages (orchestration layer — only place that imports multiple modules)
 ```
 
-**NOTE**: Cross-module deps were eliminated in the architecture decoupling pass. Shared helpers (`checkIdempotency`, `saveIdempotencyKey`, `fetchOrderForMutation`, `incrementVersion`, `calculateTaxes`, `CatalogReadApi`) now live in `@oppsera/core/helpers/`. Pure domain math with no external deps (`computePackageAllocations`) lives in `@oppsera/shared/src/utils/`. Order and catalog modules provide thin re-exports for backward compat. Event payloads are self-contained: `order.placed.v1` includes `customerId` and `lines[]`, `order.voided.v1` includes `locationId`/`businessDate`/`total`, `tender.recorded.v1` includes `customerId`.
+**NOTE**: Cross-module deps were eliminated in the architecture decoupling pass. Shared helpers (`checkIdempotency`, `saveIdempotencyKey`, `fetchOrderForMutation`, `incrementVersion`, `calculateTaxes`, `CatalogReadApi`) now live in `@oppsera/core/helpers/`. Pure domain math with no external deps (`computePackageAllocations`) lives in `@oppsera/shared/src/utils/`. Order and catalog modules provide thin re-exports for backward compat. Event payloads are self-contained: `order.placed.v1` includes `customerId` and `lines[]`, `order.voided.v1` includes `locationId`/`businessDate`/`total`, `tender.recorded.v1` includes `customerId`, `lines[]` (with `subDepartmentId`, `taxGroupId`, `packageComponents`), and `paymentMethod` alias.
 
 ## Key Architectural Patterns
 
@@ -219,7 +220,7 @@ Transactional outbox pattern. Consumers are idempotent. 3x retry with exponentia
 catalog.item.created.v1  → inventory (auto-create inventory item)
 order.placed.v1          → inventory (deduct stock, type-aware) + customers (AR charge if house account, update visit/spend stats)
 order.voided.v1          → inventory (reverse stock) + tenders (reverse payments) + customers (AR void reversal)
-tender.recorded.v1       → orders (mark paid when fully paid) + customers (AR payment + FIFO allocation if house account)
+tender.recorded.v1       → orders (mark paid when fully paid) + customers (AR payment + FIFO allocation if house account) + accounting (GL posting with subdepartment-resolved revenue)
 ```
 
 ### Internal Read APIs (Sync Cross-Module)
@@ -227,7 +228,7 @@ For synchronous lookups during transactions (not eventual consistency):
 ```typescript
 const catalogApi = getCatalogReadApi();
 const posItem = await catalogApi.getItemForPOS(tenantId, itemId, locationId);
-// Returns: { id, sku, barcode, name, itemType, unitPriceCents, taxInfo, metadata }
+// Returns: { id, sku, barcode, name, itemType, unitPriceCents, taxInfo, metadata, categoryId, subDepartmentId }
 ```
 Internal APIs are read-only, use singleton getter/setter, and are the only exception to events-only cross-module rule.
 
@@ -288,7 +289,7 @@ enterprise: unlimited, 5000 req/min, 100 concurrent jobs
 
 ## Current State
 
-Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code patterns.
+Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16) complete. See CONVENTIONS.md for detailed code patterns.
 
 ### What's Built
 - **Platform Core**: auth, RBAC, entitlements, events/outbox, audit, withMiddleware
@@ -509,19 +510,30 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - **Accounting Core Module** (Sessions 28-29, 32, 34):
   - **12 schema tables**: gl_accounts, gl_classifications, gl_journal_entries, gl_journal_lines, gl_journal_number_counters, gl_account_templates, gl_classification_templates, accounting_settings, gl_unmapped_events, accounting_close_periods, financial_statement_layouts, financial_statement_layout_templates
   - **4 mapping tables**: sub_department_gl_defaults, payment_type_gl_defaults, tax_group_gl_defaults, bank_accounts
-  - **Migrations**: 0071-0075 (GL core, mappings, bank accounts, close periods), 0077 (financial statements)
+  - **Migrations**: 0071-0075 (GL core, mappings, bank accounts, close periods), 0077 (financial statements), 0084 (order_lines GL columns: sub_department_id, tax_group_id)
   - **15 commands**: postJournalEntry, postDraftEntry, voidJournalEntry, updateAccountingSettings, lockAccountingPeriod, createGlAccount, updateGlAccount, createGlClassification, updateGlClassification, saveSubDepartmentDefaults, savePaymentTypeDefaults, saveTaxGroupDefaults, saveBankAccount, bootstrapTenantAccounting, updateClosePeriod, closeAccountingPeriod, saveStatementLayout, generateRetainedEarnings
-  - **20 queries**: getAccountBalances, getJournalEntry, listJournalEntries, listGlAccounts, getTrialBalance, getGlDetailReport, getGlSummary, listUnmappedEvents, reconcileSubledger, listBankAccounts, getMappingCoverage, getCloseChecklist, listClosePeriods, getProfitAndLoss, getBalanceSheet, getSalesTaxLiability, getCashFlowSimplified, getPeriodComparison, getFinancialHealthSummary, listStatementLayouts
+  - **22 queries**: getAccountBalances, getJournalEntry, listJournalEntries, listGlAccounts, getTrialBalance, getGlDetailReport, getGlSummary, listUnmappedEvents, reconcileSubledger, listBankAccounts, getMappingCoverage, getCloseChecklist, listClosePeriods, getProfitAndLoss, getBalanceSheet, getSalesTaxLiability, getCashFlowSimplified, getPeriodComparison, getFinancialHealthSummary, listStatementLayouts, getSubDepartmentMappings, getItemsBySubDepartment
   - **2 adapters**: pos-posting-adapter (tender.recorded.v1 → GL), legacy-bridge-adapter (migration script)
-  - **Helpers**: bootstrapTenantCoa, resolveMapping, generateJournalNumber, validateJournal, resolveNormalBalance, getAccountingSettings
-  - **~40 API routes** under `/api/v1/accounting/`
-  - **125 tests** across 11 test files
+  - **Helpers**: bootstrapTenantCoa, resolveMapping, generateJournalNumber, validateJournal, resolveNormalBalance, getAccountingSettings, catalogGlResolution (resolveRevenueAccountForSubDepartment, expandPackageForGL)
+  - **~43 API routes** under `/api/v1/accounting/`
+  - **154 tests** across 14 test files
   - Posting engine: double-entry validation, period locking, control account restrictions, idempotent posting via sourceReferenceId
   - COA bootstrap: template-based (golf/retail/restaurant/hybrid defaults), creates classifications → accounts → settings atomically
   - Financial statements: P&L (date range, comparative, location-filterable), Balance Sheet (as-of with retained earnings), Cash Flow (simplified), Period Comparison, Financial Health Summary
   - Sales tax liability report from GL
   - Close workflow: period status tracking, live checklist (drafts, unmapped, trial balance, AP/AR reconciliation)
-  - POS adapter: tender → GL posting with mapping resolution, never blocks tenders, logs unmapped events
+  - POS adapter: tender → GL posting with subdepartment-resolved revenue, package component splitting, never blocks tenders, logs unmapped events
+  - **Catalog→GL pipeline**: `order_lines.sub_department_id` + `tax_group_id` populated at addLineItem time, `tender.recorded.v1` event enriched with `lines[]` (subDepartmentId, taxGroupId, taxAmountCents, packageComponents), POS adapter splits package revenue across component subdepartments via `allocatedRevenueCents`
+  - **GL Account Mapping Frontend**: `/accounting/mappings` page with 4-tab layout (Sub-Departments, Payment Types, Tax Groups, Unmapped Events)
+    - Mapping coverage card: progress bars with mapped/total counts per category + overall percentage
+    - Sub-department mappings: enriched query joining catalog_categories + GL defaults + GL accounts, supports both 2-level (departments) and 3-level (sub-departments) catalog hierarchies
+    - Flat mode (2-level): departments rendered as a simple table with AccountPicker dropdowns
+    - Grouped mode (3-level): collapsible department sections with sub-department rows
+    - Item drill-down: expandable rows showing catalog items under each mappable category
+    - AccountPicker filtering: revenue→`['revenue']`, cogs→`['expense']`, inventory→`['asset']`, clearing→`['asset', 'liability']`, tax→`['liability']`
+    - Unmapped row highlighting with amber background
+    - API routes: `GET /api/v1/accounting/mappings/coverage` (totals from catalog hierarchy), `GET /api/v1/accounting/mappings/sub-departments` (enriched with dept names + item counts + GL display strings), `GET /api/v1/accounting/mappings/sub-departments/[id]/items` (drill-down with cursor pagination)
+    - Hooks: `useMappingCoverage`, `useSubDepartmentMappings`, `useSubDepartmentItems`, `useMappingMutations`
 - **Accounts Payable Module** (Sessions 30-31):
   - **5 schema tables**: ap_bills, ap_bill_lines, ap_payments, ap_payment_allocations, ap_payment_terms + vendor extensions
   - **Migrations**: 0073 (AP schema), 0074 (AP payments + payment terms)
@@ -546,9 +558,28 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - Receipt allocation to invoices, GL integration
   - AR aging report, customer ledger with running balance
   - Bridge command for migrating existing operational ar_transactions
+- **F&B POS Module** (`packages/modules/fnb/`) — Sessions 1-16:
+  - **103 commands**, **63 queries**, **3 consumers**, **10 helpers**, **56 test files** (1,011 tests)
+  - **Schema**: 50+ domain tables + 7 CQRS read model tables (`rm_fnb_*`) in `packages/db/src/schema/fnb.ts`
+  - **Session 1 — Table Management**: syncTablesFromFloorPlan, createTable, updateTable, seatTable, clearTable, combineTable, uncombineTable; table status tracking with history
+  - **Session 2 — Server Sections & Shifts**: createSection, assignServer, cutServer, pickupSection; shift extensions, server checkout
+  - **Session 3 — Tabs, Checks & Seat Lifecycle**: openTab, updateTab, closeTab, voidTab, transferTab, reopenTab; seat management, check presentation, discountCheck, refundCheck
+  - **Session 4 — Course Pacing & Kitchen Tickets**: createKitchenTicket, updateTicketStatus, voidTicket, createDeltaChit; hold/fire course pacing, routing rules, station assignment
+  - **Session 5 — KDS Stations & Expo**: createStation, updateStation, bumpItem, recallItem; expo view with station readiness indicators, ticket queue management
+  - **Session 6 — Modifiers, 86 Board & Menu Availability**: compItem, eightySixItem, restoreItem; allergen configuration, availability windows, menu period management, prep note presets
+  - **Session 7 — Split Checks & Payment Flows**: splitTender, startPaymentSession, completePaymentSession; split by seat/item/amount/even, merged tabs, payment session lifecycle
+  - **Session 8 — Pre-Auth Bar Tabs**: createPreauth, capturePreauth, voidPreauth; card-on-file management, pre-auth lifecycle (created→captured→voided)
+  - **Session 9 — Tips & Gratuity**: adjustTip, finalizeTips; auto-gratuity rules (party size threshold), tip pools with distribution methods (equal/points/hours), server tip reporting
+  - **Session 10 — Close Batch & Cash Control**: startCloseBatch, lockBatch, postBatch, reconcileBatch; Z-report generation, deposit slip, cash counting, over/short tracking, server checkout
+  - **Session 11 — GL Posting & Accounting Wiring**: GL mapping configuration, journal line builder (`buildBatchJournalLines`), posting reconciliation, revenue/tax/tender/tip account mapping per sub-department
+  - **Session 12 — F&B Settings Module**: 46 Zod schemas for all F&B settings (general, kitchen, floor plan, payment, tip, KDS, printing, close batch, allergen, display); defaults factory, validation helpers
+  - **Session 13 — Real-Time Sync & Offline**: Channel topology (WebSocket pub/sub channels for tables, tabs, KDS, expo, dashboard), offline queue with replay/conflict resolution, soft-lock protocol for concurrent editing
+  - **Session 14 — Receipts & Printer Routing**: Chit layout engine (guest check, kitchen chit, bar chit, receipt, credit slip), printer routing rules (station→printer mapping), print job lifecycle, reprint support
+  - **Session 15 — F&B Reporting Read Models**: 7 `rm_fnb_*` tables (server performance, table turns, kitchen performance, daypart sales, menu mix, discount/comp analysis, hourly sales), 5 event consumers (tab closed, discount/comp, ticket/item bumped/voided), 8 query services, reporting utilities (computeDaypart, computeTurnTimeMinutes, incrementalAvg, computeTipPercentage)
+  - **Session 16 — UX Screen Map & Interaction Flows**: 10 screen definitions (floor plan, tab view, KDS station, expo, payment, server/host/manager dashboards, close batch, settings), 24-component reuse map (shared vs fnb-only), 28 F&B permissions across 10 categories, 6 system roles with default permissions, 6 interaction flows (dine-in lifecycle, bar tab pre-auth, transfer tab, void after send, close batch GL, 86 mid-service), 3 wireframe descriptions, responsive breakpoints, navigation structure
 
 ### Test Coverage
-1980+ tests: 134 core + 68 catalog + 52 orders + 37 shared + 100 customers + 498 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 23 ap-routes + 27 ar-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 125 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 101 payments (35 validation + 17 gl-journal + 13 record-tender + 13 reverse-tender + 13 adjust-tip + 10 consumers)
+3080+ tests: 134 core + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 522 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 154 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 114 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -599,7 +630,9 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **Utility**: `scripts/switch-env.sh` (toggle local/remote Supabase)
 
 ### What's Next
-- Accounting frontend (COA management, journal browser, mapping UI, report viewers, statement viewers)
+- F&B POS frontend wiring (API routes for 103 commands + 63 queries, React hooks, floor plan integration, tab view, KDS station UI, expo view, payment flow, server/manager dashboards, close batch UI, settings pages)
+- F&B POS migration (run fnb schema migration on dev DB)
+- Accounting frontend (COA management, journal browser, ~~mapping UI~~, report viewers, statement viewers)
 - AP frontend (bill entry, payment batch, aging dashboard, vendor ledger)
 - AR frontend (invoice entry, receipt entry, aging dashboard, customer ledger)
 - AP approval workflow (Draft → Pending Approval → Approved → Posted)
@@ -611,7 +644,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
-- Run migrations 0066-0077 on dev DB
+- Run migrations 0066-0084 on dev DB
 - Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
 - For existing tenants: run `tools/scripts/add-semantic-entitlement.ts` to grant semantic access
 - ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
@@ -841,6 +874,21 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 200. **Accounts-content uses extracted sub-components** — `AccountFilterBar` (search, status tabs, view mode toggle) and `AccountTreeView` (collapsible type sections, tree/flat rendering) are in `apps/web/src/components/accounting/`. The main `accounts-content.tsx` orchestrates state and passes props.
 201. **Vitest coverage uses v8 provider** — all 16 vitest configs include `coverage: { provider: 'v8', reporter: ['text', 'json-summary', 'lcov'] }`. Run `pnpm test:coverage` for the full report via turbo. The `vitest.workspace.ts` at root defines the workspace for parallel coverage. `@vitest/coverage-v8` is installed at root and hoisted.
 202. **CI runs lint → type-check → test → build** — `.github/workflows/lint-typecheck.yml` runs on push/PR to main. Uses pnpm 9, Node 20, with pnpm store caching. Build step uses placeholder Supabase env vars.
+203. **GL mapping query adapts to catalog hierarchy depth** — `getSubDepartmentMappings` uses `COALESCE(parent_id, id)` to find the mappable entity: for 3-level hierarchies (Dept → SubDept → Category → Items) it maps at sub-department level; for 2-level hierarchies (Dept → Items) it maps at department level. The frontend auto-detects flat vs grouped mode. Same logic applies to coverage API and items drill-down. The `sub_department_gl_defaults.sub_department_id` column stores whatever category ID the mappable entity is — the naming is historical.
+204. **`order_lines` now have `sub_department_id` and `tax_group_id`** — migration 0084 adds both nullable columns. Populated at `addLineItem` time from `posItem.subDepartmentId` (resolved via `COALESCE(parent_id, id)` on catalog categories) and `posItem.taxInfo.taxGroups[0]?.id`. These are snapshots — if the catalog hierarchy changes later, existing order lines retain the original mapping.
+205. **`tender.recorded.v1` event includes `lines[]` array** — each line has `catalogItemId`, `catalogItemName`, `subDepartmentId`, `qty`, `extendedPriceCents`, `taxGroupId`, `taxAmountCents`, `costCents`, and `packageComponents`. Also includes `paymentMethod` alias for backward compat with adapters that read that field name instead of `tenderType`.
+206. **POS adapter splits package revenue by component subdepartment** — when a line has enriched `packageComponents` (with `allocatedRevenueCents != null`), the adapter groups revenue by each component's `subDepartmentId` instead of the package's line-level subdepartment. Falls back to line-level for legacy packages without allocations.
+207. **`expandPackageForGL` is a pure helper** — lives in `packages/modules/accounting/src/helpers/catalog-gl-resolution.ts`. Takes a line and returns `GLRevenueSplit[]` — one entry per component for packages, single entry for regular items. No DB access, no side effects.
+208. **POS adapter uses `tenderType ?? paymentMethod` for field name compat** — the event emits `tenderType` (the correct field name), and also includes `paymentMethod` as an alias. The adapter resolves with `data.tenderType ?? data.paymentMethod ?? 'unknown'` for backward compatibility with older events.
+209. **F&B module is backend-only (no API routes yet)** — `packages/modules/fnb/` contains 103 commands and 63 queries but NO API routes, React hooks, or frontend components. The module exports pure TypeScript functions. API routes under `/api/v1/fnb/` and frontend wiring are future work.
+210. **F&B tables sync from room-layouts snapshots** — `syncTablesFromFloorPlan` in `commands/sync-tables-from-floor-plan.ts` extracts table objects from a published `CanvasSnapshot` via `extractTablesFromSnapshot()`. It creates/updates/deactivates `fnb_tables` rows to match the floor plan. Tables are linked via `roomId` + `floorPlanObjectId`.
+211. **F&B read models use `rm_fnb_` prefix** — all 7 reporting tables: `rm_fnb_server_performance`, `rm_fnb_table_turns`, `rm_fnb_kitchen_performance`, `rm_fnb_daypart_sales`, `rm_fnb_menu_mix`, `rm_fnb_discount_comp_analysis`, `rm_fnb_hourly_sales`. Same upsert-by-natural-key pattern as core `rm_` tables.
+212. **F&B consumers expect enriched data, not raw events** — consumer functions like `handleFnbTabClosed` take typed input objects (`FnbTabClosedConsumerData`) not raw event payloads. The wiring layer (API/web app) is responsible for enriching event data before calling consumers.
+213. **F&B permissions are separate from core RBAC** — 28 F&B-specific permissions (`pos_fnb.*`) across 10 categories (floor_plan, tabs, kds, payments, tips, menu, close_batch, reports, settings, gl). Role defaults defined in `FNB_ROLE_DEFAULTS` for 6 system roles. These complement, not replace, core system permissions.
+214. **F&B close batch posts GL via `buildBatchJournalLines`** — the helper in `helpers/build-batch-journal-lines.ts` constructs double-entry journal lines from Z-report data: revenue by sub-department, tax collected, tender by type, tip payable. Uses the same GL mapping resolution pattern as the POS adapter.
+215. **F&B hourly sales uses INTEGER cents, not NUMERIC dollars** — `rm_fnb_hourly_sales.salesCents` stores as INTEGER (like orders), unlike other `rm_fnb_*` tables that use NUMERIC(19,4) dollars. This matches the granularity needed for hourly breakdowns.
+216. **F&B offline queue is typed but not yet wired** — `helpers/offline-queue-types.ts` defines the offline operation queue (command buffering, conflict resolution, replay) as TypeScript types. The actual WebSocket/offline infrastructure is future work.
+217. **F&B UX screen map is a typed spec, not UI code** — `helpers/ux-screen-map.ts` encodes screen definitions, interaction flows, wireframes, and component reuse maps as TypeScript constants. These serve as contracts/specs for frontend implementation, not actual React components.
 
 ## Quick Commands
 

@@ -14,6 +14,7 @@ export interface AccountingSettings {
   defaultUndepositedFundsAccountId: string | null;
   defaultRetainedEarningsAccountId: string | null;
   defaultRoundingAccountId: string | null;
+  defaultPmsGuestLedgerAccountId: string | null;
   roundingToleranceCents: number;
   enableCogsPosting: boolean;
   enableInventoryPosting: boolean;
@@ -52,6 +53,7 @@ export async function getAccountingSettings(
     defaultUndepositedFundsAccountId: row.defaultUndepositedFundsAccountId,
     defaultRetainedEarningsAccountId: row.defaultRetainedEarningsAccountId,
     defaultRoundingAccountId: row.defaultRoundingAccountId,
+    defaultPmsGuestLedgerAccountId: row.defaultPmsGuestLedgerAccountId ?? null,
     roundingToleranceCents: row.roundingToleranceCents,
     enableCogsPosting: row.enableCogsPosting,
     enableInventoryPosting: row.enableInventoryPosting,

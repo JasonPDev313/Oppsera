@@ -147,7 +147,7 @@ describe('submitUserRating', () => {
       rating: 4,
       thumbsUp: true,
       text: 'Good answer!',
-      tags: ['accurate'],
+      tags: ['great_insight'],
     });
 
     expect(mockDbSelect).toHaveBeenCalledOnce();
@@ -192,7 +192,7 @@ describe('submitUserRating', () => {
     mockDbSelect.mockReturnValueOnce(makeChain([turnRow]));
 
     await submitUserRating('turn_001', 'tenant_001', 'user_001', {
-      tags: ['too_slow', 'wrong_data'],
+      tags: ['slow', 'wrong_data'],
     });
 
     expect(mockDbUpdate).toHaveBeenCalledTimes(2);
@@ -283,8 +283,8 @@ describe('promoteToExample', () => {
     mockDbSelect.mockReturnValueOnce(makeChain([turnRow]));
 
     const exampleId = await promoteToExample('turn_001', 'admin_001', {
-      category: 'metrics',
-      difficulty: 'easy',
+      category: 'sales',
+      difficulty: 'simple',
     });
 
     expect(exampleId).toBe('EXAMPLE_ULID');
@@ -299,7 +299,7 @@ describe('promoteToExample', () => {
 
     await expect(
       promoteToExample('turn_001', 'admin_001', {
-        category: 'clarification',
+        category: 'comparison',
         difficulty: 'medium',
       }),
     ).rejects.toMatchObject({ name: 'AuthorizationError' });
@@ -312,8 +312,8 @@ describe('promoteToExample', () => {
 
     await expect(
       promoteToExample('nonexistent', 'admin_001', {
-        category: 'metrics',
-        difficulty: 'hard',
+        category: 'sales',
+        difficulty: 'complex',
       }),
     ).rejects.toMatchObject({ name: 'NotFoundError' });
 

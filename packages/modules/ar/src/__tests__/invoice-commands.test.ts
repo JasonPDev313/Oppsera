@@ -135,7 +135,7 @@ function createCtx(overrides?: Record<string, unknown>): RequestContext {
 
 describe('createInvoice', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
     // Re-set default implementations after reset
     mockPublishWithOutbox.mockImplementation(async (_ctx: any, fn: any) => {
       const mockTx = createMockTx();
@@ -315,7 +315,7 @@ describe('createInvoice', () => {
 
 describe('postInvoice', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
     mockPublishWithOutbox.mockImplementation(async (_ctx: any, fn: any) => {
       const mockTx = createMockTx();
       const { result } = await fn(mockTx);
@@ -542,7 +542,7 @@ describe('postInvoice', () => {
 
 describe('voidInvoice', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
     mockPublishWithOutbox.mockImplementation(async (_ctx: any, fn: any) => {
       const mockTx = createMockTx();
       const { result } = await fn(mockTx);

@@ -136,7 +136,7 @@ function createCtx(overrides?: Record<string, unknown>): RequestContext {
 
 describe('postInvoice GL journal entry', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
     mockAuditLog.mockResolvedValue(undefined);
     mockPostEntry.mockResolvedValue({ id: 'je-1', journalNumber: 1, status: 'posted' });
     mockGetSettings.mockResolvedValue({
@@ -326,7 +326,7 @@ describe('postInvoice GL journal entry', () => {
 
 describe('postReceipt GL journal entry', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
     mockAuditLog.mockResolvedValue(undefined);
     mockPostEntry.mockResolvedValue({ id: 'je-1', journalNumber: 1, status: 'posted' });
     mockGetSettings.mockResolvedValue({
@@ -516,7 +516,7 @@ describe('postReceipt GL journal entry', () => {
 
 describe('voidInvoice GL reversal', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
     mockAuditLog.mockResolvedValue(undefined);
     mockPostEntry.mockResolvedValue({ id: 'je-reversal', journalNumber: 2, status: 'posted' });
     mockGetSettings.mockResolvedValue({
@@ -642,7 +642,7 @@ describe('voidInvoice GL reversal', () => {
 
 describe('voidReceipt GL reversal', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
     mockAuditLog.mockResolvedValue(undefined);
     mockPostEntry.mockResolvedValue({ id: 'je-reversal', journalNumber: 2, status: 'posted' });
     mockGetSettings.mockResolvedValue({

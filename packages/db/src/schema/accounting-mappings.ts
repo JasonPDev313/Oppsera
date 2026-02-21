@@ -65,6 +65,24 @@ export const taxGroupGlDefaults = pgTable(
   ],
 );
 
+// ── PMS Folio Entry Type GL Defaults ─────────────────────────────
+// Maps PMS folio entry types (ROOM_CHARGE, TAX, FEE, etc.) to GL accounts.
+export const pmsFolioEntryTypeGlDefaults = pgTable(
+  'pms_folio_entry_type_gl_defaults',
+  {
+    tenantId: text('tenant_id').notNull(),
+    entryType: text('entry_type').notNull(), // ROOM_CHARGE, TAX, FEE, ADJUSTMENT, PAYMENT, REFUND
+    accountId: text('account_id')
+      .notNull()
+      .references(() => glAccounts.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.tenantId, table.entryType] }),
+  ],
+);
+
 // ── Bank Accounts ─────────────────────────────────────────────────
 // Links physical bank accounts to GL accounts for deposit workflows.
 export const bankAccounts = pgTable(

@@ -21,6 +21,10 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
     );
   }
 
-  const data = await getComparativeAnalysis(tenantId, periodA, periodB);
+  const [dataA, dataB] = await Promise.all([
+    getComparativeAnalysis(tenantId, periodA),
+    getComparativeAnalysis(tenantId, periodB),
+  ]);
+  const data = { periodA: dataA, periodB: dataB };
   return NextResponse.json({ data });
 });

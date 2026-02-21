@@ -16,12 +16,9 @@ export const POST = withAdminAuth(
       );
     }
 
-    const exampleId = await promoteToExample({
-      turnId: id,
-      adminId: session.adminId,
+    const exampleId = await promoteToExample(id, session.adminId, {
       category: parsed.data.category,
       difficulty: parsed.data.difficulty,
-      tags: parsed.data.tags,
     });
 
     return NextResponse.json({ data: { exampleId } }, { status: 201 });

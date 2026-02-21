@@ -2430,8 +2430,9 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - Session 32: POS posting adapter (`handleTenderForAccounting`), legacy bridge adapter, AccountingPostingApi wiring, tenant COA bootstrap, close period workflow (migration 0075)
 - Session 33: AR schema (4 tables), invoice/receipt lifecycle, AR-GL reconciliation, bridge adapter (migration 0076)
 - Session 34: Financial statements (P&L, balance sheet, sales tax, cash flow, period comparison, health summary), retained earnings, statement layouts (migration 0077)
+- Session 36: GL Mapping Frontend — enriched sub-department query (joins catalog hierarchy + GL accounts), flexible 2/3-level hierarchy support, coverage API with totals, items drill-down, flat/grouped rendering modes, AccountPicker type filtering
 - Architecture: See CONVENTIONS.md §66-70 for full details
-- Total: ~26 tables, ~41 commands, ~37 queries, ~72 API routes, ~175 tests
+- Total: ~26 tables, ~41 commands, ~39 queries, ~75 API routes, ~197 tests
 
 ### Test Coverage
 
@@ -4709,6 +4710,21 @@ resolveTaxGroupAccount(tx, tenantId, taxGroupId): Promise<string | null>
 
 Returns `null` if mapping missing — callers log to `gl_unmapped_events` via `logUnmappedEvent()`.
 
+### GL Mapping Frontend
+
+The mapping UI at `/accounting/mappings` provides a 4-tab interface:
+- **Sub-Departments**: enriched query joining `catalog_categories` + `sub_department_gl_defaults` + `gl_accounts`, with AccountPicker dropdowns per account type
+- **Payment Types**: rows from `payment_type_gl_defaults` with cash/clearing/fee account pickers
+- **Tax Groups**: rows from `tax_group_gl_defaults` with tax payable account picker
+- **Unmapped Events**: list from `gl_unmapped_events` with resolve action
+
+**Flexible hierarchy support**: `getSubDepartmentMappings` adapts to both 2-level (Department → Items) and 3-level (Department → SubDepartment → Category → Items) catalog hierarchies via `COALESCE(parent_id, id)`. In 2-level mode, departments themselves are the mappable entities. The frontend auto-detects flat vs grouped rendering.
+
+Key queries:
+- `getSubDepartmentMappings(tenantId)` — enriched list with dept names, item counts, GL account display strings
+- `getItemsBySubDepartment(tenantId, subDepartmentId)` — drill-down with cursor pagination
+- Coverage API computes totals from catalog hierarchy (not just mapping table rows)
+
 ### POS Posting Adapter
 
 `handleTenderForAccounting(event: EventEnvelope)` consumes `tender.recorded.v1` events:
@@ -4724,6 +4740,22 @@ GL Entry (Retail Sale):
 ```
 
 **Critical**: The POS adapter **never blocks tenders**. If any GL mapping is missing, it skips the GL post, logs to `gl_unmapped_events`, and emits `accounting.posting.skipped.v1`. POS must always succeed.
+
+#### Catalog → GL Pipeline (Subdepartment Resolution)
+
+The full pipeline from catalog item to GL posting:
+
+1. **At `addLineItem` time**: `posItem.subDepartmentId` (resolved via `COALESCE(cat.parent_id, cat.id)`) is snapshotted on the `order_lines` row along with `taxGroupId`. For package items, each component's `subDepartmentId` is resolved in parallel via `catalogApi.getSubDepartmentForItem()` and stored in the `packageComponents` JSONB.
+
+2. **At `recordTender` time**: the enriched `lines[]` array is built from `order_lines` and included in the `tender.recorded.v1` event payload. Each line includes `subDepartmentId`, `taxGroupId`, `taxAmountCents`, `costCents`, and `packageComponents`.
+
+3. **In the POS adapter**: for regular items, revenue is grouped by `line.subDepartmentId`. For packages with enriched components (`allocatedRevenueCents != null`), revenue is split across component subdepartments using the pre-computed allocation. Legacy packages without allocations fall back to line-level subdepartment.
+
+**Field name compatibility**: the event includes both `tenderType` and `paymentMethod` (alias). The adapter resolves via `data.tenderType ?? data.paymentMethod ?? 'unknown'`.
+
+**Utility helpers** in `packages/modules/accounting/src/helpers/catalog-gl-resolution.ts`:
+- `resolveRevenueAccountForSubDepartment(db, tenantId, subDeptId)` — wraps `resolveSubDepartmentAccounts`, returns revenue account ID
+- `expandPackageForGL(line)` — splits a line into per-subdepartment `GLRevenueSplit[]` entries
 
 ### Financial Statements
 
@@ -5152,4 +5184,135 @@ Run: `pnpm test:coverage` (all packages) or `pnpm --filter @oppsera/module-X tes
 | `AccountDialog` | `components/accounting/account-dialog.tsx` | Create/edit GL account form (portal-based). Form state resets on close via `useEffect` watching `open` prop — explicitly resets to `defaultForm` when `open=false` |
 
 Pattern: State lives in the parent (`accounts-content.tsx`), sub-components receive props. This keeps the main file ~155 lines instead of ~320.
+
+---
+
+## 85. F&B POS Backend Module
+
+### Module Location & Structure
+
+`packages/modules/fnb/` — `@oppsera/module-fnb`
+
+```
+packages/modules/fnb/src/
+├── commands/          # 103 command handlers
+├── queries/           # 63 query handlers
+├── consumers/         # 3 CQRS read model consumers
+├── events/
+│   └── types.ts       # ~200 F&B domain event types (fnb.*.v1)
+├── helpers/
+│   ├── extract-tables-from-snapshot.ts   # Room layout → table sync
+│   ├── build-batch-journal-lines.ts      # GL journal line builder for close batch
+│   ├── channel-topology.ts              # WebSocket pub/sub channel definitions
+│   ├── chit-layout.ts                   # Kitchen ticket/receipt formatting
+│   ├── fnb-permissions.ts               # 28 permissions, 6 role defaults
+│   ├── fnb-reporting-utils.ts           # Daypart, turn time, tip % helpers
+│   ├── fnb-settings-defaults.ts         # Default config factory
+│   ├── offline-queue-types.ts           # Offline operation queue types
+│   ├── printer-routing.ts              # Printer device routing rules
+│   └── ux-screen-map.ts                # Screen defs, flows, wireframes, nav
+├── __tests__/         # 56 test files (1,011 tests)
+├── validation.ts      # ~2,000 lines of Zod schemas
+├── errors.ts          # Domain-specific error classes
+└── index.ts           # Module entry point (all exports)
+```
+
+### Build Sessions (16 total)
+
+| Session | Domain | Commands | Queries | Key Concepts |
+|---------|--------|----------|---------|--------------|
+| 1 | Table Management | 7 | 4 | syncTablesFromFloorPlan, table status tracking |
+| 2 | Server Sections & Shifts | 8 | 3 | Section assignments, cut/pickup, shift extensions |
+| 3 | Tabs, Checks & Seats | 9 | 2 | Tab lifecycle (open→close→void), seat management |
+| 4 | Course Pacing & Kitchen | 7 | 3 | Hold/fire, delta chits, routing rules |
+| 5 | KDS Stations & Expo | 6 | 5 | Bump/recall, station readiness, expo view |
+| 6 | Modifiers & 86 Board | 8 | 6 | 86 items, allergens, availability windows |
+| 7 | Split Checks & Payments | 10 | 6 | Split by seat/item/amount/even, payment sessions |
+| 8 | Pre-Auth Bar Tabs | 5 | 3 | Pre-auth lifecycle, card-on-file |
+| 9 | Tips & Gratuity | 7 | 5 | Auto-gratuity rules, tip pools, distribution |
+| 10 | Close Batch & Cash | 8 | 6 | Z-report, deposit slip, server checkout |
+| 11 | GL Posting | 6 | 3 | Journal line builder, posting reconciliation |
+| 12 | Settings Module | 10 | 4 | 46 Zod schemas, defaults factory |
+| 13 | Real-Time Sync | 6 | 5 | Channel topology, offline queue, soft locks |
+| 14 | Receipts & Printing | 7 | 5 | Chit layout engine, printer routing |
+| 15 | Reporting Read Models | 0 (consumers) | 8 | 7 rm_fnb_* tables, CQRS projections |
+| 16 | UX Screen Map | 0 (spec) | 0 | Screen defs, flows, permissions, wireframes |
+
+### Schema
+
+All F&B tables live in `packages/db/src/schema/fnb.ts`. Key table groups:
+
+- **Core**: `fnb_tables`, `fnb_sections`, `fnb_server_assignments`, `fnb_table_status_history`
+- **Tabs & Ordering**: `fnb_tabs`, `fnb_tab_items`, `fnb_tab_seats`, `fnb_tab_courses`, `fnb_checks`
+- **Kitchen**: `fnb_kitchen_tickets`, `fnb_kitchen_ticket_items`, `fnb_kitchen_stations`, `fnb_routing_rules`, `fnb_delta_chits`
+- **Payments**: `fnb_payment_sessions`, `fnb_preauthorizations`, `fnb_tips`, `fnb_auto_gratuity_rules`, `fnb_tip_pools`
+- **Close Batch**: `fnb_close_batches`, `fnb_server_checkouts`, `fnb_cash_counts`
+- **Settings**: `fnb_settings`, `fnb_gl_mappings`, `fnb_allergens`, `fnb_availability_windows`, `fnb_menu_periods`
+- **Printing**: `fnb_print_jobs`, `fnb_printer_routes`
+- **Read Models**: 7 `rm_fnb_*` tables (server perf, table turns, kitchen perf, daypart sales, menu mix, discount/comp, hourly sales)
+
+### Key Domain Patterns
+
+**Table Sync from Floor Plans:**
+```typescript
+// Extract table objects from a published room layout snapshot
+const tables = extractTablesFromSnapshot(canvasSnapshot);
+// Sync creates/updates/deactivates fnb_tables to match
+await syncTablesFromFloorPlan(ctx, { roomId, tables });
+```
+
+**Tab Lifecycle:**
+```
+openTab → addItems → sendCourse → [kitchen ticket created] → bumpItem → presentCheck → payment → closeTab
+                                                                                              ↗
+                                                              voidTab (requires permission) ──┘
+                                                              transferTab (server-to-server)
+```
+
+**Close Batch Flow:**
+```
+startCloseBatch → lockBatch → serverCheckout (per server) → reconcileBatch → postBatch (GL)
+                                                                              ↓
+                                                              buildBatchJournalLines → GL journal entry
+```
+
+**F&B Read Model Consumers:**
+- `handleFnbTabClosed` → upserts server perf, table turns, daypart sales, hourly sales, menu mix
+- `handleFnbDiscountComp` → upserts discount/comp analysis
+- `handleFnbTicketBumped/ItemBumped/ItemVoided` → upserts kitchen performance
+
+### F&B Permissions (28 total, 10 categories)
+
+```
+floor_plan: view, manage
+tabs:       view, create, update, void, transfer
+kds:        view, bump, manage
+payments:   create, void, refund
+tips:       view, manage, pool
+menu:       view, manage
+close_batch: manage
+reports:    view, export
+settings:   manage
+gl:         post, reverse, mappings
+```
+
+Role defaults: owner=all 28, manager=25, supervisor=18, cashier=7, server=9, staff=3 (kds only).
+
+### Reporting Utilities
+
+```typescript
+// Pure helpers — no DB, no side effects
+computeDaypart(hour: number): 'breakfast' | 'lunch' | 'dinner' | 'late_night'
+computeTurnTimeMinutes(openedAt: string | null, closedAt: string | null): number | null
+incrementalAvg(oldAvg: number, oldCount: number, newValue: number): number
+computeTipPercentage(tipTotal: number, salesTotal: number): number | null
+```
+
+### Important Notes
+
+1. **No API routes exist yet** — the module exports pure functions. API routes (`/api/v1/fnb/*`) are future work.
+2. **No frontend components** — the existing F&B POS UI (`apps/web/src/app/(dashboard)/pos/fnb/`) was built in earlier sessions and uses the orders module. Wiring it to the fnb module is future work.
+3. **Consumer inputs are enriched types** — consumers receive typed `FnbTabClosedConsumerData` etc., not raw event payloads. The wiring layer enriches events before calling consumers.
+4. **Session 16 is spec-only** — `ux-screen-map.ts` and `fnb-permissions.ts` encode UX specs as typed constants (screen defs, interaction flows, wireframes, permissions). These are contracts for frontend implementation.
+5. **GL integration via `buildBatchJournalLines`** — close batch posts to GL using the same mapping resolution pattern as the POS adapter. Revenue split by sub-department, tax collected, tender by type, tips payable.
 

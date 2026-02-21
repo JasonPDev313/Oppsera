@@ -23,7 +23,7 @@ vi.mock('drizzle-orm', () => ({
 
 describe('getArAging', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
   });
 
   it('should return aging buckets grouped by customer', async () => {
@@ -126,7 +126,7 @@ describe('getArAging', () => {
 
 describe('getCustomerLedger', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
   });
 
   it('should return ledger entries with running balance', async () => {
@@ -199,7 +199,7 @@ describe('getCustomerLedger', () => {
 
 describe('getOpenInvoices', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
   });
 
   it('should return open invoices with cursor pagination', async () => {
@@ -282,7 +282,7 @@ describe('getOpenInvoices', () => {
 
 describe('listInvoices', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
   });
 
   it('should list invoices with all fields mapped', async () => {
@@ -354,7 +354,7 @@ describe('listInvoices', () => {
 
 describe('listReceipts', () => {
   beforeEach(() => {
-    vi.mockReset();
+    vi.resetAllMocks();
   });
 
   it('should list receipts with correct field mapping', async () => {

@@ -177,7 +177,9 @@ export default function SettingsContent() {
                     className="flex-1"
                   />
                   {!form[key as keyof typeof form] && (
-                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" title="Not configured" />
+                    <span title="Not configured">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+                    </span>
                   )}
                 </div>
               </FormField>

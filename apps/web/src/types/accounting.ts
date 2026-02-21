@@ -129,12 +129,28 @@ export interface CloseChecklistItem {
 export interface SubDepartmentMapping {
   subDepartmentId: string;
   subDepartmentName: string;
+  departmentId: string;
   departmentName: string;
+  itemCount: number;
   revenueAccountId: string | null;
+  revenueAccountDisplay: string | null;
   cogsAccountId: string | null;
+  cogsAccountDisplay: string | null;
   inventoryAssetAccountId: string | null;
+  inventoryAssetAccountDisplay: string | null;
   discountAccountId: string | null;
+  discountAccountDisplay: string | null;
   returnsAccountId: string | null;
+  returnsAccountDisplay: string | null;
+}
+
+export interface SubDepartmentItem {
+  id: string;
+  sku: string | null;
+  name: string;
+  itemType: string;
+  categoryName: string;
+  defaultPrice: string;
 }
 
 export interface PaymentTypeMapping {

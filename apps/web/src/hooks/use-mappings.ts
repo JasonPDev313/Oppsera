@@ -6,6 +6,7 @@ import { buildQueryString } from '@/lib/query-string';
 import type {
   MappingCoverage,
   SubDepartmentMapping,
+  SubDepartmentItem,
   PaymentTypeMapping,
   TaxGroupMapping,
   UnmappedEvent,
@@ -49,6 +50,27 @@ export function useSubDepartmentMappings() {
     isLoading: result.isLoading,
     error: result.error,
     mutate: result.refetch,
+  };
+}
+
+// ── useSubDepartmentItems ────────────────────────────────────
+
+export function useSubDepartmentItems(subDepartmentId: string | null) {
+  const result = useQuery({
+    queryKey: ['sub-department-items', subDepartmentId],
+    queryFn: () =>
+      apiFetch<{ data: SubDepartmentItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
+        `/api/v1/accounting/mappings/sub-departments/${subDepartmentId}/items`,
+      ).then((r) => ({ items: r.data, meta: r.meta })),
+    enabled: !!subDepartmentId,
+    staleTime: 60_000,
+  });
+
+  return {
+    items: result.data?.items ?? [],
+    meta: result.data?.meta ?? { cursor: null, hasMore: false },
+    isLoading: result.isLoading,
+    error: result.error,
   };
 }
 
