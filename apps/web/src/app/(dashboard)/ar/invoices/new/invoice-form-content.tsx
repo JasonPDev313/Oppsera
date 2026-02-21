@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
-import { MoneyInput } from '@/components/accounting/money-input';
 import { useARInvoiceMutations } from '@/hooks/use-ar';
 import { formatAccountingMoney } from '@/types/accounting';
 import { useToast } from '@/components/ui/toast';
@@ -65,7 +64,7 @@ export default function InvoiceFormContent() {
   const taxTotal = lines.reduce((sum, l) => sum + (parseFloat(l.taxAmount) || 0), 0);
   const grandTotal = subtotal + taxTotal;
 
-  const handleSubmit = async (postNow: boolean) => {
+  const handleSubmit = async (_postNow: boolean) => {
     if (!customerId || !invoiceDate || !dueDate || lines.length === 0) return;
     setIsSubmitting(true);
     try {

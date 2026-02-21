@@ -13,7 +13,7 @@ import {
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { StatusBadge } from '@/components/accounting/status-badge';
 import { useClosePeriods, useClosePeriod, useCloseMutations } from '@/hooks/use-statements';
-import type { ClosePeriod, CloseChecklistItem } from '@/types/accounting';
+import type { ClosePeriod } from '@/types/accounting';
 
 function getLastNPeriods(n: number): string[] {
   const periods: string[] = [];

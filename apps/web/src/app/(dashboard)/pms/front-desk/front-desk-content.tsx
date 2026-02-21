@@ -70,14 +70,10 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 // ── Component ────────────────────────────────────────────────────
 
 export default function FrontDeskContent() {
-  const { user, locations } = useAuthContext();
+  useAuthContext();
 
   // Property selection
   const [properties, setProperties] = useState<Property[]>([]);
@@ -108,7 +104,7 @@ export default function FrontDeskContent() {
         if (!cancelled) setError('Failed to load properties');
       });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
   const fetchArrivals = useCallback(async () => {
     if (!propertyId) return;

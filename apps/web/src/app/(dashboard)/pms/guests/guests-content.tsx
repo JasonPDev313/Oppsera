@@ -40,7 +40,7 @@ interface Property {
 
 export default function GuestsContent() {
   const router = useRouter();
-  const { user, locations } = useAuthContext();
+  useAuthContext();
 
   // Property selection
   const [properties, setProperties] = useState<Property[]>([]);
@@ -73,7 +73,7 @@ export default function GuestsContent() {
         if (!cancelled) setError('Failed to load properties');
       });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
   // Debounced search
   const handleSearchChange = useCallback((value: string) => {
@@ -124,7 +124,7 @@ export default function GuestsContent() {
     setCursor(null);
     setHasMore(false);
     fetchGuests(false);
-  }, [propertyId, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [propertyId, searchTerm]); // eslint-disable-line
 
   const loadMore = useCallback(() => {
     if (hasMore && !isLoading) {

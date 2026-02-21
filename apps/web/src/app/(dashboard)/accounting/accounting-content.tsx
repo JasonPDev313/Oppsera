@@ -2,13 +2,10 @@
 
 import Link from 'next/link';
 import {
-  Landmark,
-  BookOpen,
   FileSpreadsheet,
   Scale,
   Receipt,
   Lock,
-  ArrowRightLeft,
   AlertTriangle,
   TrendingUp,
   TrendingDown,
@@ -18,7 +15,7 @@ import {
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { StatusBadge } from '@/components/accounting/status-badge';
 import { formatAccountingMoney } from '@/types/accounting';
-import type { HealthSummary, JournalEntry } from '@/types/accounting';
+import type { HealthSummary } from '@/types/accounting';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 

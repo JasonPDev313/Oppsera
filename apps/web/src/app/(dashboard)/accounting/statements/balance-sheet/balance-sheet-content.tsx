@@ -7,7 +7,7 @@ import { useBalanceSheet } from '@/hooks/use-statements';
 import { formatAccountingMoney } from '@/types/accounting';
 import type { FinancialStatementSection } from '@/types/accounting';
 
-function StatementSection({ section, sectionType }: { section: FinancialStatementSection; sectionType: string }) {
+function StatementSection({ section, sectionType: _sectionType }: { section: FinancialStatementSection; sectionType: string }) {
   return (
     <div className="space-y-1">
       <p className="font-sans text-xs font-semibold uppercase tracking-wider text-gray-500">{section.label}</p>

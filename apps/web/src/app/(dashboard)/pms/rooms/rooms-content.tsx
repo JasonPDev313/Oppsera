@@ -93,16 +93,16 @@ export default function RoomsContent() {
         const res = await apiFetch<{ data: Property[] }>('/api/v1/pms/properties');
         if (cancelled) return;
         const items = res.data ?? [];
+        console.log('[PMS Rooms] Properties loaded:', items.length, items.map(p => ({ id: p.id, name: p.name })));
         setProperties(items);
         if (items.length > 0 && !selectedPropertyId) {
           setSelectedPropertyId(items[0]!.id);
         }
-      } catch {
-        // silently handle
+      } catch (err) {
+        console.error('[PMS Rooms] Failed to load properties:', err);
       }
     })();
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Load rooms ──────────────────────────────────────────────────
@@ -142,11 +142,13 @@ export default function RoomsContent() {
     (async () => {
       try {
         const qs = buildQueryString({ propertyId: selectedPropertyId });
+        console.log('[PMS Rooms] Loading room types for property:', selectedPropertyId);
         const res = await apiFetch<{ data: RoomType[] }>(`/api/v1/pms/room-types${qs}`);
         if (cancelled) return;
+        console.log('[PMS Rooms] Room types loaded:', res.data?.length, res.data);
         setRoomTypes(res.data ?? []);
-      } catch {
-        // silently handle
+      } catch (err) {
+        console.error('[PMS Rooms] Failed to load room types:', err);
       } finally {
         if (!cancelled) setRoomTypesLoading(false);
       }
@@ -183,20 +185,24 @@ export default function RoomsContent() {
       return;
     }
     setIsSubmitting(true);
+    const payload = {
+      propertyId: selectedPropertyId,
+      roomTypeId: formRoomTypeId,
+      roomNumber: formRoomNumber.trim(),
+      floor: formFloor.trim() || undefined,
+    };
+    console.log('[PMS] Creating room:', payload);
     try {
-      await apiFetch('/api/v1/pms/rooms', {
+      const result = await apiFetch('/api/v1/pms/rooms', {
         method: 'POST',
-        body: JSON.stringify({
-          propertyId: selectedPropertyId,
-          roomTypeId: formRoomTypeId,
-          roomNumber: formRoomNumber.trim(),
-          floor: formFloor.trim() || undefined,
-        }),
+        body: JSON.stringify(payload),
       });
+      console.log('[PMS] Room created:', result);
       closeDialog();
       fetchRooms();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to create room';
+      console.error('[PMS] Room creation failed:', msg, err);
       setFormError(msg);
     } finally {
       setIsSubmitting(false);

@@ -389,7 +389,6 @@ function FolioSection({
   reservationId: string;
   folioId: string | null;
 }) {
-  const { toast } = useToast();
   const [folio, setFolio] = useState<FolioData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showPostCharge, setShowPostCharge] = useState(false);

@@ -28,7 +28,7 @@ export default function ReceiptFormContent() {
   const [customerId, setCustomerId] = useState('');
   const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split('T')[0]!);
   const [paymentMethod, setPaymentMethod] = useState('check');
-  const [bankAccountId, setBankAccountId] = useState('');
+  const [bankAccountId] = useState('');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [amount, setAmount] = useState('');
   const [memo, setMemo] = useState('');

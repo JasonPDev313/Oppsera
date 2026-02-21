@@ -19,9 +19,6 @@ vi.mock('@/lib/api-client', () => ({
   },
 }));
 
-// ── Imports ───────────────────────────────────────────────────
-import { formatAccountingMoney, SOURCE_MODULE_BADGES } from '../types/accounting';
-
 // ═══════════════════════════════════════════════════════════════
 // Journal entry form validation
 // ═══════════════════════════════════════════════════════════════

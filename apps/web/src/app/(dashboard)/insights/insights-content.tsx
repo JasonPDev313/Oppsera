@@ -48,7 +48,7 @@ function useElapsedSeconds(running: boolean) {
 
 export default function InsightsContent() {
   const chat = useSemanticChat();
-  const { messages, isLoading, error, sendMessage, cancelRequest, clearMessages, initFromSession, sessionId } = chat;
+  const { messages, isLoading, error, sendMessage, cancelRequest, clearMessages, initFromSession } = chat;
   const searchParams = useSearchParams();
   const router = useRouter();
   const [showDebug, setShowDebug] = useState(false);
@@ -84,7 +84,7 @@ export default function InsightsContent() {
     if (!sessionParam || sessionLoadedRef.current) return;
     sessionLoadedRef.current = true;
     loadSession(sessionParam);
-  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [searchParams]); // eslint-disable-line
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {

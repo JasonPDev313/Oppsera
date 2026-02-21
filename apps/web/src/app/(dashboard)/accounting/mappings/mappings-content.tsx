@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   AlertTriangle,
   CheckCircle,
-  XCircle,
   ChevronDown,
   ChevronRight,
   Package,

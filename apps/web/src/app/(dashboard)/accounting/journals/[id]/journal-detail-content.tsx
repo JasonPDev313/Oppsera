@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle, XCircle, Printer } from 'lucide-react';
@@ -14,7 +14,6 @@ import { useToast } from '@/components/ui/toast';
 
 export default function JournalDetailContent() {
   const params = useParams();
-  const router = useRouter();
   const { toast } = useToast();
   const id = params.id as string;
 

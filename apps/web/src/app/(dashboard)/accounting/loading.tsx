@@ -1,5 +1,3 @@
-import { PageSkeleton } from '@/components/ui/page-skeleton';
-
 export default function AccountingLoading() {
   return (
     <div className="space-y-6">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Plus, Search, AlertTriangle } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
@@ -13,7 +13,7 @@ export default function BillsContent() {
   const [filters, setFilters] = useState<APBillFilters>({});
   const [search, setSearch] = useState('');
 
-  const { data: bills, isLoading, meta } = useAPBills({ ...filters, limit: 50 });
+  const { data: bills, isLoading } = useAPBills({ ...filters, limit: 50 });
   const { data: summary } = useAPSummary();
 
   const today = new Date().toISOString().split('T')[0];

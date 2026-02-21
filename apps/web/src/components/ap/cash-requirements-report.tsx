@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Download } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { useCashRequirements } from '@/hooks/use-ap';
 import { formatAccountingMoney } from '@/types/accounting';

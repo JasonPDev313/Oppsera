@@ -15,7 +15,6 @@ import {
   ClipboardCheck,
 } from 'lucide-react';
 import { useAccountingSetupStatus } from '@/hooks/use-accounting-nav';
-import type { SetupStep } from '@/hooks/use-accounting-nav';
 
 const STEP_ICONS: Record<string, typeof BookOpen> = {
   bootstrap: BookOpen,

@@ -92,7 +92,7 @@ export default function PaymentFormContent() {
     );
   };
 
-  const handleSubmit = async (postNow: boolean) => {
+  const handleSubmit = async (_postNow: boolean) => {
     if (!vendorId || !paymentDate || paymentNum <= 0) return;
     setIsSubmitting(true);
     try {
@@ -100,7 +100,7 @@ export default function PaymentFormContent() {
         .filter((a) => parseFloat(a.paymentAmount) > 0)
         .map((a) => ({ billId: a.billId, amount: a.paymentAmount }));
 
-      const result = await createPayment.mutateAsync({
+      await createPayment.mutateAsync({
         vendorId,
         paymentDate,
         paymentMethod,

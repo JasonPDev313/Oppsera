@@ -726,7 +726,7 @@ export function useOccupancy(
 // Mutation Hook
 // ═══════════════════════════════════════════════════════════════════
 
-export function usePmsMutations(propertyId: string | null) {
+export function usePmsMutations(_propertyId: string | null) {
   const queryClient = useQueryClient();
 
   // ── Invalidation Helpers ────────────────────────────────────────

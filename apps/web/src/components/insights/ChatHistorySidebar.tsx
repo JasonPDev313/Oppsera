@@ -29,7 +29,7 @@ export function ChatHistorySidebar({
 
   // Refresh when parent signals (after sending a message)
   // The refreshKey prop changes → trigger a refresh
-  const lastRefreshKey = useRefreshOnChange(refreshKey, refresh);
+  useRefreshOnChange(refreshKey, refresh);
 
   return (
     <div className="flex flex-col h-full bg-card">

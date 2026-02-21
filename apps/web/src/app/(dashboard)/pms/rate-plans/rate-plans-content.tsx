@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { DollarSign, Plus, Tag } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { DollarSign, Plus, Tag, X, Loader2 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -44,6 +45,7 @@ type RatePlanRow = RatePlan & Record<string, unknown>;
 
 export default function RatePlansContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // ── State ────────────────────────────────────────────────────────
   const [properties, setProperties] = useState<Property[]>([]);
@@ -52,6 +54,15 @@ export default function RatePlansContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
+
+  // Create dialog
+  const isDialogOpen = searchParams.get('action') === 'new';
+  const [formCode, setFormCode] = useState('');
+  const [formName, setFormName] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formIsDefault, setFormIsDefault] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ── Load properties ───────────────────────────────────────────────
   useEffect(() => {
@@ -70,7 +81,7 @@ export default function RatePlansContent() {
       }
     })();
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, []);
 
   // ── Load rate plans ──────────────────────────────────────────────
@@ -114,8 +125,60 @@ export default function RatePlansContent() {
     setCursor(null);
     setHasMore(false);
     fetchRatePlans(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPropertyId]);
+
+  // ── Dialog handlers ──────────────────────────────────────────────
+  useEffect(() => {
+    if (isDialogOpen) {
+      setFormCode('');
+      setFormName('');
+      setFormDescription('');
+      setFormIsDefault(false);
+      setFormError(null);
+    }
+  }, [isDialogOpen]);
+
+  const closeDialog = useCallback(() => {
+    router.push('/pms/rate-plans', { scroll: false });
+  }, [router]);
+
+  const handleCreate = useCallback(async () => {
+    setFormError(null);
+    if (!formCode.trim()) {
+      setFormError('Code is required');
+      return;
+    }
+    if (!formName.trim()) {
+      setFormError('Name is required');
+      return;
+    }
+    const propId = selectedPropertyId || properties[0]?.id;
+    if (!propId) {
+      setFormError('No property available — please refresh the page');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await apiFetch('/api/v1/pms/rate-plans', {
+        method: 'POST',
+        body: JSON.stringify({
+          propertyId: propId,
+          code: formCode.trim(),
+          name: formName.trim(),
+          description: formDescription.trim() || undefined,
+          isDefault: formIsDefault,
+        }),
+      });
+      closeDialog();
+      fetchRatePlans(false);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create rate plan';
+      setFormError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [formCode, formName, formDescription, formIsDefault, selectedPropertyId, properties, closeDialog, fetchRatePlans]);
 
   // ── Property dropdown options ──────────────────────────────────
   const propertyOptions = useMemo(
@@ -258,6 +321,139 @@ export default function RatePlansContent() {
           )}
         </>
       )}
+
+      {/* Create Rate Plan Dialog */}
+      {isDialogOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={closeDialog}
+            />
+            <div className="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  New Rate Plan
+                </h2>
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {formError && (
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {formError}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {/* Property (read-only for single property) */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Property
+                  </label>
+                  {properties.length > 1 ? (
+                    <Select
+                      options={propertyOptions}
+                      value={selectedPropertyId}
+                      onChange={(v) => setSelectedPropertyId(v as string)}
+                      placeholder="Select property"
+                      className="w-full"
+                    />
+                  ) : (
+                    <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                      {properties[0]?.name ?? 'Loading...'}
+                    </div>
+                  )}
+                </div>
+
+                {/* Code */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Code <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formCode}
+                    onChange={(e) => setFormCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. RACK, WKND, PROMO"
+                    maxLength={20}
+                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    autoFocus
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Short code for this rate plan (e.g. RACK, WKND, PROMO)
+                  </p>
+                </div>
+
+                {/* Name */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="e.g. Rack Rate, Weekend Special"
+                    maxLength={100}
+                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    placeholder="e.g. Standard published rate"
+                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Is Default */}
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={formIsDefault}
+                    onChange={(e) => setFormIsDefault(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Set as default rate plan for this property
+                </label>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCreate}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {isSubmitting ? 'Creating...' : 'Create Rate Plan'}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import { Download, AlertTriangle } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
-import { PeriodSelector } from '@/components/accounting/period-selector';
 import { useTrialBalance } from '@/hooks/use-journals';
 import { formatAccountingMoney } from '@/types/accounting';
 import type { AccountType, TrialBalanceRow } from '@/types/accounting';

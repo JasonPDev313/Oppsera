@@ -183,7 +183,7 @@ export default function JournalsContent() {
   );
 }
 
-function JournalRow({ entry, onRefresh }: { entry: JournalEntry; onRefresh: () => void }) {
+function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onRefresh: () => void }) {
   const [showActions, setShowActions] = useState(false);
   const totalDebits = entry.lines.reduce((sum, l) => sum + (l.debitAmount || 0), 0);
   const totalCredits = entry.lines.reduce((sum, l) => sum + (l.creditAmount || 0), 0);

@@ -52,10 +52,6 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatMoney(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 function guestName(g: { firstName: string; lastName: string } | null): string {
   if (!g) return '\u2014';
   return `${g.firstName} ${g.lastName}`;
@@ -131,7 +127,6 @@ export default function PmsContent() {
       }
     })();
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Load dashboard data when property selected ──────────────────

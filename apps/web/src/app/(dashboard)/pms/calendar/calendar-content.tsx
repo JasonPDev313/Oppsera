@@ -113,7 +113,7 @@ function getWeekDates(start: Date): string[] {
 
 export default function CalendarContent() {
   const router = useRouter();
-  const { user, locations } = useAuthContext();
+  useAuthContext();
 
   // Property selection
   const [properties, setProperties] = useState<Property[]>([]);
@@ -142,7 +142,7 @@ export default function CalendarContent() {
         if (!cancelled) setError('Failed to load properties');
       });
     return () => { cancelled = true; };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
   // Load calendar data
   useEffect(() => {
