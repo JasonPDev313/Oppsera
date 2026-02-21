@@ -21,7 +21,7 @@ vi.mock('@oppsera/module-semantic/registry', () => ({
 
 // Middleware mock: pass ctx directly to handler so we can test route logic
 vi.mock('@oppsera/core/auth/with-middleware', () => ({
-  withMiddleware: (handler: Function, _opts?: unknown) => {
+  withMiddleware: (handler: (...args: unknown[]) => unknown, _opts?: unknown) => {
     mockWithMiddleware(handler, _opts);
     return (request: Request, ctx?: unknown) =>
       handler(request, ctx ?? makeMockCtx());

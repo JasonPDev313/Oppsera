@@ -42,7 +42,7 @@ vi.mock('@oppsera/module-semantic/observability', () => ({
 }));
 
 vi.mock('@oppsera/core/auth/with-middleware', () => ({
-  withMiddleware: (handler: Function, _opts?: unknown) => {
+  withMiddleware: (handler: (...args: unknown[]) => unknown, _opts?: unknown) => {
     mockWithMiddleware(handler, _opts);
     return (request: Request) => handler(request, makeMockCtx());
   },

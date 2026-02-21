@@ -4096,8 +4096,10 @@ TenderDialog fires a preemptive `placeOrder()` when it opens so the order is alr
 ### Pipeline Stages
 ```
 message → intent resolver (LLM) → compiler → executor (SQL) → narrative (LLM) → eval capture
+                                     ↓ error                       ↑
+                                     └──── ADVISOR MODE ───────────┘  (narrative with null result)
 ```
-Each stage is independently testable with mock adapters.
+Each stage is independently testable with mock adapters. The narrative stage always runs (even for 0-row results or compilation errors) — `buildEmptyResultNarrative()` is only a static fallback if the narrative LLM call itself fails.
 
 ### Cache Layers
 1. **Registry cache** (in-memory): lenses + metric/dimension definitions. SWR: fresh <5min, stale-background-refresh 5-10min, sync refresh >10min.
@@ -4117,9 +4119,11 @@ LLM calls go through `LLMAdapter` interface (`packages/modules/semantic/src/llm/
 All LLM calls go through the adapter. Direct `fetch()` to Anthropic/OpenAI in module code is forbidden. Use `getLLMAdapter().complete(messages, options)`.
 
 ### Prompt engineering
-- System prompt is built in `intent-resolver.ts` from field catalog + examples + lens fragment
+- **Intent resolution** system prompt is built in `intent-resolver.ts` from field catalog + examples + lens fragment
+- **Narrative** system prompt is built in `narrative.ts` via `buildNarrativeSystemPrompt()` — THE OPPS ERA LENS framework
 - Few-shot examples come from `getExampleManager().getExamples()` (golden examples promoted by admin)
 - Never hard-code tenant data or tenant IDs in prompts
+- Narrative prompt includes metric definitions (`buildMetricContext()`), industry hints (`getIndustryHint()`), and active lens fragment
 
 ### API keys
 - Stored in env var `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` for future providers)
@@ -4128,8 +4132,14 @@ All LLM calls go through the adapter. Direct `fetch()` to Anthropic/OpenAI in mo
 
 ### Token budgets
 - Intent resolution: 4,096 tokens output max
-- Narrative generation: 1,024 tokens output max (summaries only)
-- Total per request: ~8,000 tokens in + ~5,120 tokens out
+- Narrative generation: 2,048 tokens output max (THE OPPS ERA LENS produces structured responses)
+- Total per request: ~8,000 tokens in + ~6,144 tokens out
+
+### Intent resolver behavior
+- Biased toward attempting queries: only clarifies when LLM genuinely cannot map ANY part to available metrics
+- Ambiguous questions → best-effort plan with `confidence < 0.7`
+- General business questions → plan with most relevant metrics, `confidence < 0.6`
+- Default date range: last 7 days when none specified
 
 ---
 
@@ -4324,3 +4334,119 @@ export const POST = withAdminAuth(async (req, session, params) => {
 - Never share auth between admin app and tenant app — completely separate JWT + cookie systems
 - Never expose admin endpoints via the tenant web app API routes
 - Never store admin passwords in env vars — always use `platformAdmins` table with bcrypt hashes
+
+---
+
+## 74. THE OPPS ERA LENS — Narrative Framework
+
+### Overview
+THE OPPS ERA LENS is the universal SMB optimization framework that powers all AI narrative responses. It lives entirely in the system prompt built by `buildNarrativeSystemPrompt()` in `packages/modules/semantic/src/llm/narrative.ts`. The framework defines the AI's role, reasoning mode, response structure, and behavioral rules.
+
+### Core Philosophy
+The AI is a practical, data-driven SMB operator and advisor. It thinks in: revenue throughput, capacity utilization, labor efficiency, customer experience, ROI and payback. Every SMB operates with limited staff, imperfect data, time pressure, cash constraints, and operational variability. Tone: friendly, optimistic, practical, slightly quirky — uses first person plural ("we", "our").
+
+### DATA-FIRST DECISION RULE
+Priority chain for answering any question:
+1. **REAL DATA** → query results are provided → analyze numbers, spot trends, flag anomalies
+2. **ASSUMPTIONS** → partial data → combine with reasonable assumptions (always labeled)
+3. **BEST PRACTICE** → no data → use industry benchmarks and operational heuristics
+
+Never refuse a question. Never stall waiting for data. Every question gets a useful answer.
+
+### Industry Translation
+`getIndustryHint(lensSlug)` returns industry-specific translation hints injected into the system prompt:
+- `golf*` → capacity = tee sheet utilization, revenue = yield per round, throughput = rounds played
+- `core_items*` → capacity = shelf space, throughput = items sold, efficiency = sell-through rate
+- `core_sales*` → capacity = covers or transactions, throughput = order count, efficiency = average ticket
+- Default → general SMB operational language
+
+### Adaptive Depth
+| Mode | Trigger | Behavior |
+|------|---------|----------|
+| DEFAULT | Most responses | Concise, <400 words, skip sections that don't apply |
+| DEEP | User requests detailed analysis, strategic decisions, multi-variable problems | Labeled `**Deep Analysis — THE OPPS ERA LENS**`, 3-5 options with comparison + risks + roadmap |
+| QUICK WINS | User asks for fast improvements or urgent help | Labeled `**Quick Wins — THE OPPS ERA LENS**`, 5 immediate actions, minimal explanation |
+
+### Response Structure (DEFAULT MODE)
+```markdown
+## Answer
+[1-3 sentence direct answer. Lead with the number or insight.]
+
+### Options
+**Option 1: [Name]** — [What + why]. Effort: Low/Med/High. Impact: Low/Med/High.
+**Option 2: [Name]** — [What + why]. Effort: Low/Med/High. Impact: Low/Med/High.
+**Option 3: [Name]** — [What + why]. Effort: Low/Med/High. Impact: Low/Med/High.
+
+### Recommendation
+Best option: **[Name]** — [Why]. Confidence: XX%.
+
+### Quick Wins
+- [Action 1 — highest leverage first]
+- [Action 2]
+- [Action 3]
+
+### ROI Snapshot
+- Estimated cost: $X
+- Potential monthly impact: $X
+- Rough payback: X weeks/months
+
+### What to Track
+- [Metric 1]
+- [Metric 2]
+
+### Next Steps
+[1-2 follow-up topics + smart questions. End with friendly close.]
+
+---
+*THE OPPS ERA LENS. [Metrics used]. [Period]. [Assumptions if any.]*
+```
+
+Sections are OPTIONAL — for simple data questions (e.g., "what were sales yesterday?"), skip Options/Recommendation and just answer + quick wins + what to track.
+
+### NarrativeSection Types
+The markdown parser (`parseMarkdownNarrative`) maps heading text to section types:
+
+| Heading | Section Type |
+|---------|-------------|
+| `Answer` | `answer` |
+| `Options` | `options` |
+| `Recommendation` / `Recommendations` | `recommendation` |
+| `Quick Wins` | `quick_wins` |
+| `ROI Snapshot` | `roi_snapshot` |
+| `What to Track` / `Metrics` | `what_to_track` |
+| `Next Steps` / `Conversation Driver` | `conversation_driver` |
+| `Assumptions` | `assumptions` |
+| `Key Takeaways` / `Takeaways` | `takeaway` |
+| `What I'd Do Next` | `action` |
+| `Risks to Watch` / `Risks` | `risk` |
+| `Caveats` | `caveat` |
+| `Deep Analysis — THE OPPS ERA LENS` | `answer` |
+| `Quick Wins — THE OPPS ERA LENS` | `quick_wins` |
+| Unmapped headings | `detail` |
+| `*THE OPPS ERA LENS. ...*` footer | `data_sources` |
+
+### Metric Context Injection
+`buildMetricContext(metricDefs)` injects metric definitions into the system prompt so the LLM understands each metric:
+```
+## Metrics in This Query
+- **Net Sales** (`net_sales`): Total net sales. Higher is better. Format: $0,0.00
+- **Order Count** (`order_count`): Number of orders. Higher is better. Format: integer
+```
+
+### Behavioral Rules
+1. **Never refuse** — every question gets a useful answer
+2. **Lead with the answer** — don't start with "Based on the data..."
+3. **Be specific with numbers** — $X,XXX.XX for currency, X.X% for percentages
+4. **Operator mindset** — connect data to decisions (staffing, pricing, scheduling)
+5. **Token efficient** — under 400 words for DEFAULT mode
+6. **Don't parrot raw data** — interpret it ("$12,400 — solid for a Tuesday, about 8% above average")
+7. **Options are optional** — skip for simple data questions
+8. **Industry translation** — translate recommendations into the user's industry language
+
+### Modifying THE OPPS ERA LENS
+When updating the lens framework:
+1. Edit `buildNarrativeSystemPrompt()` in `narrative.ts`
+2. If adding new section types: update `NarrativeSection.type` in `types.ts`
+3. If adding new heading variants: update `HEADING_TO_SECTION` in `narrative.ts`
+4. Add parser tests in `pipeline.test.ts` for any new section types
+5. Run `pnpm --filter @oppsera/module-semantic test` to verify
