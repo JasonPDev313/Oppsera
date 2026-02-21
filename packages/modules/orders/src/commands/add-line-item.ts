@@ -2,7 +2,8 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { AppError, NotFoundError } from '@oppsera/shared';
+import { AppError, NotFoundError, computePackageAllocations } from '@oppsera/shared';
+import type { PackageMetadata } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
 import { eq, max } from 'drizzle-orm';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
@@ -21,6 +22,57 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
   const posItem = await catalogApi.getItemForPOS(ctx.tenantId, ctx.locationId, input.catalogItemId);
   if (!posItem) {
     throw new NotFoundError('Catalog item', input.catalogItemId);
+  }
+
+  // Resolve package component prices before entering the transaction (avoids N serial DB round-trips inside tx)
+  const packageMeta =
+    posItem.metadata && (posItem.metadata as unknown as PackageMetadata).isPackage
+      ? (posItem.metadata as unknown as PackageMetadata)
+      : null;
+
+  type EnrichedComponent = {
+    catalogItemId: string;
+    itemName: string;
+    itemType: string;
+    qty: number;
+    componentUnitPriceCents: number;
+    componentExtendedCents: number;
+    allocatedRevenueCents: number;
+    allocationWeight: number;
+    subDepartmentId: string | null;
+  };
+
+  let resolvedPackageComponents: EnrichedComponent[] | null = null;
+
+  if (packageMeta?.packageComponents && packageMeta.packageComponents.length > 0) {
+    // Fetch component prices + subdepartment IDs in parallel (outside tx for performance)
+    const componentData = await Promise.all(
+      packageMeta.packageComponents.map(async (comp) => {
+        const pricePromise = comp.componentUnitPrice != null
+          ? Promise.resolve(Math.round(comp.componentUnitPrice * 100))
+          : catalogApi.getEffectivePrice(ctx.tenantId, comp.catalogItemId, ctx.locationId!).then(
+              (d) => Math.round(d * 100),
+            );
+        const subDeptPromise = catalogApi.getSubDepartmentForItem(ctx.tenantId, comp.catalogItemId);
+        const [priceCents, subDeptId] = await Promise.all([pricePromise, subDeptPromise]);
+        return { priceCents, subDeptId };
+      }),
+    );
+
+    const unitPriceCents = input.priceOverride
+      ? input.priceOverride.unitPrice
+      : posItem.unitPriceCents;
+
+    const allocationInputs = packageMeta.packageComponents.map((comp, i) => ({
+      catalogItemId: comp.catalogItemId,
+      itemName: comp.itemName,
+      itemType: comp.itemType,
+      qty: comp.qty,
+      componentUnitPriceCents: componentData[i]!.priceCents,
+      subDepartmentId: componentData[i]!.subDeptId,
+    }));
+
+    resolvedPackageComponents = computePackageAllocations(unitPriceCents, allocationInputs);
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
@@ -57,6 +109,8 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       catalogItemName: posItem.name,
       catalogItemSku: posItem.sku,
       itemType: posItem.itemType,
+      subDepartmentId: posItem.subDepartmentId ?? null,
+      taxGroupId: posItem.taxInfo.taxGroups[0]?.id ?? null,
       qty: String(input.qty),
       unitPrice,
       originalUnitPrice: input.priceOverride ? posItem.unitPriceCents : null,
@@ -69,7 +123,7 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
       modifiers: input.modifiers ?? null,
       specialInstructions: input.specialInstructions ?? null,
       selectedOptions: input.selectedOptions ?? null,
-      packageComponents: null,
+      packageComponents: resolvedPackageComponents,
       notes: input.notes ?? null,
     }).returning();
 

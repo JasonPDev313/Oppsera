@@ -152,6 +152,7 @@ export const accountingSettings = pgTable('accounting_settings', {
   defaultRetainedEarningsAccountId: text('default_retained_earnings_account_id'),
   defaultRoundingAccountId: text('default_rounding_account_id'),
   roundingToleranceCents: integer('rounding_tolerance_cents').notNull().default(5),
+  defaultPmsGuestLedgerAccountId: text('default_pms_guest_ledger_account_id'),
   enableCogsPosting: boolean('enable_cogs_posting').notNull().default(false),
   enableInventoryPosting: boolean('enable_inventory_posting').notNull().default(false),
   postByLocation: boolean('post_by_location').notNull().default(true),

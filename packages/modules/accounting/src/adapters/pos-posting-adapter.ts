@@ -10,24 +10,37 @@ import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
+interface PackageComponent {
+  catalogItemId: string;
+  catalogItemName: string;
+  subDepartmentId: string | null;
+  qty: number;
+  componentUnitPriceCents: number;
+  componentExtendedCents: number;
+  allocatedRevenueCents: number;
+  allocationWeight: number;
+}
+
 interface TenderRecordedPayload {
   tenderId: string;
   orderId: string;
   tenantId: string;
   locationId: string;
-  paymentMethod: string;
+  tenderType?: string;
+  paymentMethod?: string;
   amount: number; // cents
   tipAmount?: number;
   customerId?: string;
   lines?: Array<{
-    itemId: string;
-    itemName: string;
-    subDepartmentId?: string;
+    catalogItemId: string;
+    catalogItemName: string;
+    subDepartmentId: string | null;
     qty: number;
     extendedPriceCents: number;
-    taxGroupId?: string;
-    taxAmountCents?: number;
-    costCents?: number;
+    taxGroupId: string | null;
+    taxAmountCents: number;
+    costCents: number | null;
+    packageComponents: PackageComponent[] | null;
   }>;
   businessDate: string;
 }
@@ -63,9 +76,10 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   const missingMappings: string[] = [];
 
   // 1. Resolve payment type → deposit/clearing account (DEBIT side)
-  const paymentTypeMapping = await resolvePaymentTypeAccounts(db, tenantId, data.paymentMethod);
+  const paymentMethod = data.tenderType ?? data.paymentMethod ?? 'unknown';
+  const paymentTypeMapping = await resolvePaymentTypeAccounts(db, tenantId, paymentMethod);
   if (!paymentTypeMapping) {
-    missingMappings.push(`payment_type:${data.paymentMethod}`);
+    missingMappings.push(`payment_type:${paymentMethod}`);
   } else {
     // If undeposited funds workflow is enabled, use clearing account
     const depositAccountId = settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId
@@ -79,7 +93,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
       creditAmount: '0',
       locationId: data.locationId,
       customerId: data.customerId,
-      memo: `POS tender ${data.paymentMethod}`,
+      memo: `POS tender ${paymentMethod}`,
     });
   }
 
@@ -91,11 +105,27 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     const taxByGroup = new Map<string, number>();
 
     for (const line of data.lines) {
-      const subDeptId = line.subDepartmentId ?? 'unmapped';
-      const existing = revenueBySubDept.get(subDeptId) ?? 0;
-      revenueBySubDept.set(subDeptId, existing + line.extendedPriceCents);
+      // Check if this is a package with enriched component allocations
+      const hasEnrichedComponents = line.packageComponents
+        && line.packageComponents.length > 0
+        && line.packageComponents[0]?.allocatedRevenueCents != null;
+
+      if (hasEnrichedComponents) {
+        // Package item: split revenue across component subdepartments
+        for (const comp of line.packageComponents!) {
+          const compSubDeptId = comp.subDepartmentId ?? 'unmapped';
+          const existing = revenueBySubDept.get(compSubDeptId) ?? 0;
+          revenueBySubDept.set(compSubDeptId, existing + comp.allocatedRevenueCents);
+        }
+      } else {
+        // Regular item or legacy package: use line-level subdepartment
+        const subDeptId = line.subDepartmentId ?? 'unmapped';
+        const existing = revenueBySubDept.get(subDeptId) ?? 0;
+        revenueBySubDept.set(subDeptId, existing + line.extendedPriceCents);
+      }
 
       if (line.costCents && settings.enableCogsPosting) {
+        const subDeptId = line.subDepartmentId ?? 'unmapped';
         cogsLines.push({ subDeptId, costCents: line.costCents * line.qty });
       }
 

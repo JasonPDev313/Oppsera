@@ -1,0 +1,255 @@
+import type { LLMAdapter, LLMMessage, IntentContext, ResolvedIntent } from './types';
+import { LLMError } from './types';
+import type { QueryPlan } from '../compiler/types';
+import type { RegistryCatalog, MetricDef, DimensionDef } from '../registry/types';
+import type { EvalExample } from '../evaluation/types';
+import { getLLMAdapter } from './adapters/anthropic';
+
+// ── System prompt builder ─────────────────────────────────────────
+// Constructs the intent-resolution prompt from:
+//  1. Role + output contract
+//  2. Registry catalog (metrics + dimensions available)
+//  3. Lens-specific context (if active)
+//  4. Current date + tenant context
+//  5. Golden examples (few-shot, if provided)
+
+function buildCatalogSnippet(catalog: RegistryCatalog): string {
+  const metrics = catalog.metrics.map((m: MetricDef) =>
+    `  - ${m.slug}: ${m.displayName}${m.description ? ` — ${m.description}` : ''}`,
+  ).join('\n');
+
+  const dimensions = catalog.dimensions.map((d: DimensionDef) =>
+    `  - ${d.slug}: ${d.displayName}${d.isTimeDimension ? ' [time]' : ''}${d.description ? ` — ${d.description}` : ''}`,
+  ).join('\n');
+
+  return `## Available Metrics\n${metrics}\n\n## Available Dimensions\n${dimensions}`;
+}
+
+function buildExamplesSnippet(examples: EvalExample[]): string {
+  if (examples.length === 0) return '';
+
+  const lines = examples.slice(0, 6).map((ex) => {
+    const plan = JSON.stringify(ex.plan, null, 2);
+    return `### Example\nQuestion: "${ex.question}"\nPlan:\n\`\`\`json\n${plan}\n\`\`\``;
+  });
+
+  return `## Golden Examples\nStudy these to understand the expected plan structure:\n\n${lines.join('\n\n')}`;
+}
+
+function buildSystemPrompt(
+  catalog: RegistryCatalog,
+  context: IntentContext,
+  examples: EvalExample[],
+  lensPromptFragment?: string | null,
+): string {
+  const catalogSection = buildCatalogSnippet(catalog);
+  const examplesSection = buildExamplesSnippet(examples);
+  const lensSection = lensPromptFragment
+    ? `## Active Lens Context\n${lensPromptFragment}\n`
+    : '';
+
+  return `You are the intent-resolution engine for OppsEra, a business analytics platform for hospitality and retail operators.
+
+Your job: translate a user's natural-language question into a structured query plan.
+
+## Output Contract
+Respond with a single JSON object — no markdown fences, no prose before/after. Schema:
+\`\`\`
+{
+  "plan": {
+    "metrics": string[],          // slugs from Available Metrics
+    "dimensions": string[],       // slugs from Available Dimensions
+    "filters": [                  // optional filters
+      { "dimensionSlug": string, "operator": "eq"|"neq"|"gt"|"gte"|"lt"|"lte"|"in"|"nin"|"between"|"like"|"is_null"|"is_not_null",
+        "value"?: string|number,
+        "values"?: (string|number)[],
+        "rangeStart"?: string, "rangeEnd"?: string }
+    ],
+    "dateRange": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" } | null,
+    "timeGranularity": "day"|"week"|"month"|"quarter"|"year" | null,
+    "sort": [{ "metricSlug": string, "direction": "asc"|"desc" }] | null,
+    "limit": number | null,
+    "lensSlug": string | null,
+    "intent": string,             // 1-sentence description of what user wants
+    "rationale": string           // brief explanation of choices made
+  } | null,
+  "confidence": number,           // 0.0–1.0, your certainty the plan is correct
+  "clarificationNeeded": boolean, // true if you cannot resolve without more info
+  "clarificationMessage": string | null  // the question to ask the user (if clarificationNeeded)
+}
+\`\`\`
+
+## Rules
+1. Only use metric/dimension slugs from the lists below. Never invent slugs.
+2. If the user's question is ambiguous but answerable with reasonable assumptions, make the best plan and set confidence < 0.8.
+3. **Bias toward attempting a query.** If the question is ambiguous, make your best attempt with reasonable assumptions and set confidence < 0.7. Only set clarificationNeeded = true when you genuinely cannot map ANY part of the question to available metrics (e.g., asks about weather data we don't have). A partial answer is better than no answer.
+4. Date ranges: resolve relative terms ("last month", "this week", "YTD") using currentDate. If no date range is specified, default to the last 7 days.
+5. Always include a date dimension when a date range is specified.
+6. Filters must reference dimension slugs that are included in dimensions[].
+7. Return null for plan only when clarificationNeeded = true.
+8. For general business questions that don't map directly to metrics (e.g., "how should I schedule staff?", "any ideas to boost revenue?"), still build a plan using the most relevant available metrics and set confidence < 0.6. The downstream narrative layer will augment your data with business advice.
+
+## Context
+- Current date: ${context.currentDate}
+- Tenant: ${context.tenantId}
+- User role: ${context.userRole}
+${context.locationId ? `- Location: ${context.locationId}` : '- Scope: all locations'}
+${context.timezone ? `- Timezone: ${context.timezone}` : ''}
+
+${lensSection}${catalogSection}
+
+${examplesSection}`.trim();
+}
+
+// ── JSON parser ───────────────────────────────────────────────────
+// Tolerant parser: strips outer markdown fences if present.
+
+interface RawIntentResponse {
+  plan: Record<string, unknown> | null;
+  confidence: number;
+  clarificationNeeded: boolean;
+  clarificationMessage?: string | null;
+}
+
+function parseIntentResponse(raw: string): RawIntentResponse {
+  let cleaned = raw.trim();
+
+  // Strip optional markdown fences
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  }
+
+  // If response contains prose around JSON, try to extract the JSON object
+  if (!cleaned.startsWith('{')) {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[0];
+    }
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    throw new LLMError(
+      `Intent resolver returned non-JSON: ${cleaned.slice(0, 200)}`,
+      'PARSE_ERROR',
+    );
+  }
+
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new LLMError('Intent resolver response is not an object', 'PARSE_ERROR');
+  }
+
+  const obj = parsed as Record<string, unknown>;
+
+  if (typeof obj.confidence !== 'number') {
+    throw new LLMError('Intent resolver missing confidence field', 'PARSE_ERROR');
+  }
+  if (typeof obj.clarificationNeeded !== 'boolean') {
+    throw new LLMError('Intent resolver missing clarificationNeeded field', 'PARSE_ERROR');
+  }
+
+  return {
+    plan: (obj.plan as Record<string, unknown> | null) ?? null,
+    confidence: Math.min(1, Math.max(0, obj.confidence as number)),
+    clarificationNeeded: obj.clarificationNeeded as boolean,
+    clarificationMessage:
+      typeof obj.clarificationMessage === 'string' ? obj.clarificationMessage : null,
+  };
+}
+
+// ── Plan extractor ────────────────────────────────────────────────
+// Coerces the raw plan record into a typed QueryPlan.
+
+function extractQueryPlan(raw: Record<string, unknown> | null): QueryPlan | null {
+  if (!raw) return null;
+
+  return {
+    metrics: Array.isArray(raw.metrics) ? (raw.metrics as string[]) : [],
+    dimensions: Array.isArray(raw.dimensions) ? (raw.dimensions as string[]) : [],
+    filters: Array.isArray(raw.filters) ? (raw.filters as QueryPlan['filters']) : [],
+    dateRange:
+      raw.dateRange &&
+      typeof (raw.dateRange as Record<string, unknown>).start === 'string' &&
+      typeof (raw.dateRange as Record<string, unknown>).end === 'string'
+        ? {
+            start: (raw.dateRange as Record<string, unknown>).start as string,
+            end: (raw.dateRange as Record<string, unknown>).end as string,
+          }
+        : undefined,
+    timeGranularity:
+      typeof raw.timeGranularity === 'string'
+        ? (raw.timeGranularity as QueryPlan['timeGranularity'])
+        : undefined,
+    sort: Array.isArray(raw.sort) ? (raw.sort as QueryPlan['sort']) : undefined,
+    limit: typeof raw.limit === 'number' ? raw.limit : undefined,
+    lensSlug: typeof raw.lensSlug === 'string' ? raw.lensSlug : undefined,
+    intent: typeof raw.intent === 'string' ? raw.intent : undefined,
+    rationale: typeof raw.rationale === 'string' ? raw.rationale : undefined,
+  };
+}
+
+// ── Public API ────────────────────────────────────────────────────
+
+export interface ResolveIntentOptions {
+  catalog: RegistryCatalog;
+  examples?: EvalExample[];
+  lensPromptFragment?: string | null;
+  adapter?: LLMAdapter;
+}
+
+export async function resolveIntent(
+  userMessage: string,
+  context: IntentContext,
+  opts: ResolveIntentOptions,
+): Promise<ResolvedIntent> {
+  const { catalog, examples = [], lensPromptFragment, adapter } = opts;
+  const llm = adapter ?? getLLMAdapter();
+
+  const systemPrompt = buildSystemPrompt(catalog, context, examples, lensPromptFragment);
+
+  // Compose conversation: only user messages from history (assistant messages
+  // contain narrative prose which causes the LLM to respond conversationally
+  // instead of with JSON).
+  const historyUserMessages = (context.history ?? [])
+    .filter((m) => m.role === 'user')
+    .slice(-5)
+    .map((m) => ({ role: 'user' as const, content: m.content }));
+
+  const messages: LLMMessage[] = [
+    ...historyUserMessages,
+    { role: 'user', content: userMessage + '\n\nRespond ONLY with the JSON object. No prose.' },
+  ];
+
+  const startMs = Date.now();
+  const response = await llm.complete(messages, {
+    systemPrompt,
+    temperature: 0,
+    maxTokens: 1024,
+  });
+  const latencyMs = Date.now() - startMs;
+
+  const parsed = parseIntentResponse(response.content);
+  const plan = extractQueryPlan(parsed.plan);
+
+  // If LLM says clarification needed but still returned a plan, trust the flag
+  const isClarification = parsed.clarificationNeeded || plan === null;
+
+  return {
+    plan: plan ?? {
+      metrics: [],
+      dimensions: [],
+      filters: [],
+    },
+    confidence: parsed.confidence,
+    isClarification,
+    clarificationText: parsed.clarificationMessage ?? undefined,
+    rawResponse: response.content,
+    tokensInput: response.tokensInput,
+    tokensOutput: response.tokensOutput,
+    latencyMs,
+    provider: response.provider,
+    model: response.model,
+  };
+}

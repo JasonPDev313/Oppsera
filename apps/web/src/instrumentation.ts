@@ -77,9 +77,31 @@ export async function register() {
 
       const accounting = await import('@oppsera/module-accounting');
       bus.subscribe('tender.recorded.v1', accounting.handleTenderForAccounting);
+      bus.subscribe('pms.folio.charge_posted.v1', accounting.handleFolioChargeForAccounting);
       console.log('Registered accounting event consumers');
     } catch (e) {
       console.error('Failed to initialize accounting:', e);
+    }
+
+    // PMS consumers (calendar + occupancy projectors)
+    try {
+      const pms = await import('@oppsera/module-pms');
+      bus.subscribe('pms.reservation.created.v1', pms.handleCalendarProjection);
+      bus.subscribe('pms.reservation.moved.v1', pms.handleCalendarProjection);
+      bus.subscribe('pms.reservation.cancelled.v1', pms.handleCalendarProjection);
+      bus.subscribe('pms.reservation.checked_in.v1', pms.handleCalendarProjection);
+      bus.subscribe('pms.reservation.checked_out.v1', pms.handleCalendarProjection);
+      bus.subscribe('pms.reservation.no_show.v1', pms.handleCalendarProjection);
+
+      bus.subscribe('pms.reservation.created.v1', pms.handleOccupancyProjection);
+      bus.subscribe('pms.reservation.moved.v1', pms.handleOccupancyProjection);
+      bus.subscribe('pms.reservation.cancelled.v1', pms.handleOccupancyProjection);
+      bus.subscribe('pms.reservation.checked_in.v1', pms.handleOccupancyProjection);
+      bus.subscribe('pms.reservation.checked_out.v1', pms.handleOccupancyProjection);
+      bus.subscribe('pms.reservation.no_show.v1', pms.handleOccupancyProjection);
+      console.log('Registered PMS event consumers');
+    } catch (e) {
+      console.error('Failed to register PMS consumers:', e);
     }
   }
   // TODO: Uncomment when @sentry/nextjs is installed:

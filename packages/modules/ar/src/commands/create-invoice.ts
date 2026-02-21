@@ -1,9 +1,10 @@
+import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { arInvoices, arInvoiceLines } from '@oppsera/db';
-import { generateUlid } from '@oppsera/shared';
+import { arInvoices, arInvoiceLines, customers } from '@oppsera/db';
+import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { AR_EVENTS } from '../events/types';
 
 interface CreateInvoiceInput {
@@ -29,6 +30,14 @@ interface CreateInvoiceInput {
 
 export async function createInvoice(ctx: RequestContext, input: CreateInvoiceInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Validate customer exists
+    const [customer] = await tx
+      .select({ id: customers.id })
+      .from(customers)
+      .where(and(eq(customers.id, input.customerId), eq(customers.tenantId, ctx.tenantId)))
+      .limit(1);
+    if (!customer) throw new NotFoundError('Customer', input.customerId);
+
     const invoiceId = generateUlid();
 
     // Compute total from lines

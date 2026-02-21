@@ -474,6 +474,8 @@ Audit log writes **never throw** — failures are caught and logged to console. 
 
 **Vitest** — all test files: `__tests__/*.test.ts`
 
+Coverage: `@vitest/coverage-v8` configured in all 16 vitest configs. Run `pnpm test:coverage` for reports (text + json-summary + lcov). See §83 for CI integration.
+
 ### Mock Pattern (vi.hoisted)
 
 ```typescript
@@ -1353,6 +1355,13 @@ metadata: jsonb('metadata').$type<Record<string, unknown>>(),
 
 Shared metadata types: `FnbMetadata`, `RetailMetadata`, `ServiceMetadata`, `PackageMetadata`, `CatalogItemMetadata` (union). Defined in `packages/shared/src/types/catalog-metadata.ts`, re-exported by `@oppsera/shared`.
 
+`PackageMetadata` key fields:
+- `isPackage: true` — presence flag; detected by `addLineItem` and POS tap handler
+- `pricingMode?: 'fixed' | 'sum_of_components'` — `fixed` = manual price; `sum_of_components` = computed from component sum
+- `packageComponents[].componentUnitPrice?: number` — component price override in **dollars** stored in catalog; if absent, `addLineItem` fetches live price via `catalogApi.getEffectivePrice()` at order time
+
+Revenue allocation helper: `computePackageAllocations(packageSalePriceCents, components)` in `@oppsera/shared`. Called by `addLineItem` to produce `allocatedRevenueCents` per component stored on `order_lines.packageComponents`.
+
 ### Junction Table `isDefault` Pattern
 
 When a many-to-many junction needs to distinguish default vs optional associations, add a boolean flag on the junction table itself (not in metadata):
@@ -1550,7 +1559,7 @@ apps/web/src/components/pos/
 ├── CustomerAttachment.tsx   # Customer search/attach/detach
 ├── ModifierDialog.tsx       # F&B item configurator (fractions, modifiers, notes)
 ├── OptionPickerDialog.tsx   # Retail option set picker (required validation)
-├── PackageConfirmDialog.tsx # Package component list with type badges
+├── PackageConfirmDialog.tsx # Package component list; pricing table in sum_of_components mode
 ├── PriceOverrideDialog.tsx  # Price override with reason + manager PIN
 ├── ServiceChargeDialog.tsx  # Service charge (percentage/fixed, taxable)
 ├── DiscountDialog.tsx       # Discount (percentage/fixed with preview)
@@ -1583,7 +1592,7 @@ Retail uses `normal`, F&B uses `large`. This keeps the component reusable while 
 | `FnbLineItem`     | Modifiers, special instructions, fraction picker | +/- cycling `allowedFractions` |
 | `RetailLineItem`  | Selected options (Size: M, Color: Blue)          | None (qty=1)                   |
 | `ServiceLineItem` | Duration from metadata                           | None (qty=1)                   |
-| `PackageLineItem` | "Includes: item1, item2, ..." from components    | None (qty=1)                   |
+| `PackageLineItem` | "Includes: item1, item2, ..." from components. In `sum_of_components` mode shows per-component unit price and allocation %. | None (qty=1) |
 
 All renderers show: price override indicator (strikethrough + new price + reason badge), notes, line total with tax.
 
@@ -2384,6 +2393,29 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - **Portal dialog cleanup on POS switch**: `useEffect` in each POS content component closes all portaled dialog states when `isActive` becomes false, preventing leaked dialogs across POS modes.
 - New files: `page-skeleton.tsx`, `dashboard/loading.tsx`, `catalog/loading.tsx`, `orders/loading.tsx`, `settings/loading.tsx`, `catalog-content.tsx`, `orders-content.tsx`, `settings-content.tsx`, `item-detail-content.tsx`, `item-edit-content.tsx`, `customer-detail-content.tsx`, `billing-detail-content.tsx`, `order-detail-content.tsx`, `taxes-content.tsx`, `memberships-content.tsx`, `vendors-content.tsx`, `vendor-detail-content.tsx`, `reports-content.tsx`, `golf-reports-content.tsx`, `receipt-detail-content.tsx`, `0065_list_page_indexes.sql`
 
+**Milestone 16: Semantic Layer (AI Insights) + Admin App**
+
+- Sessions 0–10: Full AI Insights module — registry, compiler, LLM pipeline, lenses, cache, observability, evaluation
+- **Semantic Module** (`packages/modules/semantic/`): 8 sub-path exports (registry, compiler, llm, lenses, cache, observability, evaluation, setup)
+- **Schema**: `semantic.ts` (6 tables: metrics, dimensions, metric-dimensions, table-sources, lenses) + `evaluation.ts` (4 tables: eval-sessions, eval-turns, eval-examples, eval-quality-daily) + `platform.ts` (platform-admins). Migrations 0070–0073
+- **Registry**: In-memory SWR cache. 8 core metrics + 8 golf metrics, 6 core dimensions + 6 golf dimensions, 60+ relations, 4 system lenses, 8 golf examples. `syncRegistryToDb()` + CLI `semantic:sync`
+- **Query Compiler**: `compilePlan()` — registry validation → parameterized SQL with GROUP BY, WHERE, ORDER BY, LIMIT. Guardrails: 10K rows, 365d range, 20 cols, 15 filters, tenant isolation
+- **LLM Pipeline**: `runPipeline()` — intent resolution (Claude Haiku) → compilation → SQL execution → narrative generation. Query cache (5min LRU, 200 entries). Clarification short-circuit. Best-effort eval capture
+- **Evaluation Layer**: Quality scoring (40% admin + 30% user + 30% heuristics). Capture service (fire-and-forget). User feedback (1-5 stars + tags + text). Admin review (verdict + corrected plan). Example promotion for few-shot learning. Quality daily aggregation
+- **Custom Lenses**: CRUD commands with slug validation. Partial unique indexes (system vs tenant). System + custom can share slug (custom takes priority)
+- **Cache Layer**: LRU query cache (200 entries, 5min TTL, djb2 key hash). Per-tenant rate limiter (30 req/min sliding window). Admin invalidation API
+- **Observability**: In-memory per-tenant + global metrics (p50/p95 latency, cache hit rate, token usage, error rate)
+- **Chat UI**: 3 pages (`/insights`, `/insights/history`, `/insights/lenses`). `useSemanticChat` hook (multi-turn, 10-message context). `ChatMessageBubble` (markdown + table + debug panel). `FeedbackWidget` (thumbs + stars + tags). Sidebar "AI Insights" with Sparkles icon
+- **API Routes**: 10 endpoints under `/api/v1/semantic/` — `/ask`, `/query`, `/metrics`, `/dimensions`, `/lenses`, `/lenses/[slug]`, `/eval/feed`, `/eval/turns/[id]/feedback`, `/admin/invalidate`, `/admin/metrics`
+- **Admin App** (`apps/admin/`): Separate Next.js app on port 3001. JWT auth with bcrypt + `platformAdmins` table. 3 roles: viewer/admin/super_admin. 5 pages: eval feed, turn detail, quality dashboard, golden examples, patterns. 12 API routes. `withAdminAuth(handler, minRole)` middleware
+- **Entitlement**: `semantic` module added to core entitlements registry. `tools/scripts/add-semantic-entitlement.ts` for existing tenants
+- **Utility script**: `scripts/switch-env.sh` (toggle local/remote Supabase)
+- New files: ~120 files across packages/modules/semantic/, apps/admin/, apps/web/src/app/(dashboard)/insights/, apps/web/src/app/api/v1/semantic/, apps/web/src/components/semantic/, apps/web/src/components/insights/
+
+### Test Coverage
+
+1304 tests: 134 core + 68 catalog + 52 orders + 37 shared (22 original + 15 package-allocation) + 100 customers + 424 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 269 semantic (62 golf-registry + 25 registry + 35 lenses + 22 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api)
+
 **Milestone 16: Room Layout Builder**
 
 - Sessions 1-14 (room-builder branch): Full drag-and-drop floor plan editor with Konva.js
@@ -2398,8 +2430,9 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - Session 32: POS posting adapter (`handleTenderForAccounting`), legacy bridge adapter, AccountingPostingApi wiring, tenant COA bootstrap, close period workflow (migration 0075)
 - Session 33: AR schema (4 tables), invoice/receipt lifecycle, AR-GL reconciliation, bridge adapter (migration 0076)
 - Session 34: Financial statements (P&L, balance sheet, sales tax, cash flow, period comparison, health summary), retained earnings, statement layouts (migration 0077)
+- Session 36: GL Mapping Frontend — enriched sub-department query (joins catalog hierarchy + GL accounts), flexible 2/3-level hierarchy support, coverage API with totals, items drill-down, flat/grouped rendering modes, AccountPicker type filtering
 - Architecture: See CONVENTIONS.md §66-70 for full details
-- Total: ~26 tables, ~41 commands, ~37 queries, ~72 API routes, ~175 tests
+- Total: ~26 tables, ~41 commands, ~39 queries, ~75 API routes, ~197 tests
 
 ### Test Coverage
 
@@ -2414,6 +2447,10 @@ Located at `apps/web/src/app/(auth)/onboard/page.tsx`:
 - Purchase Orders Phases 2-6 (commands, queries, API routes, frontend)
 - Receiving frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
 - Settings → Dashboard tab (widget toggles, notes editor)
+- Run migrations 0060-0065, 0070-0073 on dev DB
+- Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
+- For existing tenants: run `tools/scripts/add-semantic-entitlement.ts`
+- ~~Package "Price as sum of components"~~ ✓ DONE (Session 27)
 - Run migrations 0066-0077 on dev DB
 
 ---
@@ -4069,7 +4106,435 @@ TenderDialog fires a preemptive `placeOrder()` when it opens so the order is alr
 2. **Always deduplicate placeOrder** — preemptive (dialog open) + handleSubmit (Pay click) must share the same promise
 3. **TenderDialog manages its own version tracking** — `versionRef` and `currentVersion` state persist across dialog close/reopen for the same order via refs
 
-## 65. Room Layout Builder Architecture
+
+---
+
+## 65. Semantic Layer Architecture
+
+### Module Location
+`packages/modules/semantic/` — exported as `@oppsera/module-semantic`
+
+### Sub-path exports (package.json `exports`)
+| Import path | Contents |
+|---|---|
+| `@oppsera/module-semantic/llm` | `runPipeline`, LLM adapters, pipeline types |
+| `@oppsera/module-semantic/compiler` | `compilePlan`, compiler types |
+| `@oppsera/module-semantic/registry` | `buildRegistryCatalog`, `getLens`, registry cache |
+| `@oppsera/module-semantic/evaluation` | Eval capture, feedback, queries, examples |
+| `@oppsera/module-semantic/cache` | Query cache, rate limiter |
+| `@oppsera/module-semantic/observability` | Per-tenant + global metrics |
+
+### Pipeline Stages
+```
+message → intent resolver (LLM) → compiler → executor (SQL) → narrative (LLM) → eval capture
+                                     ↓ error                       ↑
+                                     └──── ADVISOR MODE ───────────┘  (narrative with null result)
+```
+Each stage is independently testable with mock adapters. The narrative stage always runs (even for 0-row results or compilation errors) — `buildEmptyResultNarrative()` is only a static fallback if the narrative LLM call itself fails.
+
+### Cache Layers
+1. **Registry cache** (in-memory): lenses + metric/dimension definitions. SWR: fresh <5min, stale-background-refresh 5-10min, sync refresh >10min.
+2. **Query cache** (in-memory LRU): compiled SQL + params → result rows. 200-entry max, 5-min TTL, keyed by `djb2(tenantId|sql|params)`.
+
+### Entitlement guard
+All semantic routes use `{ entitlement: 'semantic', permission: 'semantic.query' }` in `withMiddleware`. The insights layout also checks `isModuleEnabled('semantic')` client-side for UI gating.
+
+---
+
+## 66. LLM Integration Conventions
+
+### Adapter pattern
+LLM calls go through `LLMAdapter` interface (`packages/modules/semantic/src/llm/adapters/`). The adapter is swappable via `setLLMAdapter()` — tests inject `MockLLMAdapter` without any real API calls.
+
+### Never call LLM APIs directly
+All LLM calls go through the adapter. Direct `fetch()` to Anthropic/OpenAI in module code is forbidden. Use `getLLMAdapter().complete(messages, options)`.
+
+### Prompt engineering
+- **Intent resolution** system prompt is built in `intent-resolver.ts` from field catalog + examples + lens fragment
+- **Narrative** system prompt is built in `narrative.ts` via `buildNarrativeSystemPrompt()` — THE OPPS ERA LENS framework
+- Few-shot examples come from `getExampleManager().getExamples()` (golden examples promoted by admin)
+- Never hard-code tenant data or tenant IDs in prompts
+- Narrative prompt includes metric definitions (`buildMetricContext()`), industry hints (`getIndustryHint()`), and active lens fragment
+
+### API keys
+- Stored in env var `ANTHROPIC_API_KEY` (or `OPENAI_API_KEY` for future providers)
+- Never log API keys — adapters must strip them from error messages
+- Rotate keys via env var change + redeploy; no DB storage
+
+### Token budgets
+- Intent resolution: 4,096 tokens output max
+- Narrative generation: 2,048 tokens output max (THE OPPS ERA LENS produces structured responses)
+- Total per request: ~8,000 tokens in + ~6,144 tokens out
+
+### Intent resolver behavior
+- Biased toward attempting queries: only clarifies when LLM genuinely cannot map ANY part to available metrics
+- Ambiguous questions → best-effort plan with `confidence < 0.7`
+- General business questions → plan with most relevant metrics, `confidence < 0.6`
+- Default date range: last 7 days when none specified
+
+---
+
+## 67. Semantic Security Conventions
+
+### SQL injection prevention
+- The query compiler generates parameterized SQL only — values go into `params[]`, never string-concatenated
+- Tenant isolation is enforced in the executor via `SET LOCAL app.current_tenant_id` + RLS
+- The executor validates the compiled SQL is a SELECT (no DDL, DML)
+
+### Rate limiting
+- Per-tenant sliding window: 30 queries per 60 seconds (in-memory at Stage 1, Redis at Stage 2)
+- Rate limit is checked in the `/ask` route handler before pipeline execution
+- Returns 429 with `Retry-After` and `X-RateLimit-Reset` headers
+
+### Admin routes
+- `/api/v1/semantic/admin/*` requires `semantic.admin` permission
+- Never expose raw SQL, tenant data, or LLM prompts in admin metrics
+
+---
+
+## 68. Chat UI Conventions (AI Insights)
+
+### Component hierarchy
+```
+InsightsContent (insights-content.tsx)
+  ├── flex h-[calc(100vh-64px)]        ← outer two-column layout
+  │   ├── Chat column (flex-1 min-w-0)
+  │   │   ├── Header (debug toggle, export, clear, sidebar toggles)
+  │   │   ├── Loaded session banner (indigo, shows when viewing a recalled session)
+  │   │   ├── Message area (overflow-y-auto, max-w-4xl mx-auto)
+  │   │   │   ├── Empty state with suggested questions
+  │   │   │   └── ChatMessageBubble (semantic/chat-message.tsx)
+  │   │   │         ├── QueryResultTable
+  │   │   │         ├── PlanDebugPanel (showDebug=true only)
+  │   │   │         └── FeedbackWidget (insights/FeedbackWidget.tsx, evalTurnId required)
+  │   │   │               └── RatingStars (insights/RatingStars.tsx)
+  │   │   └── ChatInput (auto-resize, border-t)
+  │   ├── Desktop sidebar (hidden lg:flex w-80, border-l)
+  │   │   └── ChatHistorySidebar (insights/ChatHistorySidebar.tsx)
+  │   └── Mobile overlay (fixed inset-0 z-30 lg:hidden)
+  │       └── ChatHistorySidebar (with onClose prop)
+```
+
+### Chat history sidebar
+The sidebar is an **inline flexbox peer** of the chat column, NOT a portal overlay. Both columns scroll independently.
+
+**Responsive behavior:**
+| Viewport | Behavior |
+|---|---|
+| Desktop (lg: 1024px+) | Persistent 320px inline panel, toggleable via `PanelRightOpen`/`PanelRightClose` icon |
+| Mobile (< 1024px) | Hidden; `History` icon opens fixed overlay (z-30) with backdrop |
+
+**State management:**
+- `historyOpen` — desktop toggle, persisted in `localStorage('insights_history_open')`, default `true`
+- `mobileHistoryOpen` — mobile overlay toggle, not persisted
+- `activeDbSessionId` — highlights current session in sidebar
+- `refreshKey` — counter incremented after `sendMessage`, triggers delayed sidebar refresh
+
+**Session loading flow:**
+1. User clicks session in sidebar → `handleSelectSession(dbSessionId)`
+2. Fetch `GET /api/v1/semantic/sessions/:id` → receives session metadata + turns
+3. Call `initFromSession(session.id, turns)` → resets chat to loaded conversation
+4. Set `loadedSessionDate`, `loadedTurns`, `activeDbSessionId` for UI state
+5. Close mobile overlay if open
+
+**Sidebar refresh after send:**
+After `sendMessage()` completes, increment `refreshKey`. `ChatHistorySidebar` detects the change via `useRefreshOnChange(key, refresh)` hook, which calls `refresh()` with a 1-second delay. The delay accounts for the async eval turn capture (fire-and-forget).
+
+### `useSessionHistory` hook
+Shared between `ChatHistorySidebar` and `/insights/history` page. Provides:
+- `sessions: SessionSummary[]` — paginated session list
+- `isLoading`, `isLoadingMore` — loading states
+- `hasMore` — whether more pages exist
+- `loadMore()` — fetch next page (cursor-based)
+- `refresh()` — re-fetch page 1, reset cursor
+
+Also exports `formatRelativeTime(isoDate)` — returns "Just now", "Xm ago", "Xh ago", "Yesterday", weekday, or "Mon DD".
+
+### Session export
+`exportSessionAsTxt(title, startedAt, turns)` in `lib/export-chat.ts` formats a conversation as plain text and triggers a browser download. Filename: `ai-insights-YYYY-MM-DD.txt`. Available from both the history page (per-session export button) and the insights header (for loaded sessions).
+
+### FeedbackWidget states
+- `idle` → thumbs up/down quick action
+- `expanded` → 5-star + tag pills + textarea + submit
+- `done` → "Thanks!" checkmark
+
+### evalTurnId threading
+The pipeline captures an eval turn and returns `evalTurnId` in `PipelineOutput`. The ask route exposes it in the response. `ChatMessage.evalTurnId` stores it. `FeedbackWidget` uses it to POST to `/api/v1/semantic/eval/turns/[id]/feedback`. If eval capture fails (DB unavailable), `evalTurnId` is null and the FeedbackWidget is hidden.
+
+### Debug panel
+Hidden by default, toggled by the debug button in the header. Shows intent plan JSON, compiled SQL, compilation errors, LLM latency, and cache status. Never shown in production to non-owners without explicit opt-in.
+
+### `initFromSession()` and `LoadedTurn`
+`useSemanticChat.initFromSession(dbSessionId, turns)` resets the session and maps each DB turn to a user+assistant message pair via `evalTurnToChatMessages()`. The `LoadedTurn` interface mirrors the API response from `GET /api/v1/semantic/sessions/[sessionId]` (subset of eval turn columns needed for chat reconstruction: userMessage, narrative, llmPlan, compiledSql, compilationErrors, resultSample, rowCount, cacheStatus, llmConfidence, llmLatencyMs, wasClarification, clarificationMessage, userRating, userThumbsUp, evalTurnId).
+
+---
+
+## 69. Observability Conventions (Semantic Module)
+
+### Metrics tracking
+`recordSemanticRequest()` is called at the end of every successful `runPipeline()`. It updates in-memory per-tenant metrics: request count, p50/p95 latency, cache hit rate, token usage, error rate.
+
+### Percentile computation
+Latency samples are stored in a rolling window (capped at 500 samples per tenant). Percentiles use sorted array + ceil index: `p95 = samples[ceil(0.95 * n) - 1]`.
+
+### Admin metrics endpoint
+`GET /api/v1/semantic/admin/metrics` returns global + per-tenant metrics. Requires `semantic.admin` permission. Returns `{ global: GlobalMetricsSummary, tenants: TenantMetricsSummary[] }`.
+
+### Cache invalidation endpoint
+`POST /api/v1/semantic/admin/invalidate` flushes registry cache, query cache, or both. Body: `{ scope: 'registry' | 'queries' | 'all', tenantId?: string }`. Use for deployments that change field definitions or lens configs.
+
+---
+
+## 70. Evaluation & Feedback Conventions
+
+### Eval turn capture
+Every pipeline run calls `captureEvalTurnBestEffort()` which is awaited but swallows errors (never blocks the response). Returns `string | null` — the new eval turn's ULID.
+
+### User feedback
+- Submitted via `POST /api/v1/semantic/eval/turns/[id]/feedback`
+- Fields: `thumbsUp?: boolean`, `rating?: 1-5`, `tags?: FeedbackTag[]`, `text?: string`
+- At least one field required (validated server-side)
+- Users can only rate their own turns (enforced in `submitUserRating`)
+
+### Quality score
+Composite of 40% admin score + 30% user rating + 30% heuristics (flag deductions). Range: 0.00–1.00. Stored as `NUMERIC(3,2)` in `semantic_eval_turns.quality_score`. Recomputed on every feedback update.
+
+### Eval feed
+`GET /api/v1/semantic/eval/feed` returns paginated turn history for the current tenant. Used by the History page. Admin feed (cross-tenant) is only available via the admin app.
+
+### Golden examples
+Admins can promote high-quality turns to golden examples via `promoteToExample()`. Examples are loaded into the LLM prompt as few-shot demonstrations. The `ExampleManager` interface is swappable for testing.
+
+---
+
+## 71. Semantic Lens Conventions
+
+### Lens types
+- **System lenses**: `tenant_id IS NULL` — created via `sync-registry.ts` CLI or seed scripts. Not editable by tenants.
+- **Tenant lenses**: `tenant_id = <id>` — created via the API. Override or extend system lenses for the tenant.
+
+### Unique constraints (partial indexes)
+```sql
+-- One slug per system scope
+UNIQUE (slug) WHERE tenant_id IS NULL
+-- One slug per tenant scope
+UNIQUE (tenant_id, slug) WHERE tenant_id IS NOT NULL
+```
+
+### Registry cache invalidation
+After creating/updating/deleting a lens, call `POST /api/v1/semantic/admin/invalidate { scope: 'registry' }` to flush the cached field catalog. The cache auto-refreshes after 10 minutes (SWR window).
+
+### Sync script
+`packages/modules/semantic/src/sync/sync-registry.ts` — run via `pnpm --filter @oppsera/module-semantic semantic:sync` to upsert field definitions and system lenses into the DB. Use `SEMANTIC_DRY_RUN=true` for a preview.
+
+---
+
+## 72. Semantic Module Setup
+
+### Provisioning
+When creating a new tenant with the `semantic` entitlement, run the following:
+1. Enable the `semantic` entitlement in `tenant_entitlements`
+2. Grant default RBAC permissions from `SEMANTIC_ROLE_PERMISSIONS` in `setup/register-entitlements.ts`
+3. Run `semantic:sync` to ensure system lenses are in the DB
+
+### Event constants
+Use `SEMANTIC_EVENT_TYPES` from `setup/register-events.ts` for all semantic event type strings. Never use raw string literals — typos are silent failures in event routing.
+
+### Test mocking pattern
+Pipeline tests must mock `../../cache/query-cache` and `../../observability/metrics` to prevent module-level state (Maps) from leaking between test runs:
+```typescript
+vi.mock('../../cache/query-cache', () => ({
+  getFromQueryCache: vi.fn().mockReturnValue(null),
+  setInQueryCache: vi.fn(),
+}));
+vi.mock('../../observability/metrics', () => ({
+  recordSemanticRequest: vi.fn(),
+}));
+```
+Eval capture must also be mocked to prevent real DB writes:
+```typescript
+vi.mock('../evaluation/capture', () => ({
+  getEvalCaptureService: vi.fn().mockReturnValue({
+    recordTurn: vi.fn().mockResolvedValue('mock-eval-turn-id'),
+  }),
+}));
+```
+
+---
+
+## 73. Admin App Architecture
+
+### Purpose
+Platform operations panel for OppsEra internal admins. Used to review, audit, and improve the quality of AI-generated semantic layer responses. **NOT** tenant-scoped — uses `platformAdmins` table.
+
+### Location
+`apps/admin/` — separate Next.js app, port 3001.
+
+### Auth Flow
+```
+POST /api/auth/login { email, password }
+  → bcryptjs.compare(password, admin.passwordHash)
+  → Create JWT (HS256, 8h TTL) via jose
+  → Set HttpOnly cookie (oppsera_admin_session)
+  → Middleware validates JWT on every request
+```
+
+### Role Hierarchy
+```
+viewer (1) → admin (2) → super_admin (3)
+```
+Checked via `requireRole(session, minRole)`. Viewers can browse, admins can review/promote, super_admins get full access.
+
+### Route Protection Pattern
+```typescript
+export const POST = withAdminAuth(async (req, session, params) => {
+  // session: { adminId, email, name, role }
+  // handler logic
+}, 'admin'); // minimum role required
+```
+
+### Pages
+| Page | Path | Auth Level | Purpose |
+|------|------|-----------|---------|
+| Eval Feed | `/eval/feed` | viewer | Browse eval turns with filters |
+| Turn Detail | `/eval/turns/[turnId]` | viewer | Full turn context + admin review form |
+| Dashboard | `/eval/dashboard` | viewer | KPI cards + trend charts |
+| Examples | `/eval/examples` | viewer/admin | Manage golden few-shot examples |
+| Patterns | `/eval/patterns` | viewer | Identify recurring problem plan hashes |
+
+### API Routes
+12 endpoints under `/api/v1/eval/`: feed, turns/[id], turns/[id]/review (admin), turns/[id]/promote (admin), dashboard, examples, examples/[id] (admin delete), patterns, sessions/[id], tenants, compare, aggregation/trigger (admin).
+
+### Components
+`AdminSidebar`, `EvalTurnCard`, `QualityFlagPills`, `QualityKpiCard`, `VerdictBadge`, `RatingStars`, `PlanViewer` (JSON tree viewer), `SqlViewer` (SQL code viewer), `TenantSelector`.
+
+### Key Integrations
+- `@oppsera/module-semantic/evaluation` — all eval queries + commands
+- `@oppsera/db` — `platformAdmins` table for login
+- Charts: `recharts` (LineChart, BarChart for quality trends)
+
+### Anti-Patterns
+- Never share auth between admin app and tenant app — completely separate JWT + cookie systems
+- Never expose admin endpoints via the tenant web app API routes
+- Never store admin passwords in env vars — always use `platformAdmins` table with bcrypt hashes
+
+---
+
+## 74. THE OPPS ERA LENS — Narrative Framework
+
+### Overview
+THE OPPS ERA LENS is the universal SMB optimization framework that powers all AI narrative responses. It lives entirely in the system prompt built by `buildNarrativeSystemPrompt()` in `packages/modules/semantic/src/llm/narrative.ts`. The framework defines the AI's role, reasoning mode, response structure, and behavioral rules.
+
+### Core Philosophy
+The AI is a practical, data-driven SMB operator and advisor. It thinks in: revenue throughput, capacity utilization, labor efficiency, customer experience, ROI and payback. Every SMB operates with limited staff, imperfect data, time pressure, cash constraints, and operational variability. Tone: friendly, optimistic, practical, slightly quirky — uses first person plural ("we", "our").
+
+### DATA-FIRST DECISION RULE
+Priority chain for answering any question:
+1. **REAL DATA** → query results are provided → analyze numbers, spot trends, flag anomalies
+2. **ASSUMPTIONS** → partial data → combine with reasonable assumptions (always labeled)
+3. **BEST PRACTICE** → no data → use industry benchmarks and operational heuristics
+
+Never refuse a question. Never stall waiting for data. Every question gets a useful answer.
+
+### Industry Translation
+`getIndustryHint(lensSlug)` returns industry-specific translation hints injected into the system prompt:
+- `golf*` → capacity = tee sheet utilization, revenue = yield per round, throughput = rounds played
+- `core_items*` → capacity = shelf space, throughput = items sold, efficiency = sell-through rate
+- `core_sales*` → capacity = covers or transactions, throughput = order count, efficiency = average ticket
+- Default → general SMB operational language
+
+### Adaptive Depth
+| Mode | Trigger | Behavior |
+|------|---------|----------|
+| DEFAULT | Most responses | Concise, <400 words, skip sections that don't apply |
+| DEEP | User requests detailed analysis, strategic decisions, multi-variable problems | Labeled `**Deep Analysis — THE OPPS ERA LENS**`, 3-5 options with comparison + risks + roadmap |
+| QUICK WINS | User asks for fast improvements or urgent help | Labeled `**Quick Wins — THE OPPS ERA LENS**`, 5 immediate actions, minimal explanation |
+
+### Response Structure (DEFAULT MODE)
+```markdown
+## Answer
+[1-3 sentence direct answer. Lead with the number or insight.]
+
+### Options
+**Option 1: [Name]** — [What + why]. Effort: Low/Med/High. Impact: Low/Med/High.
+**Option 2: [Name]** — [What + why]. Effort: Low/Med/High. Impact: Low/Med/High.
+**Option 3: [Name]** — [What + why]. Effort: Low/Med/High. Impact: Low/Med/High.
+
+### Recommendation
+Best option: **[Name]** — [Why]. Confidence: XX%.
+
+### Quick Wins
+- [Action 1 — highest leverage first]
+- [Action 2]
+- [Action 3]
+
+### ROI Snapshot
+- Estimated cost: $X
+- Potential monthly impact: $X
+- Rough payback: X weeks/months
+
+### What to Track
+- [Metric 1]
+- [Metric 2]
+
+### Next Steps
+[1-2 follow-up topics + smart questions. End with friendly close.]
+
+---
+*THE OPPS ERA LENS. [Metrics used]. [Period]. [Assumptions if any.]*
+```
+
+Sections are OPTIONAL — for simple data questions (e.g., "what were sales yesterday?"), skip Options/Recommendation and just answer + quick wins + what to track.
+
+### NarrativeSection Types
+The markdown parser (`parseMarkdownNarrative`) maps heading text to section types:
+
+| Heading | Section Type |
+|---------|-------------|
+| `Answer` | `answer` |
+| `Options` | `options` |
+| `Recommendation` / `Recommendations` | `recommendation` |
+| `Quick Wins` | `quick_wins` |
+| `ROI Snapshot` | `roi_snapshot` |
+| `What to Track` / `Metrics` | `what_to_track` |
+| `Next Steps` / `Conversation Driver` | `conversation_driver` |
+| `Assumptions` | `assumptions` |
+| `Key Takeaways` / `Takeaways` | `takeaway` |
+| `What I'd Do Next` | `action` |
+| `Risks to Watch` / `Risks` | `risk` |
+| `Caveats` | `caveat` |
+| `Deep Analysis — THE OPPS ERA LENS` | `answer` |
+| `Quick Wins — THE OPPS ERA LENS` | `quick_wins` |
+| Unmapped headings | `detail` |
+| `*THE OPPS ERA LENS. ...*` footer | `data_sources` |
+
+### Metric Context Injection
+`buildMetricContext(metricDefs)` injects metric definitions into the system prompt so the LLM understands each metric:
+```
+## Metrics in This Query
+- **Net Sales** (`net_sales`): Total net sales. Higher is better. Format: $0,0.00
+- **Order Count** (`order_count`): Number of orders. Higher is better. Format: integer
+```
+
+### Behavioral Rules
+1. **Never refuse** — every question gets a useful answer
+2. **Lead with the answer** — don't start with "Based on the data..."
+3. **Be specific with numbers** — $X,XXX.XX for currency, X.X% for percentages
+4. **Operator mindset** — connect data to decisions (staffing, pricing, scheduling)
+5. **Token efficient** — under 400 words for DEFAULT mode
+6. **Don't parrot raw data** — interpret it ("$12,400 — solid for a Tuesday, about 8% above average")
+7. **Options are optional** — skip for simple data questions
+8. **Industry translation** — translate recommendations into the user's industry language
+
+### Modifying THE OPPS ERA LENS
+When updating the lens framework:
+1. Edit `buildNarrativeSystemPrompt()` in `narrative.ts`
+2. If adding new section types: update `NarrativeSection.type` in `types.ts`
+3. If adding new heading variants: update `HEADING_TO_SECTION` in `narrative.ts`
+4. Add parser tests in `pipeline.test.ts` for any new section types
+5. Run `pnpm --filter @oppsera/module-semantic test` to verify
+
+## 75. Room Layout Builder Architecture
 
 ### Overview
 
@@ -4147,7 +4612,7 @@ Permissions: `room_layouts.view` (read), `room_layouts.manage` (write)
 
 ---
 
-## 66. Accounting Core / GL Architecture
+## 76. Accounting Core / GL Architecture
 
 ### Overview
 
@@ -4245,6 +4710,21 @@ resolveTaxGroupAccount(tx, tenantId, taxGroupId): Promise<string | null>
 
 Returns `null` if mapping missing — callers log to `gl_unmapped_events` via `logUnmappedEvent()`.
 
+### GL Mapping Frontend
+
+The mapping UI at `/accounting/mappings` provides a 4-tab interface:
+- **Sub-Departments**: enriched query joining `catalog_categories` + `sub_department_gl_defaults` + `gl_accounts`, with AccountPicker dropdowns per account type
+- **Payment Types**: rows from `payment_type_gl_defaults` with cash/clearing/fee account pickers
+- **Tax Groups**: rows from `tax_group_gl_defaults` with tax payable account picker
+- **Unmapped Events**: list from `gl_unmapped_events` with resolve action
+
+**Flexible hierarchy support**: `getSubDepartmentMappings` adapts to both 2-level (Department → Items) and 3-level (Department → SubDepartment → Category → Items) catalog hierarchies via `COALESCE(parent_id, id)`. In 2-level mode, departments themselves are the mappable entities. The frontend auto-detects flat vs grouped rendering.
+
+Key queries:
+- `getSubDepartmentMappings(tenantId)` — enriched list with dept names, item counts, GL account display strings
+- `getItemsBySubDepartment(tenantId, subDepartmentId)` — drill-down with cursor pagination
+- Coverage API computes totals from catalog hierarchy (not just mapping table rows)
+
 ### POS Posting Adapter
 
 `handleTenderForAccounting(event: EventEnvelope)` consumes `tender.recorded.v1` events:
@@ -4260,6 +4740,22 @@ GL Entry (Retail Sale):
 ```
 
 **Critical**: The POS adapter **never blocks tenders**. If any GL mapping is missing, it skips the GL post, logs to `gl_unmapped_events`, and emits `accounting.posting.skipped.v1`. POS must always succeed.
+
+#### Catalog → GL Pipeline (Subdepartment Resolution)
+
+The full pipeline from catalog item to GL posting:
+
+1. **At `addLineItem` time**: `posItem.subDepartmentId` (resolved via `COALESCE(cat.parent_id, cat.id)`) is snapshotted on the `order_lines` row along with `taxGroupId`. For package items, each component's `subDepartmentId` is resolved in parallel via `catalogApi.getSubDepartmentForItem()` and stored in the `packageComponents` JSONB.
+
+2. **At `recordTender` time**: the enriched `lines[]` array is built from `order_lines` and included in the `tender.recorded.v1` event payload. Each line includes `subDepartmentId`, `taxGroupId`, `taxAmountCents`, `costCents`, and `packageComponents`.
+
+3. **In the POS adapter**: for regular items, revenue is grouped by `line.subDepartmentId`. For packages with enriched components (`allocatedRevenueCents != null`), revenue is split across component subdepartments using the pre-computed allocation. Legacy packages without allocations fall back to line-level subdepartment.
+
+**Field name compatibility**: the event includes both `tenderType` and `paymentMethod` (alias). The adapter resolves via `data.tenderType ?? data.paymentMethod ?? 'unknown'`.
+
+**Utility helpers** in `packages/modules/accounting/src/helpers/catalog-gl-resolution.ts`:
+- `resolveRevenueAccountForSubDepartment(db, tenantId, subDeptId)` — wraps `resolveSubDepartmentAccounts`, returns revenue account ID
+- `expandPackageForGL(line)` — splits a line into per-subdepartment `GLRevenueSplit[]` entries
 
 ### Financial Statements
 
@@ -4321,7 +4817,7 @@ Computed live from queries (not stored):
 
 ---
 
-## 67. Accounts Payable (AP) Architecture
+## 77. Accounts Payable (AP) Architecture
 
 ### Overview
 
@@ -4430,7 +4926,7 @@ Union query: bills (debits increase payable) + payments (credits decrease payabl
 
 ---
 
-## 68. Accounts Receivable (AR) Architecture
+## 78. Accounts Receivable (AR) Architecture
 
 ### Overview
 
@@ -4538,7 +5034,7 @@ Union query: invoices (increase AR) + receipts (decrease AR, shown as negative),
 
 ---
 
-## 69. Subledger Reconciliation Pattern
+## 79. Subledger Reconciliation Pattern
 
 ### How It Works
 
@@ -4565,7 +5061,7 @@ Period close checks reconciliation automatically. If `difference >= $0.01`, the 
 
 ---
 
-## 70. Cross-Module Financial Posting Patterns
+## 80. Cross-Module Financial Posting Patterns
 
 ### Module → GL Flow
 
@@ -4607,7 +5103,7 @@ All automated postings use `sourceReferenceId` (bill.id, invoice.id, tender.id).
 
 ---
 
-## 48. Auth Troubleshooting (Vercel / Supabase)
+## 81. Auth Troubleshooting (Vercel / Supabase)
 
 Three issues that can stack to create a login redirect loop on Vercel:
 
@@ -4623,4 +5119,271 @@ The login function must await the `/api/v1/me` call (with retries) BEFORE return
 ### Prevention
 - **Local dev**: Use `npx supabase start` for a fully local Postgres + Auth stack, or keep `DEV_AUTH_BYPASS=true` and avoid re-seeding the remote DB
 - **`authProviderId`**: Must match the Supabase Auth user's UUID (`sub` claim in JWT). Seeded users have null `authProviderId` — they must be linked before Vercel login works
-- **Diagnostic endpoint**: `/api/v1/auth/debug` traces the full auth chain (DB connectivity, env vars, JWT verify, user lookup by `authProviderId`)
+- **Diagnostic endpoint**: `/api/v1/auth/debug` has been disabled (returns 410 Gone). Use Supabase admin CLI or dashboard for auth troubleshooting.
+
+---
+
+## 82. Frontend Query String Helper
+
+All frontend data hooks use `buildQueryString()` from `apps/web/src/lib/query-string.ts` instead of inline `URLSearchParams`:
+
+```typescript
+import { buildQueryString } from '@/lib/query-string';
+
+// Returns '?vendorId=abc&status=posted' or '' if all values are empty/null/undefined
+const qs = buildQueryString({ vendorId, status, startDate, endDate });
+return apiFetch<{ data: T[] }>(`/api/v1/ap/bills${qs}`);
+```
+
+Rules:
+- Skips `undefined`, `null`, and `''` values
+- Booleans: only appends if `true` (as string `'true'`), skips `false`
+- Returns `?key=val&...` with leading `?` if non-empty, or `''` if empty
+- Used by: `use-ap.ts`, `use-ar.ts`, `use-journals.ts`, `use-mappings.ts`
+
+---
+
+## 83. CI/CD Workflow
+
+### GitHub Actions
+
+`.github/workflows/lint-typecheck.yml` runs on push/PR to `main` and `workflow_dispatch`:
+
+```
+Lint → Type Check → Test → Build
+```
+
+- Node 20, pnpm 9, pnpm store caching
+- Build uses placeholder Supabase env vars (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
+- Timeout: 10 minutes
+
+### Test Coverage
+
+All packages support `pnpm test:coverage` via `@vitest/coverage-v8`:
+
+- **Provider**: v8 (fast, native)
+- **Reporters**: `text` (console), `json-summary` (CI parsing), `lcov` (IDE/Codecov integration)
+- **Output**: `./coverage/` in each package (gitignored)
+- **Turbo task**: `test:coverage` with `outputs: ["coverage/**"]` for caching
+- **Workspace**: `vitest.workspace.ts` at root defines all packages for parallel execution
+
+Run: `pnpm test:coverage` (all packages) or `pnpm --filter @oppsera/module-X test:coverage` (single package).
+
+---
+
+## 84. Accounting Frontend Component Architecture
+
+### Chart of Accounts Page
+
+`accounts-content.tsx` is the orchestrator, delegating rendering to extracted sub-components:
+
+| Component | File | Purpose |
+|---|---|---|
+| `AccountFilterBar` | `components/accounting/account-filter-bar.tsx` | Search input, status filter tabs (active/inactive/all), view mode toggle (flat/tree) |
+| `AccountTreeView` | `components/accounting/account-tree-view.tsx` | Renders accounts grouped by type (asset/liability/equity/revenue/expense), collapsible sections, tree nesting via `buildTree()`, handles row click for editing |
+| `AccountDialog` | `components/accounting/account-dialog.tsx` | Create/edit GL account form (portal-based). Form state resets on close via `useEffect` watching `open` prop — explicitly resets to `defaultForm` when `open=false` |
+
+Pattern: State lives in the parent (`accounts-content.tsx`), sub-components receive props. This keeps the main file ~155 lines instead of ~320.
+
+---
+
+## 85. F&B POS Backend Module
+
+### Module Location & Structure
+
+`packages/modules/fnb/` — `@oppsera/module-fnb`
+
+```
+packages/modules/fnb/src/
+├── commands/          # 103 command handlers
+├── queries/           # 63 query handlers
+├── consumers/         # 3 CQRS read model consumers
+├── events/
+│   └── types.ts       # ~200 F&B domain event types (fnb.*.v1)
+├── helpers/
+│   ├── extract-tables-from-snapshot.ts   # Room layout → table sync
+│   ├── build-batch-journal-lines.ts      # GL journal line builder for close batch
+│   ├── channel-topology.ts              # WebSocket pub/sub channel definitions
+│   ├── chit-layout.ts                   # Kitchen ticket/receipt formatting
+│   ├── fnb-permissions.ts               # 28 permissions, 6 role defaults
+│   ├── fnb-reporting-utils.ts           # Daypart, turn time, tip % helpers
+│   ├── fnb-settings-defaults.ts         # Default config factory
+│   ├── offline-queue-types.ts           # Offline operation queue types
+│   ├── printer-routing.ts              # Printer device routing rules
+│   └── ux-screen-map.ts                # Screen defs, flows, wireframes, nav
+├── __tests__/         # 56 test files (1,011 tests)
+├── validation.ts      # ~2,000 lines of Zod schemas
+├── errors.ts          # Domain-specific error classes
+└── index.ts           # Module entry point (all exports)
+```
+
+### Build Sessions (16 total)
+
+| Session | Domain | Commands | Queries | Key Concepts |
+|---------|--------|----------|---------|--------------|
+| 1 | Table Management | 7 | 4 | syncTablesFromFloorPlan, table status tracking |
+| 2 | Server Sections & Shifts | 8 | 3 | Section assignments, cut/pickup, shift extensions |
+| 3 | Tabs, Checks & Seats | 9 | 2 | Tab lifecycle (open→close→void), seat management |
+| 4 | Course Pacing & Kitchen | 7 | 3 | Hold/fire, delta chits, routing rules |
+| 5 | KDS Stations & Expo | 6 | 5 | Bump/recall, station readiness, expo view |
+| 6 | Modifiers & 86 Board | 8 | 6 | 86 items, allergens, availability windows |
+| 7 | Split Checks & Payments | 10 | 6 | Split by seat/item/amount/even, payment sessions |
+| 8 | Pre-Auth Bar Tabs | 5 | 3 | Pre-auth lifecycle, card-on-file |
+| 9 | Tips & Gratuity | 7 | 5 | Auto-gratuity rules, tip pools, distribution |
+| 10 | Close Batch & Cash | 8 | 6 | Z-report, deposit slip, server checkout |
+| 11 | GL Posting | 6 | 3 | Journal line builder, posting reconciliation |
+| 12 | Settings Module | 10 | 4 | 46 Zod schemas, defaults factory |
+| 13 | Real-Time Sync | 6 | 5 | Channel topology, offline queue, soft locks |
+| 14 | Receipts & Printing | 7 | 5 | Chit layout engine, printer routing |
+| 15 | Reporting Read Models | 0 (consumers) | 8 | 7 rm_fnb_* tables, CQRS projections |
+| 16 | UX Screen Map | 0 (spec) | 0 | Screen defs, flows, permissions, wireframes |
+
+### Schema
+
+All F&B tables live in `packages/db/src/schema/fnb.ts`. Key table groups:
+
+- **Core**: `fnb_tables`, `fnb_sections`, `fnb_server_assignments`, `fnb_table_status_history`
+- **Tabs & Ordering**: `fnb_tabs`, `fnb_tab_items`, `fnb_tab_seats`, `fnb_tab_courses`, `fnb_checks`
+- **Kitchen**: `fnb_kitchen_tickets`, `fnb_kitchen_ticket_items`, `fnb_kitchen_stations`, `fnb_routing_rules`, `fnb_delta_chits`
+- **Payments**: `fnb_payment_sessions`, `fnb_preauthorizations`, `fnb_tips`, `fnb_auto_gratuity_rules`, `fnb_tip_pools`
+- **Close Batch**: `fnb_close_batches`, `fnb_server_checkouts`, `fnb_cash_counts`
+- **Settings**: `fnb_settings`, `fnb_gl_mappings`, `fnb_allergens`, `fnb_availability_windows`, `fnb_menu_periods`
+- **Printing**: `fnb_print_jobs`, `fnb_printer_routes`
+- **Read Models**: 7 `rm_fnb_*` tables (server perf, table turns, kitchen perf, daypart sales, menu mix, discount/comp, hourly sales)
+
+### Key Domain Patterns
+
+**Table Sync from Floor Plans:**
+```typescript
+// Extract table objects from a published room layout snapshot
+const tables = extractTablesFromSnapshot(canvasSnapshot);
+// Sync creates/updates/deactivates fnb_tables to match
+await syncTablesFromFloorPlan(ctx, { roomId, tables });
+```
+
+**Tab Lifecycle:**
+```
+openTab → addItems → sendCourse → [kitchen ticket created] → bumpItem → presentCheck → payment → closeTab
+                                                                                              ↗
+                                                              voidTab (requires permission) ──┘
+                                                              transferTab (server-to-server)
+```
+
+**Close Batch Flow:**
+```
+startCloseBatch → lockBatch → serverCheckout (per server) → reconcileBatch → postBatch (GL)
+                                                                              ↓
+                                                              buildBatchJournalLines → GL journal entry
+```
+
+**F&B Read Model Consumers:**
+- `handleFnbTabClosed` → upserts server perf, table turns, daypart sales, hourly sales, menu mix
+- `handleFnbDiscountComp` → upserts discount/comp analysis
+- `handleFnbTicketBumped/ItemBumped/ItemVoided` → upserts kitchen performance
+
+### F&B Permissions (28 total, 10 categories)
+
+```
+floor_plan: view, manage
+tabs:       view, create, update, void, transfer
+kds:        view, bump, manage
+payments:   create, void, refund
+tips:       view, manage, pool
+menu:       view, manage
+close_batch: manage
+reports:    view, export
+settings:   manage
+gl:         post, reverse, mappings
+```
+
+Role defaults: owner=all 28, manager=25, supervisor=18, cashier=7, server=9, staff=3 (kds only).
+
+### Reporting Utilities
+
+```typescript
+// Pure helpers — no DB, no side effects
+computeDaypart(hour: number): 'breakfast' | 'lunch' | 'dinner' | 'late_night'
+computeTurnTimeMinutes(openedAt: string | null, closedAt: string | null): number | null
+incrementalAvg(oldAvg: number, oldCount: number, newValue: number): number
+computeTipPercentage(tipTotal: number, salesTotal: number): number | null
+```
+
+### Important Notes
+
+1. **Full API routes + frontend built** — ~100 API routes under `/api/v1/fnb/`, 12 React hooks, 60+ components, Zustand store for POS screen routing. Built in Sessions 17-28 (12 phases).
+2. **Entitlement key is `pos_fnb`** — all API routes use `{ entitlement: 'pos_fnb', permission: 'pos_fnb.*' }`. Do not use `pos_restaurant`.
+3. **Consumer inputs are enriched types** — consumers receive typed `FnbTabClosedConsumerData` etc., not raw event payloads. The wiring layer enriches events before calling consumers.
+4. **Session 16 is spec-only** — `ux-screen-map.ts` and `fnb-permissions.ts` encode UX specs as typed constants (screen defs, interaction flows, wireframes, permissions). These are contracts for frontend implementation.
+5. **GL integration via `buildBatchJournalLines`** — close batch posts to GL using the same mapping resolution pattern as the POS adapter. Revenue split by sub-department, tax collected, tender by type, tips payable.
+6. **F&B POS uses internal screen routing** — `fnb-pos-content.tsx` checks `useFnbPosStore().currentScreen` (floor|tab|payment|split) for instant switching. KDS, Expo, Host, Manager, Close Batch are separate pages.
+7. **Migration 0082 required** — `fnb_tables` and related tables must exist in the database. After migration, sync tables from published room layout via "Sync Tables" button or `POST /api/v1/fnb/tables/sync`.
+8. **CSS design tokens** — all F&B UI uses `var(--fnb-*)` custom properties from `fnb-design-tokens.css`. Status colors: available=#22c55e, reserved=#8b5cf6, seated=#3b82f6, ordered=#06b6d4, entrees_fired=#f97316, dessert=#a855f7, check_presented=#eab308, paid=#6b7280, dirty=#ef4444.
+
+## 86. F&B POS Frontend Architecture
+
+### Structure
+
+```
+apps/web/src/
+├── app/(dashboard)/
+│   ├── pos/fnb/fnb-pos-content.tsx        # Main F&B POS (Zustand screen router)
+│   ├── kds/                               # Kitchen Display Station (standalone)
+│   ├── expo/                              # Expo View (standalone)
+│   ├── host/                              # Host Stand (standalone)
+│   ├── fnb-manager/                       # Manager Dashboard (standalone)
+│   └── close-batch/                       # Close Batch Workflow (standalone)
+├── app/api/v1/fnb/                        # ~100 API routes
+│   ├── tables/                            # Table CRUD, seat, clear, combine, sync, floor-plan
+│   ├── tabs/                              # Tab CRUD, close, void, transfer, courses, check, split
+│   ├── kitchen/                           # Tickets, routing rules
+│   ├── stations/                          # KDS stations, bump, recall, expo
+│   ├── menu/                              # 86, restore, periods, allergens, prep-notes
+│   ├── payments/                          # Sessions, tender, gratuity rules
+│   ├── preauth/                           # Pre-auth create, capture, void
+│   ├── tips/                              # Adjust, finalize, declare, tip-out, pools
+│   ├── sections/                          # CRUD, assignments, host-stand, cut, pickup, rotation
+│   ├── close-batch/                       # Lifecycle, z-report, server-checkouts, cash
+│   ├── gl/                                # Mappings, config, post, reverse, retry, reconciliation
+│   ├── print/                             # Jobs, routing rules
+│   ├── reports/                           # Dashboard, server-perf, table-turns, kitchen, daypart, etc.
+│   ├── settings/                          # Module settings CRUD, defaults, validate, seed
+│   └── locks/                             # Soft locks CRUD, clean
+├── components/fnb/
+│   ├── floor/                             # FloorCanvas, FnbTableNode, RoomTabs, BottomDock, ContextSidebar, SeatGuestsModal, TableActionMenu
+│   ├── tab/                               # TabHeader, SeatRail, OrderTicket, CourseSection, FnbOrderLine, CourseSelector, TabActionBar
+│   ├── menu/                              # FnbMenuPanel, FnbModifierDrawer, FnbItemTile, QuickItemsRow
+│   ├── kitchen/                           # TicketCard, TicketItemRow, BumpButton, TimerBar, DeltaBadge, AllDaySummary, StationHeader, ExpoTicketCard
+│   ├── split/                             # SplitCheckPage, SplitModeSelector, CheckPanel, DragItem, EqualSplitSelector, CustomAmountPanel
+│   ├── payment/                           # PaymentScreen, TenderGrid, CashKeypad, TipPrompt, ReceiptOptions, PreAuthCapture
+│   ├── manager/                           # ManagerPinModal, TransferModal, CompVoidModal, EightySixBoard, AlertFeed
+│   ├── host/                              # RotationQueue, CoverBalance
+│   ├── close/                             # CashCountForm, OverShortDisplay, ServerCheckoutList, ZReportView, DepositSlip
+│   └── shared/                            # ConnectionBanner, ConflictModal, LockBanner
+├── hooks/
+│   ├── use-fnb-floor.ts                   # useFnbFloor, useFnbRooms, useTableActions
+│   ├── use-fnb-tab.ts                     # useFnbTab (tab detail, courses, lines, seats, draft management)
+│   ├── use-fnb-kitchen.ts                 # useFnbKitchen (tickets, bump, recall)
+│   ├── use-fnb-menu.ts                    # useFnbMenu (departments, items, 86 status, allergens)
+│   ├── use-fnb-payments.ts                # Payment sessions, pre-auth, tips
+│   ├── use-fnb-manager.ts                 # PIN challenge, permission checks
+│   ├── use-fnb-close-batch.ts             # Batch lifecycle, Z-report, checkouts
+│   ├── use-fnb-sections.ts                # Sections, assignments
+│   ├── use-fnb-settings.ts                # F&B settings
+│   ├── use-fnb-reports.ts                 # F&B reports
+│   ├── use-fnb-realtime.ts                # Polling transport (V1), connection status
+│   └── use-fnb-locks.ts                   # Soft lock acquire/renew/release
+├── stores/
+│   └── fnb-pos-store.ts                   # Zustand: currentScreen, activeTabId, activeRoomId, draftLines, etc.
+├── styles/
+│   └── fnb-design-tokens.css              # CSS custom properties for F&B theming
+└── types/
+    └── fnb.ts                             # Frontend F&B types
+```
+
+### Key Patterns
+
+- **Internal screen routing**: `fnb-pos-content.tsx` uses Zustand `currentScreen` (floor|tab|payment|split), NOT URL routes. Preserves dual-mount instant switching.
+- **Polling V1**: `useFnbFloor` polls every 5s, `useFnbKitchen` every 10s. Transport abstraction ready for WebSocket V2.
+- **Draft lines in Zustand**: unsent items stored locally in store, committed on "Send" via API.
+- **CSS design tokens**: all colors via `var(--fnb-*)`, responsive overrides via `@media` in `fnb-design-tokens.css`.
+

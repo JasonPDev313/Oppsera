@@ -142,6 +142,8 @@ interface PackageComponent {
   itemName: string;
   itemType: string;
   qty: number;
+  /** Override unit price in dollars. null = use live catalog price at order time. */
+  componentUnitPrice: number | null;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -209,6 +211,17 @@ export default function CreateItemPage() {
   const [showComponentSearch, setShowComponentSearch] = useState(false);
   const [componentSearch, setComponentSearch] = useState('');
   const [fixedPrice, setFixedPrice] = useState<number | null>(null);
+  const [pricingMode, setPricingMode] = useState<'fixed' | 'sum_of_components'>('fixed');
+
+  // Computed subtotal for sum_of_components mode (dollars)
+  const componentsSubtotal = useMemo(
+    () =>
+      packageComponents.reduce(
+        (sum, c) => sum + (c.componentUnitPrice ?? 0) * c.qty,
+        0,
+      ),
+    [packageComponents],
+  );
 
   // Errors
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -334,6 +347,7 @@ export default function CreateItemPage() {
         itemName: item.name,
         itemType: item.itemType,
         qty: 1,
+        componentUnitPrice: null,
       },
     ]);
     setShowComponentSearch(false);
@@ -350,6 +364,12 @@ export default function CreateItemPage() {
     );
   }
 
+  function handleComponentUnitPriceChange(catalogItemId: string, price: number | null) {
+    setPackageComponents((prev) =>
+      prev.map((c) => (c.catalogItemId === catalogItemId ? { ...c, componentUnitPrice: price } : c)),
+    );
+  }
+
   function toggleFraction(fraction: number) {
     setAllowedFractions((prev) =>
       prev.includes(fraction) ? prev.filter((f) => f !== fraction) : [...prev, fraction],
@@ -362,6 +382,14 @@ export default function CreateItemPage() {
     e.preventDefault();
     setErrors({});
 
+    // For packages the effective price comes from fixedPrice / computed sum, not defaultPrice state
+    const effectiveDefaultPrice =
+      selectedType === 'package'
+        ? pricingMode === 'sum_of_components'
+          ? componentsSubtotal
+          : fixedPrice
+        : defaultPrice;
+
     // Validate base
     const baseResult = baseSchema.safeParse({
       name,
@@ -370,7 +398,7 @@ export default function CreateItemPage() {
       departmentId: departmentId || undefined,
       subDepartmentId: subDepartmentId || undefined,
       categoryId: categoryId || undefined,
-      defaultPrice,
+      defaultPrice: effectiveDefaultPrice,
       cost,
     });
 
@@ -442,15 +470,25 @@ export default function CreateItemPage() {
         break;
       }
       case 'package': {
+        const effectiveFixedPrice =
+          pricingMode === 'sum_of_components' ? componentsSubtotal : fixedPrice;
         const pkgResult = packageSchema.safeParse({
           packageComponents,
-          fixedPrice,
+          fixedPrice: effectiveFixedPrice,
         });
         if (!pkgResult.success) {
           fieldErrors = { ...fieldErrors, ...flattenZodErrors(pkgResult.error) };
         }
+        // For sum_of_components, require all component prices to be set
+        if (pricingMode === 'sum_of_components') {
+          packageComponents.forEach((c, i) => {
+            if (!c.componentUnitPrice || c.componentUnitPrice <= 0) {
+              fieldErrors[`packageComponents.${i}.componentUnitPrice`] =
+                'Price required for each component';
+            }
+          });
+        }
         itemType = 'other';
-        // TODO: Backend does not have package_components table — storing in metadata.packageComponents
         metadata = {
           isPackage: true,
           packageComponents: packageComponents.map((c) => ({
@@ -458,8 +496,9 @@ export default function CreateItemPage() {
             itemName: c.itemName,
             itemType: c.itemType,
             qty: c.qty,
+            ...(c.componentUnitPrice != null && { componentUnitPrice: c.componentUnitPrice }),
           })),
-          pricingMode: 'fixed',
+          pricingMode,
         } satisfies PackageMetadata;
         break;
       }
@@ -477,7 +516,7 @@ export default function CreateItemPage() {
     const payload: Record<string, unknown> = {
       name,
       itemType,
-      defaultPrice: selectedType === 'package' ? fixedPrice : defaultPrice,
+      defaultPrice: effectiveDefaultPrice,
       ...(sku && { sku }),
       ...(description && { description }),
       ...(categoryId && { categoryId }),
@@ -732,6 +771,10 @@ export default function CreateItemPage() {
                   onAddComponent={handleAddComponent}
                   onRemoveComponent={handleRemoveComponent}
                   onQtyChange={handleComponentQtyChange}
+                  onComponentUnitPriceChange={handleComponentUnitPriceChange}
+                  pricingMode={pricingMode}
+                  onPricingModeChange={setPricingMode}
+                  componentsSubtotal={componentsSubtotal}
                   fixedPrice={fixedPrice}
                   onFixedPriceChange={setFixedPrice}
                   cost={cost}
@@ -1129,6 +1172,10 @@ interface PackageFieldsProps {
   onAddComponent: (item: CatalogItemRow) => void;
   onRemoveComponent: (catalogItemId: string) => void;
   onQtyChange: (catalogItemId: string, qty: number) => void;
+  onComponentUnitPriceChange: (catalogItemId: string, price: number | null) => void;
+  pricingMode: 'fixed' | 'sum_of_components';
+  onPricingModeChange: (v: 'fixed' | 'sum_of_components') => void;
+  componentsSubtotal: number;
   fixedPrice: number | null;
   onFixedPriceChange: (v: number | null) => void;
   cost: number | null;
@@ -1146,6 +1193,10 @@ function PackageFields({
   onAddComponent,
   onRemoveComponent,
   onQtyChange,
+  onComponentUnitPriceChange,
+  pricingMode,
+  onPricingModeChange,
+  componentsSubtotal,
   fixedPrice,
   onFixedPriceChange,
   cost,
@@ -1227,6 +1278,19 @@ function PackageFields({
         </div>
       )}
 
+      {/* Pricing mode toggle */}
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={pricingMode === 'sum_of_components'}
+          onChange={(e) =>
+            onPricingModeChange(e.target.checked ? 'sum_of_components' : 'fixed')
+          }
+          className={checkboxClassName}
+        />
+        Price as sum of components
+      </label>
+
       {/* Component list */}
       {errors.packageComponents && (
         <p className="text-xs text-red-600">{errors.packageComponents}</p>
@@ -1237,25 +1301,31 @@ function PackageFields({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
-                  Item Name
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
-                  Type
-                </th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">
-                  Qty
-                </th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">
-                  {/* Remove */}
-                </th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Item Name</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Type</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Qty</th>
+                {pricingMode === 'sum_of_components' && (
+                  <>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Unit Price</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Extended</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Alloc %</th>
+                  </>
+                )}
+                <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-surface">
-              {components.map((comp) => {
+              {components.map((comp, idx) => {
                 const group = getItemTypeGroup(comp.itemType);
                 const badge = ITEM_TYPE_BADGES[group];
                 const qtyOpts = getQtyOptions(comp.itemType);
+                const extended = (comp.componentUnitPrice ?? 0) * comp.qty;
+                const allocPct =
+                  pricingMode === 'sum_of_components' && componentsSubtotal > 0
+                    ? ((extended / componentsSubtotal) * 100).toFixed(1)
+                    : null;
+                const priceError =
+                  errors[`packageComponents.${idx}.componentUnitPrice`];
 
                 return (
                   <tr key={comp.catalogItemId}>
@@ -1294,6 +1364,37 @@ function PackageFields({
                         />
                       )}
                     </td>
+                    {pricingMode === 'sum_of_components' && (
+                      <>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <input
+                              type="number"
+                              min={0}
+                              step={0.01}
+                              value={comp.componentUnitPrice ?? ''}
+                              onChange={(e) =>
+                                onComponentUnitPriceChange(
+                                  comp.catalogItemId,
+                                  e.target.value === '' ? null : parseFloat(e.target.value),
+                                )
+                              }
+                              placeholder="0.00"
+                              className={`w-24 rounded border px-2 py-1 text-right text-sm focus:ring-1 focus:outline-none ${priceError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'}`}
+                            />
+                            {priceError && (
+                              <span className="text-xs text-red-600">Required</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm text-gray-700">
+                          ${extended.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-sm text-gray-500">
+                          {allocPct != null ? `${allocPct}%` : '—'}
+                        </td>
+                      </>
+                    )}
                     <td className="px-4 py-2 text-right">
                       <button
                         type="button"
@@ -1307,37 +1408,52 @@ function PackageFields({
                 );
               })}
             </tbody>
+            {pricingMode === 'sum_of_components' && components.length > 0 && (
+              <tfoot className="bg-gray-50">
+                <tr>
+                  <td colSpan={3} className="px-4 py-2 text-sm font-medium text-gray-700">
+                    Components Total
+                  </td>
+                  <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">
+                    —
+                  </td>
+                  <td className="px-4 py-2 text-right text-sm font-semibold text-indigo-600">
+                    ${componentsSubtotal.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-2 text-right text-sm text-gray-500">100%</td>
+                  <td />
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       )}
 
-      {/* Fixed Price */}
+      {/* Price / Cost */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FormField label="Fixed Price" required error={errors.fixedPrice}>
-          <CurrencyInput
-            value={fixedPrice}
-            onChange={onFixedPriceChange}
-            error={errors.fixedPrice}
-          />
-        </FormField>
+        {pricingMode === 'fixed' ? (
+          <FormField label="Fixed Price" required error={errors.fixedPrice}>
+            <CurrencyInput
+              value={fixedPrice}
+              onChange={onFixedPriceChange}
+              error={errors.fixedPrice}
+            />
+          </FormField>
+        ) : (
+          <FormField
+            label="Package Price"
+            helpText="Automatically derived from component sum"
+          >
+            <div className="flex h-9.5 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-700">
+              ${componentsSubtotal.toFixed(2)}
+            </div>
+          </FormField>
+        )}
 
         <FormField label="Cost" helpText="Optional. Used for margin reporting.">
           <CurrencyInput value={cost} onChange={onCostChange} />
         </FormField>
       </div>
-
-      {/* Disabled toggle for sum-of-components pricing */}
-      <label className="flex cursor-not-allowed items-center gap-2 text-sm text-gray-400">
-        <input
-          type="checkbox"
-          disabled
-          className="rounded border-gray-200 text-gray-300"
-        />
-        Price as sum of components
-        <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400">
-          coming soon
-        </span>
-      </label>
     </div>
   );
 }

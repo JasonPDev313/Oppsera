@@ -1,0 +1,36 @@
+{
+  "name": "@oppsera/module-semantic",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./evaluation": "./src/evaluation/index.ts",
+    "./registry": "./src/registry/index.ts",
+    "./compiler": "./src/compiler/index.ts",
+    "./llm": "./src/llm/index.ts",
+    "./lenses": "./src/lenses/index.ts",
+    "./cache": "./src/cache/index.ts",
+    "./observability": "./src/observability/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "semantic:sync": "tsx src/sync/sync-registry.ts",
+    "semantic:seed-lenses": "tsx src/sync/golf-seed.ts"
+  },
+  "dependencies": {
+    "@oppsera/core": "workspace:*",
+    "@oppsera/db": "workspace:*",
+    "@oppsera/shared": "workspace:*",
+    "drizzle-orm": "^0.37.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "tsx": "^4.0.0"
+  }
+}

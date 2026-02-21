@@ -79,7 +79,7 @@ export const customerLocationSettings = pgTable(
       .references(() => tenants.id),
     customerId: text('customer_id').notNull(),
     locationId: text('location_id').notNull(),
-    disableOnlineTeeBookings: boolean('disable_online_tee_bookings').notNull().default(false),
+    disableOnlineTeeTimes: boolean('disable_online_tee_times').notNull().default(false),
     disableOnlineReservations: boolean('disable_online_reservations').notNull().default(false),
     serviceChargeExempt: boolean('service_charge_exempt').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

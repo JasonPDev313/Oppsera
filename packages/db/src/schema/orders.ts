@@ -133,6 +133,10 @@ export const orderLines = pgTable(
     packageComponents: jsonb('package_components'),
     notes: text('notes'),
 
+    // ── GL mapping snapshots (migration 0084) ──
+    subDepartmentId: text('sub_department_id'),
+    taxGroupId: text('tax_group_id'),
+
     // ── Order line gap fields (migration 0034) ──
     costPrice: integer('cost_price'),
     seatNumber: integer('seat_number'),

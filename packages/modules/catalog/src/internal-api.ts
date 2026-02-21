@@ -1,7 +1,8 @@
-import { eq, and, inArray, asc, isNull } from 'drizzle-orm';
+import { eq, and, inArray, asc, isNull, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import {
   catalogItems,
+  catalogCategories,
   catalogLocationPrices,
   catalogItemModifierGroups,
   catalogModifierGroups,
@@ -142,6 +143,24 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
     });
   }
 
+  async getSubDepartmentForItem(
+    tenantId: string,
+    itemId: string,
+  ): Promise<string | null> {
+    return withTenant(tenantId, async (tx) => {
+      const rows = await tx.execute(sql`
+        SELECT COALESCE(cat.parent_id, cat.id) AS sub_department_id
+        FROM catalog_items ci
+        JOIN catalog_categories cat ON cat.id = ci.category_id
+        WHERE ci.id = ${itemId}
+          AND ci.tenant_id = ${tenantId}
+        LIMIT 1
+      `);
+      const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+      return arr.length > 0 ? (arr[0]!.sub_department_id as string) : null;
+    });
+  }
+
   async getItemForPOS(
     tenantId: string,
     locationId: string,
@@ -150,9 +169,10 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
     const item = await this.getItem(tenantId, itemId);
     if (!item) return null;
 
-    const [price, taxInfo] = await Promise.all([
+    const [price, taxInfo, subDepartmentId] = await Promise.all([
       this.getEffectivePrice(tenantId, itemId, locationId),
       this.getItemTaxes(tenantId, locationId, itemId),
+      this.getSubDepartmentForItem(tenantId, itemId),
     ]);
 
     return {
@@ -168,6 +188,8 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
         calculationMode: item.priceIncludesTax ? 'inclusive' as const : 'exclusive' as const,
       },
       metadata: item.metadata ?? null,
+      categoryId: item.categoryId ?? null,
+      subDepartmentId,
     };
   }
 

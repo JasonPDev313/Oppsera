@@ -1,0 +1,259 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { CheckCircle, ChevronRight, Landmark, BookOpen, Settings2, Sparkles } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
+import { apiFetch } from '@/lib/api-client';
+import Link from 'next/link';
+
+interface BootstrapWizardProps {
+  onComplete: () => void;
+}
+
+const TEMPLATES = [
+  {
+    key: 'golf',
+    label: 'Golf Course',
+    description: 'Green fees, cart rentals, pro shop, F&B, course maintenance',
+    icon: '⛳',
+  },
+  {
+    key: 'retail',
+    label: 'Retail',
+    description: 'Merchandise sales, inventory, COGS, POS operations',
+    icon: '🏪',
+  },
+  {
+    key: 'restaurant',
+    label: 'Restaurant',
+    description: 'Food & beverage revenue, kitchen costs, bar operations',
+    icon: '🍽️',
+  },
+  {
+    key: 'hybrid',
+    label: 'Hybrid / Multi-Venue',
+    description: 'Combined operations with all revenue streams',
+    icon: '🏢',
+  },
+];
+
+const STEPS = ['Welcome', 'Choose Template', 'Review', 'Configure', 'Complete'];
+
+export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
+  const { toast } = useToast();
+  const [step, setStep] = useState(0);
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
+
+  const handleBootstrap = useCallback(async () => {
+    if (!selectedTemplate) return;
+    setIsBootstrapping(true);
+    try {
+      await apiFetch('/api/v1/accounting/bootstrap', {
+        method: 'POST',
+        body: JSON.stringify({ templateKey: selectedTemplate }),
+      });
+      toast.success('Accounting setup complete!');
+      setStep(4);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Bootstrap failed');
+    } finally {
+      setIsBootstrapping(false);
+    }
+  }, [selectedTemplate, toast]);
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      {/* Progress */}
+      <div className="mb-8 flex items-center gap-2">
+        {STEPS.map((s, i) => (
+          <div key={s} className="flex items-center gap-2">
+            <div
+              className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
+                i < step
+                  ? 'bg-green-100 text-green-700'
+                  : i === step
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-400'
+              }`}
+            >
+              {i < step ? <CheckCircle className="h-5 w-5" /> : i + 1}
+            </div>
+            {i < STEPS.length - 1 && (
+              <div className={`h-0.5 w-8 ${i < step ? 'bg-green-300' : 'bg-gray-200'}`} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Step Content */}
+      {step === 0 && (
+        <div className="text-center space-y-4">
+          <Landmark className="mx-auto h-16 w-16 text-indigo-600" />
+          <h2 className="text-xl font-semibold text-gray-900">Set Up Accounting</h2>
+          <p className="text-gray-600">
+            We&apos;ll create a chart of accounts, configure default settings, and set up GL mappings
+            so your sales automatically flow into your general ledger.
+          </p>
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Get Started <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {step === 1 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Choose a Template</h2>
+          <p className="text-sm text-gray-600">
+            Select the template that best matches your business. Accounts can be customized after setup.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {TEMPLATES.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setSelectedTemplate(t.key)}
+                className={`rounded-lg border-2 p-4 text-left transition-colors ${
+                  selectedTemplate === t.key
+                    ? 'border-indigo-600 bg-indigo-50'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <span className="text-2xl">{t.icon}</span>
+                <h3 className="mt-2 text-sm font-semibold text-gray-900">{t.label}</h3>
+                <p className="mt-1 text-xs text-gray-500">{t.description}</p>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-between pt-4">
+            <button
+              type="button"
+              onClick={() => setStep(0)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => selectedTemplate && setStep(2)}
+              disabled={!selectedTemplate}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Review Template</h2>
+          <p className="text-sm text-gray-600">
+            The <strong>{TEMPLATES.find((t) => t.key === selectedTemplate)?.label}</strong> template
+            will create a standard chart of accounts including:
+          </p>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2 text-sm text-gray-700">
+            <p>• Asset accounts (cash, bank, receivables, inventory)</p>
+            <p>• Liability accounts (payables, tax payable, loans)</p>
+            <p>• Equity accounts (retained earnings, owner&apos;s equity)</p>
+            <p>• Revenue accounts (specific to your business type)</p>
+            <p>• Expense accounts (payroll, rent, utilities, supplies)</p>
+          </div>
+          <p className="text-xs text-gray-500">
+            All accounts can be customized, added, or removed after setup.
+          </p>
+          <div className="flex justify-between pt-4">
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 3 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Ready to Set Up</h2>
+          <p className="text-sm text-gray-600">
+            Click below to create your chart of accounts and configure default settings.
+            This will also set up control accounts for AP, AR, and sales tax.
+          </p>
+          <div className="flex justify-between pt-4">
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleBootstrap}
+              disabled={isBootstrapping}
+              className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {isBootstrapping ? 'Setting up...' : 'Create Accounts'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="text-center space-y-4">
+          <Sparkles className="mx-auto h-16 w-16 text-green-500" />
+          <h2 className="text-xl font-semibold text-gray-900">Accounting is Ready!</h2>
+          <p className="text-gray-600">
+            Your chart of accounts has been created. Here are some next steps:
+          </p>
+          <div className="mx-auto max-w-sm space-y-2">
+            <Link
+              href="/accounting/accounts"
+              onClick={onComplete}
+              className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <BookOpen className="h-5 w-5 text-gray-400" />
+              Review Chart of Accounts
+            </Link>
+            <Link
+              href="/accounting/mappings"
+              onClick={onComplete}
+              className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Settings2 className="h-5 w-5 text-gray-400" />
+              Configure GL Mappings
+            </Link>
+            <Link
+              href="/accounting/settings"
+              onClick={onComplete}
+              className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              <Settings2 className="h-5 w-5 text-gray-400" />
+              Accounting Settings
+            </Link>
+          </div>
+          <button
+            type="button"
+            onClick={onComplete}
+            className="mt-4 rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Done
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

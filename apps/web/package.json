@@ -10,6 +10,7 @@
     "lint": "eslint src/",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -23,10 +24,12 @@
     "@oppsera/module-ar": "workspace:*",
     "@oppsera/module-catalog": "workspace:*",
     "@oppsera/module-customers": "workspace:*",
+    "@oppsera/module-fnb": "workspace:*",
     "@oppsera/module-golf-reporting": "workspace:*",
     "@oppsera/module-inventory": "workspace:*",
     "@oppsera/module-orders": "workspace:*",
     "@oppsera/module-payments": "workspace:*",
+    "@oppsera/module-pms": "workspace:*",
     "@oppsera/module-reporting": "workspace:*",
     "@oppsera/module-room-layouts": "workspace:*",
     "@oppsera/shared": "workspace:*",

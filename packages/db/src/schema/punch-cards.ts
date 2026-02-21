@@ -179,7 +179,7 @@ export const punchCardUsages = pgTable(
       .references(() => punchCards.id),
     punchCardRateId: text('punch_card_rate_id'),
     orderId: text('order_id'),
-    teeBookingOrderLineId: text('tee_booking_order_line_id'),
+    teeTimeOrderLineId: text('tee_time_order_line_id'),
     roundsUsed: integer('rounds_used').notNull().default(0),
     description: text('description'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

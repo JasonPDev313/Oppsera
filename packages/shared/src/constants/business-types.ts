@@ -4,7 +4,7 @@ export const BUSINESS_TYPES = [
     name: 'Restaurant / Bar',
     icon: 'UtensilsCrossed',
     description: 'Restaurants, bars, cafes, food trucks',
-    recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_restaurant', 'payments', 'inventory', 'customers', 'reporting', 'room_layouts'],
+    recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_fnb', 'payments', 'inventory', 'customers', 'reporting', 'room_layouts'],
     starterHierarchy: [
       {
         department: 'Food',
@@ -46,7 +46,7 @@ export const BUSINESS_TYPES = [
     name: 'Golf Course / Club',
     icon: 'Flag',
     description: 'Golf courses, country clubs, driving ranges',
-    recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_restaurant', 'payments', 'inventory', 'customers', 'reporting', 'room_layouts'],
+    recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_fnb', 'payments', 'inventory', 'customers', 'reporting', 'room_layouts'],
     starterHierarchy: [
       {
         department: 'Pro Shop',
@@ -83,7 +83,7 @@ export const BUSINESS_TYPES = [
     name: 'Multi-Purpose Venue',
     icon: 'Building2',
     description: 'Venues with mixed operations (restaurant + retail + services)',
-    recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_restaurant', 'payments', 'inventory', 'customers', 'reporting', 'room_layouts'],
+    recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_fnb', 'payments', 'inventory', 'customers', 'reporting', 'room_layouts'],
     starterHierarchy: [
       {
         department: 'Retail',

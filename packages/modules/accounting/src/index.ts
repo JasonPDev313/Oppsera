@@ -25,6 +25,7 @@ export { generateRetainedEarnings } from './commands/generate-retained-earnings'
 
 // Adapters
 export { handleTenderForAccounting } from './adapters/pos-posting-adapter';
+export { handleFolioChargeForAccounting } from './adapters/folio-posting-adapter';
 export { migrateLegacyJournalEntries } from './adapters/legacy-bridge-adapter';
 
 // Queries
@@ -48,6 +49,10 @@ export { listBankAccounts } from './queries/list-bank-accounts';
 export type { BankAccount } from './queries/list-bank-accounts';
 export { getMappingCoverage } from './queries/get-mapping-coverage';
 export type { MappingCoverageReport, MappingCoverageDetail } from './queries/get-mapping-coverage';
+export { getSubDepartmentMappings } from './queries/get-sub-department-mappings';
+export type { SubDepartmentMappingRow } from './queries/get-sub-department-mappings';
+export { getItemsBySubDepartment } from './queries/get-items-by-sub-department';
+export type { SubDepartmentItem } from './queries/get-items-by-sub-department';
 export { getCloseChecklist } from './queries/get-close-checklist';
 export type { CloseChecklist, CloseChecklistItem } from './queries/get-close-checklist';
 export { listClosePeriods } from './queries/list-close-periods';
@@ -77,6 +82,7 @@ export {
   resolveSubDepartmentAccounts,
   resolvePaymentTypeAccounts,
   resolveTaxGroupAccount,
+  resolveFolioEntryTypeAccount,
   logUnmappedEvent,
 } from './helpers/resolve-mapping';
 export type {
@@ -86,6 +92,7 @@ export type {
 } from './helpers/resolve-mapping';
 export { getAccountingSettings } from './helpers/get-accounting-settings';
 export type { AccountingSettings } from './helpers/get-accounting-settings';
+export { resolveRevenueAccountForSubDepartment, expandPackageForGL } from './helpers/catalog-gl-resolution';
 
 // Errors
 export {

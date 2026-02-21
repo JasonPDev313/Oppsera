@@ -32,6 +32,8 @@ export interface PackageMetadata {
     itemName: string;
     itemType: string;
     qty: number;
+    /** Override price in dollars. If omitted, addLineItem fetches the live catalog price. */
+    componentUnitPrice?: number;
   }>;
   pricingMode?: 'fixed' | 'sum_of_components';
 }

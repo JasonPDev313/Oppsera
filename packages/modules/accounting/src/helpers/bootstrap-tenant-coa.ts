@@ -91,6 +91,7 @@ export async function bootstrapTenantCoa(
     defaultUndepositedFundsAccountId: controlAccountIds['undeposited_funds'] ?? null,
     defaultRetainedEarningsAccountId: controlAccountIds['retained_earnings'] ?? null,
     defaultRoundingAccountId: controlAccountIds['rounding'] ?? null,
+    defaultPmsGuestLedgerAccountId: controlAccountIds['pms_guest_ledger'] ?? null,
     roundingToleranceCents: 5,
   });
 
