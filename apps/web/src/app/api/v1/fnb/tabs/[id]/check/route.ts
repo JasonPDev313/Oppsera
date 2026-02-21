@@ -6,8 +6,6 @@ import { getCheckSummary } from '@oppsera/module-fnb';
 // GET /api/v1/fnb/tabs/:id/check — get check summary for tab's order
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const parts = new URL(request.url).pathname.split('/');
-    const _tabId = parts[parts.length - 2]!;
     const url = new URL(request.url);
     const orderId = url.searchParams.get('orderId');
 
