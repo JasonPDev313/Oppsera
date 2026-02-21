@@ -741,6 +741,17 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 168. **Mapping coverage diagnostic** — `getMappingCoverage()` reports how many sub-departments, payment types, and tax groups have GL mappings vs don't. Powers the accounting dashboard "mapping coverage" card. Always check coverage before going live with GL posting.
 169. **Legacy bridge adapter is batch + idempotent** — `migrateLegacyJournalEntries()` reads `payment_journal_entries` (old JSONB-based GL) and creates proper `gl_journal_entries`. Processes in batches of 100. Idempotent via `sourceModule: 'pos_legacy'` + `sourceReferenceId`.
 170. **CONVENTIONS.md has full architecture docs for accounting** — See §66 (Accounting/GL), §67 (AP), §68 (AR), §69 (Subledger Reconciliation), §70 (Cross-Module Financial Posting). Always read these before modifying any financial module.
+171. **`vercel.json` must not duplicate Vercel Dashboard settings** — When the Dashboard sets `rootDirectory: apps/web`, any `outputDirectory`, `buildCommand`, or `installCommand` in `vercel.json` are resolved *relative to that root*. Setting `outputDirectory: "apps/web/.next"` creates a double-nested path (`/vercel/path0/apps/web/apps/web/.next`) and breaks the build. Keep `vercel.json` minimal — only `$schema` and `regions`. All build/install/output/framework settings live in the Dashboard (or Vercel API) only. **Correct Dashboard settings for this monorepo**: Root Directory = `apps/web`, Framework = Next.js, Install Command = `cd ../.. && pnpm install`, Build Command = `cd ../.. && pnpm turbo build --filter=@oppsera/web...`, Output Directory = default (leave blank).
+172. **`db:seed` does NOT create Supabase Auth users** — the seed creates app-level DB records only (`users` table, memberships, etc.) and leaves `users.auth_provider_id` as null. The production `SupabaseAuthAdapter.validateToken()` looks up users by `auth_provider_id` — if it's null, login silently fails even with valid Supabase credentials (the frontend just clears the form). To fix for a new environment: (1) create the Supabase Auth user via admin API (or confirm it already exists), (2) update the app's users table to link the UUID. Quick recovery commands:
+   ```bash
+   # 1. Find the Supabase Auth UUID for the user
+   curl "$SUPABASE_URL/auth/v1/admin/users" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY"
+   # 2. Reset their password if needed
+   curl -X PUT "$SUPABASE_URL/auth/v1/admin/users/<uuid>" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d '{"password":"<newpassword>"}'
+   # 3. Link the UUID to the app's users table
+   curl -X PATCH "$SUPABASE_URL/rest/v1/users?email=eq.<email>" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d '{"auth_provider_id":"<uuid>"}'
+   ```
+   `DEV_AUTH_BYPASS=true` bypasses all of this on localhost — lookup is by email only, password ignored.
 
 ## Quick Commands
 
