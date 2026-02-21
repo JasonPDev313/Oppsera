@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { submitUserRating, userFeedbackSchema } from '@oppsera/module-semantic/evaluation';
+import { submitUserRating, userFeedbackSchema, type FeedbackTag } from '@oppsera/module-semantic/evaluation';
 
 // POST /api/v1/semantic/eval/turns/[id]/feedback
 // Submit user feedback (rating, thumbs up, tags) for a single eval turn.
@@ -41,7 +41,7 @@ export const POST = withMiddleware(
       rating: parsed.data.rating,
       thumbsUp: parsed.data.thumbsUp,
       text: parsed.data.text,
-      tags: parsed.data.tags as string[] | undefined,
+      tags: parsed.data.tags as FeedbackTag[] | undefined,
     });
 
     return NextResponse.json({ data: { success: true } });
