@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import { submitUserRating, userFeedbackSchema } from '@oppsera/module-semantic/evaluation';
@@ -7,9 +7,15 @@ import { submitUserRating, userFeedbackSchema } from '@oppsera/module-semantic/e
 // Submit user feedback (rating, thumbs up, tags) for a single eval turn.
 // Users can only rate their OWN turns (enforced in submitUserRating).
 
+function extractEvalTurnId(request: NextRequest): string {
+  const parts = new URL(request.url).pathname.split('/');
+  // /api/v1/semantic/eval/turns/[id]/feedback → id is at parts[parts.length - 2]
+  return parts[parts.length - 2]!;
+}
+
 export const POST = withMiddleware(
-  async (request, ctx, { params }: { params: Promise<{ id: string }> }) => {
-    const { id: evalTurnId } = await params;
+  async (request, ctx) => {
+    const evalTurnId = extractEvalTurnId(request);
 
     const body = await request.json();
     const parsed = userFeedbackSchema.safeParse(body);
