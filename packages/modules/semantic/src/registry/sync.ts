@@ -151,7 +151,7 @@ async function upsertLenses(
         ${generateUlid()}, ${l.slug}, ${l.displayName}, ${l.description ?? null}, ${l.domain},
         ${l.allowedMetrics ?? null}, ${l.allowedDimensions ?? null},
         ${l.defaultMetrics ?? null}, ${l.defaultDimensions ?? null},
-        ${l.defaultFilters ? pg.json(l.defaultFilters as object) : null},
+        ${l.defaultFilters ? pg.json(l.defaultFilters as unknown as postgres.JSONValue) : null},
         ${l.systemPromptFragment ?? null}, ${l.exampleQuestions ?? null},
         TRUE, ${l.isSystem}, NOW(), NOW()
       )
@@ -190,7 +190,7 @@ async function upsertExamples(
         created_at, updated_at
       ) VALUES (
         ${generateUlid()}, ${ex.tenantId}, ${ex.sourceEvalTurnId},
-        ${ex.question}, ${pg.json(ex.plan as object)}, ${ex.rationale ? pg.json(ex.rationale as object) : null},
+        ${ex.question}, ${pg.json(ex.plan as unknown as postgres.JSONValue)}, ${ex.rationale ? pg.json(ex.rationale as unknown as postgres.JSONValue) : null},
         ${ex.category}, ${ex.difficulty},
         ${ex.qualityScore}, ${ex.isActive}, ${ex.addedBy},
         NOW(), NOW()
