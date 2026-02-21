@@ -119,7 +119,15 @@ const navigation: NavItem[] = [
       { name: 'History', href: '/insights/history', icon: History },
     ],
   },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  {
+    name: 'Settings',
+    href: '/settings',
+    icon: Settings,
+    children: [
+      { name: 'General', href: '/settings', icon: Settings },
+      { name: 'Room Layouts', href: '/settings/room-layouts', icon: LayoutDashboard, moduleKey: 'room_layouts' },
+    ],
+  },
 ];
 
 function getInitials(name: string): string {

@@ -91,14 +91,20 @@ export class SupabaseAuthAdapter implements AuthAdapter {
         membershipStatus: membership.status,
       };
     } catch (error) {
+      // JWT errors are auth failures → return null → 401
       if (error instanceof jwt.JsonWebTokenError) {
         console.debug('JWT validation failed:', error.message);
-      } else if (error instanceof jwt.TokenExpiredError) {
-        console.debug('JWT expired');
-      } else {
-        console.debug('Token validation error:', error);
+        return null;
       }
-      return null;
+      if (error instanceof jwt.TokenExpiredError) {
+        console.debug('JWT expired');
+        return null;
+      }
+      // Everything else (DB timeout, connection error, pool exhaustion) is a
+      // server error — re-throw so middleware returns 500 instead of 401.
+      // This prevents login from clearing tokens on transient failures.
+      console.error('Token validation server error:', error);
+      throw error;
     }
   }
 
@@ -110,9 +116,12 @@ export class SupabaseAuthAdapter implements AuthAdapter {
     const normalizedEmail = email.toLowerCase().trim();
     const trimmedName = name.trim();
 
-    const { data, error } = await this.supabase.auth.signUp({
+    // Use admin API to create user with auto-confirm — avoids email verification
+    // requirement that blocks login on hosted Supabase.
+    const { data, error } = await this.supabase.auth.admin.createUser({
       email: normalizedEmail,
       password,
+      email_confirm: true,
     });
 
     if (error) {

@@ -129,6 +129,8 @@ async function seed() {
         'reports.*',
         'settings.*',
         'users.*',
+        'room_layouts.view',
+        'room_layouts.manage',
       ],
     },
     {
@@ -144,6 +146,8 @@ async function seed() {
         'reports.custom.view',
         'reports.custom.manage',
         'settings.view',
+        'room_layouts.view',
+        'room_layouts.manage',
       ],
     },
     {
@@ -168,6 +172,7 @@ async function seed() {
         'inventory.view',
         'customers.view',
         'reports.view',
+        'room_layouts.view',
       ],
     },
   ];
@@ -216,6 +221,7 @@ async function seed() {
     'reporting',
     'golf_ops',
     'semantic',
+    'room_layouts',
   ];
 
   const entitlementLimits = { max_seats: 25, max_locations: 10, max_devices: 10 };

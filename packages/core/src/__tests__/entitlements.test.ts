@@ -390,8 +390,8 @@ describe('Limit checking helpers', () => {
 });
 
 describe('MODULE_REGISTRY', () => {
-  it('contains 12 module definitions', () => {
-    expect(MODULE_REGISTRY).toHaveLength(12);
+  it('contains 13 module definitions', () => {
+    expect(MODULE_REGISTRY).toHaveLength(13);
   });
 
   it('contains all expected V1 modules', () => {
@@ -403,6 +403,7 @@ describe('MODULE_REGISTRY', () => {
     expect(v1Keys).toContain('inventory');
     expect(v1Keys).toContain('customers');
     expect(v1Keys).toContain('reporting');
+    expect(v1Keys).toContain('room_layouts');
   });
 
   it('each module has key, name, phase, description', () => {

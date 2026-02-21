@@ -3,10 +3,7 @@ import { z } from 'zod';
 // --- Tax Rates ---
 export const createTaxRateSchema = z.object({
   name: z.string().min(1).max(200).transform((v) => v.trim()),
-  rateDecimal: z.number().min(0).max(1).refine(
-    (v) => Number(v.toFixed(4)) === v,
-    { message: 'Rate must have at most 4 decimal places' },
-  ),
+  rateDecimal: z.number().min(0).max(1).transform((v) => Number(v.toFixed(4))),
 });
 export type CreateTaxRateInput = z.infer<typeof createTaxRateSchema>;
 

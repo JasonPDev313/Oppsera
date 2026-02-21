@@ -59,8 +59,13 @@ export class DevAuthAdapter implements AuthAdapter {
         tenantStatus: tenant.status,
         membershipStatus: membership.status,
       };
-    } catch {
-      return null;
+    } catch (error) {
+      // JWT errors → return null (auth failure)
+      if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+        return null;
+      }
+      // DB errors → re-throw so middleware returns 500, not 401
+      throw error;
     }
   }
 

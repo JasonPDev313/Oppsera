@@ -88,6 +88,8 @@ export { calculateTaxes } from './helpers/tax-calc';
 export type { TaxCalculationInput, TaxCalculationResult, TaxRateBreakdown } from './helpers/tax-calc';
 export { getCatalogReadApi, setCatalogReadApi } from './helpers/catalog-read-api';
 export type { CatalogReadApi, ItemTaxInfo, PosItemData } from './helpers/catalog-read-api';
+export { getAccountingPostingApi, setAccountingPostingApi } from './helpers/accounting-posting-api';
+export type { AccountingPostingApi, AccountingPostJournalInput } from './helpers/accounting-posting-api';
 
 // ── Observability ───────────────────────────────────────────────────
 export {

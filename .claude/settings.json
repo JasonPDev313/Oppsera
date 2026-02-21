@@ -13,24 +13,16 @@
       "Bash(golf \")",
       "Bash(git pull:*)",
       "Bash(git stash:*)",
-      "Bash(/c/Users/Jason/AppData/Roaming/npm/vercel ls:*)",
-      "Bash(/c/Users/Jason/AppData/Roaming/npm/vercel project ls:*)",
-      "Bash(# Get the Vercel token from the local config cat /c/Users/Jason/.local/share/com.vercel.cli/auth.json || cat /c/Users/Jason/AppData/Local/com.vercel.cli/auth.json || cat /c/Users/Jason/AppData/Roaming/com.vercel.cli/auth.json)",
-      "Bash(python3:*)",
-      "Bash(VERCEL_TOKEN=\"vca_0xwLBoX9gV8sDhp4t0dA8fAGinMGXwzRMtsrFZ8Hu7Jgy9gVJh4KVb29\")",
       "Bash(curl:*)",
-      "Bash(TEAM_ID=\"team_hUvqWMlSvxICsWgWICxqRTRA\")",
       "Bash(node -e:*)",
-      "Bash(SERVICE_KEY=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4ZWhuYmF4eWNnZGdndGF6dnp4Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTI4MDk4OCwiZXhwIjoyMDg2ODU2OTg4fQ.zWhF2WrKEP3VKRd_zxEw20CXSODNA7slIQK-aOtoku8\")",
-      "Bash(SUPABASE_URL=\"https://gxehnbaxycgdggtazvzx.supabase.co\":*)",
-      "Bash(USER_ID=\"01KHWBW6GRDTYPB0ERAREHP2GR\")",
-      "Bash(__NEW_LINE_c5ef8d71931098d3__ curl -s \"$SUPABASE_URL/rest/v1/memberships?user_id=eq.$USER_ID&select=id,user_id,tenant_id,status\" -H \"Authorization: Bearer $SERVICE_KEY\" -H \"apikey: $SERVICE_KEY\")",
       "Bash(pnpm --filter @oppsera/shared test:*)",
       "Bash(pnpm --filter @oppsera/module-orders exec tsc:*)",
       "Bash(pnpm --filter @oppsera/module-reporting exec tsc:*)",
       "Bash(pnpm --filter @oppsera/web exec tsc:*)",
       "Bash(npx tsx:*)",
-      "Bash(ss:*)"
+      "Bash(printf:*)",
+      "Bash(gh api:*)",
+      "Bash(wmic:*)"
     ]
   }
 }

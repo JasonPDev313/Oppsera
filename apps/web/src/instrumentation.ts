@@ -68,6 +68,19 @@ export async function register() {
     } catch (e) {
       console.error('Failed to register payment consumers:', e);
     }
+
+    // Accounting bootstrap + POS GL adapter
+    try {
+      const { initializeAccountingPostingApi } = await import('./lib/accounting-bootstrap');
+      await initializeAccountingPostingApi();
+      console.log('Initialized AccountingPostingApi singleton');
+
+      const accounting = await import('@oppsera/module-accounting');
+      bus.subscribe('tender.recorded.v1', accounting.handleTenderForAccounting);
+      console.log('Registered accounting event consumers');
+    } catch (e) {
+      console.error('Failed to initialize accounting:', e);
+    }
   }
   // TODO: Uncomment when @sentry/nextjs is installed:
   // if (process.env.NEXT_RUNTIME === 'edge') {

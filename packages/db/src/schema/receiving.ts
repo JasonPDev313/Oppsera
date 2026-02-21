@@ -41,6 +41,12 @@ export const vendors = pgTable(
     website: text('website'),
     defaultPaymentTerms: text('default_payment_terms'),
     isActive: boolean('is_active').notNull().default(true),
+    // AP extension columns (Session 30)
+    vendorNumber: text('vendor_number'),
+    defaultExpenseAccountId: text('default_expense_account_id'), // FK to gl_accounts — added in migration
+    defaultAPAccountId: text('default_ap_account_id'), // FK to gl_accounts — added in migration
+    paymentTermsId: text('payment_terms_id'), // FK to payment_terms — added in migration (avoids circular import)
+    is1099Eligible: boolean('is_1099_eligible').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

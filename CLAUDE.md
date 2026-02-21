@@ -36,6 +36,10 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | F&B POS (dual-mode, shares orders module) | pos_fnb | V1 | Done (frontend) |
 | Restaurant KDS | kds | V2 | Planned |
 | Golf Reporting | golf_reporting | V1 | Done (read models + consumers + frontend) |
+| Room Layouts | room_layouts | V1 | Done (editor + templates + versioning) |
+| Accounting Core (GL, COA, posting, reports, statements) | accounting | V1 | Done |
+| Accounts Payable (bills, payments, vendors, aging) | ap | V1 | Done |
+| Accounts Receivable v0 (invoices, receipts, aging) | ar | V1 | Done |
 | Golf Operations | golf_ops | V2 | Planned |
 | AI Insights (Semantic Layer) | semantic | V1 | Done (registry + compiler + LLM pipeline + lenses + cache + observability) |
 
@@ -76,6 +80,9 @@ oppsera/
 │       ├── semantic/                 # @oppsera/module-semantic — IMPLEMENTED (AI insights)
 │       ├── kds/                      # @oppsera/module-kds — scaffolded
 │       ├── golf-ops/                 # @oppsera/module-golf-ops — scaffolded
+│       ├── accounting/               # @oppsera/module-accounting — IMPLEMENTED (GL, COA, posting, statements)
+│       ├── ap/                       # @oppsera/module-ap — IMPLEMENTED (bills, payments, vendors, aging)
+│       ├── ar/                       # @oppsera/module-ar — IMPLEMENTED (invoices, receipts, aging)
 │       └── marketing/               # @oppsera/module-marketing — scaffolded
 ├── tools/scripts/
 ├── scripts/                          # Utility scripts (switch-env.sh)
@@ -182,8 +189,12 @@ Universal item tap handler routes by `typeGroup`:
 ### Money: Dollars vs Cents
 - **Catalog** stores prices/costs as `NUMERIC(12,2)` (dollars, string in TS)
 - **Orders/Payments** store all amounts as `INTEGER` (cents, number in TS)
-- Convert at the boundary: `Math.round(parseFloat(price) * 100)`
+- **GL / AP / AR** store amounts as `NUMERIC(12,2)` (dollars, string in TS)
+- **Receiving / Landed Cost** stores as `NUMERIC(12,4)` (dollars, 4-decimal precision)
+- Convert at catalog→orders boundary: `Math.round(parseFloat(price) * 100)`
+- Convert at POS→GL boundary: `(amountCents / 100).toFixed(2)`
 - All order-layer arithmetic is integer-only — no floating point
+- All GL/AP/AR arithmetic uses `Number()` conversion + `.toFixed(2)` at update time
 
 ## Multi-Tenancy
 
@@ -440,6 +451,26 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **Types**: `apps/web/src/types/golf-reports.ts`
   - **API routes**: full golf reports suite under `/api/v1/reports/golf/`
   - **4 test files** covering consumers and query services
+- **Room Layouts Module** (Sessions 1-14):
+  - **Backend**: `packages/modules/room-layouts/` — 3 DB tables (`floor_plan_rooms`, `floor_plan_versions`, `floor_plan_templates_v2`) with RLS (12 policies), 11 commands (createRoom, updateRoom, archiveRoom, unarchiveRoom, saveDraft, publishVersion, revertToVersion, duplicateRoom, createTemplate, updateTemplate, deleteTemplate) + applyTemplate, 7 queries (listRooms, getRoom, getRoomForEditor, getVersionHistory, getVersion, listTemplates, getTemplate), slug generation with conflict handling, 8 event types emitted (no consumers — standalone module)
+  - **Schema**: `packages/db/src/schema/room-layouts.ts`, Migration: `0070_room_layouts.sql`
+  - **Shared types**: `packages/shared/src/types/room-layouts.ts` — CanvasObject, CanvasSnapshot, LayerInfo, ObjectType (14 types), TableProperties, StationProperties, ServiceZoneProperties, TextLabelProperties, etc.
+  - **Frontend Editor** (Konva.js + react-konva): Full drag-and-drop floor plan editor with 3-layer canvas architecture (grid, objects, UI), Zustand + immer state management, 14 object types (table, chair, wall, door, window, stage, bar, buffet, dance_floor, divider, text_label, decoration, service_zone, station), snap-to-grid, multi-select with Shift+click and marquee selection, Transformer for resize/rotate, context menu, z-index manipulation, copy/paste/duplicate (Ctrl+C/V/D), undo/redo with 50-entry history cap
+  - **Canvas Objects**: TableNode (shape-aware: round/square/rectangle/oval with seat count + table number), WallNode, DoorNode, TextNode, ServiceZoneNode (dashed border with label), StationNode (color-coded circle markers: POS/Wait/Bus/Host/Bar), GenericNode (fallback)
+  - **Panels**: PalettePanel (drag-to-add with 5 groups: Tables, Seating, Walls & Doors, Zones & Service, Stations), InspectorPanel (dynamic property editing per object type), LayersPanel (CRUD, visibility/lock toggles, drag reorder), AlignTools (6 align + 2 distribute options for multi-select)
+  - **Templates**: SaveAsTemplateDialog (name, description, category, widthFt, heightFt), TemplateGallery (portal dialog with search + category filter, SVG thumbnails), ApplyTemplateDialog (two-step: select → confirm), template CRUD API, createRoomFromTemplateApi (two-step: create room → apply template)
+  - **Version History**: VersionHistory sidebar (list versions with numbers, publish notes, restore), PublishDialog (publish with optional note — always saves draft before publishing regardless of isDirty)
+  - **Room Modes**: ModeManagerDialog (CRUD modes, set default, copy from existing), mode selector in toolbar
+  - **Export**: PNG export (Konva `stage.toDataURL()` with 2x pixel ratio), JSON snapshot export
+  - **Validation**: Room validation (name 1-100, dimensions 5-500ft, grid 0.25-10ft, scale 5-100px/ft), object validation (valid types, bounds check, seat requirements), publish validation (min 1 object, table numbers, capacity > 0, overlap detection)
+  - **Error Boundary**: CanvasErrorBoundary wraps Konva Stage — on crash shows "Canvas Error" with "Reload Editor" button, preserves snapshot in Zustand
+  - **Floor Plan Viewer**: Read-only Konva component with auto-fit scaling for embedding in other views
+  - **Code-split**: `page.tsx` = thin `next/dynamic` wrapper, heavy content in `editor-content.tsx` / `room-layouts-content.tsx`
+  - **Dark mode**: All room layout components use `bg-surface` for theme-aware backgrounds, opacity-based hover states (`hover:bg-gray-200/50`), no `dark:` prefixed classes (relies on inverted gray scale from globals.css). Includes: all dialogs (create/edit/duplicate/publish/mode-manager/save-template/apply-template/template-gallery), search box, actions dropdown, context menu, inspector panel inputs, color picker, layers panel, version history sidebar, revert confirmation, status bar, align tools
+  - **Integration**: `room_layouts` in MODULE_REGISTRY, entitlement-gated sidebar under Settings, permission seeds (Owner/Manager: view+manage, Supervisor: view+manage, Cashier/Server/Staff: view), onboarding provisioning for restaurant/golf/hybrid business types
+  - **Hooks**: `useRoomLayouts`, `useRoom`, `useRoomEditor`, `useRoomTemplates`, `useRoomLayoutAutosave` (3s debounce)
+  - **API routes**: 17 routes under `/api/v1/room-layouts/` (rooms CRUD, draft, publish, revert, duplicate, editor, versions, templates CRUD, apply template)
+  - **199 tests** across 11 test files (store: 65, validation: 61, canvas utils: 41, templates: 10, helpers: 11, export: 11)
 - **Speed Improvements** (Session 24):
   - **POS catalog optimization**: new `getCatalogForPOS` single-query loader in `packages/modules/catalog/src/queries/get-catalog-for-pos.ts` — replaces multiple API calls with one optimized query
   - **New API route**: `POST /api/v1/catalog/pos` — POS-optimized catalog endpoint
@@ -475,8 +506,49 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **Tax calc improvements**: zero-price early return, `TaxMode` type alias, JSDoc updates; `@oppsera/module-catalog/src/tax-calc.ts` replaced with re-export from `@oppsera/core`
   - **New tax test scenarios**: 9+ test cases in `test/business-logic/unit/calculations/tax.test.ts` covering inclusive/exclusive, compound, rounding, cart totals
 
+- **Accounting Core Module** (Sessions 28-29, 32, 34):
+  - **12 schema tables**: gl_accounts, gl_classifications, gl_journal_entries, gl_journal_lines, gl_journal_number_counters, gl_account_templates, gl_classification_templates, accounting_settings, gl_unmapped_events, accounting_close_periods, financial_statement_layouts, financial_statement_layout_templates
+  - **4 mapping tables**: sub_department_gl_defaults, payment_type_gl_defaults, tax_group_gl_defaults, bank_accounts
+  - **Migrations**: 0071-0075 (GL core, mappings, bank accounts, close periods), 0077 (financial statements)
+  - **15 commands**: postJournalEntry, postDraftEntry, voidJournalEntry, updateAccountingSettings, lockAccountingPeriod, createGlAccount, updateGlAccount, createGlClassification, updateGlClassification, saveSubDepartmentDefaults, savePaymentTypeDefaults, saveTaxGroupDefaults, saveBankAccount, bootstrapTenantAccounting, updateClosePeriod, closeAccountingPeriod, saveStatementLayout, generateRetainedEarnings
+  - **20 queries**: getAccountBalances, getJournalEntry, listJournalEntries, listGlAccounts, getTrialBalance, getGlDetailReport, getGlSummary, listUnmappedEvents, reconcileSubledger, listBankAccounts, getMappingCoverage, getCloseChecklist, listClosePeriods, getProfitAndLoss, getBalanceSheet, getSalesTaxLiability, getCashFlowSimplified, getPeriodComparison, getFinancialHealthSummary, listStatementLayouts
+  - **2 adapters**: pos-posting-adapter (tender.recorded.v1 → GL), legacy-bridge-adapter (migration script)
+  - **Helpers**: bootstrapTenantCoa, resolveMapping, generateJournalNumber, validateJournal, resolveNormalBalance, getAccountingSettings
+  - **~40 API routes** under `/api/v1/accounting/`
+  - **125 tests** across 11 test files
+  - Posting engine: double-entry validation, period locking, control account restrictions, idempotent posting via sourceReferenceId
+  - COA bootstrap: template-based (golf/retail/restaurant/hybrid defaults), creates classifications → accounts → settings atomically
+  - Financial statements: P&L (date range, comparative, location-filterable), Balance Sheet (as-of with retained earnings), Cash Flow (simplified), Period Comparison, Financial Health Summary
+  - Sales tax liability report from GL
+  - Close workflow: period status tracking, live checklist (drafts, unmapped, trial balance, AP/AR reconciliation)
+  - POS adapter: tender → GL posting with mapping resolution, never blocks tenders, logs unmapped events
+- **Accounts Payable Module** (Sessions 30-31):
+  - **5 schema tables**: ap_bills, ap_bill_lines, ap_payments, ap_payment_allocations, ap_payment_terms + vendor extensions
+  - **Migrations**: 0073 (AP schema), 0074 (AP payments + payment terms)
+  - **17 commands**: createBill, updateBill, postBill, voidBill, createPaymentTerms, updatePaymentTerms, updateVendorAccounting, createBillFromReceipt, createPayment, postPayment, voidPayment, allocatePayment, createVendorCredit, applyVendorCredit, allocateLandedCost
+  - **11 queries**: listBills, getBill, listPaymentTerms, getVendorAccounting, getApAging, getVendorLedger, getOpenBills, getPaymentHistory, getExpenseByVendor, getCashRequirements, get1099Report, getAssetPurchases
+  - **~20 API routes** under `/api/v1/ap/`
+  - **~60 tests** across test files
+  - Bill lifecycle: draft → posted → partial → paid → voided
+  - Payment lifecycle: draft → posted → voided with FIFO allocation
+  - GL integration via AccountingPostingApi
+  - Vendor accounting config (default expense/AP accounts, payment terms, 1099 eligibility)
+  - AP aging report (current, 1-30, 31-60, 61-90, 90+ buckets)
+  - Landed cost allocation across bill lines
+- **Accounts Receivable Module** (Session 33):
+  - **4 schema tables**: ar_invoices, ar_invoice_lines, ar_receipts, ar_receipt_allocations
+  - **Migration**: 0076 (AR schema with RLS)
+  - **7 commands**: createInvoice, postInvoice, voidInvoice, createReceipt, postReceipt, voidReceipt, bridgeArTransaction
+  - **8 queries**: listInvoices, getInvoice, listReceipts, getOpenInvoices, getArAging, getCustomerLedger, getReconciliationAr
+  - **~10 API routes** under `/api/v1/ar/`
+  - **23 tests**
+  - Invoice lifecycle: draft → posted → partial → paid → voided
+  - Receipt allocation to invoices, GL integration
+  - AR aging report, customer ledger with running balance
+  - Bridge command for migrating existing operational ar_transactions
+
 ### Test Coverage
-1312 tests: 134 core + 68 catalog + 52 orders + 37 shared + 100 customers + 424 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api)
+1700+ tests: 134 core + 68 catalog + 52 orders + 37 shared + 100 customers + 424 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 125 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge) + 60 ap (bill lifecycle + payment lifecycle) + 23 ar (invoice + receipt lifecycle)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -525,6 +597,11 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
   - **Utility**: `scripts/switch-env.sh` (toggle local/remote Supabase)
 
 ### What's Next
+- Accounting frontend (COA management, journal browser, mapping UI, report viewers, statement viewers)
+- AP frontend (bill entry, payment batch, aging dashboard, vendor ledger)
+- AR frontend (invoice entry, receipt entry, aging dashboard, customer ledger)
+- AP approval workflow (Draft → Pending Approval → Approved → Posted)
+- Bank reconciliation module (match bank feeds to GL entries)
 - Vendor Management remaining API routes (search, deactivate/reactivate, catalog CRUD endpoints)
 - Purchase Orders module Phases 2-6 (commands, queries, API routes, frontend) — schema done
 - Receiving module frontend polish (barcode scan on receipt lines, cost preview panel, void receipt UI)
@@ -532,7 +609,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
-- Run migrations 0066-0067, 0070-0073 on dev DB
+- Run migrations 0066-0077 on dev DB
 - Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
 - For existing tenants: run `tools/scripts/add-semantic-entitlement.ts` to grant semantic access
 - ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
@@ -541,7 +618,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 
 1. **`z.input<>` not `z.infer<>`** for function params when schema has `.default()` — see CONVENTIONS.md §19
 2. **`export type` doesn't create local bindings** — add separate `import type` for same-file use — see §20
-3. **Money: catalog=dollars (NUMERIC), orders=cents (INTEGER)** — convert with `Math.round(parseFloat(price) * 100)` — see §21
+3. **Money: catalog/GL/AP/AR=dollars (NUMERIC), orders/payments=cents (INTEGER)** — convert with `Math.round(parseFloat(price) * 100)` for catalog→orders, `(cents / 100).toFixed(2)` for POS→GL — see §21
 4. **postgres.js returns RowList** — use `Array.from(result as Iterable<T>)`, never `.rows`
 5. **Append-only tables** — `inventory_movements`, `audit_log`, `payment_journal_entries` are never updated/deleted
 6. **Receipt snapshots are immutable** — frozen at `placeOrder`, never regenerated
@@ -686,6 +763,58 @@ Milestones 0-9 (Sessions 1-16.5) complete. See CONVENTIONS.md for detailed code 
 136. **Intent resolver biases toward attempting queries** — Rule 3 in `intent-resolver.ts` only sets `clarificationNeeded = true` when the LLM genuinely cannot map ANY part of the question to available metrics. Ambiguous questions get `confidence < 0.7` and a best-effort plan. General business questions get `confidence < 0.6`. This prevents the frustrating "could you clarify?" loop.
 137. **`buildNarrativeSystemPrompt` is the single source of THE OPPS ERA LENS** — all narrative behavior (tone, response structure, industry translation, adaptive depth, token rules) is defined in the system prompt built by `buildNarrativeSystemPrompt()` in `narrative.ts`. When updating the lens: edit the prompt, update `HEADING_TO_SECTION` if new sections are added, and add parser tests.
 138. **Narrative maxTokens is 2048, not 1024** — THE OPPS ERA LENS produces richer responses (Options + Recommendation + Quick Wins + ROI Snapshot + What to Track + Next Steps). The `maxTokens` was bumped from 1024 to 2048 in `generateNarrative()`. Intent resolution remains at 4096.
+139. **Room Layout editor uses 3-layer Konva architecture** — GridLayer (cached, not redrawn per frame), ObjectLayer (filtered by layer visibility, sorted by zIndex), UI Layer (Transformer + SelectionBox). All in `apps/web/src/components/room-layouts/editor/canvas/`.
+140. **Room Layout store stage ref is module-level** — `setEditorStageRef()` / `getEditorStageRef()` live outside the Zustand store to avoid serialization issues. CanvasArea registers in a useEffect, EditorShell reads for PNG export.
+141. **Room Layout objects store position in feet, dimensions in pixels** — `x`/`y` are in feet (room coordinate system), `width`/`height` are in pixels. Convert with `scalePxPerFt`. Konva renders at `x * scalePxPerFt`, `y * scalePxPerFt`.
+142. **Room Layout templates use SVG thumbnails** — `TemplateThumbnail` renders a lightweight SVG preview, not a full Konva mini-stage. `computeFitScale` ensures the room fits within the thumbnail dimensions.
+143. **Room Layout validation is warning-based** — out-of-bounds objects and missing table numbers are warnings, not errors. Only duplicate IDs and missing required fields are errors. `validateForPublish` returns both levels.
+144. **Room Layout error boundary preserves data** — `CanvasErrorBoundary` wraps only the Konva `<Stage>`. On canvas crash, Zustand state (snapshot) is preserved. "Reload Editor" button resets the error boundary without losing data.
+145. **Room Layout dialogs are portal-based** — all dialogs (SaveAsTemplate, ApplyTemplate, ModeManager, VersionHistory, CreateRoom) use `createPortal(... , document.body)` with z-50, matching the POS dialog pattern.
+146. **Room Layout publish always saves draft first** — `handlePublish` in `editor-content.tsx` always calls `saveDraftApi()` before `publishVersionApi()`, regardless of `isDirty` state. After autosave sets `isDirty=false`, `draftVersionId` could be null (e.g., after a prior publish). Without the forced save, publish fails with "No draft version to publish".
+147. **Room Layout template creation requires dimensions** — `createTemplateSchema` requires `widthFt` and `heightFt`. The SaveAsTemplateDialog reads these from `useEditorStore`. `createRoomFromTemplateApi` is a two-step process: create blank room with template dimensions → apply template snapshot.
+148. **Room Layout `applyTemplateApi` sends roomId in body** — the API route is `POST /api/v1/room-layouts/templates/:templateId/apply` with `{ roomId }` in the request body (not in the URL path). The route extracts `templateId` from the URL.
+149. **Room Layout editor fetches on mount** — `editor-content.tsx` calls `fetchEditor()` in a `useEffect` on mount. The `useRoomEditor` hook returns `{ data, isLoading, error, mutate: fetchEditor }` — only one call, never duplicate hook instances.
+150. **Room Layout components use `bg-surface` exclusively** — no `bg-white` or `dark:` prefixed classes in any room layout component. All backgrounds use `bg-surface` for theme-aware rendering. Hover states use opacity-based colors (`hover:bg-gray-200/50`, `hover:bg-red-500/10`). Warning banners use `bg-yellow-500/10 border-yellow-500/40`. This matches the inverted gray scale pattern (gotcha #39).
+151. **Room Layout actions dropdown needs no overflow-x-auto** — the room list table container must NOT have `overflow-x-auto`, as it clips the absolutely-positioned actions dropdown menu. The table is narrow enough to not need horizontal scrolling.
+152. **Seeded users don't exist in Supabase Auth** — The seed script creates users in the app's `users` table but NOT in Supabase Auth (`auth.users`). Locally with `DEV_AUTH_BYPASS=true`, the `DevAuthAdapter` bypasses Supabase entirely so it works fine. On Vercel (production), `SupabaseAuthAdapter` calls `supabase.auth.signInWithPassword()` which checks Supabase Auth — users won't exist there. Use the `/api/v1/auth/link-account` endpoint (or `supabase.auth.admin.createUser()`) to create the Supabase Auth account and update `authProviderId` in the `users` table. The `authProviderId` column MUST match the Supabase Auth user's UUID (`sub` claim in JWT).
+153. **`validateToken()` must re-throw DB errors, not swallow them** — On Vercel cold starts, DB connection timeouts can occur. If `validateToken()` catches ALL errors and returns `null`, DB timeouts become false 401s, which clear tokens and bounce users to login. The catch block must ONLY return `null` for `jwt.JsonWebTokenError` and `jwt.TokenExpiredError`. All other errors (DB timeouts, network errors) must be re-thrown so middleware returns 500, not 401.
+154. **`login()` must block until `/api/v1/me` succeeds** — The login function must await the `/api/v1/me` call (with retries) BEFORE returning. If it fires `fetchMe()` as fire-and-forget, `router.push('/dashboard')` executes with `user=null` and the dashboard redirects back to `/login`, creating a redirect loop. Use an inline await-based retry (not `setTimeout`).
+155. **Local dev and Vercel share the same Supabase project by default** — `.env.local` points `DATABASE_URL` and `NEXT_PUBLIC_SUPABASE_URL` at the remote Supabase instance. Running `pnpm db:seed` locally overwrites `authProviderId` values that were linked via Supabase Auth, breaking Vercel login. Either use `npx supabase start` for a fully local stack, or avoid re-seeding the remote DB.
+156. **GL amounts are NUMERIC(12,2) in dollars** — NOT cents. Different from orders layer (INTEGER cents). Convert at boundaries: `Number(amount)` for GL, `Math.round(parseFloat(price) * 100)` for orders.
+157. **Never write GL tables directly** — always use `postJournalEntry()`. The unique index on (tenantId, sourceModule, sourceReferenceId) enforces idempotent posting from adapters.
+158. **Posted journal entries are immutable** — void + create reversal. Never UPDATE a posted entry's amounts or accounts.
+159. **AP/AR post to GL via AccountingPostingApi** — singleton in `@oppsera/core/helpers/accounting-posting-api.ts`. Never import `@oppsera/module-accounting` from another module. Interface: `postEntry(ctx, input)`, `getAccountBalance(tenantId, accountId, asOfDate?)`, `getSettings(tenantId)`. Initialized in `apps/web/src/lib/accounting-bootstrap.ts`, wired in `instrumentation.ts`.
+160. **Currency is locked to USD** — all tables have currency column defaulting to 'USD'. Posting engine rejects non-USD. Multi-currency is a future feature.
+161. **Control accounts restrict posting by sourceModule** — `controlAccountType` on `gl_accounts` limits which modules can post. Manual entries to control accounts require `accounting.control_account.post` permission.
+162. **POS adapter never blocks tenders** — if GL mapping is missing, skip the GL post and log to `gl_unmapped_events`. POS must always succeed. Handler: `handleTenderForAccounting` in `packages/modules/accounting/src/adapters/pos-posting-adapter.ts`.
+163. **AP denormalizes balanceDue** — `ap_bills.balanceDue` is kept in sync by payment posting. Never compute it from allocations in hot paths — use the denormalized column.
+164. **AR bridges existing ar_transactions** — the AR module reads from existing operational AR tables and posts to GL. It does NOT replace the existing POS house account flow.
+165. **Retained earnings is semi-automatic** — current-year P&L is added to the stored retained earnings balance for the balance sheet. Year-end close creates the formal journal entry via `generateRetainedEarnings()`. Idempotent: checks for existing entry by sourceReferenceId.
+166. **Close checklist is query-based** — checklist items are computed live (open drafts, unreconciled subledgers, unmapped events), not stored. Only the period status and notes are persisted in `accounting_close_periods`.
+167. **AP bill lifecycle** — draft → posted → partial → paid → voided. Bills have `balanceDue` denormalized. `postBill` validates GL references and creates journal entry. `voidBill` creates reversal journal entry.
+168. **AP payment lifecycle** — draft → posted → voided. Payments allocate to bills via `ap_payment_allocations`. `postPayment` updates bill `balanceDue` and `amountPaid`, creates GL journal entry. `allocatePayment` distributes across multiple bills.
+169. **AR invoice lifecycle** — draft → posted → partial → paid → voided. Same pattern as AP bills but for receivables. Schema: `ar_invoices`, `ar_invoice_lines`, `ar_receipts`, `ar_receipt_allocations`.
+170. **Financial statement layouts are tenant-configurable** — `financial_statement_layouts` table allows tenants to customize P&L and Balance Sheet section groupings. `financial_statement_layout_templates` provides system defaults. Layouts group accounts by `classificationIds[]` and/or `accountIds[]`.
+171. **Balance sheet includes current-year net income in equity** — `getBalanceSheet()` computes current fiscal year revenue - expenses and adds it to totalEquity. This ensures A = L + E even before year-end close. `isBalanced` flag validates the equation.
+172. **Sales tax liability report uses GL, not POS data** — `getSalesTaxLiability()` pulls from `tax_group_gl_defaults` → `gl_journal_lines`. Credits to tax payable = collected, debits = remitted. Net liability = collected - remitted.
+173. **Accounting module has 26 tables total** — GL: gl_accounts, gl_classifications, gl_journal_entries, gl_journal_lines, gl_journal_number_counters, gl_account_templates, gl_classification_templates, accounting_settings, gl_unmapped_events, accounting_close_periods, financial_statement_layouts, financial_statement_layout_templates. Mappings: sub_department_gl_defaults, payment_type_gl_defaults, tax_group_gl_defaults, bank_accounts. AP: ap_bills, ap_bill_lines, ap_payments, ap_payment_allocations, ap_payment_terms. AR: ar_invoices, ar_invoice_lines, ar_receipts, ar_receipt_allocations. Vendor extensions: columns added to existing vendors table.
+174. **POS adapter converts cents to dollars for GL** — POS events use cents (INTEGER), GL uses dollars (NUMERIC(12,2)). The adapter converts: `(amountCents / 100).toFixed(2)`. Always use `.toFixed(2)` when building GL line amounts from cents.
+175. **AP control account resolution is two-tier** — `postBill` first checks `vendor.defaultAPAccountId`, then falls back to `settings.defaultAPControlAccountId`. AR uses tenant-level only (no customer-specific control accounts).
+176. **Void requires zero allocations** — cannot void an AP bill with payment allocations or an AR invoice with receipt allocations. Must void the payment/receipt first. AP throws `BillHasPaymentsError`, AR throws `INVOICE_HAS_RECEIPTS`.
+177. **Vendor credits are stored as negative bills** — AP vendor credits use the `ap_bills` table with negative `totalAmount`/`balanceDue`. GL posting reverses: Debit AP control, Credit expense. Applied against future bills via normal allocation.
+178. **Denormalized `balanceDue` uses `.toFixed(2)` at update time** — AP/AR both compute `newBalance = (Number(totalAmount) - Number(newPaid)).toFixed(2)` inside the transaction. Prevents floating-point drift. Status derived: `balanceDue <= 0 ? 'paid' : 'partial'`.
+179. **GL balance direction depends on `normal_balance`** — Assets/Expenses (debit-normal): `SUM(debit) - SUM(credit)`. Liabilities/Equity/Revenue (credit-normal): `SUM(credit) - SUM(debit)`. Always use this pattern in GL queries, never hardcode sign by account type.
+180. **Automated GL postings use `forcePost: true`** — AP, AR, and POS adapters always set `forcePost: true` to bypass draft mode. Only manual journal entries respect `autoPostMode` from settings.
+181. **Automated GL postings use `hasControlAccountPermission: true`** — the `accounting-bootstrap.ts` wiring passes this option to bypass control account permission checks for system-initiated postings.
+182. **Reconciliation tolerance is $0.01** — `reconcileSubledger` considers `Math.abs(difference) < 0.01` as reconciled. Differences >= $0.01 fail the close checklist.
+183. **POS adapter creates synthetic RequestContext** — event consumers that post to GL create a synthetic context with `user.id = 'system'` and `requestId = 'pos-gl-{tenderId}'`. This satisfies the `auditLog` requirement without a real user session.
+184. **GL `sourceReferenceId` format by module** — POS: tender ID, AP: bill.id or payment.id, AR: invoice.id or receipt.id, retained earnings: `retained-earnings-{startDate}-{endDate}`. The unique partial index prevents double-posting.
+185. **Accounting bootstrap is lazy-imported** — `accounting-bootstrap.ts` uses dynamic `await import()` for the accounting module to prevent module resolution at build time. Called once from `instrumentation.ts`.
+186. **GL rounding line auto-appended** — if `sum(debits) - sum(credits)` is within `roundingToleranceCents` (default 5), the posting engine appends a line to `defaultRoundingAccountId`. Beyond tolerance throws `UnbalancedJournalError`. No rounding account configured + any imbalance also throws.
+187. **AP `lineType` drives GL posting** — `expense` debits expense account, `inventory` debits inventory asset, `asset` debits fixed asset, `freight` debits freight expense. All line types credit AP control. When building AP bills, choose the correct `lineType` for proper reporting (asset purchases, landed cost allocation, etc.).
+188. **Mapping coverage diagnostic** — `getMappingCoverage()` reports how many sub-departments, payment types, and tax groups have GL mappings vs don't. Powers the accounting dashboard "mapping coverage" card. Always check coverage before going live with GL posting.
+189. **Legacy bridge adapter is batch + idempotent** — `migrateLegacyJournalEntries()` reads `payment_journal_entries` (old JSONB-based GL) and creates proper `gl_journal_entries`. Processes in batches of 100. Idempotent via `sourceModule: 'pos_legacy'` + `sourceReferenceId`.
+190. **CONVENTIONS.md has full architecture docs for accounting** — See §66 (Accounting/GL), §67 (AP), §68 (AR), §69 (Subledger Reconciliation), §70 (Cross-Module Financial Posting). Always read these before modifying any financial module.
 
 ## Quick Commands
 

@@ -20,7 +20,9 @@
         "SUPABASE_SERVICE_ROLE_KEY",
         "SUPABASE_JWT_SECRET",
         "SUPABASE_JWT_JWK",
-        "ADMIN_AUTH_SECRET"
+        "ADMIN_AUTH_SECRET",
+        "DB_POOL_MAX",
+        "DB_PREPARE_STATEMENTS"
       ]
     },
     "test": {

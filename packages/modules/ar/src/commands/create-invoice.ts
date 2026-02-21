@@ -1,0 +1,94 @@
+import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { buildEventFromContext } from '@oppsera/core/events/build-event';
+import { auditLog } from '@oppsera/core/audit/helpers';
+import type { RequestContext } from '@oppsera/core/auth/context';
+import { arInvoices, arInvoiceLines } from '@oppsera/db';
+import { generateUlid } from '@oppsera/shared';
+import { AR_EVENTS } from '../events/types';
+
+interface CreateInvoiceInput {
+  customerId: string;
+  billingAccountId?: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  memo?: string;
+  locationId?: string;
+  sourceType: string;
+  sourceReferenceId?: string;
+  lines: Array<{
+    accountId: string;
+    description: string;
+    quantity?: string;
+    unitPrice?: string;
+    amount: string;
+    taxGroupId?: string;
+    taxAmount?: string;
+  }>;
+}
+
+export async function createInvoice(ctx: RequestContext, input: CreateInvoiceInput) {
+  const result = await publishWithOutbox(ctx, async (tx) => {
+    const invoiceId = generateUlid();
+
+    // Compute total from lines
+    let totalAmount = 0;
+    for (const line of input.lines) {
+      totalAmount += Number(line.amount) + Number(line.taxAmount ?? '0');
+    }
+    const totalAmountStr = totalAmount.toFixed(2);
+
+    // Create invoice
+    const [invoice] = await tx
+      .insert(arInvoices)
+      .values({
+        id: invoiceId,
+        tenantId: ctx.tenantId,
+        customerId: input.customerId,
+        billingAccountId: input.billingAccountId ?? null,
+        invoiceNumber: input.invoiceNumber,
+        invoiceDate: input.invoiceDate,
+        dueDate: input.dueDate,
+        status: 'draft',
+        memo: input.memo ?? null,
+        locationId: input.locationId ?? null,
+        currency: 'USD',
+        totalAmount: totalAmountStr,
+        amountPaid: '0',
+        balanceDue: totalAmountStr,
+        sourceType: input.sourceType,
+        sourceReferenceId: input.sourceReferenceId ?? null,
+        createdBy: ctx.user.id,
+      })
+      .returning();
+
+    // Insert lines
+    for (let i = 0; i < input.lines.length; i++) {
+      const line = input.lines[i]!;
+      await tx.insert(arInvoiceLines).values({
+        id: generateUlid(),
+        invoiceId,
+        accountId: line.accountId,
+        description: line.description,
+        quantity: line.quantity ?? '1',
+        unitPrice: line.unitPrice ?? '0',
+        amount: line.amount,
+        taxGroupId: line.taxGroupId ?? null,
+        taxAmount: line.taxAmount ?? '0',
+        sortOrder: i,
+      });
+    }
+
+    const event = buildEventFromContext(ctx, AR_EVENTS.INVOICE_CREATED, {
+      invoiceId,
+      customerId: input.customerId,
+      invoiceNumber: input.invoiceNumber,
+      totalAmount: totalAmountStr,
+    });
+
+    return { result: invoice!, events: [event] };
+  });
+
+  await auditLog(ctx, 'ar.invoice.created', 'ar_invoice', result.id);
+  return result;
+}
