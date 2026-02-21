@@ -8,6 +8,7 @@ import {
   listCustomLenses,
   DuplicateLensSlugError,
   InvalidLensSlugError,
+  type CreateLensInput,
 } from '@oppsera/module-semantic/lenses';
 import { listLenses } from '@oppsera/module-semantic/registry';
 
@@ -16,7 +17,7 @@ import { listLenses } from '@oppsera/module-semantic/registry';
 const lensFilterSchema = z.object({
   dimensionSlug: z.string().min(1),
   operator: z.enum(['eq', 'in', 'gte', 'lte', 'between']),
-  value: z.unknown().default(null),
+  value: z.unknown(),
 });
 
 const createLensSchema = z.object({
@@ -104,7 +105,7 @@ export const POST = withMiddleware(
       const lens = await createCustomLens({
         tenantId: ctx.tenantId,
         ...parsed.data,
-      });
+      } as CreateLensInput);
 
       return NextResponse.json({ data: lens }, { status: 201 });
     } catch (err) {
