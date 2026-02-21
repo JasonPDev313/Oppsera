@@ -132,6 +132,9 @@ importers:
       '@oppsera/module-payments':
         specifier: workspace:*
         version: link:../../packages/modules/payments
+      '@oppsera/module-pms':
+        specifier: workspace:*
+        version: link:../../packages/modules/pms
       '@oppsera/module-reporting':
         specifier: workspace:*
         version: link:../../packages/modules/reporting
