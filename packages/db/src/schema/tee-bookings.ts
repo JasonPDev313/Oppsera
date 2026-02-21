@@ -13,10 +13,10 @@ import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
 
-// ── Tee Bookings ──────────────────────────────────────────────────
+// ── Tee Times (formerly Tee Bookings) ───────────────────────────
 
-export const teeBookings = pgTable(
-  'tee_bookings',
+export const teeTimes = pgTable(
+  'tee_times',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
@@ -54,25 +54,25 @@ export const teeBookings = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_bookings_tenant_course_date').on(table.tenantId, table.courseId, table.teeDate),
-    index('idx_tee_bookings_tenant_order')
+    index('idx_tee_times_tenant_course_date').on(table.tenantId, table.courseId, table.teeDate),
+    index('idx_tee_times_tenant_order')
       .on(table.tenantId, table.orderId)
       .where(sql`order_id IS NOT NULL`),
   ],
 );
 
-// ── Tee Booking Slots ─────────────────────────────────────────────
+// ── Tee Time Slots ──────────────────────────────────────────────
 
-export const teeBookingSlots = pgTable(
-  'tee_booking_slots',
+export const teeTimeSlots = pgTable(
+  'tee_time_slots',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    teeBookingId: text('tee_booking_id')
+    teeTimeId: text('tee_time_id')
       .notNull()
-      .references(() => teeBookings.id, { onDelete: 'cascade' }),
+      .references(() => teeTimes.id, { onDelete: 'cascade' }),
     holeGroup: text('hole_group').notNull(),
     startTime: time('start_time').notNull(),
     endTime: time('end_time').notNull(),
@@ -84,22 +84,22 @@ export const teeBookingSlots = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_slots_tenant_booking').on(table.tenantId, table.teeBookingId),
+    index('idx_tee_time_slots_tenant_time').on(table.tenantId, table.teeTimeId),
   ],
 );
 
-// ── Tee Booking Players ───────────────────────────────────────────
+// ── Tee Time Players ────────────────────────────────────────────
 
-export const teeBookingPlayers = pgTable(
-  'tee_booking_players',
+export const teeTimePlayers = pgTable(
+  'tee_time_players',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    teeBookingId: text('tee_booking_id')
+    teeTimeId: text('tee_time_id')
       .notNull()
-      .references(() => teeBookings.id, { onDelete: 'cascade' }),
+      .references(() => teeTimes.id, { onDelete: 'cascade' }),
     customerId: text('customer_id'),
     firstName: text('first_name'),
     lastName: text('last_name'),
@@ -127,26 +127,26 @@ export const teeBookingPlayers = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_players_tenant_booking').on(table.tenantId, table.teeBookingId),
-    index('idx_tee_booking_players_tenant_customer')
+    index('idx_tee_time_players_tenant_time').on(table.tenantId, table.teeTimeId),
+    index('idx_tee_time_players_tenant_customer')
       .on(table.tenantId, table.customerId)
       .where(sql`customer_id IS NOT NULL`),
   ],
 );
 
-// ── Tee Booking Order Lines ───────────────────────────────────────
+// ── Tee Time Order Lines ────────────────────────────────────────
 
-export const teeBookingOrderLines = pgTable(
-  'tee_booking_order_lines',
+export const teeTimeOrderLines = pgTable(
+  'tee_time_order_lines',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    teeBookingId: text('tee_booking_id')
+    teeTimeId: text('tee_time_id')
       .notNull()
-      .references(() => teeBookings.id, { onDelete: 'cascade' }),
-    teeBookingPlayerId: text('tee_booking_player_id'),
+      .references(() => teeTimes.id, { onDelete: 'cascade' }),
+    teeTimePlayerId: text('tee_time_player_id'),
     customerId: text('customer_id'),
     firstName: text('first_name'),
     lastName: text('last_name'),
@@ -170,37 +170,37 @@ export const teeBookingOrderLines = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_order_lines_tenant_booking').on(table.tenantId, table.teeBookingId),
+    index('idx_tee_time_order_lines_tenant_time').on(table.tenantId, table.teeTimeId),
   ],
 );
 
-// ── Tee Booking Payments ──────────────────────────────────────────
+// ── Tee Time Payments ───────────────────────────────────────────
 
-export const teeBookingPayments = pgTable(
-  'tee_booking_payments',
+export const teeTimePayments = pgTable(
+  'tee_time_payments',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
       .notNull()
       .references(() => tenants.id),
-    teeBookingId: text('tee_booking_id')
+    teeTimeId: text('tee_time_id')
       .notNull()
-      .references(() => teeBookings.id, { onDelete: 'cascade' }),
+      .references(() => teeTimes.id, { onDelete: 'cascade' }),
     paymentMethodId: text('payment_method_id'),
     walletId: text('wallet_id'),
-    teeBookingPlayerId: text('tee_booking_player_id'),
+    teeTimePlayerId: text('tee_time_player_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_payments_tenant_booking').on(table.tenantId, table.teeBookingId),
+    index('idx_tee_time_payments_tenant_time').on(table.tenantId, table.teeTimeId),
   ],
 );
 
-// ── Tee Booking Repetitions ──────────────────────────────────────
+// ── Tee Time Repetitions ────────────────────────────────────────
 
-export const teeBookingRepetitions = pgTable(
-  'tee_booking_repetitions',
+export const teeTimeRepetitions = pgTable(
+  'tee_time_repetitions',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
@@ -218,14 +218,14 @@ export const teeBookingRepetitions = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_repetitions_tenant_course').on(table.tenantId, table.courseId),
+    index('idx_tee_time_repetitions_tenant_course').on(table.tenantId, table.courseId),
   ],
 );
 
-// ── Tee Booking Repetition Members ───────────────────────────────
+// ── Tee Time Repetition Members ─────────────────────────────────
 
-export const teeBookingRepetitionMembers = pgTable(
-  'tee_booking_repetition_members',
+export const teeTimeRepetitionMembers = pgTable(
+  'tee_time_repetition_members',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
@@ -233,7 +233,7 @@ export const teeBookingRepetitionMembers = pgTable(
       .references(() => tenants.id),
     repetitionId: text('repetition_id')
       .notNull()
-      .references(() => teeBookingRepetitions.id, { onDelete: 'cascade' }),
+      .references(() => teeTimeRepetitions.id, { onDelete: 'cascade' }),
     customerId: text('customer_id'),
     firstName: text('first_name'),
     lastName: text('last_name'),
@@ -250,14 +250,14 @@ export const teeBookingRepetitionMembers = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_repetition_members_tenant_rep').on(table.tenantId, table.repetitionId),
+    index('idx_tee_time_repetition_members_tenant_rep').on(table.tenantId, table.repetitionId),
   ],
 );
 
-// ── Tee Booking Repetition Rules ─────────────────────────────────
+// ── Tee Time Repetition Rules ───────────────────────────────────
 
-export const teeBookingRepetitionRules = pgTable(
-  'tee_booking_repetition_rules',
+export const teeTimeRepetitionRules = pgTable(
+  'tee_time_repetition_rules',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
@@ -265,7 +265,7 @@ export const teeBookingRepetitionRules = pgTable(
       .references(() => tenants.id),
     repetitionId: text('repetition_id')
       .notNull()
-      .references(() => teeBookingRepetitions.id, { onDelete: 'cascade' }),
+      .references(() => teeTimeRepetitions.id, { onDelete: 'cascade' }),
     frequency: text('frequency').notNull(),
     intervalValue: integer('interval_value').notNull().default(1),
     intervalUnit: text('interval_unit').notNull().default('week'),
@@ -280,14 +280,14 @@ export const teeBookingRepetitionRules = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_repetition_rules_tenant_rep').on(table.tenantId, table.repetitionId),
+    index('idx_tee_time_repetition_rules_tenant_rep').on(table.tenantId, table.repetitionId),
   ],
 );
 
-// ── Tee Booking Repetition Rule Interpretations ──────────────────
+// ── Tee Time Repetition Rule Interpretations ────────────────────
 
-export const teeBookingRepetitionRuleInterpretations = pgTable(
-  'tee_booking_repetition_rule_interpretations',
+export const teeTimeRepetitionRuleInterpretations = pgTable(
+  'tee_time_repetition_rule_interpretations',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
@@ -295,21 +295,21 @@ export const teeBookingRepetitionRuleInterpretations = pgTable(
       .references(() => tenants.id),
     repetitionId: text('repetition_id')
       .notNull()
-      .references(() => teeBookingRepetitions.id, { onDelete: 'cascade' }),
+      .references(() => teeTimeRepetitions.id, { onDelete: 'cascade' }),
     ruleId: text('rule_id').notNull(),
     firstOccurrenceDate: date('first_occurrence_date').notNull(),
     dayDifference: integer('day_difference').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_rep_rule_interps_tenant_rep').on(table.tenantId, table.repetitionId),
+    index('idx_tee_time_rep_rule_interps_tenant_rep').on(table.tenantId, table.repetitionId),
   ],
 );
 
-// ── Tee Booking Repetition Slots ─────────────────────────────────
+// ── Tee Time Repetition Slots ───────────────────────────────────
 
-export const teeBookingRepetitionSlots = pgTable(
-  'tee_booking_repetition_slots',
+export const teeTimeRepetitionSlots = pgTable(
+  'tee_time_repetition_slots',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
     tenantId: text('tenant_id')
@@ -317,7 +317,7 @@ export const teeBookingRepetitionSlots = pgTable(
       .references(() => tenants.id),
     repetitionId: text('repetition_id')
       .notNull()
-      .references(() => teeBookingRepetitions.id, { onDelete: 'cascade' }),
+      .references(() => teeTimeRepetitions.id, { onDelete: 'cascade' }),
     startTime: time('start_time').notNull(),
     endTime: time('end_time').notNull(),
     holeGroup: text('hole_group').notNull(),
@@ -325,11 +325,11 @@ export const teeBookingRepetitionSlots = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index('idx_tee_booking_repetition_slots_tenant_rep').on(table.tenantId, table.repetitionId),
+    index('idx_tee_time_repetition_slots_tenant_rep').on(table.tenantId, table.repetitionId),
   ],
 );
 
-// ── Shotgun Start Slots ──────────────────────────────────────────
+// ── Shotgun Start Slots ─────────────────────────────────────────
 
 export const shotgunStartSlots = pgTable(
   'shotgun_start_slots',
@@ -349,7 +349,7 @@ export const shotgunStartSlots = pgTable(
   ],
 );
 
-// ── Tee Group Bookings ───────────────────────────────────────────
+// ── Tee Group Bookings ──────────────────────────────────────────
 
 export const teeGroupBookings = pgTable(
   'tee_group_bookings',
@@ -381,7 +381,7 @@ export const teeGroupBookings = pgTable(
   ],
 );
 
-// ── Tee Group Booking Checkins ───────────────────────────────────
+// ── Tee Group Booking Checkins ──────────────────────────────────
 
 export const teeGroupBookingCheckins = pgTable(
   'tee_group_booking_checkins',
@@ -412,7 +412,7 @@ export const teeGroupBookingCheckins = pgTable(
   ],
 );
 
-// ── Tee Group Booking Pricing Options ────────────────────────────
+// ── Tee Group Booking Pricing Options ───────────────────────────
 
 export const teeGroupBookingPricingOptions = pgTable(
   'tee_group_booking_pricing_options',
@@ -437,7 +437,7 @@ export const teeGroupBookingPricingOptions = pgTable(
   ],
 );
 
-// ── Tee Group Booking Slots ──────────────────────────────────────
+// ── Tee Group Booking Slots ─────────────────────────────────────
 
 export const teeGroupBookingSlots = pgTable(
   'tee_group_booking_slots',

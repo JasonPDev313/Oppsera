@@ -221,9 +221,15 @@ export interface PMSRatePlanPrice {
   id: string;
   ratePlanId: string;
   roomTypeId: string;
+  roomTypeCode: string;
+  roomTypeName: string;
   startDate: string;
   endDate: string;
   nightlyBaseCents: number;
+}
+
+export interface PMSRatePlanDetail extends PMSRatePlan {
+  prices: PMSRatePlanPrice[];
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -394,7 +400,7 @@ export function useRatePlan(id: string | null) {
   const result = useQuery({
     queryKey: ['pms-rate-plan', id],
     queryFn: () =>
-      apiFetch<{ data: PMSRatePlan }>(`/api/v1/pms/rate-plans/${id}`).then(
+      apiFetch<{ data: PMSRatePlanDetail }>(`/api/v1/pms/rate-plans/${id}`).then(
         (r) => r.data,
       ),
     enabled: !!id,

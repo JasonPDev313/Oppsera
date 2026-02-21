@@ -419,7 +419,7 @@ async function transformCustomerClassType(row: RawRow, idMap: IdMap, tenantId: s
 // ── 7. Tee Times ─────────────────────────────────────────────────
 
 async function transformTeeBooking(row: RawRow, idMap: IdMap, tenantId: string) {
-  const id = await idMap.getOrCreate('GF_TeeBooking', row.TeeBookingId as number, 'tee_bookings', tenantId);
+  const id = await idMap.getOrCreate('GF_TeeBooking', row.TeeBookingId as number, 'tee_times', tenantId);
   const courseId = await idMap.resolve('GF_CourseInfo', row.CourseId);
   const orderId = await idMap.resolve('GF_Order', row.OrderId);
 
@@ -449,16 +449,16 @@ async function transformTeeBooking(row: RawRow, idMap: IdMap, tenantId: string) 
 }
 
 async function transformTeeBookingGroupMember(row: RawRow, idMap: IdMap, tenantId: string) {
-  const id = await idMap.getOrCreate('GF_TeeBookingGroupMember', row.TeeBookingGroupMemberId as number, 'tee_booking_players', tenantId);
-  const teeBookingId = await idMap.resolve('GF_TeeBooking', row.TeeBookingId);
+  const id = await idMap.getOrCreate('GF_TeeBookingGroupMember', row.TeeBookingGroupMemberId as number, 'tee_time_players', tenantId);
+  const teeTimeId = await idMap.resolve('GF_TeeBooking', row.TeeBookingId);
   const customerId = await idMap.resolve('GF_Customer', row.CustomerId);
 
-  if (!teeBookingId) return null;
+  if (!teeTimeId) return null;
 
   return {
     id,
     tenant_id: tenantId,
-    tee_booking_id: teeBookingId,
+    tee_time_id: teeTimeId,
     customer_id: customerId,
     first_name: str(row, 'FirstName'),
     last_name: str(row, 'LastName'),
@@ -1016,7 +1016,7 @@ export const TRANSFORMER_REGISTRY: Record<string, TableHandler[]> = {
     },
     {
       sourceTable: 'GF_TeeBooking',
-      targetTable: 'tee_bookings',
+      targetTable: 'tee_times',
       skipDeleted: true,
       deletedColumn: 'IsDeleted',
       transform: transformTeeBooking,
@@ -1024,7 +1024,7 @@ export const TRANSFORMER_REGISTRY: Record<string, TableHandler[]> = {
     },
     {
       sourceTable: 'GF_TeeBookingGroupMember',
-      targetTable: 'tee_booking_players',
+      targetTable: 'tee_time_players',
       transform: transformTeeBookingGroupMember,
       dependsOn: ['tee_times', 'customers'],
     },

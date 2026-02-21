@@ -3,7 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
-import { ulid } from '@oppsera/shared';
+import { generateUlid } from '@oppsera/shared';
 import type { AcquireSoftLockInput } from '../validation';
 import { SoftLockHeldError } from '../errors';
 import { FNB_EVENTS } from '../events/types';
@@ -23,7 +23,7 @@ export async function acquireSoftLock(
   input: AcquireSoftLockInput,
 ): Promise<AcquireSoftLockResult> {
   const ttlSeconds = input.ttlSeconds ?? 30;
-  const lockId = ulid();
+  const lockId = generateUlid();
   const terminalId = input.terminalId ?? null;
 
   const result = await publishWithOutbox(ctx, async (tx) => {

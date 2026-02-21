@@ -140,7 +140,7 @@ describe('extractTablesFromSnapshot', () => {
     expect(tables).toEqual([]);
   });
 
-  it('skips tables with tableNumber 0 or missing', () => {
+  it('auto-assigns table numbers when missing', () => {
     const snapshot = makeSnapshot([
       {
         id: 'tbl-no-num',
@@ -154,7 +154,38 @@ describe('extractTablesFromSnapshot', () => {
     ]);
 
     const tables = extractTablesFromSnapshot(snapshot);
-    expect(tables).toHaveLength(0);
+    expect(tables).toHaveLength(1);
+    expect(tables[0]!.tableNumber).toBe(1);
+    expect(tables[0]!.displayLabel).toBe('Unnamed');
+  });
+
+  it('auto-assigns numbers that skip explicit numbers', () => {
+    const snapshot = makeSnapshot([
+      {
+        id: 'tbl-explicit',
+        type: 'table',
+        x: 0, y: 0, width: 60, height: 60, rotation: 0,
+        name: 'Table 1',
+        properties: { tableNumber: '1', seats: 4, shape: 'round' },
+        style: { fill: '#fff', stroke: '#000', strokeWidth: 1, opacity: 1 },
+        layerId: 'default', zIndex: 0, locked: false, visible: true,
+      },
+      {
+        id: 'tbl-auto',
+        type: 'table',
+        x: 100, y: 0, width: 60, height: 60, rotation: 0,
+        name: '',
+        properties: { seats: 4, shape: 'round' },
+        style: { fill: '#fff', stroke: '#000', strokeWidth: 1, opacity: 1 },
+        layerId: 'default', zIndex: 1, locked: false, visible: true,
+      },
+    ]);
+
+    const tables = extractTablesFromSnapshot(snapshot);
+    expect(tables).toHaveLength(2);
+    expect(tables[0]!.tableNumber).toBe(1); // explicit
+    expect(tables[1]!.tableNumber).toBe(2); // auto-assigned, skipped 1
+    expect(tables[1]!.displayLabel).toBe('Table 2');
   });
 
   it('normalizes shape names', () => {

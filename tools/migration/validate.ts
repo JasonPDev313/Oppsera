@@ -56,7 +56,7 @@ export class MigrationValidator {
       { legacy: 'GF_Department', target: 'departments' },
       { legacy: 'GF_CreditVoucher', target: 'vouchers' },
       { legacy: 'GF_CourseEvents', target: 'events' },
-      { legacy: 'GF_TeeBooking', target: 'tee_bookings' },
+      { legacy: 'GF_TeeBooking', target: 'tee_times' },
     ];
 
     for (const { legacy, target } of tableChecks) {

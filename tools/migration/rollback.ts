@@ -27,11 +27,11 @@ const ROLLBACK_ORDER = [
   'orders',
 
   // Tier 3
-  'tee_booking_order_lines',
-  'tee_booking_players',
-  'tee_booking_slots',
-  'tee_booking_payments',
-  'tee_bookings',
+  'tee_time_order_lines',
+  'tee_time_players',
+  'tee_time_slots',
+  'tee_time_payments',
+  'tee_times',
   'event_golfers',
   'event_registrations',
   'event_products',

@@ -26,7 +26,13 @@
       "Bash(psql:*)",
       "Bash(npx --yes tsx -e:*)",
       "Read(//c/Users/Jason/Dev Laptop/Oppsera/**)",
-      "Bash(DATABASE_URL_ADMIN=\"postgres://postgres:Honka9285%24%24%24%21%21%21@db.gxehnbaxycgdggtazvzx.supabase.co:5432/postgres\" npx tsx:*)"
+      "Bash(DATABASE_URL_ADMIN=\"postgres://postgres:Honka9285%24%24%24%21%21%21@db.gxehnbaxycgdggtazvzx.supabase.co:5432/postgres\" npx tsx:*)",
+      "Bash(node tools/check-pe2.mjs:*)",
+      "Bash(node:*)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",
+      "C:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\api\\v1\\fnb\\payments\\sessions\\[id]"
     ]
   }
 }

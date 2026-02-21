@@ -3,7 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
-import { ulid } from '@oppsera/shared';
+import { generateUlid } from '@oppsera/shared';
 import type { ReprintJobInput } from '../validation';
 import { PrintJobNotFoundError } from '../errors';
 import { FNB_EVENTS } from '../events/types';
@@ -20,7 +20,7 @@ export async function reprintJob(
   ctx: RequestContext,
   input: ReprintJobInput,
 ): Promise<ReprintJobResult> {
-  const reprintJobId = ulid();
+  const reprintJobId = generateUlid();
   const reason = input.reason ?? null;
 
   const result = await publishWithOutbox(ctx, async (tx) => {

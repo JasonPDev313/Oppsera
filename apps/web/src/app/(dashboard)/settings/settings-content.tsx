@@ -752,7 +752,7 @@ const MODULES = [
   { key: 'platform_core', name: 'Platform Core', phase: 'v1', description: 'Identity, auth, RBAC, audit logging' },
   { key: 'catalog', name: 'Product Catalog', phase: 'v1', description: 'Items, categories, modifiers, pricing, tax categories' },
   { key: 'pos_retail', name: 'Retail POS', phase: 'v1', description: 'Orders, line items, discounts, tax calculation' },
-  { key: 'pos_restaurant', name: 'Restaurant POS', phase: 'v1', description: 'Tables, seats, coursing, kitchen tickets' },
+  { key: 'pos_fnb', name: 'F&B POS', phase: 'v1', description: 'Tables, tabs, coursing, kitchen tickets, server management' },
   { key: 'payments', name: 'Payments & Tenders', phase: 'v1', description: 'Cash (V1), card, split, refund (V2)' },
   { key: 'inventory', name: 'Inventory Management', phase: 'v1', description: 'Stock movements, receiving, adjustments, transfers' },
   { key: 'customers', name: 'Customer Management', phase: 'v1', description: 'Profiles, search, visit/spend tracking' },

@@ -119,6 +119,7 @@ export const pmsRatePlans = pgTable(
     description: text('description'),
     isDefault: boolean('is_default').notNull().default(false),
     isActive: boolean('is_active').notNull().default(true),
+    defaultNightlyRateCents: integer('default_nightly_rate_cents'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by'),
@@ -213,9 +214,7 @@ export const pmsReservations = pgTable(
       .notNull()
       .references(() => pmsRoomTypes.id),
     roomId: text('room_id').references(() => pmsRooms.id),
-    ratePlanId: text('rate_plan_id')
-      .notNull()
-      .references(() => pmsRatePlans.id),
+    ratePlanId: text('rate_plan_id').references(() => pmsRatePlans.id),
     checkInDate: date('check_in_date').notNull(),
     checkOutDate: date('check_out_date').notNull(),
     status: text('status').notNull().default('CONFIRMED'),

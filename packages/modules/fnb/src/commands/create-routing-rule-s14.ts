@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLog } from '@oppsera/core/audit';
-import { ulid } from '@oppsera/shared';
+import { generateUlid } from '@oppsera/shared';
 import type { CreateRoutingRuleS14Input } from '../validation';
 
 export interface CreateRoutingRuleS14Result {
@@ -18,7 +18,7 @@ export async function createRoutingRuleS14(
   ctx: RequestContext,
   input: CreateRoutingRuleS14Input,
 ): Promise<CreateRoutingRuleS14Result> {
-  const ruleId = ulid();
+  const ruleId = generateUlid();
   const priority = input.priority ?? 0;
   const stationId = input.stationId ?? null;
 

@@ -10,6 +10,7 @@ export interface RatePlanListItem {
   description: string | null;
   isDefault: boolean;
   isActive: boolean;
+  defaultNightlyRateCents: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -59,6 +60,7 @@ export async function listRatePlans(input: ListRatePlansInput): Promise<ListRate
         description: r.description ?? null,
         isDefault: r.isDefault,
         isActive: r.isActive,
+        defaultNightlyRateCents: r.defaultNightlyRateCents ?? null,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
       })),

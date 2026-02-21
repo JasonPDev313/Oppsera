@@ -68,6 +68,7 @@ export async function createRatePlan(ctx: RequestContext, input: CreateRatePlanI
         name: input.name,
         description: input.description ?? null,
         isDefault,
+        defaultNightlyRateCents: input.defaultNightlyRateCents ?? null,
         createdBy: ctx.user.id,
       })
       .returning();

@@ -18,7 +18,7 @@ export interface ScreenDefinition {
   sharedWithRetail: boolean;
   responsive: {
     primary: 'ipad_landscape' | 'ipad_portrait' | 'kds_display' | 'desktop';
-    secondary?: 'ipad_portrait' | 'desktop';
+    secondary?: 'ipad_portrait' | 'ipad_landscape' | 'desktop';
   };
 }
 

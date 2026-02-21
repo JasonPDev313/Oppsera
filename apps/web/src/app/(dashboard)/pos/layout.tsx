@@ -8,6 +8,7 @@ import { useAuthContext } from '@/components/auth-provider';
 import { refreshTokenIfNeeded } from '@/lib/api-client';
 import { warmCustomerCache } from '@/lib/customer-cache';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import '@/styles/fnb-design-tokens.css';
 import RetailPOSLoading from './retail/loading';
 import FnBPOSLoading from './fnb/loading';
 

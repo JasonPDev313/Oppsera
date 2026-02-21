@@ -84,7 +84,20 @@ interface NavItem {
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Retail POS', href: '/pos/retail', icon: ShoppingCart, moduleKey: 'pos_retail' },
-  { name: 'F&B POS', href: '/pos/fnb', icon: UtensilsCrossed, moduleKey: 'pos_restaurant' },
+  {
+    name: 'F&B POS',
+    href: '/pos/fnb',
+    icon: UtensilsCrossed,
+    moduleKey: 'pos_fnb',
+    children: [
+      { name: 'Floor Plan', href: '/pos/fnb', icon: LayoutGrid },
+      { name: 'KDS', href: '/kds', icon: ClipboardList },
+      { name: 'Expo', href: '/expo', icon: PackageCheck },
+      { name: 'Host Stand', href: '/host', icon: Users },
+      { name: 'Manager', href: '/fnb-manager', icon: Settings },
+      { name: 'Close Batch', href: '/close-batch', icon: Lock },
+    ],
+  },
   {
     name: 'Inventory',
     href: '/catalog',

@@ -120,6 +120,9 @@ importers:
       '@oppsera/module-customers':
         specifier: workspace:*
         version: link:../../packages/modules/customers
+      '@oppsera/module-fnb':
+        specifier: workspace:*
+        version: link:../../packages/modules/fnb
       '@oppsera/module-golf-reporting':
         specifier: workspace:*
         version: link:../../packages/modules/golf-reporting

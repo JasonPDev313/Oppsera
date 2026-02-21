@@ -3,7 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
-import { ulid } from '@oppsera/shared';
+import { generateUlid } from '@oppsera/shared';
 import type { UpdateFnbSettingsInput } from '../validation';
 import { FNB_SETTINGS_SCHEMAS } from '../validation';
 import { FNB_SETTINGS_DEFAULTS } from '../helpers/fnb-settings-defaults';
@@ -43,7 +43,7 @@ export async function updateFnbSettings(
   const result = await publishWithOutbox(ctx, async (tx) => {
     for (const [key, value] of Object.entries(input.settings)) {
       const jsonValue = JSON.stringify(value);
-      const id = ulid();
+      const id = generateUlid();
 
       if (locationId) {
         await tx.execute(

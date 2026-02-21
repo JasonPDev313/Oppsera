@@ -52,33 +52,51 @@ export function extractTablesFromSnapshot(
     return [];
   }
 
-  return snapshot.objects
-    .filter((obj) => obj.type === 'table')
-    .map((obj) => {
-      const props = obj.properties ?? {};
-      const tableNumber = parseInt(String(props.tableNumber ?? '0'), 10) || 0;
-      const seats = Number(props.seats ?? props.maxSeats ?? 4);
-      const minSeats = Number(props.minSeats ?? 1);
-      const maxSeats = Number(props.maxSeats ?? seats);
-      const shape = String(props.shape ?? 'square');
-      const isJoinable = props.isJoinable !== false;
+  const tableObjects = snapshot.objects.filter((obj) => obj.type === 'table');
 
-      return {
-        floorPlanObjectId: obj.id,
-        tableNumber,
-        displayLabel: obj.name || `Table ${tableNumber}`,
-        capacityMin: Math.max(1, minSeats),
-        capacityMax: Math.max(1, maxSeats),
-        shape: normalizeShape(shape),
-        isCombinable: isJoinable,
-        positionX: obj.x,
-        positionY: obj.y,
-        width: obj.width,
-        height: obj.height,
-        rotation: obj.rotation,
-      };
-    })
-    .filter((t) => t.tableNumber > 0);
+  // Collect explicitly numbered tables first to avoid collisions during auto-assignment
+  const explicitNumbers = new Set<number>();
+  const rawEntries = tableObjects.map((obj) => {
+    const props = obj.properties ?? {};
+    const tableNumber = parseInt(String(props.tableNumber ?? '0'), 10) || 0;
+    if (tableNumber > 0) explicitNumbers.add(tableNumber);
+    return { obj, tableNumber };
+  });
+
+  // Auto-assign numbers to tables that don't have one
+  let nextAutoNumber = 1;
+  function getNextAutoNumber(): number {
+    while (explicitNumbers.has(nextAutoNumber)) nextAutoNumber++;
+    const num = nextAutoNumber;
+    explicitNumbers.add(num);
+    nextAutoNumber++;
+    return num;
+  }
+
+  return rawEntries.map(({ obj, tableNumber }) => {
+    const props = obj.properties ?? {};
+    const assignedNumber = tableNumber > 0 ? tableNumber : getNextAutoNumber();
+    const seats = Number(props.seats ?? props.maxSeats ?? 4);
+    const minSeats = Number(props.minSeats ?? 1);
+    const maxSeats = Number(props.maxSeats ?? seats);
+    const shape = String(props.shape ?? 'square');
+    const isJoinable = props.isJoinable !== false;
+
+    return {
+      floorPlanObjectId: obj.id,
+      tableNumber: assignedNumber,
+      displayLabel: obj.name || `Table ${assignedNumber}`,
+      capacityMin: Math.max(1, minSeats),
+      capacityMax: Math.max(1, maxSeats),
+      shape: normalizeShape(shape),
+      isCombinable: isJoinable,
+      positionX: obj.x,
+      positionY: obj.y,
+      width: obj.width,
+      height: obj.height,
+      rotation: obj.rotation,
+    };
+  });
 }
 
 function normalizeShape(shape: string): string {

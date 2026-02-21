@@ -69,7 +69,7 @@ Migration from legacy MSSQL (`GF_*` prefixed, ~290 tables) to new Postgres 16 mu
 | 0035 | Vouchers + Minimum Spend | 10 | GF_CreditVoucher, GF_MinimumSpendRule, etc. |
 | 0036 | Reservations | 7 | GF_ReservationResourceType, GF_ReservationResource, etc. |
 | 0037 | Tee Times (config) | 15 | GF_TeeSeason, GF_TeeType, GF_TeePricingPlan, etc. |
-| 0038 | Tee Bookings | 15 | GF_TeeBooking, GF_TeeBookingGroupMember, etc. |
+| 0038 | Tee Times (bookings) | 15 | GF_TeeBooking → tee_times, GF_TeeBookingGroupMember → tee_time_players, etc. |
 | 0039 | Events (core) | 14 | GF_CourseEvents, GF_EventActivities, etc. |
 | 0040 | Events (golf) | 13 | GF_EventGolfers, GF_GolfLeagueProfile, etc. |
 | 0041 | Misc | 12 | GF_Charity, GF_Tasks, GF_GamePlayRound, etc. |
@@ -112,7 +112,7 @@ Migration from legacy MSSQL (`GF_*` prefixed, ~290 tables) to new Postgres 16 mu
 | VenueId | GF_Venue | venue_id | venues |
 | TerminalId | GF_Terminal | terminal_id | terminals |
 | TerminalLocationId | GF_TerminalLocation | terminal_location_id | terminal_locations |
-| TeeBookingId | GF_TeeBooking | tee_booking_id | tee_bookings |
+| TeeBookingId | GF_TeeBooking | tee_time_id | tee_times |
 | RackRateId | GF_RACKRate | rack_rate_id | rack_rates |
 | CreditVoucherId | GF_CreditVoucher | voucher_id | vouchers |
 

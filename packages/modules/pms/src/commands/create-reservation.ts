@@ -11,6 +11,7 @@ import {
   pmsProperties,
   pmsRatePlans,
   pmsFolios,
+  pmsGuests,
 } from '@oppsera/db';
 import type { CreateReservationInput } from '../validation';
 import { PMS_EVENTS } from '../events/types';
@@ -63,31 +64,112 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       ]);
     }
 
-    // 4. Validate rate plan
-    const [ratePlan] = await tx
-      .select()
-      .from(pmsRatePlans)
-      .where(
-        and(
-          eq(pmsRatePlans.id, input.ratePlanId),
-          eq(pmsRatePlans.tenantId, ctx.tenantId),
-          eq(pmsRatePlans.propertyId, input.propertyId),
-        ),
-      )
-      .limit(1);
-    if (!ratePlan) throw new NotFoundError('RatePlan', input.ratePlanId);
+    // 4. Validate rate plan and resolve nightly rate
+    let nightlyRateCents = input.nightlyRateCents ?? 0;
 
-    // 5. Check room availability if room is assigned
+    if (input.ratePlanId) {
+      const [ratePlan] = await tx
+        .select()
+        .from(pmsRatePlans)
+        .where(
+          and(
+            eq(pmsRatePlans.id, input.ratePlanId),
+            eq(pmsRatePlans.tenantId, ctx.tenantId),
+            eq(pmsRatePlans.propertyId, input.propertyId),
+          ),
+        )
+        .limit(1);
+      if (!ratePlan) throw new NotFoundError('RatePlan', input.ratePlanId);
+
+      // If no nightly rate override provided, resolve from rate plan prices then fallback to default
+      if (input.nightlyRateCents == null) {
+        // Try date-specific price first
+        const priceRows = await tx.execute(sql`
+          SELECT nightly_base_cents
+          FROM pms_rate_plan_prices
+          WHERE tenant_id = ${ctx.tenantId}
+            AND rate_plan_id = ${input.ratePlanId}
+            AND room_type_id = ${input.roomTypeId}
+            AND start_date <= ${input.checkInDate}
+            AND end_date > ${input.checkInDate}
+          ORDER BY created_at DESC
+          LIMIT 1
+        `);
+        const priceArr = Array.from(priceRows as Iterable<Record<string, unknown>>);
+        if (priceArr.length > 0) {
+          nightlyRateCents = Number(priceArr[0]!.nightly_base_cents);
+        } else if (ratePlan.defaultNightlyRateCents != null) {
+          // Fallback to rate plan's default rate
+          nightlyRateCents = ratePlan.defaultNightlyRateCents;
+        }
+      }
+    }
+
+    if (nightlyRateCents <= 0 && input.nightlyRateCents == null) {
+      throw new ValidationError('Unable to determine nightly rate', [
+        { field: 'nightlyRateCents', message: 'No rate plan price found for this room type and dates. Please specify a nightly rate.' },
+      ]);
+    }
+
+    // 5. Resolve guest — input.guestId may be a pms_guest ID or a customer ID
+    let resolvedGuestId: string | null = null;
+    if (input.guestId) {
+      // First check if it's already a pms_guest
+      const [existingGuest] = await tx
+        .select({ id: pmsGuests.id })
+        .from(pmsGuests)
+        .where(and(eq(pmsGuests.id, input.guestId), eq(pmsGuests.tenantId, ctx.tenantId)))
+        .limit(1);
+
+      if (existingGuest) {
+        resolvedGuestId = existingGuest.id;
+      } else {
+        // Treat as a customer ID — find or create a pms_guest linked to this customer
+        const [linkedGuest] = await tx
+          .select({ id: pmsGuests.id })
+          .from(pmsGuests)
+          .where(
+            and(
+              eq(pmsGuests.customerId, input.guestId),
+              eq(pmsGuests.tenantId, ctx.tenantId),
+              eq(pmsGuests.propertyId, input.propertyId),
+            ),
+          )
+          .limit(1);
+
+        if (linkedGuest) {
+          resolvedGuestId = linkedGuest.id;
+        } else {
+          // Auto-create pms_guest from primaryGuestJson + customerId
+          const [newGuest] = await tx
+            .insert(pmsGuests)
+            .values({
+              tenantId: ctx.tenantId,
+              propertyId: input.propertyId,
+              customerId: input.guestId,
+              firstName: input.primaryGuestJson.firstName,
+              lastName: input.primaryGuestJson.lastName,
+              email: input.primaryGuestJson.email ?? null,
+              phone: input.primaryGuestJson.phone ?? null,
+              createdBy: ctx.user.id,
+            })
+            .returning();
+          resolvedGuestId = newGuest!.id;
+        }
+      }
+    }
+
+    // 6. Check room availability if room is assigned
     if (input.roomId) {
       await checkRoomNotOutOfOrder(tx, ctx.tenantId, input.roomId);
       await assertRoomAvailable(tx, ctx.tenantId, input.roomId, input.checkInDate, input.checkOutDate);
     }
 
-    // 6. Calculate totals
+    // 8. Calculate totals
     const checkIn = new Date(input.checkInDate);
     const checkOut = new Date(input.checkOutDate);
     const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-    const subtotalCents = nights * input.nightlyRateCents;
+    const subtotalCents = nights * nightlyRateCents;
     const taxRatePct = Number(property.taxRatePct ?? 0);
     const taxCents = Math.round(subtotalCents * taxRatePct / 100);
     const feeCents = 0;
@@ -96,23 +178,23 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
     const reservationId = generateUlid();
     const status = input.status ?? 'CONFIRMED';
 
-    // 7. Insert reservation
+    // 9. Insert reservation
     const [reservation] = await tx
       .insert(pmsReservations)
       .values({
         id: reservationId,
         tenantId: ctx.tenantId,
         propertyId: input.propertyId,
-        guestId: input.guestId ?? null,
+        guestId: resolvedGuestId,
         primaryGuestJson: input.primaryGuestJson,
         roomId: input.roomId ?? null,
         roomTypeId: input.roomTypeId,
-        ratePlanId: input.ratePlanId,
+        ratePlanId: input.ratePlanId ?? null,
         checkInDate: input.checkInDate,
         checkOutDate: input.checkOutDate,
         adults,
         children,
-        nightlyRateCents: input.nightlyRateCents,
+        nightlyRateCents,
         nights,
         subtotalCents,
         taxCents,
@@ -127,7 +209,7 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       })
       .returning();
 
-    // 8. Create room block if room assigned
+    // 10. Create room block if room assigned
     if (input.roomId) {
       await tx.insert(pmsRoomBlocks).values({
         id: generateUlid(),
@@ -142,7 +224,7 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       });
     }
 
-    // 9. Auto-create OPEN folio
+    // 11. Auto-create OPEN folio
     const folioId = generateUlid();
     await tx.insert(pmsFolios).values({
       id: folioId,
@@ -156,8 +238,8 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       totalCents: 0,
     });
 
-    // 10. Audit log
-    await pmsAuditLogEntry(tx, ctx, reservationId, 'reservation', reservationId, 'created', {
+    // 12. Audit log
+    await pmsAuditLogEntry(tx, ctx, input.propertyId, 'reservation', reservationId, 'created', {
       status,
       roomId: input.roomId ?? null,
       checkInDate: input.checkInDate,
@@ -165,12 +247,12 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       totalCents,
     });
 
-    // 11. Build event
+    // 13. Build event
     const guestName = `${input.primaryGuestJson.firstName} ${input.primaryGuestJson.lastName}`;
     const event = buildEventFromContext(ctx, PMS_EVENTS.RESERVATION_CREATED, {
       reservationId,
       propertyId: input.propertyId,
-      guestId: input.guestId ?? null,
+      guestId: resolvedGuestId,
       guestName,
       roomId: input.roomId ?? null,
       roomTypeId: input.roomTypeId,
@@ -178,7 +260,7 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       checkOutDate: input.checkOutDate,
       status,
       sourceType: input.sourceType ?? 'DIRECT',
-      nightlyRateCents: input.nightlyRateCents,
+      nightlyRateCents,
       totalCents,
       version: 1,
     });

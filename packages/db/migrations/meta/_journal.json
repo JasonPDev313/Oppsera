@@ -603,6 +603,34 @@
       "when": 1708100085000,
       "tag": "0085_order_line_gl_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1708100086000,
+      "tag": "0086_pms_rate_plan_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1708100087000,
+      "tag": "0087_pms_reservations_nights",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1708100088000,
+      "tag": "0088_rename_tee_bookings_to_tee_times",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1708100089000,
+      "tag": "0089_pms_rate_plan_default_rate",
+      "breakpoints": true
     }
   ]
 }

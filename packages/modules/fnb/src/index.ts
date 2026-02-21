@@ -390,7 +390,7 @@ export type {
   GuestCheckData, GuestCheckItem,
   ReceiptData,
   ExpoChitData, ExpoChitItem,
-  ZReportData,
+  ZReportData as ZReportChitData,
 } from './helpers/chit-layout';
 
 // Helpers — Printer Routing

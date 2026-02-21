@@ -35,6 +35,15 @@ interface RatePlan {
   isDefault: boolean;
 }
 
+interface Room {
+  id: string;
+  roomNumber: string;
+  floor: string | null;
+  status: string;
+  isOutOfOrder: boolean;
+  roomTypeId: string;
+}
+
 interface CustomerResult {
   id: string;
   displayName: string;
@@ -134,6 +143,11 @@ export default function ReservationsContent() {
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [ratePlans, setRatePlans] = useState<RatePlan[]>([]);
   const [dialogDataLoading, setDialogDataLoading] = useState(false);
+
+  // Rooms for selected room type
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [formRoomId, setFormRoomId] = useState('');
 
   // Customer search
   const [customerSearch, setCustomerSearch] = useState('');
@@ -262,6 +276,10 @@ export default function ReservationsContent() {
     return () => { cancelled = true; };
   }, [isDialogOpen, selectedPropertyId]);
 
+  // Rate plan base rate tracking
+  const [ratePlanBaseRate, setRatePlanBaseRate] = useState<number | null>(null);
+  const [isLoadingRate, setIsLoadingRate] = useState(false);
+
   // Reset form when dialog opens/closes
   useEffect(() => {
     if (isDialogOpen) {
@@ -277,6 +295,8 @@ export default function ReservationsContent() {
       setFormCheckIn('');
       setFormCheckOut('');
       setFormRoomTypeId('');
+      setFormRoomId('');
+      setRooms([]);
       setFormRatePlanId('');
       setFormNightlyRate('');
       setFormAdults(1);
@@ -284,8 +304,68 @@ export default function ReservationsContent() {
       setFormSourceType('DIRECT');
       setFormNotes('');
       setFormError(null);
+      setRatePlanBaseRate(null);
     }
   }, [isDialogOpen]);
+
+  // Load available rooms when room type changes
+  useEffect(() => {
+    if (!formRoomTypeId || !selectedPropertyId) {
+      setRooms([]);
+      setFormRoomId('');
+      return;
+    }
+    let cancelled = false;
+    setRoomsLoading(true);
+    (async () => {
+      try {
+        const qs = buildQueryString({ propertyId: selectedPropertyId, roomTypeId: formRoomTypeId, limit: 100 });
+        const res = await apiFetch<{ data: Room[] }>(`/api/v1/pms/rooms${qs}`);
+        if (cancelled) return;
+        // Filter to available rooms (not out of order)
+        const available = (res.data ?? []).filter((r) => !r.isOutOfOrder);
+        setRooms(available);
+        setFormRoomId(''); // Reset room selection when type changes
+      } catch {
+        setRooms([]);
+      } finally {
+        if (!cancelled) setRoomsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [formRoomTypeId, selectedPropertyId]);
+
+  // Auto-populate nightly rate from rate plan when rate plan + room type + check-in date change
+  useEffect(() => {
+    if (!formRatePlanId || !formRoomTypeId || !formCheckIn) {
+      setRatePlanBaseRate(null);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingRate(true);
+    (async () => {
+      try {
+        const qs = buildQueryString({ ratePlanId: formRatePlanId, roomTypeId: formRoomTypeId, date: formCheckIn });
+        const res = await apiFetch<{ data: { nightlyBaseCents: number } | null }>(`/api/v1/pms/rate-plans/nightly-rate${qs}`);
+        if (cancelled) return;
+        if (res.data) {
+          const dollars = (res.data.nightlyBaseCents / 100).toFixed(2);
+          setRatePlanBaseRate(res.data.nightlyBaseCents);
+          // Only auto-fill if user hasn't manually entered a rate
+          if (!formNightlyRate) {
+            setFormNightlyRate(dollars);
+          }
+        } else {
+          setRatePlanBaseRate(null);
+        }
+      } catch {
+        setRatePlanBaseRate(null);
+      } finally {
+        if (!cancelled) setIsLoadingRate(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [formRatePlanId, formRoomTypeId, formCheckIn]);
 
   // Customer search with debounce
   useEffect(() => {
@@ -366,14 +446,14 @@ export default function ReservationsContent() {
     if (!formCheckOut) { setFormError('Check-out date is required'); return; }
     if (formCheckOut <= formCheckIn) { setFormError('Check-out must be after check-in'); return; }
     if (!formRoomTypeId) { setFormError('Room type is required'); return; }
-    if (!formNightlyRate || parseFloat(formNightlyRate) <= 0) {
-      setFormError('Nightly rate is required');
+    // Nightly rate is required only if no rate plan is selected (rate plan resolves server-side)
+    if (!formRatePlanId && (!formNightlyRate || parseFloat(formNightlyRate) <= 0)) {
+      setFormError('Nightly rate is required when no rate plan is selected');
       return;
     }
     if (!selectedPropertyId) { setFormError('No property selected'); return; }
 
     setIsSubmitting(true);
-    const nightlyRateCents = Math.round(parseFloat(formNightlyRate) * 100);
     const payload: Record<string, unknown> = {
       propertyId: selectedPropertyId,
       primaryGuestJson: {
@@ -385,12 +465,16 @@ export default function ReservationsContent() {
       checkInDate: formCheckIn,
       checkOutDate: formCheckOut,
       roomTypeId: formRoomTypeId,
-      nightlyRateCents,
       adults: formAdults,
       children: formChildren,
       sourceType: formSourceType,
     };
+    // Include nightlyRateCents if user entered a rate (override), otherwise let server resolve from rate plan
+    if (formNightlyRate && parseFloat(formNightlyRate) > 0) {
+      payload.nightlyRateCents = Math.round(parseFloat(formNightlyRate) * 100);
+    }
     if (formRatePlanId) payload.ratePlanId = formRatePlanId;
+    if (formRoomId) payload.roomId = formRoomId;
     if (formGuestId) payload.guestId = formGuestId;
     if (formNotes.trim()) payload.internalNotes = formNotes.trim();
 
@@ -409,9 +493,10 @@ export default function ReservationsContent() {
     }
   }, [
     formFirstName, formLastName, formEmail, formPhone,
-    formCheckIn, formCheckOut, formRoomTypeId, formRatePlanId,
+    formCheckIn, formCheckOut, formRoomTypeId, formRoomId, formRatePlanId,
     formNightlyRate, formAdults, formChildren, formSourceType,
     formNotes, formGuestId, selectedPropertyId, closeDialog, fetchReservations,
+    ratePlanBaseRate,
   ]);
 
   // ── Filter state ────────────────────────────────────────────────
@@ -846,6 +931,38 @@ export default function ReservationsContent() {
                     )}
                   </div>
 
+                  {/* Room Assignment (optional) */}
+                  {formRoomTypeId && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                        Room (optional)
+                      </label>
+                      {roomsLoading ? (
+                        <div className="flex items-center gap-2 py-2 text-sm text-gray-500">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading rooms...
+                        </div>
+                      ) : rooms.length === 0 ? (
+                        <p className="py-2 text-xs text-gray-400">
+                          No rooms available for this type
+                        </p>
+                      ) : (
+                        <Select
+                          options={[
+                            { value: '', label: 'Unassigned (assign later)' },
+                            ...rooms.map((r) => ({
+                              value: r.id,
+                              label: `Room ${r.roomNumber}${r.floor ? ` (Floor ${r.floor})` : ''} — ${r.status.replace(/_/g, ' ').toLowerCase()}`,
+                            })),
+                          ]}
+                          value={formRoomId}
+                          onChange={(v) => setFormRoomId(v as string)}
+                          placeholder="Select room (optional)"
+                        />
+                      )}
+                    </div>
+                  )}
+
                   {/* Rate Plan + Nightly Rate */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -863,29 +980,49 @@ export default function ReservationsContent() {
                             label: `${rp.name} (${rp.code})`,
                           }))}
                           value={formRatePlanId}
-                          onChange={(v) => setFormRatePlanId(v as string)}
+                          onChange={(v) => {
+                            setFormRatePlanId(v as string);
+                            // Reset rate to allow auto-populate from new rate plan
+                            setFormNightlyRate('');
+                            setRatePlanBaseRate(null);
+                          }}
                           placeholder="Select rate plan"
                         />
                       )}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-700">
-                        Nightly Rate ($) <span className="text-red-500">*</span>
+                        Nightly Rate ($) {!formRatePlanId && <span className="text-red-500">*</span>}
                       </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formNightlyRate}
-                        onChange={(e) => setFormNightlyRate(e.target.value)}
-                        placeholder="125.00"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formNightlyRate}
+                          onChange={(e) => setFormNightlyRate(e.target.value)}
+                          placeholder={ratePlanBaseRate != null ? `${(ratePlanBaseRate / 100).toFixed(2)} (from plan)` : '125.00'}
+                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        {isLoadingRate && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                        )}
+                      </div>
                     </div>
                   </div>
-                  {computedNights > 0 && formNightlyRate && parseFloat(formNightlyRate) > 0 && (
+                  {ratePlanBaseRate != null && formNightlyRate && parseFloat(formNightlyRate) > 0 && Math.round(parseFloat(formNightlyRate) * 100) !== ratePlanBaseRate && (
+                    <p className="text-xs text-amber-600">
+                      Rate plan base: ${(ratePlanBaseRate / 100).toFixed(2)}/night &mdash; overriding to ${parseFloat(formNightlyRate).toFixed(2)}/night
+                    </p>
+                  )}
+                  {ratePlanBaseRate != null && !formNightlyRate && (
                     <p className="text-xs text-gray-500">
-                      Subtotal: ${(computedNights * parseFloat(formNightlyRate)).toFixed(2)} ({computedNights} night{computedNights !== 1 ? 's' : ''} &times; ${parseFloat(formNightlyRate).toFixed(2)})
+                      Using rate plan price: ${(ratePlanBaseRate / 100).toFixed(2)}/night
+                    </p>
+                  )}
+                  {computedNights > 0 && (formNightlyRate ? parseFloat(formNightlyRate) > 0 : ratePlanBaseRate != null) && (
+                    <p className="text-xs text-gray-500">
+                      Subtotal: ${(computedNights * (formNightlyRate ? parseFloat(formNightlyRate) : (ratePlanBaseRate ?? 0) / 100)).toFixed(2)} ({computedNights} night{computedNights !== 1 ? 's' : ''} &times; ${(formNightlyRate ? parseFloat(formNightlyRate) : (ratePlanBaseRate ?? 0) / 100).toFixed(2)})
                     </p>
                   )}
 

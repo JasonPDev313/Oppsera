@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { ulid } from '@oppsera/shared';
+import { generateUlid } from '@oppsera/shared';
 import type { CreatePrintJobInput } from '../validation';
 import { NoPrinterRoutedError } from '../errors';
 import { resolveRoutedPrinter } from '../helpers/printer-routing';
@@ -21,7 +21,7 @@ export async function createPrintJob(
   ctx: RequestContext,
   input: CreatePrintJobInput,
 ): Promise<CreatePrintJobResult> {
-  const jobId = ulid();
+  const jobId = generateUlid();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     // Determine printer via routing logic

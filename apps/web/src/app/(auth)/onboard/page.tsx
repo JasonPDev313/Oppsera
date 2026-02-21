@@ -22,7 +22,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 const AVAILABLE_MODULES = [
   { key: 'catalog', name: 'Product Catalog', description: 'Items, categories, pricing' },
   { key: 'pos_retail', name: 'Retail POS', description: 'Orders, line items, payments' },
-  { key: 'pos_restaurant', name: 'Restaurant POS', description: 'Tables, seats, coursing, kitchen tickets' },
+  { key: 'pos_fnb', name: 'F&B POS', description: 'Tables, tabs, coursing, kitchen tickets, server management' },
   { key: 'payments', name: 'Payments', description: 'Cash, card, split payments' },
   { key: 'inventory', name: 'Inventory', description: 'Stock tracking, receiving' },
   { key: 'customers', name: 'Customers', description: 'Customer profiles, history' },

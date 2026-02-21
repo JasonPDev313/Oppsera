@@ -89,6 +89,7 @@ export const createRatePlanSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().optional(),
   isDefault: z.boolean().default(false),
+  defaultNightlyRateCents: z.number().int().min(0).optional(),
 });
 export type CreateRatePlanInput = z.input<typeof createRatePlanSchema>;
 
@@ -97,6 +98,7 @@ export const updateRatePlanSchema = z.object({
   description: z.string().optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  defaultNightlyRateCents: z.number().int().min(0).optional().nullable(),
 });
 export type UpdateRatePlanInput = z.input<typeof updateRatePlanSchema>;
 
@@ -155,8 +157,8 @@ export const createReservationSchema = z
     children: z.number().int().min(0).default(0),
     roomTypeId: z.string().min(1),
     roomId: z.string().optional(),
-    ratePlanId: z.string().min(1),
-    nightlyRateCents: z.number().int().min(0),
+    ratePlanId: z.string().min(1).optional(),
+    nightlyRateCents: z.number().int().min(0).optional(),
     sourceType: z
       .enum(['DIRECT', 'PHONE', 'WALKIN', 'BOOKING_ENGINE', 'OTA'])
       .default('DIRECT'),

@@ -25,6 +25,7 @@ interface RatePlan {
   description: string | null;
   isDefault: boolean;
   isActive: boolean;
+  defaultNightlyRateCents: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,6 +62,7 @@ export default function RatePlansContent() {
   const [formName, setFormName] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formIsDefault, setFormIsDefault] = useState(false);
+  const [formDefaultRate, setFormDefaultRate] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -134,6 +136,7 @@ export default function RatePlansContent() {
       setFormName('');
       setFormDescription('');
       setFormIsDefault(false);
+      setFormDefaultRate('');
       setFormError(null);
     }
   }, [isDialogOpen]);
@@ -168,6 +171,9 @@ export default function RatePlansContent() {
           name: formName.trim(),
           description: formDescription.trim() || undefined,
           isDefault: formIsDefault,
+          ...(formDefaultRate && parseFloat(formDefaultRate) > 0
+            ? { defaultNightlyRateCents: Math.round(parseFloat(formDefaultRate) * 100) }
+            : {}),
         }),
       });
       closeDialog();
@@ -178,7 +184,7 @@ export default function RatePlansContent() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formCode, formName, formDescription, formIsDefault, selectedPropertyId, properties, closeDialog, fetchRatePlans]);
+  }, [formCode, formName, formDescription, formIsDefault, formDefaultRate, selectedPropertyId, properties, closeDialog, fetchRatePlans]);
 
   // ── Property dropdown options ──────────────────────────────────
   const propertyOptions = useMemo(
@@ -209,6 +215,19 @@ export default function RatePlansContent() {
             )}
           </div>
         ),
+      },
+      {
+        key: 'defaultRate',
+        header: 'Default Rate',
+        width: '120px',
+        render: (row: RatePlanRow) => {
+          const cents = (row as RatePlan).defaultNightlyRateCents;
+          return (
+            <span className="text-sm text-gray-700">
+              {cents != null ? `$${(cents / 100).toFixed(2)}` : '\u2014'}
+            </span>
+          );
+        },
       },
       {
         key: 'description',
@@ -417,6 +436,25 @@ export default function RatePlansContent() {
                     placeholder="e.g. Standard published rate"
                     className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
+                </div>
+
+                {/* Default Nightly Rate */}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Default Nightly Rate ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formDefaultRate}
+                    onChange={(e) => setFormDefaultRate(e.target.value)}
+                    placeholder="e.g. 125.00"
+                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    Fallback rate when no date-specific pricing is set
+                  </p>
                 </div>
 
                 {/* Is Default */}

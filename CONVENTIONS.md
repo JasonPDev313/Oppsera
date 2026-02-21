@@ -5310,9 +5310,80 @@ computeTipPercentage(tipTotal: number, salesTotal: number): number | null
 
 ### Important Notes
 
-1. **No API routes exist yet** — the module exports pure functions. API routes (`/api/v1/fnb/*`) are future work.
-2. **No frontend components** — the existing F&B POS UI (`apps/web/src/app/(dashboard)/pos/fnb/`) was built in earlier sessions and uses the orders module. Wiring it to the fnb module is future work.
+1. **Full API routes + frontend built** — ~100 API routes under `/api/v1/fnb/`, 12 React hooks, 60+ components, Zustand store for POS screen routing. Built in Sessions 17-28 (12 phases).
+2. **Entitlement key is `pos_fnb`** — all API routes use `{ entitlement: 'pos_fnb', permission: 'pos_fnb.*' }`. Do not use `pos_restaurant`.
 3. **Consumer inputs are enriched types** — consumers receive typed `FnbTabClosedConsumerData` etc., not raw event payloads. The wiring layer enriches events before calling consumers.
 4. **Session 16 is spec-only** — `ux-screen-map.ts` and `fnb-permissions.ts` encode UX specs as typed constants (screen defs, interaction flows, wireframes, permissions). These are contracts for frontend implementation.
 5. **GL integration via `buildBatchJournalLines`** — close batch posts to GL using the same mapping resolution pattern as the POS adapter. Revenue split by sub-department, tax collected, tender by type, tips payable.
+6. **F&B POS uses internal screen routing** — `fnb-pos-content.tsx` checks `useFnbPosStore().currentScreen` (floor|tab|payment|split) for instant switching. KDS, Expo, Host, Manager, Close Batch are separate pages.
+7. **Migration 0082 required** — `fnb_tables` and related tables must exist in the database. After migration, sync tables from published room layout via "Sync Tables" button or `POST /api/v1/fnb/tables/sync`.
+8. **CSS design tokens** — all F&B UI uses `var(--fnb-*)` custom properties from `fnb-design-tokens.css`. Status colors: available=#22c55e, reserved=#8b5cf6, seated=#3b82f6, ordered=#06b6d4, entrees_fired=#f97316, dessert=#a855f7, check_presented=#eab308, paid=#6b7280, dirty=#ef4444.
+
+## 86. F&B POS Frontend Architecture
+
+### Structure
+
+```
+apps/web/src/
+├── app/(dashboard)/
+│   ├── pos/fnb/fnb-pos-content.tsx        # Main F&B POS (Zustand screen router)
+│   ├── kds/                               # Kitchen Display Station (standalone)
+│   ├── expo/                              # Expo View (standalone)
+│   ├── host/                              # Host Stand (standalone)
+│   ├── fnb-manager/                       # Manager Dashboard (standalone)
+│   └── close-batch/                       # Close Batch Workflow (standalone)
+├── app/api/v1/fnb/                        # ~100 API routes
+│   ├── tables/                            # Table CRUD, seat, clear, combine, sync, floor-plan
+│   ├── tabs/                              # Tab CRUD, close, void, transfer, courses, check, split
+│   ├── kitchen/                           # Tickets, routing rules
+│   ├── stations/                          # KDS stations, bump, recall, expo
+│   ├── menu/                              # 86, restore, periods, allergens, prep-notes
+│   ├── payments/                          # Sessions, tender, gratuity rules
+│   ├── preauth/                           # Pre-auth create, capture, void
+│   ├── tips/                              # Adjust, finalize, declare, tip-out, pools
+│   ├── sections/                          # CRUD, assignments, host-stand, cut, pickup, rotation
+│   ├── close-batch/                       # Lifecycle, z-report, server-checkouts, cash
+│   ├── gl/                                # Mappings, config, post, reverse, retry, reconciliation
+│   ├── print/                             # Jobs, routing rules
+│   ├── reports/                           # Dashboard, server-perf, table-turns, kitchen, daypart, etc.
+│   ├── settings/                          # Module settings CRUD, defaults, validate, seed
+│   └── locks/                             # Soft locks CRUD, clean
+├── components/fnb/
+│   ├── floor/                             # FloorCanvas, FnbTableNode, RoomTabs, BottomDock, ContextSidebar, SeatGuestsModal, TableActionMenu
+│   ├── tab/                               # TabHeader, SeatRail, OrderTicket, CourseSection, FnbOrderLine, CourseSelector, TabActionBar
+│   ├── menu/                              # FnbMenuPanel, FnbModifierDrawer, FnbItemTile, QuickItemsRow
+│   ├── kitchen/                           # TicketCard, TicketItemRow, BumpButton, TimerBar, DeltaBadge, AllDaySummary, StationHeader, ExpoTicketCard
+│   ├── split/                             # SplitCheckPage, SplitModeSelector, CheckPanel, DragItem, EqualSplitSelector, CustomAmountPanel
+│   ├── payment/                           # PaymentScreen, TenderGrid, CashKeypad, TipPrompt, ReceiptOptions, PreAuthCapture
+│   ├── manager/                           # ManagerPinModal, TransferModal, CompVoidModal, EightySixBoard, AlertFeed
+│   ├── host/                              # RotationQueue, CoverBalance
+│   ├── close/                             # CashCountForm, OverShortDisplay, ServerCheckoutList, ZReportView, DepositSlip
+│   └── shared/                            # ConnectionBanner, ConflictModal, LockBanner
+├── hooks/
+│   ├── use-fnb-floor.ts                   # useFnbFloor, useFnbRooms, useTableActions
+│   ├── use-fnb-tab.ts                     # useFnbTab (tab detail, courses, lines, seats, draft management)
+│   ├── use-fnb-kitchen.ts                 # useFnbKitchen (tickets, bump, recall)
+│   ├── use-fnb-menu.ts                    # useFnbMenu (departments, items, 86 status, allergens)
+│   ├── use-fnb-payments.ts                # Payment sessions, pre-auth, tips
+│   ├── use-fnb-manager.ts                 # PIN challenge, permission checks
+│   ├── use-fnb-close-batch.ts             # Batch lifecycle, Z-report, checkouts
+│   ├── use-fnb-sections.ts                # Sections, assignments
+│   ├── use-fnb-settings.ts                # F&B settings
+│   ├── use-fnb-reports.ts                 # F&B reports
+│   ├── use-fnb-realtime.ts                # Polling transport (V1), connection status
+│   └── use-fnb-locks.ts                   # Soft lock acquire/renew/release
+├── stores/
+│   └── fnb-pos-store.ts                   # Zustand: currentScreen, activeTabId, activeRoomId, draftLines, etc.
+├── styles/
+│   └── fnb-design-tokens.css              # CSS custom properties for F&B theming
+└── types/
+    └── fnb.ts                             # Frontend F&B types
+```
+
+### Key Patterns
+
+- **Internal screen routing**: `fnb-pos-content.tsx` uses Zustand `currentScreen` (floor|tab|payment|split), NOT URL routes. Preserves dual-mount instant switching.
+- **Polling V1**: `useFnbFloor` polls every 5s, `useFnbKitchen` every 10s. Transport abstraction ready for WebSocket V2.
+- **Draft lines in Zustand**: unsent items stored locally in store, committed on "Send" via API.
+- **CSS design tokens**: all colors via `var(--fnb-*)`, responsive overrides via `@media` in `fnb-design-tokens.css`.
 

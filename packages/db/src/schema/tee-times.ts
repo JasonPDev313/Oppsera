@@ -203,7 +203,7 @@ export const teeTimeOrderItems = pgTable(
       .notNull()
       .references(() => tenants.id),
     orderId: text('order_id').notNull(),
-    teeBookingId: text('tee_booking_id'),
+    teeTimeId: text('tee_time_id'),
     teeSeasonId: text('tee_season_id'),
     teeTypeId: text('tee_type_id'),
     teeCategoryId: text('tee_category_id'),
@@ -349,7 +349,7 @@ export const teeBlockedSlots = pgTable(
     blockType: text('block_type').notNull().default('manual'),
     repetitionId: text('repetition_id'),
     reservationResourceId: text('reservation_resource_id'),
-    teeBookingId: text('tee_booking_id'),
+    teeTimeId: text('tee_time_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

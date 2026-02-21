@@ -1,0 +1,226 @@
+/* ═══════════════════════════════════════════════════════════════════
+   F&B POS Design Tokens
+   Dark theme ONLY — standard for POS (reduces glare in dim restaurants)
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Table Status Palette (9 discrete statuses) ────────────────── */
+  --fnb-status-available: #22c55e;       /* green-500 — open, ready to seat */
+  --fnb-status-reserved: #8b5cf6;        /* violet-500 — reserved, not yet arrived */
+  --fnb-status-seated: #3b82f6;          /* blue-500 — guests seated, no order yet */
+  --fnb-status-ordered: #06b6d4;         /* cyan-500 — order placed, kitchen working */
+  --fnb-status-entrees-fired: #f97316;   /* orange-500 — entrees fired, main course cooking */
+  --fnb-status-dessert: #a855f7;         /* purple-500 — on dessert course */
+  --fnb-status-check-presented: #eab308; /* yellow-500 — check on table, awaiting payment */
+  --fnb-status-paid: #6b7280;            /* gray-500 — paid, ready to bus */
+  --fnb-status-dirty: #ef4444;           /* red-500 — needs cleaning */
+  --fnb-status-blocked: #374151;         /* gray-700 — out of service */
+
+  /* Table status BG opacity (used as table node background) */
+  --fnb-status-bg-opacity: 0.15;
+  --fnb-status-border-width: 2px;
+
+  /* ── KDS Timer Thresholds ──────────────────────────────────────── */
+  --fnb-timer-ok: #22c55e;               /* green — on time (< warning) */
+  --fnb-timer-warning: #eab308;          /* yellow — getting slow (warning..critical) */
+  --fnb-timer-critical: #ef4444;         /* red — LATE (> critical), pulsing */
+  --fnb-timer-ok-threshold: 480;         /* 8 minutes default */
+  --fnb-timer-warning-threshold: 720;    /* 12 minutes default */
+
+  /* ── Semantic Colors ───────────────────────────────────────────── */
+  --fnb-success: #22c55e;
+  --fnb-warning: #eab308;
+  --fnb-danger: #ef4444;
+  --fnb-info: #3b82f6;
+  --fnb-neutral: #6b7280;
+
+  /* ── Background Tiers (dark theme) ─────────────────────────────── */
+  --fnb-bg-primary: #0f172a;             /* slate-900 — app background */
+  --fnb-bg-surface: #1e293b;             /* slate-800 — card/panel surface */
+  --fnb-bg-elevated: #334155;            /* slate-700 — elevated panels */
+  --fnb-bg-overlay: rgba(0, 0, 0, 0.6);  /* modal/drawer backdrop */
+
+  /* ── Text Hierarchy ────────────────────────────────────────────── */
+  --fnb-text-primary: #f8fafc;           /* slate-50 */
+  --fnb-text-secondary: #cbd5e1;         /* slate-300 */
+  --fnb-text-muted: #94a3b8;            /* slate-400 */
+  --fnb-text-disabled: #475569;          /* slate-600 */
+
+  /* ── Touch Targets ─────────────────────────────────────────────── */
+  --fnb-touch-min: 48px;                 /* minimum tap target (exceeds 44px HIG) */
+  --fnb-touch-primary: 56px;             /* primary action buttons */
+  --fnb-touch-payment: 64px;             /* tender/payment buttons */
+  --fnb-touch-kds-bump: 72px;            /* KDS bump (gloved hands) */
+  --fnb-touch-gap: 8px;                  /* minimum spacing between targets */
+
+  /* ── Typography ────────────────────────────────────────────────── */
+  --fnb-font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fnb-font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Fira Code', monospace;
+
+  /* Type scale (optimized for touch readability) */
+  --fnb-text-xs: 0.625rem;              /* 10px — badges, micro labels */
+  --fnb-text-sm: 0.75rem;               /* 12px — modifiers, secondary text */
+  --fnb-text-base: 0.875rem;            /* 14px — body, item names */
+  --fnb-text-lg: 1rem;                  /* 16px — section headers */
+  --fnb-text-xl: 1.25rem;               /* 20px — table numbers */
+  --fnb-text-2xl: 1.5rem;               /* 24px — KDS timers */
+  --fnb-text-3xl: 2rem;                 /* 32px — KDS large display timers */
+
+  /* Font weights */
+  --fnb-font-normal: 400;
+  --fnb-font-medium: 500;
+  --fnb-font-semibold: 600;
+  --fnb-font-bold: 700;
+
+  /* ── Spacing (4px base unit) ───────────────────────────────────── */
+  --fnb-space-1: 4px;
+  --fnb-space-2: 8px;
+  --fnb-space-3: 12px;
+  --fnb-space-4: 16px;
+  --fnb-space-5: 20px;
+  --fnb-space-6: 24px;
+  --fnb-space-8: 32px;
+  --fnb-space-12: 48px;
+  --fnb-space-16: 64px;
+
+  /* Panel gutters and padding */
+  --fnb-gutter: 16px;
+  --fnb-card-padding: 12px;
+  --fnb-section-margin: 24px;
+
+  /* ── Borders & Radius ──────────────────────────────────────────── */
+  --fnb-radius-sm: 4px;
+  --fnb-radius-md: 8px;
+  --fnb-radius-lg: 12px;
+  --fnb-radius-full: 9999px;
+  --fnb-border-subtle: 1px solid rgba(148, 163, 184, 0.15);
+  --fnb-border-accent: 2px solid;
+
+  /* ── Motion / Animation ────────────────────────────────────────── */
+  --fnb-duration-micro: 150ms;           /* micro-interactions: status change */
+  --fnb-duration-normal: 250ms;          /* transitions: panel slide */
+  --fnb-duration-instant: 0ms;           /* real-time updates: NO animation */
+  --fnb-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --fnb-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+
+  /* ── Shadows ───────────────────────────────────────────────────── */
+  --fnb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --fnb-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
+  --fnb-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+  --fnb-shadow-overlay: 0 25px 50px rgba(0, 0, 0, 0.5);
+
+  /* ── Z-Index Scale ─────────────────────────────────────────────── */
+  --fnb-z-floor: 0;
+  --fnb-z-table-node: 10;
+  --fnb-z-sidebar: 20;
+  --fnb-z-dock: 30;
+  --fnb-z-overlay: 40;
+  --fnb-z-modal: 50;
+  --fnb-z-toast: 60;
+
+  /* ── Seat Colors (for seat dots on order lines) ────────────────── */
+  --fnb-seat-1: #3b82f6;                /* blue */
+  --fnb-seat-2: #22c55e;                /* green */
+  --fnb-seat-3: #f97316;                /* orange */
+  --fnb-seat-4: #a855f7;                /* purple */
+  --fnb-seat-5: #06b6d4;                /* cyan */
+  --fnb-seat-6: #ec4899;                /* pink */
+  --fnb-seat-7: #eab308;                /* yellow */
+  --fnb-seat-8: #ef4444;                /* red */
+  --fnb-seat-9: #14b8a6;                /* teal */
+
+  /* ── Check Colors (for split check panels) ─────────────────────── */
+  --fnb-check-1: #3b82f6;               /* blue */
+  --fnb-check-2: #22c55e;               /* green */
+  --fnb-check-3: #f97316;               /* orange */
+  --fnb-check-4: #a855f7;               /* purple */
+
+  /* ── Course Dot Indicators ─────────────────────────────────────── */
+  --fnb-course-unsent: #475569;          /* gray — hollow */
+  --fnb-course-sent: #3b82f6;            /* blue — filled */
+  --fnb-course-cooking: #f97316;         /* orange — cooking */
+  --fnb-course-ready: #22c55e;           /* green — ready */
+  --fnb-course-served: #6b7280;          /* muted — done */
+
+  /* ── Delta Ticket (KDS) ────────────────────────────────────────── */
+  --fnb-delta-bg: rgba(239, 68, 68, 0.15);
+  --fnb-delta-border: #ef4444;
+  --fnb-delta-text: #fca5a5;
+}
+
+/* ── Pulsing Alert Animation ──────────────────────────────────────── */
+@keyframes fnb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes fnb-pulse-border {
+  0%, 100% { border-color: var(--fnb-danger); }
+  50% { border-color: transparent; }
+}
+
+@keyframes fnb-scale-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes fnb-slide-in-right {
+  from { transform: translateX(20px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fnb-slide-in-bottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes fnb-bump-out {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0; }
+}
+
+.fnb-pulse { animation: fnb-pulse 2s ease-in-out infinite; }
+.fnb-pulse-border { animation: fnb-pulse-border 1.5s ease-in-out infinite; }
+.fnb-scale-pulse { animation: fnb-scale-pulse 1s ease-in-out; }
+.fnb-slide-in-right { animation: fnb-slide-in-right var(--fnb-duration-normal) var(--fnb-ease-out); }
+.fnb-slide-in-bottom { animation: fnb-slide-in-bottom var(--fnb-duration-normal) var(--fnb-ease-out); }
+.fnb-bump-out { animation: fnb-bump-out var(--fnb-duration-normal) var(--fnb-ease-in) forwards; }
+
+/* ── Utility Classes ──────────────────────────────────────────────── */
+.fnb-mono { font-family: var(--fnb-font-mono); }
+.fnb-touch-min { min-height: var(--fnb-touch-min); min-width: var(--fnb-touch-min); }
+.fnb-touch-primary { min-height: var(--fnb-touch-primary); }
+.fnb-touch-payment { min-height: var(--fnb-touch-payment); }
+.fnb-touch-kds { min-height: var(--fnb-touch-kds-bump); min-width: var(--fnb-touch-kds-bump); }
+
+/* ── KDS Large Display Overrides (1920x1080+) ──────────────────────── */
+@media (min-width: 1280px) {
+  .kds-ticket-card {
+    min-width: 240px;
+    max-width: 300px;
+  }
+  .kds-text-ticket { font-size: 1rem; }    /* 16px ticket number */
+  .kds-text-item { font-size: 1rem; }      /* 16px item names */
+  .kds-text-modifier { font-size: 0.875rem; } /* 14px modifiers */
+  .kds-text-timer { font-size: 2rem; }     /* 32px monospace timer */
+  .kds-bump-lg { height: 80px; font-size: 1.125rem; }
+  .kds-seat-badge { width: 28px; height: 28px; font-size: 0.75rem; }
+}
+
+/* ── Handheld Adaptations (<640px) ──────────────────────────────────── */
+@media (max-width: 639px) {
+  .fnb-sidebar-handheld { display: none; }
+  .fnb-bottom-sheet {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: var(--fnb-z-overlay);
+    max-height: 50vh;
+    overflow-y: auto;
+    border-top-left-radius: var(--fnb-radius-lg);
+    border-top-right-radius: var(--fnb-radius-lg);
+    background-color: var(--fnb-bg-surface);
+    animation: fnb-slide-in-bottom var(--fnb-duration-normal) var(--fnb-ease-out);
+  }
+}

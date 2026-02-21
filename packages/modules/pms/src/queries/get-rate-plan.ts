@@ -21,6 +21,7 @@ export interface RatePlanDetail {
   description: string | null;
   isDefault: boolean;
   isActive: boolean;
+  defaultNightlyRateCents: number | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -33,7 +34,8 @@ export async function getRatePlan(tenantId: string, ratePlanId: string): Promise
     const planRows = await tx.execute(sql`
       SELECT
         id, tenant_id, property_id, code, name, description,
-        is_default, is_active, created_at, updated_at, created_by
+        is_default, is_active, default_nightly_rate_cents,
+        created_at, updated_at, created_by
       FROM pms_rate_plans
       WHERE id = ${ratePlanId}
         AND tenant_id = ${tenantId}
@@ -75,6 +77,7 @@ export async function getRatePlan(tenantId: string, ratePlanId: string): Promise
       description: plan.description ? String(plan.description) : null,
       isDefault: Boolean(plan.is_default),
       isActive: Boolean(plan.is_active),
+      defaultNightlyRateCents: plan.default_nightly_rate_cents != null ? Number(plan.default_nightly_rate_cents) : null,
       createdAt: String(plan.created_at),
       updatedAt: String(plan.updated_at),
       createdBy: plan.created_by ? String(plan.created_by) : null,

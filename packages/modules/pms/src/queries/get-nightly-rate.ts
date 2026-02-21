@@ -2,21 +2,23 @@ import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 
 export interface NightlyRateResult {
-  priceId: string;
+  priceId: string | null;
   ratePlanId: string;
   roomTypeId: string;
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
   nightlyBaseCents: number;
+  source: 'price_table' | 'rate_plan_default';
 }
 
 /**
  * Resolves the applicable nightly rate for a given rate plan, room type, and date.
  *
- * Resolution: finds rows where startDate <= date < endDate, picks the one
- * with the latest createdAt (most recently created price wins).
+ * Resolution order:
+ * 1. Date-specific price from pms_rate_plan_prices (startDate <= date < endDate, latest createdAt)
+ * 2. Fallback to rate plan's defaultNightlyRateCents
  *
- * Returns null if no matching price row exists.
+ * Returns null if neither exists.
  */
 export async function getNightlyRate(
   tenantId: string,
@@ -25,6 +27,7 @@ export async function getNightlyRate(
   date: string,
 ): Promise<NightlyRateResult | null> {
   return withTenant(tenantId, async (tx) => {
+    // 1. Try date-specific price
     const rows = await tx.execute(sql`
       SELECT
         id,
@@ -44,18 +47,41 @@ export async function getNightlyRate(
     `);
 
     const arr = Array.from(rows as Iterable<Record<string, unknown>>);
-    if (arr.length === 0) {
-      return null;
+    if (arr.length > 0) {
+      const row = arr[0]!;
+      return {
+        priceId: String(row.id),
+        ratePlanId: String(row.rate_plan_id),
+        roomTypeId: String(row.room_type_id),
+        startDate: String(row.start_date),
+        endDate: String(row.end_date),
+        nightlyBaseCents: Number(row.nightly_base_cents),
+        source: 'price_table' as const,
+      };
     }
 
-    const row = arr[0]!;
-    return {
-      priceId: String(row.id),
-      ratePlanId: String(row.rate_plan_id),
-      roomTypeId: String(row.room_type_id),
-      startDate: String(row.start_date),
-      endDate: String(row.end_date),
-      nightlyBaseCents: Number(row.nightly_base_cents),
-    };
+    // 2. Fallback to rate plan's default rate
+    const planRows = await tx.execute(sql`
+      SELECT default_nightly_rate_cents
+      FROM pms_rate_plans
+      WHERE tenant_id = ${tenantId}
+        AND id = ${ratePlanId}
+      LIMIT 1
+    `);
+
+    const planArr = Array.from(planRows as Iterable<Record<string, unknown>>);
+    if (planArr.length > 0 && planArr[0]!.default_nightly_rate_cents != null) {
+      return {
+        priceId: null,
+        ratePlanId,
+        roomTypeId,
+        startDate: null,
+        endDate: null,
+        nightlyBaseCents: Number(planArr[0]!.default_nightly_rate_cents),
+        source: 'rate_plan_default' as const,
+      };
+    }
+
+    return null;
   });
 }

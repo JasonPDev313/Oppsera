@@ -3,7 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
-import { ulid } from '@oppsera/shared';
+import { generateUlid } from '@oppsera/shared';
 import { FNB_SETTINGS_DEFAULTS } from '../helpers/fnb-settings-defaults';
 import { FNB_SETTINGS_MODULE_KEYS } from '../validation';
 import type { FnbSettingsModuleKey } from '../validation';
@@ -33,7 +33,7 @@ export async function seedFnbSettings(
       const seededKeys: string[] = [];
 
       for (const [settingKey, value] of Object.entries(defaults)) {
-        const id = ulid();
+        const id = generateUlid();
         const jsonValue = JSON.stringify(value);
 
         await tx.execute(

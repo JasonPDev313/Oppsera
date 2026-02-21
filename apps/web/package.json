@@ -24,6 +24,7 @@
     "@oppsera/module-ar": "workspace:*",
     "@oppsera/module-catalog": "workspace:*",
     "@oppsera/module-customers": "workspace:*",
+    "@oppsera/module-fnb": "workspace:*",
     "@oppsera/module-golf-reporting": "workspace:*",
     "@oppsera/module-inventory": "workspace:*",
     "@oppsera/module-orders": "workspace:*",

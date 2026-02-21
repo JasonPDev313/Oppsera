@@ -53,6 +53,7 @@ export async function updateRatePlan(
     if (input.description !== undefined) updates.description = input.description;
     if (input.isDefault !== undefined) updates.isDefault = input.isDefault;
     if (input.isActive !== undefined) updates.isActive = input.isActive;
+    if (input.defaultNightlyRateCents !== undefined) updates.defaultNightlyRateCents = input.defaultNightlyRateCents;
 
     const [updated] = await tx
       .update(pmsRatePlans)
