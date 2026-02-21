@@ -91,8 +91,8 @@ export async function executeCompiledQuery(
   let rows: Record<string, unknown>[];
   try {
     const rawResult = await pg.begin(async (tx) => {
-      // Set tenant context for RLS (auto-parameterized via template literal)
-      await tx`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+      // Set tenant context for RLS
+      await tx.unsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, [tenantId]);
 
       // SET LOCAL does not support $N parameterized values in PostgreSQL's
       // extended query protocol — use unsafe() with a literal string value.
