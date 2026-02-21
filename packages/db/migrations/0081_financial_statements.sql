@@ -1,4 +1,4 @@
--- Migration: 0077_financial_statements.sql
+-- Migration: 0081_financial_statements.sql
 -- Financial statement layouts and templates
 
 -- ── financial_statement_layouts ────────────────────────────────

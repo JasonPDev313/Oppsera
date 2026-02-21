@@ -1,4 +1,4 @@
--- Migration: 0074_ap_landed_cost.sql
+-- Migration: 0078_ap_landed_cost.sql
 -- Session 31: Landed cost allocations for AP bills
 
 CREATE TABLE IF NOT EXISTS ap_bill_landed_cost_allocations (

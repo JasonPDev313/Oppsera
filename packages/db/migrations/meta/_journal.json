@@ -519,6 +519,62 @@
       "when": 1708100073000,
       "tag": "0073_custom_lenses",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1708100074000,
+      "tag": "0074_room_layouts",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1708100075000,
+      "tag": "0075_accounting_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1708100076000,
+      "tag": "0076_accounting_mappings",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1708100077000,
+      "tag": "0077_accounts_payable",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1708100078000,
+      "tag": "0078_ap_landed_cost",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1708100079000,
+      "tag": "0079_accounting_close_periods",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1708100080000,
+      "tag": "0080_accounts_receivable",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1708100081000,
+      "tag": "0081_financial_statements",
+      "breakpoints": true
     }
   ]
 }

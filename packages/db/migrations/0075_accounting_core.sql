@@ -1,4 +1,4 @@
--- Migration: 0071_accounting_core.sql
+-- Migration: 0075_accounting_core.sql
 -- Session 28: GL Core — 9 tables + RLS + CHECK constraints + seed data
 
 -- ── gl_classifications ──────────────────────────────────────────

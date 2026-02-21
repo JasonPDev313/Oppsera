@@ -12,7 +12,18 @@
 //   Reads DATABASE_URL from .env.local (then .env as fallback).
 //   Set SEMANTIC_DRY_RUN=true to skip DB writes and just print counts.
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Load env from monorepo root (this script runs from packages/modules/semantic/)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const root = path.resolve(__dirname, '../../../../..');
+dotenv.config({ path: path.join(root, 'apps/web/.env.local') });
+dotenv.config({ path: path.join(root, '.env.local') });
+dotenv.config({ path: path.join(root, '.env') });
+
 import { syncRegistryToDb } from '../registry/sync';
 
 const DRY_RUN = process.env.SEMANTIC_DRY_RUN === 'true';

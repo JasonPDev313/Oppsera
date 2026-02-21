@@ -1,4 +1,4 @@
--- Migration: 0070_room_layouts
+-- Migration: 0074_room_layouts
 -- Room Layout Builder: rooms, versions, templates (v2).
 -- Does NOT drop the old floor_plans / floor_plan_templates tables (backward compat).
 

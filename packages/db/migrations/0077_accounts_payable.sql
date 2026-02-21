@@ -1,4 +1,4 @@
--- Migration: 0073_accounts_payable.sql
+-- Migration: 0077_accounts_payable.sql
 -- Session 30: AP Subledger — vendor extensions, payment terms, bills, payments, allocations + RLS
 
 -- ── Vendor AP Extensions ────────────────────────────────────────

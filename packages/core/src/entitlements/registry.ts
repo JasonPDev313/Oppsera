@@ -11,6 +11,9 @@ export const MODULE_REGISTRY = [
   { key: 'golf_ops', name: 'Golf Operations', phase: 'v1', description: 'Tee sheet, starter sheet, pace-of-play' },
   { key: 'reporting', name: 'Reports & Exports', phase: 'v1', description: 'Read models, daily sales, CSV/PDF export' },
   { key: 'room_layouts', name: 'Room Layouts', phase: 'v1', description: 'Floor plan editor, templates, version management' },
+  { key: 'accounting', name: 'Accounting & GL', phase: 'v1', description: 'General ledger, chart of accounts, journal entries, period close' },
+  { key: 'accounts_payable', name: 'Accounts Payable', phase: 'v1', description: 'AP invoices, vendor payments, landed cost' },
+  { key: 'accounts_receivable', name: 'Accounts Receivable', phase: 'v1', description: 'AR invoices, customer payments, aging, statements' },
   { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
   { key: 'semantic', name: 'AI Insights (Semantic Layer)', phase: 'v1', description: 'Natural-language analytics, query compiler, LLM pipeline, custom lenses' },
 ] as const;

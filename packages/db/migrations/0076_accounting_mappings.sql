@@ -1,4 +1,4 @@
--- Migration: 0072_accounting_mappings
+-- Migration: 0076_accounting_mappings
 -- GL mapping defaults for sub-departments, payment types, tax groups + bank accounts.
 
 -- ── Sub-Department GL Defaults ────────────────────────────────────
