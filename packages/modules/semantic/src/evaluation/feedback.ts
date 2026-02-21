@@ -11,6 +11,7 @@ import type {
   UserFeedbackInput,
   AdminReviewInput,
   PromoteExampleInput,
+  FeedbackTag,
 } from './types';
 import { computeQualityScore, computeQualityFlags } from './capture';
 
@@ -71,7 +72,7 @@ export async function submitUserRating(
       userRating: input.rating ?? turn.userRating,
       userThumbsUp: input.thumbsUp ?? turn.userThumbsUp,
       userFeedbackText: input.text ?? turn.userFeedbackText,
-      userFeedbackTags: input.tags ?? turn.userFeedbackTags as string[],
+      userFeedbackTags: input.tags ?? turn.userFeedbackTags as FeedbackTag[],
       userFeedbackAt: now,
       qualityFlags: recomputedFlags.length > 0 ? recomputedFlags : turn.qualityFlags as string[],
       qualityScore: newScore !== null ? newScore.toString() : turn.qualityScore,

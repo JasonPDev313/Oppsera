@@ -6,7 +6,7 @@ import {
   semanticEvalQualityDaily,
 } from '@oppsera/db';
 import { sql, eq, and, gte, lte, desc, asc, isNotNull, like, inArray } from 'drizzle-orm';
-import type { EvalTurn, EvalSession, EvalExample, QualityDaily, ExampleCategory, ExampleDifficulty } from './types';
+import type { EvalTurn, EvalSession, EvalExample, QualityDaily, ExampleCategory, ExampleDifficulty, FeedbackTag } from './types';
 
 // ── Feed filters ────────────────────────────────────────────────
 
@@ -596,7 +596,7 @@ function mapTurn(row: typeof semanticEvalTurns.$inferSelect): EvalTurn {
     userRating: row.userRating,
     userThumbsUp: row.userThumbsUp,
     userFeedbackText: row.userFeedbackText,
-    userFeedbackTags: row.userFeedbackTags as string[] | null,
+    userFeedbackTags: row.userFeedbackTags as FeedbackTag[] | null,
     userFeedbackAt: row.userFeedbackAt?.toISOString() ?? null,
     adminReviewerId: row.adminReviewerId,
     adminScore: row.adminScore,
