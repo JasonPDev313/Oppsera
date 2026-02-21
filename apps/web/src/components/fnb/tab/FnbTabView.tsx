@@ -197,7 +197,7 @@ export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
   const showEmpty = !tab && !error && !tabId;
 
   // Compute unsent items per seat when tab is loaded
-  let unsentBySeat: Record<number, number> = {};
+  const unsentBySeat: Record<number, number> = {};
   let hasUnsentItems = draftLines.length > 0;
   if (tab) {
     for (const line of tab.lines ?? []) {

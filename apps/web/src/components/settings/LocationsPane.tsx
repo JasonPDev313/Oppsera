@@ -44,7 +44,7 @@ export function LocationsPane({
     if (sites.length === 1 && venuesBySite.has(sites[0]!.id)) {
       setExpandedSites(new Set([sites[0]!.id]));
     }
-  }, [sites.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sites.length]);
 
   const toggleExpand = (siteId: string) => {
     setExpandedSites((prev) => {
