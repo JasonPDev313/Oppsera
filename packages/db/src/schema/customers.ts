@@ -83,6 +83,11 @@ export const customers = pgTable(
     homePhone: text('home_phone'),
     ghinNumber: text('ghin_number'),
     projectedRounds: integer('projected_rounds'),
+
+    // ── Customer 360 fields (migration 0123) ──
+    memberNumber: text('member_number'),
+    referredByCustomerId: text('referred_by_customer_id'),
+    notesSummary: text('notes_summary'),
   },
   (table) => [
     // NOTE: partial unique indexes (WHERE email IS NOT NULL / WHERE phone IS NOT NULL)
@@ -113,6 +118,13 @@ export const customerRelationships = pgTable(
       .notNull()
       .references(() => customers.id),
     relationshipType: text('relationship_type').notNull(),
+
+    // ── Session 3 fields (migration 0125) ──
+    isPrimary: boolean('is_primary').notNull().default(false),
+    effectiveDate: date('effective_date'),
+    expirationDate: date('expiration_date'),
+    notes: text('notes'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -180,6 +192,26 @@ export const customerActivityLog = pgTable(
   ],
 );
 
+// ── Customer Audit Log (migration 0124) ─────────────────────────
+export const customerAuditLog = pgTable(
+  'customer_audit_log',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    customerId: text('customer_id').notNull(),
+    actorUserId: text('actor_user_id').notNull(),
+    actionType: text('action_type').notNull(),
+    beforeJson: jsonb('before_json'),
+    afterJson: jsonb('after_json'),
+    reason: text('reason'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_audit_log_tenant_customer_occurred').on(table.tenantId, table.customerId, table.occurredAt),
+    index('idx_customer_audit_log_tenant_action').on(table.tenantId, table.actionType),
+  ],
+);
+
 // ── Membership Plans ────────────────────────────────────────────
 export const membershipPlans = pgTable(
   'membership_plans',
@@ -219,6 +251,14 @@ export const membershipPlans = pgTable(
     // ── GL accounts (migration 0106) ──
     revenueGlAccountId: text('revenue_gl_account_id'),
     deferredRevenueGlAccountId: text('deferred_revenue_gl_account_id'),
+
+    // ── Session 5 fields (migration 0127) ──
+    duesAmountCents: integer('dues_amount_cents'),
+    billingFrequency: text('billing_frequency').default('monthly'),
+    prorationPolicy: text('proration_policy').default('daily'),
+    minMonthsCommitment: integer('min_months_commitment'),
+    glDuesRevenueAccountId: text('gl_dues_revenue_account_id'),
+    taxable: boolean('taxable').default(true),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -320,6 +360,14 @@ export const billingAccounts = pgTable(
     billingAddress: text('billing_address'),
     glArAccountCode: text('gl_ar_account_code').notNull().default('1200'),
     metadata: jsonb('metadata'),
+
+    // ── Financial engine fields (migration 0124) ──
+    accountType: text('account_type').notNull().default('house'),
+    currency: text('currency').notNull().default('USD'),
+    autopayStrategy: text('autopay_strategy'),
+    autopayFixedAmountCents: bigint('autopay_fixed_amount_cents', { mode: 'number' }),
+    autopayPaymentMethodId: text('autopay_payment_method_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -387,6 +435,21 @@ export const arTransactions = pgTable(
     customerId: text('customer_id'),
     glJournalEntryId: text('gl_journal_entry_id'),
     notes: text('notes'),
+
+    // ── Financial engine fields (migration 0124) ──
+    sourceModule: text('source_module'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }),
+    postedAt: timestamp('posted_at', { withTimezone: true }),
+    businessDate: date('business_date'),
+    departmentId: text('department_id'),
+    subDepartmentId: text('sub_department_id'),
+    locationId: text('location_id'),
+    profitCenterId: text('profit_center_id'),
+    memberId: text('member_id'),
+    status: text('status').notNull().default('posted'),
+    approvedBy: text('approved_by'),
+    metaJson: jsonb('meta_json'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by').notNull(),
   },
@@ -454,6 +517,16 @@ export const statements = pgTable(
     closingBalanceCents: bigint('closing_balance_cents', { mode: 'number' }).notNull(),
     dueDate: date('due_date').notNull(),
     status: text('status').notNull().default('open'),
+
+    // ── Financial engine fields (migration 0124) ──
+    statementNumber: text('statement_number'),
+    deliveryStatus: text('delivery_status').notNull().default('pending'),
+    pdfStorageKey: text('pdf_storage_key'),
+    metaJson: jsonb('meta_json'),
+
+    // ── Session 6 fields (migration 0128) ──
+    membershipAccountId: text('membership_account_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -511,6 +584,14 @@ export const customerPrivileges = pgTable(
     value: jsonb('value').notNull(),
     reason: text('reason'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
+
+    // ── Session 4 fields (migration 0126) ──
+    isActive: boolean('is_active').notNull().default(true),
+    effectiveDate: date('effective_date'),
+    expirationDate: date('expiration_date'),
+    grantedBy: text('granted_by'),
+    notes: text('notes'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by').notNull(),
   },
@@ -624,6 +705,11 @@ export const customerDocuments = pgTable(
     storageKey: text('storage_key').notNull(),
     mimeType: text('mime_type').notNull(),
     sizeBytes: integer('size_bytes').notNull(),
+
+    // ── Session 3 fields (migration 0125) ──
+    tagsJson: jsonb('tags_json').notNull().default('[]'),
+    version: integer('version').notNull().default(1),
+
     uploadedAt: timestamp('uploaded_at', { withTimezone: true }).notNull().defaultNow(),
     uploadedBy: text('uploaded_by').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
@@ -634,6 +720,25 @@ export const customerDocuments = pgTable(
       table.customerId,
       table.documentType,
     ),
+  ],
+);
+
+// ── Customer Notes (migration 0125) ─────────────────────────────────
+export const customerNotes = pgTable(
+  'customer_notes',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    customerId: text('customer_id').notNull(),
+    content: text('content').notNull(),
+    isPinned: boolean('is_pinned').notNull().default(false),
+    visibility: text('visibility').notNull().default('internal'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_customer_notes_tenant_customer_created').on(table.tenantId, table.customerId, table.createdAt),
   ],
 );
 
@@ -655,6 +760,11 @@ export const customerCommunications = pgTable(
     campaignId: text('campaign_id'),
     status: text('status').notNull().default('sent'),
     metadata: jsonb('metadata'),
+
+    // ── Session 3 fields (migration 0125) ──
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    metaJson: jsonb('meta_json'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by'),
   },

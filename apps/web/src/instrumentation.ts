@@ -79,6 +79,15 @@ export async function register() {
       console.error('Failed to register payment consumers:', e);
     }
 
+    // ── Register reconciliation read API (cross-module accounting queries) ──
+    try {
+      const { initializeReconciliationReadApi } = await import('./lib/reconciliation-bootstrap');
+      await initializeReconciliationReadApi();
+      console.log('Initialized ReconciliationReadApi singleton');
+    } catch (e) {
+      console.error('Failed to initialize ReconciliationReadApi:', e);
+    }
+
     // Accounting bootstrap + POS GL adapter
     try {
       const { initializeAccountingPostingApi } = await import('./lib/accounting-bootstrap');

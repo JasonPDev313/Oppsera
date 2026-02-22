@@ -86,3 +86,113 @@ export type {
   HouseholdListItem,
   ListHouseholdsResult,
 } from './list-households';
+
+// ── Customer 360 (Session 1) ──────────────────────────────────────
+export { getCustomerHeader } from './get-customer-header';
+export type { GetCustomerHeaderInput, CustomerHeaderData } from './get-customer-header';
+
+export { getCustomerContacts360 } from './get-customer-contacts-360';
+export type { GetCustomerContacts360Input, CustomerContacts360 } from './get-customer-contacts-360';
+
+export { getCustomerOverview } from './get-customer-overview';
+export type { GetCustomerOverviewInput, CustomerOverviewData } from './get-customer-overview';
+
+// ── Customer Financial Engine (Session 2) ────────────────────────
+export { getFinancialAccountsSummary } from './get-financial-accounts-summary';
+export type {
+  GetFinancialAccountsSummaryInput,
+  FinancialAccountEntry,
+  CustomerFinancialSummary,
+} from './get-financial-accounts-summary';
+
+export { getUnifiedLedger } from './get-unified-ledger';
+export type {
+  GetUnifiedLedgerInput,
+  UnifiedLedgerEntry,
+  UnifiedLedgerResult,
+} from './get-unified-ledger';
+
+export { getCustomerAgingSummary } from './get-customer-aging-summary';
+export type {
+  GetCustomerAgingSummaryInput,
+  AgingBucket,
+  AccountAgingEntry,
+  CustomerAgingSummary,
+} from './get-customer-aging-summary';
+
+export { getCustomerAuditTrail } from './get-customer-audit-trail';
+export type {
+  GetCustomerAuditTrailInput,
+  AuditTrailEntry,
+  CustomerAuditTrailResult,
+} from './get-customer-audit-trail';
+
+// ── Session 3: Activity + Communication + Relationships + Documents ──
+export { getCustomerActivityFeed } from './get-customer-activity-feed';
+export type {
+  GetCustomerActivityFeedInput,
+  ActivityFeedItem,
+  GetCustomerActivityFeedResult,
+} from './get-customer-activity-feed';
+
+export { getCustomerNotesList } from './get-customer-notes-list';
+export type {
+  GetCustomerNotesListInput,
+  CustomerNoteItem,
+  GetCustomerNotesListResult,
+} from './get-customer-notes-list';
+
+export { getCommunicationTimeline } from './get-communication-timeline';
+export type {
+  GetCommunicationTimelineInput,
+  CommunicationTimelineItem,
+  GetCommunicationTimelineResult,
+} from './get-communication-timeline';
+
+export { getRelationshipsExtended } from './get-relationships-extended';
+export type {
+  GetRelationshipsExtendedInput,
+  RelationshipExtended,
+  GetRelationshipsExtendedResult,
+} from './get-relationships-extended';
+
+export { getCustomerFilesList } from './get-customer-files-list';
+export type {
+  GetCustomerFilesListInput,
+  CustomerFileItem,
+  GetCustomerFilesListResult,
+} from './get-customer-files-list';
+
+// ── Session 4: Stored Value + Discounts ─────────────────────────────
+export { getStoredValueInstruments } from './get-stored-value-instruments';
+export type {
+  GetStoredValueInstrumentsInput,
+  StoredValueInstrumentSummary,
+} from './get-stored-value-instruments';
+
+export { getStoredValueTransactions } from './get-stored-value-transactions';
+export type {
+  GetStoredValueTransactionsInput,
+  StoredValueTransactionEntry,
+} from './get-stored-value-transactions';
+
+export { getApplicableDiscountRules } from './get-applicable-discount-rules';
+export type {
+  GetApplicableDiscountRulesInput,
+  ApplicableDiscountRule,
+} from './get-applicable-discount-rules';
+
+export { listDiscountRules } from './list-discount-rules';
+export type {
+  ListDiscountRulesInput,
+  DiscountRuleListEntry,
+} from './list-discount-rules';
+
+export { getCustomerPrivilegesExtended } from './get-customer-privileges-extended';
+export type {
+  GetCustomerPrivilegesExtendedInput,
+  PrivilegeExtendedEntry,
+  StoredValueByType,
+  StoredValueSummary,
+  CustomerPrivilegesExtended,
+} from './get-customer-privileges-extended';

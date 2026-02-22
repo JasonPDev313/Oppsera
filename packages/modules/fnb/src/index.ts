@@ -806,3 +806,6 @@ export {
   NoPrinterRoutedError,
   PrintJobAlreadyCompletedError,
 } from './errors';
+
+// Re-export reconciliation methods (used by ReconciliationReadApi)
+export { getFnbCloseStatus } from './reconciliation';

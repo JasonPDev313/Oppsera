@@ -132,6 +132,9 @@ importers:
       '@oppsera/module-inventory':
         specifier: workspace:*
         version: link:../../packages/modules/inventory
+      '@oppsera/module-membership':
+        specifier: workspace:*
+        version: link:../../packages/modules/membership
       '@oppsera/module-orders':
         specifier: workspace:*
         version: link:../../packages/modules/orders
@@ -509,6 +512,34 @@ importers:
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+
+  packages/modules/membership:
+    dependencies:
+      '@oppsera/core':
+        specifier: workspace:*
+        version: link:../../core
+      '@oppsera/db':
+        specifier: workspace:*
+        version: link:../../db
+      '@oppsera/shared':
+        specifier: workspace:*
+        version: link:../../shared
+      drizzle-orm:
+        specifier: ^0.37.0
+        version: 0.37.0(@types/react@19.2.14)(postgres@3.4.8)(react@19.2.4)
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.11
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.0
+        version: 2.1.9(@types/node@22.19.11)(lightningcss@1.30.2)
 
   packages/modules/orders:
     dependencies:

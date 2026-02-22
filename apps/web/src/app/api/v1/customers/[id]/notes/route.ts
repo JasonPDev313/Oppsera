@@ -2,19 +2,48 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { addCustomerNote, addCustomerNoteSchema } from '@oppsera/module-customers';
+import {
+  getCustomerNotesList,
+  addCustomerNoteV2,
+  addCustomerNoteV2Schema,
+} from '@oppsera/module-customers';
 
-function extractId(request: NextRequest): string {
+function extractCustomerId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
-  return parts[parts.length - 2]!;
+  const idx = parts.indexOf('customers');
+  return parts[idx + 1]!;
 }
 
-// POST /api/v1/customers/:id/notes — add customer note
+// GET /api/v1/customers/:id/notes — list customer notes
+export const GET = withMiddleware(
+  async (request: NextRequest, ctx) => {
+    const customerId = extractCustomerId(request);
+    const url = new URL(request.url);
+    const cursor = url.searchParams.get('cursor') ?? undefined;
+    const limit = url.searchParams.get('limit')
+      ? Number(url.searchParams.get('limit'))
+      : undefined;
+    const pinnedOnly = url.searchParams.get('pinnedOnly') === 'true' ? true : undefined;
+
+    const result = await getCustomerNotesList({
+      tenantId: ctx.tenantId,
+      customerId,
+      cursor,
+      limit,
+      pinnedOnly,
+    });
+
+    return NextResponse.json({ data: result });
+  },
+  { entitlement: 'customers', permission: 'customers.view' },
+);
+
+// POST /api/v1/customers/:id/notes — add customer note (V2)
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
-    const id = extractId(request);
+    const customerId = extractCustomerId(request);
     const body = await request.json();
-    const parsed = addCustomerNoteSchema.safeParse({ ...body, customerId: id });
+    const parsed = addCustomerNoteV2Schema.safeParse({ ...body, customerId });
 
     if (!parsed.success) {
       throw new ValidationError(
@@ -23,7 +52,7 @@ export const POST = withMiddleware(
       );
     }
 
-    const note = await addCustomerNote(ctx, parsed.data);
+    const note = await addCustomerNoteV2(ctx, parsed.data);
 
     return NextResponse.json({ data: note }, { status: 201 });
   },

@@ -106,6 +106,16 @@ export { getAccountingPostingApi, setAccountingPostingApi } from './helpers/acco
 export type { AccountingPostingApi, AccountingPostJournalInput } from './helpers/accounting-posting-api';
 export { getOrdersWriteApi, setOrdersWriteApi } from './helpers/orders-write-api';
 export type { OrdersWriteApi, OrdersWriteOpenInput, OrdersWriteAddLineInput, OrdersWriteUpdateInput, OrdersWriteResult } from './helpers/orders-write-api';
+export { getReconciliationReadApi, setReconciliationReadApi } from './helpers/reconciliation-read-api';
+export type {
+  ReconciliationReadApi,
+  OrdersSummaryData, TaxBreakdownRow, TaxRemittanceRow, CompTotalData,
+  TendersSummaryData, TenderAuditTrailData, TenderAuditTrailStep, UnmatchedTenderRow,
+  SettlementFilters, SettlementListResult, SettlementListItem, SettlementDetailData, SettlementLineDetail,
+  TipBalanceRow, TipPayoutFilters, TipPayoutListResult, TipPayoutItem,
+  TerminalCloseStatus, LocationCloseStatusData,
+  InventoryMovementsSummaryData,
+} from './helpers/reconciliation-read-api';
 
 // ── Observability ───────────────────────────────────────────────────
 export {

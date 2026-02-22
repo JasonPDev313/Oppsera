@@ -35,3 +35,24 @@ export type {
 
 // Event consumer
 export { handleOrderVoided } from './events/consumers';
+
+// Reconciliation methods (used by ReconciliationReadApi)
+export {
+  getTendersSummary,
+  getTenderAuditTrail,
+  getUnmatchedTenders,
+  getTenderAuditCount,
+  listSettlements,
+  getSettlementDetail,
+  getSettlementStatusCounts,
+  getDrawerSessionStatus,
+  getRetailCloseStatus,
+  getCashOnHand,
+  getOverShortTotal,
+  getTipBalances,
+  listTipPayouts,
+  getPendingTipCount,
+  getOutstandingTipsCents,
+  getDepositStatus,
+  getLocationCloseStatus,
+} from './reconciliation';

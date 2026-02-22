@@ -35,6 +35,7 @@ import {
   ConciergeBell,
   Brush,
   Shield,
+  User,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -93,6 +94,7 @@ export const navigation: NavItem[] = [
     children: [
       { name: 'All Customers', href: '/customers', icon: Users },
       { name: 'Memberships', href: '/customers/memberships', icon: Crown },
+      { name: 'Dues & Plans', href: '/membership/plans', icon: CalendarDays },
       { name: 'Billing', href: '/customers/billing', icon: CreditCard },
     ],
   },
@@ -135,6 +137,7 @@ export const navigation: NavItem[] = [
       { name: 'Rooms', href: '/pms/rooms', icon: DoorOpen, group: 'PMS Settings' },
     ],
   },
+  { name: 'Member Portal', href: '/member-portal', icon: User, moduleKey: 'customers' },
   {
     name: 'Accounting',
     href: '/accounting',

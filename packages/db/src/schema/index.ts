@@ -54,3 +54,6 @@ export * from './comp-events';
 export * from './payment-settlements';
 export * from './tip-payouts';
 export * from './deposit-slips';
+export * from './customer-identity';
+export * from './stored-value';
+export * from './membership';

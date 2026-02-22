@@ -14,31 +14,8 @@ import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
 
 // ── Customer Addresses ────────────────────────────────────────────
-export const customerAddresses = pgTable(
-  'customer_addresses',
-  {
-    id: text('id').primaryKey().$defaultFn(generateUlid),
-    tenantId: text('tenant_id')
-      .notNull()
-      .references(() => tenants.id),
-    customerId: text('customer_id').notNull(),
-    entityType: text('entity_type').notNull().default('customer'),
-    addressType: text('address_type').notNull().default('home'),
-    line1: text('line1'),
-    line2: text('line2'),
-    line3: text('line3'),
-    city: text('city'),
-    county: text('county'),
-    state: text('state'),
-    country: text('country'),
-    postalCode: text('postal_code'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    index('idx_customer_addresses_tenant_customer').on(table.tenantId, table.customerId),
-  ],
-);
+// Moved to customer-identity.ts (Session 1) — enhanced with type, label,
+// isPrimary, seasonal months, and proper NOT NULL constraints.
 
 // ── Customer Facility Assignments ─────────────────────────────────
 export const customerFacilityAssignments = pgTable(

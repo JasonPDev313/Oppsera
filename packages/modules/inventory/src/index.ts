@@ -136,3 +136,9 @@ export { findByCatalogItemId } from './helpers/find-by-catalog-item';
 
 // Event consumers
 export { handleOrderPlaced, handleOrderVoided, handleOrderReturned, handleCatalogItemCreated } from './events/consumers';
+
+// Re-export reconciliation methods (used by ReconciliationReadApi)
+export {
+  getInventoryMovementsSummary,
+  getReceivingPurchasesTotals,
+} from './reconciliation';

@@ -287,7 +287,7 @@ export const logCustomerCommunicationSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
   clientRequestId: z.string().optional(),
 });
-export type LogCustomerCommunicationInput = z.infer<typeof logCustomerCommunicationSchema>;
+export type LogCustomerCommunicationInput = z.input<typeof logCustomerCommunicationSchema>;
 
 // ── Customer Service Flags ──────────────────────────────────────
 export const addServiceFlagSchema = z.object({
@@ -452,3 +452,413 @@ export const removeFromSegmentSchema = z.object({
   customerId: z.string().min(1),
 });
 export type RemoveFromSegmentInput = z.infer<typeof removeFromSegmentSchema>;
+
+// ── Customer 360 — Structured Contact Schemas (Session 1) ────────
+
+const emailTypeEnum = z.enum(['personal', 'billing', 'spouse', 'corporate', 'other']);
+const phoneTypeEnum = z.enum(['mobile', 'home', 'work', 'sms', 'other']);
+const addressTypeEnum = z.enum(['mailing', 'billing', 'home', 'work', 'seasonal', 'other']);
+
+export const addCustomerEmailSchema = z.object({
+  customerId: z.string().min(1),
+  email: z.string().email().trim(),
+  type: emailTypeEnum.default('personal'),
+  isPrimary: z.boolean().default(false),
+  canReceiveStatements: z.boolean().default(true),
+  canReceiveMarketing: z.boolean().default(false),
+  clientRequestId: z.string().optional(),
+});
+export type AddCustomerEmailInput = z.input<typeof addCustomerEmailSchema>;
+
+export const updateCustomerEmailSchema = z.object({
+  emailId: z.string().min(1),
+  email: z.string().email().trim().optional(),
+  type: emailTypeEnum.optional(),
+  isPrimary: z.boolean().optional(),
+  canReceiveStatements: z.boolean().optional(),
+  canReceiveMarketing: z.boolean().optional(),
+});
+export type UpdateCustomerEmailInput = z.infer<typeof updateCustomerEmailSchema>;
+
+export const removeCustomerEmailSchema = z.object({
+  emailId: z.string().min(1),
+});
+export type RemoveCustomerEmailInput = z.infer<typeof removeCustomerEmailSchema>;
+
+export const addCustomerPhoneSchema = z.object({
+  customerId: z.string().min(1),
+  phoneE164: z.string().min(7).max(20).trim(),
+  phoneDisplay: z.string().max(30).optional(),
+  type: phoneTypeEnum.default('mobile'),
+  isPrimary: z.boolean().default(false),
+  canReceiveSms: z.boolean().default(false),
+  clientRequestId: z.string().optional(),
+});
+export type AddCustomerPhoneInput = z.input<typeof addCustomerPhoneSchema>;
+
+export const updateCustomerPhoneSchema = z.object({
+  phoneId: z.string().min(1),
+  phoneE164: z.string().min(7).max(20).trim().optional(),
+  phoneDisplay: z.string().max(30).optional().nullable(),
+  type: phoneTypeEnum.optional(),
+  isPrimary: z.boolean().optional(),
+  canReceiveSms: z.boolean().optional(),
+});
+export type UpdateCustomerPhoneInput = z.infer<typeof updateCustomerPhoneSchema>;
+
+export const removeCustomerPhoneSchema = z.object({
+  phoneId: z.string().min(1),
+});
+export type RemoveCustomerPhoneInput = z.infer<typeof removeCustomerPhoneSchema>;
+
+export const addCustomerAddressSchema = z.object({
+  customerId: z.string().min(1),
+  type: addressTypeEnum.default('mailing'),
+  label: z.string().max(50).optional(),
+  line1: z.string().min(1).max(200),
+  line2: z.string().max(200).optional(),
+  line3: z.string().max(200).optional(),
+  city: z.string().min(1).max(100),
+  state: z.string().max(50).optional(),
+  postalCode: z.string().max(20).optional(),
+  county: z.string().max(100).optional(),
+  country: z.string().max(2).default('US'),
+  isPrimary: z.boolean().default(false),
+  seasonalStartMonth: z.number().int().min(1).max(12).optional(),
+  seasonalEndMonth: z.number().int().min(1).max(12).optional(),
+  clientRequestId: z.string().optional(),
+});
+export type AddCustomerAddressInput = z.input<typeof addCustomerAddressSchema>;
+
+export const updateCustomerAddressSchema = z.object({
+  addressId: z.string().min(1),
+  type: addressTypeEnum.optional(),
+  label: z.string().max(50).optional().nullable(),
+  line1: z.string().min(1).max(200).optional(),
+  line2: z.string().max(200).optional().nullable(),
+  line3: z.string().max(200).optional().nullable(),
+  city: z.string().min(1).max(100).optional(),
+  state: z.string().max(50).optional().nullable(),
+  postalCode: z.string().max(20).optional().nullable(),
+  county: z.string().max(100).optional().nullable(),
+  country: z.string().max(2).optional(),
+  isPrimary: z.boolean().optional(),
+  seasonalStartMonth: z.number().int().min(1).max(12).optional().nullable(),
+  seasonalEndMonth: z.number().int().min(1).max(12).optional().nullable(),
+});
+export type UpdateCustomerAddressInput = z.infer<typeof updateCustomerAddressSchema>;
+
+export const removeCustomerAddressSchema = z.object({
+  addressId: z.string().min(1),
+});
+export type RemoveCustomerAddressInput = z.infer<typeof removeCustomerAddressSchema>;
+
+export const addEmergencyContactSchema = z.object({
+  customerId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  relationship: z.string().max(100).optional(),
+  phoneE164: z.string().min(7).max(20),
+  phoneDisplay: z.string().max(30).optional(),
+  email: z.string().email().optional(),
+  notes: z.string().max(500).optional(),
+  isPrimary: z.boolean().default(false),
+  clientRequestId: z.string().optional(),
+});
+export type AddEmergencyContactInput = z.input<typeof addEmergencyContactSchema>;
+
+export const updateEmergencyContactSchema = z.object({
+  contactId: z.string().min(1),
+  name: z.string().min(1).max(200).optional(),
+  relationship: z.string().max(100).optional().nullable(),
+  phoneE164: z.string().min(7).max(20).optional(),
+  phoneDisplay: z.string().max(30).optional().nullable(),
+  email: z.string().email().optional().nullable(),
+  notes: z.string().max(500).optional().nullable(),
+  isPrimary: z.boolean().optional(),
+});
+export type UpdateEmergencyContactInput = z.infer<typeof updateEmergencyContactSchema>;
+
+export const removeEmergencyContactSchema = z.object({
+  contactId: z.string().min(1),
+});
+export type RemoveEmergencyContactInput = z.infer<typeof removeEmergencyContactSchema>;
+
+export const updateCustomerMemberNumberSchema = z.object({
+  customerId: z.string().min(1),
+  memberNumber: z.string().min(1).max(50).optional().nullable(),
+});
+export type UpdateCustomerMemberNumberInput = z.infer<typeof updateCustomerMemberNumberSchema>;
+
+// ── Session 2: Customer Financial Engine ──────────────────────────
+
+const accountTypeEnum = z.enum(['house', 'corporate', 'member', 'group', 'event']);
+const billingCycleEnum = z.enum(['monthly', 'quarterly', 'annual', 'none']);
+const autopayStrategyEnum = z.enum(['full_balance', 'minimum_due', 'fixed_amount']);
+const ledgerAdjustmentTypeEnum = z.enum(['credit_memo', 'manual_charge', 'writeoff', 'adjustment']);
+const holdTypeEnum = z.enum(['hold', 'frozen']);
+
+export const createFinancialAccountSchema = z.object({
+  customerId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  accountType: accountTypeEnum.default('house'),
+  creditLimitCents: z.number().int().min(0).optional().nullable(),
+  billingCycle: billingCycleEnum.default('monthly'),
+  dueDays: z.number().int().min(0).default(30),
+  billingEmail: z.string().email().optional().nullable(),
+  billingContactName: z.string().max(200).optional().nullable(),
+  billingAddress: z.string().max(500).optional().nullable(),
+  currency: z.string().max(3).default('USD'),
+  clientRequestId: z.string().optional(),
+});
+export type CreateFinancialAccountInput = z.input<typeof createFinancialAccountSchema>;
+
+export const updateFinancialAccountSchema = z.object({
+  accountId: z.string().min(1),
+  name: z.string().min(1).max(200).optional(),
+  status: z.enum(['active', 'suspended', 'closed']).optional(),
+  creditLimitCents: z.number().int().min(0).optional().nullable(),
+  billingCycle: billingCycleEnum.optional(),
+  dueDays: z.number().int().min(0).optional(),
+  billingEmail: z.string().email().optional().nullable(),
+  autopayStrategy: autopayStrategyEnum.optional().nullable(),
+  autopayFixedAmountCents: z.number().int().min(0).optional().nullable(),
+  autopayPaymentMethodId: z.string().optional().nullable(),
+  clientRequestId: z.string().optional(),
+});
+export type UpdateFinancialAccountInput = z.input<typeof updateFinancialAccountSchema>;
+
+export const adjustLedgerSchema = z.object({
+  billingAccountId: z.string().min(1),
+  type: ledgerAdjustmentTypeEnum,
+  amountCents: z.number().int(),
+  notes: z.string().max(2000).optional(),
+  reason: z.string().max(500).optional(),
+  approvedBy: z.string().optional(),
+  clientRequestId: z.string().optional(),
+});
+export type AdjustLedgerInput = z.input<typeof adjustLedgerSchema>;
+
+export const transferBetweenAccountsSchema = z.object({
+  fromAccountId: z.string().min(1),
+  toAccountId: z.string().min(1),
+  amountCents: z.number().int().positive(),
+  reason: z.string().min(1).max(500),
+  clientRequestId: z.string().optional(),
+});
+export type TransferBetweenAccountsInput = z.input<typeof transferBetweenAccountsSchema>;
+
+export const configureAutopaySchema = z.object({
+  accountId: z.string().min(1),
+  strategy: autopayStrategyEnum.nullable(),
+  fixedAmountCents: z.number().int().min(0).optional().nullable(),
+  paymentMethodId: z.string().optional().nullable(),
+  clientRequestId: z.string().optional(),
+});
+export type ConfigureAutopayInput = z.input<typeof configureAutopaySchema>;
+
+export const recordCustomerAuditEntrySchema = z.object({
+  customerId: z.string().min(1),
+  actionType: z.string().min(1).max(100),
+  beforeJson: z.record(z.unknown()).optional().nullable(),
+  afterJson: z.record(z.unknown()).optional().nullable(),
+  reason: z.string().max(1000).optional(),
+});
+export type RecordCustomerAuditEntryInput = z.input<typeof recordCustomerAuditEntrySchema>;
+
+export const placeFinancialHoldSchema = z.object({
+  accountId: z.string().min(1),
+  holdType: holdTypeEnum,
+  reason: z.string().min(1).max(500),
+  clientRequestId: z.string().optional(),
+});
+export type PlaceFinancialHoldInput = z.input<typeof placeFinancialHoldSchema>;
+
+export const liftFinancialHoldSchema = z.object({
+  accountId: z.string().min(1),
+  reason: z.string().min(1).max(500),
+  clientRequestId: z.string().optional(),
+});
+export type LiftFinancialHoldInput = z.input<typeof liftFinancialHoldSchema>;
+
+export const updateCreditLimitSchema = z.object({
+  accountId: z.string().min(1),
+  newCreditLimitCents: z.number().int().min(0),
+  reason: z.string().min(1).max(500),
+  approvedBy: z.string().optional(),
+  clientRequestId: z.string().optional(),
+});
+export type UpdateCreditLimitInput = z.input<typeof updateCreditLimitSchema>;
+
+// ── Session 3: Activity + Communication + Relationships + Documents ──
+
+export const sendCustomerMessageSchema = z.object({
+  customerId: z.string().min(1),
+  channel: z.enum(['internal_note', 'chat', 'email', 'sms', 'statement']),
+  direction: z.enum(['inbound', 'outbound', 'system']).default('outbound'),
+  subject: z.string().max(500).optional(),
+  body: z.string().min(1).max(10000),
+  metaJson: z.record(z.unknown()).optional(),
+  clientRequestId: z.string().optional(),
+});
+export type SendCustomerMessageInput = z.input<typeof sendCustomerMessageSchema>;
+
+export const addCustomerNoteV2Schema = z.object({
+  customerId: z.string().min(1),
+  content: z.string().min(1).max(5000),
+  isPinned: z.boolean().default(false),
+  visibility: z.enum(['internal', 'shared', 'customer_visible']).default('internal'),
+  clientRequestId: z.string().optional(),
+});
+export type AddCustomerNoteV2Input = z.input<typeof addCustomerNoteV2Schema>;
+
+export const updateCustomerNoteSchema = z.object({
+  noteId: z.string().min(1),
+  content: z.string().min(1).max(5000).optional(),
+  isPinned: z.boolean().optional(),
+  visibility: z.enum(['internal', 'shared', 'customer_visible']).optional(),
+});
+export type UpdateCustomerNoteInput = z.infer<typeof updateCustomerNoteSchema>;
+
+export const removeCustomerNoteSchema = z.object({
+  noteId: z.string().min(1),
+});
+export type RemoveCustomerNoteInput = z.infer<typeof removeCustomerNoteSchema>;
+
+export const updateRelationshipSchema = z.object({
+  relationshipId: z.string().min(1),
+  isPrimary: z.boolean().optional(),
+  effectiveDate: z.string().optional().nullable(),
+  expirationDate: z.string().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+export type UpdateRelationshipInput = z.infer<typeof updateRelationshipSchema>;
+
+export const removeRelationshipSchema = z.object({
+  relationshipId: z.string().min(1),
+});
+export type RemoveRelationshipInput = z.infer<typeof removeRelationshipSchema>;
+
+export const uploadCustomerFileSchema = z.object({
+  customerId: z.string().min(1),
+  documentType: z.enum(['contract', 'waiver', 'id_verification', 'membership_agreement', 'tax_form', 'medical_waiver', 'photo', 'photo_gallery', 'statement', 'other']),
+  name: z.string().min(1).max(200),
+  storageKey: z.string().min(1),
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+  description: z.string().max(1000).optional(),
+  tagsJson: z.array(z.string()).optional(),
+  expiresAt: z.string().optional(),
+  clientRequestId: z.string().optional(),
+});
+export type UploadCustomerFileInput = z.input<typeof uploadCustomerFileSchema>;
+
+export const deleteCustomerFileSchema = z.object({
+  documentId: z.string().min(1),
+});
+export type DeleteCustomerFileInput = z.infer<typeof deleteCustomerFileSchema>;
+
+// ── Session 4: Stored Value + Discounts ───────────────────────────
+
+const instrumentTypeEnum = z.enum([
+  'gift_card', 'credit_book', 'raincheck', 'range_card',
+  'rounds_card', 'prepaid_balance', 'punchcard', 'award',
+]);
+const svStatusEnum = z.enum(['active', 'frozen', 'expired', 'redeemed', 'voided']);
+
+export const issueStoredValueSchema = z.object({
+  customerId: z.string().optional(),
+  instrumentType: instrumentTypeEnum,
+  code: z.string().min(1).max(50),
+  initialValueCents: z.number().int().min(0).default(0),
+  unitCount: z.number().int().positive().optional(),
+  liabilityGlAccountId: z.string().optional(),
+  description: z.string().max(500).optional(),
+  expiresAt: z.string().optional(),
+  metaJson: z.record(z.unknown()).optional(),
+  clientRequestId: z.string().optional(),
+});
+export type IssueStoredValueInput = z.input<typeof issueStoredValueSchema>;
+
+export const redeemStoredValueSchema = z.object({
+  instrumentId: z.string().min(1),
+  amountCents: z.number().int().positive(),
+  unitDelta: z.number().int().optional(),
+  sourceModule: z.string().optional(),
+  sourceId: z.string().optional(),
+  reason: z.string().max(500).optional(),
+  clientRequestId: z.string().optional(),
+});
+export type RedeemStoredValueInput = z.input<typeof redeemStoredValueSchema>;
+
+export const reloadStoredValueSchema = z.object({
+  instrumentId: z.string().min(1),
+  amountCents: z.number().int().positive(),
+  unitDelta: z.number().int().optional(),
+  reason: z.string().max(500).optional(),
+  clientRequestId: z.string().optional(),
+});
+export type ReloadStoredValueInput = z.input<typeof reloadStoredValueSchema>;
+
+export const transferStoredValueSchema = z.object({
+  sourceInstrumentId: z.string().min(1),
+  targetInstrumentId: z.string().min(1),
+  amountCents: z.number().int().positive(),
+  approvedBy: z.string().min(1), // PIN required
+  reason: z.string().max(500).optional(),
+  clientRequestId: z.string().optional(),
+});
+export type TransferStoredValueInput = z.input<typeof transferStoredValueSchema>;
+
+export const voidStoredValueSchema = z.object({
+  instrumentId: z.string().min(1),
+  approvedBy: z.string().min(1), // PIN required
+  reason: z.string().max(500).optional(),
+  clientRequestId: z.string().optional(),
+});
+export type VoidStoredValueInput = z.input<typeof voidStoredValueSchema>;
+
+// ── Discount Rules ───────────────────────────────────────────────
+
+export const createDiscountRuleSchema = z.object({
+  scopeType: z.enum(['global', 'membership_class', 'customer', 'segment']).default('global'),
+  customerId: z.string().optional(),
+  membershipClassId: z.string().optional(),
+  segmentId: z.string().optional(),
+  priority: z.number().int().min(1).max(9999).default(100),
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  effectiveDate: z.string().optional(),
+  expirationDate: z.string().optional(),
+  ruleJson: z.object({
+    conditions: z.array(z.record(z.unknown())),
+    actions: z.array(z.record(z.unknown())),
+    maxUsesPerPeriod: z.number().int().optional(),
+    maxUsesPerCustomer: z.number().int().optional(),
+    stackable: z.boolean().default(true),
+  }),
+  clientRequestId: z.string().optional(),
+});
+export type CreateDiscountRuleInput = z.input<typeof createDiscountRuleSchema>;
+
+export const updateDiscountRuleSchema = z.object({
+  ruleId: z.string().min(1),
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).optional(),
+  priority: z.number().int().min(1).max(9999).optional(),
+  effectiveDate: z.string().optional().nullable(),
+  expirationDate: z.string().optional().nullable(),
+  ruleJson: z.object({
+    conditions: z.array(z.record(z.unknown())),
+    actions: z.array(z.record(z.unknown())),
+    maxUsesPerPeriod: z.number().int().optional(),
+    maxUsesPerCustomer: z.number().int().optional(),
+    stackable: z.boolean().optional(),
+  }).optional(),
+});
+export type UpdateDiscountRuleInput = z.infer<typeof updateDiscountRuleSchema>;
+
+export const toggleDiscountRuleSchema = z.object({
+  ruleId: z.string().min(1),
+  isActive: z.boolean(),
+});
+export type ToggleDiscountRuleInput = z.infer<typeof toggleDiscountRuleSchema>;

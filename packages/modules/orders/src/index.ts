@@ -79,3 +79,12 @@ export type {
 // Re-export helpers
 export { recalculateOrderTotals } from './helpers';
 export type { OrderTotals } from './helpers';
+
+// Re-export reconciliation methods (used by ReconciliationReadApi)
+export {
+  getOrdersSummary,
+  getTaxBreakdown,
+  getTaxRemittanceData,
+  getCompTotals,
+  getOrderAuditCount,
+} from './reconciliation';
