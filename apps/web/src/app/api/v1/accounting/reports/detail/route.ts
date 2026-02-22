@@ -24,6 +24,10 @@ export const GET = withMiddleware(
       startDate: url.searchParams.get('startDate') ?? undefined,
       endDate: url.searchParams.get('endDate') ?? undefined,
       locationId: url.searchParams.get('locationId') ?? undefined,
+      profitCenterId: url.searchParams.get('profitCenterId') ?? undefined,
+      subDepartmentId: url.searchParams.get('subDepartmentId') ?? undefined,
+      terminalId: url.searchParams.get('terminalId') ?? undefined,
+      channel: url.searchParams.get('channel') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: limitParam ? parseInt(limitParam, 10) : undefined,
     });

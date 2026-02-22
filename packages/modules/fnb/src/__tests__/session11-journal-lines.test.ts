@@ -54,11 +54,18 @@ describe('buildBatchJournalLines', () => {
     expect(taxLine!.creditCents).toBe(12000);
   });
 
-  it('creates tips_payable credit line', () => {
+  it('creates tips_payable_credit credit line', () => {
     const lines = buildBatchJournalLines(baseSummary);
-    const tipsLine = lines.find((l) => l.category === 'tips_payable');
+    const tipsLine = lines.find((l) => l.category === 'tips_payable_credit');
     expect(tipsLine).toBeDefined();
     expect(tipsLine!.creditCents).toBe(22500);
+  });
+
+  it('creates tips_payable_cash credit line', () => {
+    const lines = buildBatchJournalLines(baseSummary);
+    const tipsCashLine = lines.find((l) => l.category === 'tips_payable_cash');
+    expect(tipsCashLine).toBeDefined();
+    expect(tipsCashLine!.creditCents).toBe(5000);
   });
 
   it('creates service_charge_revenue credit line', () => {

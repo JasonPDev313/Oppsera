@@ -81,3 +81,16 @@ export {
   validateContracts,
 } from './contracts';
 export type { EventContract, ModuleContracts } from './contracts';
+export {
+  listDeadLetters,
+  getDeadLetter,
+  getDeadLetterStats,
+  retryDeadLetter,
+  resolveDeadLetter,
+  discardDeadLetter,
+} from './dead-letter-service';
+export type {
+  DeadLetterEntry,
+  DeadLetterStats,
+  ListDeadLettersInput,
+} from './dead-letter-service';

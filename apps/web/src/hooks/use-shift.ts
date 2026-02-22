@@ -1,33 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
-import type { Shift, ShiftSummary } from '@/types/pos';
+import { apiFetch } from '@/lib/api-client';
+import type { Shift, ShiftSummary, DrawerEventType } from '@/types/pos';
 
 // ── Constants ──────────────────────────────────────────────────────
 
 const SHIFT_KEY_PREFIX = 'pos_shift_';
-const SHIFT_EVENTS_KEY_PREFIX = 'pos_shift_events_';
 
-// ── Shift event log (persisted in localStorage for V1) ───────────
-
-interface ShiftEvent {
-  type: 'paid_in' | 'paid_out' | 'drawer_open';
-  amount: number;
-  reason: string;
-  timestamp: string;
-}
+// ── localStorage helpers (offline fallback) ─────────────────────
 
 function storageKey(locationId: string, terminalId: string): string {
   return `${SHIFT_KEY_PREFIX}${locationId}_${terminalId}`;
 }
 
-function eventsKey(locationId: string, terminalId: string): string {
-  return `${SHIFT_EVENTS_KEY_PREFIX}${locationId}_${terminalId}`;
-}
-
-function loadShift(locationId: string, terminalId: string): Shift | null {
+function loadShiftFromStorage(locationId: string, terminalId: string): Shift | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem(storageKey(locationId, terminalId));
@@ -38,7 +27,7 @@ function loadShift(locationId: string, terminalId: string): Shift | null {
   }
 }
 
-function saveShift(locationId: string, terminalId: string, shift: Shift | null): void {
+function saveShiftToStorage(locationId: string, terminalId: string, shift: Shift | null): void {
   if (typeof window === 'undefined') return;
   try {
     if (shift) {
@@ -51,38 +40,48 @@ function saveShift(locationId: string, terminalId: string, shift: Shift | null):
   }
 }
 
-function loadEvents(locationId: string, terminalId: string): ShiftEvent[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(eventsKey(locationId, terminalId));
-    if (!raw) return [];
-    return JSON.parse(raw) as ShiftEvent[];
-  } catch {
-    return [];
-  }
+// ── Server API helpers ──────────────────────────────────────────
+
+interface ServerDrawerSession {
+  id: string;
+  tenantId: string;
+  locationId: string;
+  terminalId: string;
+  profitCenterId: string | null;
+  employeeId: string;
+  businessDate: string;
+  status: 'open' | 'closed';
+  openingBalanceCents: number;
+  changeFundCents: number;
+  closingCountCents: number | null;
+  expectedCashCents: number | null;
+  varianceCents: number | null;
+  openedAt: string;
+  closedAt: string | null;
+  closedBy: string | null;
+  notes: string | null;
 }
 
-function saveEvents(locationId: string, terminalId: string, events: ShiftEvent[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(eventsKey(locationId, terminalId), JSON.stringify(events));
-  } catch {
-    // Storage unavailable
-  }
-}
-
-function clearEvents(locationId: string, terminalId: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.removeItem(eventsKey(locationId, terminalId));
-  } catch {
-    // Ignore
-  }
-}
-
-function todayBusinessDate(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function serverToShift(s: ServerDrawerSession): Shift {
+  return {
+    id: s.id,
+    tenantId: s.tenantId,
+    terminalId: s.terminalId,
+    employeeId: s.employeeId,
+    locationId: s.locationId,
+    profitCenterId: s.profitCenterId,
+    businessDate: s.businessDate,
+    openedAt: s.openedAt,
+    closedAt: s.closedAt,
+    closedBy: s.closedBy,
+    openingBalance: s.openingBalanceCents,
+    changeFundCents: s.changeFundCents,
+    closingCount: s.closingCountCents,
+    expectedCash: s.expectedCashCents,
+    variance: s.varianceCents,
+    notes: s.notes,
+    status: s.status,
+  };
 }
 
 // ── Hook ───────────────────────────────────────────────────────────
@@ -92,15 +91,57 @@ export function useShift(locationId: string, terminalId: string) {
   const { toast } = useToast();
 
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const mountedRef = useRef(true);
 
-  // Load shift from localStorage on mount
+  // Load shift: try server first, fall back to localStorage
   useEffect(() => {
-    const stored = loadShift(locationId, terminalId);
-    if (stored && stored.status === 'open') {
-      setCurrentShift(stored);
-    } else {
+    mountedRef.current = true;
+    if (!terminalId) {
       setCurrentShift(null);
+      setIsLoading(false);
+      return;
     }
+
+    let cancelled = false;
+
+    async function fetchActive() {
+      try {
+        const resp = await apiFetch<{ data: ServerDrawerSession | null }>(
+          `/api/v1/drawer-sessions?terminalId=${encodeURIComponent(terminalId)}&active=true`,
+        );
+        if (cancelled) return;
+
+        if (resp.data) {
+          const shift = serverToShift(resp.data);
+          setCurrentShift(shift);
+          saveShiftToStorage(locationId, terminalId, shift);
+        } else {
+          setCurrentShift(null);
+          saveShiftToStorage(locationId, terminalId, null);
+        }
+      } catch {
+        // Offline — fall back to localStorage
+        if (cancelled) return;
+        const stored = loadShiftFromStorage(locationId, terminalId);
+        if (stored && stored.status === 'open') {
+          setCurrentShift(stored);
+        } else {
+          setCurrentShift(null);
+        }
+      } finally {
+        if (!cancelled && mountedRef.current) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchActive();
+
+    return () => {
+      cancelled = true;
+      mountedRef.current = false;
+    };
   }, [locationId, terminalId]);
 
   const isOpen = currentShift !== null && currentShift.status === 'open';
@@ -108,175 +149,212 @@ export function useShift(locationId: string, terminalId: string) {
   // ── Open Shift ─────────────────────────────────────────────────
 
   const openShift = useCallback(
-    async (openingBalance: number): Promise<void> => {
+    async (openingBalance: number, changeFundCents?: number): Promise<void> => {
       if (currentShift?.status === 'open') {
         toast.error('A shift is already open on this terminal');
         return;
       }
 
-      const shift: Shift = {
-        id: crypto.randomUUID(),
-        terminalId,
-        employeeId: user?.id ?? '',
-        locationId,
-        businessDate: todayBusinessDate(),
-        openedAt: new Date().toISOString(),
-        closedAt: null,
-        openingBalance,
-        status: 'open',
-      };
+      try {
+        const resp = await apiFetch<{ data: ServerDrawerSession }>('/api/v1/drawer-sessions', {
+          method: 'POST',
+          body: JSON.stringify({
+            terminalId,
+            locationId,
+            openingBalanceCents: openingBalance,
+            changeFundCents: changeFundCents ?? 0,
+          }),
+        });
 
-      saveShift(locationId, terminalId, shift);
-      clearEvents(locationId, terminalId);
-      setCurrentShift(shift);
-      toast.success('Shift opened');
+        const shift = serverToShift(resp.data);
+        saveShiftToStorage(locationId, terminalId, shift);
+        setCurrentShift(shift);
+        toast.success('Shift opened');
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to open shift';
+        toast.error(message);
+      }
     },
-    [currentShift, locationId, terminalId, user?.id, toast],
+    [currentShift, locationId, terminalId, toast],
   );
 
   // ── Close Shift ────────────────────────────────────────────────
 
   const closeShift = useCallback(
-    async (closingCount: number): Promise<ShiftSummary> => {
+    async (closingCount: number, notes?: string): Promise<ShiftSummary | null> => {
       if (!currentShift || currentShift.status !== 'open') {
-        throw new Error('No open shift to close');
+        toast.error('No open shift to close');
+        return null;
       }
 
-      const closedAt = new Date().toISOString();
-      const events = loadEvents(locationId, terminalId);
+      try {
+        // Close the session
+        const closeResp = await apiFetch<{ data: ServerDrawerSession }>(
+          `/api/v1/drawer-sessions/${currentShift.id}/close`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ closingCountCents: closingCount, notes }),
+          },
+        );
 
-      // Compute paid-in/paid-out totals from events
-      let paidInTotal = 0;
-      let paidOutTotal = 0;
-      for (const evt of events) {
-        if (evt.type === 'paid_in') paidInTotal += evt.amount;
-        if (evt.type === 'paid_out') paidOutTotal += evt.amount;
+        // Fetch the full summary
+        const summaryResp = await apiFetch<{ data: ShiftSummary }>(
+          `/api/v1/drawer-sessions/${currentShift.id}`,
+        );
+
+        saveShiftToStorage(locationId, terminalId, null);
+        setCurrentShift(null);
+
+        const variance = closeResp.data.varianceCents ?? 0;
+        if (variance === 0) {
+          toast.success('Shift closed — cash balanced');
+        } else {
+          const direction = variance > 0 ? 'over' : 'short';
+          const abs = Math.abs(variance);
+          toast.info(`Shift closed — cash ${direction} by $${(abs / 100).toFixed(2)}`);
+        }
+
+        return summaryResp.data;
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to close shift';
+        toast.error(message);
+        return null;
       }
-
-      // V1 mock summary — real values would come from order aggregation
-      const expectedCash = currentShift.openingBalance + paidInTotal - paidOutTotal;
-      const variance = closingCount - expectedCash;
-
-      const summary: ShiftSummary = {
-        shiftId: currentShift.id,
-        employeeId: currentShift.employeeId,
-        businessDate: currentShift.businessDate,
-        terminalId: currentShift.terminalId,
-        openedAt: currentShift.openedAt,
-        closedAt,
-        salesCount: 0,
-        salesTotal: 0,
-        voidCount: 0,
-        voidTotal: 0,
-        discountTotal: 0,
-        taxCollected: 0,
-        serviceChargeTotal: 0,
-        cashReceived: 0,
-        cardReceived: 0,
-        changeGiven: 0,
-        tipsCollected: 0,
-        openingBalance: currentShift.openingBalance,
-        closingBalance: closingCount,
-        expectedCash,
-        actualCash: closingCount,
-        variance,
-        salesByDepartment: [],
-      };
-
-      // Mark shift as closed
-      const closedShift: Shift = {
-        ...currentShift,
-        closedAt,
-        status: 'closed',
-      };
-      saveShift(locationId, terminalId, closedShift);
-      clearEvents(locationId, terminalId);
-      setCurrentShift(null);
-
-      if (variance === 0) {
-        toast.success('Shift closed — cash balanced');
-      } else {
-        const direction = variance > 0 ? 'over' : 'short';
-        const abs = Math.abs(variance);
-        toast.info(`Shift closed — cash ${direction} by ${(abs / 100).toFixed(2)}`);
-      }
-
-      return summary;
     },
     [currentShift, locationId, terminalId, toast],
   );
 
-  // ── Paid In ────────────────────────────────────────────────────
+  // ── Record Drawer Event (paid-in, paid-out, cash-drop, no-sale, drawer-open) ─
+
+  const recordEvent = useCallback(
+    async (eventType: DrawerEventType, amountCents: number, reason?: string): Promise<void> => {
+      if (!currentShift || currentShift.status !== 'open') {
+        toast.error('No open shift');
+        return;
+      }
+
+      try {
+        await apiFetch(`/api/v1/drawer-sessions/${currentShift.id}/events`, {
+          method: 'POST',
+          body: JSON.stringify({ eventType, amountCents, reason }),
+        });
+
+        const labels: Record<DrawerEventType, string> = {
+          paid_in: `Paid in: $${(amountCents / 100).toFixed(2)}`,
+          paid_out: `Paid out: $${(amountCents / 100).toFixed(2)}`,
+          cash_drop: `Cash drop: $${(amountCents / 100).toFixed(2)}`,
+          drawer_open: 'Cash drawer opened',
+          no_sale: 'No sale recorded',
+        };
+        toast.success(labels[eventType]);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to record event';
+        toast.error(message);
+      }
+    },
+    [currentShift, toast],
+  );
+
+  // ── Convenience wrappers (backward compat) ────────────────────
 
   const recordPaidIn = useCallback(
     async (amount: number, reason: string): Promise<void> => {
-      if (!currentShift || currentShift.status !== 'open') {
-        toast.error('No open shift');
-        return;
-      }
-
-      const events = loadEvents(locationId, terminalId);
-      events.push({
-        type: 'paid_in',
-        amount,
-        reason,
-        timestamp: new Date().toISOString(),
-      });
-      saveEvents(locationId, terminalId, events);
-      toast.success(`Paid in: ${(amount / 100).toFixed(2)}`);
+      return recordEvent('paid_in', amount, reason);
     },
-    [currentShift, locationId, terminalId, toast],
+    [recordEvent],
   );
-
-  // ── Paid Out ───────────────────────────────────────────────────
 
   const recordPaidOut = useCallback(
     async (amount: number, reason: string): Promise<void> => {
+      return recordEvent('paid_out', amount, reason);
+    },
+    [recordEvent],
+  );
+
+  const recordCashDrop = useCallback(
+    async (amount: number, notes?: string, bagId?: string, sealNumber?: string): Promise<void> => {
       if (!currentShift || currentShift.status !== 'open') {
         toast.error('No open shift');
         return;
       }
 
-      const events = loadEvents(locationId, terminalId);
-      events.push({
-        type: 'paid_out',
-        amount,
-        reason,
-        timestamp: new Date().toISOString(),
-      });
-      saveEvents(locationId, terminalId, events);
-      toast.success(`Paid out: ${(amount / 100).toFixed(2)}`);
+      try {
+        await apiFetch(`/api/v1/drawer-sessions/${currentShift.id}/events`, {
+          method: 'POST',
+          body: JSON.stringify({
+            eventType: 'cash_drop',
+            amountCents: amount,
+            reason: notes,
+            bagId,
+            sealNumber,
+          }),
+        });
+
+        toast.success(`Cash drop: $${(amount / 100).toFixed(2)}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to record cash drop';
+        toast.error(message);
+      }
     },
-    [currentShift, locationId, terminalId, toast],
+    [currentShift, toast],
   );
 
-  // ── Open Drawer ────────────────────────────────────────────────
+  const verifyCashDrop = useCallback(
+    async (eventId: string): Promise<void> => {
+      if (!currentShift) {
+        toast.error('No active shift');
+        return;
+      }
+
+      try {
+        await apiFetch(
+          `/api/v1/drawer-sessions/${currentShift.id}/events/${eventId}/verify`,
+          { method: 'POST' },
+        );
+        toast.success('Cash drop verified');
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to verify cash drop';
+        toast.error(message);
+      }
+    },
+    [currentShift, toast],
+  );
 
   const openDrawer = useCallback(async (): Promise<void> => {
-    // V1: No-op — just log as audit event
-    if (!currentShift || currentShift.status !== 'open') {
-      toast.error('No open shift');
-      return;
-    }
+    return recordEvent('drawer_open', 0, 'Manual drawer open');
+  }, [recordEvent]);
 
-    const events = loadEvents(locationId, terminalId);
-    events.push({
-      type: 'drawer_open',
-      amount: 0,
-      reason: 'Manual drawer open',
-      timestamp: new Date().toISOString(),
-    });
-    saveEvents(locationId, terminalId, events);
-    toast.info('Cash drawer opened');
-  }, [currentShift, locationId, terminalId, toast]);
+  const recordNoSale = useCallback(async (): Promise<void> => {
+    return recordEvent('no_sale', 0, 'No sale');
+  }, [recordEvent]);
+
+  // ── Get Session Summary ───────────────────────────────────────
+
+  const getSummary = useCallback(async (): Promise<ShiftSummary | null> => {
+    if (!currentShift) return null;
+    try {
+      const resp = await apiFetch<{ data: ShiftSummary }>(
+        `/api/v1/drawer-sessions/${currentShift.id}`,
+      );
+      return resp.data;
+    } catch {
+      return null;
+    }
+  }, [currentShift]);
 
   return {
     currentShift,
     isOpen,
+    isLoading,
     openShift,
     closeShift,
     recordPaidIn,
     recordPaidOut,
+    recordCashDrop,
+    verifyCashDrop,
     openDrawer,
+    recordNoSale,
+    recordEvent,
+    getSummary,
   };
 }

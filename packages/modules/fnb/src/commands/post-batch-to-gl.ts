@@ -78,6 +78,12 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
       totalDebitCents,
       totalCreditCents,
       lineCount: journalLines.length,
+      journalLines: journalLines.map(jl => ({
+        category: jl.category,
+        description: jl.description,
+        debitCents: jl.debitCents,
+        creditCents: jl.creditCents,
+      })),
     };
     const event = buildEventFromContext(ctx, FNB_EVENTS.GL_POSTING_CREATED, payload as unknown as Record<string, unknown>);
 

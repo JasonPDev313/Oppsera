@@ -38,6 +38,54 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@oppsera/shared', '@oppsera/core', 'lucide-react'],
   },
+  // Prevent VSCode file watcher from racing with webpack cache writes on Windows
+  // (causes EPERM / ENOENT crashes on .next/trace and .next/cache/*.pack.gz)
+  webpack: (config) => {
+    const prev = config.watchOptions ?? {};
+    const existing = prev.ignored;
+    // Collect existing string patterns (skip RegExp values)
+    const kept: string[] = [];
+    if (Array.isArray(existing)) {
+      for (const p of existing) {
+        if (typeof p === 'string') kept.push(p);
+      }
+    } else if (typeof existing === 'string') {
+      kept.push(existing);
+    }
+    kept.push('**/.next/**');
+    config.watchOptions = { ...prev, ignored: kept };
+    return config;
+  },
+  async redirects() {
+    return [
+      // GL section
+      { source: '/accounting/accounts', destination: '/accounting/gl?tab=chart-of-accounts', permanent: false },
+      { source: '/accounting/journals', destination: '/accounting/gl?tab=journal-entries', permanent: false },
+      { source: '/accounting/mappings', destination: '/accounting/gl?tab=gl-mappings', permanent: false },
+      // AP section
+      { source: '/ap/bills', destination: '/accounting/payables?tab=bills', permanent: false },
+      { source: '/ap/payments', destination: '/accounting/payables?tab=payments', permanent: false },
+      // AR section
+      { source: '/ar/invoices', destination: '/accounting/receivables?tab=invoices', permanent: false },
+      { source: '/ar/receipts', destination: '/accounting/receivables?tab=receipts', permanent: false },
+      // Banking
+      { source: '/accounting/banks', destination: '/accounting/banking?tab=bank-accounts', permanent: false },
+      { source: '/accounting/deposits', destination: '/accounting/banking?tab=deposits', permanent: false },
+      { source: '/accounting/reconciliation', destination: '/accounting/banking?tab=reconciliation', permanent: false },
+      { source: '/accounting/settlements', destination: '/accounting/banking?tab=settlements', permanent: false },
+      // Revenue & Cost
+      { source: '/accounting/cogs', destination: '/accounting/revenue?tab=cogs', permanent: false },
+      { source: '/accounting/tip-payouts', destination: '/accounting/revenue?tab=tip-payouts', permanent: false },
+      // Tax
+      { source: '/accounting/reports/sales-tax', destination: '/accounting/tax?tab=remittance', permanent: false },
+      // Financials
+      { source: '/accounting/reports/trial-balance', destination: '/accounting/financials?tab=reports', permanent: false },
+      { source: '/accounting/statements/profit-loss', destination: '/accounting/financials?tab=statements', permanent: false },
+      // Period Close
+      { source: '/operations/close-dashboard', destination: '/accounting/period-close?tab=close-dashboard', permanent: false },
+      { source: '/accounting/close', destination: '/accounting/period-close?tab=period-close', permanent: false },
+    ];
+  },
   async headers() {
     return [
       {

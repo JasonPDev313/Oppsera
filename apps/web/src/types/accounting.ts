@@ -19,6 +19,7 @@ export interface GLAccount {
   isActive: boolean;
   isControlAccount: boolean;
   controlAccountType: string | null;
+  isContraAccount: boolean;
   allowManualPosting: boolean;
   description: string | null;
   balance?: number;
@@ -65,6 +66,8 @@ export interface JournalLine {
   sortOrder: number;
 }
 
+export type BreakageRecognitionMethod = 'on_expiry' | 'proportional' | 'manual_only';
+
 export interface AccountingSettings {
   tenantId: string;
   baseCurrency: string;
@@ -77,11 +80,29 @@ export interface AccountingSettings {
   defaultUndepositedFundsAccountId: string | null;
   defaultRetainedEarningsAccountId: string | null;
   defaultRoundingAccountId: string | null;
+  defaultPmsGuestLedgerAccountId: string | null;
   roundingToleranceCents: number;
   enableCogsPosting: boolean;
   enableInventoryPosting: boolean;
+  cogsPostingMode: 'disabled' | 'perpetual' | 'periodic';
+  periodicCogsLastCalculatedDate: string | null;
+  periodicCogsMethod: string | null;
   postByLocation: boolean;
   enableUndepositedFundsWorkflow: boolean;
+  enableLegacyGlPosting: boolean;
+  defaultTipsPayableAccountId: string | null;
+  defaultServiceChargeRevenueAccountId: string | null;
+  defaultCashOverShortAccountId: string | null;
+  defaultCompExpenseAccountId: string | null;
+  defaultReturnsAccountId: string | null;
+  defaultPayrollClearingAccountId: string | null;
+  // Multi-currency (ACCT-CLOSE-06)
+  supportedCurrencies: string[];
+  // Breakage income policy (ACCT-CLOSE-02)
+  recognizeBreakageAutomatically: boolean;
+  breakageRecognitionMethod: BreakageRecognitionMethod;
+  breakageIncomeAccountId: string | null;
+  voucherExpiryEnabled: boolean;
 }
 
 export interface UnmappedEvent {
@@ -195,6 +216,8 @@ export interface ProfitAndLoss {
   periodEnd: string;
   sections: FinancialStatementSection[];
   totalRevenue: number;
+  grossRevenue: number;
+  contraRevenue: number;
   totalCogs: number;
   grossProfit: number;
   totalExpenses: number;
@@ -490,6 +513,210 @@ export interface AssetPurchaseRow {
   total: number;
 }
 
+// ── Settlements ──────────────────────────────────────────────
+
+export interface Settlement {
+  id: string;
+  locationId: string | null;
+  settlementDate: string;
+  processorName: string;
+  processorBatchId: string | null;
+  grossAmount: number;
+  feeAmount: number;
+  netAmount: number;
+  chargebackAmount: number;
+  status: string;
+  bankAccountId: string | null;
+  bankAccountName: string | null;
+  glJournalEntryId: string | null;
+  importSource: string;
+  businessDateFrom: string | null;
+  businessDateTo: string | null;
+  notes: string | null;
+  totalLines: number;
+  matchedLines: number;
+  unmatchedLines: number;
+  createdAt: string;
+}
+
+export interface SettlementLine {
+  id: string;
+  tenderId: string | null;
+  originalAmountCents: number;
+  settledAmountCents: number;
+  feeCents: number;
+  netCents: number;
+  status: string;
+  matchedAt: string | null;
+  tenderType: string | null;
+  tenderBusinessDate: string | null;
+  orderId: string | null;
+  cardLast4: string | null;
+  cardBrand: string | null;
+}
+
+export interface SettlementDetail extends Omit<Settlement, 'totalLines' | 'matchedLines' | 'unmatchedLines'> {
+  updatedAt: string;
+  lines: SettlementLine[];
+}
+
+export interface UnmatchedTenderItem {
+  id: string;
+  orderId: string;
+  tenderType: string;
+  amount: number;
+  tipAmount: number;
+  businessDate: string;
+  cardLast4: string | null;
+  cardBrand: string | null;
+  providerRef: string | null;
+  createdAt: string;
+}
+
+export const SETTLEMENT_STATUS_CONFIG: Record<string, { label: string; variant: string }> = {
+  pending: { label: 'Pending', variant: 'warning' },
+  matched: { label: 'Matched', variant: 'info' },
+  posted: { label: 'Posted', variant: 'success' },
+  disputed: { label: 'Disputed', variant: 'error' },
+};
+
+// ── Tip Payouts ─────────────────────────────────────────────
+
+export type TipPayoutStatus = 'pending' | 'completed' | 'voided';
+export type TipPayoutType = 'cash' | 'payroll' | 'check';
+
+export interface TipBalanceItem {
+  employeeId: string;
+  employeeName: string | null;
+  totalTipsCents: number;
+  totalPaidCents: number;
+  balanceCents: number;
+  lastTipDate: string | null;
+  lastPayoutDate: string | null;
+}
+
+export interface TipPayoutItem {
+  id: string;
+  locationId: string;
+  employeeId: string;
+  employeeName: string | null;
+  payoutType: TipPayoutType;
+  amountCents: number;
+  businessDate: string;
+  drawerSessionId: string | null;
+  payrollPeriod: string | null;
+  status: TipPayoutStatus;
+  approvedBy: string | null;
+  glJournalEntryId: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export const TIP_PAYOUT_STATUS_CONFIG: Record<TipPayoutStatus, { label: string; variant: string }> = {
+  pending: { label: 'Pending', variant: 'warning' },
+  completed: { label: 'Completed', variant: 'success' },
+  voided: { label: 'Voided', variant: 'error' },
+};
+
+export const TIP_PAYOUT_TYPE_CONFIG: Record<TipPayoutType, { label: string }> = {
+  cash: { label: 'Cash' },
+  payroll: { label: 'Payroll' },
+  check: { label: 'Check' },
+};
+
+// ── Tax Remittance ───────────────────────────────────────────
+
+export type AuthorityType = 'state' | 'county' | 'city' | 'district';
+export type TaxType = 'sales' | 'excise' | 'hospitality' | 'use';
+export type FilingFrequency = 'monthly' | 'quarterly' | 'annual';
+
+export interface TaxRemittanceRow {
+  jurisdictionCode: string | null;
+  authorityName: string | null;
+  authorityType: string | null;
+  taxType: string;
+  filingFrequency: string | null;
+  taxRateId: string | null;
+  taxRateName: string;
+  rateDecimal: number;
+  taxableSalesCents: number;
+  taxCollectedCents: number;
+  exemptSalesCents: number;
+  orderCount: number;
+}
+
+export interface TaxRemittanceReport {
+  period: { from: string; to: string };
+  locationId: string | null;
+  rows: TaxRemittanceRow[];
+  totalTaxableSalesCents: number;
+  totalTaxCollectedCents: number;
+  totalExemptSalesCents: number;
+}
+
+export const AUTHORITY_TYPE_CONFIG: Record<AuthorityType, { label: string }> = {
+  state: { label: 'State' },
+  county: { label: 'County' },
+  city: { label: 'City' },
+  district: { label: 'District' },
+};
+
+export const TAX_TYPE_CONFIG: Record<TaxType, { label: string }> = {
+  sales: { label: 'Sales Tax' },
+  excise: { label: 'Excise Tax' },
+  hospitality: { label: 'Hospitality Tax' },
+  use: { label: 'Use Tax' },
+};
+
+export const FILING_FREQUENCY_CONFIG: Record<FilingFrequency, { label: string }> = {
+  monthly: { label: 'Monthly' },
+  quarterly: { label: 'Quarterly' },
+  annual: { label: 'Annual' },
+};
+
+// ── COGS Types ──────────────────────────────────────────────
+
+export type CogsPostingMode = 'disabled' | 'perpetual' | 'periodic';
+export type CogsCalculationMethod = 'weighted_average' | 'fifo' | 'standard';
+
+export interface PeriodicCogsCalculation {
+  id: string;
+  locationId: string | null;
+  periodStart: string;
+  periodEnd: string;
+  status: string;
+  calculationMethod: string;
+  beginningInventoryDollars: string;
+  purchasesDollars: string;
+  endingInventoryDollars: string;
+  cogsDollars: string;
+  glJournalEntryId: string | null;
+  calculatedAt: string;
+  postedAt: string | null;
+  postedBy: string | null;
+}
+
+export interface CogsComparison {
+  periodStart: string;
+  periodEnd: string;
+  perpetualCogsDollars: string;
+  periodicCogsDollars: string | null;
+  varianceDollars: string | null;
+  variancePercent: string | null;
+}
+
+export const COGS_MODE_CONFIG: Record<CogsPostingMode, { label: string; description: string }> = {
+  disabled: { label: 'Disabled', description: 'No COGS posting' },
+  perpetual: { label: 'Perpetual', description: 'COGS posted per-tender at time of sale' },
+  periodic: { label: 'Periodic', description: 'COGS calculated at period-end (Beginning + Purchases − Ending)' },
+};
+
+export const COGS_METHOD_CONFIG: Record<CogsCalculationMethod, { label: string }> = {
+  weighted_average: { label: 'Weighted Average' },
+  fifo: { label: 'FIFO' },
+  standard: { label: 'Standard Cost' },
+};
+
 // ── Helpers ───────────────────────────────────────────────────
 
 /** Format a dollar amount (NUMERIC from GL/AP/AR) as USD currency string */
@@ -501,6 +728,365 @@ export function formatAccountingMoney(dollars: number | string): string {
   }
   return `$${num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+/** F&B category mapping coverage */
+export interface FnbCategoryMappingStatus {
+  key: string;
+  label: string;
+  description: string;
+  critical: boolean;
+  isMapped: boolean;
+  accountId: string | null;
+  accountName: string | null;
+}
+
+export interface FnbMappingCoverageResult {
+  locationId: string;
+  categories: FnbCategoryMappingStatus[];
+  mappedCount: number;
+  totalCount: number;
+  criticalMappedCount: number;
+  criticalTotalCount: number;
+  coveragePercent: number;
+}
+
+// ── Deposit Slips ────────────────────────────────────────────
+
+export interface DenominationBreakdown {
+  hundreds: number;
+  fifties: number;
+  twenties: number;
+  tens: number;
+  fives: number;
+  ones: number;
+  quarters: number;
+  dimes: number;
+  nickels: number;
+  pennies: number;
+}
+
+export interface DepositSlipItem {
+  id: string;
+  tenantId: string;
+  locationId: string;
+  businessDate: string;
+  depositType: string;
+  totalAmountCents: number;
+  bankAccountId: string | null;
+  status: string;
+  retailCloseBatchIds: string[];
+  fnbCloseBatchId: string | null;
+  // ACCT-CLOSE-01: deposit prep enhancements
+  denominationBreakdown: DenominationBreakdown | null;
+  slipNumber: string | null;
+  preparedBy: string | null;
+  preparedAt: string | null;
+  depositedAt: string | null;
+  depositedBy: string | null;
+  reconciledAt: string | null;
+  reconciledBy: string | null;
+  glJournalEntryId: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Location Close Status ────────────────────────────────────
+
+export interface TerminalCloseStatusItem {
+  terminalId: string;
+  terminalName: string | null;
+  drawerSessionStatus: string | null;
+  closeBatchStatus: string | null;
+  closeBatchId: string | null;
+}
+
+export interface LocationCloseStatusResult {
+  locationId: string;
+  businessDate: string;
+  retailTerminals: TerminalCloseStatusItem[];
+  fnbBatchStatus: string | null;
+  fnbBatchId: string | null;
+  depositSlipId: string | null;
+  depositSlipStatus: string | null;
+  allTerminalsClosed: boolean;
+  fnbClosed: boolean;
+  depositReady: boolean;
+}
+
+// ── UXOPS-13 Operations Dashboard Types ────────────────────
+
+export interface ActiveDrawerSessionItem {
+  id: string;
+  terminalId: string;
+  employeeId: string;
+  employeeName: string | null;
+  openedAt: string;
+  openingBalanceCents: number;
+  cashInCents: number;
+  cashOutCents: number;
+  dropsCents: number;
+}
+
+export interface CashManagementDashboardResult {
+  activeSessions: ActiveDrawerSessionItem[];
+  cashSummary: {
+    totalOpeningCents: number;
+    totalCashInCents: number;
+    totalCashOutCents: number;
+    totalCashDropsCents: number;
+    expectedCashOnHandCents: number;
+  };
+  pendingDeposits: number;
+  outstandingTipsCents: number;
+  overShortCents: number;
+}
+
+export interface TenderAuditTrailStep {
+  stage: string;
+  label: string;
+  status: 'complete' | 'pending' | 'missing';
+  timestamp: string | null;
+  referenceId: string | null;
+  detail?: string;
+}
+
+export interface TenderAuditTrailResult {
+  tenderId: string;
+  tenderType: string;
+  amountCents: number;
+  tipAmountCents: number;
+  orderId: string;
+  orderNumber: string | null;
+  businessDate: string;
+  locationId: string;
+  employeeId: string | null;
+  steps: TenderAuditTrailStep[];
+}
+
+export interface DailyReconciliationResult {
+  businessDate: string;
+  locationId: string;
+  sales: {
+    grossSalesCents: number;
+    discountsCents: number;
+    netSalesCents: number;
+    taxCents: number;
+    serviceChargeCents: number;
+    tipsCents: number;
+    totalCents: number;
+    orderCount: number;
+    voidCount: number;
+    voidAmountCents: number;
+  };
+  tenders: {
+    cashCents: number;
+    cardCents: number;
+    otherCents: number;
+    totalCents: number;
+    tenderCount: number;
+  };
+  gl: {
+    revenueDebitsCents: number;
+    revenueCreditsCents: number;
+    totalDebitsDollars: string;
+    totalCreditsDollars: string;
+    isBalanced: boolean;
+  };
+  reconciliation: {
+    salesVsTendersDiffCents: number;
+    status: 'balanced' | 'difference';
+  };
+}
+
+export interface OperationsSummaryResult {
+  totalSalesCents: number;
+  orderCount: number;
+  avgTicketCents: number;
+  voidRate: number;
+  discountRate: number;
+  compRate: number;
+  overShortCents: number;
+  cashOnHandCents: number;
+  outstandingTipsCents: number;
+  pendingSettlements: number;
+  activeDrawerSessions: number;
+}
+
+// ── Recurring Templates ──────────────────────────────────────
+
+export type RecurringFrequency = 'monthly' | 'quarterly' | 'annually';
+
+export interface RecurringTemplateLine {
+  accountId: string;
+  debitAmount: string;
+  creditAmount: string;
+  memo?: string;
+}
+
+export interface RecurringTemplate {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string | null;
+  frequency: RecurringFrequency;
+  dayOfPeriod: number;
+  startDate: string;
+  endDate: string | null;
+  isActive: boolean;
+  lastPostedPeriod: string | null;
+  nextDueDate: string | null;
+  templateLines: RecurringTemplateLine[];
+  sourceModule: string;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RecurringTemplateHistoryEntry {
+  id: string;
+  journalNumber: number;
+  businessDate: string;
+  status: string;
+  postedAt: string | null;
+}
+
+export const RECURRING_FREQUENCY_CONFIG: Record<RecurringFrequency, { label: string }> = {
+  monthly: { label: 'Monthly' },
+  quarterly: { label: 'Quarterly' },
+  annually: { label: 'Annually' },
+};
+
+// ── Breakage Review Types ────────────────────────────────────
+
+export type BreakageReviewStatus = 'pending' | 'approved' | 'declined';
+
+export interface BreakageReviewItem {
+  id: string;
+  tenantId: string;
+  voucherId: string;
+  voucherNumber: string;
+  amountCents: number;
+  expiredAt: string;
+  status: BreakageReviewStatus;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  glJournalEntryId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BreakageReviewStats {
+  pendingCount: number;
+  pendingAmountCents: number;
+}
+
+export const BREAKAGE_STATUS_CONFIG: Record<BreakageReviewStatus, { label: string; variant: string }> = {
+  pending: { label: 'Pending', variant: 'warning' },
+  approved: { label: 'Approved', variant: 'success' },
+  declined: { label: 'Declined', variant: 'error' },
+};
+
+export const BREAKAGE_METHOD_CONFIG: Record<BreakageRecognitionMethod, { label: string; description: string }> = {
+  on_expiry: { label: 'On Expiry', description: 'Recognize full balance when voucher expires' },
+  proportional: { label: 'Proportional', description: 'Recognize over voucher life (GAAP preferred)' },
+  manual_only: { label: 'Manual Only', description: 'Never auto-recognize; queue for manual review' },
+};
+
+// ── Reconciliation Waterfall ─────────────────────────────────
+
+export interface WaterfallStage {
+  stage: string;
+  label: string;
+  amount: number;      // cents
+  expected: number | null;
+  variance: number | null;
+  indent: number;       // 0 = top-level, 1 = sub-item
+  drillType: string | null;
+}
+
+export interface ReconciliationWaterfall {
+  businessDate: string;
+  locationId: string | null;
+  stages: WaterfallStage[];
+  totalVariance: number;
+  isBalanced: boolean;
+}
+
+// ── Bank Reconciliation ──────────────────────────────────────
+
+export type BankReconciliationStatus = 'in_progress' | 'completed';
+
+export interface BankReconciliationListItem {
+  id: string;
+  bankAccountId: string;
+  bankAccountName: string;
+  glAccountNumber: string;
+  statementDate: string;
+  statementEndingBalance: string;
+  beginningBalance: string;
+  difference: string;
+  status: BankReconciliationStatus;
+  reconciledBy: string | null;
+  completedAt: string | null;
+  itemCount: number;
+  clearedCount: number;
+  createdAt: string;
+}
+
+export interface BankReconciliationItem {
+  id: string;
+  reconciliationId: string;
+  glJournalLineId: string | null;
+  itemType: string;
+  amount: string;
+  date: string;
+  description: string | null;
+  isCleared: boolean;
+  clearedDate: string | null;
+  glJournalEntryId: string | null;
+  journalNumber: number | null;
+  journalMemo: string | null;
+  sourceModule: string | null;
+  createdAt: string;
+}
+
+export interface BankReconciliationDetail {
+  id: string;
+  tenantId: string;
+  bankAccountId: string;
+  bankAccountName: string | null;
+  glAccountId: string | null;
+  statementDate: string;
+  statementEndingBalance: string;
+  beginningBalance: string;
+  status: string;
+  clearedBalance: string;
+  outstandingDeposits: string;
+  outstandingWithdrawals: string;
+  adjustmentTotal: string;
+  difference: string;
+  reconciledBy: string | null;
+  completedAt: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: BankReconciliationItem[];
+}
+
+export const BANK_REC_STATUS_CONFIG: Record<BankReconciliationStatus, { label: string; variant: string }> = {
+  in_progress: { label: 'In Progress', variant: 'warning' },
+  completed: { label: 'Completed', variant: 'success' },
+};
+
+export const BANK_REC_ITEM_TYPE_CONFIG: Record<string, { label: string }> = {
+  deposit: { label: 'Deposit' },
+  withdrawal: { label: 'Withdrawal' },
+  fee: { label: 'Bank Fee' },
+  interest: { label: 'Interest' },
+  adjustment: { label: 'Adjustment' },
+};
 
 /** Source module display config */
 export const SOURCE_MODULE_BADGES: Record<string, { label: string; variant: string }> = {

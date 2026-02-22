@@ -13,6 +13,7 @@ export interface GlAccountListItem {
   isActive: boolean;
   isControlAccount: boolean;
   controlAccountType: string | null;
+  isContraAccount: boolean;
   allowManualPosting: boolean;
   description: string | null;
   debitTotal: number | null;
@@ -68,6 +69,7 @@ export async function listGlAccounts(
           a.is_active,
           a.is_control_account,
           a.control_account_type,
+          a.is_contra_account,
           a.allow_manual_posting,
           a.description,
           COALESCE(SUM(jl.debit_amount), 0) AS debit_total,
@@ -90,8 +92,8 @@ export async function listGlAccounts(
           ${isControlFilter}
         GROUP BY a.id, a.account_number, a.name, a.account_type, a.normal_balance,
                  a.classification_id, c.name, a.parent_account_id, a.is_active,
-                 a.is_control_account, a.control_account_type, a.allow_manual_posting,
-                 a.description
+                 a.is_control_account, a.control_account_type, a.is_contra_account,
+                 a.allow_manual_posting, a.description
         ORDER BY a.account_number
       `);
 
@@ -107,6 +109,7 @@ export async function listGlAccounts(
         isActive: Boolean(row.is_active),
         isControlAccount: Boolean(row.is_control_account),
         controlAccountType: row.control_account_type ? String(row.control_account_type) : null,
+        isContraAccount: Boolean(row.is_contra_account),
         allowManualPosting: Boolean(row.allow_manual_posting),
         description: row.description ? String(row.description) : null,
         debitTotal: Number(row.debit_total),
@@ -131,6 +134,7 @@ export async function listGlAccounts(
         a.is_active,
         a.is_control_account,
         a.control_account_type,
+        a.is_contra_account,
         a.allow_manual_posting,
         a.description
       FROM gl_accounts a
@@ -155,6 +159,7 @@ export async function listGlAccounts(
       isActive: Boolean(row.is_active),
       isControlAccount: Boolean(row.is_control_account),
       controlAccountType: row.control_account_type ? String(row.control_account_type) : null,
+      isContraAccount: Boolean(row.is_contra_account),
       allowManualPosting: Boolean(row.allow_manual_posting),
       description: row.description ? String(row.description) : null,
       debitTotal: null,

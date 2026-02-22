@@ -17,6 +17,7 @@ import {
   Users,
   UserCog,
   Shield,
+  Zap,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
@@ -44,6 +45,14 @@ const MODULES: NavModule[] = [
       { href: '/users/staff', label: 'Staff', icon: UserCog },
       { href: '/users/customers', label: 'Customers', icon: Users },
       { href: '/users/roles', label: 'Roles & Permissions', icon: Shield },
+    ],
+  },
+  {
+    label: 'Event System',
+    icon: Zap,
+    prefix: '/events',
+    children: [
+      { href: '/events', label: 'Failed Events', icon: AlertTriangle },
     ],
   },
   {

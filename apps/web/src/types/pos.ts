@@ -204,27 +204,60 @@ export interface RecordTenderResult {
   totalTendered: number;
 }
 
-// ── Shift ──────────────────────────────────────────────────────────
+// ── Shift / Drawer Session ─────────────────────────────────────────
 
 export interface Shift {
   id: string;
+  tenantId?: string;
   terminalId: string;
   employeeId: string;
   locationId: string;
+  profitCenterId?: string | null;
   businessDate: string;
   openedAt: string;
   closedAt: string | null;
-  openingBalance: number;
+  closedBy?: string | null;
+  openingBalance: number; // cents
+  changeFundCents?: number; // cents — separate change float
+  closingCount?: number | null; // cents
+  expectedCash?: number | null; // cents
+  variance?: number | null; // cents
+  notes?: string | null;
   status: 'open' | 'closed';
 }
 
+export type DrawerEventType = 'paid_in' | 'paid_out' | 'cash_drop' | 'drawer_open' | 'no_sale';
+
+export interface DrawerEvent {
+  id: string;
+  drawerSessionId: string;
+  eventType: DrawerEventType;
+  amountCents: number;
+  reason: string | null;
+  employeeId: string;
+  approvedBy: string | null;
+  // Cash drop enhancements (ACCT-CLOSE-01)
+  bagId: string | null;
+  sealNumber: string | null;
+  verifiedBy: string | null;
+  verifiedAt: string | null;
+  depositSlipId: string | null;
+  createdAt: string;
+}
+
 export interface ShiftSummary {
-  shiftId: string;
+  sessionId: string;
   employeeId: string;
   businessDate: string;
   terminalId: string;
+  locationId: string;
   openedAt: string;
-  closedAt: string;
+  closedAt: string | null;
+  openingBalanceCents: number;
+  changeFundCents: number;
+  closingCountCents: number | null;
+  expectedCashCents: number;
+  varianceCents: number | null;
   salesCount: number;
   salesTotal: number;
   voidCount: number;
@@ -236,11 +269,12 @@ export interface ShiftSummary {
   cardReceived: number;
   changeGiven: number;
   tipsCollected: number;
-  openingBalance: number;
-  closingBalance: number;
-  expectedCash: number;
-  actualCash: number;
-  variance: number;
+  paidInTotal: number;
+  paidOutTotal: number;
+  cashDropTotal: number;
+  drawerOpenCount: number;
+  noSaleCount: number;
+  events: DrawerEvent[];
   salesByDepartment: Array<{
     departmentName: string;
     total: number;

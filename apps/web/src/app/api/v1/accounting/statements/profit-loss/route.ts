@@ -22,6 +22,9 @@ export const GET = withMiddleware(
       from,
       to,
       locationId: url.searchParams.get('locationId') ?? undefined,
+      profitCenterId: url.searchParams.get('profitCenterId') ?? undefined,
+      subDepartmentId: url.searchParams.get('subDepartmentId') ?? undefined,
+      channel: url.searchParams.get('channel') ?? undefined,
       comparativeFrom: url.searchParams.get('comparativeFrom') ?? undefined,
       comparativeTo: url.searchParams.get('comparativeTo') ?? undefined,
     });

@@ -18,6 +18,28 @@ type Tab = 'rates' | 'groups';
 
 // ── Tax Rates Tab ──────────────────────────────────────────────
 
+const AUTHORITY_TYPE_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'state', label: 'State' },
+  { value: 'county', label: 'County' },
+  { value: 'city', label: 'City' },
+  { value: 'district', label: 'District' },
+];
+
+const TAX_TYPE_OPTIONS = [
+  { value: 'sales', label: 'Sales' },
+  { value: 'excise', label: 'Excise' },
+  { value: 'hospitality', label: 'Hospitality' },
+  { value: 'use', label: 'Use' },
+];
+
+const FILING_FREQUENCY_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'annual', label: 'Annual' },
+];
+
 function TaxRatesTab() {
   const { toast } = useToast();
   const { data: rates, isLoading, mutate: refresh } = useTaxRates();
@@ -25,12 +47,22 @@ function TaxRatesTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [addName, setAddName] = useState('');
   const [addRate, setAddRate] = useState('');
+  const [addJurisdictionCode, setAddJurisdictionCode] = useState('');
+  const [addAuthorityName, setAddAuthorityName] = useState('');
+  const [addAuthorityType, setAddAuthorityType] = useState('');
+  const [addTaxType, setAddTaxType] = useState('sales');
+  const [addFilingFrequency, setAddFilingFrequency] = useState('');
   const [adding, setAdding] = useState(false);
   const [addErrors, setAddErrors] = useState<Record<string, string>>({});
 
   const [editingRate, setEditingRate] = useState<TaxRateRow | null>(null);
   const [editName, setEditName] = useState('');
   const [editRate, setEditRate] = useState('');
+  const [editJurisdictionCode, setEditJurisdictionCode] = useState('');
+  const [editAuthorityName, setEditAuthorityName] = useState('');
+  const [editAuthorityType, setEditAuthorityType] = useState('');
+  const [editTaxType, setEditTaxType] = useState('sales');
+  const [editFilingFrequency, setEditFilingFrequency] = useState('');
   const [saving, setSaving] = useState(false);
 
   const [deactivateTarget, setDeactivateTarget] = useState<TaxRateRow | null>(null);
@@ -53,12 +85,22 @@ function TaxRatesTab() {
         body: JSON.stringify({
           name: addName.trim(),
           rateDecimal: parsed / 100,
+          ...(addJurisdictionCode && { jurisdictionCode: addJurisdictionCode.trim() }),
+          ...(addAuthorityName && { authorityName: addAuthorityName.trim() }),
+          ...(addAuthorityType && { authorityType: addAuthorityType }),
+          ...(addTaxType !== 'sales' && { taxType: addTaxType }),
+          ...(addFilingFrequency && { filingFrequency: addFilingFrequency }),
         }),
       });
       toast.success(`Tax rate "${addName.trim()}" created`);
       setShowAdd(false);
       setAddName('');
       setAddRate('');
+      setAddJurisdictionCode('');
+      setAddAuthorityName('');
+      setAddAuthorityType('');
+      setAddTaxType('sales');
+      setAddFilingFrequency('');
       setAddErrors({});
       refresh();
     } catch (err) {
@@ -72,6 +114,11 @@ function TaxRatesTab() {
     setEditingRate(rate);
     setEditName(rate.name);
     setEditRate((Number(rate.rateDecimal) * 100).toFixed(4).replace(/0+$/, '').replace(/\.$/, ''));
+    setEditJurisdictionCode(rate.jurisdictionCode ?? '');
+    setEditAuthorityName(rate.authorityName ?? '');
+    setEditAuthorityType(rate.authorityType ?? '');
+    setEditTaxType(rate.taxType ?? 'sales');
+    setEditFilingFrequency(rate.filingFrequency ?? '');
   };
 
   const handleSaveEdit = async () => {
@@ -89,6 +136,11 @@ function TaxRatesTab() {
         body: JSON.stringify({
           name: editName.trim(),
           rateDecimal: parsed / 100,
+          jurisdictionCode: editJurisdictionCode.trim() || null,
+          authorityName: editAuthorityName.trim() || null,
+          authorityType: editAuthorityType || null,
+          taxType: editTaxType || 'sales',
+          filingFrequency: editFilingFrequency || null,
         }),
       });
       toast.success('Tax rate updated');
@@ -160,26 +212,67 @@ function TaxRatesTab() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
-            <div className="flex items-end gap-2">
-              <button
-                type="button"
-                onClick={handleAdd}
-                disabled={adding}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {adding ? 'Adding...' : 'Add'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowAdd(false);
-                  setAddErrors({});
-                }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
+            <FormField label="Tax Type">
+              <Select
+                options={TAX_TYPE_OPTIONS}
+                value={addTaxType}
+                onChange={(v) => setAddTaxType(v as string)}
+              />
+            </FormField>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
+            <FormField label="Jurisdiction Code" helpText="e.g. MI, COOK-CTY">
+              <input
+                type="text"
+                value={addJurisdictionCode}
+                onChange={(e) => setAddJurisdictionCode(e.target.value)}
+                placeholder="e.g. MI"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </FormField>
+            <FormField label="Authority Name">
+              <input
+                type="text"
+                value={addAuthorityName}
+                onChange={(e) => setAddAuthorityName(e.target.value)}
+                placeholder="e.g. State of Michigan"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </FormField>
+            <FormField label="Authority Type">
+              <Select
+                options={AUTHORITY_TYPE_OPTIONS}
+                value={addAuthorityType}
+                onChange={(v) => setAddAuthorityType(v as string)}
+              />
+            </FormField>
+            <FormField label="Filing Frequency">
+              <Select
+                options={FILING_FREQUENCY_OPTIONS}
+                value={addFilingFrequency}
+                onChange={(v) => setAddFilingFrequency(v as string)}
+              />
+            </FormField>
+          </div>
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={adding}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {adding ? 'Adding...' : 'Add'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAdd(false);
+                setAddErrors({});
+              }}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
@@ -188,28 +281,74 @@ function TaxRatesTab() {
       {editingRate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setEditingRate(null)} />
-          <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
+          <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900">Edit Tax Rate</h3>
             <div className="mt-4 space-y-4">
-              <FormField label="Name" required>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </FormField>
-              <FormField label="Rate (%)" required>
-                <input
-                  type="number"
-                  value={editRate}
-                  onChange={(e) => setEditRate(e.target.value)}
-                  min={0}
-                  max={100}
-                  step="0.001"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                />
-              </FormField>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField label="Name" required>
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </FormField>
+                <FormField label="Rate (%)" required>
+                  <input
+                    type="number"
+                    value={editRate}
+                    onChange={(e) => setEditRate(e.target.value)}
+                    min={0}
+                    max={100}
+                    step="0.001"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </FormField>
+              </div>
+              <div className="border-t border-gray-100 pt-4">
+                <p className="mb-3 text-xs font-medium text-gray-500">Jurisdiction Details</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField label="Jurisdiction Code">
+                    <input
+                      type="text"
+                      value={editJurisdictionCode}
+                      onChange={(e) => setEditJurisdictionCode(e.target.value)}
+                      placeholder="e.g. MI"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </FormField>
+                  <FormField label="Authority Name">
+                    <input
+                      type="text"
+                      value={editAuthorityName}
+                      onChange={(e) => setEditAuthorityName(e.target.value)}
+                      placeholder="e.g. State of Michigan"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </FormField>
+                  <FormField label="Authority Type">
+                    <Select
+                      options={AUTHORITY_TYPE_OPTIONS}
+                      value={editAuthorityType}
+                      onChange={(v) => setEditAuthorityType(v as string)}
+                    />
+                  </FormField>
+                  <FormField label="Tax Type">
+                    <Select
+                      options={TAX_TYPE_OPTIONS}
+                      value={editTaxType}
+                      onChange={(v) => setEditTaxType(v as string)}
+                    />
+                  </FormField>
+                  <FormField label="Filing Frequency">
+                    <Select
+                      options={FILING_FREQUENCY_OPTIONS}
+                      value={editFilingFrequency}
+                      onChange={(v) => setEditFilingFrequency(v as string)}
+                    />
+                  </FormField>
+                </div>
+              </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -247,6 +386,20 @@ function TaxRatesTab() {
             key: 'rateDecimal',
             header: 'Rate',
             render: (row) => `${(Number(row.rateDecimal) * 100).toFixed(2)}%`,
+          },
+          {
+            key: 'jurisdictionCode',
+            header: 'Jurisdiction',
+            render: (row) => {
+              const r = row as unknown as TaxRateRow;
+              if (!r.jurisdictionCode && !r.authorityName) return <span className="text-gray-400">—</span>;
+              return (
+                <div className="text-xs">
+                  {r.authorityName && <div className="text-gray-700">{r.authorityName}</div>}
+                  {r.jurisdictionCode && <div className="text-gray-500">{r.jurisdictionCode}</div>}
+                </div>
+              );
+            },
           },
           {
             key: 'isActive',

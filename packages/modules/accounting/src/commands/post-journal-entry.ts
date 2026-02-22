@@ -104,6 +104,10 @@ export async function postJournalEntry(
           departmentId: line.departmentId ?? null,
           customerId: line.customerId ?? null,
           vendorId: line.vendorId ?? null,
+          profitCenterId: line.profitCenterId ?? null,
+          subDepartmentId: line.subDepartmentId ?? null,
+          terminalId: line.terminalId ?? null,
+          channel: line.channel ?? null,
           memo: line.memo ?? null,
           sortOrder: i,
         })

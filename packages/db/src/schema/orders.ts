@@ -54,6 +54,13 @@ export const orders = pgTable(
     heldAt: timestamp('held_at', { withTimezone: true }),
     heldBy: text('held_by'),
 
+    // ── Return tracking (migration 0103) ──
+    returnType: text('return_type'), // 'full' | 'partial' — set on return orders only
+    returnOrderId: text('return_order_id'), // links return order → original order
+
+    // ── Billing / house account (migration 0106) ──
+    billingAccountId: text('billing_account_id'),
+
     // ── Order gap fields (migration 0034) ──
     holeNumber: integer('hole_number'),
     tabName: text('tab_name'),
@@ -136,6 +143,9 @@ export const orderLines = pgTable(
     // ── GL mapping snapshots (migration 0084) ──
     subDepartmentId: text('sub_department_id'),
     taxGroupId: text('tax_group_id'),
+
+    // ── Return tracking (migration 0103) ──
+    originalLineId: text('original_line_id'), // links return line → original order line
 
     // ── Order line gap fields (migration 0034) ──
     costPrice: integer('cost_price'),

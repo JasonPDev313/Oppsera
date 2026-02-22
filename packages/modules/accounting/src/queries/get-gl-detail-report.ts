@@ -17,6 +17,10 @@ export interface GlDetailLine {
   departmentId: string | null;
   customerId: string | null;
   vendorId: string | null;
+  profitCenterId: string | null;
+  subDepartmentId: string | null;
+  terminalId: string | null;
+  channel: string | null;
 }
 
 interface GetGlDetailReportInput {
@@ -25,6 +29,10 @@ interface GetGlDetailReportInput {
   startDate?: string;
   endDate?: string;
   locationId?: string;
+  profitCenterId?: string;
+  subDepartmentId?: string;
+  terminalId?: string;
+  channel?: string;
   cursor?: string;
   limit?: number;
 }
@@ -45,6 +53,22 @@ export async function getGlDetailReport(
 
     const locationFilter = input.locationId
       ? sql`AND jl.location_id = ${input.locationId}`
+      : sql``;
+
+    const profitCenterFilter = input.profitCenterId
+      ? sql`AND jl.profit_center_id = ${input.profitCenterId}`
+      : sql``;
+
+    const subDepartmentFilter = input.subDepartmentId
+      ? sql`AND jl.sub_department_id = ${input.subDepartmentId}`
+      : sql``;
+
+    const terminalFilter = input.terminalId
+      ? sql`AND jl.terminal_id = ${input.terminalId}`
+      : sql``;
+
+    const channelFilter = input.channel
+      ? sql`AND jl.channel = ${input.channel}`
       : sql``;
 
     const cursorFilter = input.cursor
@@ -72,6 +96,10 @@ export async function getGlDetailReport(
           jl.department_id,
           jl.customer_id,
           jl.vendor_id,
+          jl.profit_center_id,
+          jl.sub_department_id,
+          jl.terminal_id,
+          jl.channel,
           SUM(
             CASE WHEN a.normal_balance = 'debit'
               THEN jl.debit_amount - jl.credit_amount
@@ -90,6 +118,10 @@ export async function getGlDetailReport(
           ${startDateFilter}
           ${endDateFilter}
           ${locationFilter}
+          ${profitCenterFilter}
+          ${subDepartmentFilter}
+          ${terminalFilter}
+          ${channelFilter}
       )
       SELECT *
       FROM detail
@@ -119,6 +151,10 @@ export async function getGlDetailReport(
       departmentId: row.department_id ? String(row.department_id) : null,
       customerId: row.customer_id ? String(row.customer_id) : null,
       vendorId: row.vendor_id ? String(row.vendor_id) : null,
+      profitCenterId: row.profit_center_id ? String(row.profit_center_id) : null,
+      subDepartmentId: row.sub_department_id ? String(row.sub_department_id) : null,
+      terminalId: row.terminal_id ? String(row.terminal_id) : null,
+      channel: row.channel ? String(row.channel) : null,
     }));
 
     return {

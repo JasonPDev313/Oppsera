@@ -146,6 +146,86 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
 }
 
 /**
+ * Handles order.returned.v1 events.
+ *
+ * When items are returned, create positive inventory movements to add stock back.
+ * Uses ON CONFLICT DO NOTHING for idempotency.
+ */
+export async function handleOrderReturned(event: EventEnvelope): Promise<void> {
+  const { returnOrderId, locationId, businessDate: eventBusinessDate, lines } = event.data as {
+    returnOrderId: string;
+    locationId: string;
+    businessDate?: string;
+    lines?: Array<{
+      catalogItemId: string;
+      qty: number;
+      packageComponents: Array<{ catalogItemId: string; qty: number }> | null;
+    }>;
+  };
+
+  if (!lines || lines.length === 0) return;
+
+  await withTenant(event.tenantId, async (tx) => {
+    const businessDate = eventBusinessDate || new Date().toISOString().slice(0, 10);
+    const createdBy = event.actorUserId || 'system';
+
+    // Aggregate return quantities per catalogItemId
+    const qtyByCatalogItemId = new Map<string, number>();
+
+    for (const line of lines) {
+      const lineQty = line.qty; // positive qty representing items returned
+
+      if (
+        line.packageComponents &&
+        Array.isArray(line.packageComponents) &&
+        line.packageComponents.length > 0
+      ) {
+        for (const component of line.packageComponents) {
+          const componentQty = component.qty * lineQty;
+          qtyByCatalogItemId.set(
+            component.catalogItemId,
+            (qtyByCatalogItemId.get(component.catalogItemId) || 0) + componentQty,
+          );
+        }
+      } else {
+        qtyByCatalogItemId.set(
+          line.catalogItemId,
+          (qtyByCatalogItemId.get(line.catalogItemId) || 0) + lineQty,
+        );
+      }
+    }
+
+    // Batch-fetch inventory items
+    const catalogItemIds = [...qtyByCatalogItemId.keys()];
+    const inventoryItemRows = await tx
+      .select()
+      .from(inventoryItems)
+      .where(
+        and(
+          eq(inventoryItems.tenantId, event.tenantId),
+          eq(inventoryItems.locationId, locationId),
+          inArray(inventoryItems.catalogItemId, catalogItemIds),
+        ),
+      );
+    const invItemByCatalogId = new Map(inventoryItemRows.map(r => [r.catalogItemId, r]));
+
+    // Insert positive movements (return adds stock back)
+    for (const [catalogItemId, totalQty] of qtyByCatalogItemId) {
+      const inventoryItem = invItemByCatalogId.get(catalogItemId);
+      if (!inventoryItem) continue;
+      if (!inventoryItem.trackInventory) continue;
+
+      await tx.execute(
+        sql`INSERT INTO inventory_movements (id, tenant_id, location_id, inventory_item_id, movement_type, quantity_delta, reference_type, reference_id, source, business_date, created_by)
+            VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${inventoryItem.id}, ${'return'}, ${totalQty}, ${'order'}, ${returnOrderId}, ${'pos'}, ${businessDate}, ${createdBy})
+            ON CONFLICT (tenant_id, reference_type, reference_id, inventory_item_id, movement_type) WHERE reference_type IS NOT NULL
+            DO NOTHING`,
+      );
+    }
+  });
+}
+
+/**
  * Handles catalog.item.created.v1 events.
  *
  * When a new catalog item is created, auto-create an inventory_item

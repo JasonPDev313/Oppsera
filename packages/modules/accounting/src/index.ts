@@ -22,10 +22,43 @@ export { updateClosePeriod } from './commands/update-close-period';
 export { closeAccountingPeriod } from './commands/close-accounting-period';
 export { saveStatementLayout } from './commands/save-statement-layout';
 export { generateRetainedEarnings } from './commands/generate-retained-earnings';
+export { createSettlement } from './commands/create-settlement';
+export { importSettlementCsv } from './commands/import-settlement-csv';
+export { matchSettlementTenders } from './commands/match-settlement-tenders';
+export { postSettlement } from './commands/post-settlement';
+export { voidSettlement } from './commands/void-settlement';
+export { createTipPayout } from './commands/create-tip-payout';
+export { voidTipPayout } from './commands/void-tip-payout';
+export { calculatePeriodicCogs } from './commands/calculate-periodic-cogs';
+export type { PeriodicCogsCalculation } from './commands/calculate-periodic-cogs';
+export { postPeriodicCogs } from './commands/post-periodic-cogs';
+export { reviewBreakage } from './commands/review-breakage';
+export type { BreakageReviewItem } from './commands/review-breakage';
+export {
+  createRecurringTemplate,
+  updateRecurringTemplate,
+  deactivateRecurringTemplate,
+  executeRecurringTemplate,
+  executeDueRecurringEntries,
+} from './commands/manage-recurring-templates';
+export type { RecurringTemplate, TemplateLine } from './commands/manage-recurring-templates';
+export {
+  startBankReconciliation,
+  clearReconciliationItems,
+  addBankAdjustment,
+  completeBankReconciliation,
+} from './commands/manage-bank-reconciliation';
+export type { BankReconciliation, BankReconciliationItem } from './commands/manage-bank-reconciliation';
 
 // Adapters
 export { handleTenderForAccounting } from './adapters/pos-posting-adapter';
+export { handleOrderVoidForAccounting } from './adapters/void-posting-adapter';
 export { handleFolioChargeForAccounting } from './adapters/folio-posting-adapter';
+export { handleOrderReturnForAccounting } from './adapters/return-posting-adapter';
+export { handleFnbGlPostingForAccounting } from './adapters/fnb-posting-adapter';
+export { handleVoucherPurchaseForAccounting, handleVoucherRedemptionForAccounting, handleVoucherExpirationForAccounting } from './adapters/voucher-posting-adapter';
+export { handleMembershipBillingForAccounting } from './adapters/membership-posting-adapter';
+export { handleChargebackReceivedForAccounting, handleChargebackResolvedForAccounting } from './adapters/chargeback-posting-adapter';
 export { migrateLegacyJournalEntries } from './adapters/legacy-bridge-adapter';
 
 // Queries
@@ -71,6 +104,49 @@ export { getFinancialHealthSummary } from './queries/get-financial-health-summar
 export type { FinancialHealthSummary } from './queries/get-financial-health-summary';
 export { listStatementLayouts } from './queries/list-statement-layouts';
 export type { StatementLayoutItem } from './queries/list-statement-layouts';
+export { listSettlements } from './queries/list-settlements';
+export type { SettlementListItem } from './queries/list-settlements';
+export { getSettlement } from './queries/get-settlement';
+export type { SettlementDetail, SettlementLineDetail } from './queries/get-settlement';
+export { getUnmatchedTenders } from './queries/get-unmatched-tenders';
+export type { UnmatchedTender } from './queries/get-unmatched-tenders';
+export { getTipBalances } from './queries/get-tip-balances';
+export type { TipBalanceItem } from './queries/get-tip-balances';
+export { listTipPayouts } from './queries/list-tip-payouts';
+export type { TipPayoutItem, ListTipPayoutsResult } from './queries/list-tip-payouts';
+export { getTaxRemittanceReport } from './queries/get-tax-remittance-report';
+export type { TaxRemittanceRow, TaxRemittanceReport } from './queries/get-tax-remittance-report';
+export { getTaxRateBreakdown } from './queries/get-tax-rate-breakdown';
+export type { TaxRateBreakdownRow, TaxRateBreakdown } from './queries/get-tax-rate-breakdown';
+export { listPeriodicCogs } from './queries/list-periodic-cogs';
+export type { PeriodicCogsListItem, ListPeriodicCogsResult } from './queries/list-periodic-cogs';
+export { getCogsComparison } from './queries/get-cogs-comparison';
+export type { CogsComparisonResult } from './queries/get-cogs-comparison';
+export { getFnbMappingCoverage } from './queries/get-fnb-mapping-coverage';
+export type { FnbCategoryMappingStatus, FnbMappingCoverageResult } from './queries/get-fnb-mapping-coverage';
+export { getLocationCloseStatus } from './queries/get-location-close-status';
+export type { LocationCloseStatus, TerminalCloseStatus } from './queries/get-location-close-status';
+export { listDepositSlips, getDepositSlip } from './queries/list-deposit-slips';
+export { createDepositSlip, prepareDepositSlip, markDeposited, reconcileDeposit } from './commands/manage-deposit-slips';
+export type { DepositSlip, CreateDepositSlipInput, PrepareDepositSlipInput } from './commands/manage-deposit-slips';
+export { getCashManagementDashboard } from './queries/get-cash-management-dashboard';
+export type { CashManagementDashboard, ActiveDrawerSession } from './queries/get-cash-management-dashboard';
+export { getTenderAuditTrail } from './queries/get-tender-audit-trail';
+export type { TenderAuditTrail, TenderAuditTrailStep } from './queries/get-tender-audit-trail';
+export { getDailyReconciliation } from './queries/get-daily-reconciliation';
+export type { DailyReconciliation } from './queries/get-daily-reconciliation';
+export { getOperationsSummary } from './queries/get-operations-summary';
+export type { OperationsSummary } from './queries/get-operations-summary';
+export { getAuditCoverage } from './queries/get-audit-coverage';
+export type { AuditCoverageReport, AuditCoverageItem } from './queries/get-audit-coverage';
+export { listPendingBreakage, getPendingBreakageStats } from './queries/list-pending-breakage';
+export type { ListPendingBreakageInput } from './queries/list-pending-breakage';
+export { listRecurringTemplates, getRecurringTemplate, getRecurringTemplateHistory } from './queries/list-recurring-templates';
+export type { ListRecurringTemplatesInput } from './queries/list-recurring-templates';
+export { getReconciliationWaterfall } from './queries/get-reconciliation-waterfall';
+export type { WaterfallStage, ReconciliationWaterfall } from './queries/get-reconciliation-waterfall';
+export { listBankReconciliations, getBankReconciliation } from './queries/list-bank-reconciliations';
+export type { BankReconciliationListItem, BankReconciliationDetail } from './queries/list-bank-reconciliations';
 
 // Helpers
 export { resolveNormalBalance } from './helpers/resolve-normal-balance';
@@ -131,6 +207,28 @@ export {
   saveBankAccountSchema,
   saveStatementLayoutSchema,
   generateRetainedEarningsSchema,
+  createSettlementSchema,
+  importSettlementCsvSchema,
+  matchSettlementTendersSchema,
+  postSettlementSchema,
+  voidSettlementSchema,
+  createTipPayoutSchema,
+  voidTipPayoutSchema,
+  listTipPayoutsSchema,
+  calculatePeriodicCogsSchema,
+  postPeriodicCogsSchema,
+  listPeriodicCogsSchema,
+  reviewBreakageSchema,
+  listPendingBreakageSchema,
+  createRecurringTemplateSchema,
+  updateRecurringTemplateSchema,
+  executeRecurringTemplateSchema,
+  listRecurringTemplatesSchema,
+  startBankReconciliationSchema,
+  clearReconciliationItemsSchema,
+  addBankAdjustmentSchema,
+  completeBankReconciliationSchema,
+  listBankReconciliationsSchema,
 } from './validation';
 export type {
   PostJournalEntryInput,
@@ -145,4 +243,26 @@ export type {
   SaveBankAccountInput,
   SaveStatementLayoutInput,
   GenerateRetainedEarningsInput,
+  CreateSettlementInput,
+  ImportSettlementCsvInput,
+  MatchSettlementTendersInput,
+  PostSettlementInput,
+  VoidSettlementInput,
+  CreateTipPayoutInput,
+  VoidTipPayoutInput,
+  ListTipPayoutsInput,
+  CalculatePeriodicCogsInput,
+  PostPeriodicCogsInput,
+  ListPeriodicCogsInput,
+  ReviewBreakageInput,
+  ListPendingBreakageInput as ListPendingBreakageValidationInput,
+  CreateRecurringTemplateInput,
+  UpdateRecurringTemplateInput,
+  ExecuteRecurringTemplateInput,
+  ListRecurringTemplatesInput as ListRecurringTemplatesValidationInput,
+  StartBankReconciliationInput,
+  ClearReconciliationItemsInput,
+  AddBankAdjustmentInput,
+  CompleteBankReconciliationInput,
+  ListBankReconciliationsInput,
 } from './validation';

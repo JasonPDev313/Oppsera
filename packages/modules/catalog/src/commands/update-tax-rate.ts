@@ -28,6 +28,11 @@ export async function updateTaxRate(
     if (input.name !== undefined) updates.name = input.name;
     if (input.rateDecimal !== undefined) updates.rateDecimal = String(input.rateDecimal);
     if (input.isActive !== undefined) updates.isActive = input.isActive;
+    if (input.jurisdictionCode !== undefined) updates.jurisdictionCode = input.jurisdictionCode;
+    if (input.authorityName !== undefined) updates.authorityName = input.authorityName;
+    if (input.authorityType !== undefined) updates.authorityType = input.authorityType;
+    if (input.taxType !== undefined) updates.taxType = input.taxType;
+    if (input.filingFrequency !== undefined) updates.filingFrequency = input.filingFrequency;
 
     const [result] = await tx
       .update(taxRates)

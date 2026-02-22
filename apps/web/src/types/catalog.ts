@@ -103,6 +103,11 @@ export interface TaxRateRow {
   name: string;
   rateDecimal: string;
   isActive: boolean;
+  jurisdictionCode: string | null;
+  authorityName: string | null;
+  authorityType: string | null;
+  taxType: string;
+  filingFrequency: string | null;
   createdAt: string;
   updatedAt: string;
 }

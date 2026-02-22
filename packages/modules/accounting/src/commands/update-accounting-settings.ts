@@ -19,6 +19,9 @@ export async function updateAccountingSettings(
       'defaultUndepositedFundsAccountId',
       'defaultRetainedEarningsAccountId',
       'defaultRoundingAccountId',
+      'defaultTipsPayableAccountId',
+      'defaultServiceChargeRevenueAccountId',
+      'breakageIncomeAccountId',
     ] as const;
 
     const accountIdsToCheck: string[] = [];

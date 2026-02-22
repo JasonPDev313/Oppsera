@@ -54,6 +54,7 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
     description: '',
     isControlAccount: false,
     controlAccountType: '' as string,
+    isContraAccount: false,
     allowManualPosting: true,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -68,6 +69,7 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
     description: '',
     isControlAccount: false,
     controlAccountType: '',
+    isContraAccount: false,
     allowManualPosting: true,
   };
 
@@ -88,6 +90,7 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
         description: account.description ?? '',
         isControlAccount: account.isControlAccount,
         controlAccountType: account.controlAccountType ?? '',
+        isContraAccount: account.isContraAccount,
         allowManualPosting: account.allowManualPosting,
       });
     } else {
@@ -121,6 +124,7 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
         description: form.description.trim() || undefined,
         isControlAccount: form.isControlAccount,
         controlAccountType: form.isControlAccount ? form.controlAccountType : undefined,
+        isContraAccount: form.isContraAccount,
         allowManualPosting: form.allowManualPosting,
       };
 
@@ -239,6 +243,20 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
               </FormField>
             )}
           </div>
+
+          {/* Contra Account — only for revenue/expense types */}
+          {(form.accountType === 'revenue' || form.accountType === 'expense') && (
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={form.isContraAccount}
+                onChange={(e) => setForm((f) => ({ ...f, isContraAccount: e.target.checked }))}
+                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Contra Account</span>
+              <span className="text-xs text-gray-400">(displays as deduction in financial statements)</span>
+            </label>
+          )}
 
           {/* Allow Manual Posting */}
           <label className="flex items-center gap-2">

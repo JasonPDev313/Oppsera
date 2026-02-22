@@ -7,6 +7,8 @@ export interface SubDeptGL {
   revenueAccountId: string;
   cogsAccountId: string | null;
   inventoryAccountId: string | null;
+  discountAccountId: string | null;
+  returnsAccountId: string | null;
 }
 
 export interface PaymentTypeGL {
@@ -39,7 +41,9 @@ export async function resolveSubDepartmentAccounts(
       sub_department_id,
       revenue_account_id,
       cogs_account_id,
-      inventory_asset_account_id
+      inventory_asset_account_id,
+      discount_account_id,
+      returns_account_id
     FROM sub_department_gl_defaults
     WHERE tenant_id = ${tenantId}
       AND sub_department_id = ${subDepartmentId}
@@ -57,6 +61,8 @@ export async function resolveSubDepartmentAccounts(
     revenueAccountId: String(row.revenue_account_id),
     cogsAccountId: row.cogs_account_id ? String(row.cogs_account_id) : null,
     inventoryAccountId: row.inventory_asset_account_id ? String(row.inventory_asset_account_id) : null,
+    discountAccountId: row.discount_account_id ? String(row.discount_account_id) : null,
+    returnsAccountId: row.returns_account_id ? String(row.returns_account_id) : null,
   };
 }
 

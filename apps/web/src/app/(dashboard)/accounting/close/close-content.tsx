@@ -302,5 +302,14 @@ function getChecklistLink(label: string): string {
   if (lower.includes('ar')) return '/ar/reports/aging';
   if (lower.includes('trial')) return '/accounting/reports/trial-balance';
   if (lower.includes('inventory')) return '/inventory';
+  if (lower.includes('drawer')) return '/operations/close-dashboard';
+  if (lower.includes('retail close')) return '/operations/close-dashboard';
+  if (lower.includes('f&b close')) return '/close-batch';
+  if (lower.includes('tip')) return '/accounting/tip-payouts';
+  if (lower.includes('deposit')) return '/accounting/deposits';
+  if (lower.includes('dead letter')) return '/accounting';
+  if (lower.includes('settlement')) return '/accounting/settlements';
+  if (lower.includes('cogs')) return '/accounting/cogs';
+  if (lower.includes('breakage')) return '/accounting/breakage';
   return '/accounting';
 }

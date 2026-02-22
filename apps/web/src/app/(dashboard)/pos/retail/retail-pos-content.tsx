@@ -50,9 +50,11 @@ import { RegisterTabs } from '@/components/pos/RegisterTabs';
 import { useProfileDrawer } from '@/components/customer-profile-drawer';
 import { useItemEditDrawer } from '@/components/inventory/ItemEditDrawerContext';
 
-// TenderDialog + ConfirmDialog are critical POS infrastructure — static imports for instant open
+// TenderDialog is critical POS infrastructure — static import for instant open
 import { TenderDialog } from '@/components/pos/TenderDialog';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { OpenShiftDialog } from '@/components/pos/OpenShiftDialog';
+import { CloseShiftDialog } from '@/components/pos/CloseShiftDialog';
+import { DrawerEventDialog } from '@/components/pos/DrawerEventDialog';
 // Lazy-loaded dialogs — infrequently used, reduces initial bundle
 const ModifierDialog = dynamic(() => import('@/components/pos/ModifierDialog').then(m => ({ default: m.ModifierDialog })), { ssr: false });
 const OptionPickerDialog = dynamic(() => import('@/components/pos/OptionPickerDialog').then(m => ({ default: m.OptionPickerDialog })), { ssr: false });
@@ -289,6 +291,8 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   // Confirm dialogs
   const [showVoidConfirm, setShowVoidConfirm] = useState(false);
   const [showShiftEndConfirm, setShowShiftEndConfirm] = useState(false);
+  const [showOpenShiftDialog, setShowOpenShiftDialog] = useState(false);
+  const [showDrawerEventDialog, setShowDrawerEventDialog] = useState(false);
   const [voidReason, setVoidReason] = useState('');
 
   // Close all portal-based dialogs when this POS mode becomes inactive.
@@ -305,6 +309,8 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setShowTenderDialog(false);
       setShowVoidConfirm(false);
       setShowShiftEndConfirm(false);
+      setShowOpenShiftDialog(false);
+      setShowDrawerEventDialog(false);
     }
   }, [isActive]);
 
@@ -511,13 +517,12 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     setShowVoidConfirm(false);
   }, [pos, registerTabs, voidReason, toast]);
 
-  const handleShiftEnd = useCallback(async () => {
-    try {
-      await shift.closeShift(0); // V1: simplified close with 0 counting
+  const handleShiftEnd = useCallback(async (closingCountCents: number, notes?: string) => {
+    const result = await shift.closeShift(closingCountCents, notes);
+    if (result) {
       setShowShiftEndConfirm(false);
-    } catch {
-      // Error toasted by hook
     }
+    return result;
   }, [shift]);
 
   // ── Breadcrumb navigation ───────────────────────────────────────
@@ -993,11 +998,20 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         </button>
         <button
           type="button"
-          onClick={() => toast.info('No Sale logged')}
+          onClick={() => shift.recordNoSale()}
           className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
         >
           <XCircle className="h-3.5 w-3.5" />
           No Sale
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowDrawerEventDialog(true)}
+          disabled={!shift.isOpen}
+          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Banknote className="h-3.5 w-3.5" />
+          Cash Mgmt
         </button>
         <button
           type="button"
@@ -1022,22 +1036,23 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         {/* Shift indicator + end */}
         {shift.isOpen ? (
           <div className="flex items-center gap-2">
-            <Badge variant="success" className="text-xs">
-              Shift Open
-            </Badge>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs font-medium text-green-700">Shift Open</span>
+            </span>
             <button
               type="button"
               onClick={() => setShowShiftEndConfirm(true)}
               className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
             >
               <LogOut className="h-3.5 w-3.5" />
-              Shift End
+              End Shift
             </button>
           </div>
         ) : (
           <button
             type="button"
-            onClick={() => shift.openShift(0)}
+            onClick={() => setShowOpenShiftDialog(true)}
             className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700"
           >
             Open Shift
@@ -1199,15 +1214,35 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           document.body,
         )}
 
-      {/* Shift End Confirm */}
-      <ConfirmDialog
+      {/* Close Shift Dialog */}
+      <CloseShiftDialog
         open={showShiftEndConfirm}
         onClose={() => setShowShiftEndConfirm(false)}
-        onConfirm={handleShiftEnd}
-        title="End Shift"
-        description="Are you sure you want to close the current shift? Make sure all orders are settled before closing."
-        confirmLabel="End Shift"
-        destructive
+        onCloseShift={handleShiftEnd}
+        openingBalanceCents={shift.currentShift?.openingBalance ?? 0}
+      />
+
+      {/* Open Shift Dialog */}
+      <OpenShiftDialog
+        open={showOpenShiftDialog}
+        onClose={() => setShowOpenShiftDialog(false)}
+        onOpen={(balanceCents, changeFundCents) => {
+          shift.openShift(balanceCents, changeFundCents);
+          setShowOpenShiftDialog(false);
+        }}
+      />
+
+      {/* Drawer Event Dialog (Paid In/Out, Cash Drop, No Sale) */}
+      <DrawerEventDialog
+        open={showDrawerEventDialog}
+        onClose={() => setShowDrawerEventDialog(false)}
+        onRecord={async (eventType, amountCents, reason, bagId, sealNumber) => {
+          if (eventType === 'cash_drop') {
+            await shift.recordCashDrop(amountCents, reason, bagId, sealNumber);
+          } else {
+            await shift.recordEvent(eventType, amountCents, reason);
+          }
+        }}
       />
 
       {/* Tender Dialog (Cash / Voucher / Check) — only render when order has a real ID (not placeholder '') */}

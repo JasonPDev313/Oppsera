@@ -21,11 +21,17 @@ import {
   useMappingMutations,
   useUnmappedEvents,
   useUnmappedEventMutations,
+  useFnbMappingCoverage,
+  useSaveFnbMapping,
 } from '@/hooks/use-mappings';
+import { useAuthContext } from '@/components/auth-provider';
 import { useToast } from '@/components/ui/toast';
-import type { SubDepartmentMapping } from '@/types/accounting';
+import { Select } from '@/components/ui/select';
+import { FNB_CATEGORY_CONFIG } from '@oppsera/shared';
+import type { FnbBatchCategoryKey } from '@oppsera/shared';
+import type { SubDepartmentMapping, AccountType } from '@/types/accounting';
 
-type TabKey = 'departments' | 'payments' | 'taxes' | 'unmapped';
+type TabKey = 'departments' | 'payments' | 'taxes' | 'fnb' | 'unmapped';
 
 export default function MappingsContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('departments');
@@ -36,6 +42,7 @@ export default function MappingsContent() {
     { key: 'departments', label: 'Sub-Departments' },
     { key: 'payments', label: 'Payment Types' },
     { key: 'taxes', label: 'Tax Groups' },
+    { key: 'fnb', label: 'F&B Categories' },
     { key: 'unmapped', label: 'Unmapped Events', count: unmappedEvents.length },
   ];
 
@@ -111,6 +118,7 @@ export default function MappingsContent() {
       {activeTab === 'departments' && <DepartmentMappingsTab />}
       {activeTab === 'payments' && <PaymentTypeMappingsTab />}
       {activeTab === 'taxes' && <TaxGroupMappingsTab />}
+      {activeTab === 'fnb' && <FnbCategoryMappingsTab />}
       {activeTab === 'unmapped' && <UnmappedEventsTab />}
     </AccountingPageShell>
   );
@@ -223,6 +231,9 @@ function DepartmentMappingsTab() {
               <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                 Inventory Asset
               </th>
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                Returns Account
+              </th>
               <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-20">
                 Status
               </th>
@@ -316,6 +327,9 @@ function DepartmentMappingsTab() {
                       </th>
                       <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
                         Inventory Asset
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                        Returns Account
                       </th>
                       <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-20">
                         Status
@@ -422,6 +436,14 @@ function SubDepartmentRow({
             className="w-48"
           />
         </td>
+        <td className="px-4 py-3">
+          <AccountPicker
+            value={mapping.returnsAccountId}
+            onChange={(v) => onSave({ ...mapping, returnsAccountId: v })}
+            accountTypes={['revenue']}
+            className="w-48"
+          />
+        </td>
         <td className="px-4 py-3 text-center">
           {isMapped ? (
             <CheckCircle className="inline h-5 w-5 text-green-500" />
@@ -434,7 +456,7 @@ function SubDepartmentRow({
       </tr>
       {isItemsExpanded && (
         <tr>
-          <td colSpan={5} className="px-0 py-0">
+          <td colSpan={6} className="px-0 py-0">
             <ItemsDrillDown subDepartmentId={mapping.subDepartmentId} />
           </td>
         </tr>
@@ -670,6 +692,212 @@ function TaxGroupMappingsTab() {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ── F&B Category Mappings ─────────────────────────────────────
+
+function FnbCategoryMappingsTab() {
+  const { locations } = useAuthContext();
+  const [locationId, setLocationId] = useState(locations[0]?.id ?? '');
+  const { data: coverage, isLoading, refetch } = useFnbMappingCoverage(locationId || undefined);
+  const { saveFnbMapping } = useSaveFnbMapping();
+  const { toast } = useToast();
+
+  const locationOptions = useMemo(
+    () => locations.map((l) => ({ value: l.id, label: l.name })),
+    [locations],
+  );
+
+  const handleSave = async (
+    categoryKey: FnbBatchCategoryKey,
+    accountId: string | null,
+  ) => {
+    if (!locationId) return;
+    const config = FNB_CATEGORY_CONFIG[categoryKey];
+
+    try {
+      const mapping: Record<string, string | null> = {
+        locationId,
+        entityType: config.entityType,
+      };
+
+      // Set the right column based on the category config
+      switch (config.mappingColumn) {
+        case 'revenueAccountId':
+          mapping.revenueAccountId = accountId;
+          break;
+        case 'expenseAccountId':
+          mapping.expenseAccountId = accountId;
+          break;
+        case 'liabilityAccountId':
+          mapping.liabilityAccountId = accountId;
+          break;
+        case 'assetAccountId':
+          mapping.assetAccountId = accountId;
+          break;
+        case 'contraRevenueAccountId':
+          mapping.contraRevenueAccountId = accountId;
+          break;
+      }
+
+      await saveFnbMapping(mapping as any);
+      toast.success('F&B mapping saved');
+      refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save');
+    }
+  };
+
+  const accountTypeFilter = (col: string): AccountType[] => {
+    switch (col) {
+      case 'revenueAccountId':
+        return ['revenue'];
+      case 'expenseAccountId':
+        return ['expense'];
+      case 'liabilityAccountId':
+        return ['liability'];
+      case 'assetAccountId':
+        return ['asset'];
+      case 'contraRevenueAccountId':
+        return ['revenue'];
+      default:
+        return [];
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Location selector */}
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-gray-700">Location</label>
+        <Select
+          options={locationOptions}
+          value={locationId}
+          onChange={(v) => setLocationId(v as string)}
+          className="w-64"
+        />
+      </div>
+
+      {!locationId && (
+        <p className="text-sm text-gray-500">Select a location to configure F&B GL mappings.</p>
+      )}
+
+      {isLoading && (
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />
+          ))}
+        </div>
+      )}
+
+      {coverage && (
+        <>
+          {/* Coverage progress */}
+          <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-surface p-4">
+            <div className="flex-1">
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="text-gray-600">Overall Coverage</span>
+                <span className="font-medium text-gray-900">
+                  {coverage.mappedCount}/{coverage.totalCount}
+                </span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    coverage.mappedCount === coverage.totalCount
+                      ? 'bg-green-500'
+                      : coverage.mappedCount > 0
+                        ? 'bg-amber-500'
+                        : 'bg-red-400'
+                  }`}
+                  style={{
+                    width: `${coverage.coveragePercent}%`,
+                  }}
+                />
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-2xl font-bold text-gray-900">{coverage.coveragePercent}%</div>
+              <div className="text-xs text-gray-500">
+                Critical: {coverage.criticalMappedCount}/{coverage.criticalTotalCount}
+              </div>
+            </div>
+          </div>
+
+          {/* Category table */}
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Category
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      GL Account
+                    </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {coverage.categories.map((cat) => {
+                    const config = FNB_CATEGORY_CONFIG[cat.key as FnbBatchCategoryKey];
+                    return (
+                      <tr
+                        key={cat.key}
+                        className={`border-b border-gray-100 last:border-0 ${
+                          !cat.isMapped && cat.critical ? 'bg-red-500/5' : !cat.isMapped ? 'bg-amber-500/5' : ''
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-900">{cat.label}</span>
+                            {cat.critical && (
+                              <span className="inline-flex rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+                                Required
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">{cat.description}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          {config && (
+                            <AccountPicker
+                              value={cat.accountId}
+                              onChange={(v) => handleSave(cat.key as FnbBatchCategoryKey, v)}
+                              accountTypes={accountTypeFilter(config.mappingColumn)}
+                              className="w-56"
+                            />
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {cat.isMapped ? (
+                            <CheckCircle className="inline h-5 w-5 text-green-500" />
+                          ) : (
+                            <span
+                              className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                                cat.critical
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-amber-100 text-amber-700'
+                              }`}
+                            >
+                              {cat.critical ? 'Missing' : 'Not Mapped'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -5,3 +5,5 @@ export type { OrderDetail } from './get-order';
 export { getOrderByNumber } from './get-order-by-number';
 export { listHeldOrders } from './list-held-orders';
 export type { ListHeldOrdersInput, ListHeldOrdersResult, HeldOrderRow } from './list-held-orders';
+export { getReturnsByOrder } from './get-returns-by-order';
+export type { ReturnOrderSummary, ReturnLineSummary } from './get-returns-by-order';

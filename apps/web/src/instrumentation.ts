@@ -52,6 +52,7 @@ export async function register() {
       const inventory = await import('@oppsera/module-inventory');
       bus.subscribe('order.placed.v1', inventory.handleOrderPlaced);
       bus.subscribe('order.voided.v1', inventory.handleOrderVoided);
+      bus.subscribe('order.returned.v1', inventory.handleOrderReturned);
       bus.subscribe('catalog.item.created.v1', inventory.handleCatalogItemCreated);
       console.log('Registered inventory event consumers');
     } catch (e) {
@@ -86,7 +87,16 @@ export async function register() {
 
       const accounting = await import('@oppsera/module-accounting');
       bus.subscribe('tender.recorded.v1', accounting.handleTenderForAccounting);
+      bus.subscribe('order.voided.v1', accounting.handleOrderVoidForAccounting);
+      bus.subscribe('order.returned.v1', accounting.handleOrderReturnForAccounting);
       bus.subscribe('pms.folio.charge_posted.v1', accounting.handleFolioChargeForAccounting);
+      bus.subscribe('fnb.gl.posting_created.v1', accounting.handleFnbGlPostingForAccounting);
+      bus.subscribe('voucher.purchased.v1', accounting.handleVoucherPurchaseForAccounting);
+      bus.subscribe('voucher.redeemed.v1', accounting.handleVoucherRedemptionForAccounting);
+      bus.subscribe('voucher.expired.v1', accounting.handleVoucherExpirationForAccounting);
+      bus.subscribe('membership.billing.charged.v1', accounting.handleMembershipBillingForAccounting);
+      bus.subscribe('chargeback.received.v1', accounting.handleChargebackReceivedForAccounting);
+      bus.subscribe('chargeback.resolved.v1', accounting.handleChargebackResolvedForAccounting);
       console.log('Registered accounting event consumers');
     } catch (e) {
       console.error('Failed to initialize accounting:', e);

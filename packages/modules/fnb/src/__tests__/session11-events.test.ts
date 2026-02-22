@@ -33,6 +33,10 @@ describe('Session 11 Events', () => {
       totalDebitCents: 150000,
       totalCreditCents: 150000,
       lineCount: 8,
+      journalLines: [
+        { category: 'sales_revenue', description: 'Net sales', debitCents: 0, creditCents: 150000 },
+        { category: 'cash_on_hand', description: 'Cash collected', debitCents: 150000, creditCents: 0 },
+      ],
     };
     expect(postingCreated.totalDebitCents).toBe(150000);
 

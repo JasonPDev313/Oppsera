@@ -2,7 +2,7 @@ import { EventEnvelopeSchema } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
 import { generateUlid } from '@oppsera/shared';
 import { eq, and } from 'drizzle-orm';
-import { db, processedEvents } from '@oppsera/db';
+import { db, processedEvents, eventDeadLetters } from '@oppsera/db';
 import type { EventBus, EventHandler } from './bus';
 
 interface NamedHandler {
@@ -123,11 +123,22 @@ export class InMemoryEventBus implements EventBus {
           const delay = attempt * attempt * 100;
           await new Promise((resolve) => setTimeout(resolve, delay));
         } else {
+          const err = error instanceof Error ? error : new Error(String(error));
+
+          // Keep in-memory queue for backward compat
           this.deadLetterQueue.push({
             event,
-            error: error instanceof Error ? error : new Error(String(error)),
+            error: err,
             failedAt: new Date().toISOString(),
           });
+
+          // Persist to DB (best-effort — don't let DLQ insert failure crash the bus)
+          try {
+            await this.persistDeadLetter(event, consumerName, err, this.maxRetries);
+          } catch (dlqErr) {
+            console.error('Failed to persist dead letter to DB:', dlqErr);
+          }
+
           console.error(`Event moved to dead letter queue:`, {
             eventType: event.eventType,
             eventId: event.eventId,
@@ -136,6 +147,31 @@ export class InMemoryEventBus implements EventBus {
         }
       }
     }
+  }
+
+  private async persistDeadLetter(
+    event: EventEnvelope,
+    consumerName: string,
+    error: Error,
+    maxRetries: number,
+  ): Promise<void> {
+    const tenantId = (event.data as Record<string, unknown>)?.tenantId as string | undefined;
+
+    await db.insert(eventDeadLetters).values({
+      id: generateUlid(),
+      tenantId: tenantId ?? null,
+      eventId: event.eventId,
+      eventType: event.eventType,
+      eventData: event as unknown as Record<string, unknown>,
+      consumerName,
+      errorMessage: error.message,
+      errorStack: error.stack ?? null,
+      attemptCount: maxRetries,
+      maxRetries,
+      firstFailedAt: new Date(),
+      lastFailedAt: new Date(),
+      status: 'failed',
+    });
   }
 
   private async checkProcessed(

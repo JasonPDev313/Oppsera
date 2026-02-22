@@ -112,6 +112,16 @@ export const recallOrderSchema = z.object({
 });
 export type RecallOrderInput = z.infer<typeof recallOrderSchema>;
 
+export const createReturnSchema = z.object({
+  clientRequestId: z.string().min(1).max(128),
+  returnLines: z.array(z.object({
+    originalLineId: z.string().min(1),
+    qty: z.number().positive(),
+    reason: z.string().min(1).max(500),
+  })).min(1),
+});
+export type CreateReturnInput = z.input<typeof createReturnSchema>;
+
 export const setTaxExemptSchema = z.object({
   ...idempotencyMixin,
   taxExempt: z.boolean(),

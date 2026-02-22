@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => {
   const fetchOrderForMutation = vi.fn();
   const incrementVersion = vi.fn();
   const generateJournalEntry = vi.fn();
+  const getAccountingPostingApi = vi.fn();
 
   return {
     state,
@@ -45,6 +46,7 @@ const mocks = vi.hoisted(() => {
     fetchOrderForMutation,
     incrementVersion,
     generateJournalEntry,
+    getAccountingPostingApi,
   };
 });
 
@@ -105,6 +107,10 @@ vi.mock('@oppsera/shared', () => ({
 
 vi.mock('../helpers/gl-journal', () => ({
   generateJournalEntry: mocks.generateJournalEntry,
+}));
+
+vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
+  getAccountingPostingApi: mocks.getAccountingPostingApi,
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -176,6 +182,7 @@ describe('recordTender', () => {
     mocks.fetchOrderForMutation.mockReset();
     mocks.incrementVersion.mockReset();
     mocks.generateJournalEntry.mockReset();
+    mocks.getAccountingPostingApi.mockReset();
 
     // Reset test state
     mocks.state.existingTenders = [];
@@ -205,6 +212,15 @@ describe('recordTender', () => {
     mocks.generateJournalEntry.mockResolvedValue({
       entries: [],
       allocationSnapshot: { method: 'proportional', tenderRatio: 1, entries: [] },
+    });
+    // Default: legacy GL is enabled (AccountingPostingApi returns enableLegacyGlPosting: true)
+    mocks.getAccountingPostingApi.mockReturnValue({
+      getSettings: vi.fn().mockResolvedValue({
+        enableLegacyGlPosting: true,
+        defaultAPControlAccountId: null,
+        defaultARControlAccountId: null,
+        baseCurrency: 'USD',
+      }),
     });
   });
 
@@ -315,10 +331,55 @@ describe('recordTender', () => {
     expect(mocks.auditLog).toHaveBeenCalledWith(ctx, 'tender.recorded', 'order', 'order-1');
   });
 
-  it('should call generateJournalEntry for GL posting', async () => {
+  it('should call generateJournalEntry when legacy GL is enabled (default)', async () => {
     const ctx = createCtx();
     await recordTender(ctx, 'order-1', baseInput);
 
     expect(mocks.generateJournalEntry).toHaveBeenCalled();
+  });
+
+  it('should NOT call generateJournalEntry when legacy GL is disabled', async () => {
+    mocks.getAccountingPostingApi.mockReturnValue({
+      getSettings: vi.fn().mockResolvedValue({
+        enableLegacyGlPosting: false,
+        defaultAPControlAccountId: null,
+        defaultARControlAccountId: null,
+        baseCurrency: 'USD',
+      }),
+    });
+
+    const ctx = createCtx();
+    await recordTender(ctx, 'order-1', baseInput);
+
+    expect(mocks.generateJournalEntry).not.toHaveBeenCalled();
+  });
+
+  it('should fall back to legacy GL when AccountingPostingApi is not initialized', async () => {
+    mocks.getAccountingPostingApi.mockImplementation(() => {
+      throw new Error('AccountingPostingApi not initialized');
+    });
+
+    const ctx = createCtx();
+    await recordTender(ctx, 'order-1', baseInput);
+
+    // Should still call legacy GL because we fall back to true when API is unavailable
+    expect(mocks.generateJournalEntry).toHaveBeenCalled();
+  });
+
+  it('should include order-level totals in the emitted event', async () => {
+    const ctx = createCtx();
+    await recordTender(ctx, 'order-1', baseInput);
+
+    expect(mocks.buildEventFromContext).toHaveBeenCalledWith(
+      ctx,
+      'tender.recorded.v1',
+      expect.objectContaining({
+        orderTotal: 2000,
+        subtotal: 1800,
+        taxTotal: 200,
+        discountTotal: 0,
+        serviceChargeTotal: 0,
+      }),
+    );
   });
 });

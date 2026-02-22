@@ -1382,6 +1382,7 @@ export const fnbCloseBatchSummaries = pgTable(
     cashExpectedCents: integer('cash_expected_cents').notNull().default(0),
     cashCountedCents: integer('cash_counted_cents'),
     cashOverShortCents: integer('cash_over_short_cents'),
+    categoryVersion: integer('category_version').default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -1523,6 +1524,38 @@ export const fnbDepositSlips = pgTable(
       table.tenantId,
       table.depositDate,
     ),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// SESSION 44 — F&B GL Account Mappings
+// ═══════════════════════════════════════════════════════════════════
+
+export const fnbGlAccountMappings = pgTable(
+  'fnb_gl_account_mappings',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull(),
+    locationId: text('location_id').notNull(),
+    entityType: text('entity_type').notNull(), // 'department', 'sub_department', 'discount', 'comp', 'cash_over_short', etc.
+    entityId: text('entity_id').notNull(), // specific ID or 'default'
+    revenueAccountId: text('revenue_account_id'),
+    expenseAccountId: text('expense_account_id'),
+    liabilityAccountId: text('liability_account_id'),
+    assetAccountId: text('asset_account_id'),
+    contraRevenueAccountId: text('contra_revenue_account_id'),
+    memo: text('memo'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_gl_mappings').on(
+      table.tenantId,
+      table.locationId,
+      table.entityType,
+      table.entityId,
+    ),
+    index('idx_fnb_gl_mappings_tenant_location').on(table.tenantId, table.locationId),
   ],
 );
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AlertTriangle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { AccountPicker } from '@/components/accounting/account-picker';
 import { FormField } from '@/components/ui/form-field';
@@ -9,6 +10,7 @@ import { Select } from '@/components/ui/select';
 import { useAccountingSettings } from '@/hooks/use-accounting';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
+import type { BreakageRecognitionMethod } from '@/types/accounting';
 
 const MONTHS = [
   { value: '1', label: 'January' },
@@ -39,11 +41,23 @@ export default function SettingsContent() {
     defaultUndepositedFundsAccountId: null as string | null,
     defaultRetainedEarningsAccountId: null as string | null,
     defaultRoundingAccountId: null as string | null,
+    defaultTipsPayableAccountId: null as string | null,
+    defaultServiceChargeRevenueAccountId: null as string | null,
+    defaultCashOverShortAccountId: null as string | null,
+    defaultCompExpenseAccountId: null as string | null,
+    defaultReturnsAccountId: null as string | null,
+    defaultPayrollClearingAccountId: null as string | null,
     roundingToleranceCents: 5,
     enableCogsPosting: false,
     enableInventoryPosting: false,
     postByLocation: false,
     enableUndepositedFundsWorkflow: false,
+    cogsPostingMode: 'disabled' as 'disabled' | 'perpetual' | 'periodic',
+    periodicCogsMethod: 'weighted_average' as string,
+    recognizeBreakageAutomatically: true,
+    breakageRecognitionMethod: 'on_expiry' as BreakageRecognitionMethod,
+    breakageIncomeAccountId: null as string | null,
+    voucherExpiryEnabled: true,
   });
 
   useEffect(() => {
@@ -57,11 +71,23 @@ export default function SettingsContent() {
         defaultUndepositedFundsAccountId: settings.defaultUndepositedFundsAccountId,
         defaultRetainedEarningsAccountId: settings.defaultRetainedEarningsAccountId,
         defaultRoundingAccountId: settings.defaultRoundingAccountId,
+        defaultTipsPayableAccountId: settings.defaultTipsPayableAccountId ?? null,
+        defaultServiceChargeRevenueAccountId: settings.defaultServiceChargeRevenueAccountId ?? null,
+        defaultCashOverShortAccountId: settings.defaultCashOverShortAccountId ?? null,
+        defaultCompExpenseAccountId: settings.defaultCompExpenseAccountId ?? null,
+        defaultReturnsAccountId: settings.defaultReturnsAccountId ?? null,
+        defaultPayrollClearingAccountId: settings.defaultPayrollClearingAccountId ?? null,
         roundingToleranceCents: settings.roundingToleranceCents,
         enableCogsPosting: settings.enableCogsPosting,
         enableInventoryPosting: settings.enableInventoryPosting,
         postByLocation: settings.postByLocation,
         enableUndepositedFundsWorkflow: settings.enableUndepositedFundsWorkflow,
+        cogsPostingMode: settings.cogsPostingMode ?? 'disabled',
+        periodicCogsMethod: settings.periodicCogsMethod ?? 'weighted_average',
+        recognizeBreakageAutomatically: settings.recognizeBreakageAutomatically ?? true,
+        breakageRecognitionMethod: settings.breakageRecognitionMethod ?? 'on_expiry',
+        breakageIncomeAccountId: settings.breakageIncomeAccountId ?? null,
+        voucherExpiryEnabled: settings.voucherExpiryEnabled ?? true,
       });
     }
   }, [settings]);
@@ -80,11 +106,23 @@ export default function SettingsContent() {
           defaultUndepositedFundsAccountId: form.defaultUndepositedFundsAccountId,
           defaultRetainedEarningsAccountId: form.defaultRetainedEarningsAccountId,
           defaultRoundingAccountId: form.defaultRoundingAccountId,
+          defaultTipsPayableAccountId: form.defaultTipsPayableAccountId,
+          defaultServiceChargeRevenueAccountId: form.defaultServiceChargeRevenueAccountId,
+          defaultCashOverShortAccountId: form.defaultCashOverShortAccountId,
+          defaultCompExpenseAccountId: form.defaultCompExpenseAccountId,
+          defaultReturnsAccountId: form.defaultReturnsAccountId,
+          defaultPayrollClearingAccountId: form.defaultPayrollClearingAccountId,
           roundingToleranceCents: form.roundingToleranceCents,
           enableCogsPosting: form.enableCogsPosting,
           enableInventoryPosting: form.enableInventoryPosting,
           postByLocation: form.postByLocation,
           enableUndepositedFundsWorkflow: form.enableUndepositedFundsWorkflow,
+          cogsPostingMode: form.cogsPostingMode,
+          periodicCogsMethod: form.cogsPostingMode === 'periodic' ? form.periodicCogsMethod : undefined,
+          recognizeBreakageAutomatically: form.recognizeBreakageAutomatically,
+          breakageRecognitionMethod: form.breakageRecognitionMethod,
+          breakageIncomeAccountId: form.breakageIncomeAccountId,
+          voucherExpiryEnabled: form.voucherExpiryEnabled,
         }),
       });
       toast.success('Settings saved');
@@ -187,6 +225,36 @@ export default function SettingsContent() {
           </div>
         </section>
 
+        {/* Operations Accounts */}
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Operations Accounts</h2>
+          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-4">
+            {[
+              { key: 'defaultTipsPayableAccountId', label: 'Tips Payable', help: 'Liability account for collected tips pending payout' },
+              { key: 'defaultServiceChargeRevenueAccountId', label: 'Service Charge Revenue', help: 'Revenue account for automatic service charges' },
+              { key: 'defaultCashOverShortAccountId', label: 'Cash Over/Short', help: 'Expense account for drawer count variances at close' },
+              { key: 'defaultCompExpenseAccountId', label: 'Comp Expense', help: 'Expense account for manager comps (separate from discounts)' },
+              { key: 'defaultReturnsAccountId', label: 'Returns & Allowances', help: 'Contra-revenue account for product returns' },
+              { key: 'defaultPayrollClearingAccountId', label: 'Payroll Clearing', help: 'Clearing account for tip payouts via payroll' },
+            ].map(({ key, label, help }) => (
+              <FormField key={key} label={label} helpText={help}>
+                <div className="flex items-center gap-2">
+                  <AccountPicker
+                    value={form[key as keyof typeof form] as string | null}
+                    onChange={(v) => setForm((f) => ({ ...f, [key]: v }))}
+                    className="flex-1"
+                  />
+                  {!form[key as keyof typeof form] && (
+                    <span title="Not configured">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+                    </span>
+                  )}
+                </div>
+              </FormField>
+            ))}
+          </div>
+        </section>
+
         {/* Posting Options */}
         <section className="space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Posting Options</h2>
@@ -202,8 +270,44 @@ export default function SettingsContent() {
               />
             </FormField>
 
+            <FormField label="COGS Posting Mode" helpText="How cost of goods sold is recorded in the general ledger">
+              <div className="space-y-2">
+                {([
+                  { value: 'disabled', label: 'Disabled', desc: 'No COGS posting' },
+                  { value: 'perpetual', label: 'Perpetual', desc: 'COGS posted per-tender at time of sale' },
+                  { value: 'periodic', label: 'Periodic', desc: 'COGS calculated at period-end' },
+                ] as const).map(({ value, label, desc }) => (
+                  <label key={value} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="cogsPostingMode"
+                      checked={form.cogsPostingMode === value}
+                      onChange={() => setForm((f) => ({ ...f, cogsPostingMode: value }))}
+                      className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700">
+                      {label} <span className="text-gray-400">— {desc}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </FormField>
+
+            {form.cogsPostingMode === 'periodic' && (
+              <FormField label="Periodic Calculation Method">
+                <Select
+                  options={[
+                    { value: 'weighted_average', label: 'Weighted Average' },
+                    { value: 'fifo', label: 'FIFO' },
+                    { value: 'standard', label: 'Standard Cost' },
+                  ]}
+                  value={form.periodicCogsMethod}
+                  onChange={(v) => setForm((f) => ({ ...f, periodicCogsMethod: v as string }))}
+                />
+              </FormField>
+            )}
+
             {[
-              { key: 'enableCogsPosting', label: 'Enable COGS Posting', help: 'Auto-post cost of goods sold when sales are recorded' },
               { key: 'enableInventoryPosting', label: 'Enable Inventory Posting', help: 'Auto-post inventory asset changes when stock moves' },
               { key: 'postByLocation', label: 'Post by Location', help: 'Include location dimension on journal lines for multi-location reporting' },
               { key: 'enableUndepositedFundsWorkflow', label: 'Enable Undeposited Funds', help: 'POS → Undeposited Funds → Bank deposit workflow' },
@@ -221,6 +325,86 @@ export default function SettingsContent() {
                 </div>
               </label>
             ))}
+          </div>
+        </section>
+
+        {/* Vouchers / Gift Cards */}
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Vouchers / Gift Cards</h2>
+          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-4">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.voucherExpiryEnabled}
+                onChange={(e) => setForm((f) => ({ ...f, voucherExpiryEnabled: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Allow voucher expiration</span>
+                <p className="text-xs text-gray-500">When disabled, vouchers never expire (required in some jurisdictions, e.g. California)</p>
+              </div>
+            </label>
+
+            {!form.voucherExpiryEnabled && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-400/40 bg-amber-50/50 p-3">
+                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                <p className="text-xs text-amber-800">
+                  With expiration disabled, vouchers will remain as outstanding liabilities indefinitely. No breakage income will be recognized.
+                </p>
+              </div>
+            )}
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.recognizeBreakageAutomatically}
+                onChange={(e) => setForm((f) => ({ ...f, recognizeBreakageAutomatically: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Automatically recognize breakage income</span>
+                <p className="text-xs text-gray-500">When disabled, expired vouchers queue for manual review before GL posting</p>
+              </div>
+            </label>
+
+            <FormField label="Recognition Method" helpText="How breakage income is recognized when a voucher expires">
+              <div className="space-y-2">
+                {([
+                  { value: 'on_expiry', label: 'On Expiry', desc: 'Full balance recognized when voucher expires' },
+                  { value: 'proportional', label: 'Proportional', desc: 'Recognized over voucher life (GAAP preferred)' },
+                  { value: 'manual_only', label: 'Manual Only', desc: 'Never auto-recognize; always queue for review' },
+                ] as const).map(({ value, label, desc }) => (
+                  <label key={value} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="breakageRecognitionMethod"
+                      checked={form.breakageRecognitionMethod === value}
+                      onChange={() => setForm((f) => ({ ...f, breakageRecognitionMethod: value }))}
+                      className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm text-gray-700">
+                      {label} <span className="text-gray-400">— {desc}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </FormField>
+
+            <FormField label="Breakage Income Account" helpText="GL account for breakage income recognition (overrides per-voucher-type setting)">
+              <div className="flex items-center gap-2">
+                <AccountPicker
+                  value={form.breakageIncomeAccountId}
+                  onChange={(v) => setForm((f) => ({ ...f, breakageIncomeAccountId: v }))}
+                  className="flex-1"
+                  accountTypes={['revenue']}
+                />
+                {!form.breakageIncomeAccountId && (
+                  <span title="Falls back to per-voucher-type account">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+                  </span>
+                )}
+              </div>
+            </FormField>
           </div>
         </section>
 

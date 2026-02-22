@@ -55,6 +55,7 @@ export const glAccounts = pgTable(
     isActive: boolean('is_active').notNull().default(true),
     isControlAccount: boolean('is_control_account').notNull().default(false),
     controlAccountType: text('control_account_type'), // 'ap','ar','sales_tax','undeposited_funds','bank', null
+    isContraAccount: boolean('is_contra_account').notNull().default(false),
     allowManualPosting: boolean('allow_manual_posting').notNull().default(true),
     description: text('description'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -81,6 +82,9 @@ export const glJournalEntries = pgTable(
     businessDate: date('business_date').notNull(),
     postingPeriod: text('posting_period').notNull(), // 'YYYY-MM'
     currency: text('currency').notNull().default('USD'),
+    // ── Multi-currency provisioning (migration 0121) ──
+    transactionCurrency: text('transaction_currency').notNull().default('USD'),
+    exchangeRate: numeric('exchange_rate', { precision: 12, scale: 6 }).notNull().default('1.000000'),
     status: text('status').notNull(), // 'draft','posted','voided'
     memo: text('memo'),
     postedAt: timestamp('posted_at', { withTimezone: true }),
@@ -118,6 +122,10 @@ export const glJournalLines = pgTable(
     departmentId: text('department_id'),
     customerId: text('customer_id'),
     vendorId: text('vendor_id'),
+    profitCenterId: text('profit_center_id'),
+    subDepartmentId: text('sub_department_id'),
+    terminalId: text('terminal_id'),
+    channel: text('channel'),
     memo: text('memo'),
     sortOrder: integer('sort_order').notNull().default(0),
   },
@@ -157,6 +165,24 @@ export const accountingSettings = pgTable('accounting_settings', {
   enableInventoryPosting: boolean('enable_inventory_posting').notNull().default(false),
   postByLocation: boolean('post_by_location').notNull().default(true),
   enableUndepositedFundsWorkflow: boolean('enable_undeposited_funds_workflow').notNull().default(false),
+  enableLegacyGlPosting: boolean('enable_legacy_gl_posting').notNull().default(true),
+  defaultTipsPayableAccountId: text('default_tips_payable_account_id'),
+  defaultServiceChargeRevenueAccountId: text('default_service_charge_revenue_account_id'),
+  defaultCashOverShortAccountId: text('default_cash_over_short_account_id'),
+  defaultCompExpenseAccountId: text('default_comp_expense_account_id'),
+  defaultReturnsAccountId: text('default_returns_account_id'),
+  defaultPayrollClearingAccountId: text('default_payroll_clearing_account_id'),
+  // ── COGS posting mode (migration 0115) ──
+  cogsPostingMode: text('cogs_posting_mode').notNull().default('disabled'), // 'disabled' | 'perpetual' | 'periodic'
+  periodicCogsLastCalculatedDate: date('periodic_cogs_last_calculated_date'),
+  periodicCogsMethod: text('periodic_cogs_method').default('weighted_average'), // 'weighted_average' | 'fifo' | 'standard'
+  // ── Breakage income policy (migration 0120) ──
+  recognizeBreakageAutomatically: boolean('recognize_breakage_automatically').notNull().default(true),
+  breakageRecognitionMethod: text('breakage_recognition_method').notNull().default('on_expiry'), // 'on_expiry' | 'proportional' | 'manual_only'
+  breakageIncomeAccountId: text('breakage_income_account_id'),
+  voucherExpiryEnabled: boolean('voucher_expiry_enabled').notNull().default(true),
+  // ── Multi-currency provisioning (migration 0121) ──
+  supportedCurrencies: text('supported_currencies').array().notNull().default(sql`'{USD}'`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -284,5 +310,70 @@ export const financialStatementLayoutTemplates = pgTable(
   },
   (table) => [
     index('idx_financial_stmt_layout_templates_key').on(table.templateKey),
+  ],
+);
+
+// ── periodic_cogs_calculations (migration 0115) ─────────────────
+// Period-end COGS calculations for periodic inventory method.
+export const periodicCogsCalculations = pgTable(
+  'periodic_cogs_calculations',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id'),
+    periodStart: date('period_start').notNull(),
+    periodEnd: date('period_end').notNull(),
+    status: text('status').notNull().default('draft'), // 'draft' | 'posted'
+    calculationMethod: text('calculation_method').notNull(), // 'weighted_average' | 'fifo' | 'standard'
+    beginningInventoryDollars: numeric('beginning_inventory_dollars', { precision: 12, scale: 2 }).notNull(),
+    purchasesDollars: numeric('purchases_dollars', { precision: 12, scale: 2 }).notNull(),
+    endingInventoryDollars: numeric('ending_inventory_dollars', { precision: 12, scale: 2 }).notNull(),
+    cogsDollars: numeric('cogs_dollars', { precision: 12, scale: 2 }).notNull(),
+    detail: jsonb('detail'), // sub-department breakdown for GL posting
+    glJournalEntryId: text('gl_journal_entry_id'),
+    calculatedAt: timestamp('calculated_at', { withTimezone: true }).notNull().defaultNow(),
+    postedAt: timestamp('posted_at', { withTimezone: true }),
+    postedBy: text('posted_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_periodic_cogs_tenant_status').on(table.tenantId, table.status),
+    index('idx_periodic_cogs_tenant_period').on(table.tenantId, table.periodStart, table.periodEnd),
+  ],
+);
+
+// ── gl_recurring_templates (migration 0121) ──────────────────
+// Recurring journal entry templates for monthly accruals, depreciation, etc.
+export const glRecurringTemplates = pgTable(
+  'gl_recurring_templates',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    name: text('name').notNull(),
+    description: text('description'),
+    frequency: text('frequency').notNull(), // 'monthly' | 'quarterly' | 'annually'
+    dayOfPeriod: integer('day_of_period').notNull().default(1), // 1-28, 0=last day
+    startDate: date('start_date').notNull(),
+    endDate: date('end_date'),
+    isActive: boolean('is_active').notNull().default(true),
+    lastPostedPeriod: text('last_posted_period'), // 'YYYY-MM'
+    nextDueDate: date('next_due_date'),
+    templateLines: jsonb('template_lines').notNull().default([]),
+    sourceModule: text('source_module').notNull().default('recurring'),
+    createdBy: text('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_gl_recurring_templates_tenant').on(table.tenantId),
+    index('idx_gl_recurring_templates_active_due')
+      .on(table.tenantId, table.isActive, table.nextDueDate)
+      .where(sql`is_active = true`),
+    uniqueIndex('uq_gl_recurring_templates_tenant_name').on(table.tenantId, table.name),
   ],
 );

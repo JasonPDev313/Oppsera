@@ -77,7 +77,9 @@ vi.mock('@oppsera/db', () => ({
   withTenant: async (_tenantId: string, cb: (tx: unknown) => Promise<unknown>) => {
     return mockTransaction(cb);
   },
-  sql: vi.fn((...args: unknown[]) => args),
+  sql: Object.assign(vi.fn((...args: unknown[]) => args), {
+    join: vi.fn((fragments: unknown[], _sep?: unknown) => fragments),
+  }),
   eventOutbox: {
     id: 'eventOutbox.id',
     tenantId: 'eventOutbox.tenantId',
@@ -94,6 +96,15 @@ vi.mock('@oppsera/db', () => ({
     eventId: 'processedEvents.eventId',
     consumerName: 'processedEvents.consumerName',
     processedAt: 'processedEvents.processedAt',
+  },
+  eventDeadLetters: {
+    id: 'eventDeadLetters.id',
+    tenantId: 'eventDeadLetters.tenantId',
+    eventId: 'eventDeadLetters.eventId',
+    eventType: 'eventDeadLetters.eventType',
+    eventData: 'eventDeadLetters.eventData',
+    consumerName: 'eventDeadLetters.consumerName',
+    status: 'eventDeadLetters.status',
   },
   entitlements: { tenantId: 'entitlements.tenantId' },
   memberships: { tenantId: 'memberships.tenantId', status: 'memberships.status' },

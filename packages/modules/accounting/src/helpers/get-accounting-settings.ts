@@ -20,6 +20,21 @@ export interface AccountingSettings {
   enableInventoryPosting: boolean;
   postByLocation: boolean;
   enableUndepositedFundsWorkflow: boolean;
+  enableLegacyGlPosting: boolean;
+  defaultTipsPayableAccountId: string | null;
+  defaultServiceChargeRevenueAccountId: string | null;
+  defaultCashOverShortAccountId: string | null;
+  defaultCompExpenseAccountId: string | null;
+  defaultReturnsAccountId: string | null;
+  defaultPayrollClearingAccountId: string | null;
+  cogsPostingMode: string; // 'disabled' | 'perpetual' | 'periodic'
+  periodicCogsLastCalculatedDate: string | null;
+  periodicCogsMethod: string | null;
+  // Breakage income policy (migration 0120)
+  recognizeBreakageAutomatically: boolean;
+  breakageRecognitionMethod: string; // 'on_expiry' | 'proportional' | 'manual_only'
+  breakageIncomeAccountId: string | null;
+  voucherExpiryEnabled: boolean;
 }
 
 /**
@@ -59,5 +74,19 @@ export async function getAccountingSettings(
     enableInventoryPosting: row.enableInventoryPosting,
     postByLocation: row.postByLocation,
     enableUndepositedFundsWorkflow: row.enableUndepositedFundsWorkflow,
+    enableLegacyGlPosting: row.enableLegacyGlPosting,
+    defaultTipsPayableAccountId: row.defaultTipsPayableAccountId ?? null,
+    defaultServiceChargeRevenueAccountId: row.defaultServiceChargeRevenueAccountId ?? null,
+    defaultCashOverShortAccountId: row.defaultCashOverShortAccountId ?? null,
+    defaultCompExpenseAccountId: row.defaultCompExpenseAccountId ?? null,
+    defaultReturnsAccountId: row.defaultReturnsAccountId ?? null,
+    defaultPayrollClearingAccountId: row.defaultPayrollClearingAccountId ?? null,
+    cogsPostingMode: row.cogsPostingMode,
+    periodicCogsLastCalculatedDate: row.periodicCogsLastCalculatedDate ?? null,
+    periodicCogsMethod: row.periodicCogsMethod ?? null,
+    recognizeBreakageAutomatically: row.recognizeBreakageAutomatically,
+    breakageRecognitionMethod: row.breakageRecognitionMethod,
+    breakageIncomeAccountId: row.breakageIncomeAccountId ?? null,
+    voucherExpiryEnabled: row.voucherExpiryEnabled,
   };
 }

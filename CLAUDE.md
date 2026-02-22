@@ -513,22 +513,51 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **New tax test scenarios**: 9+ test cases in `test/business-logic/unit/calculations/tax.test.ts` covering inclusive/exclusive, compound, rounding, cart totals
 
 - **Accounting Core Module** (Sessions 28-29, 32, 34):
-  - **12 schema tables**: gl_accounts, gl_classifications, gl_journal_entries, gl_journal_lines, gl_journal_number_counters, gl_account_templates, gl_classification_templates, accounting_settings, gl_unmapped_events, accounting_close_periods, financial_statement_layouts, financial_statement_layout_templates
+  - **14 schema tables**: gl_accounts, gl_classifications, gl_journal_entries, gl_journal_lines, gl_journal_number_counters, gl_account_templates, gl_classification_templates, accounting_settings, gl_unmapped_events, accounting_close_periods, financial_statement_layouts, financial_statement_layout_templates, bank_reconciliations, bank_reconciliation_items
   - **4 mapping tables**: sub_department_gl_defaults, payment_type_gl_defaults, tax_group_gl_defaults, bank_accounts
-  - **Migrations**: 0071-0075 (GL core, mappings, bank accounts, close periods), 0077 (financial statements), 0084 (order_lines GL columns: sub_department_id, tax_group_id)
-  - **15 commands**: postJournalEntry, postDraftEntry, voidJournalEntry, updateAccountingSettings, lockAccountingPeriod, createGlAccount, updateGlAccount, createGlClassification, updateGlClassification, saveSubDepartmentDefaults, savePaymentTypeDefaults, saveTaxGroupDefaults, saveBankAccount, bootstrapTenantAccounting, updateClosePeriod, closeAccountingPeriod, saveStatementLayout, generateRetainedEarnings
-  - **22 queries**: getAccountBalances, getJournalEntry, listJournalEntries, listGlAccounts, getTrialBalance, getGlDetailReport, getGlSummary, listUnmappedEvents, reconcileSubledger, listBankAccounts, getMappingCoverage, getCloseChecklist, listClosePeriods, getProfitAndLoss, getBalanceSheet, getSalesTaxLiability, getCashFlowSimplified, getPeriodComparison, getFinancialHealthSummary, listStatementLayouts, getSubDepartmentMappings, getItemsBySubDepartment
-  - **2 adapters**: pos-posting-adapter (tender.recorded.v1 → GL), legacy-bridge-adapter (migration script)
+  - **2 recurring tables**: recurring_journal_templates, recurring_journal_template_lines
+  - **Migrations**: 0071-0075 (GL core, mappings, bank accounts, close periods), 0077 (financial statements), 0084 (order_lines GL columns: sub_department_id, tax_group_id), 0099-0107 (legacy GL gate, tips/svc charge settings, GL dimensions, COA templates, line-item returns, F&B GL mappings, voucher GL audit, membership GL, chargebacks), 0119-0122 (multi-currency + recurring journals, reconciliation waterfall, bank reconciliation)
+  - **22 commands**: postJournalEntry, postDraftEntry, voidJournalEntry, updateAccountingSettings, lockAccountingPeriod, createGlAccount, updateGlAccount, createGlClassification, updateGlClassification, saveSubDepartmentDefaults, savePaymentTypeDefaults, saveTaxGroupDefaults, saveBankAccount, bootstrapTenantAccounting, updateClosePeriod, closeAccountingPeriod, saveStatementLayout, generateRetainedEarnings, startBankReconciliation, clearReconciliationItems, addBankAdjustment, completeBankReconciliation
+  - **26 queries**: getAccountBalances, getJournalEntry, listJournalEntries, listGlAccounts, getTrialBalance, getGlDetailReport, getGlSummary, listUnmappedEvents, reconcileSubledger, listBankAccounts, getMappingCoverage, getCloseChecklist, listClosePeriods, getProfitAndLoss, getBalanceSheet, getSalesTaxLiability, getCashFlowSimplified, getPeriodComparison, getFinancialHealthSummary, listStatementLayouts, getSubDepartmentMappings, getItemsBySubDepartment, getReconciliationWaterfall, listBankReconciliations, getBankReconciliation, getAuditCoverage
+  - **9 adapters**: pos-posting-adapter, void-posting-adapter, return-posting-adapter, fnb-posting-adapter, voucher-posting-adapter, membership-posting-adapter, chargeback-posting-adapter, folio-posting-adapter, legacy-bridge-adapter
   - **Helpers**: bootstrapTenantCoa, resolveMapping, generateJournalNumber, validateJournal, resolveNormalBalance, getAccountingSettings, catalogGlResolution (resolveRevenueAccountForSubDepartment, expandPackageForGL)
   - **~43 API routes** under `/api/v1/accounting/`
-  - **154 tests** across 14 test files
+  - **278 tests** across 21 test files
   - Posting engine: double-entry validation, period locking, control account restrictions, idempotent posting via sourceReferenceId
   - COA bootstrap: template-based (golf/retail/restaurant/hybrid defaults), creates classifications → accounts → settings atomically
   - Financial statements: P&L (date range, comparative, location-filterable), Balance Sheet (as-of with retained earnings), Cash Flow (simplified), Period Comparison, Financial Health Summary
   - Sales tax liability report from GL
-  - Close workflow: period status tracking, live checklist (drafts, unmapped, trial balance, AP/AR reconciliation)
+  - Close workflow: period status tracking, live checklist (drafts, unmapped, trial balance, AP/AR reconciliation, legacy GL warning, tips/svc charge config, sub-dept mapping completeness)
   - POS adapter: tender → GL posting with subdepartment-resolved revenue, package component splitting, never blocks tenders, logs unmapped events
   - **Catalog→GL pipeline**: `order_lines.sub_department_id` + `tax_group_id` populated at addLineItem time, `tender.recorded.v1` event enriched with `lines[]` (subDepartmentId, taxGroupId, taxAmountCents, packageComponents), POS adapter splits package revenue across component subdepartments via `allocatedRevenueCents`
+  - **Accounting Alignment Remediation** (Sessions 37-48):
+    - **Session 37**: Legacy GL gate (`enableLegacyGlPosting` setting), proportional allocation for split tenders, remainder method for final tender
+    - **Session 38**: Complete GL categories — discounts, tips (→ Tips Payable), service charges (→ Service Charge Revenue), processing fees (→ fee expense), returns foundation. New settings: `defaultTipsPayableAccountId`, `defaultServiceChargeRevenueAccountId`
+    - **Session 39**: Void GL reversal (`void-posting-adapter.ts`), legacy void gating behind `enableLegacyGlPosting`
+    - **Session 40**: GL journal line dimensions — `profitCenterId`, `subDepartmentId`, `terminalId`, `channel` on `gl_journal_lines`
+    - **Session 41**: Close checklist enhancements (legacy GL warning, tips/svc charge config, sub-dept mapping completeness, POS legacy reconciliation)
+    - **Session 42**: COA templates updated (Tips Payable 2160, Service Charge Revenue 4500), `bootstrapTenantCoa` wires new accounts, backfill script for existing tenants
+    - **Session 43**: Line-item refunds (`createReturn` command, `return-posting-adapter.ts`, `recordRefund` command, inventory reversal)
+    - **Session 44**: F&B GL wiring (`fnb-posting-adapter.ts` consumes `fnb.gl.posting_created.v1`, `fnb_gl_account_mappings` table, category→account resolution)
+    - **Session 45**: Voucher deferred revenue (purchase: Dr Cash Cr Liability, redeem: Dr Liability Cr Revenue, expire: Dr Liability Cr Breakage Income)
+    - **Session 46**: Membership GL (Dr AR Cr Deferred Revenue), `billingAccountId` on orders, AR bridge consumer
+    - **Session 47**: Chargeback support (`chargebacks` table, `recordChargeback`/`resolveChargeback` commands, GL posting: received/won/lost lifecycle)
+    - **Session 48**: Posting matrix validation tests (26 tests validating debits=credits across all adapters), integration test scaffolding
+    - **9 new migrations**: 0099-0107 (legacy GL gate, tips/svc charge settings, GL dimensions, COA templates, line-item returns, F&B GL mappings, voucher GL audit, membership GL, chargebacks)
+    - **7 new commands**: purchaseVoucher, redeemVoucher, expireVouchers, recordChargeback, resolveChargeback, createReturn, recordRefund
+    - **7 new adapters**: void, return, fnb, voucher (3 handlers), membership, chargeback (2 handlers)
+    - All adapters follow never-throw pattern — GL failures never block business operations
+  - **Accounting Close Hardening** (ACCT-CLOSE sessions 01-08):
+    - **ACCT-CLOSE-01**: Drawer session opening balance enforcement — validates `openingBalanceCents >= 0` in `openDrawerSession`, terminal availability check (prevents double-open on same terminal)
+    - **ACCT-CLOSE-02**: Breakage income configurability — `breakage_income_settings` table (threshold days, recognition method, account ID), configurable per tenant
+    - **ACCT-CLOSE-03**: Reconciliation summary dashboard — chain-of-custody waterfall (`getReconciliationWaterfall`) tracing orders → tenders → settlements → deposits with variance at each stage. Two-tab layout: "Chain of Custody" + "Subledger Reconciliation"
+    - **ACCT-CLOSE-04**: Audit log consistency pass — `getAuditCoverage()` diagnostic, mandatory audit for all money-moving commands, `auditLogSystem()` for event consumers
+    - **ACCT-CLOSE-05**: Permissions matrix — fine-grained accounting permissions (`accounting.bank_reconciliation.manage`, `accounting.recurring.manage`, etc.), seed updates for all 6 system roles
+    - **ACCT-CLOSE-06**: Multi-currency schema prep (`transaction_currency`, `exchange_rate` on GL entries), recurring journal templates (`recurring_journal_templates` + `_lines` tables), `createRecurringTemplate`/`generateFromTemplate` commands
+    - **ACCT-CLOSE-07**: Bank reconciliation — `bank_reconciliations` + `bank_reconciliation_items` tables, start/clear/adjust/complete workflow, auto-populate unreconciled GL lines, difference-to-zero validation, full frontend workspace with checkbox-based clearing
+    - **ACCT-CLOSE-08**: Documentation — V1 conventions for till sharing (strict mode), offline behavior (read-only), kitchen waste tracking (boolean only), multi-currency roadmap, stored value UX spec (`docs/specs/STORED-VALUE-UX.md`)
+    - **4 new migrations**: 0119-0122
+    - **Bank Reconciliation frontend**: Banking section "Bank Rec" tab, `ReconciliationWorkspace` component with outstanding/cleared item lists, difference indicator, summary cards, `StartReconciliationDialog`, `AddAdjustmentDialog`
   - **GL Account Mapping Frontend**: `/accounting/mappings` page with 4-tab layout (Sub-Departments, Payment Types, Tax Groups, Unmapped Events)
     - Mapping coverage card: progress bars with mapped/total counts per category + overall percentage
     - Sub-department mappings: enriched query joining catalog_categories + GL defaults + GL accounts, supports both 2-level (departments) and 3-level (sub-departments) catalog hierarchies
@@ -595,9 +624,28 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **Phase 10 — Architecture**: ~18 API routes (GL mappings/config/post/reverse/retry/unposted/reconciliation, print jobs/routing-rules, reports), `useFnbSettings`/`useFnbReports` hooks, sidebar nav (entitlement-gated)
   - **Phase 11 — Responsive**: KDS large display (1280px+: 240px cards, 32px timer, 80px bump), handheld (<640px: horizontal rails, hidden sidebars, 2-col grids, wrapped flex)
   - **Phase 12 — Integration Tests**: 16 integration tests (4 flows), 45 API contract tests, 38 store tests = 99 total F&B frontend tests
+- **UXOPS Operations** (Sessions UXOPS-01 through UXOPS-14):
+  - **Migrations 0108–0118**: 11 migrations for drawer sessions, retail close batches, comp events, returns contra-accounts, payment settlements, tip payouts, tax jurisdiction enrichment, COGS posting mode, F&B batch category version, event dead letters, deposit slips
+  - **6 Drizzle schema files**: `drawer-sessions.ts`, `retail-close.ts`, `comp-events.ts`, `payment-settlements.ts`, `tip-payouts.ts`, `deposit-slips.ts` in `packages/db/src/schema/`
+  - **3 core submodules**: `drawer-sessions/` (open/close/events, 9 files), `pos-ops/` (comp/void line, 6 files), `retail-close/` (start/lock/reconcile/post close + Z-report, 10 files) in `packages/core/src/`
+  - **Dead letter queue**: `packages/core/src/events/dead-letter-service.ts` — persist failed events to DB, admin retry/resolve/discard
+  - **6 GL posting adapters**: `void-posting-adapter.ts`, `return-posting-adapter.ts`, `fnb-posting-adapter.ts`, `voucher-posting-adapter.ts`, `membership-posting-adapter.ts`, `chargeback-posting-adapter.ts` in `packages/modules/accounting/src/adapters/`
+  - **10 accounting commands**: settlement lifecycle (create, import CSV, match, post, void), tip payouts (create, void), COGS (calculate, post), deposit slips (create, mark deposited, reconcile)
+  - **16 accounting queries**: settlements (list, get, unmatched), tips (balances, history), tax remittance, COGS (list, comparison), operations (summary, daily reconciliation, cash dashboard, tender audit trail), F&B mapping coverage, location close status, deposit slips
+  - **Payments additions**: voucher commands (purchase, redeem, expire), chargeback commands (record, resolve)
+  - **Orders addition**: `createReturn` command for line-item returns with negative qty tracking
+  - **42 API routes**: settlements (8), deposits (4), operations (4), COGS (2), close status (1), drawer sessions (4), retail close (5), pos-ops (3), returns (2), tax remittance (3), tip payouts (3), plus reconciliation (3)
+  - **10 frontend pages**: settlements, deposits, tip payouts, COGS, tax remittance, operations dashboard, close dashboard, tender audit detail, return entry, POS close
+  - **9 frontend hooks**: `use-settlements`, `use-tip-payouts`, `use-retail-close`, `use-deposits`, `use-operations`, `use-tax-remittance`, `use-periodic-cogs`, `use-close-status`, `use-dead-letters`
+  - **10 components**: ImportSettlementDialog, SettlementDetailPanel, TipPayoutDialog, CloseShiftDialog, CompDialog, DrawerEventDialog, OpenShiftDialog, VoidLineDialog, ManagerPinModal (shared), CommandPalette
+  - **Shift management promoted**: `use-shift.ts` rewritten from localStorage-only to server-persisted drawer sessions with localStorage fallback
+  - **Admin dead letter UI**: `/events` page in admin app with dead letter list, detail, retry/resolve/discard
+  - **Sidebar navigation**: extracted to `apps/web/src/lib/navigation.ts`, Operations link added, CommandPalette (Ctrl+K)
+  - **Close checklist extended**: 8 new items (#11-#18): drawer sessions, retail/F&B close batches, tip balances, deposit slips, dead letter events, card settlements, COGS posting
+  - **309 accounting tests**: 31 UXOPS posting matrix tests validating GL balance for retail close, comp, void-line, return, settlement, tip payout, periodic COGS, deposit slip + end-to-end lifecycle flows + idempotency
 
 ### Test Coverage
-3180+ tests: 134 core + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 621 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 154 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 114 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
+3330+ tests: 134 core + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 621 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -759,6 +807,28 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - `0096_unindexed_foreign_keys.sql`: adds missing indexes on catalog_items.tax_category_id, ap_bills.payment_terms_id, customer_auth_accounts.customer_id.
   - `0097_admin_user_management.sql`: extends platform_admins, adds platform_admin_roles + permissions + assignments + audit_log tables.
   - `0098_entitlement_access_modes.sql`: adds access_mode to entitlements, creates entitlement_change_log and module_templates tables.
+- **Migrations 0099–0107** (Accounting Alignment Sessions 37–48):
+  - `0099_legacy_gl_gate.sql`: `enable_legacy_gl_posting` on accounting_settings
+  - `0100_accounting_tips_service_charge.sql`: tips payable + service charge GL account defaults
+  - `0101_gl_line_dimensions.sql`: profitCenterId, subDepartmentId, terminalId, channel on gl_journal_lines
+  - `0102_coa_template_accounts.sql`: Tips Payable (2160) + Service Charge Revenue (4500) templates
+  - `0103_line_item_returns.sql`: return_type, return_order_id on orders; original_line_id on order_lines
+  - `0104_fnb_gl_account_mappings.sql`: fnb_gl_account_mappings table for F&B GL resolution
+  - `0105_voucher_gl_audit.sql`: gl_journal_entry_id on voucher tables
+  - `0106_membership_gl_ar_billing.sql`: revenue/deferred GL on membership_plans; billing_account_id on orders
+  - `0107_chargebacks.sql`: chargebacks table (received → under_review → won/lost)
+- **Migrations 0108–0118** (UXOPS-01 through UXOPS-11):
+  - `0108_drawer_sessions.sql`: drawer_sessions + drawer_session_events tables
+  - `0109_retail_close_batches.sql`: retail_close_batches + tender/tax breakdown tables
+  - `0110_comp_events.sql`: comp_events + comp GL defaults
+  - `0111_returns_contra_accounts.sql`: is_contra_account on gl_accounts + returns account default
+  - `0112_payment_settlements.sql`: payment_settlements + payment_settlement_lines
+  - `0113_tip_payouts.sql`: tip_payouts + tip_payout_details
+  - `0114_tax_jurisdiction_enrichment.sql`: jurisdiction columns on tax_rates
+  - `0115_cogs_posting_mode.sql`: COGS tri-state on settings + periodic_cogs_calculations table
+  - `0116_fnb_batch_category_version.sql`: category_version on fnb_close_batch_summaries
+  - `0117_event_dead_letters.sql`: event_dead_letters table
+  - `0118_deposit_slips.sql`: deposit_slips table
 
 ### What's Next
 - ~~F&B POS frontend wiring~~ ✓ DONE (Sessions 17-28: 12 phases — design tokens, floor plan, tab/check, menu, KDS/expo, split checks, payment/tips, manager/host/close-batch, real-time, architecture, responsive, integration tests)
@@ -775,7 +845,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
-- Run migrations 0066-0098 on dev DB
+- Run migrations 0066-0118 on dev DB
 - Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
 - For existing tenants: run `tools/scripts/add-semantic-entitlement.ts` to grant semantic access
 - ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
@@ -805,8 +875,44 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~F&B POS CSS-mount for floor/tab views~~ ✓ DONE
 - ~~Order metadata support (JSONB)~~ ✓ DONE
 - ~~Seed: site→venue hierarchy + profit centers + terminals~~ ✓ DONE
-- Run migration 0097 + 0098 on dev DB
+- ~~Accounting alignment: dual GL posting fix~~ ✓ DONE (Session 37)
+- ~~Accounting alignment: complete GL categories~~ ✓ DONE (Session 38)
+- ~~Accounting alignment: void GL reversal~~ ✓ DONE (Session 39)
+- ~~Accounting alignment: GL dimensions~~ ✓ DONE (Session 40)
+- ~~Accounting alignment: close checklist enhancements~~ ✓ DONE (Session 41)
+- ~~Accounting alignment: COA templates + backfill~~ ✓ DONE (Session 42)
+- ~~Accounting alignment: line-item refunds~~ ✓ DONE (Session 43)
+- ~~Accounting alignment: F&B GL wiring~~ ✓ DONE (Session 44)
+- ~~Accounting alignment: voucher deferred revenue~~ ✓ DONE (Session 45)
+- ~~Accounting alignment: memberships GL + AR~~ ✓ DONE (Session 46)
+- ~~Accounting alignment: chargeback support~~ ✓ DONE (Session 47)
+- ~~Accounting alignment: posting matrix + integration tests~~ ✓ DONE (Session 48)
+- ~~UXOPS-01: Drawer sessions (server-persisted shifts)~~ ✓ DONE
+- ~~UXOPS-02: Retail close + Z-report~~ ✓ DONE
+- ~~UXOPS-03: Manager PIN + Comp/Void-Line GL~~ ✓ DONE
+- ~~UXOPS-04: Partial refunds + returns contra-accounts~~ ✓ DONE
+- ~~UXOPS-05: Card settlement + clearing accounts~~ ✓ DONE
+- ~~UXOPS-06: Tip payout workflow~~ ✓ DONE
+- ~~UXOPS-07: Tax jurisdiction enrichment + remittance report~~ ✓ DONE
+- ~~UXOPS-08: COGS posting mode (disabled/perpetual/periodic)~~ ✓ DONE
+- ~~UXOPS-09: F&B batch category keys + coverage~~ ✓ DONE
+- ~~UXOPS-10: Dead letter queue + admin UI~~ ✓ DONE
+- ~~UXOPS-11: Hybrid close + deposit aggregation~~ ✓ DONE
+- ~~UXOPS-12: Close checklist extensions + settings~~ ✓ DONE
+- ~~UXOPS-13: Operations dashboard + tender audit trail~~ ✓ DONE
+- ~~UXOPS-14: Integration tests + posting matrix extension~~ ✓ DONE
+- ~~ACCT-CLOSE-01: Cash Drawer Hardening~~ ✓ DONE
+- ~~ACCT-CLOSE-02: Breakage Income Configurability~~ ✓ DONE
+- ~~ACCT-CLOSE-03: Reconciliation Summary Dashboard~~ ✓ DONE
+- ~~ACCT-CLOSE-04: Audit Log Consistency Pass~~ ✓ DONE
+- ~~ACCT-CLOSE-05: Permissions Matrix~~ ✓ DONE
+- ~~ACCT-CLOSE-06: Multi-Currency + Recurring Journal Entries~~ ✓ DONE
+- ~~ACCT-CLOSE-07: Bank Reconciliation~~ ✓ DONE
+- ~~ACCT-CLOSE-08: Documentation + Provisioning~~ ✓ DONE
+- Run migrations 0097-0122 on dev DB
 - Run `tools/scripts/seed-admin-roles.ts` after migration 0097
+- Run `tools/scripts/backfill-accounting-accounts.ts` after migration 0100 (creates Tips Payable + Service Charge Revenue for existing tenants)
+- Toggle `enableLegacyGlPosting = false` per tenant after validating GL reconciliation
 - Admin invite flow (email sending integration)
 - Admin customer detail page (cross-tenant profile viewer)
 - Module template management UI (create/apply presets)
@@ -823,7 +929,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 7. **POS commands need idempotency INSIDE the transaction** — `checkIdempotency(tx, ...)` and `saveIdempotencyKey(tx, ...)` both use the transaction handle, not bare `db`. This prevents TOCTOU race conditions between check and save.
 8. **POS layout dual-mounts both shells** — `pos/layout.tsx` mounts both Retail and F&B POS content via `next/dynamic` and toggles with CSS (`invisible pointer-events-none`). Page files (`retail/page.tsx`, `fnb/page.tsx`) return `null` — they exist only as route targets. Content lives in `retail-pos-content.tsx` / `fnb-pos-content.tsx` with `isActive` prop. Exit via router.push('/dashboard').
 9. **Item typeGroup drives POS behavior** — always use `getItemTypeGroup()` from `@oppsera/shared`, never raw `item.type`
-10. **POS V1 state is localStorage** — config, shift, favorites are localStorage until backend APIs exist; design hooks to swap storage later
+10. **POS V1 state is localStorage (except shifts)** — config, favorites are localStorage until backend APIs exist. Shifts are now server-persisted via `drawer_sessions` table with localStorage fallback for offline.
 11. **Barcode scanner = keyboard wedge** — detect via keystroke timing (<50ms), dispatch `CustomEvent('barcode-scan')`; ignore when focus is in INPUT/TEXTAREA
 12. **Catalog hierarchy is 4-layer in POS** — Department → SubDepartment → Category → Items; all derived from flat category list via parentId walking
 13. **Tenders are append-only** — NEVER UPDATE financial fields (amount, amountGiven, changeGiven, tipAmount, status) on `tenders` table. "Reversed" is a derived state from `tender_reversals` join.
@@ -1069,6 +1175,41 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 244. **Order `metadata` is opaque JSONB** — `Record<string, unknown>` validated by Zod. Use for cross-module context (PMS reservation ID, etc.). Never query by metadata fields — add dedicated columns if you need to filter.
 245. **Outbox worker uses `IN` not `ANY`** — migration from `ANY(${publishedIds})` to `IN (${idList})` with `sql.join()` for compatibility. Always use `sql.join()` with `sql` template literals for dynamic IN clauses in Drizzle.
 246. **`seeds` create site→venue hierarchy** — seed now creates 1 site + 2 venues (not flat locations). All location-dependent seed data (profit centers, terminals) uses venue IDs, not site ID.
+247. **`enableLegacyGlPosting` gates dual GL posting** — `accounting_settings.enable_legacy_gl_posting` (default `true`) controls whether `recordTender()` writes to `payment_journal_entries` (legacy JSONB-based GL). When `false`, only the proper `gl_journal_entries` path via the POS adapter is active. Toggle per tenant after validating GL reconciliation.
+248. **POS adapter uses proportional + remainder allocation** — non-final tenders post `(tenderAmount / orderTotal)` share of revenue/tax/discounts/service charges. Final tender (`isFullyPaid = true`) posts `orderTotal - previouslyPosted` to prevent rounding drift. Single tenders are treated as final. Tips are per-tender (no proportional split).
+249. **GL adapters NEVER throw** — all 9 adapters (`pos`, `void`, `return`, `fnb`, `voucher` x3, `membership`, `chargeback` x2) wrap their entire body in try/catch. GL failures log to console.error but never propagate — business operations (POS, vouchers, chargebacks) must always succeed regardless of GL state.
+250. **GL journal line dimensions are nullable** — `profitCenterId`, `subDepartmentId`, `terminalId`, `channel` on `gl_journal_lines` are all nullable TEXT. POS adapter sets `channel = 'pos'`, F&B adapter sets `channel = 'fnb'`. Manual journal entries have no dimensions. Queries filter by dimension only when the filter value is provided.
+251. **Void adapter reverses per-tender, not per-order** — `handleOrderVoidForAccounting` queries `gl_journal_entries` for each tender of the voided order and calls `voidJournalEntry()` per entry. Already-voided entries are skipped (idempotent). This handles multi-tender orders correctly.
+252. **Return adapter uses `returnsAccountId` from sub-department mapping** — `handleOrderReturnForAccounting` debits `returnsAccountId` (contra-revenue) and credits the payment account. Falls back to `logUnmappedEvent` if no returns account is configured for the sub-department.
+253. **F&B adapter resolves abstract categories to GL accounts** — `handleFnbGlPostingForAccounting` maps category strings (`sales_revenue`, `tax_payable`, `tips_payable`, `discount`, `comp_expense`, `cash_over_short`) from `buildBatchJournalLines()` output to GL account IDs via `fnb_gl_account_mappings` table. Falls back to `accounting_settings` defaults.
+254. **Voucher GL uses lifecycle-specific sourceReferenceId** — purchase: `purchase-{voucherId}`, redeem: `redeem-{voucherId}-{tenderId}`, expire: `expire-{voucherId}`. This allows multiple redemptions of the same voucher to each get their own GL entry.
+255. **Chargeback GL uses payment type mapping** — `feeExpenseAccountId` for expense side, `depositAccountId` for cash/bank side. Falls back to `defaultUndepositedFundsAccountId` from settings. Won = reversal of received. Lost with fee > 0 = fee entry. Lost with fee = 0 = no additional GL entry.
+256. **Chargeback lifecycle: received → under_review → won/lost** — `resolveChargeback` validates status is `received` or `under_review` (409 if already resolved). Fee can be overridden on resolution. GL entries use sourceModule `'chargeback'` with patterns: `received-{id}`, `won-{id}`, `lost-fee-{id}`.
+257. **Close checklist warns on legacy GL** — when `enableLegacyGlPosting = true`, the close checklist includes a warning item. Also validates tips payable and service charge accounts are configured, and all sub-departments have discount/returns mappings.
+258. **COA templates include Tips Payable (2160) and Service Charge Revenue (4500)** — migration 0102 inserts these into `gl_account_templates` for all 4 business types. `bootstrapTenantCoa` auto-wires them to `defaultTipsPayableAccountId` and `defaultServiceChargeRevenueAccountId` in settings. Existing tenants: run `tools/scripts/backfill-accounting-accounts.ts`.
+259. **Posting matrix test validates debits = credits for all adapters** — `packages/modules/accounting/src/__tests__/posting-matrix.test.ts` validates balance across voucher (purchase/redeem/expire), membership billing, chargeback (received/won/lost), and cents-to-dollars conversion accuracy. Also validates source reference ID uniqueness and never-throw guarantee.
+260. **Next.js 15 `config.watchOptions` is read-only — never mutate directly** — Next.js 15.5+ freezes the `watchOptions` object passed to the webpack callback. Assigning `config.watchOptions.ignored = [...]` throws `TypeError: Cannot assign to read only property 'ignored'`. Fix: create a new object via spread: `config.watchOptions = { ...prev, ignored: kept }`. Additionally, Next.js sets `ignored` to a RegExp internally — when merging, filter to keep only string patterns (`typeof p === 'string'`), or webpack rejects the array with `watchOptions.ignored[0] should be a non-empty string`. See `apps/web/next.config.ts` lines 43-58.
+261. **Drawer sessions are server-persisted** — `drawer_sessions` + `drawer_session_events` tables in `packages/db/src/schema/drawer-sessions.ts`. `useShift` hook calls `/api/v1/drawer-sessions/` API with localStorage fallback for offline. One drawer per terminal per business date (UNIQUE constraint). Events are append-only (paid_in, paid_out, cash_drop, drawer_open, no_sale).
+262. **Retail close batch lifecycle: open → in_progress → reconciled → posted → locked** — `retail_close_batches` table. `startRetailClose` aggregates sales from orders/tenders for the terminal's business date. `reconcileRetailClose` computes over/short from cash count. `postRetailClose` posts GL (Dr Cash Over/Short if variance). `lockRetailClose` freezes the batch. Cannot close without closing the drawer session first.
+263. **Comp vs Discount GL separation** — Comps hit `Comp Expense` account (expense); discounts hit `Discount Account` (contra-revenue). Both reduce order total but post to different GL accounts. Comp requires manager PIN. Sub-department-specific comp accounts via `comp_account_id` on `sub_department_gl_defaults`.
+264. **Returns use `isContraAccount` flag on GL accounts** — `gl_accounts.is_contra_account` marks revenue accounts as contra (e.g., Returns & Allowances). P&L shows contra accounts as deductions under parent type. Return adapter uses `returnsAccountId` from sub-dept mapping → falls back to `settings.defaultReturnsAccountId`.
+265. **Card settlement lifecycle: pending → matched → posted → disputed** — `payment_settlements` + `payment_settlement_lines` tables. CSV import + manual entry. Auto-matcher links settlement lines to tenders by date range + amount. GL posting: Dr Bank + Dr Processing Fee / Cr Undeposited Funds. Idempotent via `(tenant, processor, batch_id)` unique.
+266. **Tip payout GL: cash = Dr Tips Payable / Cr Cash; payroll = Dr Tips Payable / Cr Payroll Clearing** — `tip_payouts` table. Balance = SUM(tenders.tipAmount) - SUM(payouts.amount) per employee. Cannot payout more than balance. Voided payout creates GL reversal.
+267. **COGS posting mode is tri-state** — `accounting_settings.cogs_posting_mode`: `'disabled'` (no COGS), `'perpetual'` (per-tender), `'periodic'` (period-end calculation). POS adapter checks mode before posting COGS lines. `periodic_cogs_calculations` table stores COGS = Beginning Inventory + Purchases − Ending Inventory.
+268. **Tax rates have jurisdiction dimensions** — `jurisdiction_code`, `authority_name`, `authority_type` (state/county/city/district), `tax_type`, `filing_frequency` on `tax_rates`. Tax remittance report groups by jurisdiction. Backward compatible — existing rates without jurisdiction still work.
+269. **F&B batch category keys are typed enum** — `FnbBatchCategoryKey` in `@oppsera/shared/src/types/fnb-gl.ts`. Category version tracked on `fnb_close_batch_summaries`. Coverage query returns mapped/unmapped per category. Critical unmapped categories block posting.
+270. **Event dead letters persist to DB** — `event_dead_letters` table. After max retries (3), events land here instead of being silently dropped. Admin UI at `/events` in admin app. Retry re-publishes through full pipeline. Idempotency prevents double-processing.
+271. **Deposit slips aggregate cash from all closes** — `deposit_slips` table links to retail close batch IDs + F&B close batch ID. GL: Dr Bank / Cr Cash On Hand. Cannot finalize deposit before all terminals + F&B closed. Status: pending → deposited → reconciled.
+272. **Close checklist has 18+ items** — items #11-#18 added by UXOPS-12: drawer sessions closed, retail/F&B batches posted, tip balances zero, deposit slips reconciled, no dead letter events, card settlements matched, COGS posted (if periodic). All computed live from DB queries.
+273. **Operations hooks use `useAuthContext` from `@/components/auth-provider`** — NOT from `@/hooks/use-auth`. The auth context providing `user`, `locations`, etc. lives in the auth provider component, not a standalone hook.
+274. **Sidebar navigation lives in `apps/web/src/lib/navigation.ts`** — extracted from layout. Array of `{ name, href, icon, group }` objects. CommandPalette (`Ctrl+K`) also reads from this config. Operations link uses `Monitor` icon from lucide-react.
+275. **UXOPS posting matrix test validates GL balance for all UXOPS scenarios** — `packages/modules/accounting/src/__tests__/uxops-posting-matrix.test.ts` validates retail close over/short, comp, void-line, return, settlement, tip payout (cash/payroll/void), periodic COGS, deposit slip, plus end-to-end lifecycle flows and idempotency replay tests.
+276. **Bank reconciliation difference must be $0.00 to complete** — `completeBankReconciliation` validates `Math.abs(difference) < 0.01` before marking status as `completed`. Difference = (beginningBalance + clearedTotal) − statementEndingBalance. Bank adjustments (fees, interest) are always auto-cleared.
+277. **Bank reconciliation auto-populates GL lines** — `startBankReconciliation` queries `gl_journal_lines` for unreconciled entries hitting the bank's GL account, excluding lines already cleared in prior completed reconciliations. Items populated as `item_type = 'gl_entry'`.
+278. **Reconciliation waterfall amounts are in cents** — `getReconciliationWaterfall` returns all amounts in cents (INTEGER) matching the orders/tenders layer. Frontend converts with `formatCents()`. Variance at each stage highlights mismatches between expected and actual amounts.
+279. **Recurring journal templates are draft-only until generated** — `recurring_journal_templates` store the pattern; `generateFromTemplate` creates actual `gl_journal_entries`. Templates have `nextRunDate` + `frequencyType` (monthly/quarterly/annual). Generated entries get `sourceModule = 'recurring'` + `sourceReferenceId = template-{id}-{date}`.
+280. **V1 POS blocks tenders when offline** — `TenderDialog.handleSubmit()` checks `navigator.onLine` first. If offline, shows toast error and returns early. No offline queue in V1 — read-only mode only.
+281. **Audit coverage diagnostic compares counts** — `getAuditCoverage(tenantId, dateRange)` compares financial transaction counts (GL entries, tenders, AP bills, AR invoices, orders) against audit log entry counts per category. Mismatches = gaps. Surfaced on accounting dashboard and at `/accounting/audit`.
 
 ## Quick Commands
 

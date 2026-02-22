@@ -11,8 +11,9 @@ const mocks = vi.hoisted(() => {
 
   const withTenant = vi.fn();
   const generateUlid = vi.fn();
+  const getAccountingPostingApi = vi.fn();
 
-  return { state, withTenant, generateUlid };
+  return { state, withTenant, generateUlid, getAccountingPostingApi };
 });
 
 // ── vi.mock declarations ───────────────────────────────────────────
@@ -30,6 +31,10 @@ vi.mock('drizzle-orm', () => ({
 
 vi.mock('@oppsera/shared', () => ({
   generateUlid: mocks.generateUlid,
+}));
+
+vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
+  getAccountingPostingApi: mocks.getAccountingPostingApi,
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -82,6 +87,7 @@ describe('handleOrderVoided consumer', () => {
   beforeEach(() => {
     mocks.withTenant.mockReset();
     mocks.generateUlid.mockReset();
+    mocks.getAccountingPostingApi.mockReset();
 
     // Reset state
     mocks.state.allTenders = [];
@@ -94,6 +100,11 @@ describe('handleOrderVoided consumer', () => {
       return fn(mockTx);
     });
     mocks.generateUlid.mockReturnValue(`ulid-${Date.now()}`);
+
+    // Default: legacy GL posting is enabled (backward compat)
+    mocks.getAccountingPostingApi.mockReturnValue({
+      getSettings: vi.fn().mockResolvedValue({ enableLegacyGlPosting: true }),
+    });
   });
 
   it('should do nothing when there are no tenders', async () => {
@@ -258,5 +269,103 @@ describe('handleOrderVoided consumer', () => {
 
     await handleOrderVoided(createEvent({ actorUserId: undefined }));
     expect(capturedTx._insertedValues[0].createdBy).toBe('system');
+  });
+
+  // ── Legacy GL gating (Session 39) ─────────────────────────────────
+
+  it('should skip legacy GL reversal when enableLegacyGlPosting is false', async () => {
+    mocks.getAccountingPostingApi.mockReturnValue({
+      getSettings: vi.fn().mockResolvedValue({ enableLegacyGlPosting: false }),
+    });
+
+    mocks.state.allTenders = [
+      { id: 'tender-1', tenantId: 'tenant-1', locationId: 'loc-1', orderId: 'order-1', tenderType: 'cash', amount: 1500, status: 'captured', businessDate: '2026-01-15' },
+    ];
+    mocks.state.originalJournals = [{
+      id: 'pje-1',
+      entries: [
+        { accountCode: '1010', accountName: 'Cash', debit: 1500, credit: 0 },
+        { accountCode: '4000', accountName: 'Revenue', debit: 0, credit: 1500 },
+      ],
+      postingStatus: 'posted',
+    }];
+
+    let capturedTx: any = null;
+    mocks.withTenant.mockImplementation(async (_tenantId: string, fn: any) => {
+      capturedTx = createMockTx();
+      return fn(capturedTx);
+    });
+
+    await handleOrderVoided(createEvent());
+
+    // Tender reversal record should still be created (operational, not GL)
+    expect(capturedTx._insertedValues).toHaveLength(1);
+    expect(capturedTx._insertedValues[0].reversalType).toBe('void');
+
+    // GL reversal should NOT be created (legacy GL disabled)
+    // Only 1 insert (tender reversal), not 2 (tender reversal + GL reversal)
+    expect(capturedTx._updatedSets).toHaveLength(0);
+  });
+
+  it('should still create legacy GL reversal when enableLegacyGlPosting is true', async () => {
+    mocks.getAccountingPostingApi.mockReturnValue({
+      getSettings: vi.fn().mockResolvedValue({ enableLegacyGlPosting: true }),
+    });
+
+    mocks.state.allTenders = [
+      { id: 'tender-1', tenantId: 'tenant-1', locationId: 'loc-1', orderId: 'order-1', tenderType: 'cash', amount: 1500, status: 'captured', businessDate: '2026-01-15' },
+    ];
+    mocks.state.originalJournals = [{
+      id: 'pje-1',
+      entries: [
+        { accountCode: '1010', accountName: 'Cash', debit: 1500, credit: 0 },
+        { accountCode: '4000', accountName: 'Revenue', debit: 0, credit: 1500 },
+      ],
+      postingStatus: 'posted',
+    }];
+
+    let capturedTx: any = null;
+    mocks.withTenant.mockImplementation(async (_tenantId: string, fn: any) => {
+      capturedTx = createMockTx();
+      return fn(capturedTx);
+    });
+
+    await handleOrderVoided(createEvent());
+
+    // Both tender reversal AND GL reversal should be created
+    expect(capturedTx._insertedValues.length).toBeGreaterThanOrEqual(2);
+    // Original journal entry should be voided
+    expect(capturedTx._updatedSets).toHaveLength(1);
+    expect(capturedTx._updatedSets[0].postingStatus).toBe('voided');
+  });
+
+  it('should default to legacy GL enabled when AccountingPostingApi is not initialized', async () => {
+    mocks.getAccountingPostingApi.mockImplementation(() => {
+      throw new Error('AccountingPostingApi not initialized');
+    });
+
+    mocks.state.allTenders = [
+      { id: 'tender-1', tenantId: 'tenant-1', locationId: 'loc-1', orderId: 'order-1', tenderType: 'cash', amount: 1500, status: 'captured', businessDate: '2026-01-15' },
+    ];
+    mocks.state.originalJournals = [{
+      id: 'pje-1',
+      entries: [
+        { accountCode: '1010', accountName: 'Cash', debit: 1500, credit: 0 },
+        { accountCode: '4000', accountName: 'Revenue', debit: 0, credit: 1500 },
+      ],
+      postingStatus: 'posted',
+    }];
+
+    let capturedTx: any = null;
+    mocks.withTenant.mockImplementation(async (_tenantId: string, fn: any) => {
+      capturedTx = createMockTx();
+      return fn(capturedTx);
+    });
+
+    await handleOrderVoided(createEvent());
+
+    // Legacy GL should proceed (backward compat: default true when API unavailable)
+    expect(capturedTx._insertedValues.length).toBeGreaterThanOrEqual(2);
+    expect(capturedTx._updatedSets).toHaveLength(1);
   });
 });

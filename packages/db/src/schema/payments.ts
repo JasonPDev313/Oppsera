@@ -122,3 +122,41 @@ export const paymentJournalEntries = pgTable(
     index('idx_pje_tenant_ref').on(table.tenantId, table.referenceType, table.referenceId),
   ],
 );
+
+// ── Chargebacks (Session 47) ──────────────────────────────────
+export const chargebacks = pgTable(
+  'chargebacks',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id').notNull(),
+    tenderId: text('tender_id')
+      .notNull()
+      .references(() => tenders.id),
+    orderId: text('order_id').notNull(),
+    chargebackReason: text('chargeback_reason').notNull(),
+    chargebackAmountCents: integer('chargeback_amount_cents').notNull(),
+    feeAmountCents: integer('fee_amount_cents').notNull().default(0),
+    status: text('status').notNull().default('received'), // 'received', 'under_review', 'won', 'lost'
+    providerCaseId: text('provider_case_id'),
+    providerRef: text('provider_ref'),
+    customerId: text('customer_id'),
+    resolutionReason: text('resolution_reason'),
+    resolutionDate: date('resolution_date'),
+    businessDate: date('business_date').notNull(),
+    glJournalEntryId: text('gl_journal_entry_id'),
+    reversalGlJournalEntryId: text('reversal_gl_journal_entry_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by').notNull(),
+    resolvedBy: text('resolved_by'),
+  },
+  (table) => [
+    index('idx_chargebacks_tenant_status').on(table.tenantId, table.status),
+    index('idx_chargebacks_tenant_tender').on(table.tenantId, table.tenderId),
+    index('idx_chargebacks_tenant_order').on(table.tenantId, table.orderId),
+    index('idx_chargebacks_tenant_date').on(table.tenantId, table.businessDate),
+  ],
+);

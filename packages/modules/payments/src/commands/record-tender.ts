@@ -16,6 +16,7 @@ import {
 } from '@oppsera/core/helpers/optimistic-lock';
 import { generateJournalEntry } from '../helpers/gl-journal';
 import type { OrderLineForGL } from '../helpers/gl-journal';
+import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 
 export async function recordTender(
   ctx: RequestContext,
@@ -168,37 +169,52 @@ export async function recordTender(
       packageComponents: l.packageComponents ?? null,
     }));
 
-    // 7. Generate GL journal entry
-    const { allocationSnapshot } = await generateJournalEntry(
-      tx,
-      {
-        id: tender.id,
-        tenantId: ctx.tenantId,
-        locationId: ctx.locationId!,
-        orderId,
-        tenderType: input.tenderType,
-        amount: tenderAmount,
-        tipAmount: input.tipAmount ?? 0,
-      },
-      {
-        businessDate: input.businessDate,
-        subtotal: order.subtotal,
-        taxTotal: order.taxTotal,
-        serviceChargeTotal: order.serviceChargeTotal,
-        discountTotal: order.discountTotal,
-        total: order.total,
-        lines: orderLinesForGL,
-      },
-      isFullyPaid,
-    );
+    // 7. Generate legacy GL journal entry (gated behind enableLegacyGlPosting)
+    // The new GL pipeline posts via the POS adapter event consumer on tender.recorded.v1.
+    // When enableLegacyGlPosting is false, only the new pipeline runs.
+    let allocationSnapshot: Record<string, unknown> | null = null;
+    let enableLegacyGl = true;
+    try {
+      const accountingApi = getAccountingPostingApi();
+      const acctSettings = await accountingApi.getSettings(ctx.tenantId);
+      enableLegacyGl = acctSettings.enableLegacyGlPosting ?? true;
+    } catch {
+      // AccountingPostingApi not initialized — legacy behavior (keep legacy GL active)
+    }
 
-    // 8. Store allocation snapshot on tender
-    await (tx as any)
-      .update(tenders)
-      .set({
-        allocationSnapshot,
-      })
-      .where(eq(tenders.id, tender.id));
+    if (enableLegacyGl) {
+      const journalResult = await generateJournalEntry(
+        tx,
+        {
+          id: tender.id,
+          tenantId: ctx.tenantId,
+          locationId: ctx.locationId!,
+          orderId,
+          tenderType: input.tenderType,
+          amount: tenderAmount,
+          tipAmount: input.tipAmount ?? 0,
+        },
+        {
+          businessDate: input.businessDate,
+          subtotal: order.subtotal,
+          taxTotal: order.taxTotal,
+          serviceChargeTotal: order.serviceChargeTotal,
+          discountTotal: order.discountTotal,
+          total: order.total,
+          lines: orderLinesForGL,
+        },
+        isFullyPaid,
+      );
+      allocationSnapshot = journalResult.allocationSnapshot;
+
+      // 8. Store allocation snapshot on tender
+      await (tx as any)
+        .update(tenders)
+        .set({
+          allocationSnapshot,
+        })
+        .where(eq(tenders.id, tender.id));
+    }
 
     // 9. If fully paid, update order status
     if (isFullyPaid) {
@@ -249,10 +265,15 @@ export async function recordTender(
       posMode: input.posMode ?? null,
       source: 'pos',
       orderTotal: order.total,
+      subtotal: order.subtotal,
+      taxTotal: order.taxTotal,
+      discountTotal: order.discountTotal,
+      serviceChargeTotal: order.serviceChargeTotal,
       totalTendered: newTotalTendered,
       remainingBalance: order.total - newTotalTendered,
       isFullyPaid,
       customerId: order.customerId ?? null,
+      billingAccountId: order.billingAccountId ?? null,
       lines: enrichedLines,
     });
 

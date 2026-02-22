@@ -22,6 +22,7 @@ export {
   holdOrder,
   recallOrder,
   setTaxExempt,
+  createReturn,
 } from './commands';
 
 // Re-export queries
@@ -30,10 +31,12 @@ export {
   getOrder,
   getOrderByNumber,
   listHeldOrders,
+  getReturnsByOrder,
 } from './queries';
 export type { ListOrdersInput, ListOrdersResult, OrderListRow } from './queries/list-orders';
 export type { ListHeldOrdersInput, ListHeldOrdersResult, HeldOrderRow } from './queries/list-held-orders';
 export type { OrderDetail } from './queries/get-order';
+export type { ReturnOrderSummary, ReturnLineSummary } from './queries/get-returns-by-order';
 
 // Re-export validation schemas
 export {
@@ -52,6 +55,7 @@ export {
   holdOrderSchema,
   recallOrderSchema,
   setTaxExemptSchema,
+  createReturnSchema,
 } from './validation';
 export type {
   OpenOrderInput,
@@ -69,6 +73,7 @@ export type {
   HoldOrderInput,
   RecallOrderInput,
   SetTaxExemptInput,
+  CreateReturnInput,
 } from './validation';
 
 // Re-export helpers

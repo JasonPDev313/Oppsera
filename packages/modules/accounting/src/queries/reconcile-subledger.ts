@@ -6,7 +6,7 @@ export interface ReconciliationDetail {
 }
 
 export interface ReconciliationResult {
-  subledgerType: 'ap' | 'ar';
+  subledgerType: 'ap' | 'ar' | 'pos_legacy';
   controlAccountId: string | null;
   controlAccountName: string | null;
   glBalance: number;
@@ -19,14 +19,73 @@ export interface ReconciliationResult {
 
 interface ReconcileSubledgerInput {
   tenantId: string;
-  subledgerType: 'ap' | 'ar';
+  subledgerType: 'ap' | 'ar' | 'pos_legacy';
   asOfDate?: string;
+  postingPeriod?: string; // 'YYYY-MM' — used for pos_legacy reconciliation
 }
 
 export async function reconcileSubledger(
   input: ReconcileSubledgerInput,
 ): Promise<ReconciliationResult> {
   return withTenant(input.tenantId, async (tx) => {
+    // POS legacy reconciliation — compare payment_journal_entries vs gl_journal_entries
+    if (input.subledgerType === 'pos_legacy') {
+      const periodFilter = input.postingPeriod
+        ? sql`AND pje.business_date >= (${input.postingPeriod} || '-01')::date
+              AND pje.business_date < ((${input.postingPeriod} || '-01')::date + INTERVAL '1 month')`
+        : input.asOfDate
+          ? sql`AND pje.business_date <= ${input.asOfDate}`
+          : sql``;
+
+      const legacyRows = await tx.execute(sql`
+        SELECT COALESCE(SUM(
+          (SELECT COALESCE(SUM((entry->>'debit')::numeric), 0)
+           FROM jsonb_array_elements(pje.entries) AS entry)
+        ), 0) AS legacy_total
+        FROM payment_journal_entries pje
+        WHERE pje.tenant_id = ${input.tenantId}
+          AND pje.posting_status = 'posted'
+          ${periodFilter}
+      `);
+      const legacyArr = Array.from(legacyRows as Iterable<Record<string, unknown>>);
+      const legacyTotal = legacyArr.length > 0 ? Number(legacyArr[0]!.legacy_total) : 0;
+
+      const glPeriodFilter = input.postingPeriod
+        ? sql`AND je.posting_period = ${input.postingPeriod}`
+        : input.asOfDate
+          ? sql`AND je.business_date <= ${input.asOfDate}`
+          : sql``;
+
+      const properRows = await tx.execute(sql`
+        SELECT COALESCE(SUM(jl.debit_amount), 0) AS proper_total
+        FROM gl_journal_lines jl
+        JOIN gl_journal_entries je ON je.id = jl.journal_entry_id
+        WHERE je.tenant_id = ${input.tenantId}
+          AND je.source_module = 'pos'
+          AND je.status = 'posted'
+          ${glPeriodFilter}
+      `);
+      const properArr = Array.from(properRows as Iterable<Record<string, unknown>>);
+      const properTotal = properArr.length > 0 ? Number(properArr[0]!.proper_total) : 0;
+
+      const difference = Math.round((legacyTotal - properTotal) * 100) / 100;
+
+      return {
+        subledgerType: 'pos_legacy' as const,
+        controlAccountId: null,
+        controlAccountName: null,
+        glBalance: Math.round(properTotal * 100) / 100,
+        subledgerBalance: Math.round(legacyTotal * 100) / 100,
+        difference,
+        isReconciled: Math.abs(difference) < 0.01,
+        asOfDate: input.asOfDate ?? null,
+        details: [
+          { message: `Legacy GL (payment_journal_entries) debit total: $${legacyTotal.toFixed(2)}` },
+          { message: `Proper GL (gl_journal_entries) debit total: $${properTotal.toFixed(2)}` },
+        ],
+      };
+    }
+
     // 1. Look up the control account from accounting_settings
     const controlAccountField = input.subledgerType === 'ap'
       ? 'default_ap_control_account_id'

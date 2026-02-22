@@ -29,3 +29,9 @@ export type {
   TemplateCategory,
   VersionStatus,
 } from './room-layouts';
+export {
+  FNB_BATCH_CATEGORY_KEYS,
+  FNB_BATCH_CATEGORY_VERSION,
+  FNB_CATEGORY_CONFIG,
+} from './fnb-gl';
+export type { FnbBatchCategoryKey } from './fnb-gl';

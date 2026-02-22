@@ -23,6 +23,14 @@ export const taxRates = pgTable(
     name: text('name').notNull(),
     rateDecimal: numeric('rate_decimal', { precision: 6, scale: 4 }).notNull(),
     isActive: boolean('is_active').notNull().default(true),
+
+    // ── Jurisdiction enrichment (migration 0114) ──
+    jurisdictionCode: text('jurisdiction_code'),
+    authorityName: text('authority_name'),
+    authorityType: text('authority_type'), // 'state' | 'county' | 'city' | 'district'
+    taxType: text('tax_type').notNull().default('sales'), // 'sales' | 'excise' | 'hospitality' | 'use'
+    filingFrequency: text('filing_frequency'), // 'monthly' | 'quarterly' | 'annual'
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by'),

@@ -27,6 +27,8 @@ describe('resolveRevenueAccountForSubDepartment', () => {
       revenueAccountId: 'acct-rev-100',
       cogsAccountId: 'acct-cogs-200',
       inventoryAccountId: 'acct-inv-300',
+      discountAccountId: null,
+      returnsAccountId: null,
     });
 
     const result = await resolveRevenueAccountForSubDepartment({} as any, 'tenant-1', 'subdept-1');

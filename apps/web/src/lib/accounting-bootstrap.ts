@@ -34,6 +34,7 @@ export async function initializeAccountingPostingApi(): Promise<void> {
         defaultAPControlAccountId: settings?.defaultAPControlAccountId ?? null,
         defaultARControlAccountId: settings?.defaultARControlAccountId ?? null,
         baseCurrency: settings?.baseCurrency ?? 'USD',
+        enableLegacyGlPosting: settings?.enableLegacyGlPosting ?? true,
       };
     },
   };

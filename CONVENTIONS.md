@@ -5066,11 +5066,20 @@ Period close checks reconciliation automatically. If `difference >= $0.01`, the 
 ### Module → GL Flow
 
 ```
-POS Tender → handleTenderForAccounting() → AccountingPostingApi.postEntry()
-AP Bill    → postBill() → AccountingPostingApi.postEntry()
-AP Payment → postPayment() → AccountingPostingApi.postEntry()
-AR Invoice → postInvoice() → AccountingPostingApi.postEntry()
-AR Receipt → postReceipt() → AccountingPostingApi.postEntry()
+POS Tender        → handleTenderForAccounting()               → AccountingPostingApi.postEntry()
+POS Void          → handleOrderVoidForAccounting()             → voidJournalEntry() per tender
+Line-Item Return  → handleOrderReturnForAccounting()           → AccountingPostingApi.postEntry()
+F&B Batch Close   → handleFnbGlPostingForAccounting()          → AccountingPostingApi.postEntry()
+Voucher Purchase  → handleVoucherPurchaseForAccounting()        → AccountingPostingApi.postEntry()
+Voucher Redeem    → handleVoucherRedemptionForAccounting()      → AccountingPostingApi.postEntry()
+Voucher Expire    → handleVoucherExpirationForAccounting()      → AccountingPostingApi.postEntry()
+Membership Bill   → handleMembershipBillingForAccounting()      → AccountingPostingApi.postEntry()
+Chargeback Recv   → handleChargebackReceivedForAccounting()     → AccountingPostingApi.postEntry()
+Chargeback Resolve→ handleChargebackResolvedForAccounting()     → AccountingPostingApi.postEntry()
+AP Bill           → postBill()                                  → AccountingPostingApi.postEntry()
+AP Payment        → postPayment()                               → AccountingPostingApi.postEntry()
+AR Invoice        → postInvoice()                               → AccountingPostingApi.postEntry()
+AR Receipt        → postReceipt()                               → AccountingPostingApi.postEntry()
 ```
 
 ### Synthetic RequestContext for Automated Posting
@@ -5092,9 +5101,14 @@ const syntheticCtx: RequestContext = {
 | `manual` | User-created journal entries |
 | `pos` | POS posting adapter (tender → GL) |
 | `pos_legacy` | Legacy bridge adapter (payment_journal_entries migration) |
+| `pos_void` | Void posting adapter (order void → reversal GL) |
+| `pos_return` | Return posting adapter (line-item return → GL) |
+| `fnb` | F&B posting adapter (batch close → GL) |
+| `voucher` | Voucher posting adapter (purchase/redeem/expire → GL) |
+| `membership` | Membership billing posting adapter |
+| `chargeback` | Chargeback posting adapter (received/won/lost → GL) |
 | `ap` | AP bills and payments |
 | `ar` | AR invoices and receipts |
-| `membership` | Future: membership billing |
 | `payroll` | Future: payroll posting |
 
 ### Idempotency
@@ -5864,4 +5878,320 @@ Seed creates:
 ### Entitlement Access Modes
 
 New `accessMode` column seeded as `'full'` for all enabled modules.
+
+## 98. UXOPS Operations Architecture (Sessions UXOPS-01–14)
+
+### Core Submodules in `packages/core/src/`
+
+UXOPS promoted three operational concerns to core submodules (not in `modules/` — these are shared POS infrastructure):
+
+| Submodule | Path | Purpose |
+|-----------|------|---------|
+| Drawer Sessions | `core/src/drawer-sessions/` | Server-persisted cash drawer sessions + events |
+| POS Ops | `core/src/pos-ops/` | Comp/void-line commands with GL separation |
+| Retail Close | `core/src/retail-close/` | End-of-day close workflow with Z-report |
+
+These live in `core/` because both retail and F&B POS need them. The accounting module provides GL adapters that consume their events.
+
+### GL Adapter Pattern
+
+All UXOPS GL adapters follow the same pattern:
+
+```typescript
+// packages/modules/accounting/src/adapters/<name>-posting-adapter.ts
+export async function handleXxxForAccounting(data: EventPayload): Promise<void> {
+  try {
+    const settings = await getAccountingSettings(data.tenantId);
+    const lines = buildJournalLines(data, settings); // pure function
+    await AccountingPostingApi.postEntry(syntheticCtx, {
+      sourceModule: 'pos', // or 'fnb', 'settlement', etc.
+      sourceReferenceId: data.id,
+      lines,
+      forcePost: true,
+      hasControlAccountPermission: true,
+    });
+  } catch (err) {
+    console.error(`[${adapterName}] GL posting failed:`, err);
+    // NEVER throw — business operation must succeed regardless of GL state
+  }
+}
+```
+
+### Key Rules
+
+1. **GL adapters NEVER throw** — all adapters wrap in try/catch. POS/business operations always succeed.
+2. **`forcePost: true` + `hasControlAccountPermission: true`** — system-initiated GL postings bypass draft mode and control account restrictions
+3. **Synthetic context** — event consumers create `{ user: { id: 'system' }, requestId: 'xxx-{entityId}' }`
+4. **`sourceReferenceId` prevents double-posting** — unique partial index on `(tenantId, sourceModule, sourceReferenceId)`
+
+## 99. Drawer Sessions
+
+### Schema
+
+```
+drawer_sessions (one per terminal per business date)
+├── drawer_session_events (append-only cash movements)
+```
+
+UNIQUE constraint: `(tenant_id, terminal_id, business_date)` — one drawer per terminal per day.
+
+### Event Types
+
+`paid_in` | `paid_out` | `cash_drop` | `drawer_open` | `no_sale`
+
+### Expected Cash Formula
+
+```
+expected_cash = opening_balance + cash_sales - cash_refunds + paid_in - paid_out - cash_drops
+```
+
+### `useShift` Hook (Rewritten)
+
+`apps/web/src/hooks/use-shift.ts` now calls server API first, falls back to localStorage for offline:
+
+```typescript
+const { data: session } = useQuery({
+  queryKey: ['drawer-session', locationId, terminalId],
+  queryFn: () => apiFetch(`/api/v1/drawer-sessions/active?...`),
+});
+```
+
+### Key Rules
+
+1. **Server-first, localStorage-fallback** — online = API calls, offline = localStorage queue
+2. **Opening balance is change fund** — excluded from revenue calculations
+3. **Events are append-only** — never UPDATE or DELETE drawer_session_events
+4. **Permissions**: `shift.manage`, `cash.drawer`, `cash.drop`
+
+## 100. Retail Close Batches
+
+### Lifecycle
+
+`open → in_progress → reconciled → posted → locked`
+
+### Summary Aggregation
+
+`startRetailClose` computes from orders + tenders for the terminal's business date:
+- Gross/net sales, tax, discounts, voids, service charges, tips
+- Tender breakdown by type
+- Sales by department
+
+### Over/Short GL
+
+```
+If short: Debit Cash Over/Short Expense, Credit Cash (variance amount)
+If over:  Debit Cash (variance amount), Credit Cash Over/Short
+```
+
+Uses `settings.defaultCashOverShortAccountId`.
+
+### Key Rules
+
+1. **Cannot close without closing drawer first** — enforced by `startRetailClose`
+2. **Z-report mirrors F&B pattern** — `buildRetailBatchJournalLines()` same approach as F&B `buildBatchJournalLines()`
+3. **Batch is immutable after lock** — only `notes` can be updated on locked batches
+4. **GL journal entry linked** — `retail_close_batches.gl_journal_entry_id` set after posting
+
+## 101. Card Settlement Workflow
+
+### Tables
+
+```
+payment_settlements (one per processor batch)
+├── payment_settlement_lines (one per matched tender)
+```
+
+### GL Posting
+
+```
+Debit:  Bank Account (net amount = gross - fees)
+Debit:  Processing Fee Expense (fee amount)
+Credit: Undeposited Funds (gross amount)
+```
+
+Chargeback amounts net from gross before posting.
+
+### Matching
+
+Auto-matcher links settlement lines to tenders by date range + amount. Unmatched tenders flagged.
+
+### Key Rules
+
+1. **CSV import is universal** — processor APIs vary; CSV import works with all
+2. **Idempotent** — UNIQUE on `(tenant, processor_name, processor_batch_id)`
+3. **Warning on unmatched** — cannot post if critical tenders unmatched (overridable)
+
+## 102. Tip Payout Workflow
+
+### GL Posting
+
+| Type | Debit | Credit |
+|------|-------|--------|
+| Cash payout | Tips Payable | Cash |
+| Payroll | Tips Payable | Payroll Clearing |
+
+### Balance Calculation
+
+```sql
+tip_balance = SUM(tenders.tip_amount WHERE employee_id = X)
+            - SUM(tip_payouts.amount WHERE employee_id = X)
+```
+
+### Key Rules
+
+1. **Cannot payout more than balance** — validated before insert
+2. **Manager PIN required** — all payouts gated by `tips.payout` permission
+3. **Void creates GL reversal** — `voidTipPayout` posts reversal entry
+4. **Shift close reminder** — CloseShiftDialog shows outstanding tip amounts
+
+## 103. Operations Dashboard & Tender Audit Trail
+
+### Operations Dashboard (`/operations/operations-dashboard`)
+
+4 query services power the dashboard:
+- `getOperationsSummary`: KPIs (total sales, avg ticket, void/discount/comp rates)
+- `getCashManagementDashboard`: active sessions, cash in/out, pending deposits
+- `getDailyReconciliation`: 3-column Sales vs Tenders vs GL comparison
+- `getTenderAuditTrail`: full tender lifecycle (tender → order → GL → settlement → deposit)
+
+### Tender Audit Trail (`/operations/tender-audit/[id]`)
+
+Vertical timeline showing every stage a tender passes through:
+1. **Tender** — payment recorded
+2. **Order** — linked order details
+3. **GL Posting** — journal entry created
+4. **Settlement** — matched to processor batch (non-cash only)
+5. **Deposit** — included in bank deposit
+
+### Key Rules
+
+1. **Queries only, no mutations** — all operations queries are read-only
+2. **Location + date filters** — all dashboards scoped to location and date range
+3. **Hooks in `use-operations.ts`** — 4 React Query hooks with staleTime 15-30s
+4. **Operations link in sidebar** — uses `Monitor` icon, group: 'Financials'
+
+## 104. Event Dead Letter Queue
+
+### Purpose
+
+When events fail after max retries (3), they persist to `event_dead_letters` table instead of being silently dropped. Admin users can inspect, retry, or discard.
+
+### Admin UI (`apps/admin/src/app/(admin)/events/`)
+
+- List with filters: status, event type, consumer, date range
+- Detail view: full JSON payload, error stack, attempt count
+- Actions: Retry (re-publishes through pipeline), Resolve (with notes), Discard
+
+### Key Rules
+
+1. **Retry re-publishes fully** — goes through full event bus pipeline, not just the failed consumer
+2. **Idempotency prevents double-processing** — processed_events table check still applies
+3. **Stats cards** — total failed, by type, by consumer for quick triage
+4. **Close checklist integration** — item #16 warns on unresolved dead letters
+
+## 105. Audit Log Policy
+
+### Mandate
+
+Every command that creates, modifies, or reverses a financial transaction MUST call
+`auditLog(ctx, action, entityType, entityId, changes?, metadata?)` after the transaction commits.
+
+"Financial transaction" includes: tenders, refunds, voids, comps, tip adjustments,
+journal entries, bill payments, receipt postings, drawer operations, cash drops,
+deposit preparations, settlement recordings, voucher operations, and periodic COGS calculations.
+
+### Which helper to use
+
+| Context | Helper | Usage |
+|---------|--------|-------|
+| Route handler (has `RequestContext`) | `auditLog(ctx, ...)` | User-initiated actions |
+| Event consumer / background job | `auditLogSystem(tenantId, ...)` | System-initiated actions |
+
+### Required metadata
+
+Every money-moving audit entry MUST include in its metadata:
+
+```typescript
+{
+  amountCents?: number;       // or amountDollars for GL/AP/AR
+  businessDate?: string;      // business date of the transaction
+  locationId?: string;        // location where action occurred
+  terminalId?: string;        // terminal ID (POS operations)
+  managerApprover?: string;   // user ID if manager PIN was required
+  reason?: string;            // for voids, comps, adjustments
+}
+```
+
+### Audit coverage diagnostic
+
+`getAuditCoverage(tenantId, dateRange)` compares financial transaction counts against audit entry counts per category (GL, tenders, AP, AR, orders). Any mismatch = gap. Surfaced on the accounting dashboard as a data integrity card and in the audit trail viewer at `/accounting/audit`.
+
+### Key Rules
+
+1. **Audit entries are append-only** — never UPDATE or DELETE `audit_log` rows
+2. **`auditLog()` never throws** — wrapped in try/catch, failures logged but don't block the API response
+3. **Commands that take `RequestContext` use `auditLog`** — commands that don't (background jobs) use `auditLogSystem`
+4. **Retention** — `pruneAuditLog()` detaches monthly partitions after configurable retention period (default 90 days)
+5. **Dual-tier** — tenant audit log (`audit_log`) for operational actions, platform admin audit log (`platform_admin_audit_log`) for admin portal actions
+
+## 106. Cash Drawer Ownership (V1 — Strict Mode)
+
+V1 enforces strict drawer-to-terminal binding:
+
+- **One drawer session per terminal per business date** — enforced by UNIQUE constraint `(tenant_id, terminal_id, business_date)` on `drawer_sessions`
+- A cashier CANNOT move their drawer to a different terminal
+- To switch terminals: close drawer on Terminal A (with count), open new drawer on Terminal B
+- Counts carry forward: the closing count from Terminal A becomes the basis for opening Terminal B
+- Flexible drawer mode (drawer follows cashier across terminals) is a **V2 enhancement**
+
+**UX implication**: if a cashier tries to open a drawer on Terminal B while they have one open on Terminal A, show: "You have an open drawer on Terminal A. Close it first to open here."
+
+**Schema**: `drawer_sessions` has `terminal_id` (not employee-scoped). The `employee_id` column tracks who opened the session, but ownership is terminal-bound.
+
+## 107. Offline Behavior Policy (V1)
+
+V1 does NOT support offline payment processing. The policy is explicit:
+
+- If network connectivity is lost, POS enters **read-only mode**
+- Read-only mode allows: viewing open orders, browsing catalog, viewing shift info
+- Read-only mode **BLOCKS**: placing orders, recording tenders, opening/closing drawers, cash drops, voids, comps, refunds, any GL-posting operation
+- A persistent banner displays: "Offline — payments disabled until connection restored"
+- When connectivity returns, banner clears automatically (polling-based detection)
+
+**Runtime guard**: `TenderDialog.handleSubmit()` checks `navigator.onLine` before proceeding. If offline, shows toast error and returns early.
+
+The typed offline queue (`packages/modules/fnb/src/helpers/offline-queue-types.ts`) exists as a V2 spec. Do not implement the queue or replay logic in V1.
+
+**Future V2 option**: "cash-only offline" mode where cash tenders can be queued locally with temporary IDs and reconciled on reconnect. This requires: temp ID generation, dedup on reconnect, conflict resolution, and explicit UX for "pending sync" state.
+
+## 108. Kitchen Waste Tracking (V1 — Boolean Only)
+
+V1 captures `wasteTracking: boolean` on void-line-after-send events. This indicates that a kitchen item was wasted (prepared but voided).
+
+Full waste tracking is deferred to V2 when F&B item voids are connected to inventory movements:
+
+**Future additions:**
+- `waste_reason` enum: overcooked, dropped, wrong_order, expired, quality, other
+- `waste_quantity` (may differ from order quantity)
+- `waste_cost_estimate_cents` (from item cost or recipe cost if inventory costing exists)
+- Waste reporting: by item, category, server, daypart, reason
+- Integration with inventory `shrink` movement type
+
+The inventory module already supports `shrink` and `waste` movement types. When this integration is built, F&B void-with-waste should create an inventory shrink movement automatically.
+
+## 109. Multi-Currency Roadmap
+
+V1 is USD-only. Schema columns (`transaction_currency`, `exchange_rate` on `gl_journal_entries`, `supported_currencies` on `accounting_settings`) exist but are inert.
+
+**Activation checklist (future session):**
+
+1. Exchange rate source (manual entry or API like Open Exchange Rates)
+2. `exchange_rates` table (date, from_currency, to_currency, rate)
+3. Currency conversion at posting time (multiply by rate, store both original + base amounts)
+4. Multi-currency P&L and Balance Sheet (unrealized gain/loss calculation)
+5. Foreign currency revaluation workflow
+6. Currency selector in invoice/bill creation
+7. Remove `CurrencyMismatchError` guard (replace with conversion logic)
+
+**Current behavior**: `postJournalEntry()` rejects any entry where `transactionCurrency !== 'USD'` with `CurrencyMismatchError`. This is intentional — it prevents accidental multi-currency entries until the full pipeline is ready.
 

@@ -25,6 +25,11 @@ export async function createTaxRate(ctx: RequestContext, input: CreateTaxRateInp
         tenantId: ctx.tenantId,
         name: input.name,
         rateDecimal: String(input.rateDecimal),
+        jurisdictionCode: input.jurisdictionCode ?? null,
+        authorityName: input.authorityName ?? null,
+        authorityType: input.authorityType ?? null,
+        taxType: input.taxType ?? 'sales',
+        filingFrequency: input.filingFrequency ?? null,
         createdBy: ctx.user.id,
       })
       .returning();

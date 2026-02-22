@@ -11,6 +11,7 @@ import type {
   TaxGroupMapping,
   UnmappedEvent,
   BankAccount,
+  FnbMappingCoverageResult,
 } from '@/types/accounting';
 
 // ── useMappingCoverage ───────────────────────────────────────
@@ -127,7 +128,7 @@ export function useMappingMutations() {
   };
 
   const saveSubDepartmentDefaults = useMutation({
-    mutationFn: (input: { subDepartmentId: string; revenueAccountId: string | null; cogsAccountId: string | null; inventoryAssetAccountId: string | null; discountAccountId: string | null; returnsAccountId: string | null }) =>
+    mutationFn: (input: { subDepartmentId: string; revenueAccountId: string | null; cogsAccountId: string | null; inventoryAssetAccountId: string | null; discountAccountId: string | null; returnsAccountId: string | null; compAccountId?: string | null }) =>
       apiFetch(`/api/v1/accounting/mappings/sub-departments/${input.subDepartmentId}`, {
         method: 'PUT',
         body: JSON.stringify(input),
@@ -254,4 +255,53 @@ export function useBankAccountMutations() {
   });
 
   return { saveBankAccount };
+}
+
+// ── useFnbMappingCoverage ─────────────────────────────────
+
+export function useFnbMappingCoverage(locationId: string | undefined) {
+  const result = useQuery({
+    queryKey: ['fnb-mapping-coverage', locationId],
+    queryFn: () =>
+      apiFetch<{ data: FnbMappingCoverageResult }>(
+        `/api/v1/accounting/mappings/fnb-categories?locationId=${locationId}`,
+      ).then((r) => r.data),
+    enabled: !!locationId,
+    staleTime: 30_000,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+// ── useSaveFnbMapping ─────────────────────────────────────
+
+export function useSaveFnbMapping() {
+  const queryClient = useQueryClient();
+
+  const { mutateAsync: saveFnbMapping } = useMutation({
+    mutationFn: (input: {
+      locationId: string;
+      entityType: string;
+      entityId?: string;
+      revenueAccountId?: string | null;
+      expenseAccountId?: string | null;
+      liabilityAccountId?: string | null;
+      assetAccountId?: string | null;
+      contraRevenueAccountId?: string | null;
+    }) =>
+      apiFetch('/api/v1/accounting/mappings/fnb-categories', {
+        method: 'POST',
+        body: JSON.stringify({ entityId: 'default', ...input }),
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['fnb-mapping-coverage', variables.locationId] });
+    },
+  });
+
+  return { saveFnbMapping };
 }

@@ -216,6 +216,10 @@ export const membershipPlans = pgTable(
     requireCcForTeeReservations: text('require_cc_for_tee_reservations'),
     requireCcForActivityReservations: text('require_cc_for_activity_reservations'),
 
+    // ── GL accounts (migration 0106) ──
+    revenueGlAccountId: text('revenue_gl_account_id'),
+    deferredRevenueGlAccountId: text('deferred_revenue_gl_account_id'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

@@ -62,6 +62,7 @@ describe('account tree view', () => {
     isActive: true,
     isControlAccount: false,
     controlAccountType: null,
+    isContraAccount: false,
     allowManualPosting: true,
     description: null,
   };

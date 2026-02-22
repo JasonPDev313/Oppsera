@@ -46,6 +46,7 @@ const mocks = vi.hoisted(() => {
   const fetchOrderForMutation = vi.fn();
   const incrementVersion = vi.fn();
   const generateJournalEntry = vi.fn();
+  const getAccountingPostingApi = vi.fn();
 
   return {
     state,
@@ -57,6 +58,7 @@ const mocks = vi.hoisted(() => {
     fetchOrderForMutation,
     incrementVersion,
     generateJournalEntry,
+    getAccountingPostingApi,
   };
 });
 
@@ -117,6 +119,10 @@ vi.mock('@oppsera/shared', () => ({
 
 vi.mock('../helpers/gl-journal', () => ({
   generateJournalEntry: mocks.generateJournalEntry,
+}));
+
+vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
+  getAccountingPostingApi: mocks.getAccountingPostingApi,
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────
@@ -189,6 +195,7 @@ describe('recordTender — event enrichment', () => {
     mocks.fetchOrderForMutation.mockReset();
     mocks.incrementVersion.mockReset();
     mocks.generateJournalEntry.mockReset();
+    mocks.getAccountingPostingApi.mockReset();
 
     // Reset state
     mocks.state.existingTenders = [];
@@ -232,6 +239,14 @@ describe('recordTender — event enrichment', () => {
     mocks.generateJournalEntry.mockResolvedValue({
       entries: [],
       allocationSnapshot: { method: 'proportional', tenderRatio: 1, entries: [] },
+    });
+    mocks.getAccountingPostingApi.mockReturnValue({
+      getSettings: vi.fn().mockResolvedValue({
+        enableLegacyGlPosting: true,
+        defaultAPControlAccountId: null,
+        defaultARControlAccountId: null,
+        baseCurrency: 'USD',
+      }),
     });
   });
 

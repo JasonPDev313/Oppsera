@@ -70,12 +70,18 @@ export async function bootstrapTenantCoa(
       controlAccountIds[at.controlAccountType] = id;
     }
 
-    // Track retained earnings and rounding accounts by number
+    // Track special accounts by number
     if (at.accountNumber === '3000') {
       controlAccountIds['retained_earnings'] = id;
     }
     if (at.accountNumber === '9999') {
       controlAccountIds['rounding'] = id;
+    }
+    if (at.accountNumber === '2160') {
+      controlAccountIds['tips_payable'] = id;
+    }
+    if (at.accountNumber === '4500') {
+      controlAccountIds['service_charge_revenue'] = id;
     }
   }
 
@@ -92,6 +98,8 @@ export async function bootstrapTenantCoa(
     defaultRetainedEarningsAccountId: controlAccountIds['retained_earnings'] ?? null,
     defaultRoundingAccountId: controlAccountIds['rounding'] ?? null,
     defaultPmsGuestLedgerAccountId: controlAccountIds['pms_guest_ledger'] ?? null,
+    defaultTipsPayableAccountId: controlAccountIds['tips_payable'] ?? null,
+    defaultServiceChargeRevenueAccountId: controlAccountIds['service_charge_revenue'] ?? null,
     roundingToleranceCents: 5,
   });
 

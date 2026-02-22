@@ -65,6 +65,12 @@ export {
   getContractRegistry,
   clearContractRegistry,
   validateContracts,
+  listDeadLetters,
+  getDeadLetter,
+  getDeadLetterStats,
+  retryDeadLetter,
+  resolveDeadLetter,
+  discardDeadLetter,
 } from './events';
 export type {
   EventRegistration,
@@ -72,6 +78,9 @@ export type {
   ModuleEventRegistration,
   EventContract,
   ModuleContracts,
+  DeadLetterEntry,
+  DeadLetterStats,
+  ListDeadLettersInput,
 } from './events';
 export type { AuditEntry, AuditLogger } from './audit';
 export {
@@ -131,6 +140,11 @@ export type {
 
 // ── Profit Centers & Terminals ──────────────────────────────────────
 export * from './profit-centers';
+
+// ── Drawer Sessions ─────────────────────────────────────────────────
+export * from './drawer-sessions';
+export * from './retail-close';
+export * from './pos-ops';
 
 // ── Security ─────────────────────────────────────────────────────
 export { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from './security';

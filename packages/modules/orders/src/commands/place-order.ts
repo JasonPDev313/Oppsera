@@ -91,6 +91,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       total: order.total,
       lineCount: lines.length,
       customerId: order.customerId ?? null,
+      billingAccountId: order.billingAccountId ?? null,
       lines: lines.map((l: any) => ({
         catalogItemId: l.catalogItemId,
         catalogItemName: l.catalogItemName ?? 'Unknown',

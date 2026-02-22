@@ -4,52 +4,16 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard,
-  Package,
-  ShoppingCart,
-  Users,
-  BarChart3,
-  Settings,
   Menu,
   X,
   LogOut,
   ChevronDown,
-  List,
-  FolderTree,
-  Receipt,
-  UtensilsCrossed,
-  ClipboardList,
-  CreditCard,
-  Crown,
   PanelLeftClose,
   PanelLeftOpen,
   Sun,
   Moon,
   CalendarDays,
   Clock,
-  FileBarChart,
-  LayoutGrid,
-  Flag,
-  PackageCheck,
-  Truck,
-  Sparkles,
-  MessageSquare,
-  Layers,
-  History,
-  Landmark,
-  BookOpen,
-  ArrowRightLeft,
-  Building2,
-  Scale,
-  FileSpreadsheet,
-  DollarSign,
-  Lock,
-  Wallet,
-  Hotel,
-  BedDouble,
-  DoorOpen,
-  ConciergeBell,
-  Brush,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
@@ -65,138 +29,10 @@ import { preloadPOSCatalog } from '@/hooks/use-catalog-for-pos';
 import { apiFetch } from '@/lib/api-client';
 import { TerminalSessionProvider, useTerminalSession } from '@/components/terminal-session-provider';
 import { TerminalSelectionScreen } from '@/components/terminal-selection-screen';
+import { CommandPalette } from '@/components/command-palette';
+import { navigation } from '@/lib/navigation';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
-
-interface SubNavItem {
-  name: string;
-  href: string;
-  icon: typeof LayoutDashboard;
-  moduleKey?: string;
-  group?: string;
-}
-
-interface NavItem {
-  name: string;
-  href: string;
-  icon: typeof LayoutDashboard;
-  moduleKey?: string;
-  children?: SubNavItem[];
-}
-
-const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Retail POS', href: '/pos/retail', icon: ShoppingCart, moduleKey: 'pos_retail' },
-  {
-    name: 'F&B POS',
-    href: '/pos/fnb',
-    icon: UtensilsCrossed,
-    moduleKey: 'pos_fnb',
-    children: [
-      { name: 'Floor Plan', href: '/pos/fnb', icon: LayoutGrid },
-      { name: 'KDS', href: '/kds', icon: ClipboardList },
-      { name: 'Expo', href: '/expo', icon: PackageCheck },
-      { name: 'Host Stand', href: '/host', icon: Users },
-      { name: 'Manager', href: '/fnb-manager', icon: Settings },
-      { name: 'Close Batch', href: '/close-batch', icon: Lock },
-    ],
-  },
-  {
-    name: 'Inventory',
-    href: '/catalog',
-    icon: Package,
-    moduleKey: 'catalog',
-    children: [
-      { name: 'Items', href: '/catalog', icon: List },
-      { name: 'Hierarchy', href: '/catalog/hierarchy', icon: FolderTree },
-      { name: 'Taxes', href: '/catalog/taxes', icon: Receipt },
-      { name: 'Receiving', href: '/inventory/receiving', icon: PackageCheck },
-      { name: 'Vendors', href: '/vendors', icon: Truck },
-    ],
-  },
-  { name: 'Sales History', href: '/orders', icon: ClipboardList, moduleKey: 'pos_retail' },
-  {
-    name: 'Customers',
-    href: '/customers',
-    icon: Users,
-    moduleKey: 'customers',
-    children: [
-      { name: 'All Customers', href: '/customers', icon: Users },
-      { name: 'Memberships', href: '/customers/memberships', icon: Crown },
-      { name: 'Billing', href: '/customers/billing', icon: CreditCard },
-    ],
-  },
-  {
-    name: 'Reports',
-    href: '/reports',
-    icon: BarChart3,
-    moduleKey: 'reporting',
-    children: [
-      { name: 'Overview', href: '/reports', icon: BarChart3 },
-      { name: 'Custom Reports', href: '/reports/custom', icon: FileBarChart },
-      { name: 'Dashboards', href: '/dashboards', icon: LayoutGrid },
-      { name: 'Golf Analytics', href: '/reports/golf', icon: Flag, moduleKey: 'golf_ops' },
-    ],
-  },
-  {
-    name: 'AI Insights',
-    href: '/insights',
-    icon: Sparkles,
-    moduleKey: 'semantic',
-    children: [
-      { name: 'Chat', href: '/insights', icon: MessageSquare },
-      { name: 'Lenses', href: '/insights/lenses', icon: Layers },
-      { name: 'History', href: '/insights/history', icon: History },
-    ],
-  },
-  {
-    name: 'Property Mgmt',
-    href: '/pms',
-    icon: Hotel,
-    moduleKey: 'pms',
-    children: [
-      { name: 'Calendar', href: '/pms/calendar', icon: CalendarDays },
-      { name: 'Reservations', href: '/pms/reservations', icon: BedDouble },
-      { name: 'Front Desk', href: '/pms/front-desk', icon: ConciergeBell },
-      { name: 'Housekeeping', href: '/pms/housekeeping', icon: Brush },
-      { name: 'Guests', href: '/pms/guests', icon: Users },
-      { name: 'Rate Plans', href: '/pms/rate-plans', icon: DollarSign, group: 'PMS Settings' },
-      { name: 'Room Types', href: '/pms/room-types', icon: LayoutGrid, group: 'PMS Settings' },
-      { name: 'Rooms', href: '/pms/rooms', icon: DoorOpen, group: 'PMS Settings' },
-    ],
-  },
-  {
-    name: 'Accounting',
-    href: '/accounting',
-    icon: Landmark,
-    moduleKey: 'accounting',
-    children: [
-      { name: 'Dashboard', href: '/accounting', icon: Landmark },
-      { name: 'Chart of Accounts', href: '/accounting/accounts', icon: BookOpen },
-      { name: 'Journal Entries', href: '/accounting/journals', icon: FileSpreadsheet },
-      { name: 'GL Mappings', href: '/accounting/mappings', icon: ArrowRightLeft },
-      { name: 'Bank Accounts', href: '/accounting/banks', icon: Building2 },
-      { name: 'Reports', href: '/accounting/reports/trial-balance', icon: BarChart3 },
-      { name: 'Statements', href: '/accounting/statements/profit-loss', icon: Scale },
-      { name: 'AP Bills', href: '/ap/bills', icon: Receipt, moduleKey: 'ap' },
-      { name: 'AP Payments', href: '/ap/payments', icon: DollarSign, moduleKey: 'ap' },
-      { name: 'AR Invoices', href: '/ar/invoices', icon: Wallet, moduleKey: 'ar' },
-      { name: 'AR Receipts', href: '/ar/receipts', icon: CreditCard, moduleKey: 'ar' },
-      { name: 'Reconciliation', href: '/accounting/reconciliation', icon: ArrowRightLeft },
-      { name: 'Period Close', href: '/accounting/close', icon: Lock },
-    ],
-  },
-  {
-    name: 'Settings',
-    href: '/settings',
-    icon: Settings,
-    children: [
-      { name: 'General', href: '/settings', icon: Settings },
-      { name: 'Profit Centers', href: '/settings/profit-centers', icon: Building2 },
-      { name: 'Room Layouts', href: '/settings/room-layouts', icon: LayoutDashboard, moduleKey: 'room_layouts' },
-    ],
-  },
-];
 
 function getInitials(name: string): string {
   return name
@@ -324,7 +160,7 @@ function SidebarContent({
       </div>
 
       {/* Navigation */}
-      <nav className={`flex-1 space-y-1 py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
+      <nav className={`sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
         {navigation.map((item) => {
           const enabled = !item.moduleKey || isModuleEnabled(item.moduleKey);
           const isParentActive =
@@ -660,6 +496,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <CommandPalette />
             <LiveClockDisplay />
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 transition-colors hover:bg-indigo-700">
               <span className="text-sm font-medium text-white">{getInitials(userName)}</span>

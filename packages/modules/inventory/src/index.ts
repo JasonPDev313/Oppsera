@@ -135,4 +135,4 @@ export { checkStockAlerts } from './helpers/stock-alerts';
 export { findByCatalogItemId } from './helpers/find-by-catalog-item';
 
 // Event consumers
-export { handleOrderPlaced, handleOrderVoided, handleCatalogItemCreated } from './events/consumers';
+export { handleOrderPlaced, handleOrderVoided, handleOrderReturned, handleCatalogItemCreated } from './events/consumers';

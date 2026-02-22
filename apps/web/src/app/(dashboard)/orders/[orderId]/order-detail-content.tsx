@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, DollarSign, Printer, XCircle } from 'lucide-react';
+import { ArrowLeft, DollarSign, Printer, RotateCcw, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuthContext } from '@/components/auth-provider';
@@ -355,6 +355,71 @@ function TendersSection({ orderId, orderTotal, locationId }: { orderId: string; 
   );
 }
 
+// ── Returns Section ─────────────────────────────────────────────
+
+interface ReturnSummary {
+  returnOrderId: string;
+  returnOrderNumber: string;
+  returnType: string;
+  total: number;
+  lineCount: number;
+  createdAt: string;
+}
+
+function ReturnsSection({ orderId, locationId }: { orderId: string; locationId: string }) {
+  const [returns, setReturns] = useState<ReturnSummary[]>([]);
+  const [totalReturned, setTotalReturned] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchReturns() {
+      try {
+        const res = await apiFetch<{ data: { returns: ReturnSummary[]; totalReturnedCents: number } }>(
+          `/api/v1/orders/${orderId}/returns`,
+          { headers: { 'X-Location-Id': locationId } },
+        );
+        setReturns(res.data.returns);
+        setTotalReturned(res.data.totalReturnedCents);
+      } catch {
+        // No returns — fine
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchReturns();
+  }, [orderId, locationId]);
+
+  if (isLoading) return <div className="px-4 py-4"><div className="h-8 w-48 animate-pulse rounded bg-gray-200" /></div>;
+  if (returns.length === 0) return null;
+
+  return (
+    <div className="space-y-2 px-4 py-4">
+      {returns.map((r) => (
+        <div key={r.returnOrderId} className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <RotateCcw className="h-4 w-4 text-amber-600" />
+            <span className="text-sm text-gray-700">
+              {r.returnOrderNumber} ({r.returnType})
+            </span>
+            <span className="text-xs text-gray-400">
+              {r.lineCount} item{r.lineCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <span className="text-sm font-medium text-red-600">
+            -{formatMoney(Math.abs(r.total))}
+          </span>
+        </div>
+      ))}
+      <div className="border-t border-gray-200 pt-2 mt-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-600">Total Returned</span>
+          <span className="font-medium text-red-600">-{formatMoney(totalReturned)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page Component ───────────────────────────────────────────
 
 export default function OrderDetailPage() {
@@ -564,6 +629,18 @@ export default function OrderDetailPage() {
         <TendersSection orderId={order.id} orderTotal={order.total} locationId={locationId} />
       </div>
 
+      {/* Returns */}
+      {order.status === 'paid' && (
+        <div className="rounded-lg border border-gray-200 bg-surface">
+          <div className="border-b border-gray-200 px-4 py-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+              Returns
+            </h2>
+          </div>
+          <ReturnsSection orderId={order.id} locationId={locationId} />
+        </div>
+      )}
+
       {/* Totals */}
       <div className="rounded-lg border border-gray-200 bg-surface">
         <div className="border-b border-gray-200 px-4 py-3">
@@ -617,6 +694,16 @@ export default function OrderDetailPage() {
           <Printer className="h-4 w-4" />
           Print Receipt
         </button>
+        {order.status === 'paid' && (
+          <button
+            type="button"
+            onClick={() => router.push(`/orders/${order.id}/return`)}
+            className="flex items-center gap-2 rounded-lg border border-amber-500/40 px-4 py-2 text-sm font-medium text-amber-600 transition-colors hover:bg-amber-500/10"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Process Return
+          </button>
+        )}
         {!isVoided && (
           <button
             type="button"

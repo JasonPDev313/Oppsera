@@ -375,6 +375,36 @@ export const processedEvents = pgTable(
   (table) => [uniqueIndex('uq_processed_events').on(table.eventId, table.consumerName)],
 );
 
+// ── Event Dead Letters ───────────────────────────────────────────
+export const eventDeadLetters = pgTable(
+  'event_dead_letters',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id'),
+    eventId: text('event_id').notNull(),
+    eventType: text('event_type').notNull(),
+    eventData: jsonb('event_data').notNull(),
+    consumerName: text('consumer_name').notNull(),
+    errorMessage: text('error_message'),
+    errorStack: text('error_stack'),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    maxRetries: integer('max_retries').notNull().default(3),
+    firstFailedAt: timestamp('first_failed_at', { withTimezone: true }).notNull().defaultNow(),
+    lastFailedAt: timestamp('last_failed_at', { withTimezone: true }).notNull().defaultNow(),
+    status: text('status').notNull().default('failed'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedBy: text('resolved_by'),
+    resolutionNotes: text('resolution_notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_dead_letters_status').on(table.tenantId, table.status),
+    index('idx_dead_letters_type').on(table.eventType, table.status),
+    index('idx_dead_letters_consumer').on(table.consumerName, table.status),
+    index('idx_dead_letters_created').on(table.createdAt),
+  ],
+);
+
 // ── Tenant Settings ──────────────────────────────────────────────
 export const tenantSettings = pgTable(
   'tenant_settings',

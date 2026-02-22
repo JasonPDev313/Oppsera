@@ -87,6 +87,7 @@ export const voucherLedgerEntries = pgTable(
     description: text('description'),
     balanceCents: integer('balance_cents').notNull(),
     amountCents: integer('amount_cents').notNull(),
+    glJournalEntryId: text('gl_journal_entry_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -161,6 +162,7 @@ export const voucherExpirationIncome = pgTable(
     expirationDate: date('expiration_date').notNull(),
     expirationAmountCents: integer('expiration_amount_cents').notNull(),
     orderLineId: text('order_line_id'),
+    glJournalEntryId: text('gl_journal_entry_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -191,6 +193,35 @@ export const voucherTypeDepartmentRestrictions = pgTable(
       table.voucherTypeId,
       table.departmentId,
     ),
+  ],
+);
+
+// ── Pending Breakage Review ─────────────────────────────────────
+
+export const pendingBreakageReview = pgTable(
+  'pending_breakage_review',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    voucherId: text('voucher_id')
+      .notNull()
+      .references(() => vouchers.id),
+    voucherNumber: text('voucher_number').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    expiredAt: timestamp('expired_at', { withTimezone: true }).notNull(),
+    status: text('status').notNull().default('pending'), // 'pending' | 'approved' | 'declined'
+    reviewedBy: text('reviewed_by'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewNotes: text('review_notes'),
+    glJournalEntryId: text('gl_journal_entry_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_pending_breakage_tenant_status').on(table.tenantId, table.status),
+    index('idx_pending_breakage_tenant_voucher').on(table.tenantId, table.voucherId),
   ],
 );
 

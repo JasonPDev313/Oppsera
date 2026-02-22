@@ -16,6 +16,10 @@ export interface AccountingPostJournalInput {
     departmentId?: string;
     customerId?: string;
     vendorId?: string;
+    profitCenterId?: string;
+    subDepartmentId?: string;
+    terminalId?: string;
+    channel?: string;
     memo?: string;
   }>;
   forcePost?: boolean;
@@ -41,6 +45,7 @@ export interface AccountingPostingApi {
     defaultAPControlAccountId: string | null;
     defaultARControlAccountId: string | null;
     baseCurrency: string;
+    enableLegacyGlPosting?: boolean;
   }>;
 }
 

@@ -3,13 +3,15 @@ import {
   text,
   boolean,
   timestamp,
+  date,
+  numeric,
   index,
   uniqueIndex,
   primaryKey,
 } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
-import { glAccounts } from './accounting';
+import { glAccounts, glJournalEntries, glJournalLines } from './accounting';
 
 // ── Sub-Department GL Defaults ────────────────────────────────────
 // Maps sub-departments to their default GL accounts for revenue, COGS, etc.
@@ -23,6 +25,7 @@ export const subDepartmentGlDefaults = pgTable(
     inventoryAssetAccountId: text('inventory_asset_account_id').references(() => glAccounts.id),
     discountAccountId: text('discount_account_id').references(() => glAccounts.id),
     returnsAccountId: text('returns_account_id').references(() => glAccounts.id),
+    compAccountId: text('comp_account_id').references(() => glAccounts.id),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -100,11 +103,75 @@ export const bankAccounts = pgTable(
     bankName: text('bank_name'),
     isActive: boolean('is_active').notNull().default(true),
     isDefault: boolean('is_default').notNull().default(false),
+    lastReconciledDate: date('last_reconciled_date'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     uniqueIndex('uq_bank_accounts_tenant_gl_account').on(table.tenantId, table.glAccountId),
     index('idx_bank_accounts_tenant_active').on(table.tenantId, table.isActive),
+  ],
+);
+
+// ── Bank Reconciliations ─────────────────────────────────────────
+export const bankReconciliations = pgTable(
+  'bank_reconciliations',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    bankAccountId: text('bank_account_id')
+      .notNull()
+      .references(() => bankAccounts.id),
+    statementDate: date('statement_date').notNull(),
+    statementEndingBalance: numeric('statement_ending_balance', { precision: 12, scale: 2 }).notNull(),
+    beginningBalance: numeric('beginning_balance', { precision: 12, scale: 2 }).notNull(),
+    status: text('status').notNull().default('in_progress'), // 'in_progress' | 'completed'
+    clearedBalance: numeric('cleared_balance', { precision: 12, scale: 2 }).notNull().default('0'),
+    outstandingDeposits: numeric('outstanding_deposits', { precision: 12, scale: 2 }).notNull().default('0'),
+    outstandingWithdrawals: numeric('outstanding_withdrawals', { precision: 12, scale: 2 }).notNull().default('0'),
+    adjustmentTotal: numeric('adjustment_total', { precision: 12, scale: 2 }).notNull().default('0'),
+    difference: numeric('difference', { precision: 12, scale: 2 }).notNull().default('0'),
+    reconciledBy: text('reconciled_by'),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_bank_reconciliations_tenant_acct_date').on(
+      table.tenantId,
+      table.bankAccountId,
+      table.statementDate,
+    ),
+    index('idx_bank_reconciliations_tenant').on(table.tenantId, table.bankAccountId),
+    index('idx_bank_reconciliations_status').on(table.tenantId, table.status),
+  ],
+);
+
+// ── Bank Reconciliation Items ────────────────────────────────────
+export const bankReconciliationItems = pgTable(
+  'bank_reconciliation_items',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    reconciliationId: text('reconciliation_id')
+      .notNull()
+      .references(() => bankReconciliations.id),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    glJournalLineId: text('gl_journal_line_id').references(() => glJournalLines.id),
+    itemType: text('item_type').notNull(), // 'deposit' | 'withdrawal' | 'fee' | 'interest' | 'adjustment'
+    amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+    date: date('date').notNull(),
+    description: text('description'),
+    isCleared: boolean('is_cleared').notNull().default(false),
+    clearedDate: date('cleared_date'),
+    glJournalEntryId: text('gl_journal_entry_id').references(() => glJournalEntries.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_bank_reconciliation_items_recon').on(table.reconciliationId),
   ],
 );

@@ -20,6 +20,7 @@ export async function saveSubDepartmentDefaults(
     if (input.inventoryAssetAccountId) accountIds.push(input.inventoryAssetAccountId);
     if (input.discountAccountId) accountIds.push(input.discountAccountId);
     if (input.returnsAccountId) accountIds.push(input.returnsAccountId);
+    if (input.compAccountId) accountIds.push(input.compAccountId);
 
     if (accountIds.length > 0) {
       const accounts = await tx
@@ -82,6 +83,7 @@ export async function saveSubDepartmentDefaults(
           inventoryAssetAccountId: input.inventoryAssetAccountId ?? null,
           discountAccountId: input.discountAccountId ?? null,
           returnsAccountId: input.returnsAccountId ?? null,
+          compAccountId: input.compAccountId ?? null,
         })
         .returning();
     }

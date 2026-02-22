@@ -6,21 +6,23 @@
  *   Expected cash = Starting float + Cash sales + Cash tips - Cash drops - Cash paid outs
  *   Over/Short = Counted cash - Expected cash
  *
- * Journal line categories:
- * - DEBIT: Cash on Hand (cash sales + cash tips)
- * - DEBIT: Undeposited Funds (credit card sales)
- * - DEBIT: Discount Expense or Contra-Revenue (discounts)
- * - DEBIT: Comp Expense (comps)
- * - DEBIT: Cash Over/Short (if short)
- * - CREDIT: Sales Revenue (net sales)
- * - CREDIT: Tax Payable (tax collected)
- * - CREDIT: Tips Payable (credit tips)
- * - CREDIT: Service Charge Revenue (service charges)
- * - CREDIT: Cash Over/Short (if over)
+ * Category key reference (FNB_BATCH_CATEGORY_KEYS v2):
+ * - DEBIT: cash_on_hand (cash sales + cash tips)
+ * - DEBIT: undeposited_funds (credit card sales)
+ * - DEBIT: discount (contra-revenue or expense)
+ * - DEBIT: comp_expense (comps)
+ * - DEBIT: cash_over_short (if short)
+ * - CREDIT: sales_revenue (net sales)
+ * - CREDIT: tax_payable (tax collected)
+ * - CREDIT: tips_payable_credit (credit tips)
+ * - CREDIT: tips_payable_cash (cash tips declared)
+ * - CREDIT: service_charge_revenue (service charges)
+ * - CREDIT: cash_over_short (if over)
  */
+import type { FnbBatchCategoryKey } from '@oppsera/shared';
 
 export interface JournalLine {
-  category: string;
+  category: FnbBatchCategoryKey;
   description: string;
   debitCents: number;
   creditCents: number;
@@ -119,12 +121,22 @@ export function buildBatchJournalLines(
     });
   }
 
+  // V2: Split tips into credit and cash
   if (tipsCreditCents > 0) {
     lines.push({
-      category: 'tips_payable',
+      category: 'tips_payable_credit',
       description: 'Credit card tips payable',
       debitCents: 0,
       creditCents: tipsCreditCents,
+    });
+  }
+
+  if (tipsCashDeclaredCents > 0) {
+    lines.push({
+      category: 'tips_payable_cash',
+      description: 'Cash tips declared',
+      debitCents: 0,
+      creditCents: tipsCashDeclaredCents,
     });
   }
 

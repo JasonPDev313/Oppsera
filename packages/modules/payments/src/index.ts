@@ -7,6 +7,8 @@ import './events/contracts';
 
 // Commands
 export { recordTender, reverseTender, adjustTip } from './commands';
+export { purchaseVoucher, redeemVoucher, expireVouchers } from './commands';
+export { recordChargeback, resolveChargeback } from './commands';
 
 // Queries
 export { getTendersByOrder, listTenders, getPaymentJournalEntries } from './queries';
@@ -17,6 +19,10 @@ export type { GetJournalInput, GetJournalResult } from './queries/get-payment-jo
 // Validation schemas + types
 export { recordTenderSchema, reverseTenderSchema, adjustTipSchema } from './validation';
 export type { RecordTenderInput, ReverseTenderInput, AdjustTipInput } from './validation';
+export { purchaseVoucherSchema, redeemVoucherSchema, expireVouchersSchema } from './voucher-validation';
+export type { PurchaseVoucherInput, RedeemVoucherInput, ExpireVouchersInput } from './voucher-validation';
+export { recordChargebackSchema, resolveChargebackSchema } from './chargeback-validation';
+export type { RecordChargebackInput, ResolveChargebackInput } from './chargeback-validation';
 
 // Helpers
 export { generateJournalEntry } from './helpers';

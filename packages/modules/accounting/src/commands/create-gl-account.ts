@@ -46,6 +46,7 @@ export async function createGlAccount(
         parentAccountId: input.parentAccountId ?? null,
         isControlAccount: input.isControlAccount ?? false,
         controlAccountType: input.controlAccountType ?? null,
+        isContraAccount: input.isContraAccount ?? false,
         allowManualPosting: input.allowManualPosting ?? true,
         description: input.description ?? null,
       })

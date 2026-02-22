@@ -11,6 +11,7 @@ import {
   TrendingDown,
   DollarSign,
   Wallet,
+  ShieldCheck,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { StatusBadge } from '@/components/accounting/status-badge';
@@ -18,6 +19,7 @@ import { formatAccountingMoney } from '@/types/accounting';
 import type { HealthSummary } from '@/types/accounting';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
+import { useAuditCoverage } from '@/hooks/use-audit';
 
 // ── Quick link definitions ────────────────────────────────────
 
@@ -59,6 +61,13 @@ function KPICard({
 
 // ── Main Content ──────────────────────────────────────────────
 
+function getDefaultDateRange() {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - 30);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
 export default function AccountingDashboardContent() {
   const { data: health, isLoading } = useQuery({
     queryKey: ['accounting-health-summary'],
@@ -69,6 +78,9 @@ export default function AccountingDashboardContent() {
     staleTime: 60_000,
     refetchInterval: 60_000,
   });
+
+  const dateRange = getDefaultDateRange();
+  const { data: auditCoverage } = useAuditCoverage(dateRange);
 
   return (
     <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
@@ -182,6 +194,26 @@ export default function AccountingDashboardContent() {
           </div>
         </div>
       </div>
+
+      {/* Data Integrity Card */}
+      {auditCoverage && (
+        <Link
+          href="/accounting/audit"
+          className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm transition-colors ${
+            auditCoverage.totalGaps === 0
+              ? 'border-green-200 bg-green-50 text-green-800 hover:bg-green-100'
+              : 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+          }`}
+        >
+          <ShieldCheck className={`h-5 w-5 shrink-0 ${auditCoverage.totalGaps === 0 ? 'text-green-500' : 'text-amber-500'}`} />
+          <span>
+            <strong>{auditCoverage.totalAuditEntries}</strong> audit entries / <strong>{auditCoverage.totalTransactions}</strong> financial transactions
+            {auditCoverage.totalGaps > 0
+              ? ` — ${auditCoverage.totalGaps} gap${auditCoverage.totalGaps !== 1 ? 's' : ''} detected`
+              : ' — full coverage'}
+          </span>
+        </Link>
+      )}
 
       {/* Mapping Coverage + Period Close Status */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

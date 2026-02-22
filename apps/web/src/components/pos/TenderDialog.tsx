@@ -116,6 +116,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   };
 
   const handleSubmit = async (overrideAmountCents?: number) => {
+    // V1 offline guard — block tenders when connectivity is lost
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      toast.error('Offline — payments disabled until connection restored');
+      return;
+    }
     const submitAmountCents = overrideAmountCents ?? amountCents;
     if (submitAmountCents <= 0) {
       toast.error('Amount must be greater than zero');

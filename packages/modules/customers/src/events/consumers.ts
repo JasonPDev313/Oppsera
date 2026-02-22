@@ -30,6 +30,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     locationId: eventLocationId,
     businessDate: eventBusinessDate,
     customerId: eventCustomerId,
+    billingAccountId: eventBillingAccountId,
   } = event.data as {
     orderId: string;
     orderNumber: string;
@@ -40,6 +41,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     taxTotal: number;
     lineCount: number;
     customerId?: string | null;
+    billingAccountId?: string | null;
   };
 
   const businessDate =
@@ -48,8 +50,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
 
   await withTenant(event.tenantId, async (tx) => {
     const customerId = eventCustomerId ?? null;
-    // billingAccountId will be available once house-account orders are implemented
-    const billingAccountId: string | null = null;
+    const billingAccountId = eventBillingAccountId ?? null;
 
     // ── Customer stats ──────────────────────────────────────────
     if (customerId) {
@@ -362,6 +363,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
     amount,
     businessDate: eventBusinessDate,
     customerId: eventCustomerId,
+    billingAccountId: eventBillingAccountId,
   } = event.data as {
     tenderId: string;
     orderId: string;
@@ -384,6 +386,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
     remainingBalance: number;
     isFullyPaid: boolean;
     customerId?: string | null;
+    billingAccountId?: string | null;
   };
 
   // Only process house_account tenders
@@ -394,8 +397,7 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
   const createdBy = event.actorUserId || 'system';
 
   await withTenant(event.tenantId, async (tx) => {
-    // billingAccountId will be available once house-account orders are implemented
-    const billingAccountId: string | null = null;
+    const billingAccountId = eventBillingAccountId ?? null;
     if (!billingAccountId) return;
 
     // Idempotency: skip if we already recorded a payment for this tender

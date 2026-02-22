@@ -621,6 +621,12 @@ export interface GlPostingCreatedPayload {
   totalDebitCents: number;
   totalCreditCents: number;
   lineCount: number;
+  journalLines: Array<{
+    category: string;
+    description: string;
+    debitCents: number;
+    creditCents: number;
+  }>;
 }
 
 export interface GlPostingReversedPayload {
