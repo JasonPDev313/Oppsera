@@ -988,6 +988,13 @@
       "when": 1708100140000,
       "tag": "0140_fnb_subdepartment_revenue",
       "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1708100141000,
+      "tag": "0141_admin_impersonation",
+      "breakpoints": true
     }
   ]
 }

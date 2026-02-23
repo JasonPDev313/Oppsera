@@ -30,6 +30,7 @@ import { apiFetch } from '@/lib/api-client';
 import { TerminalSessionProvider, useTerminalSession } from '@/components/terminal-session-provider';
 import { TerminalSelectionScreen } from '@/components/terminal-selection-screen';
 import { CommandPalette } from '@/components/command-palette';
+import { ImpersonationBanner } from '@/components/impersonation-banner';
 import { navigation } from '@/lib/navigation';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
@@ -414,7 +415,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     <ContextMenuProvider>
     <ProfileDrawerProvider>
     <ItemEditDrawerProvider>
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+      <ImpersonationBanner />
+      <div className="flex flex-1 overflow-hidden">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -522,6 +525,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
       <CustomerProfileDrawer />
       {/* Item Edit Drawer — always mounted, renders when open */}
       <ItemEditDrawer />
+      </div>
     </div>
     </ItemEditDrawerProvider>
     </ProfileDrawerProvider>

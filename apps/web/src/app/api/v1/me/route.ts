@@ -9,19 +9,21 @@ export const GET = withMiddleware(async (_request, ctx) => {
     where: eq(users.id, ctx.user.id),
   });
 
+  // For impersonation sessions, user will be null (admin:{id} doesn't exist in users table).
+  // Use ctx.user fields directly as fallback.
+  const userData = user
+    ? { id: user.id, email: user.email, name: user.name, isPlatformAdmin: user.isPlatformAdmin }
+    : { id: ctx.user.id, email: ctx.user.email, name: ctx.user.name, isPlatformAdmin: true };
+
   // User has no tenant yet — needs onboarding
   if (!ctx.tenantId) {
     return NextResponse.json({
       data: {
-        user: {
-          id: user?.id,
-          email: user?.email,
-          name: user?.name,
-          isPlatformAdmin: user?.isPlatformAdmin,
-        },
+        user: userData,
         tenant: null,
         locations: [],
         membership: { status: 'none' },
+        impersonation: null,
       },
     });
   }
@@ -35,12 +37,7 @@ export const GET = withMiddleware(async (_request, ctx) => {
 
   return NextResponse.json({
     data: {
-      user: {
-        id: user?.id,
-        email: user?.email,
-        name: user?.name,
-        isPlatformAdmin: user?.isPlatformAdmin,
-      },
+      user: userData,
       tenant: {
         id: tenant?.id,
         name: tenant?.name,
@@ -56,6 +53,9 @@ export const GET = withMiddleware(async (_request, ctx) => {
       membership: {
         status: ctx.user.membershipStatus,
       },
+      impersonation: ctx.impersonation
+        ? { sessionId: ctx.impersonation.sessionId, adminEmail: ctx.impersonation.adminEmail }
+        : null,
     },
   });
 }, { authenticated: true, requireTenant: false });

@@ -3,6 +3,12 @@ import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getAuthAdapter } from '@oppsera/core/auth/get-adapter';
 import { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from '@oppsera/core/security';
+import {
+  verifyImpersonationToken,
+  getActiveImpersonationSession,
+  createImpersonationAccessToken,
+  createImpersonationRefreshToken,
+} from '@oppsera/core/auth/impersonation';
 import { AppError, ValidationError } from '@oppsera/shared';
 
 const refreshSchema = z.object({
@@ -30,6 +36,23 @@ export const POST = withMiddleware(
       );
     }
 
+    // Handle impersonation refresh tokens
+    const impClaims = verifyImpersonationToken(parsed.data.refreshToken);
+    if (impClaims?.imp) {
+      const session = await getActiveImpersonationSession(impClaims.imp.sessionId);
+      if (!session) {
+        throw new AppError('SESSION_EXPIRED', 'Impersonation session expired', 401);
+      }
+      const newPayload = { sub: impClaims.sub, imp: impClaims.imp };
+      return NextResponse.json({
+        data: {
+          accessToken: createImpersonationAccessToken(newPayload),
+          refreshToken: createImpersonationRefreshToken(newPayload),
+        },
+      });
+    }
+
+    // Standard refresh flow
     const adapter = getAuthAdapter();
 
     try {

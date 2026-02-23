@@ -44,6 +44,11 @@ const onboardSchema = z.object({
 
 const SYSTEM_ROLES = [
   {
+    name: 'Super Admin',
+    description: 'All permissions across all modules — auto-includes new permissions',
+    permissions: ['*'],
+  },
+  {
     name: 'Owner',
     description: 'Full access to all features',
     permissions: ['*'],

@@ -57,11 +57,11 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
       supportsViewMode: mod.supportsViewMode,
       dependencies: mod.dependencies,
       dependents: activeDependents,
-      activatedAt: ent?.activated_at ? (ent.activated_at as Date).toISOString() : null,
-      expiresAt: ent?.expires_at ? (ent.expires_at as Date).toISOString() : null,
+      activatedAt: (ent?.activated_at as string) ?? null,
+      expiresAt: (ent?.expires_at as string) ?? null,
       changedBy: (ent?.changed_by as string) ?? null,
       changeReason: (ent?.change_reason as string) ?? null,
-      lastChangedAt: ent?.updated_at ? (ent.updated_at as Date).toISOString() : null,
+      lastChangedAt: (ent?.updated_at as string) ?? null,
     };
   });
 

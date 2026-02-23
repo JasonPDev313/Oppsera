@@ -7,14 +7,21 @@ import { useAuthContext } from '@/components/auth-provider';
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isLoading, isAuthenticated } = useAuthContext();
+  const { isLoading, isAuthenticated, needsOnboarding } = useAuthContext();
 
   useEffect(() => {
-    // Once auth state is resolved, redirect authenticated users away from auth pages
-    if (!isLoading && isAuthenticated && pathname !== '/onboard') {
+    if (isLoading || !isAuthenticated) return;
+
+    if (needsOnboarding) {
+      // User is authenticated but has no tenant — send to onboard
+      if (pathname !== '/onboard') {
+        router.replace('/onboard');
+      }
+    } else {
+      // Fully set up — redirect away from all auth pages (including /onboard)
       router.replace('/dashboard');
     }
-  }, [isLoading, isAuthenticated, router, pathname]);
+  }, [isLoading, isAuthenticated, needsOnboarding, router, pathname]);
 
   if (isLoading) {
     return (
@@ -24,9 +31,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     );
   }
 
-  // If authenticated (and not onboarding), don't render auth pages — redirect will fire
-  if (isAuthenticated && pathname !== '/onboard') {
+  // Fully authenticated + has tenant → don't render auth pages, redirect will fire
+  if (isAuthenticated && !needsOnboarding && pathname !== '/onboard') {
     return null;
+  }
+
+  // Onboard page renders its own full-screen layout (wider container, step indicator)
+  if (pathname === '/onboard') {
+    return <>{children}</>;
   }
 
   return (

@@ -9,6 +9,7 @@ import type { RequestContext } from './context';
 import { requirePermission } from '../permissions/middleware';
 import { requireEntitlement, requireEntitlementWrite } from '../entitlements/middleware';
 import { getPermissionEngine } from '../permissions/engine';
+import { incrementImpersonationActionCount } from './impersonation';
 
 type RouteHandler = (
   request: NextRequest,
@@ -51,15 +52,19 @@ async function resolveLocation(
     throw new NotFoundError('Location');
   }
 
-  // Verify user has at least one role assignment for this location (or a tenant-wide role).
-  // Uses the permission engine's 15s cache — no extra DB query on hot path.
-  const permissions = await getPermissionEngine().getUserPermissions(
-    ctx.tenantId,
-    ctx.user.id,
-    locationId,
-  );
-  if (permissions.size === 0) {
-    throw new AuthorizationError('No access to this location');
+  // Impersonation sessions skip the role assignment check —
+  // the admin has no role_assignments in the tenant.
+  if (!ctx.impersonation) {
+    // Verify user has at least one role assignment for this location (or a tenant-wide role).
+    // Uses the permission engine's 15s cache — no extra DB query on hot path.
+    const permissions = await getPermissionEngine().getUserPermissions(
+      ctx.tenantId,
+      ctx.user.id,
+      locationId,
+    );
+    if (permissions.size === 0) {
+      throw new AuthorizationError('No access to this location');
+    }
   }
 
   return locationId;
@@ -111,6 +116,11 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
           }
 
           response = await requestContext.run(ctx, () => handler(request, ctx));
+
+          // Track impersonation action count (fire-and-forget)
+          if (ctx.impersonation) {
+            incrementImpersonationActionCount(ctx.impersonation.sessionId).catch(() => {});
+          }
         }
       }
 

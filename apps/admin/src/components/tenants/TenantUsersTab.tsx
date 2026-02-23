@@ -5,6 +5,8 @@ import { Edit3, Loader2, Plus, X } from 'lucide-react';
 import { adminFetch, AdminApiError } from '@/lib/api-fetch';
 
 interface RoleOption { id: string; name: string }
+
+const SUPER_ADMIN_ROLE_NAMES = ['Super Admin', 'Owner'];
 interface LocationOption { id: string; name: string }
 
 interface TenantUser {
@@ -87,6 +89,28 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
   }, [tenantId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Helper: check if a role ID maps to Super Admin or Owner
+  const isFullAccessRole = useCallback((roleId: string) => {
+    const role = roles.find((r) => r.id === roleId);
+    return role ? SUPER_ADMIN_ROLE_NAMES.includes(role.name) : false;
+  }, [roles]);
+
+  const handleAddRoleChange = useCallback((roleId: string) => {
+    setAddForm((p) => ({
+      ...p,
+      userRole: roleId,
+      locationIds: isFullAccessRole(roleId) ? locations.map((l) => l.id) : p.locationIds,
+    }));
+  }, [isFullAccessRole, locations]);
+
+  const handleEditRoleChange = useCallback((roleId: string) => {
+    setEditForm((p) => ({
+      ...p,
+      userRole: roleId,
+      locationIds: isFullAccessRole(roleId) ? locations.map((l) => l.id) : p.locationIds,
+    }));
+  }, [isFullAccessRole, locations]);
 
   // ── Add User ─────────────────────────────────────────────────
   const canSubmitAdd = useMemo(() => {
@@ -310,8 +334,8 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
               <input placeholder="User Name" className={inputCls} value={addForm.userName} onChange={(e) => setAddForm((p) => ({ ...p, userName: e.target.value }))} />
               <input type={showPasswords ? 'text' : 'password'} placeholder="Password (optional)" className={inputCls} value={addForm.password} onChange={(e) => setAddForm((p) => ({ ...p, password: e.target.value }))} />
               <input type={showPasswords ? 'text' : 'password'} placeholder="Confirm Password" className={inputCls} value={addForm.confirmPassword} onChange={(e) => setAddForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
-              <input placeholder="Phone Number" className={inputCls} value={addForm.phoneNumber} onChange={(e) => setAddForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
-              <select className={selectCls} value={addForm.userRole} onChange={(e) => setAddForm((p) => ({ ...p, userRole: e.target.value }))}>
+              <input placeholder="Phone Number (optional)" className={inputCls} value={addForm.phoneNumber} onChange={(e) => setAddForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
+              <select className={selectCls} value={addForm.userRole} onChange={(e) => handleAddRoleChange(e.target.value)}>
                 <option value="">Select Role</option>
                 {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
@@ -319,21 +343,33 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
               </select>
-              <input placeholder="POS Override PIN" className={inputCls} value={addForm.posOverridePin} onChange={(e) => setAddForm((p) => ({ ...p, posOverridePin: e.target.value }))} />
-              <input placeholder="Unique Identification PIN" className={inputCls} value={addForm.uniqueIdentificationPin} onChange={(e) => setAddForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value }))} />
+              <div>
+                <input placeholder="POS Override PIN (optional, 6 digits)" maxLength={6} className={inputCls} value={addForm.posOverridePin} onChange={(e) => setAddForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 6) }))} />
+                <p className="mt-1 text-xs text-slate-500">6-digit numeric PIN for POS overrides</p>
+              </div>
+              <div>
+                <input placeholder="Unique ID PIN (optional, 4 digits)" maxLength={4} className={inputCls} value={addForm.uniqueIdentificationPin} onChange={(e) => setAddForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} />
+                <p className="mt-1 text-xs text-slate-500">4-digit numeric PIN for user identification</p>
+              </div>
               <div className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-2.5 text-sm">
                 <label className="mb-1 block text-xs text-slate-400">User Tab Color</label>
                 <input type="color" className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent" value={addForm.userTabColor} onChange={(e) => setAddForm((p) => ({ ...p, userTabColor: e.target.value }))} />
               </div>
-              <input placeholder="External Payroll Employee ID" className={inputCls} value={addForm.externalPayrollEmployeeId} onChange={(e) => setAddForm((p) => ({ ...p, externalPayrollEmployeeId: e.target.value }))} />
+              <input placeholder="External Payroll Employee ID (optional)" className={inputCls} value={addForm.externalPayrollEmployeeId} onChange={(e) => setAddForm((p) => ({ ...p, externalPayrollEmployeeId: e.target.value }))} />
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-xs font-medium text-slate-400">Locations</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-400">
+                  Locations
+                  {isFullAccessRole(addForm.userRole) && (
+                    <span className="ml-2 text-amber-400 font-normal">(auto-selected — Super Admin / Owner has access to all locations)</span>
+                  )}
+                </label>
                 <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-600 bg-slate-700 p-3">
                   {locations.map((l) => (
                     <label key={l.id} className="flex items-center gap-2 text-sm text-slate-200">
                       <input
                         type="checkbox"
                         checked={addForm.locationIds.includes(l.id)}
+                        disabled={isFullAccessRole(addForm.userRole)}
                         onChange={(e) =>
                           setAddForm((p) => ({
                             ...p,
@@ -342,7 +378,7 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
                               : p.locationIds.filter((x) => x !== l.id),
                           }))
                         }
-                        className="h-4 w-4 rounded border-slate-500 text-blue-600 focus:ring-blue-500"
+                        className="h-4 w-4 rounded border-slate-500 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
                       />
                       {l.name}
                     </label>
@@ -385,8 +421,8 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
               <input placeholder="Last Name" className={inputCls} value={editForm.lastName} onChange={(e) => setEditForm((p) => ({ ...p, lastName: e.target.value }))} />
               <input placeholder="Email Address" className={inputCls} value={editForm.emailAddress} onChange={(e) => setEditForm((p) => ({ ...p, emailAddress: e.target.value }))} />
               <input placeholder="User Name" className={inputCls} value={editForm.userName} onChange={(e) => setEditForm((p) => ({ ...p, userName: e.target.value }))} />
-              <input placeholder="Phone Number" className={inputCls} value={editForm.phoneNumber} onChange={(e) => setEditForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
-              <select className={selectCls} value={editForm.userRole} onChange={(e) => setEditForm((p) => ({ ...p, userRole: e.target.value }))}>
+              <input placeholder="Phone Number (optional)" className={inputCls} value={editForm.phoneNumber} onChange={(e) => setEditForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
+              <select className={selectCls} value={editForm.userRole} onChange={(e) => handleEditRoleChange(e.target.value)}>
                 <option value="">Select Role</option>
                 {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
               </select>
@@ -396,21 +432,33 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
                 <option value="inactive">Inactive</option>
                 <option value="locked">Locked</option>
               </select>
-              <input placeholder="POS Override PIN (leave blank to keep unchanged)" className={inputCls} value={editForm.posOverridePin} onChange={(e) => setEditForm((p) => ({ ...p, posOverridePin: e.target.value }))} />
-              <input placeholder="Unique ID PIN (leave blank to keep unchanged)" className={inputCls} value={editForm.uniqueIdentificationPin} onChange={(e) => setEditForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value }))} />
+              <div>
+                <input placeholder="POS Override PIN (optional, 6 digits)" maxLength={6} className={inputCls} value={editForm.posOverridePin} onChange={(e) => setEditForm((p) => ({ ...p, posOverridePin: e.target.value.replace(/\D/g, '').slice(0, 6) }))} />
+                <p className="mt-1 text-xs text-slate-500">6-digit numeric PIN — leave blank to keep unchanged</p>
+              </div>
+              <div>
+                <input placeholder="Unique ID PIN (optional, 4 digits)" maxLength={4} className={inputCls} value={editForm.uniqueIdentificationPin} onChange={(e) => setEditForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} />
+                <p className="mt-1 text-xs text-slate-500">4-digit numeric PIN — leave blank to keep unchanged</p>
+              </div>
               <div className="rounded-lg border border-slate-600 bg-slate-700 px-3 py-2.5 text-sm">
                 <label className="mb-1 block text-xs text-slate-400">User Tab Color</label>
                 <input type="color" className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent" value={editForm.userTabColor} onChange={(e) => setEditForm((p) => ({ ...p, userTabColor: e.target.value }))} />
               </div>
-              <input placeholder="External Payroll Employee ID" className={inputCls} value={editForm.externalPayrollEmployeeId} onChange={(e) => setEditForm((p) => ({ ...p, externalPayrollEmployeeId: e.target.value }))} />
+              <input placeholder="External Payroll Employee ID (optional)" className={inputCls} value={editForm.externalPayrollEmployeeId} onChange={(e) => setEditForm((p) => ({ ...p, externalPayrollEmployeeId: e.target.value }))} />
               <div className="md:col-span-2">
-                <label className="mb-1.5 block text-xs font-medium text-slate-400">Locations</label>
+                <label className="mb-1.5 block text-xs font-medium text-slate-400">
+                  Locations
+                  {isFullAccessRole(editForm.userRole) && (
+                    <span className="ml-2 text-amber-400 font-normal">(auto-selected — Super Admin / Owner has access to all locations)</span>
+                  )}
+                </label>
                 <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-600 bg-slate-700 p-3">
                   {locations.map((l) => (
                     <label key={l.id} className="flex items-center gap-2 text-sm text-slate-200">
                       <input
                         type="checkbox"
                         checked={editForm.locationIds.includes(l.id)}
+                        disabled={isFullAccessRole(editForm.userRole)}
                         onChange={(e) =>
                           setEditForm((p) => ({
                             ...p,
@@ -419,7 +467,7 @@ export function TenantUsersTab({ tenantId }: { tenantId: string }) {
                               : p.locationIds.filter((x) => x !== l.id),
                           }))
                         }
-                        className="h-4 w-4 rounded border-slate-500 text-blue-600 focus:ring-blue-500"
+                        className="h-4 w-4 rounded border-slate-500 text-blue-600 focus:ring-blue-500 disabled:opacity-60"
                       />
                       {l.name}
                     </label>

@@ -4,6 +4,9 @@ import { getPermissionEngine } from './engine';
 
 export function requirePermission(permission: string) {
   return async (ctx: RequestContext): Promise<void> => {
+    // Impersonation sessions get Owner-level (wildcard) permissions
+    if (ctx.impersonation) return;
+
     const engine = getPermissionEngine();
 
     const hasAccess = await engine.hasPermission(
