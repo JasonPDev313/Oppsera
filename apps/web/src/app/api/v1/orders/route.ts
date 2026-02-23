@@ -4,13 +4,9 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import { openOrder, openOrderSchema, listOrders } from '@oppsera/module-orders';
 
-// GET /api/v1/orders — list orders (requires locationId)
+// GET /api/v1/orders — list orders (locationId optional; omit for all locations)
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
-    if (!ctx.locationId) {
-      throw new AppError('LOCATION_REQUIRED', 'X-Location-Id header is required', 400);
-    }
-
     const url = new URL(request.url);
     const cursor = url.searchParams.get('cursor') ?? undefined;
     const limitParam = url.searchParams.get('limit');
@@ -25,10 +21,12 @@ export const GET = withMiddleware(
     const terminalId = url.searchParams.get('terminalId') ?? undefined;
     const sortBy = (url.searchParams.get('sortBy') as 'createdAt' | 'total' | 'orderNumber') ?? undefined;
     const sortDir = (url.searchParams.get('sortDir') as 'asc' | 'desc') ?? undefined;
+    // Accept locationId from header or query param; omit for all locations
+    const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? undefined;
 
     const result = await listOrders({
       tenantId: ctx.tenantId,
-      locationId: ctx.locationId,
+      locationId,
       cursor,
       limit,
       status,

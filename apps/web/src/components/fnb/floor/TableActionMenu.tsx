@@ -3,7 +3,7 @@
 import { createPortal } from 'react-dom';
 import type { FnbTableWithStatus } from '@/types/fnb';
 import {
-  Users, Trash2, ArrowRightLeft, Merge, Unlink, ChevronRight,
+  Users, Trash2, ArrowRightLeft, Merge, Unlink, ChevronRight, Plus,
 } from 'lucide-react';
 
 interface TableActionMenuProps {
@@ -11,6 +11,7 @@ interface TableActionMenuProps {
   onClose: () => void;
   table: FnbTableWithStatus | null;
   onSeat: () => void;
+  onAddTab: () => void;
   onClear: () => void;
   onTransfer: () => void;
   onCombine: () => void;
@@ -20,12 +21,15 @@ interface TableActionMenuProps {
 
 export function TableActionMenu({
   open, onClose, table,
-  onSeat, onClear, onTransfer, onCombine, onUncombine, onViewTab,
+  onSeat, onAddTab, onClear, onTransfer, onCombine, onUncombine, onViewTab,
 }: TableActionMenuProps) {
   if (!open || !table) return null;
 
+  const isOccupied = table.status !== 'available' && table.status !== 'dirty' && table.status !== 'blocked';
+
   const actions = [
     { label: 'Seat Guests', icon: Users, onClick: onSeat, show: table.status === 'available' },
+    { label: 'Add Seat', icon: Plus, onClick: onAddTab, show: isOccupied },
     { label: 'View Tab', icon: ChevronRight, onClick: onViewTab, show: !!table.currentTabId },
     { label: 'Transfer', icon: ArrowRightLeft, onClick: onTransfer, show: table.status !== 'available' },
     { label: 'Combine', icon: Merge, onClick: onCombine, show: !table.combineGroupId && table.isCombinable },

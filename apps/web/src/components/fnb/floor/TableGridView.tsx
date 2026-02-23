@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Users, Clock } from 'lucide-react';
+import { Users, Clock, Plus } from 'lucide-react';
 import type { FnbTableWithStatus } from '@/types/fnb';
 import { FNB_TABLE_STATUS_COLORS, FNB_TABLE_STATUS_LABELS } from '@/types/fnb';
 
@@ -10,6 +10,8 @@ interface TableGridViewProps {
   selectedTableId: string | null;
   onTap: (tableId: string) => void;
   onLongPress?: (tableId: string) => void;
+  onAddTab?: (tableId: string) => void;
+  onContextMenu?: (tableId: string) => void;
 }
 
 function formatElapsed(seatedAt: string | null): string {
@@ -19,7 +21,7 @@ function formatElapsed(seatedAt: string | null): string {
   return `${Math.floor(minutes / 60)}h${minutes % 60}m`;
 }
 
-export function TableGridView({ tables, selectedTableId, onTap, onLongPress }: TableGridViewProps) {
+export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onAddTab, onContextMenu }: TableGridViewProps) {
   const sorted = useMemo(
     () => [...tables].sort((a, b) => a.tableNumber - b.tableNumber),
     [tables],
@@ -46,8 +48,9 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress }: T
             type="button"
             onClick={() => onTap(table.tableId)}
             onPointerDown={handlePointerDown}
+            onContextMenu={(e) => { if (onContextMenu) { e.preventDefault(); onContextMenu(table.tableId); } }}
             className={`
-              relative flex flex-col items-center justify-center
+              group relative flex flex-col items-center justify-center
               border-2 transition-all select-none
               rounded-lg w-[100px] h-[90px]
               ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-[var(--fnb-bg-primary)] scale-105' : ''}
@@ -98,6 +101,25 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress }: T
             {/* Combined indicator */}
             {table.combineGroupId && (
               <span className="absolute top-1 left-1 h-2 w-2 rounded-full bg-amber-500" title="Combined" />
+            )}
+
+            {/* Add tab "+" button — visible on hover */}
+            {onAddTab && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); onAddTab(table.tableId); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onAddTab(table.tableId); } }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="absolute -bottom-1.5 -right-1.5 flex items-center justify-center rounded-full w-5 h-5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shadow-md"
+                style={{
+                  backgroundColor: 'var(--fnb-status-available)',
+                  color: '#fff',
+                }}
+                title="Add new tab"
+              >
+                <Plus className="h-3 w-3" />
+              </span>
             )}
           </button>
         );

@@ -102,6 +102,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     fireCourse,
     sendCourse,
     addItems,
+    updatePartySize,
     isActing,
   } = useFnbTab({ tabId, pollEnabled: isTabScreen });
 
@@ -164,9 +165,13 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     store.setSeat(seatNumber);
   };
 
-  const handleAddSeat = () => {
+  const handleAddSeat = async () => {
     const currentCount = tab?.partySize ?? 1;
-    store.setSeat(currentCount + 1);
+    const newCount = currentCount + 1;
+    // Update party size on server, which triggers tab refresh via act()
+    await updatePartySize(newCount);
+    // Select the newly added seat
+    store.setSeat(newCount);
   };
 
   const handleSelectCourse = (courseNumber: number) => {

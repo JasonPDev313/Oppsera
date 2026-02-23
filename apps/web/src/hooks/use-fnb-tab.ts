@@ -37,6 +37,7 @@ interface UseFnbTabReturn {
   fireCourse: (courseNumber: number) => Promise<void>;
   sendCourse: (courseNumber: number) => Promise<void>;
   addItems: (items: AddTabItemInput[]) => Promise<void>;
+  updatePartySize: (newSize: number) => Promise<void>;
   isActing: boolean;
 }
 
@@ -163,6 +164,14 @@ export function useFnbTab({ tabId, pollIntervalMs = 5000, pollEnabled = true }: 
     }));
   }, [tabId, act]);
 
+  const updatePartySizeFn = useCallback(async (newSize: number) => {
+    if (!tabId) return;
+    await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ partySize: newSize }),
+    }));
+  }, [tabId, act]);
+
   return {
     tab,
     isLoading,
@@ -175,6 +184,7 @@ export function useFnbTab({ tabId, pollIntervalMs = 5000, pollEnabled = true }: 
     fireCourse: fireCourseFn,
     sendCourse: sendCourseFn,
     addItems: addItemsFn,
+    updatePartySize: updatePartySizeFn,
     isActing,
   };
 }

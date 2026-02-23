@@ -177,7 +177,11 @@ export default function OrdersPage() {
   const { locations } = useAuthContext();
   const { toast } = useToast();
   const profileDrawer = useProfileDrawer();
-  const locationId = locations[0]?.id ?? '';
+
+  // Location selector — default to "All" (empty = no location filter)
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+  // For actions that require a locationId header, fall back to first location
+  const actionLocationId = selectedLocationId || locations[0]?.id || '';
 
   // Filters
   const [search, setSearch] = useState('');
@@ -213,10 +217,10 @@ export default function OrdersPage() {
     dateTo: dateTo || undefined,
     search: search || undefined,
     paymentMethod: paymentFilter || undefined,
-    locationId,
+    locationId: selectedLocationId || undefined,
   });
 
-  const hasFilters = !!search || !!statusFilter || !!paymentFilter || !!dateFrom || !!dateTo;
+  const hasFilters = !!search || !!statusFilter || !!paymentFilter || !!dateFrom || !!dateTo || !!selectedLocationId;
 
   const clearFilters = useCallback(() => {
     setSearch('');
@@ -224,6 +228,7 @@ export default function OrdersPage() {
     setPaymentFilter('');
     setDateFrom('');
     setDateTo('');
+    setSelectedLocationId('');
   }, []);
 
   // ── Void handler ──────────────────────────────────────────────
@@ -234,7 +239,7 @@ export default function OrdersPage() {
     try {
       await apiFetch(`/api/v1/orders/${voidOrderId}/void`, {
         method: 'POST',
-        headers: { 'X-Location-Id': locationId },
+        headers: { 'X-Location-Id': actionLocationId },
       });
       toast.success('Order voided');
       setVoidOrderId(null);
@@ -245,7 +250,7 @@ export default function OrdersPage() {
     } finally {
       setIsVoiding(false);
     }
-  }, [voidOrderId, locationId, toast, mutate]);
+  }, [voidOrderId, actionLocationId, toast, mutate]);
 
   // ── Delete handler ─────────────────────────────────────────────
 
@@ -255,7 +260,7 @@ export default function OrdersPage() {
     try {
       await apiFetch(`/api/v1/orders/${deleteOrderId}`, {
         method: 'DELETE',
-        headers: { 'X-Location-Id': locationId },
+        headers: { 'X-Location-Id': actionLocationId },
       });
       toast.success('Order deleted');
       setDeleteOrderId(null);
@@ -266,7 +271,7 @@ export default function OrdersPage() {
     } finally {
       setIsDeleting(false);
     }
-  }, [deleteOrderId, locationId, toast, mutate]);
+  }, [deleteOrderId, actionLocationId, toast, mutate]);
 
   // ── Re-open handler ───────────────────────────────────────────
 
@@ -276,7 +281,7 @@ export default function OrdersPage() {
     try {
       await apiFetch(`/api/v1/orders/${reopenOrderId}/reopen`, {
         method: 'POST',
-        headers: { 'X-Location-Id': locationId },
+        headers: { 'X-Location-Id': actionLocationId },
       });
       toast.success('Order reopened');
       setReopenOrderId(null);
@@ -287,7 +292,7 @@ export default function OrdersPage() {
     } finally {
       setIsReopening(false);
     }
-  }, [reopenOrderId, locationId, toast, mutate]);
+  }, [reopenOrderId, actionLocationId, toast, mutate]);
 
   // ── Clone handler ─────────────────────────────────────────────
 
@@ -298,7 +303,7 @@ export default function OrdersPage() {
           `/api/v1/orders/${orderId}/clone`,
           {
             method: 'POST',
-            headers: { 'X-Location-Id': locationId },
+            headers: { 'X-Location-Id': actionLocationId },
             body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
           },
         );
@@ -309,7 +314,7 @@ export default function OrdersPage() {
         toast.error(e.message);
       }
     },
-    [locationId, toast, router],
+    [actionLocationId, toast, router],
   );
 
   // ── Build action menu items for a row ─────────────────────────
@@ -565,6 +570,18 @@ export default function OrdersPage() {
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-3">
+        {locations.length > 1 && (
+          <Select
+            options={[
+              { value: '', label: 'All Locations' },
+              ...locations.map((l) => ({ value: l.id, label: l.name })),
+            ]}
+            value={selectedLocationId}
+            onChange={(v) => setSelectedLocationId(v as string)}
+            placeholder="All Locations"
+            className="w-full md:w-44"
+          />
+        )}
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -684,7 +701,7 @@ export default function OrdersPage() {
         onClose={() => setRefundOrder(null)}
         orderId={refundOrder?.id ?? ''}
         orderNumber={refundOrder?.orderNumber ?? ''}
-        locationId={locationId}
+        locationId={actionLocationId}
         onComplete={() => mutate()}
       />
 
@@ -694,7 +711,7 @@ export default function OrdersPage() {
         onClose={() => setTipOrder(null)}
         orderId={tipOrder?.id ?? ''}
         orderNumber={tipOrder?.orderNumber ?? ''}
-        locationId={locationId}
+        locationId={actionLocationId}
         onComplete={() => mutate()}
       />
     </div>

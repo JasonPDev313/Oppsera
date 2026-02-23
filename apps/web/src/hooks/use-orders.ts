@@ -34,6 +34,7 @@ export function useOrders(filters: OrderFilters) {
     queryKey: ['orders', filters] as const,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams();
+      if (filters.locationId) params.set('locationId', filters.locationId);
       if (filters.status) params.set('status', filters.status);
       if (filters.businessDate) params.set('businessDate', filters.businessDate);
       if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
@@ -58,7 +59,6 @@ export function useOrders(filters: OrderFilters) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) =>
       lastPage.meta.hasMore ? (lastPage.meta.cursor ?? undefined) : undefined,
-    enabled: !!filters.locationId,
   });
 
   const data = result.data?.pages.flatMap((p) => p.data) ?? [];
