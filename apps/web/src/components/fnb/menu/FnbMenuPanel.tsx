@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useCallback } from 'react';
-import { Search, ChevronRight, X } from 'lucide-react';
+import { Search, ChevronRight, X, RefreshCw, AlertCircle } from 'lucide-react';
 import { useFnbMenu } from '@/hooks/use-fnb-menu';
 import { FnbItemTile } from './FnbItemTile';
 
@@ -20,9 +20,17 @@ const DepartmentPills = memo(function DepartmentPills({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
+  if (departments.length === 0) {
+    return (
+      <div className="px-3 py-2 shrink-0">
+        <p className="text-[11px]" style={{ color: 'var(--fnb-text-muted)' }}>No departments</p>
+      </div>
+    );
+  }
+
   return (
     <div
-      className="flex gap-1.5 overflow-x-auto px-2 py-2 shrink-0"
+      className="flex gap-1.5 overflow-x-auto px-3 py-2 shrink-0"
       style={{ scrollbarWidth: 'none' }}
     >
       {departments.map((dept) => {
@@ -230,6 +238,27 @@ export function FnbMenuPanel({ onItemTap }: FnbMenuPanelProps) {
     const item = menu.items.find((i) => i.id === id);
     if (item) onItemTap(item.id, item.name, item.unitPriceCents, item.itemType);
   }, [menu.items, onItemTap]);
+
+  // ── Error state ────────────────────────────────────────────────
+  if (menu.error) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center gap-3 p-4" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
+        <AlertCircle className="h-8 w-8" style={{ color: 'var(--fnb-status-dirty)' }} />
+        <p className="text-xs text-center" style={{ color: 'var(--fnb-text-muted)' }}>
+          {menu.error}
+        </p>
+        <button
+          type="button"
+          onClick={() => menu.refresh()}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:opacity-90"
+          style={{ backgroundColor: 'var(--fnb-status-seated)' }}
+        >
+          <RefreshCw className="h-3 w-3" />
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
