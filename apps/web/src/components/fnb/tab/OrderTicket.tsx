@@ -73,7 +73,7 @@ export function OrderTicket({ tab, activeSeat, draftLines = [], onSendCourse, on
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-2">
+    <div className="flex-1 overflow-y-auto p-2" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
       {sortedCourses.map(([courseNum, courseLines]) => {
         const courseInfo = courses.find((c) => c.courseNumber === courseNum);
         const courseName = courseInfo?.courseName ?? `Course ${courseNum}`;
@@ -107,7 +107,7 @@ export function OrderTicket({ tab, activeSeat, draftLines = [], onSendCourse, on
             {courseDrafts.map((draft) => (
               <div
                 key={`draft-${draft.localId}`}
-                style={{ opacity: 0.7, borderLeft: '2px dashed var(--fnb-text-muted)', paddingLeft: '4px' }}
+                style={{ opacity: 0.7, borderLeft: '2px dashed var(--fnb-text-muted)', paddingLeft: 4 }}
               >
                 <FnbOrderLine
                   seatNumber={draft.seatNumber}

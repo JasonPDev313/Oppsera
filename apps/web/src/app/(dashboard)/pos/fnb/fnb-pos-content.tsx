@@ -24,11 +24,8 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   // Entitlement check
   if (!isModuleEnabled('pos_fnb')) {
     return (
-      <div
-        className="flex h-full items-center justify-center"
-        style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
-      >
-        <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>
+      <div className="flex h-full items-center justify-center bg-surface">
+        <p className="text-sm text-gray-400">
           F&B POS module is not enabled for this location.
         </p>
       </div>
@@ -42,7 +39,7 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   // Payment + Split are mounted on-demand (less frequent transitions).
 
   return (
-    <div className="h-full" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
+    <div className="h-full bg-surface">
       <div className={currentScreen === 'floor' ? 'h-full' : 'hidden'}>
         <FnbFloorView userId={userId} isActive={isActive && currentScreen === 'floor'} />
       </div>

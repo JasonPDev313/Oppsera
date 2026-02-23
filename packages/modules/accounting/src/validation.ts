@@ -60,6 +60,7 @@ export const updateAccountingSettingsSchema = z.object({
   defaultCompExpenseAccountId: z.string().nullable().optional(),
   defaultReturnsAccountId: z.string().nullable().optional(),
   defaultPayrollClearingAccountId: z.string().nullable().optional(),
+  defaultUncategorizedRevenueAccountId: z.string().nullable().optional(),
   cogsPostingMode: z.enum(['disabled', 'perpetual', 'periodic']).optional(),
   periodicCogsMethod: z.enum(['weighted_average', 'fifo', 'standard']).nullable().optional(),
   // Breakage income policy
@@ -420,3 +421,35 @@ export const listBankReconciliationsSchema = z.object({
 });
 
 export type ListBankReconciliationsInput = z.input<typeof listBankReconciliationsSchema>;
+
+// ── COA Import Schemas ──────────────────────────────────────────────
+
+export const importCoaFromCsvSchema = z.object({
+  csvContent: z.string().min(1, 'CSV content is required'),
+  stateName: z.string().optional(),
+  fileName: z.string().optional(),
+});
+
+export type ImportCoaFromCsvInput = z.input<typeof importCoaFromCsvSchema>;
+
+export const validateCsvPreviewSchema = z.object({
+  csvContent: z.string().min(1, 'CSV content is required'),
+  stateName: z.string().optional(),
+});
+
+export type ValidateCsvPreviewInput = z.input<typeof validateCsvPreviewSchema>;
+
+// ── Account Merge & Governance Schemas ──────────────────────────────
+
+export const mergeGlAccountsSchema = z.object({
+  sourceAccountId: z.string().min(1),
+  targetAccountId: z.string().min(1),
+});
+
+export type MergeGlAccountsInput = z.input<typeof mergeGlAccountsSchema>;
+
+export const renumberGlAccountSchema = z.object({
+  newAccountNumber: z.string().min(1).max(20),
+});
+
+export type RenumberGlAccountInput = z.input<typeof renumberGlAccountSchema>;

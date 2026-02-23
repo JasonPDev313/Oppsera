@@ -48,26 +48,19 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
   ];
 
   return (
-    <div
-      className="hidden sm:flex flex-col h-full border-l"
-      style={{
-        width: '260px',
-        backgroundColor: 'var(--fnb-bg-surface)',
-        borderColor: 'rgba(148, 163, 184, 0.15)',
-      }}
-    >
+    <div className="hidden sm:flex flex-col h-full border-l border-gray-200 bg-surface" style={{ width: '260px' }}>
       {/* Mode tabs */}
-      <div className="flex border-b" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
+      <div className="flex border-b border-gray-200">
         {modes.map((m) => (
           <button
             key={m.key}
             type="button"
             onClick={() => onModeChange(m.key)}
-            className="flex-1 py-2.5 text-xs font-semibold transition-colors"
-            style={{
-              color: mode === m.key ? 'var(--fnb-text-primary)' : 'var(--fnb-text-muted)',
-              borderBottom: mode === m.key ? '2px solid var(--fnb-status-seated)' : '2px solid transparent',
-            }}
+            className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
+              mode === m.key
+                ? 'text-gray-900 border-b-2 border-indigo-600'
+                : 'text-gray-400 border-b-2 border-transparent'
+            }`}
           >
             {m.label}
           </button>
@@ -79,7 +72,7 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
         {mode === 'my-tables' && (
           <div className="flex flex-col gap-1">
             {activeTables.length === 0 && (
-              <p className="text-xs p-3 text-center" style={{ color: 'var(--fnb-text-muted)' }}>
+              <p className="text-xs p-3 text-center text-gray-400">
                 No active tables
               </p>
             )}
@@ -90,17 +83,15 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
                   key={table.tableId}
                   type="button"
                   onClick={() => onTableTap(table.tableId)}
-                  className="flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors hover:opacity-80"
-                  style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
+                  className="flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors bg-gray-50 hover:bg-gray-100"
                 >
                   <div
-                    className="flex items-center justify-center rounded-md font-bold text-sm"
+                    className="flex items-center justify-center rounded-md font-bold text-sm text-gray-900"
                     style={{
                       width: '36px',
                       height: '36px',
                       borderColor: color,
                       border: `2px solid ${color}`,
-                      color: 'var(--fnb-text-primary)',
                     }}
                   >
                     {table.tableNumber}
@@ -111,18 +102,18 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
                         {FNB_TABLE_STATUS_LABELS[table.status]}
                       </span>
                       {table.partySize && (
-                        <span className="flex items-center gap-0.5 text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+                        <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
                           <Users className="h-2.5 w-2.5" /> {table.partySize}
                         </span>
                       )}
                     </div>
                     {table.seatedAt && (
-                      <span className="flex items-center gap-0.5 text-[10px] fnb-mono mt-0.5" style={{ color: 'var(--fnb-text-muted)' }}>
+                      <span className="flex items-center gap-0.5 text-[10px] mt-0.5 text-gray-400">
                         <Clock className="h-2.5 w-2.5" /> {formatElapsed(table.seatedAt)}
                       </span>
                     )}
                   </div>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--fnb-text-muted)' }} />
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                 </button>
               );
             })}
@@ -138,13 +129,12 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
                 <button
                   type="button"
                   onClick={() => setExpandedStatus(expandedStatus === status ? null : status)}
-                  className="flex items-center justify-between w-full rounded-lg p-2.5 text-left transition-colors hover:opacity-80"
-                  style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
+                  className="flex items-center justify-between w-full rounded-lg p-2.5 text-left transition-colors bg-gray-50 hover:bg-gray-100"
                 >
                   <span className="text-xs font-semibold" style={{ color: FNB_TABLE_STATUS_COLORS[s] ?? '#6b7280' }}>
                     {FNB_TABLE_STATUS_LABELS[s] ?? status}
                   </span>
-                  <span className="text-xs font-bold fnb-mono" style={{ color: 'var(--fnb-text-primary)' }}>
+                  <span className="text-xs font-bold text-gray-900">
                     {group.length}
                   </span>
                 </button>
@@ -155,8 +145,7 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
                         key={t.tableId}
                         type="button"
                         onClick={() => onTableTap(t.tableId)}
-                        className="text-left text-xs py-1 px-2 rounded hover:opacity-80"
-                        style={{ color: 'var(--fnb-text-secondary)' }}
+                        className="text-left text-xs py-1 px-2 rounded text-gray-600 hover:bg-gray-100"
                       >
                         Table {t.tableNumber} {t.partySize ? `(${t.partySize})` : ''}
                       </button>
@@ -170,7 +159,7 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
         )}
 
         {mode === 'waitlist' && (
-          <p className="text-xs p-3 text-center" style={{ color: 'var(--fnb-text-muted)' }}>
+          <p className="text-xs p-3 text-center text-gray-400">
             Waitlist coming soon
           </p>
         )}

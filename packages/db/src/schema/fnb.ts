@@ -499,6 +499,7 @@ export const fnbTabItems = pgTable(
     unitPriceCents: integer('unit_price_cents').notNull(),
     extendedPriceCents: integer('extended_price_cents').notNull(),
     modifiers: jsonb('modifiers').notNull().default([]),
+    subDepartmentId: text('sub_department_id'),
     specialInstructions: text('special_instructions'),
     status: text('status').notNull().default('draft'), // draft | sent | fired | served | voided
     sentAt: timestamp('sent_at', { withTimezone: true }),
@@ -1382,6 +1383,7 @@ export const fnbCloseBatchSummaries = pgTable(
     cashExpectedCents: integer('cash_expected_cents').notNull().default(0),
     cashCountedCents: integer('cash_counted_cents'),
     cashOverShortCents: integer('cash_over_short_cents'),
+    salesBySubDepartment: jsonb('sales_by_sub_department'),
     categoryVersion: integer('category_version').default(1),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -1822,5 +1824,158 @@ export const rmFnbHourlySales = pgTable(
       table.hour,
     ),
     index('idx_rm_fnb_hourly_sales_date').on(table.tenantId, table.businessDate),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// TIER 3 PROVISIONING — Future Competitive Differentiators (Schema Only)
+// ═══════════════════════════════════════════════════════════════════
+
+// ── 9A: QR Code Pay-at-Table ────────────────────────────────────
+export const fnbQrPaymentRequests = pgTable(
+  'fnb_qr_payment_requests',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tabId: text('tab_id').notNull(),
+    sessionId: text('session_id').notNull(),
+    qrToken: text('qr_token').notNull(),
+    status: text('status').notNull().default('pending'), // pending | scanned | completed | expired
+    amountCents: integer('amount_cents').notNull(),
+    tipCents: integer('tip_cents').notNull().default(0),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_qr_token').on(table.qrToken),
+    index('idx_fnb_qr_payment_tab').on(table.tenantId, table.tabId),
+  ],
+);
+
+// ── 9B: Guest-Facing Tip Screen ──────────────────────────────────
+export const fnbGuestTipSessions = pgTable(
+  'fnb_guest_tip_sessions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tabId: text('tab_id').notNull(),
+    sessionId: text('session_id').notNull(),
+    deviceToken: text('device_token').notNull(),
+    selectedTipCents: integer('selected_tip_cents'),
+    selectedTipPercentage: numeric('selected_tip_percentage', { precision: 5, scale: 2 }),
+    status: text('status').notNull().default('waiting'), // waiting | selected | confirmed
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_guest_tip_tab').on(table.tenantId, table.tabId),
+  ],
+);
+
+// ── 9C: Loyalty Point Redemption ─────────────────────────────────
+export const fnbLoyaltyRedemptions = pgTable(
+  'fnb_loyalty_redemptions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tabId: text('tab_id').notNull(),
+    tenderId: text('tender_id').notNull(),
+    customerId: text('customer_id').notNull(),
+    pointsRedeemed: integer('points_redeemed').notNull(),
+    dollarValueCents: integer('dollar_value_cents').notNull(),
+    balanceBefore: integer('balance_before').notNull(),
+    balanceAfter: integer('balance_after').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_loyalty_tab').on(table.tenantId, table.tabId),
+    index('idx_fnb_loyalty_customer').on(table.tenantId, table.customerId),
+  ],
+);
+
+// ── 9D: NFC Tap-to-Pay on Server Device ──────────────────────────
+export const fnbNfcPaymentIntents = pgTable(
+  'fnb_nfc_payment_intents',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tabId: text('tab_id').notNull(),
+    sessionId: text('session_id').notNull(),
+    terminalId: text('terminal_id').notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    status: text('status').notNull().default('initiated'), // initiated | tapped | processing | completed | failed
+    nfcTransactionId: text('nfc_transaction_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_nfc_tab').on(table.tenantId, table.tabId),
+  ],
+);
+
+// ── 9E: Automatic Round-Up Donation ──────────────────────────────
+export const fnbDonationConfig = pgTable(
+  'fnb_donation_config',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id')
+      .notNull()
+      .references(() => locations.id),
+    charityName: text('charity_name').notNull(),
+    isActive: boolean('is_active').notNull().default(true),
+    roundUpEnabled: boolean('round_up_enabled').notNull().default(true),
+    fixedAmountCents: integer('fixed_amount_cents'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_donation_config_loc').on(table.tenantId, table.locationId),
+  ],
+);
+
+export const fnbDonationEntries = pgTable(
+  'fnb_donation_entries',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tabId: text('tab_id').notNull(),
+    tenderId: text('tender_id').notNull(),
+    donationCents: integer('donation_cents').notNull(),
+    charityName: text('charity_name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_donation_tab').on(table.tenantId, table.tabId),
+  ],
+);
+
+// ── 9G: Fractional Item Split ────────────────────────────────────
+export const fnbSplitItemFractions = pgTable(
+  'fnb_split_item_fractions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    splitCheckId: text('split_check_id').notNull(),
+    orderLineId: text('order_line_id').notNull(),
+    fraction: numeric('fraction', { precision: 5, scale: 4 }).notNull(),
+    amountCents: integer('amount_cents').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_split_fractions_check').on(table.tenantId, table.splitCheckId),
   ],
 );

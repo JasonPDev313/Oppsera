@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
-import { Plus, Settings2 } from 'lucide-react';
+import { Plus, Settings2, Upload } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
 import { AccountFilterBar } from '@/components/accounting/account-filter-bar';
@@ -11,6 +11,7 @@ import type { GLAccount, AccountType } from '@/types/accounting';
 import { AccountDialog } from '@/components/accounting/account-dialog';
 import { ClassificationsPanel } from '@/components/accounting/classifications-panel';
 import { BootstrapWizard } from '@/components/accounting/bootstrap-wizard';
+import { CsvImportFlow } from '@/components/accounting/csv-import-flow';
 
 const ACCOUNT_TYPE_ORDER: AccountType[] = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 
@@ -34,6 +35,7 @@ export default function AccountsContent() {
   const [editingAccount, setEditingAccount] = useState<GLAccount | null>(null);
   const [classificationsOpen, setClassificationsOpen] = useState(false);
   const [showBootstrap, setShowBootstrap] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const toggleViewMode = useCallback(() => {
     const next = viewMode === 'flat' ? 'tree' : 'flat';
@@ -124,6 +126,14 @@ export default function AccountsContent() {
           </button>
           <button
             type="button"
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Import CSV</span>
+          </button>
+          <button
+            type="button"
             onClick={handleCreate}
             className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
           >
@@ -173,6 +183,12 @@ export default function AccountsContent() {
       <ClassificationsPanel
         open={classificationsOpen}
         onClose={() => setClassificationsOpen(false)}
+      />
+
+      <CsvImportFlow
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={() => { mutate(); setImportOpen(false); }}
       />
     </AccountingPageShell>
   );

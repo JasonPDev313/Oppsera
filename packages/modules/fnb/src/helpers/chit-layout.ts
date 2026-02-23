@@ -235,6 +235,108 @@ export function renderGuestCheckText(data: GuestCheckData): string {
   return lines.join('\n');
 }
 
+// ── Guest Check with QR Pay ──────────────────────────────────────
+
+export interface GuestCheckWithQRData extends GuestCheckData {
+  guestPayUrl: string | null;
+  guestPayShortCode: string | null;
+}
+
+/**
+ * Renders a guest check with optional QR payment section.
+ * When guestPayUrl is present, replaces the tip/total-with-tip lines
+ * with a QR code placeholder and pay URL.
+ * The `[ QR CODE HERE ]` placeholder is replaced by the actual QR image
+ * in the print driver. The print job `metadata.qrUrl` tells the driver
+ * what to encode.
+ */
+export function renderGuestCheckWithQRText(data: GuestCheckWithQRData): string {
+  if (!data.guestPayUrl) {
+    // Fall through to standard guest check (with tip line)
+    return renderGuestCheckText(data);
+  }
+
+  const lines: string[] = [];
+
+  // Header
+  lines.push(centerText(data.restaurantName));
+  if (data.tagline) lines.push(centerText(data.tagline));
+  lines.push('');
+  lines.push(`Date: ${data.date}  Time: ${data.time}`);
+  lines.push(`SERVER: ${data.serverName}`);
+  lines.push(`TABLE: ${data.tableNumber}`);
+  lines.push('');
+  lines.push(SEPARATOR);
+  lines.push('ITEMS:');
+  lines.push('');
+
+  // Items (same logic as renderGuestCheckText)
+  if (data.bySeat) {
+    const bySeat = new Map<number, GuestCheckItem[]>();
+    for (const item of data.items) {
+      const seat = item.seatNumber ?? 0;
+      const existing = bySeat.get(seat) ?? [];
+      existing.push(item);
+      bySeat.set(seat, existing);
+    }
+    for (const [seat, seatItems] of bySeat) {
+      lines.push(`  SEAT ${seat}:`);
+      for (const item of seatItems) {
+        lines.push(rightAlign(
+          `    ${item.name}  ${item.qty} x ${formatDollars(item.unitPriceCents)}`,
+          formatDollars(item.lineTotalCents),
+        ));
+      }
+    }
+  } else {
+    for (const item of data.items) {
+      lines.push(rightAlign(
+        `  ${item.name}  ${item.qty} x ${formatDollars(item.unitPriceCents)}`,
+        formatDollars(item.lineTotalCents),
+      ));
+    }
+  }
+
+  // Totals
+  lines.push('');
+  lines.push(SEPARATOR);
+  lines.push(rightAlign('SUBTOTAL:', formatDollars(data.subtotalCents)));
+  lines.push(rightAlign('TAX:', formatDollars(data.taxCents)));
+  if (data.serviceChargeCents > 0) {
+    lines.push(rightAlign('SERVICE CHARGE:', formatDollars(data.serviceChargeCents)));
+  }
+  lines.push(rightAlign('TOTAL:', formatDollars(data.totalCents)));
+  lines.push('');
+
+  // QR Pay section (replaces tip line)
+  lines.push(SEPARATOR);
+  lines.push(centerText('SCAN TO PAY & TIP'));
+  lines.push('');
+  lines.push(centerText('[ QR CODE HERE ]'));
+  lines.push('');
+
+  // Short URL for manual entry
+  const displayUrl = data.guestPayShortCode
+    ? `pay.oppsera.com/g/${data.guestPayShortCode}`
+    : data.guestPayUrl;
+  lines.push(centerText(displayUrl));
+  lines.push('');
+  lines.push(centerText('No app needed \u2022 Scan with'));
+  lines.push(centerText('your phone camera'));
+  lines.push(SEPARATOR);
+  lines.push('');
+  lines.push(centerText('Prefer cash? Please see your server.'));
+  lines.push('');
+
+  // Footer
+  for (const line of data.footerLines) {
+    lines.push(centerText(line));
+  }
+  lines.push(centerText('THANK YOU!'));
+
+  return lines.join('\n');
+}
+
 // ── Receipt (Post-Payment) ───────────────────────────────────────
 
 export interface ReceiptData extends GuestCheckData {

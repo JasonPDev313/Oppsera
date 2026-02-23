@@ -93,7 +93,7 @@ function findSubDeptId(
 
 // ── F&B Menu Hook ───────────────────────────────────────────────
 
-interface UseFnbMenuReturn {
+export interface UseFnbMenuReturn {
   departments: FnbMenuCategory[];
   subDepartments: FnbMenuCategory[];
   categories: FnbMenuCategory[];
@@ -194,39 +194,39 @@ export function useFnbMenu(): UseFnbMenuReturn {
 
       setItems(fnbItems);
 
-      // Build set of category IDs that contain at least one F&B item, then filter hierarchy
+      // Build set of category IDs that contain at least one F&B item
       const fnbCategoryIds = new Set(fnbItems.map((i) => i.categoryId));
 
-      // Keep depth-2 categories that have F&B items
-      const activeCatIds = new Set(
-        allCats
-          .filter((c) => c.depth === 2 && fnbCategoryIds.has(c.id))
-          .map((c) => c.id),
+      // Walk UP from each F&B item's category to find which departments contain F&B items
+      const deptIdsWithItems = new Set<string>();
+      for (const catId of fnbCategoryIds) {
+        let cur = catLookup.get(catId);
+        while (cur) {
+          if (depthMap.get(cur.id) === 0) {
+            deptIdsWithItems.add(cur.id);
+            break;
+          }
+          if (!cur.parentId) break;
+          cur = catLookup.get(cur.parentId);
+        }
+        // If the item's category IS a department (depth-0)
+        if (depthMap.get(catId) === 0) deptIdsWithItems.add(catId);
+      }
+
+      // Keep ALL depth-0 departments that have F&B items at any descendant level
+      const activeDeptIds = new Set(
+        allCats.filter((c) => c.depth === 0 && deptIdsWithItems.has(c.id)).map((c) => c.id),
       );
-      // Keep depth-1 sub-departments with active child categories or direct F&B items
+      // Keep ALL depth-1 sub-departments under active departments
       const activeSubDeptIds = new Set(
         allCats
-          .filter(
-            (c) =>
-              c.depth === 1 &&
-              (fnbCategoryIds.has(c.id) ||
-                allCats.some((ch) => ch.parentId === c.id && activeCatIds.has(ch.id))),
-          )
+          .filter((c) => c.depth === 1 && c.parentId != null && activeDeptIds.has(c.parentId))
           .map((c) => c.id),
       );
-      // Keep depth-0 departments with active children or direct F&B items
-      const activeDeptIds = new Set(
+      // Keep ALL depth-2 categories under active sub-departments
+      const activeCatIds = new Set(
         allCats
-          .filter(
-            (c) =>
-              c.depth === 0 &&
-              (fnbCategoryIds.has(c.id) ||
-                allCats.some(
-                  (ch) =>
-                    ch.parentId === c.id &&
-                    (activeSubDeptIds.has(ch.id) || activeCatIds.has(ch.id)),
-                )),
-          )
+          .filter((c) => c.depth === 2 && c.parentId != null && activeSubDeptIds.has(c.parentId))
           .map((c) => c.id),
       );
 

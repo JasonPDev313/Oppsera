@@ -18,32 +18,36 @@ export function FnbItemTile({ name, priceCents, is86d, onTap, allergenIcons }: F
       type="button"
       onClick={is86d ? undefined : onTap}
       disabled={is86d}
-      className="relative flex flex-col items-center justify-center rounded-lg p-2 transition-colors hover:opacity-80 disabled:cursor-not-allowed"
+      className={`relative flex flex-col items-center justify-center p-2 transition-opacity disabled:cursor-not-allowed ${
+        is86d ? 'opacity-40' : 'hover:opacity-80'
+      }`}
       style={{
         width: '100%',
-        minHeight: '72px',
+        minHeight: 100,
+        borderRadius: 'var(--fnb-radius-lg)',
         backgroundColor: 'var(--fnb-bg-elevated)',
-        opacity: is86d ? 0.4 : 1,
       }}
     >
       {/* Item name */}
       <span
-        className="text-xs font-semibold text-center leading-tight line-clamp-2"
+        className="text-sm font-semibold text-center leading-tight line-clamp-2"
         style={{ color: 'var(--fnb-text-primary)' }}
       >
         {name}
       </span>
 
       {/* Price */}
-      <span className="text-[10px] fnb-mono mt-1" style={{ color: 'var(--fnb-text-secondary)' }}>
+      <span className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
         {formatMoney(priceCents)}
       </span>
 
       {/* 86'd overlay */}
       {is86d && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-lg"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <span className="text-xs font-bold text-white">86'd</span>
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ borderRadius: 'var(--fnb-radius-lg)', backgroundColor: 'rgba(0,0,0,0.5)' }}
+        >
+          <span className="text-xs font-bold text-white">86&apos;d</span>
         </div>
       )}
 

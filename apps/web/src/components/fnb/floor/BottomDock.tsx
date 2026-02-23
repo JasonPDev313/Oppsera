@@ -13,27 +13,23 @@ interface BottomDockProps {
 export function BottomDock({ totalCovers, availableCount, seatedCount, onNewTab, onRefresh }: BottomDockProps) {
   return (
     <div
-      className="flex items-center justify-between px-2 sm:px-4 border-t"
-      style={{
-        height: 'var(--fnb-touch-primary)',
-        backgroundColor: 'var(--fnb-bg-surface)',
-        borderColor: 'rgba(148, 163, 184, 0.15)',
-      }}
+      className="flex items-center justify-between px-2 sm:px-4 border-t border-gray-200 bg-surface"
+      style={{ height: 'var(--fnb-touch-primary)' }}
     >
       {/* Left: stats */}
       <div className="flex items-center gap-2 sm:gap-4">
         <div className="flex items-center gap-1.5">
-          <Users className="h-4 w-4" style={{ color: 'var(--fnb-text-muted)' }} />
-          <span className="text-sm font-semibold fnb-mono" style={{ color: 'var(--fnb-text-primary)' }}>
+          <Users className="h-4 w-4 text-gray-400" />
+          <span className="text-sm font-semibold text-gray-900">
             {totalCovers}
           </span>
-          <span className="text-xs hidden sm:inline" style={{ color: 'var(--fnb-text-muted)' }}>covers</span>
+          <span className="text-xs hidden sm:inline text-gray-400">covers</span>
         </div>
-        <div className="h-4 w-px hidden sm:block" style={{ backgroundColor: 'rgba(148, 163, 184, 0.15)' }} />
-        <span className="text-xs hidden sm:inline" style={{ color: 'var(--fnb-status-available)' }}>
+        <div className="h-4 w-px hidden sm:block bg-gray-200" />
+        <span className="text-xs hidden sm:inline text-green-600">
           {availableCount} open
         </span>
-        <span className="text-xs hidden sm:inline" style={{ color: 'var(--fnb-status-seated)' }}>
+        <span className="text-xs hidden sm:inline text-indigo-600">
           {seatedCount} seated
         </span>
       </div>
@@ -43,8 +39,7 @@ export function BottomDock({ totalCovers, availableCount, seatedCount, onNewTab,
         <button
           type="button"
           onClick={onRefresh}
-          className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors hover:opacity-80"
-          style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}
+          className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200"
           title="Refresh"
         >
           <RefreshCw className="h-4 w-4" />
@@ -52,8 +47,7 @@ export function BottomDock({ totalCovers, availableCount, seatedCount, onNewTab,
         <button
           type="button"
           onClick={onNewTab}
-          className="flex items-center gap-1.5 rounded-lg px-4 fnb-touch-min font-semibold text-sm transition-colors hover:opacity-90"
-          style={{ backgroundColor: 'var(--fnb-status-available)', color: '#fff' }}
+          className="flex items-center gap-1.5 rounded-lg px-4 fnb-touch-min font-semibold text-sm transition-colors bg-green-600 text-white hover:bg-green-700"
         >
           <Plus className="h-4 w-4" />
           New Tab

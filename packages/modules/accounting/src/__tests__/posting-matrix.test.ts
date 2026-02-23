@@ -114,6 +114,18 @@ const fullSettings = {
   enableLegacyGlPosting: false,
   defaultTipsPayableAccountId: 'acct-tips-payable',
   defaultServiceChargeRevenueAccountId: 'acct-svc-charge-revenue',
+  defaultUncategorizedRevenueAccountId: 'acct-uncategorized-revenue',
+  defaultCashOverShortAccountId: 'acct-cash-over-short',
+  defaultCompExpenseAccountId: 'acct-comp-expense',
+  defaultReturnsAccountId: 'acct-returns',
+  defaultPayrollClearingAccountId: 'acct-payroll-clearing',
+  cogsPostingMode: 'disabled',
+  periodicCogsLastCalculatedDate: null,
+  periodicCogsMethod: null,
+  recognizeBreakageAutomatically: true,
+  breakageRecognitionMethod: 'on_expiry',
+  breakageIncomeAccountId: null,
+  voucherExpiryEnabled: true,
 };
 
 const fullSubDeptMapping = {
@@ -478,6 +490,185 @@ describe('GL Posting Matrix — Balance Validation', () => {
       expect(sourceRefIds[0]).toMatch(/^purchase-/);
       expect(sourceRefIds[1]).toMatch(/^received-/);
       expect(sourceRefIds[2]).toMatch(/^billing-/);
+    });
+  });
+
+  // ─── POS Adapter Fallback Cascade ────────────────────────
+  describe('POS Adapter Fallback Cascade', () => {
+    const baseTenderEvent = {
+      eventId: 'e-pos-1',
+      eventType: 'tender.recorded.v1',
+      occurredAt: new Date().toISOString(),
+      tenantId: 'tenant-1',
+      idempotencyKey: 'pos-k1',
+      data: {
+        tenderId: 't-1',
+        orderId: 'o-1',
+        tenantId: 'tenant-1',
+        locationId: 'loc-1',
+        tenderType: 'cash',
+        amount: 10000, // $100.00
+        tipAmount: 0,
+        orderTotal: 10000,
+        subtotal: 10000,
+        taxTotal: 0,
+        discountTotal: 0,
+        serviceChargeTotal: 0,
+        businessDate: '2026-02-22',
+        lines: [
+          {
+            catalogItemId: 'item-1',
+            catalogItemName: 'Widget',
+            subDepartmentId: 'subdept-1',
+            qty: 1,
+            extendedPriceCents: 10000,
+            taxGroupId: null,
+            taxAmountCents: 0,
+            costCents: null,
+            packageComponents: null,
+          },
+        ],
+      },
+    };
+
+    it('posts with fallback when payment type mapping is missing', async () => {
+      const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
+      (getAccountingSettings as any).mockResolvedValueOnce(fullSettings);
+      mockResolvePaymentTypeAccounts.mockResolvedValueOnce(null); // no mapping!
+      mockResolveSubDeptAccounts.mockResolvedValueOnce(fullSubDeptMapping);
+
+      const { handleTenderForAccounting } = await import('../adapters/pos-posting-adapter');
+      await handleTenderForAccounting(baseTenderEvent as any);
+
+      expect(mockPostEntry).toHaveBeenCalledOnce();
+      const lines = mockPostEntry.mock.calls[0]![1].lines;
+      expectBalanced(lines, 'POS fallback payment type');
+      // Debit should go to undeposited funds (fallback)
+      expect(lines[0].accountId).toBe('acct-undeposited');
+      // Unmapped event still logged
+      expect(mockLogUnmappedEvent).toHaveBeenCalled();
+    });
+
+    it('posts with fallback when sub-department mapping is missing', async () => {
+      const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
+      (getAccountingSettings as any).mockResolvedValueOnce(fullSettings);
+      mockResolvePaymentTypeAccounts.mockResolvedValueOnce(fullPaymentMapping);
+      mockResolveSubDeptAccounts.mockResolvedValueOnce(null); // no mapping!
+
+      const { handleTenderForAccounting } = await import('../adapters/pos-posting-adapter');
+      await handleTenderForAccounting(baseTenderEvent as any);
+
+      expect(mockPostEntry).toHaveBeenCalledOnce();
+      const lines = mockPostEntry.mock.calls[0]![1].lines;
+      expectBalanced(lines, 'POS fallback sub-department');
+      // Revenue credit should go to uncategorized revenue
+      const revenueLines = lines.filter((l: any) => Number(l.creditAmount) > 0);
+      expect(revenueLines.some((l: any) => l.accountId === 'acct-uncategorized-revenue')).toBe(true);
+      // Unmapped event still logged
+      expect(mockLogUnmappedEvent).toHaveBeenCalled();
+    });
+
+    it('posts with ALL fallbacks and produces balanced entry', async () => {
+      const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
+      (getAccountingSettings as any).mockResolvedValueOnce(fullSettings);
+      mockResolvePaymentTypeAccounts.mockResolvedValueOnce(null);
+      mockResolveSubDeptAccounts.mockResolvedValueOnce(null);
+
+      // orderTotal = subtotal(10000) + tax(800) + svcCharge(500) = 11300
+      const eventWithTax = {
+        ...baseTenderEvent,
+        data: {
+          ...baseTenderEvent.data,
+          amount: 11300,
+          orderTotal: 11300,
+          taxTotal: 800,
+          tipAmount: 200,
+          serviceChargeTotal: 500,
+          lines: [
+            {
+              ...baseTenderEvent.data.lines[0],
+              taxGroupId: 'tg-1',
+              taxAmountCents: 800,
+            },
+          ],
+        },
+      };
+
+      // Also make tax group unmapped
+      const { resolveTaxGroupAccount } = await import('../helpers/resolve-mapping');
+      (resolveTaxGroupAccount as any).mockResolvedValueOnce(null);
+
+      const { handleTenderForAccounting } = await import('../adapters/pos-posting-adapter');
+      await handleTenderForAccounting(eventWithTax as any);
+
+      expect(mockPostEntry).toHaveBeenCalledOnce();
+      const lines = mockPostEntry.mock.calls[0]![1].lines;
+      expectBalanced(lines, 'POS all-fallback scenario');
+    });
+
+    it('posts full amount to uncategorized revenue when no line detail', async () => {
+      const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
+      (getAccountingSettings as any).mockResolvedValueOnce(fullSettings);
+      mockResolvePaymentTypeAccounts.mockResolvedValueOnce(fullPaymentMapping);
+
+      const noLinesEvent = {
+        ...baseTenderEvent,
+        data: {
+          ...baseTenderEvent.data,
+          lines: undefined, // no line detail
+        },
+      };
+
+      const { handleTenderForAccounting } = await import('../adapters/pos-posting-adapter');
+      await handleTenderForAccounting(noLinesEvent as any);
+
+      expect(mockPostEntry).toHaveBeenCalledOnce();
+      const lines = mockPostEntry.mock.calls[0]![1].lines;
+      expectBalanced(lines, 'POS no line detail');
+      // Revenue should be full amount to uncategorized
+      const revLine = lines.find((l: any) => Number(l.creditAmount) > 0);
+      expect(revLine.accountId).toBe('acct-uncategorized-revenue');
+      expect(revLine.creditAmount).toBe('100.00');
+    });
+
+    it('skips posting when no fallback accounts configured AND no mappings', async () => {
+      const settingsWithNoFallbacks = {
+        ...fullSettings,
+        defaultUndepositedFundsAccountId: null,
+        defaultUncategorizedRevenueAccountId: null,
+        defaultSalesTaxPayableAccountId: null,
+      };
+      const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
+      (getAccountingSettings as any).mockResolvedValueOnce(settingsWithNoFallbacks);
+      mockResolvePaymentTypeAccounts.mockResolvedValueOnce(null);
+      mockResolveSubDeptAccounts.mockResolvedValueOnce(null);
+
+      const { handleTenderForAccounting } = await import('../adapters/pos-posting-adapter');
+      await handleTenderForAccounting(baseTenderEvent as any);
+
+      // Should NOT post — no debit account available
+      expect(mockPostEntry).not.toHaveBeenCalled();
+      // But should still log unmapped events
+      expect(mockLogUnmappedEvent).toHaveBeenCalled();
+    });
+
+    it('posts normally when all mappings exist (no fallback needed)', async () => {
+      const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
+      (getAccountingSettings as any).mockResolvedValueOnce(fullSettings);
+      mockResolvePaymentTypeAccounts.mockResolvedValueOnce(fullPaymentMapping);
+      mockResolveSubDeptAccounts.mockResolvedValueOnce(fullSubDeptMapping);
+
+      const { handleTenderForAccounting } = await import('../adapters/pos-posting-adapter');
+      await handleTenderForAccounting(baseTenderEvent as any);
+
+      expect(mockPostEntry).toHaveBeenCalledOnce();
+      const lines = mockPostEntry.mock.calls[0]![1].lines;
+      expectBalanced(lines, 'POS normal posting');
+      // Revenue should go to mapped account, not fallback
+      const revLine = lines.find((l: any) => Number(l.creditAmount) > 0);
+      expect(revLine.accountId).toBe('acct-revenue');
+      // No unmapped events logged
+      expect(mockLogUnmappedEvent).not.toHaveBeenCalled();
     });
   });
 

@@ -16,74 +16,88 @@ export function SeatRail({ seatCount, activeSeat, onSelectSeat, onAddSeat, unsen
 
   return (
     <div
-      className="flex flex-row sm:flex-col gap-1 p-1 border-b sm:border-b-0 sm:border-r shrink-0 overflow-x-auto sm:overflow-x-visible sm:overflow-y-auto"
+      className="shrink-0 flex flex-col items-center py-2 gap-1.5"
       style={{
-        minWidth: 'auto',
-        backgroundColor: 'var(--fnb-bg-surface)',
-        borderColor: 'rgba(148, 163, 184, 0.15)',
+        width: 80,
+        backgroundColor: 'var(--fnb-seat-rail-bg)',
+        borderRight: 'var(--fnb-border-subtle)',
       }}
     >
-      {/* All seats button */}
-      <button
-        type="button"
-        onClick={() => onSelectSeat(0)}
-        className={`rounded-lg py-2.5 text-xs font-semibold text-center transition-colors fnb-touch-min ${
-          activeSeat === 0 ? 'text-white' : 'hover:opacity-80'
-        }`}
-        style={{
-          backgroundColor: activeSeat === 0 ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-          color: activeSeat === 0 ? '#fff' : 'var(--fnb-text-secondary)',
-        }}
-      >
-        All
-      </button>
+      {/* All seats button — fixed at top */}
+      <div className="shrink-0">
+        <button
+          type="button"
+          onClick={() => onSelectSeat(0)}
+          className="flex items-center justify-center rounded-xl font-semibold transition-opacity"
+          style={{
+            width: 56,
+            height: 56,
+            fontSize: '13px',
+            backgroundColor: activeSeat === 0 ? 'var(--fnb-info)' : 'var(--fnb-bg-elevated)',
+            color: activeSeat === 0 ? '#fff' : 'var(--fnb-text-secondary)',
+          }}
+        >
+          All
+        </button>
+      </div>
 
-      {/* Individual seats */}
-      {seats.map((seat) => {
-        const isActive = activeSeat === seat;
-        const unsent = unsentBySeat?.[seat] ?? 0;
-        return (
-          <button
-            key={seat}
-            type="button"
-            onClick={() => onSelectSeat(seat)}
-            className={`relative rounded-lg py-2.5 text-xs font-semibold text-center transition-colors fnb-touch-min ${
-              isActive ? 'text-white' : 'hover:opacity-80'
-            }`}
-            style={{
-              backgroundColor: isActive ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-              color: isActive ? '#fff' : 'var(--fnb-text-secondary)',
-            }}
-          >
-            S{seat}
-            {unsent > 0 && (
-              <span
-                className="absolute -top-1 -right-1 flex items-center justify-center rounded-full text-[9px] font-bold text-white"
-                style={{
-                  width: '16px',
-                  height: '16px',
-                  backgroundColor: 'var(--fnb-status-ordered)',
-                }}
-              >
-                {unsent}
-              </span>
-            )}
-          </button>
-        );
-      })}
-
-      {/* Add seat */}
-      <button
-        type="button"
-        onClick={onAddSeat}
-        className="rounded-lg py-2.5 flex items-center justify-center transition-colors hover:opacity-80 fnb-touch-min"
-        style={{
-          backgroundColor: 'var(--fnb-bg-elevated)',
-          color: 'var(--fnb-text-muted)',
-        }}
+      {/* Seat buttons — scrollable */}
+      <div
+        className="flex-1 flex flex-col items-center gap-1.5 overflow-y-auto"
+        style={{ scrollbarWidth: 'none' }}
       >
-        <Plus className="h-4 w-4" />
-      </button>
+        {seats.map((seat) => {
+          const isActive = activeSeat === seat;
+          const unsent = unsentBySeat?.[seat] ?? 0;
+          return (
+            <button
+              key={seat}
+              type="button"
+              onClick={() => onSelectSeat(seat)}
+              className="relative flex items-center justify-center rounded-xl font-semibold transition-opacity shrink-0"
+              style={{
+                width: 56,
+                height: 56,
+                fontSize: '13px',
+                backgroundColor: isActive ? 'var(--fnb-info)' : 'var(--fnb-bg-elevated)',
+                color: isActive ? '#fff' : 'var(--fnb-text-secondary)',
+              }}
+            >
+              S{seat}
+              {unsent > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 flex items-center justify-center rounded-full text-[9px] font-bold"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    backgroundColor: 'var(--fnb-warning)',
+                    color: '#fff',
+                  }}
+                >
+                  {unsent}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Add seat — fixed at bottom */}
+      <div className="shrink-0">
+        <button
+          type="button"
+          onClick={onAddSeat}
+          className="flex items-center justify-center rounded-xl transition-opacity"
+          style={{
+            width: 56,
+            height: 56,
+            backgroundColor: 'var(--fnb-bg-elevated)',
+            color: 'var(--fnb-text-muted)',
+          }}
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      </div>
     </div>
   );
 }

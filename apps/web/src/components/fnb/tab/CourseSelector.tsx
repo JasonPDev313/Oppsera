@@ -13,11 +13,8 @@ export function CourseSelector({ activeCourse, onSelectCourse, courseNames }: Co
 
   return (
     <div
-      className="flex gap-1 px-2 py-1.5 border-b shrink-0"
-      style={{
-        backgroundColor: 'var(--fnb-bg-surface)',
-        borderColor: 'rgba(148, 163, 184, 0.15)',
-      }}
+      className="flex gap-1 px-2 py-1.5 shrink-0"
+      style={{ backgroundColor: 'var(--fnb-bg-surface)', borderBottom: 'var(--fnb-border-subtle)' }}
     >
       {courses.map((name, i) => {
         const courseNum = i + 1;
@@ -27,11 +24,9 @@ export function CourseSelector({ activeCourse, onSelectCourse, courseNames }: Co
             key={courseNum}
             type="button"
             onClick={() => onSelectCourse(courseNum)}
-            className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
-              isActive ? 'text-white' : 'hover:opacity-80'
-            }`}
+            className="rounded-lg px-4 py-2 text-xs font-semibold transition-opacity"
             style={{
-              backgroundColor: isActive ? 'var(--fnb-status-ordered)' : 'var(--fnb-bg-elevated)',
+              backgroundColor: isActive ? 'var(--fnb-warning)' : 'var(--fnb-bg-elevated)',
               color: isActive ? '#fff' : 'var(--fnb-text-secondary)',
             }}
           >

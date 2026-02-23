@@ -58,6 +58,14 @@ export const glAccounts = pgTable(
     isContraAccount: boolean('is_contra_account').notNull().default(false),
     allowManualPosting: boolean('allow_manual_posting').notNull().default(true),
     description: text('description'),
+    // Governance columns (migration 0138)
+    sortOrder: integer('sort_order').notNull().default(0),
+    depth: integer('depth').notNull().default(0),
+    path: text('path'), // materialized path "10000.10010.10020"
+    isFallback: boolean('is_fallback').notNull().default(false),
+    isSystemAccount: boolean('is_system_account').notNull().default(false),
+    mergedIntoId: text('merged_into_id'), // references gl_accounts.id
+    status: text('status').notNull().default('active'), // 'active' | 'inactive' | 'pending_merge'
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -65,6 +73,7 @@ export const glAccounts = pgTable(
     uniqueIndex('uq_gl_accounts_tenant_number').on(table.tenantId, table.accountNumber),
     index('idx_gl_accounts_tenant_type').on(table.tenantId, table.accountType),
     index('idx_gl_accounts_tenant_active').on(table.tenantId, table.isActive),
+    index('idx_gl_accounts_tenant_status').on(table.tenantId, table.status),
   ],
 );
 
@@ -172,6 +181,8 @@ export const accountingSettings = pgTable('accounting_settings', {
   defaultCompExpenseAccountId: text('default_comp_expense_account_id'),
   defaultReturnsAccountId: text('default_returns_account_id'),
   defaultPayrollClearingAccountId: text('default_payroll_clearing_account_id'),
+  // ── Uncategorized revenue fallback (migration 0135) ──
+  defaultUncategorizedRevenueAccountId: text('default_uncategorized_revenue_account_id'),
   // ── COGS posting mode (migration 0115) ──
   cogsPostingMode: text('cogs_posting_mode').notNull().default('disabled'), // 'disabled' | 'perpetual' | 'periodic'
   periodicCogsLastCalculatedDate: date('periodic_cogs_last_calculated_date'),
@@ -375,5 +386,56 @@ export const glRecurringTemplates = pgTable(
       .on(table.tenantId, table.isActive, table.nextDueDate)
       .where(sql`is_active = true`),
     uniqueIndex('uq_gl_recurring_templates_tenant_name').on(table.tenantId, table.name),
+  ],
+);
+
+// ── gl_account_change_logs (migration 0138) ──────────────────────
+// Append-only field-level change tracking for COA governance.
+export const glAccountChangeLogs = pgTable(
+  'gl_account_change_logs',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    accountId: text('account_id')
+      .notNull()
+      .references(() => glAccounts.id),
+    action: text('action').notNull(), // 'CREATE','UPDATE','DEACTIVATE','REACTIVATE','MERGE','RENUMBER'
+    fieldChanged: text('field_changed'), // column name (null for CREATE)
+    oldValue: text('old_value'),
+    newValue: text('new_value'),
+    changedBy: text('changed_by'), // user ID
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull().defaultNow(),
+    metadata: jsonb('metadata'),
+  },
+  (table) => [
+    index('idx_gl_acct_changelog_tenant_account').on(table.tenantId, table.accountId),
+    index('idx_gl_acct_changelog_tenant_date').on(table.tenantId, table.changedAt),
+  ],
+);
+
+// ── gl_coa_import_logs (migration 0138) ──────────────────────────
+// Tracks CSV COA import history.
+export const glCoaImportLogs = pgTable(
+  'gl_coa_import_logs',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    fileName: text('file_name').notNull(),
+    totalRows: integer('total_rows').notNull().default(0),
+    successRows: integer('success_rows').notNull().default(0),
+    errorRows: integer('error_rows').notNull().default(0),
+    errors: jsonb('errors'),
+    status: text('status').notNull().default('pending'), // 'pending','validating','validated','importing','complete','failed'
+    importedBy: text('imported_by'), // user ID
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('idx_gl_coa_import_logs_tenant').on(table.tenantId),
+    index('idx_gl_coa_import_logs_tenant_status').on(table.tenantId, table.status),
   ],
 );

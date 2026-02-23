@@ -531,7 +531,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
 function TerminalSessionGate({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useTerminalSession();
+  const { needsOnboarding, isLoading: authLoading, isAuthenticated } = useAuthContext();
   const [skipped, setSkipped] = useState(false);
+
+  // Bypass the terminal gate when auth is unresolved, user isn't logged in,
+  // or tenant hasn't been provisioned yet — let DashboardLayoutInner handle
+  // the redirect to /login or /onboard.
+  if (authLoading || !isAuthenticated || needsOnboarding) return <>{children}</>;
+
   if (isLoading) return null;
   if (!session && !skipped) return <TerminalSelectionScreen onSkip={() => setSkipped(true)} />;
   return <>{children}</>;

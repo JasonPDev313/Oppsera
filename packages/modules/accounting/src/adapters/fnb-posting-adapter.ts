@@ -1,5 +1,5 @@
 import type { EventEnvelope } from '@oppsera/shared';
-import { db, fnbGlAccountMappings } from '@oppsera/db';
+import { db, fnbGlAccountMappings, subDepartmentGlDefaults } from '@oppsera/db';
 import { eq, and, sql } from 'drizzle-orm';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
@@ -11,6 +11,7 @@ interface FnbJournalLine {
   description: string;
   debitCents: number;
   creditCents: number;
+  subDepartmentId?: string | null;
 }
 
 interface FnbGlPostingPayload {
@@ -22,6 +23,28 @@ interface FnbGlPostingPayload {
   totalCreditCents: number;
   lineCount: number;
   journalLines: FnbJournalLine[];
+}
+
+/**
+ * Resolves a revenue GL account via catalog sub-department GL defaults.
+ * This allows F&B revenue to map through the same sub-department GL resolution
+ * as retail POS, since F&B items ARE catalog items.
+ */
+async function resolveRevenueBySubDepartment(
+  tenantId: string,
+  subDepartmentId: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({ revenueAccountId: subDepartmentGlDefaults.revenueAccountId })
+    .from(subDepartmentGlDefaults)
+    .where(
+      and(
+        eq(subDepartmentGlDefaults.tenantId, tenantId),
+        eq(subDepartmentGlDefaults.subDepartmentId, subDepartmentId),
+      ),
+    )
+    .limit(1);
+  return rows[0]?.revenueAccountId ?? null;
 }
 
 interface FnbMappingRow {
@@ -85,11 +108,26 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
       creditAmount?: string;
       locationId?: string;
       channel?: string;
+      subDepartmentId?: string;
       memo?: string;
     }> = [];
 
     for (const jl of data.journalLines) {
-      const accountId = resolveAccountForCategory(jl.category, mappingLookup, settings);
+      let accountId: string | null = null;
+
+      // For revenue lines with sub-department, resolve via catalog GL defaults
+      if (jl.category === 'sales_revenue' && jl.subDepartmentId) {
+        accountId = await resolveRevenueBySubDepartment(event.tenantId, jl.subDepartmentId);
+        // Fallback to uncategorized revenue if sub-dept has no mapping
+        if (!accountId) {
+          accountId = settings.defaultUncategorizedRevenueAccountId ?? null;
+        }
+      }
+
+      // All other categories (and revenue without sub-dept) use existing F&B mapping resolution
+      if (!accountId) {
+        accountId = resolveAccountForCategory(jl.category, mappingLookup, settings);
+      }
 
       if (!accountId) {
         await logUnmappedEvent(db, event.tenantId, {
@@ -98,7 +136,7 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
           sourceReferenceId: data.closeBatchId,
           entityType: jl.category,
           entityId: data.closeBatchId,
-          reason: `No GL account mapped for F&B category: ${jl.category}`,
+          reason: `No GL account mapped for F&B category: ${jl.category}${jl.subDepartmentId ? ` (sub-dept: ${jl.subDepartmentId})` : ''}`,
         });
         continue;
       }
@@ -110,6 +148,7 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
           creditAmount: '0',
           locationId: data.locationId,
           channel: 'fnb',
+          subDepartmentId: jl.subDepartmentId ?? undefined,
           memo: jl.description,
         });
       }
@@ -120,6 +159,7 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
           creditAmount: (jl.creditCents / 100).toFixed(2),
           locationId: data.locationId,
           channel: 'fnb',
+          subDepartmentId: jl.subDepartmentId ?? undefined,
           memo: jl.description,
         });
       }

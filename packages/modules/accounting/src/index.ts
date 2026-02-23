@@ -49,6 +49,13 @@ export {
   completeBankReconciliation,
 } from './commands/manage-bank-reconciliation';
 export type { BankReconciliation, BankReconciliationItem } from './commands/manage-bank-reconciliation';
+export { importCoaFromCsv } from './commands/import-coa-from-csv';
+export { mergeGlAccounts } from './commands/merge-gl-accounts';
+export { renumberGlAccount } from './commands/renumber-gl-account';
+
+// Queries (COA)
+export { getCoaHealth } from './queries/get-coa-health';
+export type { CoaHealthReport } from './queries/get-coa-health';
 
 // Adapters
 export { handleTenderForAccounting } from './adapters/pos-posting-adapter';
@@ -170,6 +177,44 @@ export { getAccountingSettings } from './helpers/get-accounting-settings';
 export type { AccountingSettings } from './helpers/get-accounting-settings';
 export { resolveRevenueAccountForSubDepartment, expandPackageForGL } from './helpers/catalog-gl-resolution';
 
+// Services
+export {
+  replaceStatePlaceholder,
+  convertHardcodedStateToPlaceholder,
+  applyStatePlaceholders,
+  detectAndConvertStates,
+  resolveState,
+  isValidStateName,
+  STATE_PLACEHOLDER,
+} from './services/state-placeholder';
+
+// Validation & Hierarchy
+export {
+  validateFullCoa,
+  validateSingleAccount,
+  validateMerge,
+  validateDeactivation,
+} from './services/coa-validation';
+export type { ValidationError, GLAccountForValidation } from './services/coa-validation';
+export {
+  computeDepth,
+  computePath,
+  detectCircularReference,
+  getDescendants,
+  recomputeHierarchyFields,
+} from './services/hierarchy-helpers';
+export type { AccountNode } from './services/hierarchy-helpers';
+export {
+  logAccountChange,
+  computeAccountDiff,
+  getAccountChangeLog,
+} from './services/account-change-log';
+export type { ChangeLogEntry, LogAccountChangeParams } from './services/account-change-log';
+
+// CSV Import
+export { parseCsvImport } from './services/csv-import';
+export type { ParsedAccount, CsvValidationMessage, CsvValidationResult } from './services/csv-import';
+
 // Errors
 export {
   UnbalancedJournalError,
@@ -229,6 +274,10 @@ export {
   addBankAdjustmentSchema,
   completeBankReconciliationSchema,
   listBankReconciliationsSchema,
+  importCoaFromCsvSchema,
+  validateCsvPreviewSchema,
+  mergeGlAccountsSchema,
+  renumberGlAccountSchema,
 } from './validation';
 export type {
   PostJournalEntryInput,
@@ -265,4 +314,8 @@ export type {
   AddBankAdjustmentInput,
   CompleteBankReconciliationInput,
   ListBankReconciliationsInput,
+  ImportCoaFromCsvInput,
+  ValidateCsvPreviewInput,
+  MergeGlAccountsInput,
+  RenumberGlAccountInput,
 } from './validation';

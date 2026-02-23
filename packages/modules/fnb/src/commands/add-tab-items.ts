@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
+import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { fnbTabItems, fnbTabCourses } from '@oppsera/db';
 import { AppError, generateUlid } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -13,6 +14,23 @@ export async function addTabItems(
   ctx: RequestContext,
   input: AddTabItemsInput,
 ) {
+  // Resolve sub-department IDs from catalog BEFORE the transaction (gotcha #123)
+  const subDeptMap = new Map<string, string | null>();
+  try {
+    const catalogApi = getCatalogReadApi();
+    const uniqueItemIds = [...new Set(input.items.map((i) => i.catalogItemId))];
+    const results = await Promise.all(
+      uniqueItemIds.map((id) =>
+        catalogApi.getItemForPOS(ctx.tenantId, id, ctx.locationId ?? '').catch(() => null),
+      ),
+    );
+    for (let i = 0; i < uniqueItemIds.length; i++) {
+      subDeptMap.set(uniqueItemIds[i]!, results[i]?.subDepartmentId ?? null);
+    }
+  } catch {
+    // CatalogReadApi may not be initialized — proceed without sub-department IDs
+  }
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     const idempotencyCheck = await checkIdempotency(
       tx, ctx.tenantId, input.clientRequestId, 'addTabItems',
@@ -72,6 +90,8 @@ export async function addTabItems(
       const extendedPriceCents = Math.round(item.qty * item.unitPriceCents);
       const id = generateUlid();
 
+      const subDepartmentId = subDeptMap.get(item.catalogItemId) ?? null;
+
       await (tx as any).insert(fnbTabItems).values({
         id,
         tenantId: ctx.tenantId,
@@ -83,6 +103,7 @@ export async function addTabItems(
         qty: String(item.qty),
         unitPriceCents: item.unitPriceCents,
         extendedPriceCents,
+        subDepartmentId,
         modifiers: item.modifiers,
         specialInstructions: item.specialInstructions ?? null,
         status: 'draft',
@@ -99,6 +120,7 @@ export async function addTabItems(
         qty: item.qty,
         unitPriceCents: item.unitPriceCents,
         extendedPriceCents,
+        subDepartmentId,
         modifiers: item.modifiers,
         specialInstructions: item.specialInstructions ?? null,
         status: 'draft',

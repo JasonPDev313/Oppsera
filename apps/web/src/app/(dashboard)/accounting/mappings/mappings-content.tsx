@@ -118,7 +118,7 @@ export default function MappingsContent() {
       {activeTab === 'departments' && <DepartmentMappingsTab />}
       {activeTab === 'payments' && <PaymentTypeMappingsTab />}
       {activeTab === 'taxes' && <TaxGroupMappingsTab />}
-      {activeTab === 'fnb' && <FnbCategoryMappingsTab />}
+      {activeTab === 'fnb' && <FnbCategoryMappingsTab onNavigateToSubDepartments={() => setActiveTab('departments')} />}
       {activeTab === 'unmapped' && <UnmappedEventsTab />}
     </AccountingPageShell>
   );
@@ -207,6 +207,13 @@ function DepartmentMappingsTab() {
     );
   }
 
+  const infoBanner = (
+    <div className="flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-800 mb-4">
+      <CheckCircle className="h-4 w-4 shrink-0 text-indigo-500" />
+      Sub-department revenue mappings are used by both Retail POS and F&amp;B POS.
+    </div>
+  );
+
   // Detect if this is a flat (2-level) hierarchy: all groups are self-grouped
   const isFlat = grouped.every(
     (d) => d.totalCount === 1 && d.subDepartments[0]?.subDepartmentId === d.departmentId,
@@ -215,6 +222,8 @@ function DepartmentMappingsTab() {
   // Flat mode: render a single table without collapsible groups
   if (isFlat) {
     return (
+      <>
+      {infoBanner}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
         <table className="w-full">
           <thead>
@@ -261,12 +270,14 @@ function DepartmentMappingsTab() {
           </tbody>
         </table>
       </div>
+      </>
     );
   }
 
   // Grouped mode: collapsible department sections with sub-department rows
   return (
     <div className="space-y-4">
+      {infoBanner}
       {grouped.map((dept) => {
         const isExpanded = expandedDepts.has(dept.departmentId);
         const allMapped = dept.mappedCount === dept.totalCount;
@@ -698,7 +709,7 @@ function TaxGroupMappingsTab() {
 
 // ── F&B Category Mappings ─────────────────────────────────────
 
-function FnbCategoryMappingsTab() {
+function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSubDepartments: () => void }) {
   const { locations } = useAuthContext();
   const [locationId, setLocationId] = useState(locations[0]?.id ?? '');
   const { data: coverage, isLoading, refetch } = useFnbMappingCoverage(locationId || undefined);
@@ -850,6 +861,7 @@ function FnbCategoryMappingsTab() {
                       <tr
                         key={cat.key}
                         className={`border-b border-gray-100 last:border-0 ${
+                          cat.key === 'sales_revenue' ? '' :
                           !cat.isMapped && cat.critical ? 'bg-red-500/5' : !cat.isMapped ? 'bg-amber-500/5' : ''
                         }`}
                       >
@@ -865,17 +877,29 @@ function FnbCategoryMappingsTab() {
                           <p className="text-xs text-gray-500 mt-0.5">{cat.description}</p>
                         </td>
                         <td className="px-4 py-3">
-                          {config && (
+                          {cat.key === 'sales_revenue' ? (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                              <span>Resolved via</span>
+                              <button
+                                type="button"
+                                onClick={onNavigateToSubDepartments}
+                                className="text-indigo-600 hover:text-indigo-800 font-medium"
+                              >
+                                Sub-Departments
+                              </button>
+                            </div>
+                          ) : config ? (
                             <AccountPicker
                               value={cat.accountId}
                               onChange={(v) => handleSave(cat.key as FnbBatchCategoryKey, v)}
                               accountTypes={accountTypeFilter(config.mappingColumn)}
                               className="w-56"
                             />
-                          )}
+                          ) : null}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {cat.isMapped ? (
+                          {cat.key === 'sales_revenue' || cat.isMapped ? (
                             <CheckCircle className="inline h-5 w-5 text-green-500" />
                           ) : (
                             <span

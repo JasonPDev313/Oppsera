@@ -18,7 +18,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 import { generateJournalEntry } from '../helpers/gl-journal';
-import type { TenderForGL, OrderForGL, OrderLineForGL } from '../helpers/gl-journal';
+import type { TenderForGL, OrderForGL } from '../helpers/gl-journal';
 
 // ── Helpers ────────────────────────────────────────────────────────
 function createTender(overrides: Partial<TenderForGL> = {}): TenderForGL {

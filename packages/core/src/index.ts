@@ -156,6 +156,10 @@ export * from './drawer-sessions';
 export * from './retail-close';
 export * from './pos-ops';
 
+// ── Email ───────────────────────────────────────────────────────
+export { sendEmail } from './email/send-email';
+export { memberVerificationEmail } from './email/templates';
+
 // ── Security ─────────────────────────────────────────────────────
 export { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from './security';
 export {

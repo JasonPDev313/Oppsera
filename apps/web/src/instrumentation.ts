@@ -111,6 +111,22 @@ export async function register() {
       console.error('Failed to initialize accounting:', e);
     }
 
+    // F&B Reporting consumers
+    // NOTE: F&B consumers use (tenantId, data) signature — wrap to match EventHandler(event)
+    try {
+      const fnb = await import('@oppsera/module-fnb');
+      bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleFnbTabClosed(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbTabClosed>[1]));
+      bus.subscribe('fnb.kds.ticket_bumped.v1', (event) => fnb.handleFnbTicketBumped(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbTicketBumped>[1]));
+      bus.subscribe('fnb.kds.item_bumped.v1', (event) => fnb.handleFnbItemBumped(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbItemBumped>[1]));
+      bus.subscribe('fnb.ticket_item.status_changed.v1', (event) => fnb.handleFnbItemVoided(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbItemVoided>[1]));
+      bus.subscribe('fnb.payment.check_comped.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbDiscountComp>[1]));
+      bus.subscribe('fnb.payment.check_discounted.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbDiscountComp>[1]));
+      bus.subscribe('fnb.payment.check_voided.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbDiscountComp>[1]));
+      console.log('[events] F&B reporting consumers registered');
+    } catch (e) {
+      console.error('[events] Failed to register F&B reporting consumers:', e);
+    }
+
     // Golf Reporting consumers
     try {
       const golfReporting = await import('@oppsera/module-golf-reporting');

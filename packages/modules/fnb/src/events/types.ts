@@ -89,6 +89,11 @@ export const FNB_EVENTS = {
   PRINT_JOB_COMPLETED: 'fnb.print.job_completed.v1',
   PRINT_JOB_FAILED: 'fnb.print.job_failed.v1',
   PRINT_JOB_REPRINTED: 'fnb.print.job_reprinted.v1',
+  // Guest Pay — Pay at the Table via QR Code
+  GUEST_PAY_SESSION_CREATED: 'fnb.guestpay.session_created.v1',
+  GUEST_PAY_PAYMENT_SUCCEEDED: 'fnb.guestpay.payment_succeeded.v1',
+  GUEST_PAY_SESSION_INVALIDATED: 'fnb.guestpay.session_invalidated.v1',
+  GUEST_PAY_SESSION_SUPERSEDED: 'fnb.guestpay.session_superseded.v1',
 } as const;
 
 // ── Session 1 Payloads ─────────────────────────────────────────
@@ -626,6 +631,7 @@ export interface GlPostingCreatedPayload {
     description: string;
     debitCents: number;
     creditCents: number;
+    subDepartmentId?: string | null;
   }>;
 }
 
@@ -726,4 +732,45 @@ export interface PrintJobReprintedPayload {
   printJobType: string;
   userId: string;
   reason: string | null;
+}
+
+// ── Guest Pay Payloads ──────────────────────────────────────────
+
+export interface GuestPaySessionCreatedPayload {
+  sessionId: string;
+  tabId: string;
+  orderId: string;
+  locationId: string;
+  token: string;
+  totalCents: number;
+  expiresAt: string;
+  serverUserId: string | null;
+}
+
+export interface GuestPayPaymentSucceededPayload {
+  sessionId: string;
+  tabId: string;
+  orderId: string | null;
+  locationId: string;
+  amountCents: number;
+  tipCents: number;
+  paymentMethod: string;
+  memberId?: string;
+  memberDisplayName?: string;
+  billingAccountId?: string;
+}
+
+export interface GuestPaySessionInvalidatedPayload {
+  sessionId: string;
+  tabId: string;
+  locationId: string;
+  reason: string | null;
+  invalidatedBy: string;
+}
+
+export interface GuestPaySessionSupersededPayload {
+  oldSessionId: string;
+  newSessionId: string;
+  tabId: string;
+  locationId: string;
 }

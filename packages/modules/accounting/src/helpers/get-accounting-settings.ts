@@ -27,6 +27,7 @@ export interface AccountingSettings {
   defaultCompExpenseAccountId: string | null;
   defaultReturnsAccountId: string | null;
   defaultPayrollClearingAccountId: string | null;
+  defaultUncategorizedRevenueAccountId: string | null;
   cogsPostingMode: string; // 'disabled' | 'perpetual' | 'periodic'
   periodicCogsLastCalculatedDate: string | null;
   periodicCogsMethod: string | null;
@@ -81,6 +82,7 @@ export async function getAccountingSettings(
     defaultCompExpenseAccountId: row.defaultCompExpenseAccountId ?? null,
     defaultReturnsAccountId: row.defaultReturnsAccountId ?? null,
     defaultPayrollClearingAccountId: row.defaultPayrollClearingAccountId ?? null,
+    defaultUncategorizedRevenueAccountId: row.defaultUncategorizedRevenueAccountId ?? null,
     cogsPostingMode: row.cogsPostingMode,
     periodicCogsLastCalculatedDate: row.periodicCogsLastCalculatedDate ?? null,
     periodicCogsMethod: row.periodicCogsMethod ?? null,

@@ -26,6 +26,13 @@ export interface JournalLine {
   description: string;
   debitCents: number;
   creditCents: number;
+  subDepartmentId?: string | null;
+}
+
+export interface SubDepartmentSales {
+  subDepartmentId: string | null;
+  subDepartmentName: string;
+  netSalesCents: number;
 }
 
 export function buildBatchJournalLines(
@@ -103,7 +110,23 @@ export function buildBatchJournalLines(
   }
 
   // CREDIT side — revenue & liabilities
-  if (netSalesCents > 0) {
+  const salesBySubDept = (summary.sales_by_sub_department ?? []) as SubDepartmentSales[];
+
+  if (salesBySubDept.length > 0) {
+    // Per-sub-department revenue lines (resolved via catalog GL defaults)
+    for (const sd of salesBySubDept) {
+      if (sd.netSalesCents > 0) {
+        lines.push({
+          category: 'sales_revenue',
+          description: `Sales revenue — ${sd.subDepartmentName}`,
+          debitCents: 0,
+          creditCents: sd.netSalesCents,
+          subDepartmentId: sd.subDepartmentId,
+        });
+      }
+    }
+  } else if (netSalesCents > 0) {
+    // Fallback: single revenue line (backward compat for legacy data)
     lines.push({
       category: 'sales_revenue',
       description: 'Net sales revenue',
