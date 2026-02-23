@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { ValidationError, AppError } from '@oppsera/shared';
+import { ValidationError } from '@oppsera/shared';
 import { openOrder, openOrderSchema, listOrders } from '@oppsera/module-orders';
 
 // GET /api/v1/orders — list orders (requires locationId)
