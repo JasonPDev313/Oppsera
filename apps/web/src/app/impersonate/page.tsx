@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { setTokens } from '@/lib/api-client';
 
 const IMPERSONATION_STORAGE_KEY = 'oppsera_impersonation';
 
-export default function ImpersonatePage() {
+function ImpersonateContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -79,5 +79,19 @@ export default function ImpersonatePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ImpersonatePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+        </div>
+      }
+    >
+      <ImpersonateContent />
+    </Suspense>
   );
 }
