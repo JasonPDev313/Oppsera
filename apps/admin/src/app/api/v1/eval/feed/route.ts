@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { withAdminAuth } from '@/lib/with-admin-auth';
 import { getEvalFeed } from '@oppsera/module-semantic';
 import type { EvalFeedFilters } from '@oppsera/module-semantic';

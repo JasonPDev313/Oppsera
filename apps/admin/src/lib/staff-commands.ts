@@ -3,7 +3,7 @@ import {
   platformAdmins,
   platformAdminRoleAssignments,
 } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { generateUlid } from '@oppsera/shared';
 import { createHash, randomBytes } from 'crypto';

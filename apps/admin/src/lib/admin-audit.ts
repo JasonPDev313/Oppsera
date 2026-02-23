@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import type { NextRequest } from 'next/server';
 import { db } from '@oppsera/db';
 import { platformAdminAuditLog } from '@oppsera/db';
 import type { AdminSession } from './auth';
@@ -61,12 +61,12 @@ export function getClientIp(req: NextRequest): string | null {
  * Strip sensitive fields from an object before storing in audit snapshot.
  */
 export function sanitizeSnapshot(obj: Record<string, unknown>): Record<string, unknown> {
-  const {
-    passwordHash,
-    password_hash,
-    inviteTokenHash,
-    invite_token_hash,
-    ...safe
-  } = obj;
+  const SENSITIVE_KEYS = ['passwordHash', 'password_hash', 'inviteTokenHash', 'invite_token_hash'];
+  const safe: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (!SENSITIVE_KEYS.includes(key)) {
+      safe[key] = value;
+    }
+  }
   return safe;
 }

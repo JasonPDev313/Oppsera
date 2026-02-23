@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { RefreshCw, Filter, Plus, UserPlus, Shield, Clock, Mail } from 'lucide-react';
+import { RefreshCw, Filter, Plus, UserPlus, Shield, Clock } from 'lucide-react';
 import { useStaffList } from '@/hooks/use-staff';
 import type { StaffListItem, StaffStatus } from '@/types/users';
 

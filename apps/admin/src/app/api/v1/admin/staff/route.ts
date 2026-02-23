@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withAdminPermission } from '@/lib/with-admin-permission';
 import { listStaff } from '@/lib/staff-queries';

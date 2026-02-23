@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────────
 
-const { mockDbSelect, mockDbUpdate, makeChain } = vi.hoisted(() => {
+const { mockDbSelect, mockDbUpdate } = vi.hoisted(() => {
   const makeChain = (result: unknown[] = []): Record<string, unknown> => {
     const chain: Record<string, unknown> = {};
     chain.from = vi.fn(() => chain);

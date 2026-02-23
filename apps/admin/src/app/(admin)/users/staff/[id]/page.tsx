@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -34,7 +34,7 @@ export default function StaffDetailPage() {
   const { session } = useAdminAuth();
   const { data: staff, isLoading, error, load, update, suspend, unsuspend, deleteStaff, resetPassword, resendInvite } = useStaffDetail(params.id);
   const { data: auditData, load: loadAudit } = useAdminAudit(params.id);
-  const { data: roles, load: loadRoles } = useAdminRoles();
+  const { load: loadRoles } = useAdminRoles();
 
   const [tab, setTab] = useState<Tab>('profile');
   const [editName, setEditName] = useState('');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, AlertTriangle, Shield, Clock } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock } from 'lucide-react';
 import type { EntitlementItem, AccessMode } from '@/types/tenant';
 import { ModuleModeSelector } from './ModuleModeSelector';
 

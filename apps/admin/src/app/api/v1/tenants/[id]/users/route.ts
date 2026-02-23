@@ -2,8 +2,7 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/with-admin-auth';
 import { buildAdminCtx } from '@/lib/admin-context';
-import { listUsers, createUser, listRoles } from '@oppsera/core';
-import { db, sql } from '@oppsera/db';
+import { listUsers, createUser } from '@oppsera/core';
 
 export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
   const tenantId = params?.id;

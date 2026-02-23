@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/with-admin-auth';
 import { db } from '@oppsera/db';
-import { semanticEvalTurns } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 
 // Returns distinct tenantIds that have eval turns, so the admin can filter by tenant.

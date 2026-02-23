@@ -7,26 +7,11 @@ import {
   RotateCcw,
   CheckCircle,
   Trash2,
-  Clock,
   AlertTriangle,
   Hash,
   Server,
 } from 'lucide-react';
 import { useDeadLetterDetail, useDeadLetterActions } from '@/hooks/use-dead-letters';
-
-function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    failed: 'bg-red-100 text-red-700',
-    retrying: 'bg-yellow-100 text-yellow-700',
-    resolved: 'bg-green-100 text-green-700',
-    discarded: 'bg-gray-100 text-gray-600',
-  };
-  return (
-    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${colors[status] ?? 'bg-gray-100 text-gray-600'}`}>
-      {status}
-    </span>
-  );
-}
 
 function InfoRow({ label, value, mono }: { label: string; value: string | null; mono?: boolean }) {
   return (

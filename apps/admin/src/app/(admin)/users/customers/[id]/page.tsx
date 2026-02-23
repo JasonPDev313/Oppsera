@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
@@ -36,7 +36,6 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
   const [tab, setTab] = useState<Tab>('profile');
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [suspendReason, setSuspendReason] = useState('');

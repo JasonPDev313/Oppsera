@@ -28,7 +28,6 @@ export function OrgHierarchyBuilder({ tenantId }: { tenantId: string }) {
 
   useEffect(() => {
     hierarchy.load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Derived lists

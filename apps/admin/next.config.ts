@@ -37,12 +37,23 @@ const nextConfig: NextConfig = {
     '@oppsera/shared',
     '@oppsera/module-semantic',
   ],
-  experimental: {
-    // Server actions enabled by default in Next.js 15
-  },
-  // Disable x-powered-by header
   poweredByHeader: false,
-  // Security headers
+  // Prevent VSCode file watcher from racing with webpack cache writes on Windows
+  webpack: (config) => {
+    const prev = config.watchOptions ?? {};
+    const existing = prev.ignored;
+    const kept: string[] = [];
+    if (Array.isArray(existing)) {
+      for (const p of existing) {
+        if (typeof p === 'string') kept.push(p);
+      }
+    } else if (typeof existing === 'string') {
+      kept.push(existing);
+    }
+    kept.push('**/.next/**');
+    config.watchOptions = { ...prev, ignored: kept };
+    return config;
+  },
   async headers() {
     return [
       {

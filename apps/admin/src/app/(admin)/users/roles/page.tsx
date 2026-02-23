@@ -542,7 +542,6 @@ function PermissionEditor({
   onSelectAll: (selectAll: boolean) => void;
 }) {
   const allSelected = ALL_PERM_KEYS.size > 0 && selected.size === ALL_PERM_KEYS.size;
-  const noneSelected = selected.size === 0;
 
   return (
     <div className="space-y-4">
@@ -698,14 +697,12 @@ function RoleHistoryPanel({ roleId }: { roleId: string }) {
 
     // For role.updated — show before/after diff
     if (entry.action === 'role.updated') {
-      const beforePerms = (before as Record<string, unknown> | null)?.name ? before : null;
       const afterPerms = after?.permissions as Array<{ module: string; submodule?: string | null; action: string }> | undefined;
 
       // Name change
       const nameChanged = before?.name && after?.name && before.name !== after.name;
 
       // Compute permission diff
-      const beforePermSet = new Set<string>();
       const afterPermSet = new Set<string>();
 
       // before snapshot from the role.updated might just have { name }

@@ -5,7 +5,7 @@ import {
   platformAdminRoles,
   platformAdminAuditLog,
 } from '@oppsera/db';
-import { eq, and, or, ilike, desc, lt, sql, count } from 'drizzle-orm';
+import { eq, and, or, ilike, desc, lt, sql } from 'drizzle-orm';
 import type { StaffListItem, StaffDetail, AdminAuditEntry } from '@/types/users';
 
 // ── List Staff ──────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import {
   platformAdminRolePermissions,
   platformAdminRoleAssignments,
 } from '@oppsera/db';
-import { eq, sql, count } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { withAdminPermission } from '@/lib/with-admin-permission';
 import { logAdminAudit, getClientIp } from '@/lib/admin-audit';
