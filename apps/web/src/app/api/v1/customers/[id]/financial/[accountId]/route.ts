@@ -28,7 +28,6 @@ export const GET = withMiddleware(
     const summary = await getFinancialAccountsSummary({
       tenantId: ctx.tenantId,
       customerId,
-      accountId,
     });
     return NextResponse.json({ data: summary });
   },
@@ -50,5 +49,5 @@ export const PATCH = withMiddleware(
     const result = await updateFinancialAccount(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.financial.manage' },
+  { entitlement: 'customers', permission: 'customers.financial.manage' , writeAccess: true },
 );

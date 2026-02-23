@@ -30,5 +30,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: member }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'billing.manage' },
+  { entitlement: 'customers', permission: 'billing.manage' , writeAccess: true },
 );

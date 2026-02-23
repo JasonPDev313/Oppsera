@@ -46,5 +46,5 @@ export const POST = withMiddleware(
     const result = await createAutoGratuityRule(ctx, ctx.locationId ?? '', parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.tips.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.tips.manage' , writeAccess: true },
 );

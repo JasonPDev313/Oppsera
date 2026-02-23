@@ -35,5 +35,5 @@ export const POST = withMiddleware(
     const category = await createCategory(ctx, parsed.data);
     return NextResponse.json({ data: category }, { status: 201 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

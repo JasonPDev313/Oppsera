@@ -28,5 +28,5 @@ export const POST = withMiddleware(
     await clearReconciliationItems(ctx, parsed.data);
     return NextResponse.json({ data: { success: true } });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

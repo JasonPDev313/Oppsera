@@ -23,5 +23,5 @@ export const POST = withMiddleware(
     const result = await addTabItems(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' , writeAccess: true },
 );

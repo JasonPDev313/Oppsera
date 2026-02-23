@@ -33,5 +33,5 @@ export const PATCH = withMiddleware(
     const contact = await updateCustomerContact(ctx, parsed.data);
     return NextResponse.json({ data: contact });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

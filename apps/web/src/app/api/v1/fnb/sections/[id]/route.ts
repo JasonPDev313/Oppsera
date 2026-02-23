@@ -21,5 +21,5 @@ export const PATCH = withMiddleware(
     const section = await updateSection(ctx, sectionId, parsed.data);
     return NextResponse.json({ data: section });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' , writeAccess: true },
 );

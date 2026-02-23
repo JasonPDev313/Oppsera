@@ -28,5 +28,5 @@ export const POST = withMiddleware(
     const result = await toggleDiscountRule(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.discount_rules.manage' },
+  { entitlement: 'customers', permission: 'customers.discount_rules.manage' , writeAccess: true },
 );

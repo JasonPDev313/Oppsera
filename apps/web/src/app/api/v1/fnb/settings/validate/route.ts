@@ -15,5 +15,5 @@ export const POST = withMiddleware(
     const result = await validateFnbSettings(parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.view' , writeAccess: true },
 );

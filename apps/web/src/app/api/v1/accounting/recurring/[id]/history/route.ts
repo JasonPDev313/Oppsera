@@ -15,7 +15,7 @@ export const GET = withMiddleware(
     const id = extractId(request);
     const url = new URL(request.url);
     const limit = url.searchParams.has('limit')
-      ? parseInt(url.searchParams.get('limit')!, 10)
+      ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
       : 20;
 
     const result = await getRecurringTemplateHistory(ctx.tenantId, id, limit);

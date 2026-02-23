@@ -149,6 +149,16 @@ export async function handleFnbGlPostingForAccounting(event: EventEnvelope): Pro
   } catch (err) {
     // Never block F&B operations
     console.error(`F&B GL posting failed for batch ${data.closeBatchId}:`, err);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'fnb.gl.posting_created.v1',
+        sourceModule: 'fnb',
+        sourceReferenceId: data.closeBatchId,
+        entityType: 'posting_error',
+        entityId: data.closeBatchId,
+        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }
 

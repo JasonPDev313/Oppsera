@@ -36,7 +36,7 @@ export const GET = withMiddleware(
       meta: { cursor: result.cursor, hasMore: result.hasMore },
     });
   },
-  { permission: 'users.view' },
+  { entitlement: 'platform_core', permission: 'users.view' },
 );
 
 export const POST = withMiddleware(
@@ -73,5 +73,5 @@ export const POST = withMiddleware(
     await auditLog(ctx, 'user.create', 'user', created.userId, undefined, { invited: created.invited });
     return NextResponse.json({ data: created }, { status: 201 });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage', writeAccess: true },
 );

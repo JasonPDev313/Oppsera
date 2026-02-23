@@ -31,7 +31,7 @@ export const POST = withMiddleware(
     const member = await addHouseholdMember(ctx, parsed.data);
     return NextResponse.json({ data: member }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );
 
 // DELETE /api/v1/customers/households/:id/members — remove household member
@@ -51,5 +51,5 @@ export const DELETE = withMiddleware(
     await removeHouseholdMember(ctx, parsed.data);
     return new NextResponse(null, { status: 204 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

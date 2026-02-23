@@ -28,7 +28,8 @@
       "Read(//c/Users/Jason/Dev Laptop/Oppsera/**)",
       "Bash(DATABASE_URL_ADMIN=\"postgres://postgres:Honka9285%24%24%24%21%21%21@db.gxehnbaxycgdggtazvzx.supabase.co:5432/postgres\" npx tsx:*)",
       "Bash(node tools/check-pe2.mjs:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(__NEW_LINE_5e400bb8d4f9e3b8__ echo \"=== DASHBOARD ===\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",

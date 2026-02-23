@@ -8,14 +8,15 @@ export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const parts = new URL(request.url).pathname.split('/');
     const tableId = parts[parts.length - 2]!;
-    const body = await request.json().catch(() => ({}));
+    let body: Record<string, unknown> = {};
+    try { body = await request.json(); } catch { /* empty body is valid — all fields optional */ }
 
     const result = await clearTable(ctx, tableId, {
-      clientRequestId: body.clientRequestId,
-      markAvailable: body.markAvailable,
-      expectedVersion: body.expectedVersion,
+      clientRequestId: body.clientRequestId as string | undefined,
+      markAvailable: body.markAvailable as boolean | undefined,
+      expectedVersion: body.expectedVersion as number | undefined,
     });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' , writeAccess: true },
 );

@@ -17,7 +17,7 @@ export const GET = withMiddleware(
       status: url.searchParams.get('status') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: url.searchParams.has('limit')
-        ? parseInt(url.searchParams.get('limit')!, 10)
+        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
         : undefined,
     });
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
@@ -40,5 +40,5 @@ export const POST = withMiddleware(
     const result = await startBankReconciliation(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

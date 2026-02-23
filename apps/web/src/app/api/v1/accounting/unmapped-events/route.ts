@@ -16,7 +16,7 @@ export const GET = withMiddleware(
         ? url.searchParams.get('resolved') === 'true'
         : undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
     });
 
     return NextResponse.json({

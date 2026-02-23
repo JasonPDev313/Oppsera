@@ -27,5 +27,5 @@ export const PUT = withMiddleware(
     const defaults = await savePaymentTypeDefaults(ctx, paymentTypeId, parsed.data);
     return NextResponse.json({ data: defaults });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

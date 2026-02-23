@@ -28,7 +28,7 @@ export const GET = withMiddleware(
       status: url.searchParams.get('status') ?? undefined,
       roomTypeId: url.searchParams.get('roomTypeId') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
     });
 
     return NextResponse.json({
@@ -56,5 +56,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pms', permission: 'pms.rooms.manage' },
+  { entitlement: 'pms', permission: 'pms.rooms.manage' , writeAccess: true },
 );

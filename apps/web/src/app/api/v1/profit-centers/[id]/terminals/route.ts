@@ -47,5 +47,5 @@ export const POST = withMiddleware(
     const result = await createTerminal(ctx, profitCenterId, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'platform_core', permission: 'settings.update' },
+  { entitlement: 'platform_core', permission: 'settings.update' , writeAccess: true },
 );

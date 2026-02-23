@@ -85,11 +85,20 @@ export interface FnbPosActions {
 
 // ── Initial State ────────────────────────────────────────────────
 
+function getPersistedRoomId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem('oppsera:fnb-active-room') ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const initialState: FnbPosState = {
   currentScreen: 'floor',
   previousScreen: null,
   activeTabId: null,
-  activeRoomId: null,
+  activeRoomId: getPersistedRoomId(),
   draftLines: {},
   activeSeatNumber: 1,
   activeCourseNumber: 1,
@@ -154,6 +163,9 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
       set((state) => {
         state.activeRoomId = roomId;
       });
+      try {
+        localStorage.setItem('oppsera:fnb-active-room', roomId);
+      } catch { /* ignore */ }
     },
 
     // ── Draft Line Management ───────────────────────────────────
@@ -313,7 +325,11 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
     // ── Reset ───────────────────────────────────────────────────
 
     reset: () => {
-      set(() => ({ ...initialState }));
+      try { localStorage.removeItem('oppsera:fnb-active-room'); } catch { /* ignore */ }
+      set(() => ({
+        ...initialState,
+        activeRoomId: null, // override persisted value on explicit reset
+      }));
     },
   })),
 );

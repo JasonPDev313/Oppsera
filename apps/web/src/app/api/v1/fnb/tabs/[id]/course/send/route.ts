@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const result = await sendCourse(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' , writeAccess: true },
 );

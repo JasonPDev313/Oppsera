@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const alert = await createAlert(ctx, parsed.data);
     return NextResponse.json({ data: alert }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

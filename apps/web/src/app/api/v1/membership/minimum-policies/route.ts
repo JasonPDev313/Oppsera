@@ -34,5 +34,5 @@ export const POST = withMiddleware(
     const result = await configureMinimumPolicy(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'club_membership', permission: 'club_membership.manage' },
+  { entitlement: 'club_membership', permission: 'club_membership.manage' , writeAccess: true },
 );

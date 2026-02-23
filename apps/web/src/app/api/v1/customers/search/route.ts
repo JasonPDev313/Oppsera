@@ -10,7 +10,7 @@ export const GET = withMiddleware(
     const search = url.searchParams.get('search') ?? undefined;
     const identifier = url.searchParams.get('identifier') ?? undefined;
     const limitParam = url.searchParams.get('limit');
-    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined;
 
     const result = await searchCustomers({
       tenantId: ctx.tenantId,

@@ -23,7 +23,6 @@ export const GET = withMiddleware(
     const dateFrom = url.searchParams.get('dateFrom') ?? undefined;
     const dateTo = url.searchParams.get('dateTo') ?? undefined;
     const action = url.searchParams.get('action') ?? undefined;
-    const sourceModule = url.searchParams.get('sourceModule') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
     const limit = url.searchParams.get('limit')
       ? Number(url.searchParams.get('limit'))
@@ -34,12 +33,11 @@ export const GET = withMiddleware(
       customerId,
       dateFrom,
       dateTo,
-      action,
-      sourceModule,
+      actionType: action,
       cursor,
       limit,
     });
-    return NextResponse.json({ data: data.items, meta: { cursor: data.cursor, hasMore: data.hasMore } });
+    return NextResponse.json({ data: data.entries, meta: { cursor: data.cursor, hasMore: data.hasMore } });
   },
   { entitlement: 'customers', permission: 'customers.financial.view' },
 );
@@ -59,5 +57,5 @@ export const POST = withMiddleware(
     const result = await recordCustomerAuditEntry(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.financial.manage' },
+  { entitlement: 'customers', permission: 'customers.financial.manage' , writeAccess: true },
 );

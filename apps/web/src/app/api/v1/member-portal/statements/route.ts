@@ -53,7 +53,7 @@ export const GET = withMiddleware(
       status: url.searchParams.get('status') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: url.searchParams.has('limit')
-        ? parseInt(url.searchParams.get('limit')!, 10)
+        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
         : undefined,
     });
 

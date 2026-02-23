@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const wallet = await createWalletAccount(ctx, parsed.data);
     return NextResponse.json({ data: wallet }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'billing.manage' },
+  { entitlement: 'customers', permission: 'billing.manage' , writeAccess: true },
 );

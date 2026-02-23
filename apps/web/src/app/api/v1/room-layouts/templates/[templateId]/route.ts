@@ -27,7 +27,7 @@ export const PATCH = withMiddleware(
     const template = await updateTemplate(ctx, templateId, body);
     return NextResponse.json({ data: template });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage', writeAccess: true },
 );
 
 // DELETE /api/v1/room-layouts/templates/:templateId — soft delete
@@ -37,5 +37,5 @@ export const DELETE = withMiddleware(
     await deleteTemplate(ctx, templateId);
     return NextResponse.json({ data: { success: true } });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage' , writeAccess: true },
 );

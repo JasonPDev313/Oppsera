@@ -27,5 +27,5 @@ export const PUT = withMiddleware(
     const version = await saveDraft(ctx, roomId, parsed.data);
     return NextResponse.json({ data: version });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage' , writeAccess: true },
 );

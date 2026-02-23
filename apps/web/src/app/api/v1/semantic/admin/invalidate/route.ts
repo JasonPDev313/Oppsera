@@ -49,6 +49,5 @@ export const POST = withMiddleware(
   },
   {
     entitlement: 'semantic',
-    permission: 'semantic.admin',
-  },
+    permission: 'semantic.admin', writeAccess: true },
 );

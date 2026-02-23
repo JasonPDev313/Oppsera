@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { ValidationError } from '@oppsera/shared';
 import {
   listVendors,
   createVendor,
@@ -15,7 +16,7 @@ export const GET = withMiddleware(
       search: url.searchParams.get('search') ?? undefined,
       isActive: url.searchParams.get('isActive') === 'false' ? false : url.searchParams.get('isActive') === 'true' ? true : undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined,
+      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
       minimal: url.searchParams.get('minimal') === 'true',
     });
     return NextResponse.json({
@@ -29,9 +30,12 @@ export const GET = withMiddleware(
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
-    const input = createVendorSchema.parse(body);
-    const vendor = await createVendor(ctx, input);
+    const parsed = createVendorSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new ValidationError('Validation failed', parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })));
+    }
+    const vendor = await createVendor(ctx, parsed.data);
     return NextResponse.json({ data: vendor }, { status: 201 });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

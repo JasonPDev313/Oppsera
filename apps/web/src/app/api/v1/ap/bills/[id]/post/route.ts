@@ -25,5 +25,5 @@ export const POST = withMiddleware(
     const result = await postBill(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'ap', permission: 'ap.manage' },
+  { entitlement: 'ap', permission: 'ap.manage' , writeAccess: true },
 );

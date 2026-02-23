@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const result = await adjustWalletBalance(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'billing.manage' },
+  { entitlement: 'customers', permission: 'billing.manage' , writeAccess: true },
 );

@@ -48,5 +48,5 @@ export const POST = withMiddleware(
     const assignment = await assignServerToSection(ctx, parsed.data);
     return NextResponse.json({ data: assignment }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' , writeAccess: true },
 );

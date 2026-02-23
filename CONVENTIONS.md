@@ -5591,6 +5591,7 @@ setOrdersWriteApi({ openOrder: ..., addLineItem: ... });
 | `CatalogReadApi` | `@oppsera/core/helpers/catalog-read-api` | Read catalog items from orders/POS |
 | `AccountingPostingApi` | `@oppsera/core/helpers/accounting-posting-api` | Post GL entries from AP/AR/POS |
 | `OrdersWriteApi` | `@oppsera/core/helpers/orders-write-api` | Create/modify orders from PMS |
+| `ReconciliationReadApi` | `@oppsera/core/helpers/reconciliation-read-api` | Read operational data for accounting queries (orders, tenders, settlements, tips, inventory, F&B) |
 
 ### Key Rules
 
@@ -6194,4 +6195,76 @@ V1 is USD-only. Schema columns (`transaction_currency`, `exchange_rate` on `gl_j
 7. Remove `CurrencyMismatchError` guard (replace with conversion logic)
 
 **Current behavior**: `postJournalEntry()` rejects any entry where `transactionCurrency !== 'USD'` with `CurrencyMismatchError`. This is intentional — it prevents accidental multi-currency entries until the full pipeline is ready.
+
+## 98. ReconciliationReadApi — Cross-Module Read Boundary for Accounting
+
+### Problem
+
+The accounting module had 14 queries + 1 command that directly queried tables owned by other modules (orders, tenders, drawer_sessions, retail_close_batches, comp_events, payment_settlements, tip_payouts, deposit_slips, fnb_close_batches, inventory_movements, receiving_receipts, terminals, users). This created tight coupling that would block future microservice extraction.
+
+### Solution
+
+A 25-method `ReconciliationReadApi` singleton in `@oppsera/core/helpers/reconciliation-read-api.ts` following the same getter/setter pattern as `CatalogReadApi` and `AccountingPostingApi`. SQL stays in owning modules. Accounting calls the API.
+
+### Architecture
+
+```
+Interface + types:        packages/core/src/helpers/reconciliation-read-api.ts
+Bootstrap (wiring):       apps/web/src/lib/reconciliation-bootstrap.ts
+Instrumentation:          apps/web/src/instrumentation.ts (calls initializeReconciliationReadApi)
+
+Implementations:
+  Orders (5 methods):     packages/modules/orders/src/reconciliation/index.ts
+  Payments (17 methods):  packages/modules/payments/src/reconciliation/index.ts
+  Inventory (2 methods):  packages/modules/inventory/src/reconciliation/index.ts
+  F&B (1 method):         packages/modules/fnb/src/reconciliation/index.ts
+```
+
+### API Domains (25 methods)
+
+| Domain | Methods | Module |
+|--------|---------|--------|
+| Orders | `getOrdersSummary`, `getTaxBreakdown`, `getTaxRemittanceData`, `getCompTotals`, `getOrderAuditCount` | orders |
+| Tenders | `getTendersSummary`, `getTenderAuditTrail`, `getUnmatchedTenders`, `getTenderAuditCount` | payments |
+| Settlements | `listSettlements`, `getSettlementDetail`, `getSettlementStatusCounts` | payments |
+| Cash Ops | `getDrawerSessionStatus`, `getRetailCloseStatus`, `getCashOnHand`, `getOverShortTotal` | payments |
+| Tips | `getTipBalances`, `listTipPayouts`, `getPendingTipCount`, `getOutstandingTipsCents` | payments |
+| Deposits | `getDepositStatus` | payments |
+| Location Close | `getLocationCloseStatus` | payments |
+| F&B | `getFnbCloseStatus` | fnb |
+| Inventory | `getInventoryMovementsSummary`, `getReceivingPurchasesTotals` | inventory |
+
+### When to Add a New Method
+
+Add a method to `ReconciliationReadApi` when:
+1. An accounting query needs data from a table owned by another module
+2. The data shape doesn't match an existing method's return type
+3. No existing method covers the query's filter requirements (date range vs period, location scope, etc.)
+
+Do NOT add a method when:
+- The table is owned by the accounting module itself (GL, AP, AR, mappings, settings)
+- An existing method already returns the needed data (use it directly)
+
+### Key Patterns
+
+```typescript
+// In accounting queries — always use Promise.all for parallel execution:
+const api = getReconciliationReadApi();
+const [ordersSummary, tendersSummary, localData] = await Promise.all([
+  api.getOrdersSummary(tenantId, startDate, endDate, locationId),
+  api.getTendersSummary(tenantId, startDate, endDate, locationId),
+  withTenant(tenantId, async (tx) => {
+    // Local queries for accounting-owned tables (GL, settings, etc.)
+    return { ... };
+  }),
+]);
+```
+
+### Contract Tests
+
+Each module has contract tests verifying return shapes:
+- `packages/modules/orders/src/reconciliation/__tests__/reconciliation.test.ts`
+- `packages/modules/payments/src/reconciliation/__tests__/reconciliation.test.ts`
+- `packages/modules/inventory/src/reconciliation/__tests__/reconciliation.test.ts`
+- `packages/modules/fnb/src/reconciliation/__tests__/reconciliation.test.ts`
 

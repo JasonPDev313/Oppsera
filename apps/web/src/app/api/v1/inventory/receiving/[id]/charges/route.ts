@@ -13,5 +13,5 @@ export const POST = withMiddleware(
     const charge = await addReceiptCharge(ctx, input);
     return NextResponse.json({ data: charge }, { status: 201 });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

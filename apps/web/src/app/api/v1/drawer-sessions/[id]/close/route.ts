@@ -31,5 +31,5 @@ export const POST = withMiddleware(
     const session = await closeDrawerSession(ctx, parsed.data);
     return NextResponse.json({ data: session });
   },
-  { entitlement: 'orders', permission: 'shift.manage' },
+  { entitlement: 'orders', permission: 'shift.manage' , writeAccess: true },
 );

@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     );
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.tips.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.tips.manage' , writeAccess: true },
 );

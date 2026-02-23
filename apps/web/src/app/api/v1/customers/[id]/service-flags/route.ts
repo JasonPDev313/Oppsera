@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const flag = await addServiceFlag(ctx, parsed.data);
     return NextResponse.json({ data: flag }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

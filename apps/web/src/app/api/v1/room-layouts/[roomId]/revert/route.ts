@@ -24,5 +24,5 @@ export const POST = withMiddleware(
     const version = await revertToVersion(ctx, roomId, body.versionId);
     return NextResponse.json({ data: version });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage' , writeAccess: true },
 );

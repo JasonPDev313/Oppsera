@@ -19,5 +19,5 @@ export const DELETE = withMiddleware(
     await removeTaxRateFromGroup(ctx, { taxGroupId, taxRateId });
     return new NextResponse(null, { status: 204 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

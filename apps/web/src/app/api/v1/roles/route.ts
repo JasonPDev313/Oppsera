@@ -16,7 +16,7 @@ export const GET = withMiddleware(
     const result = await listRoles(ctx.tenantId);
     return NextResponse.json({ data: result });
   },
-  { permission: 'users.view' },
+  { entitlement: 'platform_core', permission: 'users.view' },
 );
 
 export const POST = withMiddleware(
@@ -40,5 +40,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: role }, { status: 201 });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage', writeAccess: true },
 );

@@ -27,5 +27,5 @@ export const POST = withMiddleware(
     const result = await addLineItem(ctx, orderId, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'orders', permission: 'orders.manage' },
+  { entitlement: 'orders', permission: 'orders.manage' , writeAccess: true },
 );

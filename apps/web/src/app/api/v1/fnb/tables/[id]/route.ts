@@ -35,5 +35,5 @@ export const PATCH = withMiddleware(
     const table = await updateTable(ctx, id, parsed.data);
     return NextResponse.json({ data: table });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' , writeAccess: true },
 );

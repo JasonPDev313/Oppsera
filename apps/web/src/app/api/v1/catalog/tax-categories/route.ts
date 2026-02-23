@@ -35,5 +35,5 @@ export const POST = withMiddleware(
     const taxCategory = await createTaxCategory(ctx, parsed.data);
     return NextResponse.json({ data: taxCategory }, { status: 201 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

@@ -19,5 +19,5 @@ export const POST = withMiddleware(
     const chit = await createDeltaChit(ctx, parsed.data);
     return NextResponse.json({ data: chit }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' , writeAccess: true },
 );

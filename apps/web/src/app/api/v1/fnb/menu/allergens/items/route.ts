@@ -19,7 +19,7 @@ export const POST = withMiddleware(
     const result = await tagItemAllergen(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage', writeAccess: true },
 );
 
 // DELETE /api/v1/fnb/menu/allergens/items — remove item allergen tag
@@ -37,5 +37,5 @@ export const DELETE = withMiddleware(
     await removeItemAllergen(ctx, parsed.data);
     return NextResponse.json({ data: { success: true } });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' , writeAccess: true },
 );

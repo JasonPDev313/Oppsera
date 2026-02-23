@@ -20,5 +20,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'reporting', permission: 'reports.custom.view' },
+  { entitlement: 'reporting', permission: 'reports.custom.view' , writeAccess: true },
 );

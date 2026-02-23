@@ -16,14 +16,23 @@ import { TableGridView } from './TableGridView';
 
 interface FnbFloorViewProps {
   userId: string;
+  isActive?: boolean;
 }
 
-export function FnbFloorView({ userId }: FnbFloorViewProps) {
+export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const store = useFnbPosStore();
   const { rooms, isLoading: roomsLoading } = useFnbRooms();
 
-  // Select first room if none active
-  const activeRoomId = store.activeRoomId ?? rooms[0]?.id ?? null;
+  // Select first room if none active, or if stored room was archived (no longer in active list)
+  const storedRoomExists = store.activeRoomId ? rooms.some((r) => r.id === store.activeRoomId) : false;
+  const activeRoomId = (storedRoomExists ? store.activeRoomId : rooms[0]?.id) ?? null;
+
+  // Clear stale activeRoomId from store when the stored room is no longer available
+  useEffect(() => {
+    if (!roomsLoading && rooms.length > 0 && store.activeRoomId && !storedRoomExists) {
+      store.setActiveRoom(rooms[0]!.id);
+    }
+  }, [roomsLoading, rooms, store, storedRoomExists]);
 
   const { data: floorPlan, tables, isLoading, error: floorError, refresh } = useFnbFloor({
     roomId: activeRoomId,
@@ -41,6 +50,16 @@ export function FnbFloorView({ userId }: FnbFloorViewProps) {
   const [actionMenuTable, setActionMenuTable] = useState<FnbTableWithStatus | null>(null);
   const [syncFeedback, setSyncFeedback] = useState<'success' | 'error' | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+
+  // Close portal dialogs when this view becomes inactive (gotcha #109)
+  useEffect(() => {
+    if (!isActive) {
+      setSeatModalOpen(false);
+      setActionMenuOpen(false);
+      setSeatTargetTable(null);
+      setActionMenuTable(null);
+    }
+  }, [isActive]);
 
   // Derive locationId from the active room (needed for API calls)
   const activeRoom = rooms.find((r) => r.id === activeRoomId);

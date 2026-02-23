@@ -27,5 +27,5 @@ export const POST = withMiddleware(
     const batch = await reconcileRetailClose(ctx, parsed.data);
     return NextResponse.json({ data: batch });
   },
-  { entitlement: 'orders', permission: 'shift.manage' },
+  { entitlement: 'orders', permission: 'shift.manage' , writeAccess: true },
 );

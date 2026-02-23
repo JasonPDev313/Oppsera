@@ -22,7 +22,7 @@ export const GET = withMiddleware(
       status: url.searchParams.get('status') ?? undefined,
       accountId: url.searchParams.get('accountId') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
     });
 
     return NextResponse.json({
@@ -52,5 +52,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: entry }, { status: 201 });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

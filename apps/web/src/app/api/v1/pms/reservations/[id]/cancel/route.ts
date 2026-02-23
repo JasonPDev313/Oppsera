@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const result = await cancelReservation(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { permission: PMS_PERMISSIONS.RESERVATIONS_CANCEL, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.RESERVATIONS_CANCEL, entitlement: 'pms' , writeAccess: true },
 );

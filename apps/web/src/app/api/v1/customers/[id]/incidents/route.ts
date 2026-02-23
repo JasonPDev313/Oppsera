@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const incident = await createIncident(ctx, parsed.data);
     return NextResponse.json({ data: incident }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

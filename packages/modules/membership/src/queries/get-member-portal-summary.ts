@@ -12,7 +12,7 @@ export interface MemberPortalStatementSummary {
   statementNumber: string | null;
   periodStart: string;
   periodEnd: string;
-  closingBalanceCents: number;
+  totalDueCents: number;
   status: string;
   createdAt: string;
 }
@@ -103,7 +103,7 @@ export async function getMemberPortalSummary(
       statementNumber: s.statementNumber ? String(s.statementNumber) : null,
       periodStart: s.periodStart instanceof Date ? s.periodStart.toISOString().slice(0, 10) : String(s.periodStart ?? ''),
       periodEnd: s.periodEnd instanceof Date ? s.periodEnd.toISOString().slice(0, 10) : String(s.periodEnd ?? ''),
-      closingBalanceCents: Number(s.closingBalanceCents ?? 0),
+      totalDueCents: Number(s.closingBalanceCents ?? 0),
       status: String(s.status ?? 'unknown'),
       createdAt: s.createdAt instanceof Date ? s.createdAt.toISOString() : String(s.createdAt ?? ''),
     }));

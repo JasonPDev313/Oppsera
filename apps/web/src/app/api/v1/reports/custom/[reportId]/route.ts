@@ -41,7 +41,7 @@ export const PUT = withMiddleware(
 
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'reporting', permission: 'reports.custom.manage' },
+  { entitlement: 'reporting', permission: 'reports.custom.manage', writeAccess: true },
 );
 
 export const DELETE = withMiddleware(
@@ -50,5 +50,5 @@ export const DELETE = withMiddleware(
     await deleteReport(ctx, reportId);
     return NextResponse.json({ data: { success: true } });
   },
-  { entitlement: 'reporting', permission: 'reports.custom.manage' },
+  { entitlement: 'reporting', permission: 'reports.custom.manage' , writeAccess: true },
 );

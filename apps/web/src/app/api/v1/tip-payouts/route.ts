@@ -57,5 +57,5 @@ export const POST = withMiddleware(
     const result = await createTipPayout(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

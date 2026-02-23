@@ -2,11 +2,19 @@
   "files.watcherExclude": {
     "**/node_modules/**": true,
     "**/.next/**": true,
-    "**/.turbo/**": true
+    "**/.turbo/**": true,
+    "**/coverage/**": true,
+    "**/dist/**": true,
+    "**/.git/objects/**": true
   },
   "search.exclude": {
     "**/node_modules": true,
     "**/.next": true,
+    "**/.turbo": true,
+    "**/coverage": true,
+    "**/dist": true
+  },
+  "files.exclude": {
     "**/.turbo": true
   }
 }

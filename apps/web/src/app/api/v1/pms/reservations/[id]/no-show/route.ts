@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const result = await markNoShow(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { permission: PMS_PERMISSIONS.FRONT_DESK_NO_SHOW, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.FRONT_DESK_NO_SHOW, entitlement: 'pms' , writeAccess: true },
 );

@@ -106,5 +106,15 @@ export async function handleMembershipBillingForAccounting(event: EventEnvelope)
     });
   } catch (err) {
     console.error(`Membership billing GL posting failed for ${data.membershipId}:`, err);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'membership.billing.charged.v1',
+        sourceModule: 'membership',
+        sourceReferenceId: data.membershipId,
+        entityType: 'posting_error',
+        entityId: data.membershipId,
+        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }

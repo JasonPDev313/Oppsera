@@ -67,5 +67,5 @@ export const POST = withMiddleware(
     const order = await openOrder(ctx, parsed.data);
     return NextResponse.json({ data: order }, { status: 201 });
   },
-  { entitlement: 'orders', permission: 'orders.manage' },
+  { entitlement: 'orders', permission: 'orders.manage' , writeAccess: true },
 );

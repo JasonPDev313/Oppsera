@@ -12,5 +12,5 @@ export const POST = withMiddleware(
     const result = await lockCloseBatch(ctx, { closeBatchId });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.close_batch.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.close_batch.manage' , writeAccess: true },
 );

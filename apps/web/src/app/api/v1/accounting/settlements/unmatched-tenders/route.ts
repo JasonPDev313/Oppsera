@@ -14,7 +14,7 @@ export const GET = withMiddleware(
       tenderType: url.searchParams.get('tenderType') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: url.searchParams.has('limit')
-        ? parseInt(url.searchParams.get('limit')!, 10)
+        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
         : undefined,
     });
     return NextResponse.json({

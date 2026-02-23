@@ -122,6 +122,16 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
     });
   } catch (err) {
     console.error(`Chargeback received GL posting failed for ${data.chargebackId}:`, err);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'chargeback.received.v1',
+        sourceModule: 'chargeback',
+        sourceReferenceId: data.chargebackId,
+        entityType: 'posting_error',
+        entityId: data.chargebackId,
+        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }
 
@@ -238,5 +248,15 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
     }
   } catch (err) {
     console.error(`Chargeback resolved GL posting failed for ${data.chargebackId}:`, err);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'chargeback.resolved.v1',
+        sourceModule: 'chargeback',
+        sourceReferenceId: data.chargebackId,
+        entityType: 'posting_error',
+        entityId: data.chargebackId,
+        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }

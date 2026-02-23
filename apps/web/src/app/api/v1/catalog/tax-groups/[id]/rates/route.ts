@@ -28,5 +28,5 @@ export const POST = withMiddleware(
     await addTaxRateToGroup(ctx, parsed.data);
     return NextResponse.json({ data: { success: true } }, { status: 201 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

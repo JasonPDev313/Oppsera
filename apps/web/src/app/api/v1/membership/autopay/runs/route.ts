@@ -12,7 +12,7 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
     const limit = url.searchParams.has('limit')
-      ? parseInt(url.searchParams.get('limit')!, 10)
+      ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
       : undefined;
 
     const result = await getAutopayDashboard({

@@ -40,5 +40,5 @@ export const POST = withMiddleware(
     const contact = await addCustomerContact(ctx, parsed.data);
     return NextResponse.json({ data: contact }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

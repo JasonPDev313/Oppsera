@@ -17,10 +17,11 @@ export default function RoomLayoutsContent() {
   const [editRoom, setEditRoom] = useState<RoomRow | null>(null);
   const [duplicateRoom, setDuplicateRoom] = useState<RoomRow | null>(null);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const { data: rooms, isLoading, mutate } = useRoomLayouts({
     search: debouncedSearch || undefined,
-    isActive: true,
+    isActive: showArchived ? undefined : true,
   });
 
   // Debounce search
@@ -29,10 +30,10 @@ export default function RoomLayoutsContent() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Initial load + reload on search change
+  // Initial load + reload on search/filter change
   useEffect(() => {
     mutate();
-  }, [mutate, debouncedSearch]);
+  }, [mutate, debouncedSearch, showArchived]);
 
   const handleArchive = useCallback(async (roomId: string) => {
     if (!confirm('Archive this room? It can be restored later.')) return;
@@ -89,16 +90,27 @@ export default function RoomLayoutsContent() {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search rooms..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-surface focus:outline-none"
-        />
+      {/* Search + Filter */}
+      <div className="flex items-center gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search rooms..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-surface focus:outline-none"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Show archived
+        </label>
       </div>
 
       {/* Table */}

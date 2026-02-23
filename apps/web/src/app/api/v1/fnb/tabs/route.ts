@@ -38,5 +38,5 @@ export const POST = withMiddleware(
     const tab = await openTab(ctx, parsed.data);
     return NextResponse.json({ data: tab }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' , writeAccess: true },
 );

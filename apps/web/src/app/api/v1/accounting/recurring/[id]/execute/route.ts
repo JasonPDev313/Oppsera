@@ -17,8 +17,11 @@ function extractId(request: NextRequest): string {
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractId(request);
-    const body = await request.json().catch(() => ({}));
-    const parsed = executeRecurringTemplateSchema.safeParse({ ...body, templateId: id });
+    let body: unknown;
+    try { body = await request.json(); } catch {
+      throw new ValidationError('Invalid JSON in request body');
+    }
+    const parsed = executeRecurringTemplateSchema.safeParse({ ...(body as Record<string, unknown>), templateId: id });
 
     if (!parsed.success) {
       throw new ValidationError(
@@ -30,5 +33,5 @@ export const POST = withMiddleware(
     const result = await executeRecurringTemplate(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

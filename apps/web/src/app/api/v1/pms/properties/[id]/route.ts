@@ -41,5 +41,5 @@ export const PATCH = withMiddleware(
     const result = await updateProperty(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pms', permission: 'pms.property.manage' },
+  { entitlement: 'pms', permission: 'pms.property.manage' , writeAccess: true },
 );

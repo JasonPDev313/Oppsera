@@ -90,5 +90,5 @@ export const PATCH = withMiddleware(
     const result = await updateMembershipPlanV2(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'club_membership', permission: 'club_membership.manage' },
+  { entitlement: 'club_membership', permission: 'club_membership.manage' , writeAccess: true },
 );

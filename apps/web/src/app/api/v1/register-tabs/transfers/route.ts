@@ -51,5 +51,5 @@ export const GET = withMiddleware(
 
     return NextResponse.json({ data: rows });
   },
-  { permission: 'orders.create' },
+  { entitlement: 'orders', permission: 'orders.create' },
 );

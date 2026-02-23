@@ -24,5 +24,5 @@ export const POST = withMiddleware(
     const result = await reverseTender(ctx, tenderId, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'payments', permission: 'tenders.refund' },
+  { entitlement: 'payments', permission: 'tenders.refund' , writeAccess: true },
 );

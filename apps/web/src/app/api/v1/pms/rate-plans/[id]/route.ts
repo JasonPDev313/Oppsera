@@ -42,5 +42,5 @@ export const PATCH = withMiddleware(
     const result = await updateRatePlan(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pms', permission: 'pms.rates.manage' },
+  { entitlement: 'pms', permission: 'pms.rates.manage' , writeAccess: true },
 );

@@ -18,7 +18,7 @@ export const PATCH = withMiddleware(
     const item = await updateVendorCatalogItem(ctx, input);
     return NextResponse.json({ data: item });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );
 
 export const DELETE = withMiddleware(
@@ -30,5 +30,5 @@ export const DELETE = withMiddleware(
     await deactivateVendorCatalogItem(ctx, itemVendorId);
     return new NextResponse(null, { status: 204 });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

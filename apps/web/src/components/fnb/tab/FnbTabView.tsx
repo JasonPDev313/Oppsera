@@ -13,6 +13,7 @@ import { FnbMenuPanel } from '@/components/fnb/menu/FnbMenuPanel';
 
 interface FnbTabViewProps {
   userId: string;
+  isActive?: boolean;
 }
 
 // ── Skeleton for left + center panes while tab data loads ──────
@@ -87,7 +88,7 @@ function TabSkeleton({ onBack }: { onBack: () => void }) {
 
 // ── Main Tab View ──────────────────────────────────────────────
 
-export function FnbTabView({ userId: _userId }: FnbTabViewProps) {
+export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbTabViewProps) {
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const activeSeat = store.activeSeatNumber;

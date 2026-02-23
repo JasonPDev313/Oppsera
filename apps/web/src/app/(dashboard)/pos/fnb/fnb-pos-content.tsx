@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, memo } from 'react';
+import { memo } from 'react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
@@ -20,13 +20,6 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   const { user } = useAuthContext();
   const { isModuleEnabled } = useEntitlementsContext();
   const currentScreen = useFnbPosStore((s) => s.currentScreen);
-
-  // Close portal dialogs when POS mode becomes inactive
-  useEffect(() => {
-    if (!isActive) {
-      // Future: close any open portal dialogs here
-    }
-  }, [isActive]);
 
   // Entitlement check
   if (!isModuleEnabled('pos_fnb')) {
@@ -51,10 +44,10 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   return (
     <div className="h-full" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
       <div className={currentScreen === 'floor' ? 'h-full' : 'hidden'}>
-        <FnbFloorView userId={userId} />
+        <FnbFloorView userId={userId} isActive={isActive && currentScreen === 'floor'} />
       </div>
       <div className={currentScreen === 'tab' ? 'h-full' : 'hidden'}>
-        <FnbTabView userId={userId} />
+        <FnbTabView userId={userId} isActive={isActive && currentScreen === 'tab'} />
       </div>
       {currentScreen === 'payment' && <FnbPaymentView userId={userId} />}
       {currentScreen === 'split' && <FnbSplitView userId={userId} />}

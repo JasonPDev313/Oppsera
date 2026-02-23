@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const document = await addCustomerDocument(ctx, parsed.data);
     return NextResponse.json({ data: document }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

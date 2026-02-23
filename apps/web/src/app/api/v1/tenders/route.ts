@@ -16,7 +16,7 @@ export const GET = withMiddleware(
       terminalId: url.searchParams.get('terminalId') ?? undefined,
       shiftId: url.searchParams.get('shiftId') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) || undefined : undefined,
+      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) || undefined : undefined,
     });
     return NextResponse.json({
       data: result.tenders,

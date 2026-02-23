@@ -20,7 +20,7 @@ export const GET = withMiddleware(
     let result = await listProperties({
       tenantId: ctx.tenantId,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
     });
 
     // Auto-bootstrap PMS properties from tenant locations on first access
@@ -35,7 +35,7 @@ export const GET = withMiddleware(
       if (created.length > 0) {
         result = await listProperties({
           tenantId: ctx.tenantId,
-          limit: limitParam ? parseInt(limitParam, 10) : undefined,
+          limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
         });
       }
     }
@@ -65,5 +65,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pms', permission: 'pms.property.manage' },
+  { entitlement: 'pms', permission: 'pms.property.manage' , writeAccess: true },
 );

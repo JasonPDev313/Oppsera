@@ -22,5 +22,5 @@ export const POST = withMiddleware(
     const result = await voidPayment(ctx, paymentId, body.reason.trim());
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'ap', permission: 'ap.manage' },
+  { entitlement: 'ap', permission: 'ap.manage' , writeAccess: true },
 );

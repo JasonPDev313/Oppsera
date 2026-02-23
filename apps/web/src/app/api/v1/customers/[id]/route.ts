@@ -40,5 +40,5 @@ export const PATCH = withMiddleware(
     const customer = await updateCustomer(ctx, id, parsed.data);
     return NextResponse.json({ data: customer });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

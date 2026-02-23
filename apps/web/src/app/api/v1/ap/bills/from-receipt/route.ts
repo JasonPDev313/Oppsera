@@ -41,5 +41,5 @@ export const POST = withMiddleware(
     });
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'ap', permission: 'ap.manage' },
+  { entitlement: 'ap', permission: 'ap.manage' , writeAccess: true },
 );

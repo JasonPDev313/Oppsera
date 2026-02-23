@@ -38,5 +38,5 @@ export const PATCH = withMiddleware(
     const item = await updateItem(ctx, itemId, parsed.data);
     return NextResponse.json({ data: item });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

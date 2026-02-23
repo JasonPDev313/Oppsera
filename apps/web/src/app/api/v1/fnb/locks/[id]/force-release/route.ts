@@ -19,5 +19,5 @@ export const POST = withMiddleware(
     await forceReleaseSoftLock(ctx, parsed.data);
     return NextResponse.json({ data: { success: true } });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage', writeAccess: true },
 );

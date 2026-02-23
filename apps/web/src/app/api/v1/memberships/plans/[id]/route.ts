@@ -40,5 +40,5 @@ export const PATCH = withMiddleware(
     const plan = await updateMembershipPlan(ctx, id, parsed.data);
     return NextResponse.json({ data: plan });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

@@ -16,5 +16,5 @@ export const POST = withMiddleware(
     const batch = await postRetailClose(ctx, { batchId: id });
     return NextResponse.json({ data: batch });
   },
-  { entitlement: 'orders', permission: 'shift.manage' },
+  { entitlement: 'orders', permission: 'shift.manage' , writeAccess: true },
 );

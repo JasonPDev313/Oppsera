@@ -47,5 +47,5 @@ export const POST = withMiddleware(
     const classification = await createGlClassification(ctx, parsed.data);
     return NextResponse.json({ data: classification }, { status: 201 });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

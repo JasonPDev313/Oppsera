@@ -32,7 +32,7 @@ export const GET = withMiddleware(
 
     return NextResponse.json({ data: { entitlements: result } });
   },
-  { permission: 'settings.view' },
+  { entitlement: 'platform_core', permission: 'settings.view' },
 );
 
 // ── Enable a module ─────────────────────────────────────────────
@@ -107,7 +107,7 @@ export const POST = withMiddleware(
       },
     }, { status: existing ? 200 : 201 });
   },
-  { permission: 'settings.update' },
+  { entitlement: 'platform_core', permission: 'settings.update', writeAccess: true },
 );
 
 // ── Toggle a module on/off ──────────────────────────────────────
@@ -171,5 +171,5 @@ export const PATCH = withMiddleware(
       },
     });
   },
-  { permission: 'settings.update' },
+  { entitlement: 'platform_core', permission: 'settings.update', writeAccess: true },
 );

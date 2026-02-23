@@ -23,5 +23,5 @@ export const DELETE = withMiddleware(
     });
     return new NextResponse(null, { status: 204 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

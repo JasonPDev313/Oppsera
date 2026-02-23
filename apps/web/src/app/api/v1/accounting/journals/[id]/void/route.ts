@@ -27,5 +27,5 @@ export const POST = withMiddleware(
     const result = await voidJournalEntry(ctx, id, reason.trim());
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

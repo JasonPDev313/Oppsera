@@ -27,5 +27,5 @@ export const POST = withMiddleware(
     const result = await setTaxExempt(ctx, orderId, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'orders', permission: 'orders.manage' },
+  { entitlement: 'orders', permission: 'orders.manage' , writeAccess: true },
 );

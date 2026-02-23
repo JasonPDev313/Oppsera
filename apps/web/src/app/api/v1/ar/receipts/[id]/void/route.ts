@@ -23,5 +23,5 @@ export const POST = withMiddleware(
     const result = await voidReceipt(ctx, { receiptId, reason: body.reason.trim() });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'ar', permission: 'ar.manage' },
+  { entitlement: 'ar', permission: 'ar.manage' , writeAccess: true },
 );

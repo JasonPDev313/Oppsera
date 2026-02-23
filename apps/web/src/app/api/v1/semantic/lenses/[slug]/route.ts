@@ -113,7 +113,7 @@ export const PATCH = withMiddleware(
       throw err;
     }
   },
-  { entitlement: 'semantic', permission: 'semantic.manage' },
+  { entitlement: 'semantic', permission: 'semantic.manage' , writeAccess: true },
 );
 
 // ── DELETE /api/v1/semantic/lenses/[slug] ────────────────────────
@@ -147,5 +147,5 @@ export const DELETE = withMiddleware(
       throw err;
     }
   },
-  { entitlement: 'semantic', permission: 'semantic.manage' },
+  { entitlement: 'semantic', permission: 'semantic.manage' , writeAccess: true },
 );

@@ -48,5 +48,5 @@ export const POST = withMiddleware(
     const result = await issueStoredValue(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.stored_value.manage' },
+  { entitlement: 'customers', permission: 'customers.stored_value.manage' , writeAccess: true },
 );

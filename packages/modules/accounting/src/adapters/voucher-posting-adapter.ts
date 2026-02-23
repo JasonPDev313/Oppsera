@@ -122,6 +122,16 @@ export async function handleVoucherPurchaseForAccounting(event: EventEnvelope): 
     });
   } catch (err) {
     console.error(`Voucher purchase GL posting failed for ${data.voucherId}:`, err);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'voucher.purchased.v1',
+        sourceModule: 'voucher',
+        sourceReferenceId: data.voucherId,
+        entityType: 'posting_error',
+        entityId: data.voucherId,
+        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }
 
@@ -202,6 +212,16 @@ export async function handleVoucherRedemptionForAccounting(event: EventEnvelope)
     });
   } catch (err) {
     console.error(`Voucher redemption GL posting failed for ${data.voucherId}:`, err);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'voucher.redeemed.v1',
+        sourceModule: 'voucher',
+        sourceReferenceId: data.voucherId,
+        entityType: 'posting_error',
+        entityId: data.voucherId,
+        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }
 
@@ -293,5 +313,15 @@ export async function handleVoucherExpirationForAccounting(event: EventEnvelope)
     });
   } catch (err) {
     console.error(`Voucher expiration GL posting failed for ${data.voucherId}:`, err);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'voucher.expired.v1',
+        sourceModule: 'voucher',
+        sourceReferenceId: data.voucherId,
+        entityType: 'posting_error',
+        entityId: data.voucherId,
+        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }

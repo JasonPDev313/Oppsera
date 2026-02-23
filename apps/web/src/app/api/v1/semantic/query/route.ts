@@ -88,5 +88,5 @@ export const POST = withMiddleware(
       },
     });
   },
-  { entitlement: 'semantic', permission: 'semantic.query' },
+  { entitlement: 'semantic', permission: 'semantic.query' , writeAccess: true },
 );

@@ -55,5 +55,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: item }, { status: 201 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

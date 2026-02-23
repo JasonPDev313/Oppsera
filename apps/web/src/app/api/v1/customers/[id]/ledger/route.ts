@@ -40,7 +40,7 @@ export const GET = withMiddleware(
       cursor,
       limit,
     });
-    return NextResponse.json({ data: data.items, meta: { cursor: data.cursor, hasMore: data.hasMore } });
+    return NextResponse.json({ data: data.transactions, meta: { cursor: data.cursor, hasMore: data.hasMore } });
   },
   { entitlement: 'customers', permission: 'customers.financial.view' },
 );

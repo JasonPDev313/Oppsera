@@ -29,5 +29,5 @@ export const PATCH = withMiddleware(
     const membership = await updateMembershipStatus(ctx, parsed.data);
     return NextResponse.json({ data: membership });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

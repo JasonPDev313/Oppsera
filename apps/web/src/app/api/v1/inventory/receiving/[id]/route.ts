@@ -27,5 +27,5 @@ export const PATCH = withMiddleware(
     const receipt = await updateDraftReceipt(ctx, input);
     return NextResponse.json({ data: receipt });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

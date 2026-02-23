@@ -58,5 +58,5 @@ export const PUT = withMiddleware(
     const result = await assignItemTaxGroups(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

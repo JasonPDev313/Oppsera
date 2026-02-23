@@ -32,7 +32,7 @@ export const GET = withMiddleware(
       email: url.searchParams.get('email') ?? undefined,
       phone: url.searchParams.get('phone') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
     });
 
     return NextResponse.json({
@@ -60,5 +60,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pms', permission: 'pms.guests.manage' },
+  { entitlement: 'pms', permission: 'pms.guests.manage' , writeAccess: true },
 );

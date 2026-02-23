@@ -9,6 +9,7 @@ import { refreshTokenIfNeeded } from '@/lib/api-client';
 import { warmCustomerCache } from '@/lib/customer-cache';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useTerminalSession } from '@/components/terminal-session-provider';
+import { POSErrorBoundary } from '@/components/pos/pos-error-boundary';
 import '@/styles/fnb-design-tokens.css';
 import RetailPOSLoading from './retail/loading';
 import FnBPOSLoading from './fnb/loading';
@@ -295,12 +296,16 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
       <div className="relative flex-1 overflow-hidden">
         {visited.retail && (
           <div className={`absolute inset-0 ${isRetail ? '' : 'pointer-events-none invisible'}`}>
-            <RetailPOSContent isActive={isRetail} />
+            <POSErrorBoundary mode="retail">
+              <RetailPOSContent isActive={isRetail} />
+            </POSErrorBoundary>
           </div>
         )}
         {visited.fnb && (
           <div className={`absolute inset-0 ${isFnB ? '' : 'pointer-events-none invisible'}`}>
-            <FnBPOSContent isActive={isFnB} />
+            <POSErrorBoundary mode="fnb">
+              <FnBPOSContent isActive={isFnB} />
+            </POSErrorBoundary>
           </div>
         )}
         {/* Fallback for any future POS sub-routes */}

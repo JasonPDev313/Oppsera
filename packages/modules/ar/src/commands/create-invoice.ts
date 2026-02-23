@@ -76,6 +76,7 @@ export async function createInvoice(ctx: RequestContext, input: CreateInvoiceInp
       const line = input.lines[i]!;
       await tx.insert(arInvoiceLines).values({
         id: generateUlid(),
+        tenantId: ctx.tenantId,
         invoiceId,
         accountId: line.accountId,
         description: line.description,

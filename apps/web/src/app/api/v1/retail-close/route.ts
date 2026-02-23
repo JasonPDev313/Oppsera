@@ -59,5 +59,5 @@ export const POST = withMiddleware(
     const batch = await startRetailClose(ctx, parsed.data);
     return NextResponse.json({ data: batch }, { status: 201 });
   },
-  { entitlement: 'orders', permission: 'shift.manage' },
+  { entitlement: 'orders', permission: 'shift.manage' , writeAccess: true },
 );

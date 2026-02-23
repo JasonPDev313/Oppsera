@@ -21,6 +21,7 @@
         "SUPABASE_JWT_SECRET",
         "SUPABASE_JWT_JWK",
         "ADMIN_AUTH_SECRET",
+        "PORTAL_AUTH_SECRET",
         "DB_POOL_MAX",
         "DB_PREPARE_STATEMENTS"
       ]

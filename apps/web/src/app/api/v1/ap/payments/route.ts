@@ -35,5 +35,5 @@ export const POST = withMiddleware(
     const result = await createPayment(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'ap', permission: 'ap.manage' },
+  { entitlement: 'ap', permission: 'ap.manage' , writeAccess: true },
 );

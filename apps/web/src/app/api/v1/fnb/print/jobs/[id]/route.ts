@@ -32,5 +32,5 @@ export const PATCH = withMiddleware(
     const result = await updatePrintJobStatus(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage' , writeAccess: true },
 );

@@ -27,5 +27,5 @@ export const PATCH = withMiddleware(
     const classification = await updateGlClassification(ctx, id, parsed.data);
     return NextResponse.json({ data: classification });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

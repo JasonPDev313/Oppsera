@@ -111,6 +111,24 @@ export async function register() {
       console.error('Failed to initialize accounting:', e);
     }
 
+    // Golf Reporting consumers
+    try {
+      const golfReporting = await import('@oppsera/module-golf-reporting');
+      bus.subscribe('tee_time.booked.v1', golfReporting.handleTeeTimeBooked);
+      bus.subscribe('tee_time.cancelled.v1', golfReporting.handleTeeTimeCancelled);
+      bus.subscribe('tee_time.no_show_marked.v1', golfReporting.handleTeeTimeNoShow);
+      bus.subscribe('tee_time.checked_in.v1', golfReporting.handleTeeTimeCheckedIn);
+      bus.subscribe('tee_time.started.v1', golfReporting.handleTeeTimeStarted);
+      bus.subscribe('tee_time.completed.v1', golfReporting.handleTeeTimeCompleted);
+      bus.subscribe('pace.checkpoint.v1', golfReporting.handlePaceCheckpoint);
+      bus.subscribe('folio.posted.v1', golfReporting.handleFolioPosted);
+      bus.subscribe('channel.daily.booked.v1', golfReporting.handleChannelDailyBooked);
+      bus.subscribe('channel.daily.cancelled.v1', golfReporting.handleChannelDailyCancelled);
+      console.log('Registered golf-reporting event consumers');
+    } catch (e) {
+      console.error('Failed to register golf-reporting consumers:', e);
+    }
+
     // PMS consumers (calendar + occupancy projectors)
     try {
       const pms = await import('@oppsera/module-pms');

@@ -24,5 +24,5 @@ export const POST = withMiddleware(
     const result = await postSettlement(ctx, { settlementId, force });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

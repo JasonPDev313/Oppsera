@@ -13,10 +13,11 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@oppsera/core": "workspace:^",
+    "@oppsera/core": "workspace:*",
     "@oppsera/db": "workspace:*",
     "@oppsera/module-semantic": "workspace:*",
     "@oppsera/shared": "workspace:*",
+    "dotenv": "^16.4.0",
     "bcryptjs": "^2.4.3",
     "jose": "^5.9.6",
     "lucide-react": "^0.468.0",

@@ -29,7 +29,7 @@ export const GET = withMiddleware(
       terminalId: url.searchParams.get('terminalId') ?? undefined,
       channel: url.searchParams.get('channel') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      limit: limitParam ? Math.min(parseInt(limitParam, 10), 1000) : undefined,
     });
 
     return NextResponse.json({

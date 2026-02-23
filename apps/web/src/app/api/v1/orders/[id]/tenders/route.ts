@@ -27,7 +27,7 @@ export const POST = withMiddleware(
     const result = await recordTender(ctx, orderId, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'payments', permission: 'tenders.create' },
+  { entitlement: 'payments', permission: 'tenders.create' , writeAccess: true },
 );
 
 // GET /api/v1/orders/:id/tenders — get tenders for an order

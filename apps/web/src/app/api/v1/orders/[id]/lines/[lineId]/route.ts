@@ -13,8 +13,8 @@ function extractIds(request: NextRequest): { orderId: string; lineId: string } {
 export const DELETE = withMiddleware(
   async (request: NextRequest, ctx) => {
     const { orderId, lineId } = extractIds(request);
-    const result = await removeLineItem(ctx, orderId, { lineItemId: lineId });
+    const result = await removeLineItem(ctx, orderId, { clientRequestId: crypto.randomUUID(), lineItemId: lineId });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'orders', permission: 'orders.manage' },
+  { entitlement: 'orders', permission: 'orders.manage' , writeAccess: true },
 );

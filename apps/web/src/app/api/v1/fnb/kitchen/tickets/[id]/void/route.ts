@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const ticket = await voidTicket(ctx, ticketId, parsed.data);
     return NextResponse.json({ data: ticket });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' , writeAccess: true },
 );

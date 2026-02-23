@@ -35,5 +35,5 @@ export const PATCH = withMiddleware(
     const result = await updateReservation(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { permission: PMS_PERMISSIONS.RESERVATIONS_EDIT, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.RESERVATIONS_EDIT, entitlement: 'pms' , writeAccess: true },
 );

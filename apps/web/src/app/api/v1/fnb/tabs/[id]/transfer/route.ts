@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const tab = await transferTab(ctx, tabId, parsed.data);
     return NextResponse.json({ data: tab });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' , writeAccess: true },
 );

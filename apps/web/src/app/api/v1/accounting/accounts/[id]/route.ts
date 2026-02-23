@@ -50,5 +50,5 @@ export const PATCH = withMiddleware(
     const account = await updateGlAccount(ctx, id, parsed.data);
     return NextResponse.json({ data: account });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

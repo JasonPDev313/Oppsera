@@ -12,11 +12,12 @@ function extractOrderId(request: NextRequest): string {
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const orderId = extractOrderId(request);
-    const body = await request.json().catch(() => ({}));
+    let body: unknown = {};
+    try { body = await request.json(); } catch { /* empty body is valid for place */ }
     const parsed = placeOrderSchema.safeParse(body);
 
-    const result = await placeOrder(ctx, orderId, parsed.success ? parsed.data : {});
+    const result = await placeOrder(ctx, orderId, parsed.success ? parsed.data : { clientRequestId: crypto.randomUUID() });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'orders', permission: 'orders.manage' },
+  { entitlement: 'orders', permission: 'orders.manage' , writeAccess: true },
 );

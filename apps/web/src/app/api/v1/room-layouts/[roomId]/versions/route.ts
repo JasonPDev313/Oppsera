@@ -20,7 +20,7 @@ export const GET = withMiddleware(
       tenantId: ctx.tenantId,
       roomId,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined,
+      limit: url.searchParams.has('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
     });
 
     return NextResponse.json({

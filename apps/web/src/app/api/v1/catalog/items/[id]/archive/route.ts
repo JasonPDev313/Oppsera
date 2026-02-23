@@ -28,5 +28,5 @@ export const POST = withMiddleware(
     const item = await archiveItem(ctx, itemId, parsed.data);
     return NextResponse.json({ data: item });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

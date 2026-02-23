@@ -17,5 +17,5 @@ export const POST = withMiddleware(
     const result = await resizeReservation(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { permission: PMS_PERMISSIONS.CALENDAR_RESIZE, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.CALENDAR_RESIZE, entitlement: 'pms' , writeAccess: true },
 );

@@ -30,5 +30,5 @@ export const GET = withMiddleware(
 
     return NextResponse.json({ data: result });
   },
-  { permission: 'settings.view' },
+  { entitlement: 'platform_core', permission: 'settings.view' },
 );

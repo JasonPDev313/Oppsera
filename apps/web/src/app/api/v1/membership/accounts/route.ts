@@ -18,7 +18,7 @@ export const GET = withMiddleware(
       search: url.searchParams.get('search') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: url.searchParams.has('limit')
-        ? parseInt(url.searchParams.get('limit')!, 10)
+        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
         : undefined,
     });
     return NextResponse.json({
@@ -44,5 +44,5 @@ export const POST = withMiddleware(
     const result = await createMembershipAccount(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'club_membership', permission: 'club_membership.manage' },
+  { entitlement: 'club_membership', permission: 'club_membership.manage' , writeAccess: true },
 );

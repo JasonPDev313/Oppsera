@@ -27,5 +27,5 @@ export const PATCH = withMiddleware(
     const rate = await updateTaxRate(ctx, taxRateId, parsed.data);
     return NextResponse.json({ data: rate });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

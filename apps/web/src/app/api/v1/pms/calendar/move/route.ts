@@ -17,5 +17,5 @@ export const POST = withMiddleware(
     const result = await moveReservation(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { permission: PMS_PERMISSIONS.CALENDAR_MOVE, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.CALENDAR_MOVE, entitlement: 'pms' , writeAccess: true },
 );

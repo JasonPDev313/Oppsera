@@ -13,7 +13,7 @@ export const GET = withMiddleware(
       category: url.searchParams.get('category') ?? undefined,
       search: url.searchParams.get('search') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined,
+      limit: url.searchParams.has('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
     });
 
     return NextResponse.json({
@@ -39,5 +39,5 @@ export const POST = withMiddleware(
     const template = await createTemplate(ctx, parsed.data);
     return NextResponse.json({ data: template }, { status: 201 });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage' , writeAccess: true },
 );

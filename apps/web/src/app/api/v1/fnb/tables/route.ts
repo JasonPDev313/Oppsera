@@ -45,5 +45,5 @@ export const POST = withMiddleware(
     const table = await createTable(ctx, parsed.data);
     return NextResponse.json({ data: table }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' , writeAccess: true },
 );

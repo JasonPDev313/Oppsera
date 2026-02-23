@@ -15,7 +15,10 @@ function extractRoomId(request: NextRequest): string {
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const roomId = extractRoomId(request);
-    const body = await request.json().catch(() => ({}));
+    let body: unknown;
+    try { body = await request.json(); } catch {
+      throw new ValidationError('Invalid JSON in request body');
+    }
     const parsed = publishVersionSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
@@ -27,5 +30,5 @@ export const POST = withMiddleware(
     const version = await publishVersion(ctx, roomId, parsed.data);
     return NextResponse.json({ data: version });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage' , writeAccess: true },
 );

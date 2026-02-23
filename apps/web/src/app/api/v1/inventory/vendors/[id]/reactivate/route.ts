@@ -11,5 +11,5 @@ export const POST = withMiddleware(
     const vendor = await reactivateVendor(ctx, id);
     return NextResponse.json({ data: vendor });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

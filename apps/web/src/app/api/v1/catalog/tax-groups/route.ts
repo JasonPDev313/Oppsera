@@ -38,5 +38,5 @@ export const POST = withMiddleware(
     const group = await createTaxGroup(ctx, parsed.data);
     return NextResponse.json({ data: group }, { status: 201 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

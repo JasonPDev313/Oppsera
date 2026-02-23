@@ -53,5 +53,5 @@ export const POST = withMiddleware(
     const message = await sendCustomerMessage(ctx, parsed.data);
     return NextResponse.json({ data: message }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

@@ -39,5 +39,5 @@ export const PUT = withMiddleware(
 
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

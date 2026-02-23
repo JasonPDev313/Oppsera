@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const result = await createReturn(ctx, orderId, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'orders', permission: 'returns.create' },
+  { entitlement: 'orders', permission: 'returns.create' , writeAccess: true },
 );

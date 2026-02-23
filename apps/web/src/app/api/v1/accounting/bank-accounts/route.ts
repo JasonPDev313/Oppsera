@@ -29,5 +29,5 @@ export const POST = withMiddleware(
     const bankAccount = await saveBankAccount(ctx, parsed.data);
     return NextResponse.json({ data: bankAccount }, { status: 201 });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

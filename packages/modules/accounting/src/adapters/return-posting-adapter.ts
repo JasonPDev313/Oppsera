@@ -188,5 +188,15 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
   } catch (err) {
     // Never block returns
     console.error(`GL return posting failed for return ${data.returnOrderId}:`, err);
+    try {
+      await logUnmappedEvent(db, event.tenantId, {
+        eventType: 'order.returned.v1',
+        sourceModule: 'pos_return',
+        sourceReferenceId: data.returnOrderId,
+        entityType: 'posting_error',
+        entityId: data.returnOrderId,
+        reason: `GL posting failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }

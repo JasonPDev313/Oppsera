@@ -14,5 +14,5 @@ export const DELETE = withMiddleware(
     await deleteCustomerFile(ctx, { documentId });
     return NextResponse.json({ data: { id: documentId, deleted: true } });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

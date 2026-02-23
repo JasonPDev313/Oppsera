@@ -57,5 +57,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pms', permission: 'pms.rates.manage' },
+  { entitlement: 'pms', permission: 'pms.rates.manage' , writeAccess: true },
 );

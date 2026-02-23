@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { AppError } from '@oppsera/shared';
+import { AppError, ValidationError } from '@oppsera/shared';
 import {
   calculatePeriodicCogs,
   listPeriodicCogs,
@@ -14,14 +14,17 @@ import {
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
-    const parsed = listPeriodicCogsSchema.parse({
+    const parsed = listPeriodicCogsSchema.safeParse({
       locationId: url.searchParams.get('locationId') ?? undefined,
       status: url.searchParams.get('status') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
       limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
     });
 
-    const result = await listPeriodicCogs(ctx.tenantId, parsed);
+    if (!parsed.success) {
+      throw new ValidationError('Validation failed', parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })));
+    }
+    const result = await listPeriodicCogs(ctx.tenantId, parsed.data);
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
   },
   { entitlement: 'accounting', permission: 'cogs.manage' },
@@ -33,14 +36,20 @@ export const POST = withMiddleware(
     const action = body.action;
 
     if (action === 'calculate') {
-      const parsed = calculatePeriodicCogsSchema.parse(body);
-      const result = await calculatePeriodicCogs(ctx.tenantId, parsed);
+      const parsed = calculatePeriodicCogsSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new ValidationError('Validation failed', parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })));
+      }
+      const result = await calculatePeriodicCogs(ctx.tenantId, parsed.data);
       return NextResponse.json({ data: result }, { status: 201 });
     }
 
     if (action === 'post') {
-      const parsed = postPeriodicCogsSchema.parse(body);
-      const result = await postPeriodicCogs(ctx, parsed);
+      const parsed = postPeriodicCogsSchema.safeParse(body);
+      if (!parsed.success) {
+        throw new ValidationError('Validation failed', parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })));
+      }
+      const result = await postPeriodicCogs(ctx, parsed.data);
       return NextResponse.json({ data: result });
     }
 

@@ -42,5 +42,5 @@ export const PATCH = withMiddleware(
     const result = await updateRoom(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pms', permission: 'pms.rooms.manage' },
+  { entitlement: 'pms', permission: 'pms.rooms.manage' , writeAccess: true },
 );

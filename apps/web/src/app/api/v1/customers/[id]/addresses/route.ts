@@ -37,5 +37,5 @@ export const POST = withMiddleware(
     const address = await addCustomerAddress(ctx, parsed.data);
     return NextResponse.json({ data: address }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

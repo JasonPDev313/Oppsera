@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const consent = await recordConsent(ctx, parsed.data);
     return NextResponse.json({ data: consent }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

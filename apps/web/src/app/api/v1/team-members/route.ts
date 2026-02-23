@@ -39,5 +39,5 @@ export const GET = withMiddleware(
 
     return NextResponse.json({ data: rows });
   },
-  { permission: 'orders.create' },
+  { entitlement: 'platform_core', permission: 'users.view' },
 );

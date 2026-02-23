@@ -10,7 +10,7 @@ export async function initializeOrdersWriteApi(): Promise<void> {
 
   const api: OrdersWriteApi = {
     openOrder: async (ctx, input) => {
-      const result = await openOrder(ctx, input);
+      const result = await openOrder(ctx, { ...input, clientRequestId: input.clientRequestId ?? crypto.randomUUID() });
       return {
         id: result.id,
         orderNumber: result.orderNumber,
@@ -20,11 +20,11 @@ export async function initializeOrdersWriteApi(): Promise<void> {
     },
 
     addLineItem: async (ctx, orderId, input) => {
-      return addLineItem(ctx, orderId, input);
+      return addLineItem(ctx, orderId, { ...input, clientRequestId: input.clientRequestId ?? crypto.randomUUID() });
     },
 
     updateOrder: async (ctx, orderId, input) => {
-      return updateOrder(ctx, orderId, input);
+      return updateOrder(ctx, orderId, { ...input, clientRequestId: input.clientRequestId ?? crypto.randomUUID() });
     },
   };
 

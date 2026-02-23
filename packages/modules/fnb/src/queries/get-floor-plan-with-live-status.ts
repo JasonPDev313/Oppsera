@@ -188,7 +188,7 @@ export async function getFloorPlanWithLiveStatus(
       version: Number(row.version),
     }));
 
-    // Get active combine groups
+    // Get active combine groups scoped to this room (via primary table membership)
     const groupRows = await tx.execute(sql`
       SELECT
         cg.id,
@@ -200,6 +200,10 @@ export async function getFloorPlanWithLiveStatus(
       WHERE cg.tenant_id = ${input.tenantId}
         AND cg.location_id = ${String(room.location_id)}
         AND cg.status = 'active'
+        AND cg.primary_table_id IN (
+          SELECT t.id FROM fnb_tables t
+          WHERE t.room_id = ${input.roomId} AND t.is_active = true
+        )
       GROUP BY cg.id, cg.primary_table_id, cg.combined_capacity
     `);
 

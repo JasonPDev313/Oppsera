@@ -55,6 +55,9 @@ export const arInvoiceLines = pgTable(
   'ar_invoice_lines',
   {
     id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
     invoiceId: text('invoice_id')
       .notNull()
       .references(() => arInvoices.id),

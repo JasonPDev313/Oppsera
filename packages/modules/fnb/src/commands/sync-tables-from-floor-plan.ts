@@ -52,6 +52,7 @@ export async function syncTablesFromFloorPlan(
       .limit(1);
 
     if (!room) throw new RoomNotFoundError(input.roomId);
+    if (!room.isActive || room.archivedAt) throw new RoomNotFoundError(input.roomId);
     if (!room.currentVersionId) throw new NoPublishedVersionError(input.roomId);
 
     // Get the published version's snapshot

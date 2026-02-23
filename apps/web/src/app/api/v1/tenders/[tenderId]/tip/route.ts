@@ -24,5 +24,5 @@ export const PATCH = withMiddleware(
     const result = await adjustTip(ctx, tenderId, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'payments', permission: 'tenders.adjust' },
+  { entitlement: 'payments', permission: 'tenders.adjust' , writeAccess: true },
 );

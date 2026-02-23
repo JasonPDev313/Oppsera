@@ -19,7 +19,7 @@ export const PATCH = withMiddleware(
     const charge = await updateReceiptCharge(ctx, input);
     return NextResponse.json({ data: charge });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );
 
 export const DELETE = withMiddleware(
@@ -32,5 +32,5 @@ export const DELETE = withMiddleware(
     await removeReceiptCharge(ctx, input);
     return NextResponse.json({ data: { chargeId } });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

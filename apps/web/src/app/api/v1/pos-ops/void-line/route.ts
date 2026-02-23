@@ -20,5 +20,5 @@ export const POST = withMiddleware(
     const result = await voidOrderLine(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 200 });
   },
-  { entitlement: 'orders', permission: 'orders.void' },
+  { entitlement: 'orders', permission: 'orders.void' , writeAccess: true },
 );

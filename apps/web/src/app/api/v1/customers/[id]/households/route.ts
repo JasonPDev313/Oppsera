@@ -26,5 +26,5 @@ export const POST = withMiddleware(
     const household = await createHousehold(ctx, parsed.data);
     return NextResponse.json({ data: household }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

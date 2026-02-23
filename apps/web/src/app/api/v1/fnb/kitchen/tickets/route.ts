@@ -38,5 +38,5 @@ export const POST = withMiddleware(
     const ticket = await createKitchenTicket(ctx, parsed.data);
     return NextResponse.json({ data: ticket }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' , writeAccess: true },
 );

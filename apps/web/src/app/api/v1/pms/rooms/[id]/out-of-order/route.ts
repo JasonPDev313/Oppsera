@@ -32,7 +32,7 @@ export const POST = withMiddleware(
     const result = await setRoomOutOfOrder(ctx, roomId, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pms', permission: 'pms.rooms.manage' },
+  { entitlement: 'pms', permission: 'pms.rooms.manage' , writeAccess: true },
 );
 
 // DELETE /api/v1/pms/rooms/:id/out-of-order — clear room out of order
@@ -42,5 +42,5 @@ export const DELETE = withMiddleware(
     const result = await clearRoomOutOfOrder(ctx, roomId);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pms', permission: 'pms.rooms.manage' },
+  { entitlement: 'pms', permission: 'pms.rooms.manage' , writeAccess: true },
 );

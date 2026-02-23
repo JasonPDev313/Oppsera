@@ -130,5 +130,5 @@ export const POST = withMiddleware(
       throw err;
     }
   },
-  { entitlement: 'semantic', permission: 'semantic.manage' },
+  { entitlement: 'semantic', permission: 'semantic.manage' , writeAccess: true },
 );

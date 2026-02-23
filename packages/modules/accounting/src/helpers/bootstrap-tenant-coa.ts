@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import type { Database } from '@oppsera/db';
 import {
   glAccounts,
@@ -15,6 +15,29 @@ export async function bootstrapTenantCoa(
   tenantId: string,
   templateKey: string,
 ): Promise<{ accountCount: number; classificationCount: number }> {
+  // Idempotency: check if this tenant already has accounting settings
+  const existingSettings = await tx
+    .select({ tenantId: accountingSettings.tenantId })
+    .from(accountingSettings)
+    .where(eq(accountingSettings.tenantId, tenantId))
+    .limit(1);
+
+  if (existingSettings.length > 0) {
+    // Already bootstrapped — count existing entities and return
+    const existingClassifications = await tx
+      .select({ id: glClassifications.id })
+      .from(glClassifications)
+      .where(eq(glClassifications.tenantId, tenantId));
+    const existingAccounts = await tx
+      .select({ id: glAccounts.id })
+      .from(glAccounts)
+      .where(eq(glAccounts.tenantId, tenantId));
+    return {
+      accountCount: existingAccounts.length,
+      classificationCount: existingClassifications.length,
+    };
+  }
+
   // 1. Load classification templates (shared across business types)
   const classificationTemplates = await tx
     .select()

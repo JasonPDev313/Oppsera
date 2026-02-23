@@ -17,5 +17,5 @@ export const POST = withMiddleware(
     const item = await unarchiveItem(ctx, itemId);
     return NextResponse.json({ data: item });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

@@ -22,7 +22,7 @@ export function useMembershipAging(asOfDate?: string) {
     setError(null);
     try {
       const qs = buildQueryString({ asOfDate });
-      const res = await apiFetch(`/api/v1/membership/reports/aging${qs}`);
+      const res = await apiFetch<{ data: MembershipAgingReport }>(`/api/v1/membership/reports/aging${qs}`);
       setData(res.data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load aging report');
@@ -46,7 +46,7 @@ export function useMembershipCompliance(periodKey: string) {
     setError(null);
     try {
       const qs = buildQueryString({ periodKey });
-      const res = await apiFetch(`/api/v1/membership/reports/compliance${qs}`);
+      const res = await apiFetch<{ data: MembershipComplianceReportData }>(`/api/v1/membership/reports/compliance${qs}`);
       setData(res.data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load compliance report');
@@ -70,7 +70,7 @@ export function useMembershipSpend(periodKey: string, membershipAccountId?: stri
     setError(null);
     try {
       const qs = buildQueryString({ periodKey, membershipAccountId });
-      const res = await apiFetch(`/api/v1/membership/reports/spend${qs}`);
+      const res = await apiFetch<{ data: MembershipSpendReportData }>(`/api/v1/membership/reports/spend${qs}`);
       setData(res.data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load spend report');
@@ -93,7 +93,7 @@ export function useMembershipChurn(riskLevel?: string) {
     setError(null);
     try {
       const qs = buildQueryString({ riskLevel });
-      const res = await apiFetch(`/api/v1/membership/reports/churn${qs}`);
+      const res = await apiFetch<{ data: MembershipChurnReportData }>(`/api/v1/membership/reports/churn${qs}`);
       setData(res.data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load churn report');
@@ -116,7 +116,7 @@ export function useMembershipPortfolio(asOfDate?: string) {
     setError(null);
     try {
       const qs = buildQueryString({ asOfDate });
-      const res = await apiFetch(`/api/v1/membership/reports/portfolio${qs}`);
+      const res = await apiFetch<{ data: MembershipPortfolioData }>(`/api/v1/membership/reports/portfolio${qs}`);
       setData(res.data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load portfolio report');
@@ -138,7 +138,7 @@ export function useMembershipInsights() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await apiFetch('/api/v1/membership/reports/insights');
+      const res = await apiFetch<{ data: MembershipPredictiveInsights }>('/api/v1/membership/reports/insights');
       setData(res.data);
     } catch (e: any) {
       setError(e.message ?? 'Failed to load insights');

@@ -26,5 +26,5 @@ export const PATCH = withMiddleware(
     const incident = await updateIncident(ctx, parsed.data);
     return NextResponse.json({ data: incident });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

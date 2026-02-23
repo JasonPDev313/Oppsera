@@ -84,7 +84,7 @@ export const PATCH = withMiddleware(
 
     return NextResponse.json({ data: row });
   },
-  { permission: 'orders.create' },
+  { entitlement: 'orders', permission: 'orders.create', writeAccess: true },
 );
 
 // DELETE /api/v1/register-tabs/[id] — delete a tab
@@ -108,5 +108,5 @@ export const DELETE = withMiddleware(
 
     return NextResponse.json({ data: { id: row.id } });
   },
-  { permission: 'orders.create' },
+  { entitlement: 'orders', permission: 'orders.create', writeAccess: true },
 );

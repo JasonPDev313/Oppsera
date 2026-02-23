@@ -40,5 +40,5 @@ export const PATCH = withMiddleware(
     const account = await updateBillingAccount(ctx, id, parsed.data);
     return NextResponse.json({ data: account });
   },
-  { entitlement: 'customers', permission: 'billing.manage' },
+  { entitlement: 'customers', permission: 'billing.manage' , writeAccess: true },
 );

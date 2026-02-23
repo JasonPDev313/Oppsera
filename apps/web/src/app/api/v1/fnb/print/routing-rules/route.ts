@@ -39,5 +39,5 @@ export const POST = withMiddleware(
     const result = await createRoutingRuleS14(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.manage' , writeAccess: true },
 );

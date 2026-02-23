@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const idempotencyMixin = {
-  clientRequestId: z.string().min(1).max(128).optional(),
+  clientRequestId: z.string().min(1).max(128),
 };
 
 export const openOrderSchema = z.object({

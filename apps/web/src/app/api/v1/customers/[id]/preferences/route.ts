@@ -40,5 +40,5 @@ export const POST = withMiddleware(
     const pref = await setCustomerPreference(ctx, parsed.data);
     return NextResponse.json({ data: pref }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

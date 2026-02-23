@@ -31,7 +31,7 @@ export const POST = withMiddleware(
     const result = await addToSegment(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );
 
 // DELETE /api/v1/customers/segments/:id/members — remove customer from segment
@@ -51,5 +51,5 @@ export const DELETE = withMiddleware(
     await removeFromSegment(ctx, parsed.data);
     return new NextResponse(null, { status: 204 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

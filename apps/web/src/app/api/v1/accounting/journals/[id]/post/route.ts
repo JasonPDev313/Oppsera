@@ -18,5 +18,5 @@ export const POST = withMiddleware(
     const entry = await postDraftEntry(ctx, id);
     return NextResponse.json({ data: entry });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

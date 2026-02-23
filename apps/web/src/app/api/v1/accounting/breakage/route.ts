@@ -9,7 +9,7 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const status = url.searchParams.get('status') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!) : undefined;
+    const limit = url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined;
 
     const result = await listPendingBreakage({
       tenantId: ctx.tenantId,

@@ -37,5 +37,5 @@ export const PATCH = withMiddleware(
     const settings = await updateAccountingSettings(ctx, parsed.data);
     return NextResponse.json({ data: settings });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

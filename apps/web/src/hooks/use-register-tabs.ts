@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { apiFetch } from '@/lib/api-client';
+import { useToast } from '@/components/ui/toast';
 import type { Order, RegisterTab, TabNumber } from '@/types/pos';
 
 // ── Types ───────────────────────────────────────────────────────────
@@ -122,6 +123,8 @@ export function useRegisterTabs({
   employeeId,
   employeeName,
 }: UseRegisterTabsOptions): UseRegisterTabsReturn {
+  const { toast } = useToast();
+
   // ── State ──────────────────────────────────────────────────────────
 
   const [tabs, setTabs] = useState<RegisterTab[]>([]);
@@ -175,7 +178,7 @@ export function useRegisterTabs({
           apiFetch(`/api/v1/register-tabs/${currentActiveTab.id}`, {
             method: 'PATCH',
             body: JSON.stringify({ orderId: order.id }),
-          }).catch(() => {});
+          }).catch((err) => { console.error('Tab orderId sync failed:', err); });
         }
       }
     }
@@ -250,7 +253,7 @@ export function useRegisterTabs({
                 pos.setOrder(order);
               }
             }
-          }).catch(() => {});
+          }).catch((err) => { console.error('Tab order pre-fetch failed:', err); });
         }
       }
 
@@ -269,7 +272,7 @@ export function useRegisterTabs({
         apiFetch(`/api/v1/register-tabs/${tab.id}`, {
           method: 'PATCH',
           body: JSON.stringify({ orderId: null }),
-        }).catch(() => {});
+        }).catch((err) => { console.error('Tab order clear failed:', err); });
       }
     };
 
@@ -402,7 +405,7 @@ export function useRegisterTabs({
                 pos.setOrder(order);
               }
             }
-          }).catch(() => {});
+          }).catch((err) => { console.error('Tab order fetch failed:', err); });
         }
       } else {
         pos.setOrder(null);
@@ -450,8 +453,9 @@ export function useRegisterTabs({
           prev.map((t) => (t.id === placeholderId ? realTab : t)),
         );
       })
-      .catch(() => {
-        // Keep tab locally — it will sync on next page load
+      .catch((err) => {
+        console.error('Tab creation sync failed:', err);
+        toast.error('Tab sync failed — will sync on next load.');
       });
   }, [tabs, pos, terminalId]);
 
@@ -493,7 +497,10 @@ export function useRegisterTabs({
       if (!closingTab.id.startsWith('pending-')) {
         apiFetch(`/api/v1/register-tabs/${closingTab.id}`, {
           method: 'DELETE',
-        }).catch(() => {});
+        }).catch((err) => {
+          console.error('Tab close sync failed:', err);
+          toast.error('Tab close sync failed — will resolve on next load.');
+        });
       }
     },
     [tabs, activeTabNumber, pos],
@@ -515,7 +522,10 @@ export function useRegisterTabs({
         apiFetch(`/api/v1/register-tabs/${tab.id}`, {
           method: 'PATCH',
           body: JSON.stringify({ label: trimmed }),
-        }).catch(() => {});
+        }).catch((err) => {
+          console.error('Tab rename sync failed:', err);
+          toast.error('Tab rename sync failed — will resolve on next load.');
+        });
       }
     },
     [tabs],
@@ -537,7 +547,7 @@ export function useRegisterTabs({
       apiFetch(`/api/v1/register-tabs/${currentTab.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ orderId: null, label: null }),
-      }).catch(() => {});
+      }).catch((err) => { console.error('Tab clear sync failed:', err); });
     }
   }, [activeTabNumber, tabs]);
 
@@ -563,7 +573,7 @@ export function useRegisterTabs({
             employeeId: newEmployeeId,
             employeeName: newEmployeeName,
           }),
-        }).catch(() => {});
+        }).catch((err) => { console.error('Tab server change sync failed:', err); });
       }
     },
     [tabs],

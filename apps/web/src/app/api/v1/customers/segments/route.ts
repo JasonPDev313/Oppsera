@@ -29,5 +29,5 @@ export const POST = withMiddleware(
     const segment = await createSegment(ctx, parsed.data);
     return NextResponse.json({ data: segment }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

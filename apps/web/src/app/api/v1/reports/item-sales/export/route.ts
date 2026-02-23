@@ -27,7 +27,7 @@ export const GET = withMiddleware(
     const locationId = ctx.locationId ?? url.searchParams.get('locationId') ?? undefined;
     const sortBy = (url.searchParams.get('sortBy') as 'quantitySold' | 'grossRevenue') ?? undefined;
     const limitParam = url.searchParams.get('limit');
-    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const limit = limitParam ? Math.min(parseInt(limitParam, 10), 10000) : undefined;
 
     const rows = await getItemSales({
       tenantId: ctx.tenantId,

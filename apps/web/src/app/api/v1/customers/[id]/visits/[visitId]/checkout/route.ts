@@ -15,5 +15,5 @@ export const POST = withMiddleware(
     const result = await checkOutVisit(ctx, { visitId });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

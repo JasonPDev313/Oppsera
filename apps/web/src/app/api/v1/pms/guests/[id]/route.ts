@@ -20,7 +20,7 @@ export const GET = withMiddleware(
     const id = extractId(request);
     const url = new URL(request.url);
     const historyLimitParam = url.searchParams.get('historyLimit');
-    const historyLimit = historyLimitParam ? parseInt(historyLimitParam, 10) : undefined;
+    const historyLimit = historyLimitParam ? Math.min(parseInt(historyLimitParam, 10), 100) : undefined;
 
     const result = await getGuest(ctx.tenantId, id, historyLimit);
     return NextResponse.json({ data: result });
@@ -45,5 +45,5 @@ export const PATCH = withMiddleware(
     const result = await updateGuest(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pms', permission: 'pms.guests.manage' },
+  { entitlement: 'pms', permission: 'pms.guests.manage' , writeAccess: true },
 );

@@ -12,8 +12,8 @@ function extractIds(request: NextRequest): { orderId: string; chargeId: string }
 export const DELETE = withMiddleware(
   async (request: NextRequest, ctx) => {
     const { orderId, chargeId } = extractIds(request);
-    const result = await removeServiceCharge(ctx, orderId, { chargeId });
+    const result = await removeServiceCharge(ctx, orderId, { clientRequestId: crypto.randomUUID(), chargeId });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'orders', permission: 'orders.manage' },
+  { entitlement: 'orders', permission: 'orders.manage' , writeAccess: true },
 );

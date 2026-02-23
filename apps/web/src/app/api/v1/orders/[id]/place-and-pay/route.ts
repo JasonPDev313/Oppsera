@@ -38,7 +38,7 @@ export const POST = withMiddleware(
     const placeParsed = placeOrderSchema.safeParse(placeBody);
 
     try {
-      const placed = await placeOrder(ctx, orderId, placeParsed.success ? placeParsed.data : {});
+      const placed = await placeOrder(ctx, orderId, placeParsed.success ? placeParsed.data : { clientRequestId: crypto.randomUUID() });
       orderVersion = (placed as any).version ?? 0;
     } catch (err) {
       if (err instanceof ConflictError && err.message.includes('Order is placed')) {
@@ -61,5 +61,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: tenderResult }, { status: 201 });
   },
-  { entitlement: 'payments', permission: 'tenders.create' },
+  { entitlement: 'payments', permission: 'tenders.create' , writeAccess: true },
 );

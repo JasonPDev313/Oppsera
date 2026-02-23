@@ -27,5 +27,5 @@ export const POST = withMiddleware(
     const result = await verifyCashDrop(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'orders', permission: 'cash.drop' },
+  { entitlement: 'orders', permission: 'cash.drop' , writeAccess: true },
 );

@@ -21,5 +21,5 @@ export const PUT = withMiddleware(
     const result = await updatePaymentTerms(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'ap', permission: 'ap.manage' },
+  { entitlement: 'ap', permission: 'ap.manage' , writeAccess: true },
 );

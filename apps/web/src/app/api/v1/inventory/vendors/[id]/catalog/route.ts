@@ -19,7 +19,7 @@ export const GET = withMiddleware(
       search: url.searchParams.get('search') ?? undefined,
       isActive: url.searchParams.get('isActive') === 'false' ? false : url.searchParams.get('isActive') === 'true' ? true : undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined,
+      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
     });
     return NextResponse.json({
       data: result.items,
@@ -39,5 +39,5 @@ export const POST = withMiddleware(
     const item = await addVendorCatalogItem(ctx, input);
     return NextResponse.json({ data: item }, { status: 201 });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

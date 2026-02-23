@@ -22,7 +22,7 @@ export const GET = withMiddleware(
       status: url.searchParams.get('status') ?? undefined,
       vendorId: url.searchParams.get('vendorId') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined,
+      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
     });
     return NextResponse.json({
       data: result.items,
@@ -40,5 +40,5 @@ export const POST = withMiddleware(
     const receipt = await createDraftReceipt(ctx, input);
     return NextResponse.json({ data: receipt }, { status: 201 });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

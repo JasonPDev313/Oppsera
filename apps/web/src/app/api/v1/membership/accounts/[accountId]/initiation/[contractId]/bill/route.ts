@@ -38,5 +38,5 @@ export const POST = withMiddleware(
     const result = await billInitiationInstallment(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'club_membership', permission: 'club_membership.billing' },
+  { entitlement: 'club_membership', permission: 'club_membership.billing' , writeAccess: true },
 );

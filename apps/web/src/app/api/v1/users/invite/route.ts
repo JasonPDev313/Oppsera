@@ -34,5 +34,5 @@ export const POST = withMiddleware(
     await auditLog(ctx, 'user.invite', 'user', result.userId);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage', writeAccess: true },
 );

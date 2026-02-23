@@ -28,5 +28,5 @@ export const POST = withMiddleware(
     const result = await transferBetweenAccounts(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.financial.manage' },
+  { entitlement: 'customers', permission: 'customers.financial.manage' , writeAccess: true },
 );

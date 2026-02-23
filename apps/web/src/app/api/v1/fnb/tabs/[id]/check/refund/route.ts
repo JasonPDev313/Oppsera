@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const result = await refundCheck(ctx, ctx.locationId ?? '', orderId, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' , writeAccess: true },
 );

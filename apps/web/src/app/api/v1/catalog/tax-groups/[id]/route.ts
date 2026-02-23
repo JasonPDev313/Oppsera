@@ -27,5 +27,5 @@ export const PATCH = withMiddleware(
     const group = await updateTaxGroup(ctx, taxGroupId, parsed.data);
     return NextResponse.json({ data: group });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

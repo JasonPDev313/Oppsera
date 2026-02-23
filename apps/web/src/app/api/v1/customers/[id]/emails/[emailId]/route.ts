@@ -27,7 +27,7 @@ export const PATCH = withMiddleware(
     const updated = await updateCustomerEmail(ctx, parsed.data);
     return NextResponse.json({ data: updated });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );
 
 export const DELETE = withMiddleware(
@@ -36,5 +36,5 @@ export const DELETE = withMiddleware(
     await removeCustomerEmail(ctx, { emailId });
     return NextResponse.json({ data: { id: emailId, deleted: true } });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

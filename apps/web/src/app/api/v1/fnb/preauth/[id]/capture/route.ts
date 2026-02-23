@@ -19,5 +19,5 @@ export const POST = withMiddleware(
     const result = await capturePreauth(ctx, ctx.locationId ?? '', parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' , writeAccess: true },
 );

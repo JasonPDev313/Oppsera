@@ -22,5 +22,5 @@ export const PATCH = withMiddleware(
     const result = await updateAutoGratuityRule(ctx, ruleId, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.tips.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.tips.manage' , writeAccess: true },
 );

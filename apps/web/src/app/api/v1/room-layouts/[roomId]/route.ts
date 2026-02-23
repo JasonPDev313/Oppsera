@@ -37,7 +37,7 @@ export const PATCH = withMiddleware(
     const room = await updateRoom(ctx, roomId, parsed.data);
     return NextResponse.json({ data: room });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage' , writeAccess: true },
 );
 
 // DELETE /api/v1/room-layouts/:roomId — archive room
@@ -56,5 +56,5 @@ export const DELETE = withMiddleware(
     const room = await archiveRoom(ctx, roomId, reason);
     return NextResponse.json({ data: room });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage' , writeAccess: true },
 );

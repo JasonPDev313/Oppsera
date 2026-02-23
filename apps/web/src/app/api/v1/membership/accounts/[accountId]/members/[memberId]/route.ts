@@ -32,7 +32,7 @@ export const PATCH = withMiddleware(
     const result = await updateMembershipMember(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'club_membership', permission: 'club_membership.manage' },
+  { entitlement: 'club_membership', permission: 'club_membership.manage' , writeAccess: true },
 );
 
 export const DELETE = withMiddleware(
@@ -49,5 +49,5 @@ export const DELETE = withMiddleware(
     const result = await removeMembershipMember(ctx, { memberId });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'club_membership', permission: 'club_membership.manage' },
+  { entitlement: 'club_membership', permission: 'club_membership.manage' , writeAccess: true },
 );

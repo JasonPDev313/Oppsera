@@ -21,5 +21,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

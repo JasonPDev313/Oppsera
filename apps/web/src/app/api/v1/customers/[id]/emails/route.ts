@@ -37,5 +37,5 @@ export const POST = withMiddleware(
     const email = await addCustomerEmail(ctx, parsed.data);
     return NextResponse.json({ data: email }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

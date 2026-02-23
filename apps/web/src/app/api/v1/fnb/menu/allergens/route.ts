@@ -28,5 +28,5 @@ export const POST = withMiddleware(
     const allergen = await createAllergen(ctx, parsed.data);
     return NextResponse.json({ data: allergen }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' , writeAccess: true },
 );

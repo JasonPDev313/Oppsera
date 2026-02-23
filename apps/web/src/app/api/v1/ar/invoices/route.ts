@@ -39,5 +39,5 @@ export const POST = withMiddleware(
     const result = await createInvoice(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'ar', permission: 'ar.manage' },
+  { entitlement: 'ar', permission: 'ar.manage' , writeAccess: true },
 );

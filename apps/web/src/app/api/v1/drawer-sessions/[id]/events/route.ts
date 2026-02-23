@@ -31,5 +31,5 @@ export const POST = withMiddleware(
     const event = await recordDrawerEvent(ctx, parsed.data);
     return NextResponse.json({ data: event }, { status: 201 });
   },
-  { entitlement: 'orders', permission: 'cash.drawer' },
+  { entitlement: 'orders', permission: 'cash.drawer' , writeAccess: true },
 );

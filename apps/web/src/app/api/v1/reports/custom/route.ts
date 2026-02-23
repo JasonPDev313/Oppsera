@@ -8,7 +8,7 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) : undefined;
+    const limit = url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined;
 
     const result = await listReports({ tenantId: ctx.tenantId, cursor, limit });
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
@@ -33,5 +33,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'reporting', permission: 'reports.custom.manage' },
+  { entitlement: 'reporting', permission: 'reports.custom.manage' , writeAccess: true },
 );

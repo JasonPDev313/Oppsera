@@ -1,8 +1,9 @@
-import { eq, and, sql, gte, lte } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { periodicCogsCalculations, accountingSettings } from '@oppsera/db';
 import { AppError, generateUlid } from '@oppsera/shared';
 import { auditLogSystem } from '@oppsera/core/audit/helpers';
+import { getReconciliationReadApi } from '@oppsera/core/helpers/reconciliation-read-api';
 import type { CalculatePeriodicCogsInput } from '../validation';
 
 interface CogsSubDeptDetail {
@@ -49,36 +50,27 @@ export async function calculatePeriodicCogs(
   tenantId: string,
   input: CalculatePeriodicCogsInput,
 ): Promise<PeriodicCogsCalculation> {
-  return withTenant(tenantId, async (tx) => {
-    // Verify tenant has periodic COGS mode
-    const [settings] = await tx
+  // ── 1. Check settings + look for previous period (local) ──────
+  const { settings, prevEndingInventory } = await withTenant(tenantId, async (tx) => {
+    const [s] = await tx
       .select()
       .from(accountingSettings)
       .where(eq(accountingSettings.tenantId, tenantId))
       .limit(1);
 
-    if (!settings) {
+    if (!s) {
       throw new AppError('VALIDATION_ERROR', 'Accounting settings not configured', 400);
     }
 
-    if (settings.cogsPostingMode !== 'periodic') {
+    if (s.cogsPostingMode !== 'periodic') {
       throw new AppError(
         'VALIDATION_ERROR',
-        `COGS posting mode is '${settings.cogsPostingMode}', expected 'periodic'`,
+        `COGS posting mode is '${s.cogsPostingMode}', expected 'periodic'`,
         400,
       );
     }
 
-    const locationFilter = input.locationId
-      ? sql`AND im.location_id = ${input.locationId}`
-      : sql``;
-
-    const locationFilterReceipt = input.locationId
-      ? sql`AND rr.location_id = ${input.locationId}`
-      : sql``;
-
-    // ── 1. Beginning inventory ─────────────────────────────────────
-    // Look for previous period's ending inventory (from most recent posted calculation)
+    // Look for previous period's ending inventory
     const prevCalcRows = await tx.execute(sql`
       SELECT ending_inventory_dollars
       FROM periodic_cogs_calculations
@@ -90,81 +82,39 @@ export async function calculatePeriodicCogs(
       LIMIT 1
     `);
     const prevCalcArr = Array.from(prevCalcRows as Iterable<Record<string, unknown>>);
+    const prevEnding = prevCalcArr.length > 0 ? Number(prevCalcArr[0]!.ending_inventory_dollars) : null;
 
-    let beginningInventoryDollars: number;
+    return { settings: s, prevEndingInventory: prevEnding };
+  });
 
-    if (prevCalcArr.length > 0) {
-      beginningInventoryDollars = Number(prevCalcArr[0]!.ending_inventory_dollars);
-    } else {
-      // No previous calculation — compute from inventory movements before period start
-      // Beginning = SUM(on_hand_at_start * currentCost) for all items
-      const beginRows = await tx.execute(sql`
-        SELECT COALESCE(SUM(
-          sub.on_hand * COALESCE(ii.current_cost, 0)
-        ), 0) AS total
-        FROM (
-          SELECT im.inventory_item_id, SUM(im.quantity_delta) AS on_hand
-          FROM inventory_movements im
-          WHERE im.tenant_id = ${tenantId}
-            AND im.business_date < ${input.periodStart}
-            ${locationFilter}
-          GROUP BY im.inventory_item_id
-        ) sub
-        JOIN inventory_items ii ON ii.id = sub.inventory_item_id
-        WHERE ii.tenant_id = ${tenantId}
-      `);
-      const beginArr = Array.from(beginRows as Iterable<Record<string, unknown>>);
+  // ── 2. Cross-module data via ReconciliationReadApi ─────────────
+  const api = getReconciliationReadApi();
 
-      beginningInventoryDollars = Number(beginArr[0]?.total ?? '0');
-    }
+  const [inventorySummary, purchasesDollars] = await Promise.all([
+    // Inventory movements summary (beginning + ending valuations)
+    // Only needed if no previous period or no manual override
+    (prevEndingInventory !== null && input.endingInventoryOverride)
+      ? Promise.resolve({ beginningInventoryDollars: 0, endingInventoryDollars: 0 })
+      : api.getInventoryMovementsSummary(tenantId, input.locationId, input.periodStart, input.periodEnd),
+    // Purchases from receiving receipts
+    api.getReceivingPurchasesTotals(tenantId, input.periodStart, input.periodEnd),
+  ]);
 
-    // ── 2. Purchases during period ─────────────────────────────────
-    // SUM of posted receiving receipts in the period
-    const purchasesRows = await tx.execute(sql`
-      SELECT COALESCE(SUM(rr.total), 0) AS total
-      FROM receiving_receipts rr
-      WHERE rr.tenant_id = ${tenantId}
-        AND rr.status = 'posted'
-        AND rr.receipt_date >= ${input.periodStart}
-        AND rr.receipt_date <= ${input.periodEnd}
-        ${locationFilterReceipt}
-    `);
-    const purchasesArr = Array.from(purchasesRows as Iterable<Record<string, unknown>>);
+  // Resolve beginning inventory
+  const beginningInventoryDollars = prevEndingInventory !== null
+    ? prevEndingInventory
+    : inventorySummary.beginningInventoryDollars;
 
-    const purchasesDollars = Number(purchasesArr[0]?.total ?? '0');
+  // Resolve ending inventory
+  const endingInventoryDollars = input.endingInventoryOverride
+    ? Number(input.endingInventoryOverride)
+    : inventorySummary.endingInventoryDollars;
 
-    // ── 3. Ending inventory ────────────────────────────────────────
-    let endingInventoryDollars: number;
+  // ── 3. COGS = Beginning + Purchases - Ending ──────────────────
+  const cogsDollars = beginningInventoryDollars + purchasesDollars - endingInventoryDollars;
 
-    if (input.endingInventoryOverride) {
-      // Manual override (e.g., from physical count)
-      endingInventoryDollars = Number(input.endingInventoryOverride);
-    } else {
-      // Computed: SUM(on_hand_through_end * currentCost) for all items
-      const endRows = await tx.execute(sql`
-        SELECT COALESCE(SUM(
-          sub.on_hand * COALESCE(ii.current_cost, 0)
-        ), 0) AS total
-        FROM (
-          SELECT im.inventory_item_id, SUM(im.quantity_delta) AS on_hand
-          FROM inventory_movements im
-          WHERE im.tenant_id = ${tenantId}
-            AND im.business_date <= ${input.periodEnd}
-            ${locationFilter}
-          GROUP BY im.inventory_item_id
-        ) sub
-        JOIN inventory_items ii ON ii.id = sub.inventory_item_id
-        WHERE ii.tenant_id = ${tenantId}
-      `);
-      const endArr = Array.from(endRows as Iterable<Record<string, unknown>>);
-
-      endingInventoryDollars = Number(endArr[0]?.total ?? '0');
-    }
-
-    // ── 4. COGS = Beginning + Purchases - Ending ───────────────────
-    const cogsDollars = beginningInventoryDollars + purchasesDollars - endingInventoryDollars;
-
-    // ── 5. Create draft calculation ────────────────────────────────
+  // ── 4. Create draft calculation (local) ───────────────────────
+  return withTenant(tenantId, async (tx) => {
     const id = generateUlid();
     const [created] = await tx
       .insert(periodicCogsCalculations)

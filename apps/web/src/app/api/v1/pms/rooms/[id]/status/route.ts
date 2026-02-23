@@ -31,5 +31,5 @@ export const POST = withMiddleware(
     const result = await updateRoomHousekeeping(ctx, roomId, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pms', permission: 'pms.housekeeping.manage' },
+  { entitlement: 'pms', permission: 'pms.housekeeping.manage' , writeAccess: true },
 );

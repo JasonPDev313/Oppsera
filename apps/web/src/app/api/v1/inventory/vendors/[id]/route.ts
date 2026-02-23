@@ -27,5 +27,5 @@ export const PATCH = withMiddleware(
     const vendor = await updateVendor(ctx, input);
     return NextResponse.json({ data: vendor });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

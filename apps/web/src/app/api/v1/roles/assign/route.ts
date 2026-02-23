@@ -32,5 +32,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: assignment }, { status: 201 });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage', writeAccess: true },
 );

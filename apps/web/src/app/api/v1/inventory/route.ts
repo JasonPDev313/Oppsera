@@ -14,7 +14,7 @@ export const GET = withMiddleware(
       search: url.searchParams.get('search') ?? undefined,
       lowStockOnly: url.searchParams.get('lowStockOnly') === 'true',
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? parseInt(url.searchParams.get('limit')!, 10) || undefined : undefined,
+      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) || undefined : undefined,
     });
     return NextResponse.json({
       data: result.items,

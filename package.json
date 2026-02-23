@@ -13,8 +13,8 @@
     "db:seed": "turbo db:seed",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "clean": "rm -rf apps/web/.next apps/admin/.next .turbo apps/web/.turbo apps/admin/.turbo packages/*/.turbo packages/modules/*/.turbo apps/web/tsconfig.tsbuildinfo apps/admin/tsconfig.tsbuildinfo",
-    "nuke": "pnpm clean && rm -rf node_modules apps/web/node_modules apps/admin/node_modules packages/*/node_modules packages/modules/*/node_modules && pnpm install"
+    "clean": "rm -rf apps/web/.next apps/admin/.next apps/member-portal/.next .turbo apps/web/.turbo apps/admin/.turbo apps/member-portal/.turbo packages/*/.turbo packages/modules/*/.turbo apps/web/tsconfig.tsbuildinfo apps/admin/tsconfig.tsbuildinfo apps/member-portal/tsconfig.tsbuildinfo",
+    "nuke": "pnpm clean && rm -rf node_modules apps/web/node_modules apps/admin/node_modules apps/member-portal/node_modules packages/*/node_modules packages/modules/*/node_modules && pnpm install"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",

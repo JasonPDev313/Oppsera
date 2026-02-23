@@ -15,5 +15,5 @@ export const DELETE = withMiddleware(
     await removeServiceFlag(ctx, { flagId });
     return new NextResponse(null, { status: 204 });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

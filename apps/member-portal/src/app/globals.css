@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+
+:root {
+  --portal-primary: #2563eb;
+  --portal-primary-light: #dbeafe;
+  --portal-bg: #f8fafc;
+  --portal-surface: #ffffff;
+  --portal-text: #1e293b;
+  --portal-text-muted: #64748b;
+  --portal-border: #e2e8f0;
+}
+
+body {
+  background: var(--portal-bg);
+  color: var(--portal-text);
+  font-family: system-ui, -apple-system, sans-serif;
+}

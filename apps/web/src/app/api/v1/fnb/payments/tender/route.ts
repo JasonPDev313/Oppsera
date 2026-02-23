@@ -11,5 +11,5 @@ export const POST = withMiddleware(
     const result = await recordSplitTender(ctx, ctx.locationId ?? '', body);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.payments.manage' , writeAccess: true },
 );

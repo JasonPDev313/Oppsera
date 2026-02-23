@@ -39,5 +39,5 @@ export const PATCH = withMiddleware(
     const tab = await updateTab(ctx, tabId, parsed.data);
     return NextResponse.json({ data: tab });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.tabs.manage' , writeAccess: true },
 );

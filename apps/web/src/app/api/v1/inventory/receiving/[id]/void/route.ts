@@ -13,5 +13,5 @@ export const POST = withMiddleware(
     const receipt = await voidReceipt(ctx, input);
     return NextResponse.json({ data: receipt });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

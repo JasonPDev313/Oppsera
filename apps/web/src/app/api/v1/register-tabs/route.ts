@@ -32,7 +32,7 @@ export const GET = withMiddleware(
 
     return NextResponse.json({ data: rows });
   },
-  { permission: 'orders.create' },
+  { entitlement: 'orders', permission: 'orders.create' },
 );
 
 // POST /api/v1/register-tabs — create a new tab
@@ -80,5 +80,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: row }, { status: 201 });
   },
-  { permission: 'orders.create' },
+  { entitlement: 'orders', permission: 'orders.create' },
 );

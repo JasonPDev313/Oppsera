@@ -15,5 +15,5 @@ export const POST = withMiddleware(
     const result = await createVendorCredit(ctx, body);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'ap', permission: 'ap.manage' },
+  { entitlement: 'ap', permission: 'ap.manage' , writeAccess: true },
 );

@@ -13,5 +13,5 @@ export const POST = withMiddleware(
     const line = await addReceiptLine(ctx, input);
     return NextResponse.json({ data: line }, { status: 201 });
   },
-  { entitlement: 'inventory', permission: 'inventory.manage' },
+  { entitlement: 'inventory', permission: 'inventory.manage' , writeAccess: true },
 );

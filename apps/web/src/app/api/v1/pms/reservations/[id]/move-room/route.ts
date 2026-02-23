@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const result = await moveRoom(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { permission: PMS_PERMISSIONS.FRONT_DESK_CHECK_IN, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.FRONT_DESK_CHECK_IN, entitlement: 'pms' , writeAccess: true },
 );

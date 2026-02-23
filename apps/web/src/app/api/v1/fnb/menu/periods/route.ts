@@ -19,5 +19,5 @@ export const POST = withMiddleware(
     const period = await createMenuPeriod(ctx, parsed.data);
     return NextResponse.json({ data: period }, { status: 201 });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' , writeAccess: true },
 );

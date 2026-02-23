@@ -105,5 +105,5 @@ export const POST = withMiddleware(
       data: { orderId, sourceTerminalId: sourceTab.terminalId, targetTerminalId },
     });
   },
-  { permission: 'orders.create' },
+  { entitlement: 'orders', permission: 'orders.create', writeAccess: true },
 );

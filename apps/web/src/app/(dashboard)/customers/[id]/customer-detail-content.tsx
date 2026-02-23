@@ -347,9 +347,8 @@ export default function CustomerDetailContent() {
     if (!customerId) return;
     setHeaderLoading(true);
     try {
-      const res = await apiFetch(`/api/v1/customers/${customerId}/header`);
-      const json = await res.json();
-      setHeader(json.data);
+      const res = await apiFetch<{ data: CustomerHeaderData }>(`/api/v1/customers/${customerId}/header`);
+      setHeader(res.data);
     } catch {
       // Header fetch failure is non-fatal — tabs still work
     } finally {

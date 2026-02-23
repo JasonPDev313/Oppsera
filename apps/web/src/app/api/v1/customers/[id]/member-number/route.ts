@@ -27,5 +27,5 @@ export const PATCH = withMiddleware(
     const updated = await updateCustomerMemberNumber(ctx, parsed.data);
     return NextResponse.json({ data: updated });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

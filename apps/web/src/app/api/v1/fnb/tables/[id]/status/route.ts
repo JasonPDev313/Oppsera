@@ -21,5 +21,5 @@ export const PATCH = withMiddleware(
     const result = await updateTableStatus(ctx, tableId, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.manage' , writeAccess: true },
 );

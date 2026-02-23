@@ -31,5 +31,5 @@ export const POST = withMiddleware(
     const rate = await createTaxRate(ctx, parsed.data);
     return NextResponse.json({ data: rate }, { status: 201 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

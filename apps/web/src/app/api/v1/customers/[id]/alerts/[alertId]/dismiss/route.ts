@@ -15,5 +15,5 @@ export const POST = withMiddleware(
     const result = await dismissAlert(ctx, { alertId });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.manage' },
+  { entitlement: 'customers', permission: 'customers.manage' , writeAccess: true },
 );

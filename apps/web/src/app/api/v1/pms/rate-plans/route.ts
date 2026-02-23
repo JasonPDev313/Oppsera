@@ -26,7 +26,7 @@ export const GET = withMiddleware(
       tenantId: ctx.tenantId,
       propertyId,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: limitParam ? parseInt(limitParam, 10) : undefined,
+      limit: limitParam ? Math.min(parseInt(limitParam, 10), 100) : undefined,
     });
 
     return NextResponse.json({
@@ -54,5 +54,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'pms', permission: 'pms.rates.manage' },
+  { entitlement: 'pms', permission: 'pms.rates.manage' , writeAccess: true },
 );

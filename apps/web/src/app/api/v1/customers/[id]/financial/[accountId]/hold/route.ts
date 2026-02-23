@@ -30,7 +30,7 @@ export const POST = withMiddleware(
     const result = await placeFinancialHold(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'customers', permission: 'customers.financial.manage' },
+  { entitlement: 'customers', permission: 'customers.financial.manage' , writeAccess: true },
 );
 
 // DELETE /api/v1/customers/:id/financial/:accountId/hold — lift financial hold
@@ -48,5 +48,5 @@ export const DELETE = withMiddleware(
     const result = await liftFinancialHold(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.financial.manage' },
+  { entitlement: 'customers', permission: 'customers.financial.manage' , writeAccess: true },
 );

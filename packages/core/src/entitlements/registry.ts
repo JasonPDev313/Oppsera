@@ -198,6 +198,16 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     supportsViewMode: true,
     category: 'analytics',
   },
+  {
+    key: 'club_membership',
+    name: 'Club Membership & Billing',
+    phase: 'v1',
+    description: 'Membership accounts, dues, minimums, initiation financing, autopay, billing cycles, member portal',
+    dependencies: ['customers', 'accounting'],
+    riskLevel: 'high',
+    supportsViewMode: true,
+    category: 'finance',
+  },
 ] as const;
 
 export type ModuleKey = (typeof MODULE_REGISTRY)[number]['key'];

@@ -49,7 +49,7 @@ export const PATCH = withMiddleware(
     const result = await updateProfitCenter(ctx, id, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'platform_core', permission: 'settings.update' },
+  { entitlement: 'platform_core', permission: 'settings.update', writeAccess: true },
 );
 
 // DELETE /api/v1/profit-centers/:id (soft-delete)
@@ -59,5 +59,5 @@ export const DELETE = withMiddleware(
     await deactivateProfitCenter(ctx, id);
     return NextResponse.json({ data: { id } });
   },
-  { entitlement: 'platform_core', permission: 'settings.update' },
+  { entitlement: 'platform_core', permission: 'settings.update' , writeAccess: true },
 );

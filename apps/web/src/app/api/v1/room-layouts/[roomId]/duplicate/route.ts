@@ -28,5 +28,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: room }, { status: 201 });
   },
-  { entitlement: 'room_layouts', permission: 'room_layouts.manage' },
+  { entitlement: 'room_layouts', permission: 'room_layouts.manage' , writeAccess: true },
 );

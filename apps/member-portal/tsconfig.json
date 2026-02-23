@@ -1,0 +1,64 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@oppsera/shared": [
+        "../../packages/shared/src"
+      ],
+      "@oppsera/shared/*": [
+        "../../packages/shared/src/*"
+      ],
+      "@oppsera/db": [
+        "../../packages/db/src"
+      ],
+      "@oppsera/db/*": [
+        "../../packages/db/src/*"
+      ],
+      "@oppsera/core": [
+        "../../packages/core/src"
+      ],
+      "@oppsera/core/*": [
+        "../../packages/core/src/*"
+      ],
+      "@oppsera/module-membership": [
+        "../../packages/modules/membership/src"
+      ],
+      "@oppsera/module-membership/*": [
+        "../../packages/modules/membership/src/*"
+      ],
+      "@oppsera/module-customers": [
+        "../../packages/modules/customers/src"
+      ],
+      "@oppsera/module-customers/*": [
+        "../../packages/modules/customers/src/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
+    },
+    "allowJs": true,
+    "incremental": true
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "next.config.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next"
+  ]
+}

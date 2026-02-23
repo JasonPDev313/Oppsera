@@ -19,5 +19,5 @@ export const POST = withMiddleware(
     const item = await recallItem(ctx, parsed.data);
     return NextResponse.json({ data: item });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.kds.manage' , writeAccess: true },
 );

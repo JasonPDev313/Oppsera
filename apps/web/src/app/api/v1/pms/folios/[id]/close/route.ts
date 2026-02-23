@@ -14,5 +14,5 @@ export const POST = withMiddleware(
     const result = await closeFolio(ctx, id);
     return NextResponse.json({ data: result });
   },
-  { permission: PMS_PERMISSIONS.FOLIO_POST_CHARGES, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.FOLIO_POST_CHARGES, entitlement: 'pms' , writeAccess: true },
 );

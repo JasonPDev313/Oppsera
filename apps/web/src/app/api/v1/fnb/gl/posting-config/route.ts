@@ -15,5 +15,5 @@ export const PATCH = withMiddleware(
     const result = await updateFnbPostingConfig(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.gl.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.gl.manage' , writeAccess: true },
 );

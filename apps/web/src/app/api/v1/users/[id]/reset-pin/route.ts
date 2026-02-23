@@ -20,7 +20,10 @@ function extractUserId(request: NextRequest): string {
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const userId = extractUserId(request);
-    const body = await request.json().catch(() => ({}));
+    let body: unknown;
+    try { body = await request.json(); } catch {
+      throw new ValidationError('Invalid JSON in request body');
+    }
     const parsed = bodySchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(

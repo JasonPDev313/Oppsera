@@ -16,6 +16,10 @@ interface GetAccountBalancesInput {
   tenantId: string;
   accountIds?: string[];
   asOfDate?: string;
+  /** Max accounts to return. Defaults to 200. */
+  limit?: number;
+  /** Cursor for pagination (account_number of last item). */
+  cursor?: string;
 }
 
 export async function getAccountBalances(
@@ -29,6 +33,13 @@ export async function getAccountBalances(
     const dateFilter = input.asOfDate
       ? sql`AND je.business_date <= ${input.asOfDate}`
       : sql``;
+
+    const cursorFilter = input.cursor
+      ? sql`AND a.account_number > ${input.cursor}`
+      : sql``;
+
+    const limit = input.limit ?? 200;
+    const queryLimit = limit + 1; // +1 for hasMore detection
 
     const rows = await tx.execute(sql`
       SELECT
@@ -52,11 +63,13 @@ export async function getAccountBalances(
       WHERE a.tenant_id = ${input.tenantId}
         AND a.is_active = true
         ${accountFilter}
+        ${cursorFilter}
       GROUP BY a.id, a.account_number, a.name, a.account_type, a.normal_balance
       ORDER BY a.account_number
+      LIMIT ${queryLimit}
     `);
 
-    return Array.from(rows as Iterable<Record<string, unknown>>).map((row) => ({
+    const allRows = Array.from(rows as Iterable<Record<string, unknown>>).map((row) => ({
       accountId: String(row.account_id),
       accountNumber: String(row.account_number),
       name: String(row.name),
@@ -66,5 +79,8 @@ export async function getAccountBalances(
       creditTotal: Number(row.credit_total),
       balance: Number(row.balance),
     }));
+
+    // Trim to limit (the +1 row was only for hasMore detection)
+    return allRows.length > limit ? allRows.slice(0, limit) : allRows;
   });
 }

@@ -22,5 +22,5 @@ export const POST = withMiddleware(
     const settlements = await importSettlementCsv(ctx, parsed.data);
     return NextResponse.json({ data: settlements }, { status: 201 });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

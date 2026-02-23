@@ -45,7 +45,7 @@ export const PATCH = withMiddleware(
     const result = await updateRecurringTemplate(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );
 
 export const DELETE = withMiddleware(
@@ -54,5 +54,5 @@ export const DELETE = withMiddleware(
     const result = await deactivateRecurringTemplate(ctx, id);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

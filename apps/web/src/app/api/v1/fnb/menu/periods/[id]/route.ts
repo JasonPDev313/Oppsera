@@ -21,5 +21,5 @@ export const PATCH = withMiddleware(
     const period = await updateMenuPeriod(ctx, periodId, parsed.data);
     return NextResponse.json({ data: period });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' , writeAccess: true },
 );

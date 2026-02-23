@@ -21,5 +21,5 @@ export const POST = withMiddleware(
     const result = await transferStoredValue(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.stored_value.manage' },
+  { entitlement: 'customers', permission: 'customers.stored_value.manage' , writeAccess: true },
 );

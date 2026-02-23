@@ -80,7 +80,11 @@ export class DevAuthAdapter implements AuthAdapter {
     });
 
     if (!user) {
-      throw new AppError('AUTH_SIGNIN_FAILED', `No user found with email: ${normalizedEmail}`, 401);
+      // Constant-time delay to prevent user enumeration via timing attack.
+      // Without this, "user not found" returns faster than "user found" (no
+      // password hash check), leaking whether an email is registered.
+      await new Promise((resolve) => setTimeout(resolve, 80 + Math.random() * 40));
+      throw new AppError('AUTH_SIGNIN_FAILED', 'Invalid email or password', 401);
     }
 
     const accessToken = jwt.sign({ sub: user.id }, DEV_SECRET, {

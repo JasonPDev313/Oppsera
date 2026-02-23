@@ -134,5 +134,5 @@ export const POST = withMiddleware(
       },
     });
   },
-  { permission: PMS_PERMISSIONS.FRONT_DESK_CHECK_IN, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.FRONT_DESK_CHECK_IN, entitlement: 'pms' , writeAccess: true },
 );

@@ -27,5 +27,5 @@ export const POST = withMiddleware(
       { status: result.created ? 201 : 200 },
     );
   },
-  { entitlement: 'platform_core', permission: 'settings.update' },
+  { entitlement: 'platform_core', permission: 'settings.update' , writeAccess: true },
 );

@@ -19,5 +19,5 @@ export const POST = withMiddleware(
     const result = await eightySixItem(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.menu.manage' , writeAccess: true },
 );

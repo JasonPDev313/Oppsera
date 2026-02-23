@@ -46,5 +46,5 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: { success: true } });
   },
-  { permission: 'semantic.query', entitlement: 'semantic' },
+  { permission: 'semantic.query', entitlement: 'semantic' , writeAccess: true },
 );

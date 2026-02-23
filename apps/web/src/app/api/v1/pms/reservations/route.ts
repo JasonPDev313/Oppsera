@@ -44,5 +44,5 @@ export const POST = withMiddleware(
     const result = await createReservation(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { permission: PMS_PERMISSIONS.RESERVATIONS_CREATE, entitlement: 'pms' },
+  { permission: PMS_PERMISSIONS.RESERVATIONS_CREATE, entitlement: 'pms' , writeAccess: true },
 );

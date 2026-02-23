@@ -80,7 +80,7 @@ export function useFnbRooms(): UseFnbRoomsReturn {
   const { data, isLoading, error } = useQuery({
     queryKey: ['fnb-rooms'],
     queryFn: async () => {
-      const json = await apiFetch<{ data: Room[] }>('/api/v1/room-layouts');
+      const json = await apiFetch<{ data: Room[] }>('/api/v1/room-layouts?isActive=true');
       return json.data ?? [];
     },
     staleTime: 60_000,

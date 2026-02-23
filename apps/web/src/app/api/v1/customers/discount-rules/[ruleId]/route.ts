@@ -28,5 +28,5 @@ export const PATCH = withMiddleware(
     const result = await updateDiscountRule(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.discount_rules.manage' },
+  { entitlement: 'customers', permission: 'customers.discount_rules.manage' , writeAccess: true },
 );

@@ -9,13 +9,14 @@ export const POST = withMiddleware(
     const segments = new URL(request.url).pathname.split('/');
     const period = decodeURIComponent(segments[segments.indexOf('close-periods') + 1]!);
 
-    const body = await request.json().catch(() => ({}));
+    let body: Record<string, unknown> = {};
+    try { body = await request.json(); } catch { /* empty body is valid — notes are optional */ }
     const result = await closeAccountingPeriod(ctx, {
       postingPeriod: period,
-      notes: body.notes,
+      notes: body.notes as string | undefined,
     });
 
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'accounting', permission: 'accounting.manage' },
+  { entitlement: 'accounting', permission: 'accounting.manage' , writeAccess: true },
 );

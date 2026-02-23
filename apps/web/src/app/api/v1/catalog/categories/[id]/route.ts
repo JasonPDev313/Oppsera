@@ -56,5 +56,5 @@ export const PATCH = withMiddleware(
 
     return NextResponse.json({ data: updated });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' },
+  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
 );

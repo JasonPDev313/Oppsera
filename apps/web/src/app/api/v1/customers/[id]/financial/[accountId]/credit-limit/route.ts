@@ -25,5 +25,5 @@ export const PATCH = withMiddleware(
     const result = await updateCreditLimit(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'customers', permission: 'customers.financial.manage' },
+  { entitlement: 'customers', permission: 'customers.financial.manage' , writeAccess: true },
 );

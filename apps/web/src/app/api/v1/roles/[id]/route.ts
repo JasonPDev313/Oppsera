@@ -26,7 +26,7 @@ export const GET = withMiddleware(
     const role = await getRoleDetail(ctx.tenantId, roleId);
     return NextResponse.json({ data: role });
   },
-  { permission: 'users.view' },
+  { entitlement: 'platform_core', permission: 'users.view' },
 );
 
 export const PATCH = withMiddleware(
@@ -71,7 +71,7 @@ export const PATCH = withMiddleware(
 
     return NextResponse.json({ data: role });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage', writeAccess: true },
 );
 
 export const DELETE = withMiddleware(
@@ -83,5 +83,5 @@ export const DELETE = withMiddleware(
 
     return new NextResponse(null, { status: 204 });
   },
-  { permission: 'users.manage' },
+  { entitlement: 'platform_core', permission: 'users.manage', writeAccess: true },
 );
