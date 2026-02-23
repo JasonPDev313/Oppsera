@@ -89,18 +89,57 @@ export function useFnbMenu(): UseFnbMenuReturn {
         }),
         apiFetch<{ data: AllergenItem[] }>('/api/v1/fnb/menu/allergens'),
       ]);
-      setItems(catRes.data.items ?? []);
-      setAllCategories([
+      // F&B POS only sells food, beverage, and packages containing F&B items
+      const allItems = catRes.data.items ?? [];
+      const fnbItems = allItems.filter((i) => {
+        if (i.itemType === 'food' || i.itemType === 'beverage') return true;
+        // Include packages that contain at least one F&B component
+        if (i.itemType === 'other' && i.metadata && (i.metadata as Record<string, unknown>).isPackage) {
+          const components = (i.metadata as Record<string, unknown>).packageComponents as
+            Array<{ itemType?: string }> | undefined;
+          if (!components || components.length === 0) return false;
+          return components.some((c) => c.itemType === 'food' || c.itemType === 'beverage');
+        }
+        return false;
+      });
+      setItems(fnbItems);
+
+      // Build set of category IDs that contain at least one F&B item, then filter hierarchy
+      const fnbCategoryIds = new Set(fnbItems.map((i) => i.categoryId));
+      const allCats: FnbMenuCategory[] = [
         ...(catRes.data.departments ?? []),
         ...(catRes.data.subDepartments ?? []),
         ...(catRes.data.categories ?? []),
-      ]);
+      ];
+      // Keep depth-2 categories that have F&B items
+      const activeCatIds = new Set(allCats.filter((c) => c.depth === 2 && fnbCategoryIds.has(c.id)).map((c) => c.id));
+      // Keep depth-1 sub-departments that have at least one active child category
+      const activeSubDeptIds = new Set(allCats.filter((c) => c.depth === 1 && allCats.some((ch) => ch.parentId === c.id && activeCatIds.has(ch.id))).map((c) => c.id));
+      // Also include depth-1 that directly have F&B items (2-level hierarchy)
+      for (const c of allCats) {
+        if (c.depth === 1 && fnbCategoryIds.has(c.id)) activeSubDeptIds.add(c.id);
+      }
+      // Keep depth-0 departments that have active children
+      const activeDeptIds = new Set(allCats.filter((c) => c.depth === 0 && allCats.some((ch) => ch.parentId === c.id && (activeSubDeptIds.has(ch.id) || activeCatIds.has(ch.id)))).map((c) => c.id));
+      // Also include departments that directly have F&B items
+      for (const c of allCats) {
+        if (c.depth === 0 && fnbCategoryIds.has(c.id)) activeDeptIds.add(c.id);
+      }
+
+      const filteredCats = allCats.filter((c) => {
+        if (c.depth === 0) return activeDeptIds.has(c.id);
+        if (c.depth === 1) return activeSubDeptIds.has(c.id);
+        if (c.depth === 2) return activeCatIds.has(c.id);
+        return false;
+      });
+      setAllCategories(filteredCats);
       setAllergens(allergRes.data ?? []);
 
-      // Auto-select first department only once (ref prevents re-fetch loop)
-      if (catRes.data.departments?.length && !initialDeptSetRef.current) {
+      // Auto-select first F&B department only once (ref prevents re-fetch loop)
+      const fnbDepts = filteredCats.filter((c) => c.depth === 0);
+      if (fnbDepts.length > 0 && !initialDeptSetRef.current) {
         initialDeptSetRef.current = true;
-        setActiveDepartment(catRes.data.departments[0]!.id);
+        setActiveDepartment(fnbDepts[0]!.id);
       }
       setError(null);
     } catch (e) {

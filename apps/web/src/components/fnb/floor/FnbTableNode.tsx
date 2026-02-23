@@ -2,13 +2,15 @@
 
 import type { FnbTableWithStatus } from '@/types/fnb';
 import { FNB_TABLE_STATUS_COLORS, FNB_TABLE_STATUS_LABELS } from '@/types/fnb';
-import { Users, Clock } from 'lucide-react';
+import { Users, Clock, Plus } from 'lucide-react';
 
 interface FnbTableNodeProps {
   table: FnbTableWithStatus;
   isSelected: boolean;
   onTap: (tableId: string) => void;
   onLongPress?: (tableId: string) => void;
+  onAddTab?: (tableId: string) => void;
+  onContextMenu?: (tableId: string) => void;
   scalePxPerFt: number;
   viewScale: number;
 }
@@ -35,7 +37,7 @@ function shapeRadius(shape: string): string {
 
 const MIN_TABLE_SIZE = 60;
 
-export function FnbTableNode({ table, isSelected, onTap, onLongPress, scalePxPerFt, viewScale }: FnbTableNodeProps) {
+export function FnbTableNode({ table, isSelected, onTap, onLongPress, onAddTab, onContextMenu, scalePxPerFt, viewScale }: FnbTableNodeProps) {
   const statusColor = FNB_TABLE_STATUS_COLORS[table.status] ?? '#6b7280';
   const statusLabel = FNB_TABLE_STATUS_LABELS[table.status] ?? table.status;
   const elapsed = formatElapsed(table.seatedAt);
@@ -59,9 +61,10 @@ export function FnbTableNode({ table, isSelected, onTap, onLongPress, scalePxPer
       type="button"
       onClick={() => onTap(table.tableId)}
       onPointerDown={handlePointerDown}
+      onContextMenu={(e) => { if (onContextMenu) { e.preventDefault(); onContextMenu(table.tableId); } }}
       className={`
-        absolute flex flex-col items-center justify-center
-        border-2 transition-all overflow-hidden
+        group absolute flex flex-col items-center justify-center
+        border-2 transition-all
         select-none
         ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-[var(--fnb-bg-primary)] scale-105' : ''}
       `}
@@ -120,6 +123,29 @@ export function FnbTableNode({ table, isSelected, onTap, onLongPress, scalePxPer
       {/* Combined indicator */}
       {table.combineGroupId && (
         <span className="absolute top-1 left-1 h-2 w-2 rounded-full bg-amber-500" title="Combined" />
+      )}
+
+      {/* Add tab "+" button — visible on hover/focus */}
+      {onAddTab && (
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(e) => { e.stopPropagation(); onAddTab(table.tableId); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onAddTab(table.tableId); } }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="absolute -bottom-2 -right-2 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shadow-md"
+          style={{
+            width: `${Math.max(20, 24 * viewScale)}px`,
+            height: `${Math.max(20, 24 * viewScale)}px`,
+            backgroundColor: 'var(--fnb-status-available)',
+            color: '#fff',
+            fontSize: `${Math.max(12, 16 * viewScale)}px`,
+            lineHeight: 1,
+          }}
+          title="Add new tab"
+        >
+          <Plus className="h-3 w-3" />
+        </span>
       )}
     </button>
   );

@@ -1,16 +1,235 @@
 'use client';
 
-import { Search } from 'lucide-react';
+import { memo, useCallback } from 'react';
+import { Search, ChevronRight, X } from 'lucide-react';
 import { useFnbMenu } from '@/hooks/use-fnb-menu';
 import { FnbItemTile } from './FnbItemTile';
-import { QuickItemsRow } from './QuickItemsRow';
 
 interface FnbMenuPanelProps {
   onItemTap: (itemId: string, itemName: string, priceCents: number, itemType: string) => void;
 }
 
+// ── Department pill tabs (top-level, rounded-full) ────────────────
+
+const DepartmentPills = memo(function DepartmentPills({
+  departments,
+  selectedId,
+  onSelect,
+}: {
+  departments: Array<{ id: string; name: string }>;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div
+      className="flex gap-1.5 overflow-x-auto px-2 py-2 shrink-0"
+      style={{ scrollbarWidth: 'none' }}
+    >
+      {departments.map((dept) => {
+        const isActive = dept.id === selectedId;
+        return (
+          <button
+            key={dept.id}
+            type="button"
+            onClick={() => onSelect(dept.id)}
+            className={`shrink-0 whitespace-nowrap rounded-full font-semibold transition-all ${
+              isActive ? 'shadow-sm' : 'hover:opacity-80'
+            }`}
+            style={{
+              padding: '8px 16px',
+              fontSize: '13px',
+              backgroundColor: isActive ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
+              color: isActive ? '#fff' : 'var(--fnb-text-secondary)',
+            }}
+          >
+            {dept.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+// ── Sub-department chips (second level, smaller) ───────────────────
+
+const SubDepartmentChips = memo(function SubDepartmentChips({
+  subDepartments,
+  selectedId,
+  onSelect,
+}: {
+  subDepartments: Array<{ id: string; name: string }>;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  if (subDepartments.length === 0) return null;
+
+  return (
+    <div
+      className="flex gap-1 overflow-x-auto px-2 py-1.5 shrink-0 border-b"
+      style={{ borderColor: 'rgba(148, 163, 184, 0.1)', scrollbarWidth: 'none' }}
+    >
+      <button
+        type="button"
+        onClick={() => onSelect(null)}
+        className="shrink-0 rounded-full font-medium transition-all"
+        style={{
+          padding: '5px 12px',
+          fontSize: '11px',
+          backgroundColor: selectedId === null ? 'var(--fnb-status-ordered)' : 'transparent',
+          color: selectedId === null ? '#fff' : 'var(--fnb-text-muted)',
+        }}
+      >
+        All
+      </button>
+      {subDepartments.map((sd) => {
+        const isActive = sd.id === selectedId;
+        return (
+          <button
+            key={sd.id}
+            type="button"
+            onClick={() => onSelect(sd.id)}
+            className="shrink-0 whitespace-nowrap rounded-full font-medium transition-all"
+            style={{
+              padding: '5px 12px',
+              fontSize: '11px',
+              backgroundColor: isActive ? 'var(--fnb-status-ordered)' : 'transparent',
+              color: isActive ? '#fff' : 'var(--fnb-text-muted)',
+            }}
+          >
+            {sd.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+// ── Category rail (vertical sidebar with left-border accent) ──────
+
+const CategorySidebar = memo(function CategorySidebar({
+  categories,
+  selectedId,
+  onSelect,
+}: {
+  categories: Array<{ id: string; name: string }>;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  if (categories.length === 0) return null;
+
+  return (
+    <div
+      className="shrink-0 overflow-y-auto border-r"
+      style={{
+        width: '120px',
+        backgroundColor: 'var(--fnb-bg-primary)',
+        borderColor: 'rgba(148, 163, 184, 0.1)',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onSelect(null)}
+        className="w-full text-left px-3 py-2.5 text-[11px] font-semibold transition-colors border-l-2"
+        style={{
+          borderColor: selectedId === null ? 'var(--fnb-status-seated)' : 'transparent',
+          backgroundColor: selectedId === null ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+          color: selectedId === null ? 'var(--fnb-status-seated)' : 'var(--fnb-text-muted)',
+        }}
+      >
+        All
+      </button>
+      {categories.map((cat) => {
+        const isActive = cat.id === selectedId;
+        return (
+          <button
+            key={cat.id}
+            type="button"
+            onClick={() => onSelect(isActive ? null : cat.id)}
+            className="w-full text-left px-3 py-2.5 text-[11px] font-semibold transition-colors border-l-2 leading-tight"
+            style={{
+              borderColor: isActive ? 'var(--fnb-status-seated)' : 'transparent',
+              backgroundColor: isActive ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+              color: isActive ? 'var(--fnb-status-seated)' : 'var(--fnb-text-muted)',
+            }}
+          >
+            {cat.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+// ── Breadcrumb (contextual navigation) ─────────────────────────────
+
+const MenuBreadcrumb = memo(function MenuBreadcrumb({
+  segments,
+  onNavigate,
+}: {
+  segments: Array<{ level: string; name: string }>;
+  onNavigate: (level: string) => void;
+}) {
+  if (segments.length <= 1) return null;
+
+  return (
+    <nav className="flex items-center gap-1 px-2 py-1 text-[10px] shrink-0" aria-label="Menu breadcrumb">
+      {segments.map((seg, i) => {
+        const isLast = i === segments.length - 1;
+        return (
+          <span key={seg.level} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--fnb-text-muted)' }} />}
+            {isLast ? (
+              <span className="font-semibold" style={{ color: 'var(--fnb-text-primary)' }}>{seg.name}</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onNavigate(seg.level)}
+                className="transition-colors hover:opacity-80"
+                style={{ color: 'var(--fnb-text-muted)' }}
+              >
+                {seg.name}
+              </button>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+});
+
+// ── Main Menu Panel ────────────────────────────────────────────────
+
 export function FnbMenuPanel({ onItemTap }: FnbMenuPanelProps) {
   const menu = useFnbMenu();
+
+  // Build breadcrumb segments
+  const breadcrumbSegments: Array<{ level: string; name: string }> = [];
+  if (menu.activeDepartmentId) {
+    const dept = menu.departments.find((d) => d.id === menu.activeDepartmentId);
+    if (dept) breadcrumbSegments.push({ level: 'department', name: dept.name });
+  }
+  if (menu.activeSubDepartmentId) {
+    const sd = menu.subDepartments.find((d) => d.id === menu.activeSubDepartmentId);
+    if (sd) breadcrumbSegments.push({ level: 'subDepartment', name: sd.name });
+  }
+  if (menu.activeCategoryId) {
+    const cat = menu.categories.find((c) => c.id === menu.activeCategoryId);
+    if (cat) breadcrumbSegments.push({ level: 'category', name: cat.name });
+  }
+
+  const handleBreadcrumbNavigate = useCallback((level: string) => {
+    if (level === 'department') {
+      menu.setActiveSubDepartment(null);
+      menu.setActiveCategory(null);
+    } else if (level === 'subDepartment') {
+      menu.setActiveCategory(null);
+    }
+  }, [menu]);
+
+  const handleItemTap = useCallback((id: string) => {
+    const item = menu.items.find((i) => i.id === id);
+    if (item) onItemTap(item.id, item.name, item.unitPriceCents, item.itemType);
+  }, [menu.items, onItemTap]);
 
   return (
     <div className="flex flex-col h-full" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
@@ -20,139 +239,97 @@ export function FnbMenuPanel({ onItemTap }: FnbMenuPanelProps) {
           className="flex items-center gap-2 rounded-lg px-3 py-2"
           style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
         >
-          <Search className="h-3.5 w-3.5" style={{ color: 'var(--fnb-text-muted)' }} />
+          <Search className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--fnb-text-muted)' }} />
           <input
             type="text"
             value={menu.searchQuery}
             onChange={(e) => menu.setSearchQuery(e.target.value)}
-            placeholder="Search items..."
+            placeholder="Search menu..."
             className="flex-1 bg-transparent text-xs outline-none"
             style={{ color: 'var(--fnb-text-primary)' }}
           />
-        </div>
-      </div>
-
-      {/* Department tabs */}
-      <div className="flex gap-1 px-2 py-1.5 overflow-x-auto border-b shrink-0" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
-        {menu.departments.map((dept) => {
-          const isActive = dept.id === menu.activeDepartmentId;
-          return (
+          {menu.searchQuery && (
             <button
-              key={dept.id}
               type="button"
-              onClick={() => {
-                menu.setActiveDepartment(dept.id);
-                menu.setActiveSubDepartment(null);
-                menu.setActiveCategory(null);
-              }}
-              className={`rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors shrink-0 ${
-                isActive ? 'text-white' : 'hover:opacity-80'
-              }`}
-              style={{
-                backgroundColor: isActive ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-                color: isActive ? '#fff' : 'var(--fnb-text-secondary)',
-              }}
+              onClick={() => menu.setSearchQuery('')}
+              className="shrink-0 transition-opacity hover:opacity-70"
             >
-              {dept.name}
+              <X className="h-3.5 w-3.5" style={{ color: 'var(--fnb-text-muted)' }} />
             </button>
-          );
-        })}
+          )}
+        </div>
       </div>
 
-      {/* Sub-department tabs */}
-      {menu.subDepartments.length > 0 && (
-        <div className="flex gap-1 px-2 py-1 overflow-x-auto border-b shrink-0" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
-          <button
-            type="button"
-            onClick={() => { menu.setActiveSubDepartment(null); menu.setActiveCategory(null); }}
-            className="rounded px-2.5 py-1.5 text-[10px] font-semibold whitespace-nowrap transition-colors shrink-0"
-            style={{
-              backgroundColor: !menu.activeSubDepartmentId ? 'var(--fnb-status-ordered)' : 'transparent',
-              color: !menu.activeSubDepartmentId ? '#fff' : 'var(--fnb-text-muted)',
-            }}
-          >
-            All
-          </button>
-          {menu.subDepartments.map((sd) => {
-            const isActive = sd.id === menu.activeSubDepartmentId;
-            return (
-              <button
-                key={sd.id}
-                type="button"
-                onClick={() => { menu.setActiveSubDepartment(sd.id); menu.setActiveCategory(null); }}
-                className="rounded px-2.5 py-1.5 text-[10px] font-semibold whitespace-nowrap transition-colors shrink-0"
-                style={{
-                  backgroundColor: isActive ? 'var(--fnb-status-ordered)' : 'transparent',
-                  color: isActive ? '#fff' : 'var(--fnb-text-muted)',
-                }}
-              >
-                {sd.name}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Department pills */}
+      <div className="border-b" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
+        <DepartmentPills
+          departments={menu.departments}
+          selectedId={menu.activeDepartmentId}
+          onSelect={(id) => {
+            menu.setActiveDepartment(id);
+            menu.setActiveSubDepartment(null);
+            menu.setActiveCategory(null);
+          }}
+        />
+      </div>
 
-      {/* Category rail */}
-      {menu.categories.length > 0 && (
-        <div className="flex gap-1 px-2 py-1 overflow-x-auto border-b shrink-0" style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}>
-          {menu.categories.map((cat) => {
-            const isActive = cat.id === menu.activeCategoryId;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => menu.setActiveCategory(isActive ? null : cat.id)}
-                className="rounded px-2.5 py-1 text-[10px] font-medium whitespace-nowrap transition-colors shrink-0"
-                style={{
-                  backgroundColor: isActive ? 'var(--fnb-bg-elevated)' : 'transparent',
-                  color: isActive ? 'var(--fnb-text-primary)' : 'var(--fnb-text-muted)',
-                }}
-              >
-                {cat.name}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Quick items row */}
-      <QuickItemsRow
-        items={menu.filteredItems.slice(0, 8).map((i) => ({ id: i.id, name: i.name, priceCents: i.unitPriceCents }))}
-        onTap={(id) => {
-          const item = menu.items.find((i) => i.id === id);
-          if (item) onItemTap(item.id, item.name, item.unitPriceCents, item.itemType);
+      {/* Sub-department chips */}
+      <SubDepartmentChips
+        subDepartments={menu.subDepartments}
+        selectedId={menu.activeSubDepartmentId}
+        onSelect={(id) => {
+          menu.setActiveSubDepartment(id);
+          menu.setActiveCategory(null);
         }}
       />
 
-      {/* Item grid */}
-      <div className="flex-1 overflow-y-auto p-2">
-        {menu.isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>Loading menu...</p>
-          </div>
-        ) : menu.filteredItems.length === 0 ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
-              {menu.searchQuery ? 'No items match search' : 'No items in this category'}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-            {menu.filteredItems.map((item) => (
-              <FnbItemTile
-                key={item.id}
-                name={item.name}
-                priceCents={item.unitPriceCents}
-                is86d={item.is86d}
-                allergenIcons={item.allergenIds
-                  .map((aid) => menu.allergens.find((a) => a.id === aid)?.icon)
-                  .filter(Boolean) as string[]}
-                onTap={() => onItemTap(item.id, item.name, item.unitPriceCents, item.itemType)}
-              />
-            ))}
-          </div>
-        )}
+      {/* Breadcrumb */}
+      <MenuBreadcrumb segments={breadcrumbSegments} onNavigate={handleBreadcrumbNavigate} />
+
+      {/* Category sidebar + Item grid (horizontal split) */}
+      <div className="flex-1 flex min-h-0">
+        {/* Category vertical rail */}
+        <CategorySidebar
+          categories={menu.categories}
+          selectedId={menu.activeCategoryId}
+          onSelect={menu.setActiveCategory}
+        />
+
+        {/* Item grid */}
+        <div className="flex-1 overflow-y-auto p-2">
+          {menu.isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div
+                  className="h-6 w-6 mx-auto mb-2 animate-spin rounded-full border-2 border-t-transparent"
+                  style={{ borderColor: 'var(--fnb-status-seated)', borderTopColor: 'transparent' }}
+                />
+                <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>Loading menu...</p>
+              </div>
+            </div>
+          ) : menu.filteredItems.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
+                {menu.searchQuery ? 'No items match search' : 'No items in this category'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {menu.filteredItems.map((item) => (
+                <FnbItemTile
+                  key={item.id}
+                  name={item.name}
+                  priceCents={item.unitPriceCents}
+                  is86d={item.is86d}
+                  allergenIcons={item.allergenIds
+                    .map((aid) => menu.allergens.find((a) => a.id === aid)?.icon)
+                    .filter(Boolean) as string[]}
+                  onTap={() => handleItemTap(item.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

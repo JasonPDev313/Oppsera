@@ -247,6 +247,21 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     setSelectedTableId(null);
   }, [store]);
 
+  const handleAddTab = useCallback((tableId: string) => {
+    const table = tables.find((t) => t.tableId === tableId);
+    if (!table) return;
+    setSeatTargetTable(table);
+    setSeatModalOpen(true);
+  }, [tables]);
+
+  const handleTableContextMenu = useCallback((tableId: string) => {
+    const table = tables.find((t) => t.tableId === tableId);
+    if (!table) return;
+    setSelectedTableId(tableId);
+    setActionMenuTable(table);
+    setActionMenuOpen(true);
+  }, [tables]);
+
   const handleNewTab = useCallback(() => {
     // For now, open seat modal for first available table
     const available = tables.find((t) => t.status === 'available');
@@ -444,6 +459,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               selectedTableId={selectedTableId}
               onTap={handleTableTap}
               onLongPress={handleTableLongPress}
+              onAddTab={handleAddTab}
+              onContextMenu={handleTableContextMenu}
             />
           ) : (
             <div className="p-4 relative h-full">
@@ -510,6 +527,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                       isSelected={table.tableId === selectedTableId}
                       onTap={handleTableTap}
                       onLongPress={handleTableLongPress}
+                      onAddTab={handleAddTab}
+                      onContextMenu={handleTableContextMenu}
                       scalePxPerFt={scalePxPerFt}
                       viewScale={effectiveScale}
                     />
@@ -556,6 +575,12 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
         onClose={() => setActionMenuOpen(false)}
         table={actionMenuTable}
         onSeat={() => {
+          if (actionMenuTable) {
+            setSeatTargetTable(actionMenuTable);
+            setSeatModalOpen(true);
+          }
+        }}
+        onAddTab={() => {
           if (actionMenuTable) {
             setSeatTargetTable(actionMenuTable);
             setSeatModalOpen(true);

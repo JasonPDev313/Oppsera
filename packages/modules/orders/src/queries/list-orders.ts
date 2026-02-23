@@ -4,7 +4,7 @@ import { orders, customers, tenders } from '@oppsera/db';
 
 export interface ListOrdersInput {
   tenantId: string;
-  locationId: string;
+  locationId?: string;
   cursor?: string;
   limit?: number;
   status?: string;
@@ -37,8 +37,11 @@ export async function listOrders(input: ListOrdersInput): Promise<ListOrdersResu
   return withTenant(input.tenantId, async (tx) => {
     const conditions = [
       eq(orders.tenantId, input.tenantId),
-      eq(orders.locationId, input.locationId),
     ];
+
+    if (input.locationId) {
+      conditions.push(eq(orders.locationId, input.locationId));
+    }
 
     if (input.cursor) {
       conditions.push(lt(orders.id, input.cursor));
