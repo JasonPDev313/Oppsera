@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { getEventBus } from '@oppsera/core/events';
-import type { InMemoryEventBus } from '@oppsera/core/events';
+import { retryDeadLetter, resolveDeadLetter, discardDeadLetter, getEventBus } from '@oppsera/core/events';
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -24,29 +23,27 @@ export const POST = withMiddleware(
       );
     }
 
-    const bus = getEventBus() as InMemoryEventBus;
-    const dlq = typeof bus.getDeadLetterQueue === 'function'
-      ? bus.getDeadLetterQueue()
-      : [];
-
-    const entry = dlq.find((e) => e.event.eventId === eventId);
-    if (!entry) {
-      return NextResponse.json(
-        { error: { code: 'NOT_FOUND', message: 'Event not found in dead letter queue' } },
-        { status: 404 },
-      );
-    }
+    const body = await request.json().catch(() => ({}));
+    const action = (body as { action?: string }).action ?? 'retry';
 
     try {
-      await bus.publish(entry.event);
-
-      // Remove from DLQ on successful retry
-      const currentDlq = bus.getDeadLetterQueue();
-      const idx = currentDlq.findIndex((e) => e.event.eventId === eventId);
-      if (idx >= 0) {
-        currentDlq.splice(idx, 1);
+      if (action === 'resolve') {
+        await resolveDeadLetter(eventId, ctx.user.id, (body as { notes?: string }).notes);
+        return NextResponse.json({
+          data: { message: 'Dead letter resolved', eventId },
+        });
       }
 
+      if (action === 'discard') {
+        await discardDeadLetter(eventId, ctx.user.id, (body as { notes?: string }).notes);
+        return NextResponse.json({
+          data: { message: 'Dead letter discarded', eventId },
+        });
+      }
+
+      // Default: retry — needs the event bus to re-publish
+      const bus = getEventBus();
+      await retryDeadLetter(eventId, bus);
       return NextResponse.json({
         data: { message: 'Event retried successfully', eventId },
       });
@@ -55,7 +52,7 @@ export const POST = withMiddleware(
         {
           error: {
             code: 'RETRY_FAILED',
-            message: error instanceof Error ? error.message : 'Retry failed',
+            message: error instanceof Error ? error.message : 'Operation failed',
           },
         },
         { status: 500 },
