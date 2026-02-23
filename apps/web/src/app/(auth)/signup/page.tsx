@@ -23,7 +23,6 @@ export default function SignupPage() {
     if (searchParams.get('fresh') === '1') {
       auth.logout();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
