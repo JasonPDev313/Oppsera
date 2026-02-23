@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, X, Clock, AlertTriangle, DollarSign } from 'lucide-react';
+import { Check, Clock, DollarSign } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { useBreakageReview, useBreakageMutations } from '@/hooks/use-breakage-review';
 import { useToast } from '@/components/ui/toast';

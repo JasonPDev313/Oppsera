@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   Mail, Phone, MapPin, ShieldAlert, Star, CheckCircle,
-  MessageSquare, FileText, Megaphone, Plus, Pencil, Trash2, X,
+  MessageSquare, FileText, Megaphone, Plus, Pencil, Trash2,
   User,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';

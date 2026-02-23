@@ -6,7 +6,6 @@ import {
   CreditCard,
   AlertTriangle,
   ArrowRightLeft,
-  Shield,
   Clock,
   Filter,
   ChevronDown,
@@ -880,7 +879,7 @@ function AdjustmentForm({
 function AuditLogSection({ customerId }: { customerId: string }) {
   const [expanded, setExpanded] = useState(false);
   const [auditCursor, setAuditCursor] = useState<string | undefined>(undefined);
-  const { data, isLoading, mutate } = useFinancialAuditTrail(
+  const { data, isLoading } = useFinancialAuditTrail(
     expanded ? customerId : null,
     auditCursor,
   );

@@ -143,7 +143,7 @@ function ContractCard({
   accountId: string;
   onRefresh: () => void;
 }) {
-  const { billInstallment, recordExtraPrincipal, cancelContract, isLoading: mutating } =
+  const { recordExtraPrincipal, cancelContract, isLoading: mutating } =
     useInitiationMutations();
   const [showExtraPayment, setShowExtraPayment] = useState(false);
   const [extraAmount, setExtraAmount] = useState('');

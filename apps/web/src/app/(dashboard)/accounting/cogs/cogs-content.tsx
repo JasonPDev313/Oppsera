@@ -15,7 +15,7 @@ import {
   COGS_MODE_CONFIG,
   COGS_METHOD_CONFIG,
 } from '@/types/accounting';
-import type { PeriodicCogsCalculation, CogsPostingMode, CogsCalculationMethod } from '@/types/accounting';
+import type { CogsPostingMode, CogsCalculationMethod } from '@/types/accounting';
 
 function getDefaultPeriod(): { start: string; end: string } {
   const now = new Date();

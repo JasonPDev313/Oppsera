@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { CreditCard, Upload, Plus, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { CreditCard, Upload, Plus, ArrowRight } from 'lucide-react';
 import { useSettlements, useSettlementMutations } from '@/hooks/use-settlements';
 import { formatAccountingMoney, SETTLEMENT_STATUS_CONFIG } from '@/types/accounting';
 import type { Settlement } from '@/types/accounting';
@@ -257,7 +257,7 @@ function SettlementRow({
   );
 }
 
-function StatusBadge({ status, config }: { status: string; config: { label: string; variant: string } }) {
+function StatusBadge({ status: _status, config }: { status: string; config: { label: string; variant: string } }) {
   const colors: Record<string, string> = {
     warning: 'bg-amber-50 text-amber-700 border-amber-200',
     info: 'bg-blue-50 text-blue-700 border-blue-200',

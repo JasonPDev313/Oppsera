@@ -6,7 +6,6 @@ import {
   updateCustomerNote,
   updateCustomerNoteSchema,
   removeCustomerNote,
-  removeCustomerNoteSchema,
 } from '@oppsera/module-customers';
 
 function extractNoteId(request: NextRequest): string {

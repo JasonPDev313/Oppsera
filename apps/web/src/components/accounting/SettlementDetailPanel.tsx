@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle, XCircle, FileCheck, AlertTriangle } from 'lucide-react';
-import { useSettlement, useSettlementMutations, useUnmatchedTenders } from '@/hooks/use-settlements';
+import { useSettlement, useSettlementMutations } from '@/hooks/use-settlements';
 import { formatAccountingMoney, SETTLEMENT_STATUS_CONFIG } from '@/types/accounting';
 import type { SettlementLine } from '@/types/accounting';
 
@@ -19,7 +19,7 @@ export function SettlementDetailPanel({
   onRefresh,
 }: SettlementDetailPanelProps) {
   const { data: settlement, isLoading, refetch } = useSettlement(settlementId);
-  const { postSettlement, voidSettlement, matchTenders } = useSettlementMutations();
+  const { postSettlement, voidSettlement } = useSettlementMutations();
   const [showVoidDialog, setShowVoidDialog] = useState(false);
   const [voidReason, setVoidReason] = useState('');
   const [actionError, setActionError] = useState('');
@@ -52,9 +52,6 @@ export function SettlementDetailPanel({
       setActionError(err instanceof Error ? err.message : 'Void failed');
     }
   }, [settlementId, voidReason, voidSettlement, refetch, onRefresh]);
-
-  const unmatchedLines = settlement?.lines.filter((l) => l.status === 'unmatched') ?? [];
-  const matchedLines = settlement?.lines.filter((l) => l.status === 'matched') ?? [];
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">

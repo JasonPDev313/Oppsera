@@ -6,7 +6,6 @@ import {
   Gift,
   Plus,
   RefreshCw,
-  ArrowRightLeft,
   Ban,
   ChevronDown,
   ChevronUp,
@@ -25,7 +24,6 @@ import {
 } from '@/hooks/use-customer-360';
 import type {
   StoredValueInstrumentEntry,
-  StoredValueTransactionEntry,
 } from '@/types/customer-360';
 
 // ── Helpers ─────────────────────────────────────────────────────

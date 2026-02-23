@@ -9,11 +9,6 @@ import {
   AlertTriangle,
   Plus,
   Trash2,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Lock,
-  Eye,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
@@ -132,12 +127,12 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
   // Preferences state
   const [preferences, setPreferences] = useState<Record<string, CustomerPreference[]> | null>(null);
   const [prefsLoading, setPrefsLoading] = useState(true);
-  const [prefsError, setPrefsError] = useState<Error | null>(null);
+  const [, setPrefsError] = useState<Error | null>(null);
 
   // Compliance (flags + consents) state
   const [compliance, setCompliance] = useState<ComplianceData | null>(null);
   const [complianceLoading, setComplianceLoading] = useState(true);
-  const [complianceError, setComplianceError] = useState<Error | null>(null);
+  const [, setComplianceError] = useState<Error | null>(null);
 
   // Add preference form state
   const [showAddPref, setShowAddPref] = useState(false);

@@ -24,7 +24,7 @@ function extractAccountId(request: NextRequest): string {
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const customerId = extractCustomerId(request);
-    const accountId = extractAccountId(request);
+    // accountId is available via extractAccountId(request) but we return full summary
     const summary = await getFinancialAccountsSummary({
       tenantId: ctx.tenantId,
       customerId,

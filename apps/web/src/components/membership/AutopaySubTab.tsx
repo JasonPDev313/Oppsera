@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { CreditCard, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { useAutopayProfile, useCollectionsTimeline } from '@/hooks/use-membership';
 import { apiFetch } from '@/lib/api-client';
-import type { AutopayProfile } from '@/types/membership';
 
 interface AutopaySubTabProps {
   accountId: string;

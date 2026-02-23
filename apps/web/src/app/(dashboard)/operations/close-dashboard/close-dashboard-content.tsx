@@ -4,12 +4,10 @@ import { useState } from 'react';
 import {
   CheckCircle,
   XCircle,
-  Clock,
   Banknote,
   Monitor,
   UtensilsCrossed,
   Plus,
-  ChevronRight,
   ArrowUpRight,
   RefreshCw,
 } from 'lucide-react';
@@ -153,8 +151,8 @@ function DepositSlipList({
 // ── Create Deposit Dialog ────────────────────────────────────
 
 function CreateDepositForm({
-  locationId,
-  businessDate,
+  locationId: _locationId,
+  businessDate: _businessDate,
   onSubmit,
   isSubmitting,
   onCancel,

@@ -8,7 +8,6 @@ import {
   Mail,
   Phone,
   DollarSign,
-  CreditCard,
   MessageSquare,
   FileText,
   Plus,
@@ -75,16 +74,6 @@ const MembershipTab = dynamic(
   () => import('@/components/customer-360/MembershipTab'),
   { loading: () => <TabSkeleton /> },
 );
-
-// Placeholder tabs — render skeleton until future sessions implement them
-function PlaceholderTab({ label }: { label: string }) {
-  return (
-    <div className="flex h-64 flex-col items-center justify-center gap-2 text-gray-400">
-      <Settings className="h-8 w-8 animate-pulse" />
-      <p className="text-sm">{label} — coming soon</p>
-    </div>
-  );
-}
 
 function TabSkeleton() {
   return (

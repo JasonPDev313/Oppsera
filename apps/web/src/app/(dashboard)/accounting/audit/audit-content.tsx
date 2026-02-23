@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import {
   Search,
-  Filter,
   ChevronDown,
   ChevronRight,
   ShieldCheck,

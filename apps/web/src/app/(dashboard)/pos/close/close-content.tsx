@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useEffect, useCallback } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -16,7 +15,6 @@ import { usePOSConfig } from '@/hooks/use-pos-config';
 import { useShift } from '@/hooks/use-shift';
 import { useRetailClose } from '@/hooks/use-retail-close';
 import { useToast } from '@/components/ui/toast';
-import { CurrencyInput } from '@/components/ui/currency-input';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { RetailCloseBatch, TenderBreakdownEntry, DepartmentSalesEntry } from '@oppsera/core/retail-close';
 

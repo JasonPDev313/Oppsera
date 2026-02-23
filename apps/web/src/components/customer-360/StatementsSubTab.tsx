@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronRight,
   Loader2,
-  Download,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useMembershipStatements, useStatementDetail } from '@/hooks/use-membership';

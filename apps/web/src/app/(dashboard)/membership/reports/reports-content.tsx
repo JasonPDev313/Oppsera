@@ -1,9 +1,8 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Target,
-  TrendingUp,
   AlertTriangle,
   CheckCircle,
   XCircle,

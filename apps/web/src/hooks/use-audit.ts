@@ -85,9 +85,6 @@ export function usePaginatedAuditTrail(baseFilters: Omit<AuditTrailFilters, 'cur
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
 
-  const currentFilters: AuditTrailFilters = { ...baseFilters, cursor: cursor ?? undefined };
-  const qs = buildQueryString(currentFilters);
-
   const query = useQuery({
     queryKey: ['audit-trail-paginated', baseFilters],
     queryFn: async () => {

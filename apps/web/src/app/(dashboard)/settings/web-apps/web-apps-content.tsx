@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Globe, Copy, ExternalLink, Check, Users, CalendarDays, ShoppingBag } from 'lucide-react';
+import { Copy, ExternalLink, Check, Users, CalendarDays, ShoppingBag } from 'lucide-react';
+import type { Globe } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 
 interface WebApp {

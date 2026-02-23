@@ -87,7 +87,7 @@ function serverToShift(s: ServerDrawerSession): Shift {
 // ── Hook ───────────────────────────────────────────────────────────
 
 export function useShift(locationId: string, terminalId: string) {
-  const { user } = useAuthContext();
+  useAuthContext();
   const { toast } = useToast();
 
   const [currentShift, setCurrentShift] = useState<Shift | null>(null);

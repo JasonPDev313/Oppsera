@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getMembershipPortfolioReport } from '@oppsera/module-membership';
 

@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import {
   Shield,
   Wallet,
   Tag,
   CheckCircle,
   XCircle,
-  Clock,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
@@ -22,7 +21,6 @@ import {
 import type {
   PrivilegeExtendedEntry,
   ApplicableDiscountRule,
-  StoredValueByType,
 } from '@/types/customer-360';
 
 // ── Helpers ─────────────────────────────────────────────────────

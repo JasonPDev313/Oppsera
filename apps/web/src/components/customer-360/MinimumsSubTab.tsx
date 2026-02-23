@@ -6,7 +6,6 @@ import {
   TrendingUp,
   ArrowRightLeft,
   AlertCircle,
-  CheckCircle,
   Clock,
   RefreshCw,
   History,
