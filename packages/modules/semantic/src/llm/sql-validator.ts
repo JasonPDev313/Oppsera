@@ -112,10 +112,11 @@ export function validateGeneratedSql(
   }
 
   // 12. Table whitelist check
-  // Extract table names from FROM and JOIN clauses
+  // Extract table names from FROM and JOIN clauses, excluding CTE aliases
   const tableRefs = extractTableReferences(sanitized);
+  const cteAliases = extractCteAliases(sanitized);
   for (const table of tableRefs) {
-    if (!allowedTables.has(table)) {
+    if (!allowedTables.has(table) && !cteAliases.has(table)) {
       errors.push(`Table "${table}" is not in the allowed schema catalog`);
     }
   }
@@ -159,6 +160,26 @@ function extractTableReferences(sql: string): string[] {
   // Already covered by the above patterns since we search the full SQL
 
   return Array.from(tables);
+}
+
+// ── CTE alias extraction ─────────────────────────────────────────
+// Extracts CTE alias names from WITH ... AS (...) patterns.
+// These are not real table references and should be excluded from the whitelist.
+
+function extractCteAliases(sql: string): Set<string> {
+  const aliases = new Set<string>();
+  // Match: WITH alias AS (...), alias2 AS (...)
+  // Also handles: WITH RECURSIVE alias AS (...)
+  const cteMatches = sql.matchAll(/\bWITH\s+(?:RECURSIVE\s+)?([a-z_][a-z0-9_]*)\s+AS\s*\(/gi);
+  for (const m of cteMatches) {
+    aliases.add(m[1]!.toLowerCase());
+  }
+  // Match subsequent CTEs after comma: , alias AS (
+  const subsequentCteMatches = sql.matchAll(/,\s*([a-z_][a-z0-9_]*)\s+AS\s*\(/gi);
+  for (const m of subsequentCteMatches) {
+    aliases.add(m[1]!.toLowerCase());
+  }
+  return aliases;
 }
 
 // ── Exports for testing ──────────────────────────────────────────
