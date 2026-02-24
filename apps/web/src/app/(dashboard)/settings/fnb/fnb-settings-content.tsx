@@ -181,7 +181,7 @@ export default function FnbSettingsContent() {
   const { locations } = useAuthContext();
   const locationId = locations[0]?.id;
 
-  const { settings, isLoading, isActing, updateSettings: _updateSettings, updateSetting } = useFnbSettings({
+  const { settings, isLoading, isActing, updateSetting } = useFnbSettings({
     moduleKey: 'fnb_ordering',
     locationId,
   });

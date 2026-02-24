@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Star,
   Plus,
   Search,
   Award,
-  Gift,
   X,
   Loader2,
   ChevronDown,

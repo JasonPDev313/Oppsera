@@ -6,7 +6,7 @@ import { MappingStep } from '@/components/import/staff/MappingStep';
 import { ValueMappingStep } from '@/components/import/staff/ValueMappingStep';
 import { PreviewStep } from '@/components/import/staff/PreviewStep';
 import { ResultsStep } from '@/components/import/staff/ResultsStep';
-import { Upload, Columns3, GitMerge, Eye, Loader2, CheckCircle2 } from 'lucide-react';
+import { Upload, Columns3, GitMerge, Eye, CheckCircle2 } from 'lucide-react';
 
 const STEPS = [
   { key: 'upload', label: 'Upload', icon: Upload },

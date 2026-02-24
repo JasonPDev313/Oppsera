@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { Users, Plus, X, Loader2, Search, Calendar } from 'lucide-react';
+import { Users, Plus, X, Loader2, Calendar } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Badge } from '@/components/ui/badge';
@@ -73,10 +73,6 @@ const STATUS_BADGES: Record<string, { label: string; variant: string }> = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-}
 
 function formatGroupType(type: string): string {
   const match = GROUP_TYPE_OPTIONS.find((o) => o.value === type);

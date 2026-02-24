@@ -10,6 +10,11 @@ const {
   mockGetLens,
   mockRecordTurn,
   mockValidatePlan,
+  mockBuildSchemaCatalog,
+  mockGenerateSql,
+  mockValidateGeneratedSql,
+  mockExecuteSqlQuery,
+  mockRetrySqlGeneration,
 } = vi.hoisted(() => ({
   mockLLMComplete: vi.fn(),
   mockCompilePlan: vi.fn(),
@@ -18,6 +23,11 @@ const {
   mockGetLens: vi.fn(),
   mockRecordTurn: vi.fn(),
   mockValidatePlan: vi.fn(),
+  mockBuildSchemaCatalog: vi.fn(),
+  mockGenerateSql: vi.fn(),
+  mockValidateGeneratedSql: vi.fn(),
+  mockExecuteSqlQuery: vi.fn(),
+  mockRetrySqlGeneration: vi.fn(),
 }));
 
 vi.mock('../executor', () => ({
@@ -66,6 +76,26 @@ vi.mock('../../cache/query-cache', () => ({
 
 vi.mock('../../observability/metrics', () => ({
   recordSemanticRequest: vi.fn(),
+}));
+
+vi.mock('../../schema/schema-catalog', () => ({
+  buildSchemaCatalog: mockBuildSchemaCatalog,
+}));
+
+vi.mock('../sql-generator', () => ({
+  generateSql: mockGenerateSql,
+}));
+
+vi.mock('../sql-validator', () => ({
+  validateGeneratedSql: mockValidateGeneratedSql,
+}));
+
+vi.mock('../sql-executor', () => ({
+  executeSqlQuery: mockExecuteSqlQuery,
+}));
+
+vi.mock('../sql-retry', () => ({
+  retrySqlGeneration: mockRetrySqlGeneration,
 }));
 
 // ── Imports ───────────────────────────────────────────────────────
@@ -606,6 +636,7 @@ describe('buildEmptyResultNarrative', () => {
 
 function setupHappyPathMocks() {
   mockBuildRegistryCatalog.mockResolvedValue(mockCatalog);
+  mockBuildSchemaCatalog.mockRejectedValue(new Error('DATABASE_URL is required'));
   mockGetLens.mockResolvedValue(null);
   mockRecordTurn.mockResolvedValue('turn_id_123');
   mockValidatePlan.mockResolvedValue({
@@ -794,6 +825,207 @@ describe('runPipeline — happy path', () => {
 
     // buildRegistryCatalog should be called with the lens domain
     expect(mockBuildRegistryCatalog).toHaveBeenCalledWith('golf');
+  });
+});
+
+// ── Tests: Mode A → Mode B fallback ─────────────────────────────
+
+describe('runPipeline — Mode A to Mode B fallback', () => {
+  const mockSchemaCatalog = {
+    tables: [{ name: 'orders', columns: ['id', 'tenant_id', 'subtotal_cents', 'status', 'business_date'] }],
+    tableNames: new Set(['orders', 'tenders', 'customers', 'users']),
+    summaryText: 'orders(id, tenant_id, subtotal_cents, status, business_date)',
+    fullText: 'Table: orders\n  id TEXT\n  tenant_id TEXT\n  subtotal_cents INTEGER\n  status TEXT\n  business_date TEXT',
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupHappyPathMocks();
+    // Override schema catalog to return a valid schema (enables SQL fallback)
+    mockBuildSchemaCatalog.mockResolvedValue(mockSchemaCatalog);
+  });
+
+  it('falls back to SQL mode when metrics mode returns 0 rows', async () => {
+    const SQL_NARRATIVE = '## Answer\nYou had **42 orders** last week totalling **$3,200**.\n\n### Quick Wins\n- Review peak hours';
+    const adapter: LLMAdapter = {
+      provider: 'mock',
+      model: 'mock-model',
+      // Call 1: intent resolution → returns metrics plan
+      // Call 2: SQL generation (fallback) → returns SQL JSON
+      // Call 3: narrative generation → returns narrative
+      complete: mockLLMComplete
+        .mockResolvedValueOnce(makeLLMResponse(VALID_PLAN_JSON))
+        .mockResolvedValueOnce(makeLLMResponse(JSON.stringify({
+          sql: "SELECT count(*) as total_orders, SUM(subtotal_cents) / 100.0 as revenue FROM orders WHERE tenant_id = $1 AND status IN ('placed','paid')",
+          explanation: 'Count orders and sum revenue',
+          confidence: 0.95,
+        })))
+        .mockResolvedValueOnce(makeLLMResponse(SQL_NARRATIVE)),
+    };
+    setLLMAdapter(adapter);
+
+    // Metrics mode returns 0 rows
+    mockExecuteCompiledQuery.mockResolvedValueOnce({
+      rows: [],
+      rowCount: 0,
+      executionTimeMs: 5,
+      truncated: false,
+    });
+
+    // SQL generation mock
+    mockGenerateSql.mockResolvedValueOnce({
+      sql: "SELECT count(*) as total_orders FROM orders WHERE tenant_id = $1 AND status IN ('placed','paid')",
+      explanation: 'Count orders',
+      confidence: 0.95,
+      tokensInput: 500,
+      tokensOutput: 100,
+      latencyMs: 300,
+      provider: 'mock',
+      model: 'mock-model',
+    });
+
+    // SQL validation passes
+    mockValidateGeneratedSql.mockReturnValueOnce({
+      valid: true,
+      errors: [],
+      sanitizedSql: "SELECT count(*) as total_orders FROM orders WHERE tenant_id = $1 AND status IN ('placed','paid')",
+    });
+
+    // SQL execution returns actual data
+    mockExecuteSqlQuery.mockResolvedValueOnce({
+      rows: [{ total_orders: 42 }],
+      rowCount: 1,
+      executionTimeMs: 15,
+      truncated: false,
+    });
+
+    const result = await runPipeline({
+      message: 'how many orders last week',
+      context: mockContext,
+    });
+
+    // Should use SQL mode result since it found data
+    expect(result.mode).toBe('sql');
+    expect(result.data).not.toBeNull();
+    expect(result.data!.rowCount).toBe(1);
+    expect(result.data!.rows[0]).toEqual({ total_orders: 42 });
+    // SQL generation should have been called (fallback triggered)
+    expect(mockGenerateSql).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns metrics result when SQL fallback also returns 0 rows', async () => {
+    const ADVISOR_NARRATIVE = '## Answer\nNo data found for that period.';
+    const adapter: LLMAdapter = {
+      provider: 'mock',
+      model: 'mock-model',
+      complete: mockLLMComplete
+        .mockResolvedValueOnce(makeLLMResponse(VALID_PLAN_JSON))
+        .mockResolvedValueOnce(makeLLMResponse(ADVISOR_NARRATIVE))
+        .mockResolvedValueOnce(makeLLMResponse(ADVISOR_NARRATIVE)),
+    };
+    setLLMAdapter(adapter);
+
+    // Metrics mode returns 0 rows
+    mockExecuteCompiledQuery.mockResolvedValueOnce({
+      rows: [],
+      rowCount: 0,
+      executionTimeMs: 5,
+      truncated: false,
+    });
+
+    // SQL generation
+    mockGenerateSql.mockResolvedValueOnce({
+      sql: "SELECT count(*) as total FROM orders WHERE tenant_id = $1",
+      explanation: 'Count orders',
+      confidence: 0.9,
+      tokensInput: 400,
+      tokensOutput: 80,
+      latencyMs: 250,
+      provider: 'mock',
+      model: 'mock-model',
+    });
+
+    mockValidateGeneratedSql.mockReturnValueOnce({
+      valid: true,
+      errors: [],
+      sanitizedSql: "SELECT count(*) as total FROM orders WHERE tenant_id = $1",
+    });
+
+    // SQL also returns 0 rows
+    mockExecuteSqlQuery.mockResolvedValueOnce({
+      rows: [{ total: 0 }],
+      rowCount: 1, // Note: COUNT queries return 1 row with value 0, not 0 rows
+      executionTimeMs: 10,
+      truncated: false,
+    });
+
+    const result = await runPipeline({
+      message: 'orders last week',
+      context: mockContext,
+    });
+
+    // SQL fallback returned data (1 row with count=0), so it uses SQL result
+    expect(result.data).not.toBeNull();
+    expect(mockGenerateSql).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns metrics result when SQL fallback throws', async () => {
+    const ADVISOR_NARRATIVE = '## Answer\nI could not retrieve data right now.';
+    const adapter: LLMAdapter = {
+      provider: 'mock',
+      model: 'mock-model',
+      complete: mockLLMComplete
+        .mockResolvedValueOnce(makeLLMResponse(VALID_PLAN_JSON))
+        .mockResolvedValueOnce(makeLLMResponse(ADVISOR_NARRATIVE)),
+    };
+    setLLMAdapter(adapter);
+
+    // Metrics mode returns 0 rows
+    mockExecuteCompiledQuery.mockResolvedValueOnce({
+      rows: [],
+      rowCount: 0,
+      executionTimeMs: 5,
+      truncated: false,
+    });
+
+    // SQL generation fails
+    mockGenerateSql.mockRejectedValueOnce(new Error('LLM timeout'));
+
+    const result = await runPipeline({
+      message: 'orders last week',
+      context: mockContext,
+    });
+
+    // Falls back to metrics result (with ADVISOR narrative since 0 rows)
+    expect(result.mode).toBe('metrics');
+    expect(result.data).not.toBeNull();
+    expect(result.data!.rowCount).toBe(0);
+    // SQL fallback was attempted but failed gracefully
+    expect(mockGenerateSql).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT fall back to SQL when metrics returns data', async () => {
+    const adapter: LLMAdapter = {
+      provider: 'mock',
+      model: 'mock-model',
+      complete: mockLLMComplete
+        .mockResolvedValueOnce(makeLLMResponse(VALID_PLAN_JSON))
+        .mockResolvedValueOnce(makeLLMResponse(NARRATIVE_JSON)),
+    };
+    setLLMAdapter(adapter);
+
+    // Metrics returns real data — no fallback needed
+    mockExecuteCompiledQuery.mockResolvedValueOnce(mockQueryResult);
+
+    const result = await runPipeline({
+      message: 'net sales last month',
+      context: mockContext,
+    });
+
+    expect(result.mode).toBe('metrics');
+    expect(result.data!.rowCount).toBe(2);
+    // SQL generation should NOT be called
+    expect(mockGenerateSql).not.toHaveBeenCalled();
   });
 });
 

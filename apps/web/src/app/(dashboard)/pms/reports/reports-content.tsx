@@ -10,7 +10,6 @@ import {
   TrendingUp,
   LogIn,
   LogOut,
-  CalendarMinus,
   Ban,
   RefreshCw,
 } from 'lucide-react';

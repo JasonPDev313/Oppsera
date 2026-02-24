@@ -325,7 +325,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   // Payment flow — inline panel replaces old picker+dialog
   const [posView, setPosView] = useState<'order' | 'payment'>('order');
   // Legacy fallbacks (kept for TenderDialog in edge cases)
-  const [_showPaymentPicker, setShowPaymentPicker] = useState(false);
+  const [, setShowPaymentPicker] = useState(false);
   const [showTenderDialog, setShowTenderDialog] = useState(false);
   const [selectedTenderType, setSelectedTenderType] = useState<'cash' | 'check' | 'voucher'>('cash');
   const [remainingBalance, setRemainingBalance] = useState<number | null>(null);
@@ -554,24 +554,6 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       pos.placeOrder().catch(() => {});
     }
   }, [pos]);
-
-  // Legacy fallback — kept for TenderDialog edge cases
-  const _handlePaymentMethod = useCallback(
-    (method: string) => {
-      setShowPaymentPicker(false);
-      if (method === 'credit_debit') {
-        toast.info('Credit/Debit card payments coming soon');
-        return;
-      }
-      if (method === 'split') {
-        setShowSplitTender(true);
-        return;
-      }
-      setSelectedTenderType(method as 'cash' | 'check' | 'voucher');
-      setShowTenderDialog(true);
-    },
-    [toast],
-  );
 
   const handlePaymentComplete = useCallback(
     (_result: RecordTenderResult) => {

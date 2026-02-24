@@ -70,7 +70,7 @@ export function TagManagementContent() {
 
   // --- Data hooks ---
   const { data: tags, isLoading: tagsLoading, mutate: refreshTags } = useTags(tagOptions);
-  const { archiveTag, unarchiveTag, isSubmitting: _tagMutating } = useTagMutations();
+  const { archiveTag, unarchiveTag } = useTagMutations();
   const { data: rules, isLoading: rulesLoading, mutate: refreshRules } = useSmartTagRules();
   const { toggleRule, evaluateRule, isSubmitting: ruleMutating } = useSmartTagRuleMutations();
   const { data: editRuleDetail } = useSmartTagRule(editRuleId);
