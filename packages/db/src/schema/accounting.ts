@@ -192,6 +192,8 @@ export const accountingSettings = pgTable('accounting_settings', {
   breakageRecognitionMethod: text('breakage_recognition_method').notNull().default('on_expiry'), // 'on_expiry' | 'proportional' | 'manual_only'
   breakageIncomeAccountId: text('breakage_income_account_id'),
   voucherExpiryEnabled: boolean('voucher_expiry_enabled').notNull().default(true),
+  // ── Auto-remap toggle (migration 0143) ──
+  enableAutoRemap: boolean('enable_auto_remap').notNull().default(false),
   // ── Multi-currency provisioning (migration 0121) ──
   supportedCurrencies: text('supported_currencies').array().notNull().default(sql`'{USD}'`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -215,6 +217,8 @@ export const glUnmappedEvents = pgTable(
     reason: text('reason').notNull(),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     resolvedBy: text('resolved_by'),
+    resolutionMethod: text('resolution_method'), // 'manual' | 'remapped'
+    remappedJournalEntryId: text('remapped_journal_entry_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

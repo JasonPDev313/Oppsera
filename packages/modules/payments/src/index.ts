@@ -55,4 +55,5 @@ export {
   getOutstandingTipsCents,
   getDepositStatus,
   getLocationCloseStatus,
+  getTenderForGlRepost,
 } from './reconciliation';

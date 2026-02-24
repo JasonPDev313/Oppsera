@@ -51,13 +51,15 @@ export interface AccountingPostingApi {
 
 // ── Singleton ───────────────────────────────────────────────────
 
-let _api: AccountingPostingApi | null = null;
+// Use globalThis to persist across Next.js HMR module reloads in dev mode
+const GLOBAL_KEY = '__oppsera_accounting_posting_api__' as const;
 
 export function getAccountingPostingApi(): AccountingPostingApi {
-  if (!_api) throw new Error('AccountingPostingApi not initialized');
-  return _api;
+  const api = (globalThis as Record<string, unknown>)[GLOBAL_KEY] as AccountingPostingApi | undefined;
+  if (!api) throw new Error('AccountingPostingApi not initialized');
+  return api;
 }
 
 export function setAccountingPostingApi(api: AccountingPostingApi): void {
-  _api = api;
+  (globalThis as Record<string, unknown>)[GLOBAL_KEY] = api;
 }

@@ -6,6 +6,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts, taxGroupGlDefaults } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 import type { SaveTaxGroupDefaultsInput } from '../validation';
+import { tryAutoRemap } from '../helpers/try-auto-remap';
 
 export async function saveTaxGroupDefaults(
   ctx: RequestContext,
@@ -86,5 +87,9 @@ export async function saveTaxGroupDefaults(
   });
 
   await auditLog(ctx, 'accounting.tax_group_defaults.saved', 'tax_group_gl_defaults', taxGroupId);
-  return result;
+
+  // Auto-remap eligible tenders if enabled (never throws)
+  const autoRemap = await tryAutoRemap(ctx);
+
+  return { ...result, autoRemapCount: autoRemap.remapped, autoRemapFailed: autoRemap.failed };
 }

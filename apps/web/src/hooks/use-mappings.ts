@@ -125,6 +125,8 @@ export function useMappingMutations() {
     queryClient.invalidateQueries({ queryKey: ['payment-type-mappings'] });
     queryClient.invalidateQueries({ queryKey: ['tax-group-mappings'] });
     queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+    queryClient.invalidateQueries({ queryKey: ['remappable-tenders'] });
+    queryClient.invalidateQueries({ queryKey: ['unmapped-events'] });
   };
 
   const saveSubDepartmentDefaults = useMutation({

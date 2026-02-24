@@ -52,6 +52,8 @@ export type { BankReconciliation, BankReconciliationItem } from './commands/mana
 export { importCoaFromCsv } from './commands/import-coa-from-csv';
 export { mergeGlAccounts } from './commands/merge-gl-accounts';
 export { renumberGlAccount } from './commands/renumber-gl-account';
+export { remapGlForTender, batchRemapGlForTenders } from './commands/remap-gl-for-tender';
+export type { RemapResult } from './commands/remap-gl-for-tender';
 
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
@@ -154,6 +156,8 @@ export { getReconciliationWaterfall } from './queries/get-reconciliation-waterfa
 export type { WaterfallStage, ReconciliationWaterfall } from './queries/get-reconciliation-waterfall';
 export { listBankReconciliations, getBankReconciliation } from './queries/list-bank-reconciliations';
 export type { BankReconciliationListItem, BankReconciliationDetail } from './queries/list-bank-reconciliations';
+export { getRemappableTenders } from './queries/get-remappable-tenders';
+export type { RemappableTender, MissingMapping } from './queries/get-remappable-tenders';
 
 // Helpers
 export { resolveNormalBalance } from './helpers/resolve-normal-balance';
@@ -175,6 +179,8 @@ export type {
 } from './helpers/resolve-mapping';
 export { getAccountingSettings } from './helpers/get-accounting-settings';
 export type { AccountingSettings } from './helpers/get-accounting-settings';
+export { tryAutoRemap } from './helpers/try-auto-remap';
+export type { AutoRemapResult } from './helpers/try-auto-remap';
 export { resolveRevenueAccountForSubDepartment, expandPackageForGL } from './helpers/catalog-gl-resolution';
 
 // Services
@@ -278,6 +284,8 @@ export {
   validateCsvPreviewSchema,
   mergeGlAccountsSchema,
   renumberGlAccountSchema,
+  remapGlForTenderSchema,
+  batchRemapSchema,
 } from './validation';
 export type {
   PostJournalEntryInput,
@@ -318,4 +326,6 @@ export type {
   ValidateCsvPreviewInput,
   MergeGlAccountsInput,
   RenumberGlAccountInput,
+  RemapGlForTenderInput,
+  BatchRemapInput,
 } from './validation';

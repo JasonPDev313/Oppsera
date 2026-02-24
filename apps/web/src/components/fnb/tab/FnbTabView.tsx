@@ -60,7 +60,7 @@ function TabSkeleton({ onBack }: { onBack: () => void }) {
         </div>
 
         {/* Center: menu skeleton */}
-        <div className="flex flex-col min-w-0" style={{ borderRight: 'var(--fnb-border-subtle)' }}>
+        <div className="flex flex-col min-w-0" style={{ gridColumn: '2', borderRight: 'var(--fnb-border-subtle)' }}>
           <div className="p-3 space-y-2">
             <div className="h-8 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--fnb-bg-elevated)' }} />
             <div className="flex gap-2">
@@ -79,7 +79,7 @@ function TabSkeleton({ onBack }: { onBack: () => void }) {
         </div>
 
         {/* Right: cart skeleton */}
-        <div className="flex flex-col">
+        <div className="flex flex-col" style={{ gridColumn: '3' }}>
           <div className="flex gap-2 px-3 py-2" style={{ borderBottom: 'var(--fnb-border-subtle)' }}>
             {[1, 2, 3].map((i) => (
               <div key={i} className="h-7 w-20 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--fnb-bg-elevated)' }} />
@@ -417,10 +417,10 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
           unsentBySeat={unsentBySeat}
         />
 
-        {/* ── COL 2: Product browsing (1fr, full height) ────────── */}
+        {/* ── COL 2: Menu browsing (1fr, full height) ─────────── */}
         <div
           className="flex flex-col min-w-0"
-          style={{ backgroundColor: 'var(--fnb-bg-surface)', borderRight: 'var(--fnb-border-subtle)' }}
+          style={{ gridColumn: '2', backgroundColor: 'var(--fnb-bg-surface)', borderRight: 'var(--fnb-border-subtle)' }}
         >
           {/* Navigation: search bar + mode tabs + department tabs + sub-department tabs */}
           <FnbMenuNav menu={menu} menuMode={menuMode} onSelectMode={handleSelectMenuMode} />
@@ -430,7 +430,7 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
         </div>
 
         {/* ── COL 3: Cart / Ticket (400px, full height) ─────────── */}
-        <div className="flex flex-col min-w-0" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
+        <div className="flex flex-col min-w-0" style={{ gridColumn: '3', backgroundColor: 'var(--fnb-bg-surface)' }}>
           {/* Cart header */}
           <div
             className="shrink-0 flex items-center justify-between px-3 py-2"

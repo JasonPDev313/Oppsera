@@ -995,6 +995,20 @@
       "when": 1708100141000,
       "tag": "0141_admin_impersonation",
       "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1708100142000,
+      "tag": "0142_gl_remap_index_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1708100143000,
+      "tag": "0143_auto_remap_setting",
+      "breakpoints": true
     }
   ]
 }

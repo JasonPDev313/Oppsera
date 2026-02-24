@@ -68,6 +68,8 @@ export const updateAccountingSettingsSchema = z.object({
   breakageRecognitionMethod: z.enum(['on_expiry', 'proportional', 'manual_only']).optional(),
   breakageIncomeAccountId: z.string().nullable().optional(),
   voucherExpiryEnabled: z.boolean().optional(),
+  // Auto-remap toggle
+  enableAutoRemap: z.boolean().optional(),
 });
 
 export type UpdateAccountingSettingsInput = z.input<typeof updateAccountingSettingsSchema>;
@@ -453,3 +455,19 @@ export const renumberGlAccountSchema = z.object({
 });
 
 export type RenumberGlAccountInput = z.input<typeof renumberGlAccountSchema>;
+
+// ── GL Remap Schemas ────────────────────────────────────────────────
+
+export const remapGlForTenderSchema = z.object({
+  tenderId: z.string().min(1),
+  reason: z.string().optional(),
+});
+
+export type RemapGlForTenderInput = z.input<typeof remapGlForTenderSchema>;
+
+export const batchRemapSchema = z.object({
+  tenderIds: z.array(z.string().min(1)).min(1).max(50),
+  reason: z.string().optional(),
+});
+
+export type BatchRemapInput = z.input<typeof batchRemapSchema>;

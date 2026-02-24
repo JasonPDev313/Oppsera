@@ -3,7 +3,7 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "turbo dev",
+    "dev": "pnpm clean && turbo dev",
     "build": "turbo build",
     "test": "turbo test",
     "test:coverage": "turbo test:coverage",

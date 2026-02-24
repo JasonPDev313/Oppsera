@@ -245,11 +245,9 @@ describe('listBankAccounts', () => {
             account_number: '1010',
             account_name: 'Cash on Hand',
             bank_name: 'First National',
-            bank_account_number: null,
-            bank_routing_number: null,
-            account_type: 'checking',
+            account_number_last4: '1234',
             is_active: true,
-            last_reconciled_date: '2026-01-31',
+            is_default: true,
             created_at: '2026-01-01T00:00:00Z',
             updated_at: '2026-01-15T00:00:00Z',
           },
@@ -260,11 +258,9 @@ describe('listBankAccounts', () => {
             account_number: '1020',
             account_name: 'Savings',
             bank_name: 'First National',
-            bank_account_number: null,
-            bank_routing_number: null,
-            account_type: 'savings',
+            account_number_last4: null,
             is_active: true,
-            last_reconciled_date: null,
+            is_default: false,
             created_at: '2026-01-01T00:00:00Z',
             updated_at: '2026-01-01T00:00:00Z',
           },
@@ -280,7 +276,9 @@ describe('listBankAccounts', () => {
     expect(result[0]!.accountNumber).toBe('1010');
     expect(result[0]!.bankName).toBe('First National');
     expect(result[0]!.isActive).toBe(true);
-    expect(result[0]!.lastReconciledDate).toBe('2026-01-31');
-    expect(result[1]!.lastReconciledDate).toBeNull();
+    expect(result[0]!.accountNumberLast4).toBe('1234');
+    expect(result[0]!.isDefault).toBe(true);
+    expect(result[1]!.accountNumberLast4).toBeNull();
+    expect(result[1]!.isDefault).toBe(false);
   });
 });

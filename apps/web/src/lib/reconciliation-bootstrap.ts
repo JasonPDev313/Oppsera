@@ -25,6 +25,7 @@ import {
   getOutstandingTipsCents,
   getDepositStatus,
   getLocationCloseStatus,
+  getTenderForGlRepost,
 } from '@oppsera/module-payments';
 import {
   getInventoryMovementsSummary,
@@ -40,7 +41,7 @@ import {
  *
  * Implementations are provided by the owning modules:
  *   - Orders domain (5 methods)  → @oppsera/module-orders
- *   - Payments domain (17 methods) → @oppsera/module-payments
+ *   - Payments domain (18 methods) → @oppsera/module-payments
  *   - Inventory domain (2 methods) → @oppsera/module-inventory
  *   - F&B domain (1 method)      → @oppsera/module-fnb
  */
@@ -88,6 +89,9 @@ export async function initializeReconciliationReadApi(): Promise<void> {
     // ── Inventory Domain ────────────────────────────────────────
     getInventoryMovementsSummary,
     getReceivingPurchasesTotals,
+
+    // ── GL Remap Domain ───────────────────────────────────────
+    getTenderForGlRepost,
   };
 
   setReconciliationReadApi(api);

@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, ne } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -30,6 +30,7 @@ export async function postJournalEntry(
             eq(glJournalEntries.tenantId, ctx.tenantId),
             eq(glJournalEntries.sourceModule, input.sourceModule),
             eq(glJournalEntries.sourceReferenceId, input.sourceReferenceId),
+            ne(glJournalEntries.status, 'voided'),
           ),
         )
         .limit(1);

@@ -63,7 +63,7 @@ export async function listBills(input: ListBillsInput): Promise<ListBillsResult>
       conditions.push(sql`b.location_id = ${input.locationId}`);
     }
     if (input.overdue) {
-      conditions.push(sql`b.due_date < CURRENT_DATE`);
+      conditions.push(sql`b.due_date::date < CURRENT_DATE`);
       conditions.push(sql`b.status IN ('posted', 'partial')`);
     }
 
@@ -83,7 +83,7 @@ export async function listBills(input: ListBillsInput): Promise<ListBillsResult>
         b.status,
         b.total_amount,
         COALESCE(
-          (SELECT SUM(pa.amount)
+          (SELECT SUM(pa.amount_applied)
            FROM ap_payment_allocations pa
            INNER JOIN ap_payments p ON p.id = pa.payment_id
            WHERE pa.bill_id = b.id AND p.status != 'voided'),

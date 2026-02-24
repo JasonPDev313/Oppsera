@@ -49,7 +49,7 @@ export async function getVendorAccounting(
         ) AS open_bill_count,
         COALESCE(
           (SELECT SUM(b.total_amount) - COALESCE(SUM(
-            (SELECT COALESCE(SUM(pa.amount), 0)
+            (SELECT COALESCE(SUM(pa.amount_applied), 0)
              FROM ap_payment_allocations pa
              INNER JOIN ap_payments p ON p.id = pa.payment_id
              WHERE pa.bill_id = b.id AND p.status != 'voided')
@@ -62,7 +62,7 @@ export async function getVendorAccounting(
         ) AS total_balance,
         COALESCE(
           (SELECT SUM(b.total_amount) - COALESCE(SUM(
-            (SELECT COALESCE(SUM(pa.amount), 0)
+            (SELECT COALESCE(SUM(pa.amount_applied), 0)
              FROM ap_payment_allocations pa
              INNER JOIN ap_payments p ON p.id = pa.payment_id
              WHERE pa.bill_id = b.id AND p.status != 'voided')
@@ -71,7 +71,7 @@ export async function getVendorAccounting(
            WHERE b.vendor_id = v.id
              AND b.tenant_id = ${input.tenantId}
              AND b.status IN ('posted', 'partial')
-             AND b.due_date < CURRENT_DATE),
+             AND b.due_date::date < CURRENT_DATE),
           0
         ) AS overdue_balance
       FROM vendors v

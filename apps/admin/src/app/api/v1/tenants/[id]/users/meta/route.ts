@@ -20,7 +20,7 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
   const tenantId = params?.id;
   if (!tenantId) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
-  let [roleRows, locationRows] = await Promise.all([
+  const [initialRoleRows, locationRows] = await Promise.all([
     db.execute(sql`
       SELECT id, name FROM roles WHERE tenant_id = ${tenantId} ORDER BY name ASC
     `),
@@ -28,6 +28,7 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
       SELECT id, name FROM locations WHERE tenant_id = ${tenantId} AND is_active = true ORDER BY name ASC
     `),
   ]);
+  let roleRows = initialRoleRows;
 
   // Auto-seed system roles if none exist (handles tenants created before role provisioning was added)
   const roleList = Array.from(roleRows as Iterable<Record<string, unknown>>);

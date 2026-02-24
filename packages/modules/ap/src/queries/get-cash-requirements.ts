@@ -34,7 +34,7 @@ export async function getCashRequirements(input: GetCashRequirementsInput): Prom
       WHERE tenant_id = ${input.tenantId}
         AND status IN ('posted', 'partial')
         AND balance_due::numeric > 0
-        AND due_date < ${asOfDate}
+        AND due_date::date < ${asOfDate}::date
     `);
     const overdueAmount = Number(Array.from(overdueRows as Iterable<Record<string, unknown>>)[0]?.overdue ?? 0);
 
@@ -48,7 +48,7 @@ export async function getCashRequirements(input: GetCashRequirementsInput): Prom
       WHERE tenant_id = ${input.tenantId}
         AND status IN ('posted', 'partial')
         AND balance_due::numeric > 0
-        AND due_date >= ${asOfDate}
+        AND due_date::date >= ${asOfDate}::date
         AND due_date::date < (${asOfDate}::date + (${weeksAhead} * 7))
       GROUP BY week_start, week_end
       ORDER BY week_start

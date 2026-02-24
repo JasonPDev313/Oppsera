@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Package,
+  RefreshCw,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { AccountPicker } from '@/components/accounting/account-picker';
@@ -26,6 +27,8 @@ import {
 } from '@/hooks/use-mappings';
 import { useAuthContext } from '@/components/auth-provider';
 import { useToast } from '@/components/ui/toast';
+import { useRemappableTenders } from '@/hooks/use-gl-remap';
+import { RemapPreviewDialog } from '@/components/accounting/remap-preview-dialog';
 import { Select } from '@/components/ui/select';
 import { FNB_CATEGORY_CONFIG } from '@oppsera/shared';
 import type { FnbBatchCategoryKey } from '@oppsera/shared';
@@ -173,7 +176,7 @@ function DepartmentMappingsTab() {
 
   const handleSave = async (mapping: SubDepartmentMapping) => {
     try {
-      await saveSubDepartmentDefaults.mutateAsync({
+      const res = await saveSubDepartmentDefaults.mutateAsync({
         subDepartmentId: mapping.subDepartmentId,
         revenueAccountId: mapping.revenueAccountId,
         cogsAccountId: mapping.cogsAccountId,
@@ -181,7 +184,14 @@ function DepartmentMappingsTab() {
         discountAccountId: mapping.discountAccountId,
         returnsAccountId: mapping.returnsAccountId,
       });
-      toast.success('Mapping saved');
+      const d = (res as any)?.data;
+      if (d?.autoRemapCount > 0 && d?.autoRemapFailed > 0) {
+        toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
+      } else if (d?.autoRemapCount > 0) {
+        toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else {
+        toast.success('Mapping saved');
+      }
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
@@ -550,13 +560,20 @@ function PaymentTypeMappingsTab() {
 
   const handleSave = async (mapping: typeof mappings[number]) => {
     try {
-      await savePaymentTypeDefaults.mutateAsync({
+      const res = await savePaymentTypeDefaults.mutateAsync({
         paymentType: mapping.paymentType,
         cashBankAccountId: mapping.cashBankAccountId,
         clearingAccountId: mapping.clearingAccountId,
         feeExpenseAccountId: mapping.feeExpenseAccountId,
       });
-      toast.success('Mapping saved');
+      const d = (res as any)?.data;
+      if (d?.autoRemapCount > 0 && d?.autoRemapFailed > 0) {
+        toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
+      } else if (d?.autoRemapCount > 0) {
+        toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else {
+        toast.success('Mapping saved');
+      }
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
@@ -642,11 +659,18 @@ function TaxGroupMappingsTab() {
 
   const handleSave = async (mapping: typeof mappings[number]) => {
     try {
-      await saveTaxGroupDefaults.mutateAsync({
+      const res = await saveTaxGroupDefaults.mutateAsync({
         taxGroupId: mapping.taxGroupId,
         taxPayableAccountId: mapping.taxPayableAccountId,
       });
-      toast.success('Mapping saved');
+      const d = (res as any)?.data;
+      if (d?.autoRemapCount > 0 && d?.autoRemapFailed > 0) {
+        toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
+      } else if (d?.autoRemapCount > 0) {
+        toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else {
+        toast.success('Mapping saved');
+      }
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
@@ -933,6 +957,10 @@ function UnmappedEventsTab() {
   const { data: events, isLoading, mutate } = useUnmappedEvents({ status: statusFilter });
   const { resolveEvent } = useUnmappedEventMutations();
   const { toast } = useToast();
+  const { data: remappable, refetch: refetchRemappable } = useRemappableTenders();
+  const [remapDialogOpen, setRemapDialogOpen] = useState(false);
+
+  const remappableCount = remappable.filter(t => t.canRemap).length;
 
   const handleResolve = async (id: string) => {
     try {
@@ -944,12 +972,48 @@ function UnmappedEventsTab() {
     }
   };
 
+  const handleRemapComplete = () => {
+    mutate();
+    refetchRemappable();
+    toast.success('GL entries remapped successfully');
+  };
+
   if (isLoading) {
     return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />)}</div>;
   }
 
   return (
     <div className="space-y-4">
+      {/* Remap banner */}
+      {remappable.length > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+          <div className="flex items-center gap-3">
+            <RefreshCw className="h-5 w-5 text-indigo-600 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-indigo-900">
+                {remappableCount > 0
+                  ? `${remappableCount} transaction${remappableCount !== 1 ? 's' : ''} can be retroactively corrected`
+                  : `${remappable.length} transaction${remappable.length !== 1 ? 's' : ''} with unmapped GL entries`}
+              </p>
+              <p className="text-xs text-indigo-700">
+                {remappableCount > 0
+                  ? 'GL account mappings now exist for these tenders. Preview and remap their GL entries.'
+                  : 'Configure the missing mappings above, then return here to remap.'}
+              </p>
+            </div>
+          </div>
+          {remappableCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setRemapDialogOpen(true)}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shrink-0"
+            >
+              Preview & Remap
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2">
         {(['unresolved', 'resolved'] as const).map((s) => (
           <button
@@ -1013,6 +1077,13 @@ function UnmappedEventsTab() {
           ))}
         </div>
       )}
+
+      <RemapPreviewDialog
+        open={remapDialogOpen}
+        onClose={() => setRemapDialogOpen(false)}
+        tenders={remappable}
+        onComplete={handleRemapComplete}
+      />
     </div>
   );
 }

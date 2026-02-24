@@ -8,11 +8,9 @@ export interface BankAccount {
   accountNumber: string;
   accountName: string;
   bankName: string | null;
-  bankAccountNumber: string | null;
-  bankRoutingNumber: string | null;
-  accountType: string | null;
+  accountNumberLast4: string | null;
   isActive: boolean;
-  lastReconciledDate: string | null;
+  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,11 +31,9 @@ export async function listBankAccounts(
         a.account_number,
         a.name AS account_name,
         ba.bank_name,
-        ba.bank_account_number,
-        ba.bank_routing_number,
-        ba.account_type,
+        ba.account_number_last4,
         ba.is_active,
-        ba.last_reconciled_date,
+        ba.is_default,
         ba.created_at,
         ba.updated_at
       FROM bank_accounts ba
@@ -53,11 +49,9 @@ export async function listBankAccounts(
       accountNumber: String(row.account_number),
       accountName: String(row.account_name),
       bankName: row.bank_name ? String(row.bank_name) : null,
-      bankAccountNumber: row.bank_account_number ? String(row.bank_account_number) : null,
-      bankRoutingNumber: row.bank_routing_number ? String(row.bank_routing_number) : null,
-      accountType: row.account_type ? String(row.account_type) : null,
+      accountNumberLast4: row.account_number_last4 ? String(row.account_number_last4) : null,
       isActive: Boolean(row.is_active),
-      lastReconciledDate: row.last_reconciled_date ? String(row.last_reconciled_date) : null,
+      isDefault: Boolean(row.is_default),
       createdAt: String(row.created_at),
       updatedAt: String(row.updated_at),
     }));

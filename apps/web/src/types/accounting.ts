@@ -103,6 +103,8 @@ export interface AccountingSettings {
   breakageRecognitionMethod: BreakageRecognitionMethod;
   breakageIncomeAccountId: string | null;
   voucherExpiryEnabled: boolean;
+  // Auto-remap toggle (migration 0143)
+  enableAutoRemap: boolean;
 }
 
 export interface UnmappedEvent {

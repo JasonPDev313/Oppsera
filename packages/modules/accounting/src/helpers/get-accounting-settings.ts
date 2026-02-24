@@ -36,6 +36,8 @@ export interface AccountingSettings {
   breakageRecognitionMethod: string; // 'on_expiry' | 'proportional' | 'manual_only'
   breakageIncomeAccountId: string | null;
   voucherExpiryEnabled: boolean;
+  // Auto-remap toggle (migration 0143)
+  enableAutoRemap: boolean;
 }
 
 /**
@@ -90,5 +92,6 @@ export async function getAccountingSettings(
     breakageRecognitionMethod: row.breakageRecognitionMethod,
     breakageIncomeAccountId: row.breakageIncomeAccountId ?? null,
     voucherExpiryEnabled: row.voucherExpiryEnabled,
+    enableAutoRemap: row.enableAutoRemap,
   };
 }
