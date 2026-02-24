@@ -12,6 +12,7 @@ import type {
   UnmappedEvent,
   BankAccount,
   FnbMappingCoverageResult,
+  TransactionTypeMapping,
 } from '@/types/accounting';
 
 // ── useMappingCoverage ───────────────────────────────────────
@@ -95,6 +96,95 @@ export function usePaymentTypeMappings() {
   };
 }
 
+// ── useTransactionTypeMappings ──────────────────────────────
+
+export function useTransactionTypeMappings(category?: string) {
+  const result = useQuery({
+    queryKey: ['transaction-type-mappings', category],
+    queryFn: () => {
+      const qs = category ? `?category=${category}` : '';
+      return apiFetch<{ data: TransactionTypeMapping[] }>(
+        `/api/v1/accounting/mappings/transaction-types${qs}`,
+      ).then((r) => r.data);
+    },
+    staleTime: 60_000,
+  });
+
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+// ── useCreateTenderType ─────────────────────────────────────
+
+export function useCreateTenderType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: {
+      name: string;
+      code: string;
+      category?: string;
+      postingMode?: string;
+      requiresReference?: boolean;
+      referenceLabel?: string;
+      defaultClearingAccountId?: string | null;
+      defaultBankAccountId?: string | null;
+      defaultFeeAccountId?: string | null;
+      defaultExpenseAccountId?: string | null;
+      reportingBucket?: string;
+    }) =>
+      apiFetch('/api/v1/accounting/tender-types', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transaction-type-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+    },
+  });
+}
+
+// ── useUpdateTenderType ─────────────────────────────────────
+
+export function useUpdateTenderType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: { id: string } & Record<string, unknown>) => {
+      const { id, ...body } = input;
+      return apiFetch(`/api/v1/accounting/tender-types/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transaction-type-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+    },
+  });
+}
+
+// ── useDeactivateTenderType ─────────────────────────────────
+
+export function useDeactivateTenderType() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiFetch(`/api/v1/accounting/tender-types/${id}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transaction-type-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+    },
+  });
+}
+
 // ── useTaxGroupMappings ──────────────────────────────────────
 
 export function useTaxGroupMappings() {
@@ -127,6 +217,7 @@ export function useMappingMutations() {
     queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
     queryClient.invalidateQueries({ queryKey: ['remappable-tenders'] });
     queryClient.invalidateQueries({ queryKey: ['unmapped-events'] });
+    queryClient.invalidateQueries({ queryKey: ['transaction-type-mappings'] });
   };
 
   const saveSubDepartmentDefaults = useMutation({
@@ -139,7 +230,7 @@ export function useMappingMutations() {
   });
 
   const savePaymentTypeDefaults = useMutation({
-    mutationFn: (input: { paymentType: string; cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null }) =>
+    mutationFn: (input: { paymentType: string; cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null; postingMode?: string; expenseAccountId?: string | null; description?: string | null }) =>
       apiFetch(`/api/v1/accounting/mappings/payment-types/${input.paymentType}`, {
         method: 'PUT',
         body: JSON.stringify(input),

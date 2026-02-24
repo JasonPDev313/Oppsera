@@ -8,18 +8,21 @@ import {
   ChevronDown,
   ChevronRight,
   Package,
+  Plus,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
-import { AccountPicker } from '@/components/accounting/account-picker';
+import { AccountPicker, getSuggestedAccount } from '@/components/accounting/account-picker';
+import { useGLAccounts } from '@/hooks/use-accounting';
 import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
 import {
   useMappingCoverage,
   useSubDepartmentMappings,
   useSubDepartmentItems,
-  usePaymentTypeMappings,
   useTaxGroupMappings,
   useMappingMutations,
+  useTransactionTypeMappings,
   useUnmappedEvents,
   useUnmappedEventMutations,
   useFnbMappingCoverage,
@@ -29,10 +32,12 @@ import { useAuthContext } from '@/components/auth-provider';
 import { useToast } from '@/components/ui/toast';
 import { useRemappableTenders } from '@/hooks/use-gl-remap';
 import { RemapPreviewDialog } from '@/components/accounting/remap-preview-dialog';
+import { CreateTenderTypeDialog } from '@/components/accounting/create-tender-type-dialog';
 import { Select } from '@/components/ui/select';
-import { FNB_CATEGORY_CONFIG } from '@oppsera/shared';
+import { FNB_CATEGORY_CONFIG, TRANSACTION_TYPE_CATEGORY_LABELS, TRANSACTION_TYPE_CATEGORY_ORDER } from '@oppsera/shared';
 import type { FnbBatchCategoryKey } from '@oppsera/shared';
-import type { SubDepartmentMapping, AccountType } from '@/types/accounting';
+import type { TransactionTypeCategory } from '@oppsera/shared';
+import type { SubDepartmentMapping, AccountType, TransactionTypeMapping } from '@/types/accounting';
 
 type TabKey = 'departments' | 'payments' | 'taxes' | 'fnb' | 'unmapped';
 
@@ -143,6 +148,11 @@ function DepartmentMappingsTab() {
   const { toast } = useToast();
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
   const [expandedItems, setExpandedItems] = useState<string | null>(null);
+  const [isAutoMapping, setIsAutoMapping] = useState(false);
+
+  // Load all accounts for auto-map suggestions
+  const { data: revenueAccounts } = useGLAccounts({ isActive: true });
+  const allAccounts = revenueAccounts;
 
   const grouped = useMemo<DepartmentGroup[]>(() => {
     const map = new Map<string, DepartmentGroup>();
@@ -174,6 +184,20 @@ function DepartmentMappingsTab() {
     });
   };
 
+  // Compute how many unmapped rows have available suggestions
+  // NOTE: all hooks must be above early returns to satisfy Rules of Hooks
+  const suggestionsAvailable = useMemo(() => {
+    if (!allAccounts || allAccounts.length === 0) return 0;
+    let count = 0;
+    const revAccounts = allAccounts.filter((a) => a.accountType === 'revenue');
+    for (const m of mappings) {
+      if (m.revenueAccountId) continue; // already mapped
+      const suggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'revenue');
+      if (suggestion) count++;
+    }
+    return count;
+  }, [mappings, allAccounts]);
+
   const handleSave = async (mapping: SubDepartmentMapping) => {
     try {
       const res = await saveSubDepartmentDefaults.mutateAsync({
@@ -200,6 +224,56 @@ function DepartmentMappingsTab() {
     }
   };
 
+  const handleAutoMapAll = async () => {
+    if (!allAccounts || allAccounts.length === 0) return;
+    setIsAutoMapping(true);
+    let mapped = 0;
+    let failed = 0;
+
+    const revAccounts = allAccounts.filter((a) => a.accountType === 'revenue');
+    const expAccounts = allAccounts.filter((a) => a.accountType === 'expense');
+    const assetAccounts = allAccounts.filter((a) => a.accountType === 'asset');
+
+    for (const m of mappings) {
+      if (m.revenueAccountId) continue; // skip already mapped
+
+      const revSuggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'revenue');
+      const cogsSuggestion = getSuggestedAccount(expAccounts, m.subDepartmentName, 'cogs');
+      const invSuggestion = getSuggestedAccount(assetAccounts, m.subDepartmentName, 'inventory');
+      const retSuggestion = getSuggestedAccount(revAccounts, m.subDepartmentName, 'returns');
+
+      // Only save if at least a revenue suggestion exists
+      if (revSuggestion) {
+        try {
+          await saveSubDepartmentDefaults.mutateAsync({
+            subDepartmentId: m.subDepartmentId,
+            revenueAccountId: revSuggestion.id,
+            cogsAccountId: cogsSuggestion?.id ?? m.cogsAccountId,
+            inventoryAssetAccountId: invSuggestion?.id ?? m.inventoryAssetAccountId,
+            discountAccountId: m.discountAccountId,
+            returnsAccountId: retSuggestion?.id ?? m.returnsAccountId,
+          });
+          mapped++;
+        } catch {
+          failed++;
+        }
+      }
+    }
+
+    setIsAutoMapping(false);
+    mutate();
+
+    if (mapped > 0 && failed === 0) {
+      toast.success(`Auto-mapped ${mapped} sub-department${mapped !== 1 ? 's' : ''}`);
+    } else if (mapped > 0 && failed > 0) {
+      toast.info(`Auto-mapped ${mapped}, ${failed} failed`);
+    } else if (failed > 0) {
+      toast.error(`Auto-mapping failed for ${failed} sub-department${failed !== 1 ? 's' : ''}`);
+    }
+  };
+
+  // ── Early returns (after all hooks) ──────────────────────────
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -220,9 +294,24 @@ function DepartmentMappingsTab() {
   }
 
   const infoBanner = (
-    <div className="flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-800 mb-4">
-      <CheckCircle className="h-4 w-4 shrink-0 text-indigo-500" />
-      Sub-department revenue mappings are used by both Retail POS and F&amp;B POS.
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-800 mb-4">
+      <div className="flex items-center gap-2">
+        <CheckCircle className="h-4 w-4 shrink-0 text-indigo-500" />
+        Sub-department revenue mappings are used by both Retail POS and F&amp;B POS.
+      </div>
+      {suggestionsAvailable > 0 && (
+        <button
+          type="button"
+          onClick={handleAutoMapAll}
+          disabled={isAutoMapping}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          {isAutoMapping
+            ? 'Mapping...'
+            : `Auto-Map ${suggestionsAvailable} Suggested`}
+        </button>
+      )}
     </div>
   );
 
@@ -561,28 +650,92 @@ function ItemsDrillDown({ subDepartmentId }: { subDepartmentId: string }) {
   );
 }
 
-// ── Payment Type Mappings ────────────────────────────────────
+// ── Payment Type Mappings (Enhanced with Transaction Type Registry) ──
+
+interface CategoryGroup {
+  category: TransactionTypeCategory;
+  label: string;
+  types: TransactionTypeMapping[];
+  mappedCount: number;
+  totalCount: number;
+}
+
+const POSTING_MODE_LABELS: Record<string, { label: string; color: string }> = {
+  clearing: { label: 'Clearing', color: 'bg-blue-100 text-blue-700' },
+  direct_bank: { label: 'Direct', color: 'bg-green-100 text-green-700' },
+  non_cash: { label: 'Non-Cash', color: 'bg-purple-100 text-purple-700' },
+};
 
 function PaymentTypeMappingsTab() {
-  const { data: mappings, isLoading, mutate } = usePaymentTypeMappings();
+  const { data: allTypes, isLoading, mutate } = useTransactionTypeMappings();
   const { savePaymentTypeDefaults } = useMappingMutations();
   const { toast } = useToast();
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['tender']));
+  const [isAutoMapping, setIsAutoMapping] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
-  const handleSave = async (mapping: typeof mappings[number]) => {
+  // Load all accounts for auto-map suggestions
+  const { data: allAccounts } = useGLAccounts({ isActive: true });
+
+  const grouped = useMemo<CategoryGroup[]>(() => {
+    const map = new Map<TransactionTypeCategory, CategoryGroup>();
+    for (const t of allTypes) {
+      let group = map.get(t.category);
+      if (!group) {
+        group = {
+          category: t.category,
+          label: TRANSACTION_TYPE_CATEGORY_LABELS[t.category] ?? t.category,
+          types: [],
+          mappedCount: 0,
+          totalCount: 0,
+        };
+        map.set(t.category, group);
+      }
+      group.types.push(t);
+      group.totalCount++;
+      if (t.isMapped) group.mappedCount++;
+    }
+    // Sort by the canonical category order
+    return TRANSACTION_TYPE_CATEGORY_ORDER
+      .filter((cat) => map.has(cat))
+      .map((cat) => map.get(cat)!);
+  }, [allTypes]);
+
+  // Count suggestions available for auto-map
+  const suggestionsAvailable = useMemo(() => {
+    if (!allAccounts || allAccounts.length === 0) return 0;
+    let count = 0;
+    const assetAccounts = allAccounts.filter((a) => a.accountType === 'asset');
+    for (const t of allTypes) {
+      if (t.isMapped) continue;
+      const suggestion = getSuggestedAccount(assetAccounts, t.name, 'cash');
+      if (suggestion) count++;
+    }
+    return count;
+  }, [allTypes, allAccounts]);
+
+  const toggleCategory = (cat: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat);
+      else next.add(cat);
+      return next;
+    });
+  };
+
+  const handleSave = async (t: TransactionTypeMapping, patch: Partial<{ cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null; expenseAccountId: string | null; postingMode: string }>) => {
     try {
       const res = await savePaymentTypeDefaults.mutateAsync({
-        paymentType: mapping.paymentType,
-        cashAccountId: mapping.cashAccountId,
-        clearingAccountId: mapping.clearingAccountId,
-        feeExpenseAccountId: mapping.feeExpenseAccountId,
+        paymentType: t.code,
+        cashAccountId: patch.cashAccountId !== undefined ? patch.cashAccountId : t.cashAccountId,
+        clearingAccountId: patch.clearingAccountId !== undefined ? patch.clearingAccountId : t.clearingAccountId,
+        feeExpenseAccountId: patch.feeExpenseAccountId !== undefined ? patch.feeExpenseAccountId : t.feeExpenseAccountId,
+        expenseAccountId: patch.expenseAccountId !== undefined ? patch.expenseAccountId : t.expenseAccountId,
+        postingMode: patch.postingMode ?? t.postingMode ?? 'clearing',
       });
       const d = (res as any)?.data;
-      if (d?.autoRemapCount > 0 && d?.autoRemapFailed > 0) {
-        toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
-      } else if (d?.autoRemapCount > 0) {
+      if (d?.autoRemapCount > 0) {
         toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
-      } else if (d?.autoRemapFailed > 0) {
-        toast.error(`Mapping saved, but ${d.autoRemapFailed} auto-remap(s) failed — check Unmapped Events.`);
       } else {
         toast.success('Mapping saved');
       }
@@ -592,79 +745,283 @@ function PaymentTypeMappingsTab() {
     }
   };
 
+  const handleAutoMapAll = async () => {
+    if (!allAccounts || allAccounts.length === 0) return;
+    setIsAutoMapping(true);
+    let mapped = 0;
+    let failed = 0;
+
+    const assetAccounts = allAccounts.filter((a) => a.accountType === 'asset');
+    const liabilityAccounts = allAccounts.filter((a) => a.accountType === 'liability');
+    const expenseAccounts = allAccounts.filter((a) => a.accountType === 'expense');
+
+    for (const t of allTypes) {
+      if (t.isMapped) continue;
+      const cashSuggestion = getSuggestedAccount(assetAccounts, t.name, 'cash');
+      if (!cashSuggestion) continue;
+
+      const clearingSuggestion = getSuggestedAccount([...assetAccounts, ...liabilityAccounts], t.name, 'clearing');
+      const feeSuggestion = getSuggestedAccount(expenseAccounts, t.name, 'fee');
+
+      try {
+        await savePaymentTypeDefaults.mutateAsync({
+          paymentType: t.code,
+          cashAccountId: cashSuggestion.id,
+          clearingAccountId: clearingSuggestion?.id ?? t.clearingAccountId,
+          feeExpenseAccountId: feeSuggestion?.id ?? t.feeExpenseAccountId,
+          postingMode: t.postingMode ?? 'clearing',
+        });
+        mapped++;
+      } catch {
+        failed++;
+      }
+    }
+
+    setIsAutoMapping(false);
+    mutate();
+
+    if (mapped > 0 && failed === 0) {
+      toast.success(`Auto-mapped ${mapped} type${mapped !== 1 ? 's' : ''}`);
+    } else if (mapped > 0) {
+      toast.info(`Auto-mapped ${mapped}, ${failed} failed`);
+    } else if (failed > 0) {
+      toast.error(`Auto-mapping failed for ${failed} type${failed !== 1 ? 's' : ''}`);
+    }
+  };
+
   if (isLoading) {
-    return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-100" />)}</div>;
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-100" />
+        ))}
+      </div>
+    );
   }
 
-  if (mappings.length === 0) {
-    return <AccountingEmptyState title="No payment types configured" description="Payment types are defined in the Payment module." />;
+  if (allTypes.length === 0) {
+    return (
+      <AccountingEmptyState
+        title="No transaction types found"
+        description="Run the database migration to seed the transaction type registry."
+      />
+    );
   }
+
+  const totalMapped = grouped.reduce((s, g) => s + g.mappedCount, 0);
+  const totalTypes = grouped.reduce((s, g) => s + g.totalCount, 0);
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Payment Type</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Cash/Bank Account</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Clearing Account</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Fee Expense</th>
-              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mappings.map((m) => {
-              const isMapped = !!m.cashAccountId;
-              return (
-                <tr key={m.paymentType} className={`border-b border-gray-100 last:border-0 ${!isMapped ? 'bg-amber-500/5' : ''}`}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900 capitalize">{m.paymentType.replace(/_/g, ' ')}</td>
-                  <td className="px-4 py-3">
-                    <AccountPicker
-                      value={m.cashAccountId}
-                      onChange={(v) => handleSave({ ...m, cashAccountId: v })}
-                      accountTypes={['asset']}
-                      suggestFor={m.paymentType}
-                      mappingRole="cash"
-                      className="w-48"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <AccountPicker
-                      value={m.clearingAccountId}
-                      onChange={(v) => handleSave({ ...m, clearingAccountId: v })}
-                      accountTypes={['asset', 'liability']}
-                      suggestFor={m.paymentType}
-                      mappingRole="clearing"
-                      className="w-48"
-                    />
-                  </td>
-                  <td className="px-4 py-3">
-                    <AccountPicker
-                      value={m.feeExpenseAccountId}
-                      onChange={(v) => handleSave({ ...m, feeExpenseAccountId: v })}
-                      accountTypes={['expense']}
-                      suggestFor={m.paymentType}
-                      mappingRole="fee"
-                      className="w-48"
-                    />
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {isMapped ? (
-                      <CheckCircle className="inline h-5 w-5 text-green-500" />
-                    ) : (
-                      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        Not Mapped
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      {/* Info banner + actions */}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-800">
+        <div className="flex items-center gap-2">
+          <CheckCircle className="h-4 w-4 shrink-0 text-indigo-500" />
+          <span>
+            {totalMapped}/{totalTypes} transaction types mapped to GL accounts.
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {suggestionsAvailable > 0 && (
+            <button
+              type="button"
+              onClick={handleAutoMapAll}
+              disabled={isAutoMapping}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {isAutoMapping ? 'Mapping...' : `Auto-Map ${suggestionsAvailable} Suggested`}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setCreateDialogOpen(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-indigo-500/40 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-500/10"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Custom Type
+          </button>
+        </div>
       </div>
+
+      {/* Category groups */}
+      {grouped.map((group) => {
+        const isExpanded = expandedCategories.has(group.category);
+        const allMapped = group.mappedCount === group.totalCount;
+
+        return (
+          <div
+            key={group.category}
+            className="overflow-hidden rounded-lg border border-gray-200 bg-surface"
+          >
+            {/* Category Header */}
+            <button
+              type="button"
+              onClick={() => toggleCategory(group.category)}
+              className="flex w-full items-center justify-between px-4 py-3 hover:bg-gray-200/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                )}
+                <span className="text-sm font-semibold text-gray-900">
+                  {group.label}
+                </span>
+                <span className="text-xs text-gray-500">
+                  ({group.totalCount} type{group.totalCount !== 1 ? 's' : ''})
+                </span>
+              </div>
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                  allMapped
+                    ? 'bg-green-100 text-green-700'
+                    : group.mappedCount > 0
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-red-100 text-red-700'
+                }`}
+              >
+                {group.mappedCount}/{group.totalCount} mapped
+              </span>
+            </button>
+
+            {/* Type Rows */}
+            {isExpanded && (
+              <div className="border-t border-gray-200">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50">
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                          Type
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                          Cash/Bank Account
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                          Clearing Account
+                        </th>
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                          Fee Expense
+                        </th>
+                        <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-20">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.types.map((t) => (
+                        <TransactionTypeRow
+                          key={t.id}
+                          type={t}
+                          onSave={handleSave}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <CreateTenderTypeDialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+      />
     </div>
+  );
+}
+
+// ── Transaction Type Row ──────────────────────────────────────
+
+function TransactionTypeRow({
+  type: t,
+  onSave,
+}: {
+  type: TransactionTypeMapping;
+  onSave: (t: TransactionTypeMapping, patch: Partial<{ cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null; expenseAccountId: string | null; postingMode: string }>) => void;
+}) {
+  const mode = t.postingMode ?? 'clearing';
+  const modeInfo = POSTING_MODE_LABELS[mode] ?? { label: 'Clearing', color: 'bg-blue-100 text-blue-700' };
+
+  return (
+    <tr
+      className={`border-b border-gray-100 last:border-0 ${
+        !t.isMapped ? 'bg-amber-500/5' : ''
+      }`}
+    >
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          <div>
+            <div className="text-sm font-medium text-gray-900">{t.name}</div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-xs font-mono text-gray-400">{t.code}</span>
+              {!t.isSystem && (
+                <span className="inline-flex rounded-full bg-indigo-100 px-1.5 py-0 text-[10px] font-medium text-indigo-700">
+                  Custom
+                </span>
+              )}
+              <span className={`inline-flex rounded-full px-1.5 py-0 text-[10px] font-medium ${modeInfo.color}`}>
+                {modeInfo.label}
+              </span>
+            </div>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <AccountPicker
+          value={t.cashAccountId}
+          onChange={(v) => onSave(t, { cashAccountId: v })}
+          accountTypes={['asset']}
+          suggestFor={t.name}
+          mappingRole="cash"
+          className="w-48"
+        />
+      </td>
+      <td className="px-4 py-3">
+        <AccountPicker
+          value={t.clearingAccountId}
+          onChange={(v) => onSave(t, { clearingAccountId: v })}
+          accountTypes={['asset', 'liability']}
+          suggestFor={t.name}
+          mappingRole="clearing"
+          className="w-48"
+        />
+      </td>
+      <td className="px-4 py-3">
+        {mode === 'non_cash' ? (
+          <AccountPicker
+            value={t.expenseAccountId}
+            onChange={(v) => onSave(t, { expenseAccountId: v })}
+            accountTypes={['expense']}
+            suggestFor={t.name}
+            mappingRole="expense"
+            className="w-48"
+          />
+        ) : (
+          <AccountPicker
+            value={t.feeExpenseAccountId}
+            onChange={(v) => onSave(t, { feeExpenseAccountId: v })}
+            accountTypes={['expense']}
+            suggestFor={t.name}
+            mappingRole="fee"
+            className="w-48"
+          />
+        )}
+      </td>
+      <td className="px-4 py-3 text-center">
+        {t.isMapped ? (
+          <CheckCircle className="inline h-5 w-5 text-green-500" />
+        ) : (
+          <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+            Not Mapped
+          </span>
+        )}
+      </td>
+    </tr>
   );
 }
 

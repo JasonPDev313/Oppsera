@@ -58,3 +58,4 @@ export * from './customer-identity';
 export * from './stored-value';
 export * from './membership';
 export * from './guest-pay';
+export * from './transaction-types';

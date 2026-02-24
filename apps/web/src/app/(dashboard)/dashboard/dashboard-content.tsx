@@ -14,6 +14,8 @@ import {
   RefreshCw,
   Package,
   Clock,
+  CheckCircle2,
+  Rocket,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
@@ -212,6 +214,9 @@ export default function DashboardContent() {
           Refresh
         </button>
       </div>
+
+      {/* Setup Status */}
+      <SetupStatusBanner />
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -421,6 +426,94 @@ function MetricCard({
     return <Link href={href}>{content}</Link>;
   }
   return content;
+}
+
+// ── Setup Status Banner ──────────────────────────────────────────
+// Lightweight — reads localStorage/sessionStorage directly. No API calls.
+
+function getOnboardingProgress(): { completedAt: string | null; percentage: number } {
+  if (typeof window === 'undefined') return { completedAt: null, percentage: 0 };
+  try {
+    const completedAt = localStorage.getItem('oppsera_onboarding_completed_at');
+    if (completedAt) return { completedAt, percentage: 100 };
+
+    const cached = sessionStorage.getItem('oppsera_onboarding_cache');
+    if (!cached) return { completedAt: null, percentage: 0 };
+
+    const completion = JSON.parse(cached) as Record<string, Record<string, boolean>>;
+    let total = 0;
+    let done = 0;
+    for (const phase of Object.values(completion)) {
+      for (const value of Object.values(phase)) {
+        total++;
+        if (value) done++;
+      }
+    }
+    return { completedAt: null, percentage: total > 0 ? Math.round((done / total) * 100) : 0 };
+  } catch {
+    return { completedAt: null, percentage: 0 };
+  }
+}
+
+function SetupStatusBanner() {
+  const [progress] = useState(getOnboardingProgress);
+
+  if (progress.completedAt) {
+    return (
+      <div className="flex items-center gap-4 rounded-xl border border-green-500/30 bg-green-500/10 px-5 py-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
+          <CheckCircle2 className="h-5 w-5 text-green-600" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-green-700">Your system is all set up</p>
+          <p className="text-xs text-green-600/70">
+            Business went live on{' '}
+            {new Date(progress.completedAt).toLocaleDateString(undefined, {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </p>
+        </div>
+        <Link
+          href="/settings/onboarding"
+          className="shrink-0 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+        >
+          View Setup
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-red-400/30 bg-red-400/10 px-5 py-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-400/20">
+        <Rocket className="h-5 w-5 text-red-500" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-red-600">Complete your business setup</p>
+        <p className="text-xs text-red-500/70">
+          {progress.percentage > 0
+            ? `You're ${progress.percentage}% of the way there — finish setting up to start taking orders.`
+            : 'A few quick steps to get your business up and running.'}
+        </p>
+        {progress.percentage > 0 && (
+          <div className="mt-2 h-1.5 w-full max-w-xs rounded-full bg-red-400/20">
+            <div
+              className="h-full rounded-full bg-red-500 transition-all"
+              style={{ width: `${progress.percentage}%` }}
+            />
+          </div>
+        )}
+      </div>
+      <Link
+        href="/settings/onboarding"
+        className="shrink-0 rounded-lg bg-red-400 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500"
+      >
+        Complete Setup
+      </Link>
+    </div>
+  );
 }
 
 function OrderStatusBadge({ status }: { status: string }) {

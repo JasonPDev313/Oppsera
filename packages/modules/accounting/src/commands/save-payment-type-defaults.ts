@@ -19,6 +19,7 @@ export async function savePaymentTypeDefaults(
     if (input.cashAccountId) accountIds.push(input.cashAccountId);
     if (input.clearingAccountId) accountIds.push(input.clearingAccountId);
     if (input.feeExpenseAccountId) accountIds.push(input.feeExpenseAccountId);
+    if (input.expenseAccountId) accountIds.push(input.expenseAccountId);
 
     if (accountIds.length > 0) {
       const accounts = await tx
@@ -79,6 +80,9 @@ export async function savePaymentTypeDefaults(
           cashAccountId: input.cashAccountId ?? null,
           clearingAccountId: input.clearingAccountId ?? null,
           feeExpenseAccountId: input.feeExpenseAccountId ?? null,
+          postingMode: input.postingMode ?? 'clearing',
+          expenseAccountId: input.expenseAccountId ?? null,
+          description: input.description ?? null,
         })
         .returning();
     }

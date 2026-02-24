@@ -153,7 +153,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative z-10 mx-4 w-full max-w-2xl rounded-xl bg-white shadow-2xl">
+      <div className="relative z-10 mx-4 w-full max-w-2xl rounded-xl bg-surface shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-gray-900">Import Chart of Accounts</h2>

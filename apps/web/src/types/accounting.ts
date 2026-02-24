@@ -183,6 +183,55 @@ export interface PaymentTypeMapping {
   feeExpenseAccountId: string | null;
 }
 
+export type TransactionTypeCategory = 'tender' | 'revenue' | 'tax' | 'tip' | 'deposit' | 'refund' | 'settlement' | 'ar' | 'ap' | 'inventory' | 'membership' | 'other';
+export type TenderPostingMode = 'clearing' | 'direct_bank' | 'non_cash';
+export type TenderCategory = 'external_card' | 'external_cash' | 'external_ach' | 'external_wallet' | 'house_account' | 'barter' | 'comp' | 'other';
+
+export interface TransactionTypeMapping {
+  id: string;
+  code: string;
+  name: string;
+  category: TransactionTypeCategory;
+  description: string | null;
+  isSystem: boolean;
+  isActive: boolean;
+  defaultDebitAccountType: string | null;
+  defaultCreditAccountType: string | null;
+  sortOrder: number;
+  cashAccountId: string | null;
+  cashAccountDisplay: string | null;
+  clearingAccountId: string | null;
+  clearingAccountDisplay: string | null;
+  feeExpenseAccountId: string | null;
+  feeExpenseAccountDisplay: string | null;
+  expenseAccountId: string | null;
+  expenseAccountDisplay: string | null;
+  postingMode: TenderPostingMode | null;
+  mappingDescription: string | null;
+  isMapped: boolean;
+  tenderTypeId: string | null;
+  tenderCategory: TenderCategory | null;
+  requiresReference: boolean;
+  referenceLabel: string | null;
+  reportingBucket: string | null;
+}
+
+export interface TenantTenderType {
+  id: string;
+  name: string;
+  code: string;
+  category: TenderCategory;
+  postingMode: TenderPostingMode;
+  isActive: boolean;
+  requiresReference: boolean;
+  referenceLabel: string | null;
+  defaultClearingAccountId: string | null;
+  defaultBankAccountId: string | null;
+  defaultFeeAccountId: string | null;
+  defaultExpenseAccountId: string | null;
+  reportingBucket: string;
+}
+
 export interface TaxGroupMapping {
   taxGroupId: string;
   taxGroupName: string;

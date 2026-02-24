@@ -43,7 +43,7 @@ export function TableActionMenu({
       onClick={onClose}
     >
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl p-2 shadow-lg w-[220px] bg-white border border-gray-200"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl p-2 shadow-lg w-[220px] bg-surface border border-gray-200"
         onClick={(e) => e.stopPropagation()}
       >
         <p className="px-3 py-2 text-xs font-bold text-gray-400">

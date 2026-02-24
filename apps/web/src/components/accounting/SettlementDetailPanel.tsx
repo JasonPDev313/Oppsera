@@ -56,9 +56,9 @@ export function SettlementDetailPanel({
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative bg-white w-full max-w-2xl shadow-xl overflow-y-auto">
+      <div className="relative bg-surface w-full max-w-2xl shadow-xl overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-surface border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
           <h2 className="text-lg font-semibold text-gray-900">Settlement Detail</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="h-5 w-5" />

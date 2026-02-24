@@ -9,9 +9,10 @@ export interface MappingCoverageDetail {
 }
 
 export interface MappingCoverageReport {
-  subDepartments: { mapped: number };
-  paymentTypes: { mapped: number };
-  taxGroups: { mapped: number };
+  departments: { mapped: number; total: number };
+  paymentTypes: { mapped: number; total: number };
+  taxGroups: { mapped: number; total: number };
+  overallPercentage: number;
   unmappedEventCount: number;
   details: MappingCoverageDetail[];
 }
@@ -24,46 +25,83 @@ export async function getMappingCoverage(
   input: GetMappingCoverageInput,
 ): Promise<MappingCoverageReport> {
   return withTenant(input.tenantId, async (tx) => {
-    // Count existing GL mapping rows per entity type.
-    // Since we can't query catalog tables directly (module isolation),
-    // we only count the mapping rows that exist.
-
-    // Sub-department mappings
-    const subDeptRows = await tx.execute(sql`
+    // ── Sub-department / department mappings ──────────────────
+    // Count mapped: rows in sub_department_gl_defaults with a revenue account
+    const subDeptMappedRows = await tx.execute(sql`
       SELECT COUNT(*)::int AS cnt
       FROM sub_department_gl_defaults
       WHERE tenant_id = ${input.tenantId}
+        AND revenue_account_id IS NOT NULL
     `);
-    const subDeptArr = Array.from(subDeptRows as Iterable<Record<string, unknown>>);
-    const subDeptMapped = Number(subDeptArr[0]?.cnt ?? 0);
+    const subDeptMapped = Number(
+      (Array.from(subDeptMappedRows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0,
+    );
 
-    // Payment type mappings
-    const paymentRows = await tx.execute(sql`
+    // Count total: mappable category entities from catalog
+    // Uses same COALESCE(parent_id, id) logic as getSubDepartmentMappings
+    const subDeptTotalRows = await tx.execute(sql`
+      SELECT COUNT(DISTINCT COALESCE(parent_id, id))::int AS cnt
+      FROM catalog_categories
+      WHERE tenant_id = ${input.tenantId}
+        AND is_active = true
+    `);
+    const subDeptTotal = Number(
+      (Array.from(subDeptTotalRows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0,
+    );
+
+    // ── Payment type mappings ────────────────────────────────
+    const paymentMappedRows = await tx.execute(sql`
       SELECT COUNT(*)::int AS cnt
       FROM payment_type_gl_defaults
       WHERE tenant_id = ${input.tenantId}
+        AND cash_account_id IS NOT NULL
     `);
-    const paymentArr = Array.from(paymentRows as Iterable<Record<string, unknown>>);
-    const paymentMapped = Number(paymentArr[0]?.cnt ?? 0);
+    const paymentMapped = Number(
+      (Array.from(paymentMappedRows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0,
+    );
 
-    // Tax group mappings
-    const taxRows = await tx.execute(sql`
+    // Total from transaction type registry (system + tenant custom)
+    const paymentTotalRows = await tx.execute(sql`
+      SELECT COUNT(*)::int AS cnt
+      FROM gl_transaction_types
+      WHERE (tenant_id IS NULL OR tenant_id = ${input.tenantId})
+        AND is_active = true
+    `);
+    const paymentTotal = Number(
+      (Array.from(paymentTotalRows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0,
+    );
+
+    // ── Tax group mappings ───────────────────────────────────
+    const taxMappedRows = await tx.execute(sql`
       SELECT COUNT(*)::int AS cnt
       FROM tax_group_gl_defaults
       WHERE tenant_id = ${input.tenantId}
     `);
-    const taxArr = Array.from(taxRows as Iterable<Record<string, unknown>>);
-    const taxMapped = Number(taxArr[0]?.cnt ?? 0);
+    const taxMapped = Number(
+      (Array.from(taxMappedRows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0,
+    );
 
-    // Count unresolved unmapped events (the "unmapped" signal)
+    // Total active tax groups from catalog
+    const taxTotalRows = await tx.execute(sql`
+      SELECT COUNT(*)::int AS cnt
+      FROM tax_groups
+      WHERE tenant_id = ${input.tenantId}
+        AND is_active = true
+    `);
+    const taxTotal = Number(
+      (Array.from(taxTotalRows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0,
+    );
+
+    // ── Unmapped events ──────────────────────────────────────
     const unmappedRows = await tx.execute(sql`
       SELECT COUNT(*)::int AS cnt
       FROM gl_unmapped_events
       WHERE tenant_id = ${input.tenantId}
         AND resolved_at IS NULL
     `);
-    const unmappedArr = Array.from(unmappedRows as Iterable<Record<string, unknown>>);
-    const unmappedEventCount = Number(unmappedArr[0]?.cnt ?? 0);
+    const unmappedEventCount = Number(
+      (Array.from(unmappedRows as Iterable<Record<string, unknown>>))[0]?.cnt ?? 0,
+    );
 
     // Build details from unresolved unmapped events (latest 100)
     const detailRows = await tx.execute(sql`
@@ -85,10 +123,18 @@ export async function getMappingCoverage(
       isMapped: false,
     }));
 
+    // ── Overall percentage ───────────────────────────────────
+    const totalMapped = subDeptMapped + paymentMapped + taxMapped;
+    const totalAll = subDeptTotal + paymentTotal + taxTotal;
+    const overallPercentage = totalAll > 0
+      ? Math.round((totalMapped / totalAll) * 100)
+      : 0;
+
     return {
-      subDepartments: { mapped: subDeptMapped },
-      paymentTypes: { mapped: paymentMapped },
-      taxGroups: { mapped: taxMapped },
+      departments: { mapped: subDeptMapped, total: subDeptTotal },
+      paymentTypes: { mapped: paymentMapped, total: paymentTotal },
+      taxGroups: { mapped: taxMapped, total: taxTotal },
+      overallPercentage,
       unmappedEventCount,
       details,
     };

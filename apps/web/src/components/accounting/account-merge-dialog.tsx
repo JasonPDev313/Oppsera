@@ -56,7 +56,7 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-white shadow-2xl">
+      <div className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <div className="flex items-center gap-2">
             <GitMerge className="h-5 w-5 text-indigo-600" />

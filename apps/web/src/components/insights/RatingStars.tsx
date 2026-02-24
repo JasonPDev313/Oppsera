@@ -61,8 +61,8 @@ export function RatingStars({
                 filled
                   ? 'fill-amber-400 text-amber-400'
                   : readOnly
-                  ? 'fill-gray-200 text-gray-200 dark:fill-gray-700 dark:text-gray-700'
-                  : 'fill-gray-200 text-gray-300 hover:fill-amber-300 hover:text-amber-300 dark:fill-gray-700 dark:text-gray-600'
+                  ? 'fill-gray-200 text-gray-200'
+                  : 'fill-gray-200 text-gray-300 hover:fill-amber-300 hover:text-amber-300'
               }`}
             />
           </button>

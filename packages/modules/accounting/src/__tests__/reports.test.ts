@@ -387,9 +387,12 @@ describe('getMappingCoverage', () => {
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
       const mockTx = {
         execute: vi.fn()
-          .mockResolvedValueOnce([{ cnt: 5 }])   // sub-department mappings
-          .mockResolvedValueOnce([{ cnt: 3 }])   // payment type mappings
-          .mockResolvedValueOnce([{ cnt: 2 }])   // tax group mappings
+          .mockResolvedValueOnce([{ cnt: 5 }])   // sub-department mapped
+          .mockResolvedValueOnce([{ cnt: 8 }])   // sub-department total
+          .mockResolvedValueOnce([{ cnt: 3 }])   // payment type mapped
+          .mockResolvedValueOnce([{ cnt: 25 }])  // payment type total
+          .mockResolvedValueOnce([{ cnt: 2 }])   // tax group mapped
+          .mockResolvedValueOnce([{ cnt: 4 }])   // tax group total
           .mockResolvedValueOnce([{ cnt: 4 }])   // unresolved unmapped events count
           .mockResolvedValueOnce([               // detail rows
             { entity_type: 'sub_department', entity_id: 'subdept-x', reason: 'Missing mapping' },
@@ -401,9 +404,13 @@ describe('getMappingCoverage', () => {
 
     const result = await getMappingCoverage({ tenantId: 'tenant-1' });
 
-    expect(result.subDepartments.mapped).toBe(5);
+    expect(result.departments.mapped).toBe(5);
+    expect(result.departments.total).toBe(8);
     expect(result.paymentTypes.mapped).toBe(3);
+    expect(result.paymentTypes.total).toBe(25);
     expect(result.taxGroups.mapped).toBe(2);
+    expect(result.taxGroups.total).toBe(4);
+    expect(result.overallPercentage).toBe(27); // (5+3+2)/(8+25+4) = 10/37 = 27%
     expect(result.unmappedEventCount).toBe(4);
     expect(result.details).toHaveLength(2);
     expect(result.details[0]!.entityType).toBe('sub_department');

@@ -36,6 +36,7 @@ import {
   Brush,
   Shield,
   Globe,
+  Rocket,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -159,6 +160,7 @@ export const navigation: NavItem[] = [
     href: '/settings',
     icon: Settings,
     children: [
+      { name: 'Onboarding', href: '/settings/onboarding', icon: Rocket },
       { name: 'General', href: '/settings', icon: Settings },
       { name: 'Profit Centers', href: '/settings/profit-centers', icon: Building2 },
       { name: 'Permissions', href: '/settings/permissions', icon: Shield },

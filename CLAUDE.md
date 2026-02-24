@@ -557,7 +557,124 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
     - **7 new commands**: purchaseVoucher, redeemVoucher, expireVouchers, recordChargeback, resolveChargeback, createReturn, recordRefund
     - **7 new adapters**: void, return, fnb, voucher (3 handlers), membership, chargeback (2 handlers)
     - All adapters follow never-throw pattern — GL failures never block business operations
-  - **Accounting Close Hardening** (ACCT-CLOSE sessions 01-08):
+- **Member Portal App** (`apps/member-portal/`) — Session 2026-02-22:
+  - **Standalone Next.js 15 app** for member self-service (billing, contracts, spending, statements)
+  - **Multi-tenant discovery**: `[tenantSlug]/` dynamic routes, `find-club/` page for tenant lookup
+  - **Portal auth**: `POST /api/auth/login` (email + tenant slug → portal token), `withPortalAuth()` middleware, JWT signing via `createPortalToken()`
+  - **Portal pages**: `(portal)/` group — dashboard, account, spending analysis, statements
+  - **Portal API routes**: account summary, autopay config, billing statements, spending analysis, initiation/contracts
+  - **Hooks**: `usePortalAuth()`, `usePortalData()`
+  - **Components**: `PortalHeader`, `PortalNav`
+- **Customer Sub-Resource API Expansion** (Session 2026-02-22):
+  - **50+ new API routes** under `/customers/[id]/`: activity-feed, addresses CRUD, aging, applicable-discount-rules, audit, contacts-360, emails CRUD, emergency-contacts, files, financial account detail + adjust + autopay + credit-limit + hold, header, ledger, member-number, messages, notes, overview, phones CRUD, privileges-extended, relationships-extended + CRUD, stored-value + redeem + reload + void + transfer, discount-rules CRUD + toggle
+  - **Member portal API** (6 routes): `/member-portal/account`, `/member-portal/autopay`, `/member-portal/initiation`, `/member-portal/minimums`, `/member-portal/statements`, `/member-portal/summary`
+  - **Membership management API** (20+ routes): accounts CRUD, authorized-users, autopay, billing-items, classes, collections, freeze/holds, initiation contracts + bill + cancel + extra-principal + payoff
+- **Guest Pay (QR Code Pay at Table)** (Session 2026-02-23):
+  - **Schema**: `guest_pay_sessions` table (token, status lifecycle, tip settings) — migration 0137
+  - **Guest-facing page**: `/(guest)/pay/[token]/` — standalone payment page with member auth, tip selection, round-up donations
+  - **Commands**: `createGuestPaySession`, `selectGuestPayTip`, `simulateGuestPayment` (V1), `chargeGuestMemberAccount`, `expireGuestPaySessions`, `invalidateGuestPaySession`, `updateGuestPayTipSettings`
+  - **Queries**: `getGuestPaySession`, `getGuestPaySessionByToken`, `getActiveGuestPayForTab`, `listGuestPaySessionsForTab`, `getGuestPayTipSettings`
+  - **Session lifecycle**: active → paid | expired | invalidated | superseded
+  - **Tokens**: 256-bit base64url (unguessable), tip settings snapshot as JSONB
+- **COA Governance** (Session 2026-02-23):
+  - **Account merge**: `mergeGlAccounts` command + `MergeAccountDialog` UI — merges balances, reassigns journal lines, audit trail
+  - **Account renumbering**: `renumberGlAccount` — change account number while preserving history
+  - **CSV COA import**: `importCoaFromCsv` — CSV → validation → account creation → GL mapping auto-wire
+  - **COA health dashboard**: `getCoaHealth` query + API route — hierarchy validation, orphan detection, classification consistency
+  - **Account change log**: `account-change-log.ts` service — append-only audit trail per account
+  - **1,500+ new accounting tests**: account merge (143), bootstrap templates (226), COA validation (367), CSV import (299), hierarchy (135), posting matrix (191), state placeholder (201)
+- **F&B Payment Tier 3** (Session 2026-02-23):
+  - **Gift card balance lookup** API + UI
+  - **House account member lookup + charge** — member search, billing account selection, charge authorization
+  - **Loyalty program redemption** routes (stubs)
+  - **NFC payment initiation** stubs
+  - **Fractional split tender** support
+  - **Enhanced FnbPaymentView**: 332 → 619 lines with payment adjustments panel, gift cards, house accounts
+  - **Migration 0136**: F&B payment tier 3 provisioning — gift cards, house accounts, QR code payments
+- **GL Remap Workflow** (Session 2026-02-23):
+  - **Preview**: `POST /api/v1/accounting/unmapped-events/remap/preview` — find tenders that can be auto-remapped based on new mapping rules
+  - **Execute**: `POST /api/v1/accounting/unmapped-events/remap` — batch remap GL entries
+  - **Commands**: `remapGlForTender` (185 lines), `tryAutoRemap` helper (46 lines)
+  - **Query**: `getRemappableTenders` (180 lines)
+  - **Auto-remap setting**: `accounting_settings.enable_auto_remap` boolean (migration 0143)
+  - **Frontend**: `RemapPreviewDialog` (352 lines), `useGlRemap` hook (128 lines)
+  - **ReconciliationReadApi expanded**: 20 → 61 methods with `getTendersForRemapping`, `getPaymentsForRemapping`, `getTransactionsWithGlStatus`
+- **Admin Impersonation** (Session 2026-02-23):
+  - **Schema**: `admin_impersonation_sessions` table (migration 0141) — tracks session, expiry, action count, audit trail
+  - **API routes**: `POST /api/v1/auth/impersonate` (start), `POST /api/v1/auth/impersonate/end` (end)
+  - **Frontend**: `/impersonate` page with Suspense boundary, `ImpersonationBanner` component
+  - **Auth middleware**: detects impersonation token in refresh, tracks action count in audit log
+  - **Tenant role CRUD**: admin API for tenant-scoped role management (create/read/update/delete), `TenantRolesTab` component (465 lines)
+- **RBAC & Permission Seed Fixes** (Session 2026-02-23):
+  - Admin role gets `*` wildcard permissions (like Owner, but can be location-scoped)
+  - All 6 system roles get `pos_fnb.floor_plan.view` by default
+  - Cashier gets `pos_fnb.tabs.manage`, `pos_fnb.kds.view`, `pos_fnb.payments.create`
+  - Admin + Manager roles get `pos_fnb.*`, `accounting.*`, `ap.*`, `ar.*`
+  - Dead letter routes now read from persistent `event_dead_letters` table (was in-memory, lost on Vercel cold starts)
+  - Migration 0134 made fully idempotent (`DROP POLICY IF EXISTS`, `IF NOT EXISTS` for indexes)
+- **Build & Deployment Fixes** (Session 2026-02-22–23):
+  - **Vercel build blockers resolved** across all 3 apps (web, admin, member-portal)
+  - 30+ ESLint `consistent-type-imports` fixes, unused variable removal
+  - Admin app: `workspace:*` for `@oppsera/core`, added to `transpilePackages`
+  - Webpack watchOptions fix for Windows EPERM (all 3 apps)
+  - Member portal: dotenv loading from monorepo root
+  - `useSearchParams` wrapped in Suspense boundary for Next.js 15 static generation
+  - Removed `eslint-disable` for non-loaded `react-hooks/exhaustive-deps` rule
+- **Migrations 0134–0143** (Session 2026-02-22–23):
+  - `0134_rls_and_index_hardening.sql`: idempotent RLS policy + index fixes
+  - `0135_uncategorized_revenue_fallback.sql`: fallback GL accounts (account 49900)
+  - `0136_fnb_payment_tier3.sql`: gift cards, house accounts, QR code payments
+  - `0137_guest_pay_sessions.sql`: guest pay sessions table
+  - `0138_coa_governance.sql`: account renumbering, merge, hierarchy validation
+  - `0139_guest_pay_member_charge.sql`: house account billing for members
+  - `0140_fnb_subdepartment_revenue.sql`: GL tracking by subdepartment
+  - `0141_admin_impersonation.sql`: admin impersonation sessions
+  - `0142_gl_remap_index.sql`: source reference index for remap lookups
+  - `0143_auto_remap_setting.sql`: `enable_auto_remap` on accounting_settings
+  - **Dashboard & Reporting Fixes** (Session 2026-02-23):
+  - **Dashboard fallback chain**: `getDashboardMetrics` now has 3-tier fallback: (1) CQRS read models (`rm_daily_sales`), (2) operational tables filtered by today's business date, (3) all-time orders with no date filter. Labels update dynamically ("Total Sales Today" vs "Total Sales") based on which data source was used
+  - **Reporting consumers cents→dollars fix**: `handleOrderPlaced`, `handleOrderVoided`, `handleTenderRecorded` consumers were storing raw cent values from event payloads into NUMERIC(19,4) read model columns that expect dollar amounts — values were 100x too large. Fixed with `/ 100` conversion at consumer boundary
+  - **Backfill route**: `POST /api/v1/reports/backfill` rebuilds `rm_daily_sales` and `rm_item_sales` from operational tables for orders created outside the event system (e.g., seed data)
+  - **Reporting query fallbacks**: `getDailySales` and `getInventorySummary` now fall back to operational tables (orders, tenders, inventory_items + inventory_movements) when CQRS read models are empty. Multi-location aggregation recomputes `avgOrderValue = SUM(netSales) / SUM(orderCount)` correctly
+  - **Recent Orders unfiltered**: dashboard Recent Orders section no longer filters by today's date — shows 5 most recent orders regardless of date
+  - **Setup Status Banner**: `SetupStatusBanner` component on dashboard reads localStorage/sessionStorage for onboarding progress — shows green "all set up" banner with go-live date, or red "complete your setup" banner with progress bar and percentage. Zero API calls (reads cached state only)
+- **Accounting UI Improvements** (Session 2026-02-23):
+  - **AccountPicker enhanced**: dual suggestion engines (hint-based + dynamic semantic matching), 20+ role-specific suggestion paths, semantic grouping maps departments to GL accounts (e.g., "Sandwiches" → "Food Sales"), portal-based dropdown with scroll/resize repositioning, fuzzy matching with token overlap scoring and penalty for generic accounts
+  - **Mapping content 5-tab layout**: Sub-Departments, Payment Types, Tax Groups, F&B Categories, Unmapped Events. Auto-mapping engine with intelligent account suggestions
+  - **Dark mode bootstrap wizard**: select dropdowns properly styled for dark mode
+  - **F&B dashboard query fixes**: `getFnbDashboard` query fixes for manager content
+- **Transaction Type Registry** (Session 2026-02-23 — uncommitted):
+  - **2 new schema tables**: `gl_transaction_types` (system-wide transaction type registry, 45 pre-seeded types across 12 categories), `tenant_tender_types` (custom payment methods per tenant with GL account mappings, posting mode, reporting bucket)
+  - **Migration 0144**: `0144_transaction_type_registry.sql` — creates both tables with RLS, seeds 45 system transaction types (cash, card, gift cards, tips, deposits, refunds, settlement, AR/AP, inventory, memberships, events), extends `payment_type_gl_defaults` with posting_mode/expense_account_id/description
+  - **Schema**: `packages/db/src/schema/transaction-types.ts` — Drizzle ORM definitions for `glTransactionTypes` and `tenantTenderTypes`
+  - **Shared constants**: `packages/shared/src/constants/transaction-types.ts` — 45 system transaction types with codes, descriptions, debit/credit account hints, sort order. Types: `TransactionTypeCategory`, `TenderPostingMode`, `TenderCategory`, `ReportingBucket`
+  - **3 commands**: `createTenantTenderType` (validates code uniqueness against system types, creates in both tables), `updateTenantTenderType` (syncs name/active to gl_transaction_types), `deactivateTenderType` (soft-delete both records)
+  - **1 query**: `getTransactionTypeMappings` — joins transaction types with GL mappings, includes tender type details (category, posting mode, reporting bucket)
+  - **API routes**: `GET /api/v1/accounting/mappings/transaction-types`, `POST /api/v1/accounting/tender-types`, `PATCH/DELETE /api/v1/accounting/tender-types/[id]`
+  - **Frontend**: `CreateTenderTypeDialog` (portal-based, conditional GL pickers by posting mode: clearing/direct_bank/non_cash)
+  - **`savePaymentTypeDefaults` enhanced**: validates GL account references, auto-remaps eligible tenders (best-effort), returns default + remap count
+- **Onboarding System** (Session 2026-02-23 — uncommitted):
+  - **Settings page**: `/settings/onboarding` with code-split pattern (thin `page.tsx` + `onboarding-content.tsx`)
+  - **10 onboarding phases**: Organization & Locations (4 steps), Users & Roles (3), Catalog & Products (5), Inventory & Vendors (5), Customer Data (3), Accounting (5), POS Configuration (4), F&B Setup (6), Reporting & AI (3), Go Live Checklist (4)
+  - **Phase definitions**: `apps/web/src/components/onboarding/phase-definitions.ts` — each phase has key, label, description, Lucide icon, optional `moduleKey` for entitlement gating, array of steps
+  - **Auto-detection**: `useOnboardingStatus` hook makes parallel HEAD/GET requests (5s timeout each) to check if data exists for each step (profit centers, terminals, users, catalog, inventory, customers, room layouts, F&B tables, KDS stations, custom reports, AI lenses)
+  - **localStorage + sessionStorage persistence**: skipped phases, manually completed steps, completion timestamp in localStorage; API completion cache in sessionStorage with stale-while-revalidate pattern
+  - **Accounting bootstrap inline**: Accounting phase step opens existing `BootstrapWizard` component directly inline (not navigating away)
+  - **Go Live Checklist auto-completion**: `all_phases_complete` checks every non-skipped, visible, enabled-module phase; `verify_gl` passes if accounting disabled OR all accounting steps complete; `final_review` auto-completes when all other go_live steps pass
+  - **"Mark as Live" button**: sets `oppsera_onboarding_completed_at` in localStorage, triggers celebration banner
+  - **Components**: `OnboardingPhase` (collapsible with progress bar, skip/unskip toggle), `OnboardingStep` (icon + label + description, expandable incomplete steps, "Open [step name]" button with href, "Mark as done" toggle, undo for manual completions)
+  - **Sidebar nav**: added "Setup Guide" link under Settings in `navigation.ts`
+- **F&B POS Enhancements** (Session 2026-02-23 — uncommitted):
+  - **Floor view dual modes**: Layout (spatial canvas with zoom 0.5x–3x, wheel/pinch zoom, auto-fit viewport) and Grid (table list) modes. "My Section" filter for server-specific table visibility
+  - **Floor hook snapshot cache**: `useFnbFloor` uses module-level cache (30-min TTL) surviving React Query GC for instant cold starts. Polling interval: 20 minutes. POS visibility resume listener
+  - **Menu panel refactored**: 6 extracted sub-components (MenuModeTabs, DepartmentBar, SubDepartmentBar, CategorySidebar, MenuSearchBar, MenuBreadcrumb). 3 menu modes: All Items, Hot Sellers, Tools. F&B-specific item filtering (food/beverage only). Non-blocking allergen loading
+  - **Menu hook deduplication**: `useFnbMenu` uses module-level cache with in-flight promise dedup (`_menuFetchPromise`), 5-min TTL with background refresh, auto-select first department on cached data
+  - **Tab hook AbortController**: `useFnbTab` uses abort-based request cancellation on unmount, stale data clearing on tab switch, `pollEnabled` flag to pause when screen hidden
+- **Accounting Module Updates** (Session 2026-02-23):
+  - **28 tables total** (was 26): + `gl_transaction_types`, `tenant_tender_types`
+  - **`getMappingCoverage` enhanced**: payment type total now counts active GL transaction types (system + tenant-scoped) instead of hardcoded list. Returns `{ departments, paymentTypes, taxGroups, overallPercentage, unmappedEventCount }`
+  - **Accounting module exports expanded**: `createTenantTenderType`, `updateTenantTenderType`, `deactivateTenderType`, `getTransactionTypeMappings`, `remapGlForTender`, `batchRemapGlForTenders`
+- **Accounting Close Hardening** (ACCT-CLOSE sessions 01-08):
     - **ACCT-CLOSE-01**: Drawer session opening balance enforcement — validates `openingBalanceCents >= 0` in `openDrawerSession`, terminal availability check (prevents double-open on same terminal)
     - **ACCT-CLOSE-02**: Breakage income configurability — `breakage_income_settings` table (threshold days, recognition method, account ID), configurable per tenant
     - **ACCT-CLOSE-03**: Reconciliation summary dashboard — chain-of-custody waterfall (`getReconciliationWaterfall`) tracing orders → tenders → settlements → deposits with variance at each stage. Two-tab layout: "Chain of Custody" + "Subledger Reconciliation"
@@ -568,16 +685,19 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
     - **ACCT-CLOSE-08**: Documentation — V1 conventions for till sharing (strict mode), offline behavior (read-only), kitchen waste tracking (boolean only), multi-currency roadmap, stored value UX spec (`docs/specs/STORED-VALUE-UX.md`)
     - **4 new migrations**: 0119-0122
     - **Bank Reconciliation frontend**: Banking section "Bank Rec" tab, `ReconciliationWorkspace` component with outstanding/cleared item lists, difference indicator, summary cards, `StartReconciliationDialog`, `AddAdjustmentDialog`
-  - **GL Account Mapping Frontend**: `/accounting/mappings` page with 4-tab layout (Sub-Departments, Payment Types, Tax Groups, Unmapped Events)
+  - **GL Account Mapping Frontend**: `/accounting/mappings` page with 5-tab layout (Sub-Departments, Payment Types, Tax Groups, F&B Categories, Unmapped Events)
     - Mapping coverage card: progress bars with mapped/total counts per category + overall percentage
     - Sub-department mappings: enriched query joining catalog_categories + GL defaults + GL accounts, supports both 2-level (departments) and 3-level (sub-departments) catalog hierarchies
     - Flat mode (2-level): departments rendered as a simple table with AccountPicker dropdowns
     - Grouped mode (3-level): collapsible department sections with sub-department rows
     - Item drill-down: expandable rows showing catalog items under each mappable category
+    - AccountPicker: intelligent suggestion engine with 20+ role-specific paths (revenue, cogs, inventory, returns, discount, cash, clearing, fee, tax, expense), semantic grouping (maps departments to GL accounts via shared naming heuristics), portal-based dropdown with scroll/resize repositioning, fuzzy matching with token overlap scoring
     - AccountPicker filtering: revenue→`['revenue']`, cogs→`['expense']`, inventory→`['asset']`, clearing→`['asset', 'liability']`, tax→`['liability']`
+    - Payment type mappings: joined with `gl_transaction_types` registry (system + tenant custom), GL account columns (cash, clearing, fee, expense), posting mode (clearing/direct_bank/non_cash)
+    - Auto-mapping engine: intelligent account suggestions using semantic grouping and naming heuristics, remap preview dialog for retroactively correcting GL entries
     - Unmapped row highlighting with amber background
-    - API routes: `GET /api/v1/accounting/mappings/coverage` (totals from catalog hierarchy), `GET /api/v1/accounting/mappings/sub-departments` (enriched with dept names + item counts + GL display strings), `GET /api/v1/accounting/mappings/sub-departments/[id]/items` (drill-down with cursor pagination)
-    - Hooks: `useMappingCoverage`, `useSubDepartmentMappings`, `useSubDepartmentItems`, `useMappingMutations`
+    - API routes: `GET /api/v1/accounting/mappings/coverage` (totals from catalog hierarchy + transaction types), `GET /api/v1/accounting/mappings/sub-departments` (enriched with dept names + item counts + GL display strings), `GET /api/v1/accounting/mappings/sub-departments/[id]/items` (drill-down with cursor pagination), `GET /api/v1/accounting/mappings/transaction-types` (transaction type registry with GL mappings)
+    - Hooks: `useMappingCoverage`, `useSubDepartmentMappings`, `useSubDepartmentItems`, `usePaymentTypeMappings`, `useTransactionTypeMappings`, `useTaxGroupMappings`, `useUnmappedEvents`, `useMappingMutations`
 - **Accounts Payable Module** (Sessions 30-31):
   - **5 schema tables**: ap_bills, ap_bill_lines, ap_payments, ap_payment_allocations, ap_payment_terms + vendor extensions
   - **Migrations**: 0073 (AP schema), 0074 (AP payments + payment terms)
@@ -843,7 +963,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 ### What's Next
 - ~~F&B POS frontend wiring~~ ✓ DONE (Sessions 17-28: 12 phases — design tokens, floor plan, tab/check, menu, KDS/expo, split checks, payment/tips, manager/host/close-batch, real-time, architecture, responsive, integration tests)
 - F&B POS migration (run fnb schema migration 0082 on dev DB, then sync tables from room layouts)
-- Accounting frontend (COA management, journal browser, ~~mapping UI~~, report viewers, statement viewers)
+- Accounting frontend (COA management, journal browser, ~~mapping UI~~, ~~payment type mapping UI~~, report viewers, statement viewers)
 - AP frontend (bill entry, payment batch, aging dashboard, vendor ledger)
 - AR frontend (invoice entry, receipt entry, aging dashboard, customer ledger)
 - AP approval workflow (Draft → Pending Approval → Approved → Posted)
@@ -855,7 +975,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
-- Run migrations 0066-0118 on dev DB
+- Run migrations 0066-0144 on dev DB
 - Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
 - For existing tenants: run `tools/scripts/add-semantic-entitlement.ts` to grant semantic access
 - ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
@@ -919,7 +1039,29 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~ACCT-CLOSE-06: Multi-Currency + Recurring Journal Entries~~ ✓ DONE
 - ~~ACCT-CLOSE-07: Bank Reconciliation~~ ✓ DONE
 - ~~ACCT-CLOSE-08: Documentation + Provisioning~~ ✓ DONE
-- Run migrations 0097-0122 on dev DB
+- ~~Reporting consumers cents→dollars conversion~~ ✓ DONE
+- ~~Dashboard 3-tier fallback (read models → today orders → all-time)~~ ✓ DONE
+- ~~Reports backfill route for seed data~~ ✓ DONE
+- ~~AccountPicker intelligent suggestions (semantic grouping + 20 role paths)~~ ✓ DONE
+- ~~Mapping content 5-tab layout with auto-mapping engine~~ ✓ DONE
+- ~~Dark mode accounting bootstrap wizard~~ ✓ DONE
+- ~~Transaction type registry (45 system types + tenant custom)~~ ✓ IN PROGRESS (uncommitted)
+- ~~Onboarding system (10 phases, auto-detection, Go Live checklist)~~ ✓ IN PROGRESS (uncommitted)
+- ~~F&B floor dual view modes (layout + grid)~~ ✓ IN PROGRESS (uncommitted)
+- ~~F&B menu panel refactor (6 sub-components, deduplication)~~ ✓ IN PROGRESS (uncommitted)
+- ~~Dashboard setup status banner~~ ✓ IN PROGRESS (uncommitted)
+- ~~Member portal app (standalone Next.js)~~ ✓ DONE
+- ~~Customer sub-resource API expansion (50+ routes)~~ ✓ DONE
+- ~~Guest Pay (QR code pay at table)~~ ✓ DONE
+- ~~COA governance (merge, renumber, CSV import, health dashboard)~~ ✓ DONE
+- ~~F&B payment tier 3 (gift cards, house accounts, NFC stubs)~~ ✓ DONE
+- ~~GL remap workflow (preview, batch remap, auto-remap setting)~~ ✓ DONE
+- ~~Admin impersonation + tenant role CRUD~~ ✓ DONE
+- ~~RBAC permission seed fixes (wildcard admin, F&B defaults)~~ ✓ DONE
+- ~~Dead letter routes switched to DB persistence~~ ✓ DONE
+- ~~Vercel build blockers resolved (all 3 apps)~~ ✓ DONE
+- ~~1,500+ new accounting tests~~ ✓ DONE
+- Run migrations 0134-0144 on dev DB
 - Run `tools/scripts/seed-admin-roles.ts` after migration 0097
 - Run `tools/scripts/backfill-accounting-accounts.ts` after migration 0100 (creates Tips Payable + Service Charge Revenue for existing tenants)
 - Toggle `enableLegacyGlPosting = false` per tenant after validating GL reconciliation
@@ -1111,7 +1253,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 170. **Financial statement layouts are tenant-configurable** — `financial_statement_layouts` table allows tenants to customize P&L and Balance Sheet section groupings. `financial_statement_layout_templates` provides system defaults. Layouts group accounts by `classificationIds[]` and/or `accountIds[]`.
 171. **Balance sheet includes current-year net income in equity** — `getBalanceSheet()` computes current fiscal year revenue - expenses and adds it to totalEquity. This ensures A = L + E even before year-end close. `isBalanced` flag validates the equation.
 172. **Sales tax liability report uses GL, not POS data** — `getSalesTaxLiability()` pulls from `tax_group_gl_defaults` → `gl_journal_lines`. Credits to tax payable = collected, debits = remitted. Net liability = collected - remitted.
-173. **Accounting module has 26 tables total** — GL: gl_accounts, gl_classifications, gl_journal_entries, gl_journal_lines, gl_journal_number_counters, gl_account_templates, gl_classification_templates, accounting_settings, gl_unmapped_events, accounting_close_periods, financial_statement_layouts, financial_statement_layout_templates. Mappings: sub_department_gl_defaults, payment_type_gl_defaults, tax_group_gl_defaults, bank_accounts. AP: ap_bills, ap_bill_lines, ap_payments, ap_payment_allocations, ap_payment_terms. AR: ar_invoices, ar_invoice_lines, ar_receipts, ar_receipt_allocations. Vendor extensions: columns added to existing vendors table.
+173. **Accounting module has 28 tables total** — GL: gl_accounts, gl_classifications, gl_journal_entries, gl_journal_lines, gl_journal_number_counters, gl_account_templates, gl_classification_templates, accounting_settings, gl_unmapped_events, accounting_close_periods, financial_statement_layouts, financial_statement_layout_templates. Mappings: sub_department_gl_defaults, payment_type_gl_defaults, tax_group_gl_defaults, bank_accounts, gl_transaction_types, tenant_tender_types. AP: ap_bills, ap_bill_lines, ap_payments, ap_payment_allocations, ap_payment_terms. AR: ar_invoices, ar_invoice_lines, ar_receipts, ar_receipt_allocations. Vendor extensions: columns added to existing vendors table.
 174. **POS adapter converts cents to dollars for GL** — POS events use cents (INTEGER), GL uses dollars (NUMERIC(12,2)). The adapter converts: `(amountCents / 100).toFixed(2)`. Always use `.toFixed(2)` when building GL line amounts from cents.
 175. **AP control account resolution is two-tier** — `postBill` first checks `vendor.defaultAPAccountId`, then falls back to `settings.defaultAPControlAccountId`. AR uses tenant-level only (no customer-specific control accounts).
 176. **Void requires zero allocations** — cannot void an AP bill with payment allocations or an AR invoice with receipt allocations. Must void the payment/receipt first. AP throws `BillHasPaymentsError`, AR throws `INVOICE_HAS_RECEIPTS`.
@@ -1224,6 +1366,26 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 283. **Accounting queries MUST NOT import operational tables** — after the ReconciliationReadApi refactor, `packages/modules/accounting/src/queries/` should have ZERO imports of `orders`, `tenders`, `drawer_sessions`, `retail_close_batches`, `comp_events`, `payment_settlements`, `tip_payouts`, `deposit_slips`, `fnb_close_batches`, `inventory_movements`, `receiving_receipts`, `terminals`, or `users` from `@oppsera/db`. All cross-module reads go through `getReconciliationReadApi()`.
 284. **ReconciliationReadApi uses Promise.all for parallelism** — accounting queries that previously ran sequential SQL blocks now use `Promise.all([api.method1(), api.method2(), withTenant(tenantId, localQueries)])` to run API calls and local queries concurrently. This improves latency by 2-4x on the heaviest dashboard queries.
 285. **POS adapter uses fallback cascade, never drops revenue** — when a sub-department has no GL mapping, revenue posts to `defaultUncategorizedRevenueAccountId` (account 49900). When a payment type has no mapping, the debit posts to `defaultUndepositedFundsAccountId`. When a tax group has no mapping, tax posts to `defaultSalesTaxPayableAccountId`. Tips and service charges without dedicated accounts fall back to uncategorized revenue. When no line detail exists, the full tender amount posts to uncategorized revenue. Unmapped events are ALWAYS logged to `gl_unmapped_events` regardless of whether a fallback was used — preserving the "resolve later" workflow. The only scenario where posting is skipped entirely is when no fallback accounts are configured in settings (all defaults null) AND no specific mappings exist. Migration 0135 adds the `default_uncategorized_revenue_account_id` column + seeds account 49900 templates. Run `npx tsx tools/scripts/backfill-uncategorized-revenue.ts` for existing tenants.
+286. **Reporting consumers must convert cents to dollars** — event payloads from `order.placed.v1`, `order.voided.v1`, and `tender.recorded.v1` contain cent amounts (INTEGER). Read model columns (`rm_daily_sales`, `rm_item_sales`) are NUMERIC(19,4) dollars. Consumers MUST divide by 100 at the boundary: `totalCents / 100` before upserting. Without this, dashboard/report values are 100x too large.
+287. **Dashboard metrics use 3-tier fallback** — `getDashboardMetrics` prefers CQRS read models, falls back to operational tables with today's business date filter, then falls back to all-time orders. Labels dynamically update: "Total Sales Today" vs "Total Sales" based on data source. This handles seed data with NULL business_date or dates from other days.
+288. **Transaction types use dual-table registry** — `gl_transaction_types` holds the global registry (system types with `tenant_id IS NULL` + tenant-custom types). `tenant_tender_types` holds custom payment method details (category, posting mode, GL accounts, reporting bucket). System types are seeded in migration 0144 — never INSERT into `gl_transaction_types` with `tenant_id IS NULL` from application code.
+289. **Custom tender type codes must not conflict with system types** — `createTenantTenderType` validates the new code doesn't match any existing `gl_transaction_types` code (case-insensitive). Codes are `lowercase_snake_case` only. The command creates records in BOTH `tenant_tender_types` AND `gl_transaction_types` (tenant-scoped) atomically.
+290. **Tender posting modes: clearing vs direct_bank vs non_cash** — `clearing`: Dr Clearing Account / Cr Revenue (card processors). `direct_bank`: Dr Bank Account / Cr Revenue (cash, checks). `non_cash`: Dr Expense Account / Cr Revenue (comps, vouchers). The `CreateTenderTypeDialog` conditionally shows different GL account pickers per mode.
+291. **Onboarding auto-detection uses parallel HEAD/GET requests** — `useOnboardingStatus` fires ~15 parallel API calls with 5s timeout each to check if data exists. Uses `hasRecords()` helper that returns boolean. Cached in sessionStorage with stale-while-revalidate pattern. Never block page render on these checks.
+292. **Onboarding state is localStorage + sessionStorage** — `skippedPhases` and `manuallyCompleted` steps persist in `localStorage('oppsera_onboarding_*')`. API completion cache uses `sessionStorage('oppsera_onboarding_cache')`. Completion timestamp in `localStorage('oppsera_onboarding_completed_at')`. The `SetupStatusBanner` on dashboard reads these with zero API calls.
+293. **F&B floor hook uses module-level snapshot cache** — `useFnbFloor` stores snapshots in a module-level Map (outside React lifecycle) with 30-min TTL. This survives React Query garbage collection for instant cold starts via `initialData`. Polling interval is 20 minutes (floor plans rarely change during shift). `staleTime: 5min`, `gcTime: 30min`.
+294. **F&B menu hook deduplicates in-flight fetches** — `useFnbMenu` uses a module-level `_menuFetchPromise` to share a single API call across concurrent hook instances. 5-minute cache TTL with automatic background refresh. Auto-selects first department on cached data via `initialDeptSetRef`.
+295. **AccountPicker uses semantic grouping for suggestions** — the suggestion engine maps department/sub-department names to GL accounts via shared naming heuristics (e.g., "Sandwiches" → "Food Sales" via the `SEMANTIC_GROUPS` map). Hint-based paths (REVENUE_HINTS, COGS_HINTS, etc.) provide role-specific suggestions. Fuzzy matching uses token overlap scoring with penalty for generic accounts ("Other Revenue", "Miscellaneous").
+296. **Guest Pay tokens are 256-bit base64url** — `guest_pay_sessions.token` is crypto-random, unguessable. Session lifecycle: `active` → `paid` | `expired` | `invalidated` | `superseded`. Tip settings are JSONB-snapshotted at session creation time so changes don't affect in-flight sessions.
+297. **Member portal is a separate Next.js app** — `apps/member-portal/` runs independently with its own auth (`withPortalAuth()`), JWT signing (`createPortalToken()`), and multi-tenant discovery via `[tenantSlug]/` dynamic routes. It does NOT share auth with the main web app — portal tokens are a separate token type.
+298. **GL remap is retroactive** — `remapGlForTender` voids the original GL journal entry and posts a new one with corrected account mappings. Idempotent via `sourceReferenceId`. `tryAutoRemap` runs automatically when `accounting_settings.enable_auto_remap = true` and a mapping is saved. Preview before executing: `POST /api/v1/accounting/unmapped-events/remap/preview`.
+299. **Admin impersonation has action counting** — `admin_impersonation_sessions.action_count` increments on every API call during impersonation. Sessions auto-expire. All actions are audit-logged with `impersonation_session_id`. End via `POST /api/v1/auth/impersonate/end`.
+300. **Admin role uses wildcard permissions** — admin role seed has `permissions: ['*']` (same as Owner). The only difference is admin CAN be location-scoped via `role_assignments.location_id`, while Owner is always tenant-wide. Don't enumerate individual permissions for admin — use the wildcard.
+301. **Dead letter routes MUST use DB persistence** — `/api/v1/admin/events/dlq` routes read from the `event_dead_letters` table, NOT in-memory queues. In-memory state is lost on Vercel cold starts. Always use `dead-letter-service.ts` methods for DLQ operations.
+302. **COA merge reassigns journal lines** — `mergeGlAccounts` moves all `gl_journal_lines` from the source account to the target account, then deactivates the source. Both accounts must have the same `normalBalance` and `accountType`. Cannot merge into a control account.
+303. **COA CSV import validates before creating** — `importCoaFromCsv` parses the CSV, validates all rows (account number format, type, classification, parent references), reports errors per row, then creates accounts atomically. Invalid rows don't block valid ones — partial imports are supported.
+304. **ReconciliationReadApi has 61 methods** — expanded from 25 to 61 to support GL remap, settlements, and enhanced reconciliation. New methods include `getTendersForRemapping`, `getPaymentsForRemapping`, `getTransactionsWithGlStatus`. Always check existing methods before adding new ones.
+305. **F&B payment tier 3 includes house accounts** — `chargeGuestMemberAccount` debits the member's billing account (AR). Member lookup via `GET /api/v1/fnb/payments/member-lookup?search=`. Gift card balance via `GET /api/v1/fnb/payments/gift-card-balance?cardNumber=`. NFC and loyalty are stubs for V2.
 
 ## Migration Rules (IMPORTANT — Multi-Agent Safety)
 

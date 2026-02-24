@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
-import { generateUlid } from '@oppsera/shared';
+// generateUlid removed — not used in this route
 
 /**
  * POST /api/v1/reports/backfill

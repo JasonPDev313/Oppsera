@@ -342,7 +342,7 @@ export function ReceiptView({
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
               </div>
             ) : (
-              <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="rounded-lg border border-gray-200 bg-surface shadow-sm">
                 <ReceiptPreview receiptLines={receiptLines} receiptRef={receiptRef} />
               </div>
             )}

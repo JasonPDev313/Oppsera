@@ -35,13 +35,13 @@ export default function InsightsLayout({ children }: { children: React.ReactNode
   if (!hasAccess) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-center px-4">
-        <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center mb-4">
+        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4">
           <Sparkles className="h-8 w-8 text-indigo-400" />
         </div>
-        <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200 mb-2">
+        <h2 className="text-xl font-semibold text-gray-800 mb-2">
           AI Insights not enabled
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 max-w-sm text-sm">
+        <p className="text-gray-500 max-w-sm text-sm">
           The AI Insights module is not included in your current plan. Contact your account manager to unlock natural-language analytics.
         </p>
       </div>

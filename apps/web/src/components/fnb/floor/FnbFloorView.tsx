@@ -38,9 +38,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     }
   }, [roomsLoading, rooms, store, storedRoomExists]);
 
-  const { data: floorPlan, tables, isLoading, error: floorError, refresh } = useFnbFloor({
+  const { data: floorPlan, tables, isLoading, isFetching, error: floorError, refresh } = useFnbFloor({
     roomId: activeRoomId,
-    pollIntervalMs: 5000,
   });
 
   const actions = useTableActions(refresh);
@@ -277,10 +276,13 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   // ── Loading ─────────────────────────────────────────────────
 
-  // Show spinner only when we have NO data yet. If we have a stored roomId, the floor
-  // plan fetch runs in parallel with rooms — show spinner only until floor plan arrives.
-  // Once rooms load, if the stored room was invalid we'll switch (handled by the effect above).
-  if ((roomsLoading && !store.activeRoomId) || (isLoading && !floorPlan)) {
+  // Full-screen spinner ONLY on true first load (no cached/snapshot data at all).
+  // If we have stale data from cache or snapshot, render the floor plan immediately
+  // and let the background refetch update it silently.
+  const hasNoData = !floorPlan && tables.length === 0;
+  const isFirstLoad = hasNoData && (isLoading || (roomsLoading && !store.activeRoomId));
+
+  if (isFirstLoad) {
     return (
       <div className="flex h-full items-center justify-center bg-surface">
         <div className="text-center">
@@ -341,9 +343,14 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Room header */}
         <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
-          <h2 className="text-base font-bold text-gray-900">
-            {floorPlan?.room.name ?? 'Floor Plan'}
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-gray-900">
+              {floorPlan?.room.name ?? 'Floor Plan'}
+            </h2>
+            {isFetching && !isLoading && (
+              <div className="h-3 w-3 animate-spin rounded-full border border-indigo-400 border-t-transparent" />
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {/* Sync feedback */}
             {syncFeedback === 'success' && (
@@ -454,7 +461,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           ) : (
             <div className="p-4 relative h-full">
               {/* Zoom controls */}
-              <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md bg-white border border-gray-200">
+              <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md bg-surface border border-gray-200">
                 <button
                   type="button"
                   onClick={() => setUserZoom((z) => Math.min(3, z * 1.2))}

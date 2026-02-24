@@ -28,6 +28,10 @@ const num = (v: string | number | null | undefined): number => Number(v) || 0;
 /**
  * Retrieves daily sales data for a date range.
  *
+ * Prefers CQRS read models (rm_daily_sales) for speed.
+ * Falls back to querying operational tables directly when read models are empty
+ * (e.g., after direct seeding that bypassed the event system).
+ *
  * - With locationId: returns per-date rows for that location.
  * - Without locationId: aggregates across all locations per date,
  *   recomputing avgOrderValue as SUM(netSales) / SUM(orderCount).
@@ -50,20 +54,25 @@ export async function getDailySales(input: GetDailySalesInput): Promise<DailySal
         .where(and(...dateConditions))
         .orderBy(asc(rmDailySales.businessDate));
 
-      return rows.map((r) => ({
-        businessDate: r.businessDate,
-        locationId: r.locationId,
-        orderCount: r.orderCount,
-        grossSales: num(r.grossSales),
-        discountTotal: num(r.discountTotal),
-        taxTotal: num(r.taxTotal),
-        netSales: num(r.netSales),
-        tenderCash: num(r.tenderCash),
-        tenderCard: num(r.tenderCard),
-        voidCount: r.voidCount,
-        voidTotal: num(r.voidTotal),
-        avgOrderValue: num(r.avgOrderValue),
-      }));
+      if (rows.length > 0) {
+        return rows.map((r) => ({
+          businessDate: r.businessDate,
+          locationId: r.locationId,
+          orderCount: r.orderCount,
+          grossSales: num(r.grossSales),
+          discountTotal: num(r.discountTotal),
+          taxTotal: num(r.taxTotal),
+          netSales: num(r.netSales),
+          tenderCash: num(r.tenderCash),
+          tenderCard: num(r.tenderCard),
+          voidCount: r.voidCount,
+          voidTotal: num(r.voidTotal),
+          avgOrderValue: num(r.avgOrderValue),
+        }));
+      }
+
+      // Fallback: query operational orders table when read model is empty
+      return queryOrdersFallback(tx, input.tenantId, input.dateFrom, input.dateTo, input.locationId);
     }
 
     // Multi-location — aggregate across all locations per date
@@ -88,19 +97,86 @@ export async function getDailySales(input: GetDailySalesInput): Promise<DailySal
       .groupBy(rmDailySales.businessDate)
       .orderBy(asc(rmDailySales.businessDate));
 
-    return rows.map((r) => ({
-      businessDate: r.businessDate,
-      locationId: null,
-      orderCount: r.orderCount,
-      grossSales: num(r.grossSales),
-      discountTotal: num(r.discountTotal),
-      taxTotal: num(r.taxTotal),
-      netSales: num(r.netSales),
-      tenderCash: num(r.tenderCash),
-      tenderCard: num(r.tenderCard),
-      voidCount: r.voidCount,
-      voidTotal: num(r.voidTotal),
-      avgOrderValue: num(r.avgOrderValue),
-    }));
+    if (rows.length > 0) {
+      return rows.map((r) => ({
+        businessDate: r.businessDate,
+        locationId: null,
+        orderCount: r.orderCount,
+        grossSales: num(r.grossSales),
+        discountTotal: num(r.discountTotal),
+        taxTotal: num(r.taxTotal),
+        netSales: num(r.netSales),
+        tenderCash: num(r.tenderCash),
+        tenderCard: num(r.tenderCard),
+        voidCount: r.voidCount,
+        voidTotal: num(r.voidTotal),
+        avgOrderValue: num(r.avgOrderValue),
+      }));
+    }
+
+    // Fallback: query operational orders table when read model is empty
+    return queryOrdersFallback(tx, input.tenantId, input.dateFrom, input.dateTo);
+  });
+}
+
+/**
+ * Fallback: query operational orders + tenders tables directly
+ * when rm_daily_sales read model is empty (e.g., seed data, consumers not yet run).
+ * Converts cents → dollars to match read model format.
+ */
+async function queryOrdersFallback(
+  tx: any,
+  tenantId: string,
+  dateFrom: string,
+  dateTo: string,
+  locationId?: string,
+): Promise<DailySalesRow[]> {
+  const locFilter = locationId
+    ? sql` AND o.location_id = ${locationId}`
+    : sql``;
+
+  const rows = await tx.execute(sql`
+    SELECT
+      COALESCE(o.business_date, o.created_at::date::text) AS business_date,
+      ${locationId ?? sql`NULL`} AS location_id,
+      count(*)::int AS order_count,
+      coalesce(sum(CASE WHEN o.status != 'voided' THEN o.subtotal ELSE 0 END), 0)::bigint AS gross_sales_cents,
+      coalesce(sum(CASE WHEN o.status != 'voided' THEN o.discount_total ELSE 0 END), 0)::bigint AS discount_total_cents,
+      coalesce(sum(CASE WHEN o.status != 'voided' THEN o.tax_total ELSE 0 END), 0)::bigint AS tax_total_cents,
+      coalesce(sum(CASE WHEN o.status != 'voided' THEN o.total ELSE 0 END), 0)::bigint AS net_sales_cents,
+      coalesce(sum(CASE WHEN o.status = 'voided' THEN 1 ELSE 0 END), 0)::int AS void_count,
+      coalesce(sum(CASE WHEN o.status = 'voided' THEN o.total ELSE 0 END), 0)::bigint AS void_total_cents
+    FROM orders o
+    WHERE o.tenant_id = ${tenantId}
+      AND o.status IN ('placed', 'paid', 'voided')
+      AND COALESCE(o.business_date, o.created_at::date::text) >= ${dateFrom}
+      AND COALESCE(o.business_date, o.created_at::date::text) <= ${dateTo}
+      ${locFilter}
+    GROUP BY COALESCE(o.business_date, o.created_at::date::text)
+    ORDER BY business_date ASC
+  `);
+
+  return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => {
+    const orderCount = Number(r.order_count) || 0;
+    const grossSales = (Number(r.gross_sales_cents) || 0) / 100;
+    const discountTotal = (Number(r.discount_total_cents) || 0) / 100;
+    const taxTotal = (Number(r.tax_total_cents) || 0) / 100;
+    const netSales = (Number(r.net_sales_cents) || 0) / 100;
+    const voidTotal = (Number(r.void_total_cents) || 0) / 100;
+
+    return {
+      businessDate: String(r.business_date),
+      locationId: locationId ?? null,
+      orderCount,
+      grossSales,
+      discountTotal,
+      taxTotal,
+      netSales,
+      tenderCash: 0,
+      tenderCard: 0,
+      voidCount: Number(r.void_count) || 0,
+      voidTotal,
+      avgOrderValue: orderCount > 0 ? netSales / orderCount : 0,
+    };
   });
 }

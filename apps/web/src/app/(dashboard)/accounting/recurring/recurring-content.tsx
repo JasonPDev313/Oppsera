@@ -145,7 +145,7 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto mx-4">
+      <div className="relative bg-surface rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto mx-4">
         <div className="p-6 space-y-5">
           <h2 className="text-lg font-semibold text-gray-900">
             {initial ? 'Edit Recurring Template' : 'New Recurring Template'}
@@ -341,7 +341,7 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-surface border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancel
             </button>
@@ -429,7 +429,7 @@ function ExecuteDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+      <div className="relative bg-surface rounded-lg shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Execute Template</h3>
         <p className="text-sm text-gray-600">
           Post journal entry from template <strong>{template.name}</strong> for the selected date.
@@ -449,7 +449,7 @@ function ExecuteDialog({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-surface border border-gray-300 rounded-md hover:bg-gray-50"
           >
             Cancel
           </button>
@@ -515,7 +515,7 @@ export default function RecurringContent() {
             type="button"
             onClick={handleExecuteDue}
             disabled={mutations.executeDue.isPending}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-surface border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
           >
             <Play className="h-4 w-4" />
             {mutations.executeDue.isPending ? 'Running...' : 'Run All Due'}

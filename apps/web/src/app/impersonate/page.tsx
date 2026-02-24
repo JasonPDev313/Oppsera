@@ -58,7 +58,7 @@ function ImpersonateContent() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg text-center">
+      <div className="w-full max-w-md rounded-xl bg-surface p-8 shadow-lg text-center">
         {isProcessing ? (
           <>
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />

@@ -41,7 +41,7 @@ interface UseFnbTabReturn {
   isActing: boolean;
 }
 
-export function useFnbTab({ tabId, pollIntervalMs = 5000, pollEnabled = true }: UseFnbTabOptions): UseFnbTabReturn {
+export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }: UseFnbTabOptions): UseFnbTabReturn {
   const [tab, setTab] = useState<FnbTabDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

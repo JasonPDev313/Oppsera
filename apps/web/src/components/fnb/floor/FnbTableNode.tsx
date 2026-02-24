@@ -67,7 +67,7 @@ export function FnbTableNode({ table, isSelected, onTap, onLongPress, onAddTab, 
         group absolute flex flex-col items-center justify-center
         border-2 transition-all
         select-none
-        ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white scale-105' : ''}
+        ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 scale-105' : ''}
       `}
       style={{
         left,

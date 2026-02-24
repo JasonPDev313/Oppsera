@@ -6268,3 +6268,368 @@ Each module has contract tests verifying return shapes:
 - `packages/modules/inventory/src/reconciliation/__tests__/reconciliation.test.ts`
 - `packages/modules/fnb/src/reconciliation/__tests__/reconciliation.test.ts`
 
+## 110. Transaction Type Registry & Custom Tender Types
+
+### Schema
+
+Two new tables (migration 0144):
+
+1. **`gl_transaction_types`** — global registry of financial event types
+   - System types: `tenant_id IS NULL`, 45 pre-seeded across 12 categories (tender, revenue, tax, tip, deposit, refund, settlement, ar, ap, inventory, membership, other)
+   - Tenant custom types: `tenant_id IS NOT NULL`, created via `createTenantTenderType`
+   - Fields: `code` (unique per scope), `name`, `category`, `description`, `default_debit_account_hint`, `default_credit_account_hint`, `sort_order`, `is_active`
+   - Partial unique indexes: system scope `(code WHERE tenant_id IS NULL)`, tenant scope `(tenant_id, code WHERE tenant_id IS NOT NULL)`
+
+2. **`tenant_tender_types`** — custom payment methods per tenant
+   - Fields: `name`, `code`, `category` (external_card, external_cash, house_account, etc.), `posting_mode` (clearing/direct_bank/non_cash)
+   - GL account references: `clearing_account_id`, `bank_account_id`, `fee_account_id`, `expense_account_id`
+   - Reporting: `reporting_bucket` (include/exclude_revenue/comp)
+   - Reference tracking: `requires_reference`, `reference_label`
+   - Soft-delete via `is_active`
+
+### Shared Constants
+
+`packages/shared/src/constants/transaction-types.ts` exports:
+- `SYSTEM_TRANSACTION_TYPES`: all 45 system types with code, name, description, account hints, sort order
+- Type definitions: `TransactionTypeCategory`, `TenderPostingMode`, `TenderCategory`, `ReportingBucket`
+- Display label helpers for UI
+
+### Commands
+
+| Command | File | Purpose |
+|---|---|---|
+| `createTenantTenderType` | `commands/create-tenant-tender-type.ts` | Create custom payment type (validates code uniqueness, creates in both tables) |
+| `updateTenantTenderType` | `commands/update-tenant-tender-type.ts` | Update fields, syncs name/active to `gl_transaction_types` |
+| `deactivateTenderType` | `commands/deactivate-tender-type.ts` | Soft-delete both records |
+
+### Queries
+
+| Query | File | Purpose |
+|---|---|---|
+| `getTransactionTypeMappings` | `queries/get-transaction-type-mappings.ts` | Join transaction types + GL mappings + tender type details |
+
+### API Routes
+
+- `GET /api/v1/accounting/mappings/transaction-types` — list with optional `?category=` filter
+- `POST /api/v1/accounting/tender-types` — create custom tender type
+- `PATCH /api/v1/accounting/tender-types/[id]` — update
+- `DELETE /api/v1/accounting/tender-types/[id]` — deactivate (soft delete)
+
+### Posting Mode Patterns
+
+| Mode | Debit | Credit | Use Case |
+|---|---|---|---|
+| `clearing` | Clearing Account | Revenue | Card processors (settled later) |
+| `direct_bank` | Bank Account | Revenue | Cash, checks (immediate) |
+| `non_cash` | Expense Account | Revenue | Comps, vouchers |
+
+### Frontend
+
+- `CreateTenderTypeDialog`: portal-based modal, conditional GL account pickers per posting mode
+- Integrated into `/accounting/mappings` Payment Types tab
+
+## 111. Dashboard Reporting Fallback Chain
+
+### Problem
+CQRS read models (`rm_daily_sales`, `rm_item_sales`, etc.) may be empty when:
+1. No events have been processed yet (new tenant, seed data)
+2. Consumers haven't caught up (eventual consistency gap)
+
+### Solution — 3-Tier Fallback
+
+`getDashboardMetrics` in `packages/modules/reporting/src/queries/get-dashboard-metrics.ts`:
+
+```
+Tier 1: rm_daily_sales (CQRS read model, filtered by today's business date)
+   ↓ if zero results
+Tier 2: Operational tables (orders + tenders), filtered by today's business date
+   ↓ if zero results
+Tier 3: Operational tables, ALL TIME (no date filter)
+```
+
+Frontend labels update dynamically: "Total Sales Today" vs "Total Sales" based on which tier was used.
+
+### Cents → Dollars at Consumer Boundary
+
+Reporting event consumers MUST convert cents to dollars:
+```typescript
+// ✅ Correct — consumers convert at boundary
+const totalDollars = eventData.totalCents / 100;
+
+// ❌ Wrong — storing raw cents in NUMERIC(19,4) column
+const totalDollars = eventData.totalCents; // 100x too large!
+```
+
+### Backfill Route
+
+`POST /api/v1/reports/backfill` rebuilds `rm_daily_sales` and `rm_item_sales` from operational tables. Use for seed data or after fixing consumer bugs.
+
+## 112. Onboarding System
+
+### Architecture
+
+```
+/settings/onboarding (page.tsx → onboarding-content.tsx)
+├── useOnboardingStatus (hook)
+│   ├── localStorage: skippedPhases, manuallyCompleted, completedAt
+│   ├── sessionStorage: API completion cache (stale-while-revalidate)
+│   └── Parallel API checks (~15 calls, 5s timeout each)
+├── OnboardingPhase (collapsible section with progress bar)
+│   └── OnboardingStep (expandable card with action button/toggle)
+└── SetupStatusBanner (dashboard, zero API calls)
+```
+
+### 10 Phases
+
+| # | Phase | Steps | Module Gate |
+|---|---|---|---|
+| 1 | Organization & Locations | 4 | — |
+| 2 | Users & Roles | 3 | — |
+| 3 | Catalog & Products | 5 | catalog |
+| 4 | Inventory & Vendors | 5 | inventory |
+| 5 | Customer Data | 3 | customers |
+| 6 | Accounting | 5 | accounting |
+| 7 | POS Configuration | 4 | orders |
+| 8 | F&B Setup | 6 | pos_fnb |
+| 9 | Reporting & AI | 3 | reporting |
+| 10 | Go Live Checklist | 4 | — |
+
+### Auto-Detection
+
+`useOnboardingStatus` fires parallel HEAD/GET requests to check if data exists:
+- `GET /api/v1/profit-centers` → has profit centers?
+- `GET /api/v1/terminals?limit=1` → has terminals?
+- `GET /api/v1/catalog/items?limit=1` → has catalog items?
+- etc.
+
+Results cached in `sessionStorage('oppsera_onboarding_cache')` with 5-minute TTL.
+
+### Go Live Logic
+
+```
+all_phases_complete: every non-skipped, enabled-module phase → all steps done
+verify_gl: accounting disabled OR all accounting steps complete
+test_order: manual toggle (user confirms they placed a test order)
+final_review: auto-completes when all other go_live steps pass
+```
+
+### Dashboard Setup Status Banner
+
+`SetupStatusBanner` in `dashboard-content.tsx`:
+- Reads `localStorage('oppsera_onboarding_completed_at')` and `sessionStorage('oppsera_onboarding_cache')` only
+- Zero API calls — purely reads cached state
+- Green banner: "Your system is all set up" with go-live date
+- Red banner: "Complete your business setup" with progress bar and percentage
+- Links to `/settings/onboarding`
+
+## 113. F&B Floor & Menu Hook Caching Patterns
+
+### Module-Level Snapshot Cache (Floor)
+
+```typescript
+// Module-level — survives React Query GC and component unmounts
+const _snapshotCache = new Map<string, { data: FloorPlanData; ts: number }>();
+const SNAPSHOT_TTL = 30 * 60 * 1000; // 30 minutes
+
+// In useFnbFloor:
+const { data } = useQuery({
+  queryKey: ['fnb-floor', roomId],
+  queryFn: fetchFloor,
+  initialData: () => _snapshotCache.get(roomId)?.data, // Instant cold start
+  staleTime: 5 * 60 * 1000,
+  gcTime: 30 * 60 * 1000,
+  refetchInterval: 20 * 60 * 1000, // Floor plans rarely change
+});
+```
+
+### In-Flight Promise Deduplication (Menu)
+
+```typescript
+let _menuFetchPromise: Promise<MenuData> | null = null;
+let _menuCache: { data: MenuData; ts: number } | null = null;
+
+function fetchMenu(tenantId: string, locationId: string): Promise<MenuData> {
+  if (_menuCache && Date.now() - _menuCache.ts < 5 * 60 * 1000) {
+    return Promise.resolve(_menuCache.data);
+  }
+  if (_menuFetchPromise) return _menuFetchPromise; // Deduplicate
+  _menuFetchPromise = apiFetch('/api/v1/catalog/pos', { ... })
+    .then(data => { _menuCache = { data, ts: Date.now() }; return data; })
+    .finally(() => { _menuFetchPromise = null; });
+  return _menuFetchPromise;
+}
+```
+
+### Key Rules
+
+1. Module-level caches survive component unmounts and React Query GC
+2. `initialData` provides instant cold starts — no loading spinner on remount
+3. F&B floor polls every 20 minutes (floor plans rarely change during shift)
+4. F&B menu refreshes every 5 minutes with background fetch
+5. Floor hook listens for POS visibility resume events for auto-refresh
+6. Tab hook uses AbortController to cancel in-flight requests on unmount
+7. Tab hook clears stale data on tab switch to prevent UI confusion
+
+## 114. Intelligent AccountPicker Suggestions
+
+### Suggestion Engine Architecture
+
+`AccountPicker` in `apps/web/src/components/accounting/account-picker.tsx` provides two suggestion engines:
+
+1. **Hint-based suggestions**: Static maps of role→account name patterns
+   - `REVENUE_HINTS`: ["Sales", "Revenue", "Income"] for revenue role
+   - `COGS_HINTS`: ["Cost of Goods", "COGS", "Cost of Sales"]
+   - `INVENTORY_HINTS`: ["Inventory", "Merchandise"]
+   - etc. for returns, discount, cash, clearing, fee, tax, expense roles
+
+2. **Semantic grouping**: Dynamic mapping of department names to GL accounts
+   - Builds `SEMANTIC_GROUPS` map from department name tokens (e.g., "Food", "Beverage", "Pro Shop")
+   - Maps tokens to account names (e.g., "Food" → accounts containing "Food")
+   - When user maps "Sandwiches" sub-department, suggests GL accounts in the same semantic group as "Food"
+
+### Scoring
+
+```
+score = tokenOverlapCount / totalTokens
+penalty = -0.1 for generic accounts ("Other Revenue", "Miscellaneous", "General")
+final = score - penalty
+```
+
+Suggestions sorted by score descending, top 5 shown with "Suggested" badge.
+
+### Portal-Based Dropdown
+
+- Uses `createPortal` to `document.body` for z-index isolation
+- Repositions on scroll/resize via `useEffect` with IntersectionObserver
+- Closes on click-outside, Escape key, or blur
+
+## 115. Guest Pay (QR Code Pay at Table)
+
+### Architecture
+
+```
+Guest scans QR code → /(guest)/pay/[token]/ → Guest Pay page
+  ├── Load session by token (GET /api/v1/fnb/guest-pay/[token])
+  ├── Display check summary + tip selection
+  ├── Member auth (optional) → charge to house account
+  └── Payment → simulateGuestPayment (V1) → mark session paid
+```
+
+### Session Lifecycle
+
+```
+active → paid       (payment completed)
+active → expired    (cron job: expireGuestPaySessions)
+active → invalidated (manual: invalidateGuestPaySession)
+active → superseded (new session created for same tab)
+```
+
+### Key Rules
+
+1. Token is 256-bit base64url (crypto-random, unguessable)
+2. Tip settings are SNAPSHOTTED at session creation — immutable for active session
+3. Only one active session per tab — creating new one supersedes old
+4. `/(guest)/` layout is independent — no sidebar, no auth, minimal JS
+5. V1 uses `simulateGuestPayment` — no real payment processor integration yet
+
+## 116. Member Portal App
+
+### Architecture
+
+Standalone Next.js 15 app at `apps/member-portal/` with independent auth:
+
+```
+[tenantSlug]/login → portal token → (portal)/ pages
+```
+
+### Auth Pattern
+
+```typescript
+// Portal token (NOT Supabase, NOT main app JWT)
+const token = createPortalToken({ customerId, tenantId, membershipId });
+
+// Middleware (separate from withMiddleware)
+withPortalAuth(handler); // Validates portal JWT, sets ctx.customer
+```
+
+### Key Rules
+
+1. Portal tokens are SEPARATE from main app JWTs
+2. Portal does NOT use Supabase auth
+3. Multi-tenant discovery via `[tenantSlug]/` dynamic routes
+4. `PORTAL_DEV_BYPASS` env var for local dev
+5. Portal calls main web app APIs via internal HTTP when needed
+
+## 117. GL Remap Workflow
+
+### Flow
+
+```
+1. User saves new GL mapping
+2. If enable_auto_remap: tryAutoRemap() runs automatically
+3. Manual: preview → confirm → execute batch remap
+4. Each remap: void old GL entry + post new corrected GL entry
+```
+
+### Key Rules
+
+1. Remap is idempotent via `sourceReferenceId`
+2. Original GL entry is VOIDED (not deleted) — audit trail preserved
+3. Auto-remap is opt-in via `accounting_settings.enable_auto_remap` (migration 0143)
+4. Preview available regardless of auto-remap setting
+5. Remap failures never block mapping save — logged, best-effort
+
+## 118. COA Governance
+
+### Account Merge
+
+Reassigns all `gl_journal_lines` from source → target, deactivates source. Validates: same `accountType`, same `normalBalance`, not control accounts.
+
+### CSV Import
+
+Parses CSV → validates per row → creates accounts atomically. Invalid rows don't block valid ones. `dryRun: true` returns validation only.
+
+### COA Health
+
+`getCoaHealth(tenantId)` checks: orphan accounts, classification consistency, hierarchy depth (max 4), duplicates, inactive accounts with non-zero balances.
+
+## 119. Admin Impersonation
+
+### Flow
+
+```
+POST /api/v1/auth/impersonate { tenantId, userId }
+→ Creates session row → Returns impersonation JWT
+→ All API calls increment action_count + audit log with session ID
+POST /api/v1/auth/impersonate/end → Sets endedAt
+```
+
+### Key Rules
+
+1. Time-limited (auto-expire via `expires_at`)
+2. ALL actions audit-logged with `impersonation_session_id`
+3. `ImpersonationBanner` component shows active state in UI
+4. Admin can only impersonate users in tenants they have access to
+5. `useSearchParams` on `/impersonate` page MUST be wrapped in Suspense (Next.js 15)
+
+## 120. F&B Payment Tier 3
+
+### Payment Methods Added
+
+| Method | Status | Backend | Frontend |
+|---|---|---|---|
+| Gift card | V1 (balance lookup) | `GET /fnb/payments/gift-card-balance?cardNumber=` | Balance display |
+| House account | V1 | `chargeGuestMemberAccount` command | Member search + charge |
+| Loyalty | Stub | Routes scaffolded | UI placeholder |
+| NFC | Stub | Routes scaffolded | UI placeholder |
+| QR code (Guest Pay) | V1 (simulated) | See §115 | Guest-facing page |
+
+### FnbPaymentView
+
+Expanded from 332 → 619 lines. Now includes:
+- Payment adjustments panel
+- Gift card balance check
+- House account member lookup
+- Fractional split tender support
+- Enhanced cash keypad
+

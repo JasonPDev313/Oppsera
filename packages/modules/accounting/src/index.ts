@@ -54,6 +54,9 @@ export { mergeGlAccounts } from './commands/merge-gl-accounts';
 export { renumberGlAccount } from './commands/renumber-gl-account';
 export { remapGlForTender, batchRemapGlForTenders } from './commands/remap-gl-for-tender';
 export type { RemapResult } from './commands/remap-gl-for-tender';
+export { createTenantTenderType } from './commands/create-tenant-tender-type';
+export { updateTenantTenderType } from './commands/update-tenant-tender-type';
+export { deactivateTenderType } from './commands/deactivate-tender-type';
 
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
@@ -158,6 +161,8 @@ export { listBankReconciliations, getBankReconciliation } from './queries/list-b
 export type { BankReconciliationListItem, BankReconciliationDetail } from './queries/list-bank-reconciliations';
 export { getRemappableTenders } from './queries/get-remappable-tenders';
 export type { RemappableTender, MissingMapping } from './queries/get-remappable-tenders';
+export { getTransactionTypeMappings } from './queries/get-transaction-type-mappings';
+export type { TransactionTypeMappingRow } from './queries/get-transaction-type-mappings';
 
 // Helpers
 export { resolveNormalBalance } from './helpers/resolve-normal-balance';
@@ -286,6 +291,8 @@ export {
   renumberGlAccountSchema,
   remapGlForTenderSchema,
   batchRemapSchema,
+  createTenantTenderTypeSchema,
+  updateTenantTenderTypeSchema,
 } from './validation';
 export type {
   PostJournalEntryInput,
@@ -328,4 +335,6 @@ export type {
   RenumberGlAccountInput,
   RemapGlForTenderInput,
   BatchRemapInput,
+  CreateTenantTenderTypeInput,
+  UpdateTenantTenderTypeInput,
 } from './validation';

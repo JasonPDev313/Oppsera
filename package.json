@@ -3,7 +3,8 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "pnpm clean && turbo dev",
+    "dev": "pnpm clean && NODE_OPTIONS='--max-old-space-size=4096' turbo dev",
+    "dev:fast": "NODE_OPTIONS='--max-old-space-size=4096' turbo dev",
     "build": "turbo build",
     "test": "turbo test",
     "test:coverage": "turbo test:coverage",

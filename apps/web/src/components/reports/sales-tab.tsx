@@ -99,7 +99,7 @@ export function SalesTab({ data, isLoading, dateFrom, dateTo, locationId }: Sale
   const chartData = sorted.map((r) => ({
     ...r,
     dateLabel: formatDateShort(r.businessDate),
-    netSalesDollars: r.netSales / 100,
+    netSalesDollars: r.netSales,
   }));
 
   const handleExport = async () => {

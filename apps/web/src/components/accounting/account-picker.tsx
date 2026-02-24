@@ -19,7 +19,7 @@ interface AccountPickerProps {
   /** Hint for intelligent auto-suggestion (e.g., sub-department name like "Beverages") */
   suggestFor?: string;
   /** Which mapping column this picker represents — drives suggestion logic */
-  mappingRole?: 'revenue' | 'cogs' | 'inventory' | 'returns' | 'discount' | 'cash' | 'clearing' | 'fee' | 'tax';
+  mappingRole?: 'revenue' | 'cogs' | 'inventory' | 'returns' | 'discount' | 'cash' | 'clearing' | 'fee' | 'tax' | 'expense';
 }
 
 const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
@@ -34,37 +34,165 @@ const ACCOUNT_TYPE_ORDER: AccountType[] = ['asset', 'liability', 'equity', 'reve
 
 // ── Intelligent Suggestion Engine ──────────────────────────────
 
-/** Keyword → account name substring mappings for smart matching */
+/** Keyword → account name substring mappings for smart matching.
+ *  Hints are checked in priority order — earlier entries in the array match first.
+ *  Each hint array covers naming conventions across all 4 COA templates
+ *  (golf_default, retail_default, restaurant_default, hybrid_default).
+ */
 const REVENUE_HINTS: [RegExp, string[]][] = [
-  [/green\s*fee|tee\s*time/i, ['green fee', 'activity fee', 'golf']],
-  [/food|snack|kitchen|grill/i, ['food sales', 'f&b sales']],
-  [/beverage|drink|bar|alcohol|beer|wine|spirit/i, ['beverage sales', 'bar sales']],
-  [/apparel|clothing|shirt|hat|cap/i, ['pro shop', 'merchandise', 'retail']],
-  [/merchandise|merch|gift|souvenir/i, ['merchandise', 'pro shop', 'retail']],
-  [/golf\s*equip|club|ball|glove/i, ['pro shop', 'merchandise', 'retail']],
-  [/cart|rental/i, ['cart rental', 'rental revenue']],
-  [/lesson|instruction|clinic/i, ['lesson', 'instruction']],
+  [/green\s*fee|tee\s*time/i, ['green fee', 'activity fee', 'golf revenue']],
+  [/food|snack|sandwich|kitchen|grill|deli/i, ['food sales', 'f&b sales', 'restaurant sales', 'dining revenue']],
+  [/beverage|drink|bar|alcohol|beer|wine|spirit/i, ['beverage sales', 'bar sales', 'f&b sales', 'restaurant sales']],
+  [/apparel|clothing|shirt|hat|cap/i, ['pro shop', 'merchandise', 'retail sales', 'apparel']],
+  [/merchandise|merch|gift|souvenir/i, ['merchandise', 'pro shop', 'retail sales']],
+  [/golf\s*equip|club|ball|glove/i, ['pro shop', 'merchandise', 'retail sales', 'equipment']],
+  [/cart|rental/i, ['cart rental', 'rental revenue', 'equipment rental']],
+  [/lesson|instruction|clinic/i, ['lesson', 'instruction', 'teaching']],
   [/membership|dues/i, ['membership', 'dues']],
-  [/event|banquet|catering/i, ['event revenue', 'catering']],
+  [/event|banquet|catering/i, ['event revenue', 'catering', 'banquet']],
   [/service/i, ['service revenue']],
-  [/room|lodging/i, ['room revenue', 'lodging']],
+  [/room|lodging|accommodation/i, ['room revenue', 'lodging']],
   [/range|driving/i, ['driving range', 'range revenue']],
+  [/spa|wellness|fitness/i, ['spa revenue', 'wellness', 'fitness']],
+  [/tobacco|cigar/i, ['pro shop', 'merchandise', 'retail sales']],
 ];
 
 const COGS_HINTS: [RegExp, string[]][] = [
-  [/food|snack|kitchen|grill/i, ['cogs - food', 'f&b cogs', 'food cost']],
-  [/beverage|drink|bar|alcohol|beer|wine/i, ['cogs - bev', 'beverage cost']],
-  [/apparel|clothing|merchandise|merch|golf\s*equip|pro\s*shop/i, ['pro shop cogs', 'merchandise cogs', 'cogs - retail']],
-  [/supply|supplies|maintenance/i, ['cogs - supplies', 'maintenance supplies']],
+  [/food|snack|sandwich|kitchen|grill|deli/i, ['food cogs', 'cogs - food', 'f&b cogs', 'food cost']],
+  [/beverage|drink|bar|alcohol|beer|wine/i, ['beverage cogs', 'cogs - bev', 'f&b cogs', 'beverage cost']],
+  [/apparel|clothing|merchandise|merch|golf\s*equip|pro\s*shop|gift|souvenir|tobacco|cigar/i, ['pro shop cogs', 'merchandise cogs', 'cogs - retail', 'retail cogs']],
+  [/supply|supplies|maintenance/i, ['cogs - supplies', 'maintenance supplies', 'course maintenance']],
+  [/green\s*fee|cart|rental|lesson|range/i, ['course maintenance', 'cogs - operations']],
 ];
 
 const INVENTORY_HINTS: [RegExp, string[]][] = [
-  [/food|snack|kitchen|grill/i, ['inventory - food', 'f&b']],
-  [/beverage|drink|bar|alcohol/i, ['inventory - bev']],
-  [/apparel|clothing|merchandise|merch|golf\s*equip|pro\s*shop/i, ['inventory - pro shop', 'inventory - retail', 'inventory asset']],
-  [/supply|supplies|maintenance/i, ['inventory - supplies', 'inventory - course']],
+  [/food|snack|sandwich|kitchen|grill|deli/i, ['inventory - food', 'inventory - f&b', 'f&b inventory']],
+  [/beverage|drink|bar|alcohol/i, ['inventory - bev', 'inventory - f&b', 'f&b inventory']],
+  [/apparel|clothing|merchandise|merch|golf\s*equip|pro\s*shop|gift|souvenir|tobacco|cigar/i, ['inventory - pro shop', 'inventory - retail', 'inventory asset', 'merchandise inventory']],
+  [/supply|supplies|maintenance/i, ['inventory - supplies', 'inventory - course', 'maintenance inventory']],
   [/rental|cart|equip/i, ['inventory - rental', 'inventory - equip']],
 ];
+
+/** Stop words excluded from fuzzy matching */
+const STOP_WORDS = new Set(['&', 'and', 'the', 'of', 'for', 'a', 'an', 'in', 'on', 'to', 'or', 'at', 'by']);
+
+/**
+ * Semantic groupings: departments that share an accounting category.
+ * When a department name matches one group, its sibling keywords also
+ * become search terms — so "Sandwiches" finds "Food Sales" because
+ * sandwiches and food are in the same semantic group.
+ */
+const SEMANTIC_GROUPS: Record<string, string[][]> = {
+  revenue: [
+    ['food', 'snack', 'sandwich', 'kitchen', 'grill', 'deli', 'bakery', 'pizza', 'burger', 'sushi', 'salad', 'soup', 'cafe', 'dining', 'restaurant', 'f&b'],
+    ['beverage', 'drink', 'bar', 'alcohol', 'beer', 'wine', 'spirit', 'cocktail', 'coffee', 'juice', 'soda'],
+    ['apparel', 'clothing', 'shirt', 'hat', 'cap', 'shoe', 'accessories', 'pro shop', 'merchandise', 'merch', 'gift', 'souvenir', 'tobacco', 'cigar', 'retail'],
+    ['golf', 'green fee', 'tee time', 'round'],
+    ['cart', 'rental', 'equipment rental'],
+    ['lesson', 'instruction', 'clinic', 'teaching', 'academy'],
+    ['membership', 'dues', 'subscription'],
+    ['event', 'banquet', 'catering', 'party', 'wedding'],
+    ['spa', 'wellness', 'fitness', 'gym', 'pool', 'tennis'],
+    ['range', 'driving range', 'practice'],
+    ['room', 'lodging', 'accommodation', 'hotel'],
+  ],
+  cogs: [
+    ['food', 'snack', 'sandwich', 'kitchen', 'grill', 'deli', 'bakery', 'pizza', 'dining', 'f&b'],
+    ['beverage', 'drink', 'bar', 'alcohol', 'beer', 'wine'],
+    ['apparel', 'clothing', 'merchandise', 'merch', 'pro shop', 'gift', 'retail'],
+    ['supply', 'supplies', 'maintenance', 'course'],
+  ],
+  inventory: [
+    ['food', 'snack', 'sandwich', 'kitchen', 'grill', 'deli', 'f&b'],
+    ['beverage', 'drink', 'bar', 'alcohol'],
+    ['apparel', 'clothing', 'merchandise', 'merch', 'pro shop', 'gift', 'retail'],
+    ['supply', 'supplies', 'maintenance', 'course'],
+    ['rental', 'cart', 'equipment'],
+  ],
+};
+
+/**
+ * Dynamic suggestion engine — analyzes the ACTUAL chart of accounts.
+ *
+ * Strategy:
+ * 1. Tokenize the department name
+ * 2. Find the semantic group the department belongs to (expands search terms)
+ * 3. Score each GL account by:
+ *    a. Direct token overlap with account name
+ *    b. Semantic group sibling matches (e.g., "Sandwiches" → food group → "Food Sales")
+ *    c. Role-relevant keyword boost (accounts with "sales"/"revenue" for revenue role)
+ * 4. Return highest-scoring account above minimum threshold
+ *
+ * This adapts automatically when new accounts are added to the COA.
+ */
+function dynamicMatchAccount(
+  accounts: GLAccount[],
+  name: string,
+  role: 'revenue' | 'cogs' | 'inventory',
+): GLAccount | null {
+  const tokens = name.toLowerCase().split(/[\s&/,\-()]+/).filter((t) => t.length > 1 && !STOP_WORDS.has(t));
+  if (tokens.length === 0) return null;
+
+  // Role-specific keywords that indicate the account is the right type
+  const roleKeywords: Record<string, string[]> = {
+    revenue: ['sales', 'revenue', 'income', 'fee', 'fees'],
+    cogs: ['cogs', 'cost', 'cost of'],
+    inventory: ['inventory', 'stock'],
+  };
+  const roleKws = roleKeywords[role] ?? [];
+
+  // Find which semantic group(s) the department belongs to → expand search terms
+  const groups = SEMANTIC_GROUPS[role] ?? [];
+  const expandedTerms = new Set(tokens);
+  for (const group of groups) {
+    const belongsToGroup = tokens.some((t) => group.some((g) => g.includes(t) || t.includes(g)));
+    if (belongsToGroup) {
+      for (const g of group) expandedTerms.add(g);
+    }
+  }
+
+  const tokenSet = new Set(tokens);
+  let best: GLAccount | null = null;
+  let bestScore = 0;
+
+  for (const acc of accounts) {
+    const accName = acc.name.toLowerCase();
+    const accTokens = accName.split(/[\s\-/()&,]+/).filter((t) => t.length > 1);
+    let score = 0;
+
+    // Direct token overlap (strongest signal)
+    for (const token of tokens) {
+      if (accName.includes(token)) score += 20;
+    }
+
+    // Semantic group expansion (weaker but still useful)
+    for (const term of expandedTerms) {
+      if (tokenSet.has(term)) continue; // already counted above
+      if (accName.includes(term)) score += 8;
+    }
+
+    // Role keyword presence (the account has "sales", "cogs", "inventory" etc.)
+    for (const kw of roleKws) {
+      if (accName.includes(kw)) score += 6;
+    }
+
+    // Penalize very generic accounts ("Other Revenue", "Miscellaneous")
+    if (/\bother\b|\bmisc/i.test(accName)) score -= 5;
+
+    // Bonus: account name starts with a matching token (e.g., "Food" in "Food Sales")
+    for (const token of expandedTerms) {
+      if (accTokens[0] === token) score += 3;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = acc;
+    }
+  }
+
+  // Minimum threshold: need at least a semantic match + role keyword
+  return bestScore >= 14 ? best : null;
+}
 
 function scoreSuggestion(account: GLAccount, hints: string[]): number {
   const name = account.name.toLowerCase();
@@ -74,7 +202,7 @@ function scoreSuggestion(account: GLAccount, hints: string[]): number {
   return 0;
 }
 
-function getSuggestedAccount(
+export function getSuggestedAccount(
   accounts: GLAccount[],
   suggestFor: string | undefined,
   mappingRole: AccountPickerProps['mappingRole'],
@@ -101,30 +229,149 @@ function getSuggestedAccount(
     case 'discount':
       return accounts.find((a) => a.name.toLowerCase().includes('discount')) ?? null;
     case 'cash':
-      // Suggest based on payment type name
+      // Suggest based on transaction type / payment type name
       if (/cash/i.test(suggestFor)) {
         return accounts.find((a) => a.name.toLowerCase().includes('cash on hand'))
           ?? accounts.find((a) => a.name.toLowerCase().includes('operating check'))
           ?? null;
       }
-      if (/card|credit|debit|visa|master/i.test(suggestFor)) {
+      if (/card|credit|debit|visa|master|vpos|ecom/i.test(suggestFor)) {
         return accounts.find((a) => a.name.toLowerCase().includes('merchant clearing'))
           ?? accounts.find((a) => a.name.toLowerCase().includes('undeposited'))
           ?? null;
       }
-      if (/gift/i.test(suggestFor)) {
-        return accounts.find((a) => a.name.toLowerCase().includes('gift card'))
+      if (/gift\s*card|voucher/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('gift card liability'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('gift card'))
+          ?? null;
+      }
+      if (/tip|gratuity/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('tips payable'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('tips undistributed'))
+          ?? null;
+      }
+      if (/deposit/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('customer deposit'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('deposits received'))
+          ?? null;
+      }
+      if (/membership|dues/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('membership'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('dues'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('accounts receivable'))
+          ?? null;
+      }
+      if (/house\s*account|ar\b/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('accounts receivable'))
+          ?? accounts.find((a) => a.controlAccountType === 'ar')
+          ?? null;
+      }
+      if (/settlement|processor/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('merchant clearing'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('undeposited'))
+          ?? null;
+      }
+      if (/chargeback|dispute/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('chargeback'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('merchant clearing'))
+          ?? null;
+      }
+      if (/over.*short|variance/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('cash over'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('over/short'))
+          ?? null;
+      }
+      if (/convenience\s*fee/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('convenience fee'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('fee revenue'))
+          ?? null;
+      }
+      if (/ach|eft/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('ach'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('undeposited'))
+          ?? null;
+      }
+      if (/check\b/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('undeposited'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('cash on hand'))
+          ?? null;
+      }
+      if (/refund|return|void/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('return'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('refund'))
+          ?? null;
+      }
+      if (/sales\s*tax/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('sales tax payable'))
+          ?? accounts.find((a) => a.controlAccountType === 'sales_tax')
+          ?? null;
+      }
+      if (/inventory|cogs|receiving/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('inventory'))
+          ?? null;
+      }
+      if (/ap\b|payable|bill/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('accounts payable'))
+          ?? accounts.find((a) => a.controlAccountType === 'ap')
+          ?? null;
+      }
+      if (/discount|comp/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('discount'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('comp'))
+          ?? null;
+      }
+      if (/tee|booking/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('green fee'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('tee'))
+          ?? null;
+      }
+      if (/event/i.test(suggestFor)) {
+        return accounts.find((a) => a.name.toLowerCase().includes('event'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('banquet'))
           ?? null;
       }
       return accounts.find((a) => a.name.toLowerCase().includes('undeposited')) ?? null;
     case 'clearing':
+      if (/tip|gratuity/i.test(suggestFor ?? '')) {
+        return accounts.find((a) => a.name.toLowerCase().includes('tips payable'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('clearing'))
+          ?? null;
+      }
+      if (/gift|voucher/i.test(suggestFor ?? '')) {
+        return accounts.find((a) => a.name.toLowerCase().includes('gift card'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('deferred revenue'))
+          ?? null;
+      }
+      if (/deposit/i.test(suggestFor ?? '')) {
+        return accounts.find((a) => a.name.toLowerCase().includes('customer deposit'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('clearing'))
+          ?? null;
+      }
       return accounts.find((a) => a.name.toLowerCase().includes('undeposited'))
         ?? accounts.find((a) => a.name.toLowerCase().includes('clearing'))
         ?? null;
     case 'fee':
       return accounts.find((a) => a.name.toLowerCase().includes('credit card processing'))
         ?? accounts.find((a) => a.name.toLowerCase().includes('processing fee'))
+        ?? accounts.find((a) => a.name.toLowerCase().includes('merchant fee'))
         ?? null;
+    case 'expense':
+      if (/chargeback|dispute/i.test(suggestFor ?? '')) {
+        return accounts.find((a) => a.name.toLowerCase().includes('chargeback'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('dispute'))
+          ?? null;
+      }
+      if (/comp|giveaway/i.test(suggestFor ?? '')) {
+        return accounts.find((a) => a.name.toLowerCase().includes('comp'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('giveaway'))
+          ?? null;
+      }
+      if (/over.*short|variance/i.test(suggestFor ?? '')) {
+        return accounts.find((a) => a.name.toLowerCase().includes('cash over'))
+          ?? accounts.find((a) => a.name.toLowerCase().includes('over/short'))
+          ?? null;
+      }
+      return null;
     case 'tax':
       return accounts.find((a) => a.name.toLowerCase().includes('sales tax payable'))
         ?? accounts.find((a) => a.controlAccountType === 'sales_tax')
@@ -147,6 +394,12 @@ function getSuggestedAccount(
       }
       if (best) return best;
     }
+  }
+
+  // Dynamic fallback: analyze actual COA accounts with semantic grouping
+  if (mappingRole === 'revenue' || mappingRole === 'cogs' || mappingRole === 'inventory') {
+    const dynamic = dynamicMatchAccount(accounts, suggestFor, mappingRole);
+    if (dynamic) return dynamic;
   }
 
   // Fallback: if only one account of the right type, suggest it

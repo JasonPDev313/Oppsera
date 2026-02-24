@@ -38,13 +38,11 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['@oppsera/shared', '@oppsera/core', 'lucide-react'],
   },
-  // Prevent VSCode file watcher from racing with webpack cache writes on Windows
-  // (causes EPERM / ENOENT crashes on .next/trace and .next/cache/*.pack.gz)
-  // Also reduce polling overhead on Windows NTFS
+  // Webpack watcher config (production builds only — Turbopack ignores this in dev).
+  // Uses native FS events (no polling) with broad ignore patterns to reduce overhead.
   webpack: (config) => {
     const prev = config.watchOptions ?? {};
     const existing = prev.ignored;
-    // Collect existing string patterns (skip RegExp values)
     const kept: string[] = [];
     if (Array.isArray(existing)) {
       for (const p of existing) {
@@ -53,12 +51,10 @@ const nextConfig: NextConfig = {
     } else if (typeof existing === 'string') {
       kept.push(existing);
     }
-    kept.push('**/.next/**', '**/node_modules/**', '**/.git/**');
+    kept.push('**/.next/**', '**/node_modules/**', '**/.git/**', '**/.turbo/**', '**/coverage/**');
     config.watchOptions = {
       ...prev,
       ignored: kept,
-      // Use polling with a longer interval on Windows to reduce CPU from inotify-like watchers
-      poll: 1000,
       aggregateTimeout: 300,
     };
     return config;

@@ -61,19 +61,21 @@ describe('recordTenderSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('should reject invalid tenderType', () => {
-    const result = recordTenderSchema.safeParse({ ...validInput, tenderType: 'card' });
+  it('should reject empty tenderType', () => {
+    const result = recordTenderSchema.safeParse({ ...validInput, tenderType: '' });
     expect(result.success).toBe(false);
   });
 
-  it('should accept check as tenderType', () => {
-    const result = recordTenderSchema.safeParse({ ...validInput, tenderType: 'check' });
-    expect(result.success).toBe(true);
+  it('should reject tenderType over 50 chars', () => {
+    const result = recordTenderSchema.safeParse({ ...validInput, tenderType: 'a'.repeat(51) });
+    expect(result.success).toBe(false);
   });
 
-  it('should accept voucher as tenderType', () => {
-    const result = recordTenderSchema.safeParse({ ...validInput, tenderType: 'voucher' });
-    expect(result.success).toBe(true);
+  it('should accept any valid tender type string', () => {
+    for (const type of ['cash', 'card', 'check', 'voucher', 'stripe_terminal', 'house_account']) {
+      const result = recordTenderSchema.safeParse({ ...validInput, tenderType: type });
+      expect(result.success).toBe(true);
+    }
   });
 
   it('should reject negative amountGiven', () => {

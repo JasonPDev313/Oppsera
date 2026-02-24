@@ -64,7 +64,7 @@ export default function SettlementsContent() {
         <div className="flex gap-2">
           <button
             onClick={() => setShowImportDialog(true)}
-            className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-md bg-surface px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
           >
             <Upload className="h-4 w-4" />
             Import CSV
@@ -136,7 +136,7 @@ export default function SettlementsContent() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
+            <tbody className="divide-y divide-gray-200 bg-surface">
               {items.map((settlement) => (
                 <SettlementRow
                   key={settlement.id}
@@ -175,7 +175,7 @@ export default function SettlementsContent() {
 
 function SummaryCard({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="bg-surface rounded-lg border border-gray-200 p-4">
       <p className="text-xs font-medium text-gray-500 uppercase">{label}</p>
       <p className={`text-lg font-semibold mt-1 ${negative ? 'text-red-600' : 'text-gray-900'}`}>
         {value}

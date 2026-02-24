@@ -21,7 +21,7 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="rounded-xl p-6 shadow-lg w-[340px] bg-white">
+      <div className="rounded-xl p-6 shadow-lg w-[340px] bg-surface">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-gray-900">

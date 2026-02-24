@@ -71,7 +71,7 @@ export function TipPayoutDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
+      <div className="relative bg-surface rounded-lg shadow-xl w-full max-w-md mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Banknote className="h-5 w-5 text-indigo-600" />
@@ -109,7 +109,7 @@ export function TipPayoutDialog({
                   className={`flex-1 px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
                     payoutType === t
                       ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
-                      : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+                      : 'bg-surface border-gray-300 text-gray-600 hover:bg-gray-50'
                   }`}
                 >
                   {t === 'cash' ? 'Cash' : t === 'payroll' ? 'Payroll' : 'Check'}
@@ -180,7 +180,7 @@ export function TipPayoutDialog({
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-surface border border-gray-300 rounded-md hover:bg-gray-50"
             >
               Cancel
             </button>

@@ -53,7 +53,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
               group relative flex flex-col items-center justify-center
               border-2 transition-all select-none
               rounded-lg w-[100px] h-[90px]
-              ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white scale-105' : ''}
+              ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 scale-105' : ''}
             `}
             style={{
               borderColor: statusColor,

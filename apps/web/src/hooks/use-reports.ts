@@ -15,12 +15,12 @@ function getTodayDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Format cents as USD currency string */
-export function formatReportMoney(cents: number): string {
+/** Format dollar amount as USD currency string */
+export function formatReportMoney(dollars: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  }).format(cents / 100);
+  }).format(dollars);
 }
 
 /** Build CSV export URL from base path and params */

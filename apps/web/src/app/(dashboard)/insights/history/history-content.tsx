@@ -86,7 +86,7 @@ export default function HistoryContent() {
 
       {/* Error */}
       {error && (
-        <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -132,7 +132,7 @@ export default function HistoryContent() {
                       {session.messageCount} {session.messageCount === 1 ? 'message' : 'messages'}
                     </span>
                     {session.avgUserRating != null && (
-                      <span className="inline-flex items-center gap-0.5 text-xs text-amber-600 dark:text-amber-400">
+                      <span className="inline-flex items-center gap-0.5 text-xs text-amber-600">
                         <Star className="h-3 w-3 fill-current" />
                         {session.avgUserRating.toFixed(1)}
                       </span>

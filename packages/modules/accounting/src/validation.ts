@@ -140,9 +140,44 @@ export const savePaymentTypeDefaultsSchema = z.object({
   cashAccountId: z.string().nullable().optional(),
   clearingAccountId: z.string().nullable().optional(),
   feeExpenseAccountId: z.string().nullable().optional(),
+  postingMode: z.enum(['clearing', 'direct_bank', 'non_cash']).optional(),
+  expenseAccountId: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
 });
 
 export type SavePaymentTypeDefaultsInput = z.input<typeof savePaymentTypeDefaultsSchema>;
+
+export const createTenantTenderTypeSchema = z.object({
+  name: z.string().min(1).max(100),
+  code: z.string().min(1).max(30).regex(/^[a-z][a-z0-9_]*$/),
+  category: z.enum(['external_card', 'external_cash', 'external_ach', 'external_wallet', 'house_account', 'barter', 'comp', 'other']).default('other'),
+  postingMode: z.enum(['clearing', 'direct_bank', 'non_cash']).default('clearing'),
+  requiresReference: z.boolean().default(false),
+  referenceLabel: z.string().max(100).optional(),
+  defaultClearingAccountId: z.string().nullable().optional(),
+  defaultBankAccountId: z.string().nullable().optional(),
+  defaultFeeAccountId: z.string().nullable().optional(),
+  defaultExpenseAccountId: z.string().nullable().optional(),
+  reportingBucket: z.enum(['include', 'exclude_revenue', 'comp']).default('include'),
+});
+
+export type CreateTenantTenderTypeInput = z.input<typeof createTenantTenderTypeSchema>;
+
+export const updateTenantTenderTypeSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  category: z.enum(['external_card', 'external_cash', 'external_ach', 'external_wallet', 'house_account', 'barter', 'comp', 'other']).optional(),
+  postingMode: z.enum(['clearing', 'direct_bank', 'non_cash']).optional(),
+  isActive: z.boolean().optional(),
+  requiresReference: z.boolean().optional(),
+  referenceLabel: z.string().max(100).nullable().optional(),
+  defaultClearingAccountId: z.string().nullable().optional(),
+  defaultBankAccountId: z.string().nullable().optional(),
+  defaultFeeAccountId: z.string().nullable().optional(),
+  defaultExpenseAccountId: z.string().nullable().optional(),
+  reportingBucket: z.enum(['include', 'exclude_revenue', 'comp']).optional(),
+});
+
+export type UpdateTenantTenderTypeInput = z.input<typeof updateTenantTenderTypeSchema>;
 
 export const saveTaxGroupDefaultsSchema = z.object({
   taxPayableAccountId: z.string().nullable().optional(),

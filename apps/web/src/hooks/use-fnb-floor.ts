@@ -1,12 +1,37 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import type {
   FloorPlanWithLiveStatus,
   FnbTableWithStatus,
 } from '@/types/fnb';
+
+// ── Module-level snapshot cache ─────────────────────────────────
+// Survives React Query garbage collection. Provides instant data on
+// cold mounts (e.g. after navigating away for > gcTime).
+
+const _snapshotCache = new Map<string, { data: FloorPlanWithLiveStatus; ts: number }>();
+const SNAPSHOT_TTL_MS = 30 * 60_000; // 30 minutes
+
+function getSnapshot(roomId: string): FloorPlanWithLiveStatus | undefined {
+  const entry = _snapshotCache.get(roomId);
+  if (!entry) return undefined;
+  if (Date.now() - entry.ts > SNAPSHOT_TTL_MS) {
+    _snapshotCache.delete(roomId);
+    return undefined;
+  }
+  return entry.data;
+}
+
+function setSnapshot(roomId: string, data: FloorPlanWithLiveStatus): void {
+  _snapshotCache.set(roomId, { data, ts: Date.now() });
+}
+
+// Also cache the room list
+let _roomsSnapshot: { data: Room[]; ts: number } | null = null;
+const ROOMS_SNAPSHOT_TTL_MS = 30 * 60_000;
 
 // ── Floor Plan Hook ─────────────────────────────────────────────
 
@@ -19,26 +44,44 @@ interface UseFnbFloorReturn {
   data: FloorPlanWithLiveStatus | null;
   tables: FnbTableWithStatus[];
   isLoading: boolean;
+  isFetching: boolean;
   error: string | null;
   refresh: () => Promise<void>;
 }
 
-export function useFnbFloor({ roomId, pollIntervalMs = 5000 }: UseFnbFloorOptions): UseFnbFloorReturn {
+export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloorOptions): UseFnbFloorReturn {
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['fnb-floor', roomId],
     queryFn: async ({ signal }) => {
       const json = await apiFetch<{ data: FloorPlanWithLiveStatus }>(
         `/api/v1/fnb/tables/floor-plan?roomId=${roomId}&lite=true`,
         { signal },
       );
+      // Persist to module-level cache for instant cold starts
+      if (roomId) setSnapshot(roomId, json.data);
       return json.data;
     },
     enabled: !!roomId,
-    staleTime: 3_000,
+    // Data is considered fresh for 5 minutes. The poll interval handles
+    // background updates — staleTime prevents flash-of-spinner on revisit.
+    staleTime: 5 * 60_000,
+    // Keep data in RQ cache for 30 minutes after last subscriber unmounts.
+    gcTime: 30 * 60_000,
+    // Floor plan layout is essentially static during a shift.
     refetchInterval: pollIntervalMs,
     refetchOnWindowFocus: true,
+    // When switching rooms, keep showing the previous room's tables
+    // while the new room loads (prevents full-screen spinner).
+    placeholderData: keepPreviousData,
+    // Use module-level snapshot as initialData for instant cold starts.
+    // Only if React Query cache is empty (no gcTime-surviving entry).
+    initialData: roomId ? getSnapshot(roomId) : undefined,
+    // If initialData came from snapshot, treat it as potentially stale
+    initialDataUpdatedAt: roomId && getSnapshot(roomId)
+      ? (_snapshotCache.get(roomId)?.ts ?? 0)
+      : undefined,
   });
 
   const refresh = useCallback(async () => {
@@ -56,6 +99,7 @@ export function useFnbFloor({ roomId, pollIntervalMs = 5000 }: UseFnbFloorOption
     data: data ?? null,
     tables: data?.tables ?? [],
     isLoading,
+    isFetching,
     error: error ? (error instanceof Error ? error.message : 'Unknown error') : null,
     refresh,
   };
@@ -81,9 +125,24 @@ export function useFnbRooms(): UseFnbRoomsReturn {
     queryKey: ['fnb-rooms'],
     queryFn: async () => {
       const json = await apiFetch<{ data: Room[] }>('/api/v1/room-layouts?isActive=true');
-      return json.data ?? [];
+      const rooms = json.data ?? [];
+      // Cache for instant cold starts
+      _roomsSnapshot = { data: rooms, ts: Date.now() };
+      return rooms;
     },
-    staleTime: 60_000,
+    // Room list almost never changes during a shift
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    // Use snapshot for instant cold mount
+    initialData: () => {
+      if (!_roomsSnapshot) return undefined;
+      if (Date.now() - _roomsSnapshot.ts > ROOMS_SNAPSHOT_TTL_MS) {
+        _roomsSnapshot = null;
+        return undefined;
+      }
+      return _roomsSnapshot.data;
+    },
+    initialDataUpdatedAt: _roomsSnapshot?.ts,
   });
 
   return {

@@ -290,7 +290,7 @@ const MenuBreadcrumb = memo(function MenuBreadcrumb({
 // ── Navigation Section (search + mode tabs + dept + subdept) ──────
 // Exported for use in FnbTabView's top navigation area
 
-export function FnbMenuNav({
+export const FnbMenuNav = memo(function FnbMenuNav({
   menu,
   menuMode,
   onSelectMode,
@@ -328,12 +328,12 @@ export function FnbMenuNav({
       )}
     </div>
   );
-}
+});
 
 // ── Content Section (categories sidebar + items grid) ──────────────
 // Exported for use in FnbTabView's content area
 
-export function FnbMenuContent({ menu, menuMode, onItemTap }: {
+export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onItemTap }: {
   menu: UseFnbMenuReturn;
   menuMode?: MenuMode;
   onItemTap: (itemId: string, itemName: string, priceCents: number, itemType: string) => void;
@@ -446,7 +446,7 @@ export function FnbMenuContent({ menu, menuMode, onItemTap }: {
       </div>
     </div>
   );
-}
+});
 
 // ── Error State ────────────────────────────────────────────────────
 

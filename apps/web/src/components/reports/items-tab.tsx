@@ -82,7 +82,7 @@ export function ItemsTab({ data, isLoading, dateFrom, dateTo, locationId }: Item
 
   const chartData = top10.map((r) => ({
     name: truncate(r.catalogItemName, 15),
-    value: chartMode === 'revenue' ? r.grossRevenue / 100 : r.quantitySold,
+    value: chartMode === 'revenue' ? r.grossRevenue : r.quantitySold,
     mode: chartMode,
   }));
 

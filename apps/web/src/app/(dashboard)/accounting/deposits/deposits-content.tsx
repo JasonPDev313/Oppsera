@@ -256,7 +256,7 @@ export default function DepositsContent() {
             onClick={() => setStatusFilter(tab)}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
               statusFilter === tab
-                ? 'bg-white text-gray-900 shadow-sm'
+                ? 'bg-surface text-gray-900 shadow-sm'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
