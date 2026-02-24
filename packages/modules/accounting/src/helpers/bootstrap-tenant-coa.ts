@@ -67,7 +67,12 @@ export async function bootstrapTenantCoa(
     .where(eq(glAccountTemplates.templateKey, templateKey));
 
   if (accountTemplates.length === 0) {
-    throw new Error(`No account templates found for key: ${templateKey}`);
+    const { AppError } = await import('@oppsera/core/errors');
+    throw new AppError(
+      'VALIDATION_ERROR',
+      `No account templates found for key: ${templateKey}. Have all migrations been run? (pnpm db:migrate)`,
+      400,
+    );
   }
 
   // 3b. Apply state name to placeholders if provided

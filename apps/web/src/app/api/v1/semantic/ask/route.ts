@@ -6,6 +6,9 @@ import { ValidationError } from '@oppsera/shared';
 import { runPipeline } from '@oppsera/module-semantic/llm';
 import { checkSemanticRateLimit } from '@oppsera/module-semantic/cache';
 
+// ── Vercel serverless timeout — allow up to 60s for the pipeline ──
+export const maxDuration = 60;
+
 // ── Validation ────────────────────────────────────────────────────
 
 const semanticAskSchema = z.object({

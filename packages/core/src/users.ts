@@ -438,8 +438,8 @@ export async function createUser(input: CreateUserInput): Promise<{ userId: stri
       externalPayrollId: input.externalPayrollEmployeeId?.trim(),
       passwordHash,
       passwordResetRequired: Boolean(input.password && input.forcePasswordReset),
-      createdByUserId: input.createdByUserId,
-      updatedByUserId: input.createdByUserId,
+      createdByUserId: input.createdByUserId?.startsWith('admin:') ? null : input.createdByUserId,
+      updatedByUserId: input.createdByUserId?.startsWith('admin:') ? null : input.createdByUserId,
       createdAt: now,
       updatedAt: now,
     }).returning({ id: users.id });

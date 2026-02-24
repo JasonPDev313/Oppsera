@@ -6,11 +6,15 @@ import { LLMError } from '../types';
 // SDK is optional so it can be string-concatenated at require() if needed.
 // See gotcha #55: optional deps use runtime string concatenation.
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_MODEL = 'claude-sonnet-4-5-20250929';
+const FAST_MODEL = 'claude-haiku-4-5-20251001';
 const DEFAULT_MAX_TOKENS = 2048;
 const DEFAULT_TIMEOUT_MS = 60_000; // 60s — generous for first-request compilation in dev
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
+
+/** The fast model ID for structured JSON output (intent resolution, SQL generation) */
+export const SEMANTIC_FAST_MODEL = process.env.ANTHROPIC_FAST_MODEL ?? FAST_MODEL;
 
 export class AnthropicAdapter implements LLMAdapter {
   readonly provider = 'anthropic';
@@ -34,7 +38,10 @@ export class AnthropicAdapter implements LLMAdapter {
       maxTokens = DEFAULT_MAX_TOKENS,
       temperature = 0,
       systemPrompt,
+      model: modelOverride,
     } = options;
+
+    const effectiveModel = modelOverride ?? this.model;
 
     // Separate system message from conversation
     const systemMessages = messages.filter((m) => m.role === 'system');
@@ -48,7 +55,7 @@ export class AnthropicAdapter implements LLMAdapter {
       .join('\n\n');
 
     const body: Record<string, unknown> = {
-      model: this.model,
+      model: effectiveModel,
       max_tokens: maxTokens,
       temperature,
       messages: conversationMessages.map((m) => ({

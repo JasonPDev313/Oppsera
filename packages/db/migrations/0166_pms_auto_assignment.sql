@@ -3,7 +3,7 @@
 
 -- ── pms_room_assignment_preferences ─────────────────────────────
 CREATE TABLE IF NOT EXISTS pms_room_assignment_preferences (
-  id                TEXT PRIMARY KEY DEFAULT gen_random_ulid(),
+  id                TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   tenant_id         TEXT NOT NULL,
   property_id       TEXT NOT NULL,
   name              TEXT NOT NULL,

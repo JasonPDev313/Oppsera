@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { apiFetch } from '@/lib/api-client';
 
-const REQUEST_TIMEOUT_MS = 45_000; // 45s — covers 2 LLM calls + DB execution
+const REQUEST_TIMEOUT_MS = 90_000; // 90s — covers 3 LLM calls (intent + SQL gen + narrative) + DB execution
 
 // ── Types ─────────────────────────────────────────────────────────
 

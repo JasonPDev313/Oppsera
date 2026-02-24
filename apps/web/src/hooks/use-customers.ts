@@ -26,6 +26,16 @@ import type {
   CustomerScore,
 } from '@/types/customers';
 
+/** Debounce a value by `delay` ms. Returns the debounced value. */
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 interface UseCustomersOptions {
   search?: string;
   tags?: string[];
@@ -37,19 +47,29 @@ export function useCustomers(options: UseCustomersOptions = {}) {
   const [error, setError] = useState<Error | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const cursorRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
+  // Debounce search input by 300ms to avoid API spam on rapid typing
+  const debouncedSearch = useDebounce(options.search, 300);
   const tagsKey = options.tags?.join(',') ?? '';
+
   const fetchData = useCallback(async (loadMore = false) => {
+    // Cancel any in-flight request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
       if (!loadMore) setIsLoading(true);
       setError(null);
       const params = new URLSearchParams();
-      if (options.search) params.set('search', options.search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       if (options.tags?.length) params.set('tags', options.tags.join(','));
       if (loadMore && cursorRef.current) params.set('cursor', cursorRef.current);
 
       const res = await apiFetch<{ data: Customer[]; meta: { cursor: string | null; hasMore: boolean } }>(
-        `/api/v1/customers?${params.toString()}`
+        `/api/v1/customers?${params.toString()}`,
+        { signal: controller.signal },
       );
       if (loadMore) {
         setData((prev) => [...prev, ...res.data]);
@@ -59,15 +79,17 @@ export function useCustomers(options: UseCustomersOptions = {}) {
       cursorRef.current = res.meta.cursor;
       setHasMore(res.meta.hasMore);
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(err instanceof Error ? err : new Error('Failed to load customers'));
     } finally {
       setIsLoading(false);
     }
-  }, [options.search, tagsKey]);
+  }, [debouncedSearch, tagsKey]);
 
   useEffect(() => {
     cursorRef.current = null;
     fetchData();
+    return () => abortRef.current?.abort();
   }, [fetchData]);
 
   const loadMore = useCallback(() => fetchData(true), [fetchData]);

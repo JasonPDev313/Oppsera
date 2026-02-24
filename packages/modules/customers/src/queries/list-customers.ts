@@ -29,7 +29,6 @@ export interface CustomerListItem {
   totalVisits: number;
   totalSpend: number;
   lastVisitAt: Date | null;
-  metadata: unknown;
   createdAt: Date;
   updatedAt: Date;
   createdBy: string | null;
@@ -63,7 +62,6 @@ const listColumns = {
   totalVisits: customers.totalVisits,
   totalSpend: customers.totalSpend,
   lastVisitAt: customers.lastVisitAt,
-  metadata: customers.metadata,
   createdAt: customers.createdAt,
   updatedAt: customers.updatedAt,
   createdBy: customers.createdBy,
@@ -79,26 +77,29 @@ export async function listCustomers(input: ListCustomersInput): Promise<ListCust
     ];
 
     if (input.cursor) {
-      // For displayName ascending pagination, cursor is the last displayName + id composite
-      // We use id as a tiebreaker for stable pagination
-      conditions.push(
-        or(
-          sql`${customers.displayName} > (SELECT display_name FROM customers WHERE id = ${input.cursor})`,
-          and(
-            sql`${customers.displayName} = (SELECT display_name FROM customers WHERE id = ${input.cursor})`,
-            sql`${customers.id} > ${input.cursor}`,
-          )!,
-        )!,
-      );
+      // Resolve cursor row's displayName once (single point lookup by PK)
+      // then use the literal values in the keyset pagination filter.
+      // This avoids 2 correlated subqueries per page load.
+      const [cursorRow] = await tx
+        .select({ displayName: customers.displayName })
+        .from(customers)
+        .where(eq(customers.id, input.cursor))
+        .limit(1);
+
+      if (cursorRow) {
+        conditions.push(
+          sql`(${customers.displayName}, ${customers.id}) > (${cursorRow.displayName}, ${input.cursor})`,
+        );
+      }
     }
 
     if (input.search) {
       const pattern = `%${input.search}%`;
       conditions.push(
         or(
+          ilike(customers.displayName, pattern),
           ilike(customers.email, pattern),
           ilike(customers.phone, pattern),
-          ilike(customers.displayName, pattern),
         )!,
       );
     }

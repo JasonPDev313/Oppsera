@@ -16,7 +16,7 @@ export interface Customer {
   totalVisits: number;
   totalSpend: number;
   lastVisitAt: string | null;
-  metadata: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;

@@ -1,6 +1,6 @@
 import type { LLMAdapter, LLMMessage, IntentContext } from './types';
 import { LLMError } from './types';
-import { getLLMAdapter } from './adapters/anthropic';
+import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
 
 // ── SQL Auto-Correction Retry ───────────────────────────────────
 // When LLM-generated SQL fails execution or validation, this module
@@ -192,6 +192,7 @@ export async function retrySqlGeneration(
         systemPrompt,
         temperature: 0,
         maxTokens: 2048,
+        model: SEMANTIC_FAST_MODEL, // Use fast model for structured JSON output
       });
     } catch (err) {
       lastLlmError = err instanceof LLMError

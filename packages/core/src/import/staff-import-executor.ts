@@ -105,8 +105,8 @@ async function createUser(
     employeeColor: row.employeeColor,
     externalPayrollEmployeeId: row.externalPayrollEmployeeId,
     externalPayrollId: row.externalPayrollId,
-    createdByUserId: importedByUserId,
-    updatedByUserId: importedByUserId,
+    createdByUserId: importedByUserId?.startsWith('admin:') ? null : importedByUserId,
+    updatedByUserId: importedByUserId?.startsWith('admin:') ? null : importedByUserId,
     // POS PINs stored in plaintext on the user row for backward compat
     // Hashed versions go into user_security
     posPin: row.posPin,

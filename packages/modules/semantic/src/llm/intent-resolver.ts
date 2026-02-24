@@ -3,7 +3,7 @@ import { LLMError } from './types';
 import type { QueryPlan } from '../compiler/types';
 import type { RegistryCatalog, MetricDef, DimensionDef } from '../registry/types';
 import type { EvalExample } from '../evaluation/types';
-import { getLLMAdapter } from './adapters/anthropic';
+import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
 import { pruneForIntentResolver } from './conversation-pruner';
 import { retrieveFewShotExamples } from '../rag/few-shot-retriever';
 
@@ -353,6 +353,7 @@ export async function resolveIntent(
     systemPrompt,
     temperature: 0,
     maxTokens: 1024,
+    model: SEMANTIC_FAST_MODEL, // Use fast model for structured JSON output
   });
   const latencyMs = Date.now() - startMs;
 

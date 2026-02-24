@@ -1184,6 +1184,13 @@
       "when": 1708100168000,
       "tag": "0168_pms_loyalty",
       "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1708100169000,
+      "tag": "0169_customer_list_performance",
+      "breakpoints": true
     }
   ]
 }

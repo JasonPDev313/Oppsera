@@ -67,26 +67,9 @@ export async function searchCustomers(
         .limit(cap);
     }
 
-    // Text search: try prefix match on displayName first (fast B-tree),
-    // fall back to contains match on all fields (pg_trgm GIN index)
+    // Text search: single query using contains match on name, email, phone.
+    // The pg_trgm GIN indexes (migration 0055) make ILIKE '%pattern%' fast.
     if (input.search) {
-      const prefix = `${input.search}%`;
-      const prefixResults = await tx
-        .select(SELECT_FIELDS)
-        .from(customers)
-        .where(
-          and(
-            eq(customers.tenantId, input.tenantId),
-            NOT_MERGED,
-            ilike(customers.displayName, prefix),
-          ),
-        )
-        .orderBy(customers.displayName)
-        .limit(cap);
-
-      if (prefixResults.length > 0) return prefixResults;
-
-      // No prefix hits — broaden to contains on name, email, phone
       const pattern = `%${input.search}%`;
       return tx
         .select(SELECT_FIELDS)

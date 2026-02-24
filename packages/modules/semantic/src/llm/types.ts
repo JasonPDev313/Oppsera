@@ -30,6 +30,8 @@ export interface LLMCompletionOptions {
   temperature?: number;
   systemPrompt?: string;
   stopSequences?: string[];
+  /** Override the adapter's default model for this call (e.g. use Haiku for structured JSON output) */
+  model?: string;
 }
 
 // ── Intent resolution types ───────────────────────────────────────

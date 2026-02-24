@@ -144,7 +144,12 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
   }
 
   // Mode A (metrics) — with automatic fallback to Mode B (SQL) when read models are empty
-  const metricsResult = await runMetricsMode(input, intent, lensPromptFragment, startMs);
+  // When schema catalog is available and we might fall back to SQL mode, skip the
+  // narrative LLM call on 0-row metrics results to avoid a wasted ~5-10s Sonnet call.
+  const metricsResult = await runMetricsMode(
+    schemaCatalog ? { ...input, skipNarrative: true } : input,
+    intent, lensPromptFragment, startMs,
+  );
 
   // ── 5. Fallback: if metrics mode returned 0 rows and schema catalog is available,
   //       retry via SQL mode to query operational tables directly ──────────
@@ -165,6 +170,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     } catch (err) {
       console.warn('[semantic] SQL fallback failed (non-blocking):', err instanceof Error ? err.message : err);
     }
+  }
+
+  // If we skipped narrative for the fallback optimization but metrics had data (no fallback needed),
+  // or fallback also returned 0 rows, generate the narrative now
+  if (schemaCatalog && !metricsResult.narrative) {
+    console.log('[semantic] Generating narrative for metrics result (was deferred for fallback check)');
+    return runMetricsMode(input, intent, lensPromptFragment, startMs);
   }
 
   return metricsResult;

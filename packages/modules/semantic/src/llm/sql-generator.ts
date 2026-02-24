@@ -1,6 +1,6 @@
 import type { LLMAdapter, LLMMessage, IntentContext } from './types';
 import { LLMError } from './types';
-import { getLLMAdapter } from './adapters/anthropic';
+import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
 import type { SchemaCatalog } from '../schema/schema-catalog';
 import { pruneForSqlGenerator } from './conversation-pruner';
 import { retrieveFewShotExamples } from '../rag/few-shot-retriever';
@@ -228,6 +228,7 @@ export async function generateSql(
     systemPrompt,
     temperature: 0,
     maxTokens: 2048,
+    model: SEMANTIC_FAST_MODEL, // Use fast model for structured JSON output
   });
   const latencyMs = Date.now() - startMs;
 
