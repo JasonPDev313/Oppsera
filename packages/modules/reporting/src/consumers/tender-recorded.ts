@@ -55,7 +55,9 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
     const businessDate = computeBusinessDate(occurredAt, timezone);
 
     // Step 3: Upsert rm_daily_sales — tender type determines which column
-    const amount = data.amount;
+    // Event payloads send amounts in cents (INTEGER from tenders table).
+    // Read models store dollars (NUMERIC(19,4)). Convert at boundary.
+    const amount = (data.amount ?? 0) / 100;
     if (data.tenderType === 'cash') {
       await (tx as any).execute(sql`
         INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, tender_cash, updated_at)

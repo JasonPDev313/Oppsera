@@ -76,10 +76,12 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     const businessDate = computeBusinessDate(occurredAt, timezone);
 
     // Step 4: Upsert rm_daily_sales — map from flat event payload
-    const gross = data.subtotal ?? 0;
-    const discount = data.discountTotal ?? 0;
-    const tax = data.taxTotal ?? 0;
-    const net = data.total ?? 0;
+    // Event payloads send amounts in cents (INTEGER from orders table).
+    // Read models store dollars (NUMERIC(19,4)). Convert at boundary.
+    const gross = (data.subtotal ?? 0) / 100;
+    const discount = (data.discountTotal ?? 0) / 100;
+    const tax = (data.taxTotal ?? 0) / 100;
+    const net = (data.total ?? 0) / 100;
     await (tx as any).execute(sql`
       INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, order_count, gross_sales, discount_total, tax_total, net_sales, avg_order_value, updated_at)
       VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${1}, ${gross}, ${discount}, ${tax}, ${net}, ${net}, NOW())
@@ -125,7 +127,7 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
         // Regular item OR package without allocation (backward-compat): record line itself
         const itemName = line.catalogItemName ?? 'Unknown';
         const qty = line.qty ?? 1;
-        const lineTotal = line.lineTotal ?? 0;
+        const lineTotal = (line.lineTotal ?? 0) / 100;
         await (tx as any).execute(sql`
           INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_sold, gross_revenue, updated_at)
           VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${itemName}, ${qty}, ${lineTotal}, NOW())

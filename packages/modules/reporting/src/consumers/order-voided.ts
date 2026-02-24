@@ -61,7 +61,9 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
     const businessDate = computeBusinessDate(occurredAt, timezone);
 
     // Step 3: Upsert rm_daily_sales — voids don't decrement orderCount
-    const voidAmount = data.total ?? 0;
+    // Event payloads send amounts in cents (INTEGER from orders table).
+    // Read models store dollars (NUMERIC(19,4)). Convert at boundary.
+    const voidAmount = (data.total ?? 0) / 100;
     await (tx as any).execute(sql`
       INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, void_count, void_total, net_sales, avg_order_value, updated_at)
       VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${1}, ${voidAmount}, ${-voidAmount}, ${0}, NOW())
@@ -82,7 +84,7 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
     if (data.lines) {
       for (const line of data.lines) {
         const qty = line.qty ?? 1;
-        const lineTotal = line.lineTotal ?? 0;
+        const lineTotal = (line.lineTotal ?? 0) / 100;
         await (tx as any).execute(sql`
           INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_voided, void_revenue, updated_at)
           VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${'Voided Item'}, ${qty}, ${lineTotal}, NOW())
