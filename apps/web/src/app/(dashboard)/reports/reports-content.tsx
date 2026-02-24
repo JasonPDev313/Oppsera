@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { BarChart3 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import {
@@ -15,6 +15,7 @@ import { ReportFilterBar } from '@/components/reports/report-filter-bar';
 import { SalesTab } from '@/components/reports/sales-tab';
 import { ItemsTab } from '@/components/reports/items-tab';
 import { InventoryTab } from '@/components/reports/inventory-tab';
+import type { DashboardMetrics } from '@/types/reports';
 
 // ── Tab types ────────────────────────────────────────────────────
 
@@ -55,6 +56,22 @@ export default function ReportsPage() {
     belowThresholdOnly,
   });
 
+  // Derive sales KPIs from daily sales data so they match the date range filter.
+  // Low stock and active customers still come from the dashboard endpoint.
+  const metrics = useMemo((): DashboardMetrics | null => {
+    if (dailySales.isLoading && dashboard.isLoading) return null;
+    const totalSales = dailySales.data.reduce((sum, r) => sum + r.netSales, 0);
+    const totalOrders = dailySales.data.reduce((sum, r) => sum + r.orderCount, 0);
+    const totalVoids = dailySales.data.reduce((sum, r) => sum + r.voidCount, 0);
+    return {
+      todaySales: totalSales,
+      todayOrders: totalOrders,
+      todayVoids: totalVoids,
+      lowStockCount: dashboard.data?.lowStockCount ?? 0,
+      activeCustomers30d: dashboard.data?.activeCustomers30d ?? 0,
+    };
+  }, [dailySales.data, dailySales.isLoading, dashboard.data, dashboard.isLoading]);
+
   const handleRefresh = useCallback(() => {
     dashboard.mutate();
     dailySales.mutate();
@@ -92,8 +109,8 @@ export default function ReportsPage() {
         onReset={filters.reset}
       />
 
-      {/* Metric Cards */}
-      <MetricCards data={dashboard.data} isLoading={dashboard.isLoading} />
+      {/* Metric Cards — derived from date-range-filtered daily sales */}
+      <MetricCards data={metrics} isLoading={dailySales.isLoading} />
 
       {/* Tabs */}
       <div className="border-b border-gray-200">

@@ -3,7 +3,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError } from '@oppsera/shared';
-import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
+import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes, catalogCategories } from '@oppsera/db';
 import { eq, inArray } from 'drizzle-orm';
 import type { PlaceOrderInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
@@ -80,6 +80,16 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'placeOrder', { orderId });
 
+    // Resolve category names for sub_department_ids (for reporting read models)
+    const subDeptIds = [...new Set(lines.map((l: any) => l.subDepartmentId).filter(Boolean))] as string[];
+    const categoryNameMap = new Map<string, string>();
+    if (subDeptIds.length > 0) {
+      const cats = await (tx as any).select({ id: catalogCategories.id, name: catalogCategories.name })
+        .from(catalogCategories)
+        .where(inArray(catalogCategories.id, subDeptIds));
+      for (const c of cats) categoryNameMap.set(c.id, c.name);
+    }
+
     const event = buildEventFromContext(ctx, 'order.placed.v1', {
       orderId,
       orderNumber: order.orderNumber,
@@ -95,6 +105,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       lines: lines.map((l: any) => ({
         catalogItemId: l.catalogItemId,
         catalogItemName: l.catalogItemName ?? 'Unknown',
+        categoryName: l.subDepartmentId ? (categoryNameMap.get(l.subDepartmentId) ?? null) : null,
         qty: Number(l.qty),
         unitPrice: l.unitPrice ?? 0,
         lineSubtotal: l.lineSubtotal ?? 0,

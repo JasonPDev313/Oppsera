@@ -25,6 +25,7 @@ interface OrderPlacedData {
   lines: Array<{
     catalogItemId: string;
     catalogItemName?: string;
+    categoryName?: string | null;
     qty: number;
     lineTotal?: number;
     packageComponents?: PackageComponent[] | null;
@@ -106,6 +107,9 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
       const hasComponentAllocation =
         comps && comps.length > 0 && comps[0]!.allocatedRevenueCents != null;
 
+      // Category name from the enriched event (null for older events)
+      const lineCategoryName = line.categoryName ?? null;
+
       if (hasComponentAllocation) {
         // Package with allocation: record each component's revenue separately
         for (const comp of comps!) {
@@ -113,13 +117,14 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
           const compQty = comp.qty ?? 1;
           const compRevenueDollars = (comp.allocatedRevenueCents ?? 0) / 100;
           await (tx as any).execute(sql`
-            INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_sold, gross_revenue, updated_at)
-            VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${comp.catalogItemId}, ${compName}, ${compQty}, ${compRevenueDollars}, NOW())
+            INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, category_name, quantity_sold, gross_revenue, updated_at)
+            VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${comp.catalogItemId}, ${compName}, ${lineCategoryName}, ${compQty}, ${compRevenueDollars}, NOW())
             ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
             DO UPDATE SET
               quantity_sold = rm_item_sales.quantity_sold + ${compQty},
               gross_revenue = rm_item_sales.gross_revenue + ${compRevenueDollars},
               catalog_item_name = ${compName},
+              category_name = COALESCE(${lineCategoryName}, rm_item_sales.category_name),
               updated_at = NOW()
           `);
         }
@@ -129,13 +134,14 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
         const qty = line.qty ?? 1;
         const lineTotal = (line.lineTotal ?? 0) / 100;
         await (tx as any).execute(sql`
-          INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, quantity_sold, gross_revenue, updated_at)
-          VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${itemName}, ${qty}, ${lineTotal}, NOW())
+          INSERT INTO rm_item_sales (id, tenant_id, location_id, business_date, catalog_item_id, catalog_item_name, category_name, quantity_sold, gross_revenue, updated_at)
+          VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${line.catalogItemId}, ${itemName}, ${lineCategoryName}, ${qty}, ${lineTotal}, NOW())
           ON CONFLICT (tenant_id, location_id, business_date, catalog_item_id)
           DO UPDATE SET
             quantity_sold = rm_item_sales.quantity_sold + ${qty},
             gross_revenue = rm_item_sales.gross_revenue + ${lineTotal},
             catalog_item_name = ${itemName},
+            category_name = COALESCE(${lineCategoryName}, rm_item_sales.category_name),
             updated_at = NOW()
         `);
       }

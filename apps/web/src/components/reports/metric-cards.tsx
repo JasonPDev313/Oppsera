@@ -19,14 +19,14 @@ const CARDS: {
 }[] = [
   {
     key: 'todaySales',
-    label: 'Total Sales Today',
+    label: 'Total Sales',
     icon: DollarSign,
     iconColor: 'bg-green-100 text-green-600',
     format: formatReportMoney,
   },
   {
     key: 'todayOrders',
-    label: 'Orders Today',
+    label: 'Orders',
     icon: ShoppingCart,
     iconColor: 'bg-blue-100 text-blue-600',
     format: (v) => String(v),

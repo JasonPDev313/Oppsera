@@ -221,6 +221,29 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     } catch (err) {
       executionError = String(err);
 
+      // Attempt ADVISOR MODE narrative on execution failure (same as compilation errors)
+      let advisorNarrative: string | null = null;
+      let advisorSections: PipelineOutput['sections'] = [];
+      let advisorTokensIn = 0;
+      let advisorTokensOut = 0;
+
+      if (!skipNarrative) {
+        try {
+          const advisorResult = await generateNarrative(null, intent, message, context, {
+            lensSlug: context.lensSlug,
+            lensPromptFragment,
+          });
+          advisorNarrative = advisorResult.text;
+          advisorSections = advisorResult.sections;
+          advisorTokensIn = advisorResult.tokensInput;
+          advisorTokensOut = advisorResult.tokensOutput;
+        } catch {
+          const fallback = buildEmptyResultNarrative(message, context);
+          advisorNarrative = fallback.text;
+          advisorSections = fallback.sections;
+        }
+      }
+
       evalTurnId = generateUlid();
       void captureEvalTurnBestEffort({
         id: evalTurnId,
@@ -235,13 +258,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
         resultSample: null,
         executionError,
         cacheStatus: 'MISS',
-        narrative: null,
-        responseSections: [],
+        narrative: advisorNarrative,
+        responseSections: advisorSections.map((s) => s.type),
       });
 
       return {
-        narrative: null,
-        sections: [],
+        narrative: advisorNarrative,
+        sections: advisorSections,
         data: null,
         plan: intent.plan,
         isClarification: false,
@@ -250,8 +273,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
         llmConfidence: intent.confidence,
         llmLatencyMs: intent.latencyMs,
         executionTimeMs: null,
-        tokensInput: intent.tokensInput,
-        tokensOutput: intent.tokensOutput,
+        tokensInput: intent.tokensInput + advisorTokensIn,
+        tokensOutput: intent.tokensOutput + advisorTokensOut,
         provider: intent.provider,
         model: intent.model,
         compiledSql,

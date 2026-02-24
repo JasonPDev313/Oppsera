@@ -65,6 +65,7 @@ export const rmItemSales = pgTable(
     businessDate: date('business_date').notNull(),
     catalogItemId: text('catalog_item_id').notNull(),
     catalogItemName: text('catalog_item_name').notNull(),
+    categoryName: text('category_name'),
     quantitySold: integer('quantity_sold').notNull().default(0),
     grossRevenue: numeric('gross_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
     quantityVoided: integer('quantity_voided').notNull().default(0),

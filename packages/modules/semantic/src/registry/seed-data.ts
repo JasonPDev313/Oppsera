@@ -47,6 +47,19 @@ export const CORE_DIMENSIONS: Omit<DimensionDef, 'isActive'>[] = [
     examplePhrases: ['burger', 'top products', 'best sellers', 'top selling items'],
   },
   {
+    slug: 'category',
+    displayName: 'Category',
+    description: 'Product category or department name',
+    domain: 'core',
+    category: 'product',
+    sqlExpression: 'category_name',
+    sqlTable: 'rm_item_sales',
+    sqlDataType: 'text',
+    isTimeDimension: false,
+    aliases: ['department', 'product category', 'menu category', 'item category', 'group'],
+    examplePhrases: ['by category', 'food vs drinks', 'top categories', 'sales by department'],
+  },
+  {
     slug: 'week',
     displayName: 'Week',
     description: 'ISO week number',
@@ -790,14 +803,17 @@ export const CORE_METRIC_DIMENSIONS: MetricDimensionRelation[] = [
   { metricSlug: 'items_sold', dimensionSlug: 'date', isRequired: false, isDefault: false, sortOrder: 0 },
   { metricSlug: 'items_sold', dimensionSlug: 'item', isRequired: false, isDefault: true, sortOrder: 1 },
   { metricSlug: 'items_sold', dimensionSlug: 'location', isRequired: false, isDefault: false, sortOrder: 2 },
+  { metricSlug: 'items_sold', dimensionSlug: 'category', isRequired: false, isDefault: false, sortOrder: 3 },
   // item_revenue (uses rm_item_sales)
   { metricSlug: 'item_revenue', dimensionSlug: 'date', isRequired: false, isDefault: false, sortOrder: 0 },
   { metricSlug: 'item_revenue', dimensionSlug: 'item', isRequired: false, isDefault: true, sortOrder: 1 },
   { metricSlug: 'item_revenue', dimensionSlug: 'location', isRequired: false, isDefault: false, sortOrder: 2 },
+  { metricSlug: 'item_revenue', dimensionSlug: 'category', isRequired: false, isDefault: false, sortOrder: 3 },
   // items_voided (uses rm_item_sales)
   { metricSlug: 'items_voided', dimensionSlug: 'date', isRequired: false, isDefault: false, sortOrder: 0 },
   { metricSlug: 'items_voided', dimensionSlug: 'item', isRequired: false, isDefault: true, sortOrder: 1 },
   { metricSlug: 'items_voided', dimensionSlug: 'location', isRequired: false, isDefault: false, sortOrder: 2 },
+  { metricSlug: 'items_voided', dimensionSlug: 'category', isRequired: false, isDefault: false, sortOrder: 3 },
   // inventory metrics (snapshot — no date dimension)
   { metricSlug: 'on_hand_qty', dimensionSlug: 'inventory_item', isRequired: false, isDefault: true, sortOrder: 0 },
   { metricSlug: 'on_hand_qty', dimensionSlug: 'inventory_location', isRequired: false, isDefault: false, sortOrder: 1 },
@@ -876,11 +892,11 @@ export const SYSTEM_LENSES: Omit<LensDef, 'isActive'>[] = [
   {
     slug: 'core_items',
     displayName: 'Item Performance',
-    description: 'Item-level sales, quantities, and revenue — find top sellers and underperformers',
+    description: 'Item-level sales, quantities, and revenue — find top sellers and underperformers, analyze by category',
     domain: 'core',
     isSystem: true,
     allowedMetrics: ['items_sold', 'item_revenue', 'items_voided'],
-    allowedDimensions: ['date', 'item', 'location', 'week', 'month'],
+    allowedDimensions: ['date', 'item', 'category', 'location', 'week', 'month'],
     defaultMetrics: ['items_sold', 'item_revenue'],
     defaultDimensions: ['item'],
     exampleQuestions: [
@@ -888,9 +904,11 @@ export const SYSTEM_LENSES: Omit<LensDef, 'isActive'>[] = [
       'Which items bring in the most revenue?',
       'What are our best sellers this week?',
       'Show me items sold today',
+      'Sales by category',
+      'Which category sells the most?',
     ],
     systemPromptFragment:
-      'You are analyzing item-level sales. Use items_sold for quantity and item_revenue for dollar amounts. Group by the item dimension to see per-product breakdown. Default to sorting by items_sold or item_revenue descending with a limit of 20 for "top" queries.',
+      'You are analyzing item-level sales. Use items_sold for quantity and item_revenue for dollar amounts. Group by the item dimension to see per-product breakdown, or by the category dimension to see per-category breakdown. Default to sorting by items_sold or item_revenue descending with a limit of 20 for "top" queries.',
   },
   {
     slug: 'core_inventory',

@@ -1016,6 +1016,13 @@
       "when": 1708100144000,
       "tag": "0144_transaction_type_registry",
       "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1708100145000,
+      "tag": "0145_rm_item_sales_category",
+      "breakpoints": true
     }
   ]
 }

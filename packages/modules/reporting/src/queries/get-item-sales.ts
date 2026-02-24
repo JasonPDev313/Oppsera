@@ -25,6 +25,10 @@ const num = (v: string | number | null | undefined): number => Number(v) || 0;
 /**
  * Retrieves item sales aggregated across the date range.
  *
+ * Prefers CQRS read models (rm_item_sales) for speed.
+ * Falls back to querying operational tables directly when read models are empty
+ * (e.g., after direct seeding that bypassed the event system).
+ *
  * Groups by catalogItemId, summing quantities and revenue.
  * Supports sorting by quantitySold or grossRevenue and a limit for top-N items.
  */
@@ -63,13 +67,80 @@ export async function getItemSales(input: GetItemSalesInput): Promise<ItemSalesR
       .orderBy(sortFn(sortColumn))
       .limit(limit);
 
-    return rows.map((r) => ({
-      catalogItemId: r.catalogItemId,
-      catalogItemName: r.catalogItemName,
-      quantitySold: r.quantitySold,
-      grossRevenue: num(r.grossRevenue),
-      quantityVoided: r.quantityVoided,
-      voidRevenue: num(r.voidRevenue),
-    }));
+    if (rows.length > 0) {
+      return rows.map((r) => ({
+        catalogItemId: r.catalogItemId,
+        catalogItemName: r.catalogItemName,
+        quantitySold: r.quantitySold,
+        grossRevenue: num(r.grossRevenue),
+        quantityVoided: r.quantityVoided,
+        voidRevenue: num(r.voidRevenue),
+      }));
+    }
+
+    // Fallback: query operational order_lines + orders when read model is empty
+    return queryOrderLinesFallback(
+      tx,
+      input.tenantId,
+      input.dateFrom,
+      input.dateTo,
+      input.locationId,
+      input.sortBy,
+      input.sortDir,
+      limit,
+    );
   });
+}
+
+/**
+ * Fallback: query operational order_lines + orders tables directly
+ * when rm_item_sales read model is empty (e.g., seed data, consumers not yet run).
+ * Converts cents → dollars to match read model format.
+ */
+async function queryOrderLinesFallback(
+  tx: any,
+  tenantId: string,
+  dateFrom: string,
+  dateTo: string,
+  locationId?: string,
+  sortBy?: 'quantitySold' | 'grossRevenue',
+  sortDir?: 'asc' | 'desc',
+  limit?: number,
+): Promise<ItemSalesRow[]> {
+  const locFilter = locationId
+    ? sql` AND o.location_id = ${locationId}`
+    : sql``;
+
+  const orderByCol =
+    sortBy === 'grossRevenue' ? sql`gross_revenue_cents` : sql`quantity_sold`;
+  const orderByDir = sortDir === 'asc' ? sql`ASC` : sql`DESC`;
+
+  const rows = await tx.execute(sql`
+    SELECT
+      ol.catalog_item_id,
+      max(ol.catalog_item_name) AS catalog_item_name,
+      coalesce(sum(ol.qty::numeric) FILTER (WHERE o.status IN ('placed', 'paid')), 0)::int AS quantity_sold,
+      coalesce(sum(ol.line_total) FILTER (WHERE o.status IN ('placed', 'paid')), 0)::bigint AS gross_revenue_cents,
+      coalesce(sum(ol.qty::numeric) FILTER (WHERE o.status = 'voided'), 0)::int AS quantity_voided,
+      coalesce(sum(ol.line_total) FILTER (WHERE o.status = 'voided'), 0)::bigint AS void_revenue_cents
+    FROM order_lines ol
+    JOIN orders o ON o.id = ol.order_id
+    WHERE ol.tenant_id = ${tenantId}
+      AND o.status IN ('placed', 'paid', 'voided')
+      AND o.business_date >= ${dateFrom}
+      AND o.business_date <= ${dateTo}
+      ${locFilter}
+    GROUP BY ol.catalog_item_id
+    ORDER BY ${orderByCol} ${orderByDir}
+    LIMIT ${limit ?? 100}
+  `);
+
+  return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => ({
+    catalogItemId: String(r.catalog_item_id),
+    catalogItemName: String(r.catalog_item_name),
+    quantitySold: Number(r.quantity_sold) || 0,
+    grossRevenue: (Number(r.gross_revenue_cents) || 0) / 100,
+    quantityVoided: Number(r.quantity_voided) || 0,
+    voidRevenue: (Number(r.void_revenue_cents) || 0) / 100,
+  }));
 }
