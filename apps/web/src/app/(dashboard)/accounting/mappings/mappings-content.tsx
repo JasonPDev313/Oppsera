@@ -189,6 +189,8 @@ function DepartmentMappingsTab() {
         toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
       } else if (d?.autoRemapCount > 0) {
         toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else if (d?.autoRemapFailed > 0) {
+        toast.error(`Mapping saved, but ${d.autoRemapFailed} auto-remap(s) failed — check Unmapped Events.`);
       } else {
         toast.success('Mapping saved');
       }
@@ -562,7 +564,7 @@ function PaymentTypeMappingsTab() {
     try {
       const res = await savePaymentTypeDefaults.mutateAsync({
         paymentType: mapping.paymentType,
-        cashBankAccountId: mapping.cashBankAccountId,
+        cashAccountId: mapping.cashAccountId,
         clearingAccountId: mapping.clearingAccountId,
         feeExpenseAccountId: mapping.feeExpenseAccountId,
       });
@@ -571,6 +573,8 @@ function PaymentTypeMappingsTab() {
         toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
       } else if (d?.autoRemapCount > 0) {
         toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else if (d?.autoRemapFailed > 0) {
+        toast.error(`Mapping saved, but ${d.autoRemapFailed} auto-remap(s) failed — check Unmapped Events.`);
       } else {
         toast.success('Mapping saved');
       }
@@ -603,14 +607,14 @@ function PaymentTypeMappingsTab() {
           </thead>
           <tbody>
             {mappings.map((m) => {
-              const isMapped = !!m.cashBankAccountId;
+              const isMapped = !!m.cashAccountId;
               return (
                 <tr key={m.paymentType} className={`border-b border-gray-100 last:border-0 ${!isMapped ? 'bg-amber-500/5' : ''}`}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900 capitalize">{m.paymentType.replace(/_/g, ' ')}</td>
                   <td className="px-4 py-3">
                     <AccountPicker
-                      value={m.cashBankAccountId}
-                      onChange={(v) => handleSave({ ...m, cashBankAccountId: v })}
+                      value={m.cashAccountId}
+                      onChange={(v) => handleSave({ ...m, cashAccountId: v })}
                       accountTypes={['asset']}
                       className="w-48"
                     />
@@ -668,6 +672,8 @@ function TaxGroupMappingsTab() {
         toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
       } else if (d?.autoRemapCount > 0) {
         toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else if (d?.autoRemapFailed > 0) {
+        toast.error(`Mapping saved, but ${d.autoRemapFailed} auto-remap(s) failed — check Unmapped Events.`);
       } else {
         toast.success('Mapping saved');
       }

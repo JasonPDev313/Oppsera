@@ -178,7 +178,7 @@ export interface SubDepartmentItem {
 
 export interface PaymentTypeMapping {
   paymentType: string;
-  cashBankAccountId: string | null;
+  cashAccountId: string | null;
   clearingAccountId: string | null;
   feeExpenseAccountId: string | null;
 }

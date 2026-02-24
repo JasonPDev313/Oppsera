@@ -139,7 +139,7 @@ export function useMappingMutations() {
   });
 
   const savePaymentTypeDefaults = useMutation({
-    mutationFn: (input: { paymentType: string; cashBankAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null }) =>
+    mutationFn: (input: { paymentType: string; cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null }) =>
       apiFetch(`/api/v1/accounting/mappings/payment-types/${input.paymentType}`, {
         method: 'PUT',
         body: JSON.stringify(input),
