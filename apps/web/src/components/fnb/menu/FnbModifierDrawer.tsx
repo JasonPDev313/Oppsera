@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Minus, Plus, Check, ChevronRight, ChevronLeft, SkipForward } from 'lucide-react';
 

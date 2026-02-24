@@ -75,11 +75,7 @@ export function ColumnMappingTable({
   groupingKey,
   onGroupingKeyChange,
 }: ColumnMappingTableProps) {
-  const _groupingCandidates = mappings
-    .filter((m) => m.targetEntity === 'order' && m.targetField === 'groupingKey')
-    .map((m) => ({ value: m.sourceColumn, label: m.sourceColumn }));
-
-  // Also allow any column as grouping key
+  // Allow any column as grouping key
   const allColumns = mappings.map((m) => ({
     value: m.sourceColumn,
     label: m.sourceColumn,

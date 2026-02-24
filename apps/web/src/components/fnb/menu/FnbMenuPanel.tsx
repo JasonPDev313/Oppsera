@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useCallback, useState, useEffect } from 'react';
-import { Search, ChevronRight, X, RefreshCw, AlertCircle, Zap, Wrench, LayoutGrid, Star, Clock } from 'lucide-react';
+import { Search, ChevronRight, X, RefreshCw, AlertCircle, Wrench, LayoutGrid, Star, Clock } from 'lucide-react';
 import type { UseFnbMenuReturn } from '@/hooks/use-fnb-menu';
 import { useFnbMenu } from '@/hooks/use-fnb-menu';
 import { FnbItemTile } from './FnbItemTile';
