@@ -7,14 +7,15 @@ import { ArrowLeft, TrendingUp, Users, UtensilsCrossed, DollarSign, AlertTriangl
 import { useRouter } from 'next/navigation';
 
 interface DashboardMetrics {
-  grossSalesCents: number;
-  netSalesCents: number;
-  coverCount: number;
-  tabCount: number;
-  avgCheckCents: number;
-  tipsTotalCents: number;
-  voidTotalCents: number;
-  compTotalCents: number;
+  totalCovers: number;
+  totalSales: number;
+  avgCheck: number;
+  tablesTurned: number;
+  tipTotal: number;
+  tipPercentage: number | null;
+  voidCount: number;
+  totalComps: number;
+  totalDiscounts: number;
 }
 
 export default function ManagerContent() {
@@ -36,16 +37,16 @@ export default function ManagerContent() {
       .finally(() => setIsLoading(false));
   }, [locationId, today]);
 
-  const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const formatDollars = (dollars: number) => `$${Number(dollars).toFixed(2)}`;
 
   const kpiCards = metrics
     ? [
-        { label: 'Net Sales', value: formatMoney(metrics.netSalesCents), icon: DollarSign, color: 'var(--fnb-status-available)' },
-        { label: 'Covers', value: String(metrics.coverCount), icon: Users, color: 'var(--fnb-status-seated)' },
-        { label: 'Avg Check', value: formatMoney(metrics.avgCheckCents), icon: TrendingUp, color: 'var(--fnb-status-ordered)' },
-        { label: 'Open Tabs', value: String(metrics.tabCount), icon: UtensilsCrossed, color: 'var(--fnb-status-entrees-fired)' },
-        { label: 'Tips', value: formatMoney(metrics.tipsTotalCents), icon: DollarSign, color: 'var(--fnb-status-dessert)' },
-        { label: 'Voids + Comps', value: formatMoney(metrics.voidTotalCents + metrics.compTotalCents), icon: AlertTriangle, color: 'var(--fnb-status-dirty)' },
+        { label: 'Net Sales', value: formatDollars(metrics.totalSales), icon: DollarSign, color: 'var(--fnb-status-available)' },
+        { label: 'Covers', value: String(metrics.totalCovers), icon: Users, color: 'var(--fnb-status-seated)' },
+        { label: 'Avg Check', value: formatDollars(metrics.avgCheck), icon: TrendingUp, color: 'var(--fnb-status-ordered)' },
+        { label: 'Tables Turned', value: String(metrics.tablesTurned), icon: UtensilsCrossed, color: 'var(--fnb-status-entrees-fired)' },
+        { label: 'Tips', value: formatDollars(metrics.tipTotal), icon: DollarSign, color: 'var(--fnb-status-dessert)' },
+        { label: 'Voids + Comps', value: formatDollars(metrics.totalComps + metrics.totalDiscounts), icon: AlertTriangle, color: 'var(--fnb-status-dirty)' },
       ]
     : [];
 

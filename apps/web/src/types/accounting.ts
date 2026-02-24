@@ -722,7 +722,8 @@ export const COGS_METHOD_CONFIG: Record<CogsCalculationMethod, { label: string }
 // ── Helpers ───────────────────────────────────────────────────
 
 /** Format a dollar amount (NUMERIC from GL/AP/AR) as USD currency string */
-export function formatAccountingMoney(dollars: number | string): string {
+export function formatAccountingMoney(dollars: number | string | null | undefined): string {
+  if (dollars == null) return '$0.00';
   const num = typeof dollars === 'string' ? Number(dollars) : dollars;
   if (isNaN(num)) return '$0.00';
   if (num < 0) {

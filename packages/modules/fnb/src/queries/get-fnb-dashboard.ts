@@ -12,6 +12,9 @@ export interface FnbDashboardMetrics {
   tipPercentage: number | null;
   kitchenAvgTicketTimeSeconds: number | null;
   ticketsPastThreshold: number;
+  voidCount: number;
+  totalComps: number;
+  totalDiscounts: number;
   topServer: { serverUserId: string; totalSales: number } | null;
   daypartBreakdown: Array<{
     daypart: string;
@@ -101,7 +104,23 @@ export async function getFnbDashboard(
       ? Number(kitchenAgg.weighted_avg_ticket) : null;
     const ticketsPastThreshold = Number(kitchenAgg.total_past_threshold ?? 0);
 
-    // 5. Daypart breakdown
+    // 5. Discount/comp analysis
+    const compRows = await tx.execute(sql`
+      SELECT
+        COALESCE(void_count, 0) AS void_count,
+        COALESCE(total_comps, 0) AS total_comps,
+        COALESCE(total_discounts, 0) AS total_discounts
+      FROM rm_fnb_discount_comp_analysis
+      WHERE tenant_id = ${tenantId}
+        AND location_id = ${locationId}
+        AND business_date = ${businessDate}
+    `);
+    const compAgg = Array.from(compRows as Iterable<Record<string, unknown>>)[0] ?? {};
+    const voidCount = Number(compAgg.void_count ?? 0);
+    const totalComps = Number(compAgg.total_comps ?? 0);
+    const totalDiscounts = Number(compAgg.total_discounts ?? 0);
+
+    // 6. Daypart breakdown
     const daypartRows = await tx.execute(sql`
       SELECT daypart, covers, gross_sales
       FROM rm_fnb_daypart_sales
@@ -116,7 +135,7 @@ export async function getFnbDashboard(
       grossSales: Number(r.gross_sales),
     }));
 
-    // 6. Hourly sales
+    // 7. Hourly sales
     const hourlyRows = await tx.execute(sql`
       SELECT hour, sales_cents, covers
       FROM rm_fnb_hourly_sales
@@ -141,6 +160,9 @@ export async function getFnbDashboard(
       tipPercentage,
       kitchenAvgTicketTimeSeconds,
       ticketsPastThreshold,
+      voidCount,
+      totalComps,
+      totalDiscounts,
       topServer,
       daypartBreakdown,
       hourlySales,

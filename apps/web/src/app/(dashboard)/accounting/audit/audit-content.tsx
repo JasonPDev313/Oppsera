@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import {
   Search,
   ChevronDown,
@@ -255,9 +255,8 @@ export default function AuditContent() {
               const managerApprover = meta?.managerApprover as string | undefined;
 
               return (
-                <>
+                <Fragment key={entry.id}>
                   <tr
-                    key={entry.id}
                     className="cursor-pointer transition-colors hover:bg-gray-50"
                     onClick={() => toggleExpand(entry.id)}
                   >
@@ -298,7 +297,7 @@ export default function AuditContent() {
                     </td>
                   </tr>
                   {isExpanded && (
-                    <tr key={`${entry.id}-detail`}>
+                    <tr>
                       <td colSpan={7} className="bg-gray-50 px-6 py-3">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <div>
@@ -365,7 +364,7 @@ export default function AuditContent() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </tbody>

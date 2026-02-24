@@ -440,6 +440,8 @@ function SubDepartmentRow({
             value={mapping.revenueAccountId}
             onChange={(v) => onSave({ ...mapping, revenueAccountId: v })}
             accountTypes={['revenue']}
+            suggestFor={mapping.subDepartmentName}
+            mappingRole="revenue"
             className="w-48"
           />
         </td>
@@ -448,6 +450,8 @@ function SubDepartmentRow({
             value={mapping.cogsAccountId}
             onChange={(v) => onSave({ ...mapping, cogsAccountId: v })}
             accountTypes={['expense']}
+            suggestFor={mapping.subDepartmentName}
+            mappingRole="cogs"
             className="w-48"
           />
         </td>
@@ -456,6 +460,8 @@ function SubDepartmentRow({
             value={mapping.inventoryAssetAccountId}
             onChange={(v) => onSave({ ...mapping, inventoryAssetAccountId: v })}
             accountTypes={['asset']}
+            suggestFor={mapping.subDepartmentName}
+            mappingRole="inventory"
             className="w-48"
           />
         </td>
@@ -464,6 +470,8 @@ function SubDepartmentRow({
             value={mapping.returnsAccountId}
             onChange={(v) => onSave({ ...mapping, returnsAccountId: v })}
             accountTypes={['revenue']}
+            suggestFor={mapping.subDepartmentName}
+            mappingRole="returns"
             className="w-48"
           />
         </td>
@@ -616,6 +624,8 @@ function PaymentTypeMappingsTab() {
                       value={m.cashAccountId}
                       onChange={(v) => handleSave({ ...m, cashAccountId: v })}
                       accountTypes={['asset']}
+                      suggestFor={m.paymentType}
+                      mappingRole="cash"
                       className="w-48"
                     />
                   </td>
@@ -624,6 +634,8 @@ function PaymentTypeMappingsTab() {
                       value={m.clearingAccountId}
                       onChange={(v) => handleSave({ ...m, clearingAccountId: v })}
                       accountTypes={['asset', 'liability']}
+                      suggestFor={m.paymentType}
+                      mappingRole="clearing"
                       className="w-48"
                     />
                   </td>
@@ -632,6 +644,8 @@ function PaymentTypeMappingsTab() {
                       value={m.feeExpenseAccountId}
                       onChange={(v) => handleSave({ ...m, feeExpenseAccountId: v })}
                       accountTypes={['expense']}
+                      suggestFor={m.paymentType}
+                      mappingRole="fee"
                       className="w-48"
                     />
                   </td>
@@ -715,6 +729,8 @@ function TaxGroupMappingsTab() {
                       value={m.taxPayableAccountId}
                       onChange={(v) => handleSave({ ...m, taxPayableAccountId: v })}
                       accountTypes={['liability']}
+                      suggestFor={m.taxGroupName}
+                      mappingRole="tax"
                       className="w-56"
                     />
                   </td>
@@ -788,6 +804,17 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
       refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
+    }
+  };
+
+  const mappingRoleForColumn = (col: string): 'revenue' | 'cogs' | 'tax' | 'cash' | 'discount' | undefined => {
+    switch (col) {
+      case 'revenueAccountId': return 'revenue';
+      case 'expenseAccountId': return 'cogs';
+      case 'liabilityAccountId': return 'tax';
+      case 'assetAccountId': return 'cash';
+      case 'contraRevenueAccountId': return 'discount';
+      default: return undefined;
     }
   };
 
@@ -924,6 +951,8 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
                               value={cat.accountId}
                               onChange={(v) => handleSave(cat.key as FnbBatchCategoryKey, v)}
                               accountTypes={accountTypeFilter(config.mappingColumn)}
+                              suggestFor={cat.label}
+                              mappingRole={mappingRoleForColumn(config.mappingColumn)}
                               className="w-56"
                             />
                           ) : null}

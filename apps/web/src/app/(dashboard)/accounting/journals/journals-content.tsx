@@ -185,8 +185,9 @@ export default function JournalsContent() {
 
 function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onRefresh: () => void }) {
   const [showActions, setShowActions] = useState(false);
-  const totalDebits = entry.lines.reduce((sum, l) => sum + (l.debitAmount || 0), 0);
-  const totalCredits = entry.lines.reduce((sum, l) => sum + (l.creditAmount || 0), 0);
+  const lines = entry.lines ?? [];
+  const totalDebits = lines.reduce((sum, l) => sum + (l.debitAmount || 0), 0);
+  const totalCredits = lines.reduce((sum, l) => sum + (l.creditAmount || 0), 0);
   const badge = SOURCE_MODULE_BADGES[entry.sourceModule];
 
   return (
@@ -270,8 +271,9 @@ function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onR
 }
 
 function JournalCard({ entry }: { entry: JournalEntry }) {
-  const totalDebits = entry.lines.reduce((sum, l) => sum + (l.debitAmount || 0), 0);
-  const totalCredits = entry.lines.reduce((sum, l) => sum + (l.creditAmount || 0), 0);
+  const lines = entry.lines ?? [];
+  const totalDebits = lines.reduce((sum, l) => sum + (l.debitAmount || 0), 0);
+  const totalCredits = lines.reduce((sum, l) => sum + (l.creditAmount || 0), 0);
   const badge = SOURCE_MODULE_BADGES[entry.sourceModule];
 
   return (
