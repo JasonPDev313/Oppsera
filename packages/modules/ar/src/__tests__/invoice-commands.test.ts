@@ -275,7 +275,6 @@ describe('createInvoice', () => {
       const mockTx = createMockTx();
       (mockTx.limit as any).mockResolvedValueOnce([{ id: 'cust-1' }]);
 
-      const origValues = mockTx.values;
       (mockTx.values as any).mockImplementation((vals: any) => {
         // Capture the first values call (the invoice insert)
         if (!capturedValues && vals.status === 'draft') {
@@ -298,7 +297,7 @@ describe('createInvoice', () => {
     });
 
     const ctx = createCtx();
-    const result = await createInvoice(ctx, {
+    await createInvoice(ctx, {
       customerId: 'cust-1',
       invoiceNumber: 'INV-005',
       invoiceDate: '2026-02-15',
