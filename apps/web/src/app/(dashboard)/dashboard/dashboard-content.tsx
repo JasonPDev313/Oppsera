@@ -129,11 +129,12 @@ export default function DashboardContent() {
   });
 
   // ── React Query: recent orders ────────────────────────────────
+  // Fetch 5 most recent orders (no date filter — shows latest regardless of date)
   const { data: recentOrders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ['dashboard', 'orders', locationId, today],
+    queryKey: ['dashboard', 'orders', locationId],
     queryFn: ({ signal }) =>
       apiFetch<{ data: Order[]; meta: { cursor: string | null; hasMore: boolean } }>(
-        `/api/v1/orders?businessDate=${today}&limit=5`,
+        `/api/v1/orders?limit=5`,
         { signal, headers: { 'X-Location-Id': locationId } },
       ).then((r) => r.data),
     enabled: !!locationId,
@@ -271,7 +272,7 @@ export default function DashboardContent() {
                   </div>
                 ) : recentOrders.length === 0 ? (
                   <div className="px-6 py-8 text-center text-sm text-gray-400">
-                    No orders today yet
+                    No orders yet
                   </div>
                 ) : (
                   recentOrders.map((order) => (
