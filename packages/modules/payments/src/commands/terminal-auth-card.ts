@@ -147,7 +147,7 @@ export async function terminalAuthCard(
       .limit(1);
 
     if (existing) {
-      return { result: mapIntentToResult(existing, existing.providerRef ?? null), events: [] };
+      return { result: mapIntentToResult(existing, null), events: [] };
     }
 
     // Create payment intent
