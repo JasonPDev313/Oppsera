@@ -95,11 +95,14 @@ export function validateGeneratedSql(
   }
 
   // 11. Must have a LIMIT clause — unless it's an aggregate query (COUNT/SUM/AVG/etc.)
-  //     Aggregate queries naturally return a single row, so LIMIT is unnecessary.
-  const isAggregateOnly = /^\s*(SELECT|WITH\b[\s\S]*?\)\s*SELECT)\s+(?:[\s\S]*?\b(?:COUNT|SUM|AVG|MIN|MAX)\s*\()/i.test(sanitized)
-    && !/\bLIMIT\b/i.test(sanitized);
+  //     Aggregate queries naturally return a single row (or bounded UNION ALL rows), so LIMIT is unnecessary.
+  const hasAggregateFunctions = /\b(?:COUNT|SUM|AVG|MIN|MAX)\s*\(/i.test(sanitized);
+  const startsWithSelectOrCte = /^\s*(SELECT|WITH)\b/i.test(sanitized);
+  const isAggregateOnly = startsWithSelectOrCte && hasAggregateFunctions && !/\bLIMIT\b/i.test(sanitized);
+  // Also exempt: CTE + UNION ALL patterns where each branch selects from a CTE (bounded result set)
+  const isCteUnionPattern = /^\s*WITH\b/i.test(sanitized) && /\bUNION\s+ALL\b/i.test(sanitized) && hasAggregateFunctions;
   const limitMatch = sanitized.match(/\bLIMIT\s+(\d+)/i);
-  if (!limitMatch && !isAggregateOnly) {
+  if (!limitMatch && !isAggregateOnly && !isCteUnionPattern) {
     errors.push('SQL must include a LIMIT clause');
   } else if (limitMatch) {
     const limitVal = parseInt(limitMatch[1]!, 10);

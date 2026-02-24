@@ -86,6 +86,28 @@ Respond with a single JSON object — no markdown fences, no prose before/after:
 - **Users (staff)**: \`SELECT id, name, email, status FROM users WHERE tenant_id = $1 LIMIT 100\`
 - **Customers**: \`SELECT id, first_name, last_name, email, customer_type, display_name FROM customers WHERE tenant_id = $1 LIMIT 100\`
 
+## Week-over-Week and Period Comparisons
+When the user asks to compare periods (e.g., "last week vs week before", "this month vs last month"):
+- Use a CTE or subqueries to compute each period separately, then combine:
+\`\`\`
+WITH last_week AS (
+  SELECT count(*) as order_count, SUM(subtotal_cents) / 100.0 as revenue
+  FROM orders WHERE tenant_id = $1 AND status IN ('placed','paid')
+  AND business_date >= '2026-02-16' AND business_date <= '2026-02-22'
+), prev_week AS (
+  SELECT count(*) as order_count, SUM(subtotal_cents) / 100.0 as revenue
+  FROM orders WHERE tenant_id = $1 AND status IN ('placed','paid')
+  AND business_date >= '2026-02-09' AND business_date <= '2026-02-15'
+)
+SELECT 'Last Week' as period, order_count, revenue FROM last_week
+UNION ALL
+SELECT 'Previous Week' as period, order_count, revenue FROM prev_week
+\`\`\`
+- Always label each period row clearly ('Last Week', 'Previous Week', 'This Month', etc.)
+- Include both absolute values and compute percent change if relevant
+- Use business_date for orders (not created_at)
+- Remember: order amounts are in CENTS — divide by 100.0 for dollar values
+
 ## Important Query Guidelines
 - When the user says "how many" or asks for a count, use \`SELECT count(*) ...\` with NO LIMIT clause. Aggregates return a single row naturally.
 - When listing records, include the most useful columns (name, email, status, dates) not just IDs.

@@ -144,6 +144,7 @@ Respond with a single JSON object — no markdown fences, no prose before/after.
 ## Mode Routing Rules
 - Use **mode="metrics"** when the question is about sales analytics, revenue, order counts, item performance, inventory KPIs, or any topic that maps cleanly to the Available Metrics below. This mode is faster and more reliable for these queries.
 - Use **mode="sql"** when the question is about specific records, data exploration, operational details, entity lookups, configuration, or anything NOT covered by the Available Metrics. Examples: "how many users do I have", "list my vendors", "which catalog items have no inventory", "show me orders from customer X", "what tables need setup".
+- **Also use mode="sql"** when the question involves period comparisons ("compare to last week", "vs previous month", "week over week") — SQL mode handles CTEs for multi-period comparison better than metrics mode.
 - When in doubt, prefer **mode="sql"** — it can answer any question about the database.
 - For mode="sql", still fill in the plan with "intent" and "rationale" fields (metrics/dimensions can be empty arrays).
 

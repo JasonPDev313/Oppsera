@@ -143,8 +143,31 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     return runSqlMode(input, intent, schemaCatalog, lensPromptFragment, startMs);
   }
 
-  // Fall through to metrics mode (Mode A) — also used when schema catalog is unavailable
-  return runMetricsMode(input, intent, lensPromptFragment, startMs);
+  // Mode A (metrics) — with automatic fallback to Mode B (SQL) when read models are empty
+  const metricsResult = await runMetricsMode(input, intent, lensPromptFragment, startMs);
+
+  // ── 5. Fallback: if metrics mode returned 0 rows and schema catalog is available,
+  //       retry via SQL mode to query operational tables directly ──────────
+  if (
+    metricsResult.data?.rowCount === 0 &&
+    schemaCatalog &&
+    !metricsResult.isClarification
+  ) {
+    console.log('[semantic] Metrics mode returned 0 rows — falling back to SQL mode for operational tables');
+    try {
+      const sqlResult = await runSqlMode(input, intent, schemaCatalog, lensPromptFragment, startMs);
+      // Only use SQL result if it actually found data
+      if (sqlResult.data && sqlResult.data.rowCount > 0) {
+        console.log(`[semantic] SQL fallback succeeded: ${sqlResult.data.rowCount} rows from operational tables`);
+        return sqlResult;
+      }
+      console.log('[semantic] SQL fallback also returned 0 rows — using metrics result');
+    } catch (err) {
+      console.warn('[semantic] SQL fallback failed (non-blocking):', err instanceof Error ? err.message : err);
+    }
+  }
+
+  return metricsResult;
 }
 
 // ── Mode A: Metrics-based pipeline ──────────────────────────────

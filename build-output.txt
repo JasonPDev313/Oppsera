@@ -1,0 +1,10 @@
+
+> @oppsera/web@0.0.0 build C:\Users\Jason\Dev\Oppsera\apps\web
+> next build
+
+   ▲ Next.js 15.5.12
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...

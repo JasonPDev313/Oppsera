@@ -388,15 +388,18 @@ export function buildEmptyResultNarrative(
 ): NarrativeResponse {
   const text = [
     `## Answer`,
-    `I wasn't able to find data for that query right now.`,
+    `We don't have recorded data matching that query yet. This usually means either no transactions have been captured for the requested period, or the reporting system is still processing recent activity.`,
     '',
     `### Quick Wins`,
-    `- Try adjusting the date range — the period you selected may not have recorded transactions yet`,
-    `- Broaden your filters if you've narrowed down to a specific location or category`,
-    `- Ask about a different metric or time period`,
+    `- **Check your date range** — if you just started, try "how many orders do I have?" (all-time) instead of a specific week`,
+    `- **Try a broader question** — "show me my sales summary" or "what's my revenue?" works well as a starting point`,
+    `- **Verify data exists** — ask "how many orders are in the system?" to confirm transactions are recorded`,
+    '',
+    `### Next Steps`,
+    `Once transactions are flowing, I can help with trends, comparisons, top sellers, and much more. Want to try a different question?`,
     '',
     `---`,
-    `*THE OPPS ERA LENS. Query: "${originalMessage}". No data returned.*`,
+    `*THE OPPS ERA LENS. Query: "${originalMessage}". No data returned — this may indicate the reporting pipeline hasn't processed events for this period yet.*`,
   ].join('\n');
 
   return {
@@ -404,11 +407,15 @@ export function buildEmptyResultNarrative(
     sections: [
       {
         type: 'answer',
-        content: `I wasn't able to find data for that query right now.`,
+        content: `We don't have recorded data matching that query yet. This usually means either no transactions have been captured for the requested period, or the reporting system is still processing recent activity.`,
       },
       {
         type: 'quick_wins',
-        content: 'Try adjusting the date range or broadening your filters.',
+        content: 'Try a broader question like "how many orders do I have?" or "show me my sales summary" to verify data exists.',
+      },
+      {
+        type: 'conversation_driver',
+        content: 'Once transactions are flowing, I can help with trends, comparisons, top sellers, and much more. Want to try a different question?',
       },
     ],
     tokensInput: 0,
