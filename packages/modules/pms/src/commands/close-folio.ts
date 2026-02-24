@@ -27,7 +27,7 @@ export async function closeFolio(ctx: RequestContext, folioId: string) {
       .set({ status: 'CLOSED', updatedAt: new Date() })
       .where(and(eq(pmsFolios.id, folioId), eq(pmsFolios.tenantId, ctx.tenantId)));
 
-    await pmsAuditLogEntry(tx, ctx, folioId, 'folio', folioId, 'closed', {
+    await pmsAuditLogEntry(tx, ctx, folio.propertyId, 'folio', folioId, 'closed', {
       totalCents: folio.totalCents,
     });
 

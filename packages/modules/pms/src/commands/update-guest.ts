@@ -43,6 +43,7 @@ export async function updateGuest(
     if (input.preferencesJson !== undefined) updates.preferencesJson = input.preferencesJson;
     if (input.notes !== undefined) updates.notes = input.notes;
     if (input.isVip !== undefined) updates.isVip = input.isVip;
+    if (input.customerId !== undefined) updates.customerId = input.customerId;
 
     const [updated] = await tx
       .update(pmsGuests)

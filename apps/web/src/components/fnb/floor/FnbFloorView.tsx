@@ -14,6 +14,7 @@ import { ContextSidebar } from './ContextSidebar';
 import { SeatGuestsModal } from './SeatGuestsModal';
 import { TableActionMenu } from './TableActionMenu';
 import { TableGridView } from './TableGridView';
+import { FloorBackgroundObjects } from './FloorBackgroundObjects';
 
 // ── Turn Time Prediction ────────────────────────────────────────
 // V1: Simple heuristic based on party size and elapsed time.
@@ -115,11 +116,17 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   const [userZoom, setUserZoom] = useState(1);
 
-  // Compute bounding box of all tables in raw pixels (pre-viewScale)
+  // Compute bounding box of all visible objects (tables + background) in raw pixels
   const tableBounds = useMemo(() => {
-    if (tables.length === 0 || !scalePxPerFt) return null;
+    const snapshotObjects = (floorPlan?.version?.snapshotJson as { objects?: Array<{ type: string; x: number; y: number; width: number; height: number; visible: boolean }> })?.objects;
+    const bgObjects = snapshotObjects?.filter((o) => o.visible && o.type !== 'table') ?? [];
+
+    if (tables.length === 0 && bgObjects.length === 0) return null;
+    if (!scalePxPerFt) return null;
+
     const MIN_SIZE = 60;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
     for (const t of tables) {
       const x = t.positionX * scalePxPerFt;
       const y = t.positionY * scalePxPerFt;
@@ -130,6 +137,18 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       if (x + w > maxX) maxX = x + w;
       if (y + h > maxY) maxY = y + h;
     }
+
+    for (const o of bgObjects) {
+      const x = o.x * scalePxPerFt;
+      const y = o.y * scalePxPerFt;
+      const w = o.width || MIN_SIZE;
+      const h = o.height || MIN_SIZE;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + w > maxX) maxX = x + w;
+      if (y + h > maxY) maxY = y + h;
+    }
+
     const pad = 40;
     return {
       minX: minX - pad,
@@ -137,7 +156,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       width: maxX - minX + pad * 2,
       height: maxY - minY + pad * 2,
     };
-  }, [tables, scalePxPerFt]);
+  }, [tables, scalePxPerFt, floorPlan?.version?.snapshotJson]);
 
   // Auto-fit: zoom to fit table bounding box (not the whole room)
   useEffect(() => {
@@ -564,6 +583,15 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                     height: roomHeightPx * effectiveScale,
                   }}
                 >
+                  {/* Background layer: non-table objects from room layout snapshot */}
+                  {floorPlan?.version?.snapshotJson && Object.keys(floorPlan.version.snapshotJson).length > 0 && (
+                    <FloorBackgroundObjects
+                      snapshotJson={floorPlan.version.snapshotJson}
+                      scalePxPerFt={scalePxPerFt}
+                      viewScale={effectiveScale}
+                    />
+                  )}
+                  {/* Interactive table layer (above background) */}
                   {tables.map((table) => (
                     <FnbTableNode
                       key={table.tableId}

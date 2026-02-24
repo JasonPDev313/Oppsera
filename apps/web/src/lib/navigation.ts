@@ -43,6 +43,7 @@ import {
   Wrench,
   TrendingUp,
   Star,
+  GripVertical,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -60,6 +61,8 @@ export interface NavItem {
   icon: typeof LayoutDashboard;
   moduleKey?: string;
   children?: SubNavItem[];
+  /** When true, children with `group` fields render as collapsible accordion sections */
+  collapsibleGroups?: boolean;
 }
 
 export const navigation: NavItem[] = [
@@ -141,21 +144,27 @@ export const navigation: NavItem[] = [
     href: '/pms',
     icon: Hotel,
     moduleKey: 'pms',
+    collapsibleGroups: true,
     children: [
-      { name: 'Calendar', href: '/pms/calendar', icon: CalendarDays },
-      { name: 'Reservations', href: '/pms/reservations', icon: BedDouble },
-      { name: 'Front Desk', href: '/pms/front-desk', icon: ConciergeBell },
-      { name: 'Housekeeping', href: '/pms/housekeeping', icon: Brush },
-      { name: 'Guests', href: '/pms/guests', icon: Users },
-      { name: 'Reports', href: '/pms/reports', icon: BarChart3 },
-      { name: 'Groups', href: '/pms/groups', icon: Users },
-      { name: 'Maintenance', href: '/pms/maintenance', icon: Wrench },
-      { name: 'Corporate', href: '/pms/corporate', icon: Building2, group: 'PMS Settings' },
-      { name: 'Revenue Mgmt', href: '/pms/revenue-management', icon: TrendingUp, group: 'PMS Settings' },
-      { name: 'Loyalty', href: '/pms/loyalty', icon: Star, group: 'PMS Settings' },
-      { name: 'Rate Plans', href: '/pms/rate-plans', icon: DollarSign, group: 'PMS Settings' },
-      { name: 'Room Types', href: '/pms/room-types', icon: LayoutGrid, group: 'PMS Settings' },
-      { name: 'Rooms', href: '/pms/rooms', icon: DoorOpen, group: 'PMS Settings' },
+      // Operations
+      { name: 'Calendar', href: '/pms/calendar', icon: CalendarDays, group: 'Operations' },
+      { name: 'Reservations', href: '/pms/reservations', icon: BedDouble, group: 'Operations' },
+      { name: 'Front Desk', href: '/pms/front-desk', icon: ConciergeBell, group: 'Operations' },
+      { name: 'Housekeeping', href: '/pms/housekeeping', icon: Brush, group: 'Operations' },
+      { name: 'Maintenance', href: '/pms/maintenance', icon: Wrench, group: 'Operations' },
+      // Guest & Sales
+      { name: 'Guests', href: '/pms/guests', icon: Users, group: 'Guest & Sales' },
+      { name: 'Groups', href: '/pms/groups', icon: Users, group: 'Guest & Sales' },
+      { name: 'Corporate', href: '/pms/corporate', icon: Building2, group: 'Guest & Sales' },
+      { name: 'Loyalty', href: '/pms/loyalty', icon: Star, group: 'Guest & Sales' },
+      // Revenue & Rates
+      { name: 'Revenue Mgmt', href: '/pms/revenue-management', icon: TrendingUp, group: 'Revenue & Rates' },
+      { name: 'Rate Plans', href: '/pms/rate-plans', icon: DollarSign, group: 'Revenue & Rates' },
+      // Property Setup
+      { name: 'Room Types', href: '/pms/room-types', icon: LayoutGrid, group: 'Property Setup' },
+      { name: 'Rooms', href: '/pms/rooms', icon: DoorOpen, group: 'Property Setup' },
+      // Reporting
+      { name: 'Reports', href: '/pms/reports', icon: BarChart3, group: 'Reporting' },
     ],
   },
   {
@@ -182,6 +191,7 @@ export const navigation: NavItem[] = [
     children: [
       { name: 'Onboarding', href: '/settings/onboarding', icon: Rocket },
       { name: 'General', href: '/settings', icon: Settings },
+      { name: 'Navigation', href: '/settings/navigation', icon: GripVertical },
       { name: 'Profit Centers', href: '/settings/profit-centers', icon: Building2 },
       { name: 'Permissions', href: '/settings/permissions', icon: Shield },
       { name: 'Room Layouts', href: '/settings/room-layouts', icon: LayoutDashboard, moduleKey: 'room_layouts' },

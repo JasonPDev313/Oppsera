@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type { Database } from '@oppsera/db';
 import {
   glAccounts,
@@ -123,6 +123,7 @@ export async function bootstrapTenantCoa(
   }
 
   // 5. Create accounting_settings with sensible defaults
+  // Base columns from migration 0075 — always safe to insert
   await tx.insert(accountingSettings).values({
     tenantId,
     baseCurrency: 'USD',
@@ -134,12 +135,31 @@ export async function bootstrapTenantCoa(
     defaultUndepositedFundsAccountId: controlAccountIds['undeposited_funds'] ?? null,
     defaultRetainedEarningsAccountId: controlAccountIds['retained_earnings'] ?? null,
     defaultRoundingAccountId: controlAccountIds['rounding'] ?? null,
-    defaultPmsGuestLedgerAccountId: controlAccountIds['pms_guest_ledger'] ?? null,
-    defaultTipsPayableAccountId: controlAccountIds['tips_payable'] ?? null,
-    defaultServiceChargeRevenueAccountId: controlAccountIds['service_charge_revenue'] ?? null,
-    defaultUncategorizedRevenueAccountId: controlAccountIds['uncategorized_revenue'] ?? null,
     roundingToleranceCents: 5,
   });
+
+  // Extended columns from later migrations (0084, 0099, 0100, 0135, etc.)
+  // If these columns don't exist yet, the UPDATE fails silently — bootstrap still succeeds
+  const extendedDefaults: Record<string, string | null> = {};
+  if (controlAccountIds['pms_guest_ledger']) extendedDefaults.defaultPmsGuestLedgerAccountId = controlAccountIds['pms_guest_ledger'];
+  if (controlAccountIds['tips_payable']) extendedDefaults.defaultTipsPayableAccountId = controlAccountIds['tips_payable'];
+  if (controlAccountIds['service_charge_revenue']) extendedDefaults.defaultServiceChargeRevenueAccountId = controlAccountIds['service_charge_revenue'];
+  if (controlAccountIds['uncategorized_revenue']) extendedDefaults.defaultUncategorizedRevenueAccountId = controlAccountIds['uncategorized_revenue'];
+
+  if (Object.keys(extendedDefaults).length > 0) {
+    try {
+      // Use SAVEPOINT so a column error doesn't abort the entire transaction
+      await tx.execute(sql`SAVEPOINT extended_defaults`);
+      await tx
+        .update(accountingSettings)
+        .set(extendedDefaults)
+        .where(eq(accountingSettings.tenantId, tenantId));
+    } catch {
+      // Extended columns may not exist if later migrations haven't been run — roll back
+      // to the savepoint so the transaction can continue
+      await tx.execute(sql`ROLLBACK TO SAVEPOINT extended_defaults`);
+    }
+  }
 
   return {
     accountCount: resolvedTemplates.length,

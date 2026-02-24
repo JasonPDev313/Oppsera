@@ -120,7 +120,7 @@ export async function moveRoom(
 
     if (!updated) throw new ConcurrencyConflictError(reservationId);
 
-    await pmsAuditLogEntry(tx, ctx, reservationId, 'reservation', reservationId, 'room_moved', {
+    await pmsAuditLogEntry(tx, ctx, current.propertyId, 'reservation', reservationId, 'room_moved', {
       oldRoomId,
       newRoomId: input.newRoomId,
     });

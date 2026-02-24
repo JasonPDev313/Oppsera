@@ -320,7 +320,7 @@ export type RecordConsentInput = z.infer<typeof recordConsentSchema>;
 // ── Customer External IDs ───────────────────────────────────────
 export const addExternalIdSchema = z.object({
   customerId: z.string().min(1),
-  provider: z.enum(['stripe', 'square', 'toast', 'usga', 'mailchimp', 'hubspot', 'legacy_import', 'ghin', 'club_prophet', 'jonas']),
+  provider: z.enum(['stripe', 'square', 'toast', 'usga', 'mailchimp', 'hubspot', 'legacy_import', 'ghin', 'club_prophet', 'jonas', 'pms']),
   externalId: z.string().min(1),
   metadata: z.record(z.unknown()).optional(),
   clientRequestId: z.string().optional(),

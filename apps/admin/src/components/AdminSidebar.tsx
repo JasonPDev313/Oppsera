@@ -27,6 +27,9 @@ import {
   MessageSquare,
   ShieldAlert,
   Play,
+  HardDrive,
+  RotateCcw,
+  Settings,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
@@ -62,6 +65,16 @@ const MODULES: NavModule[] = [
     prefix: '/events',
     children: [
       { href: '/events', label: 'Failed Events', icon: AlertTriangle },
+    ],
+  },
+  {
+    label: 'System',
+    icon: HardDrive,
+    prefix: '/backups',
+    children: [
+      { href: '/backups', label: 'Database Backups', icon: HardDrive },
+      { href: '/backups/restores', label: 'Restore Operations', icon: RotateCcw },
+      { href: '/backups/settings', label: 'Backup Settings', icon: Settings },
     ],
   },
   {

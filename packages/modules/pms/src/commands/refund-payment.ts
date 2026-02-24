@@ -106,7 +106,7 @@ export async function refundPayment(ctx: RequestContext, input: RefundPaymentInp
         );
     }
 
-    await pmsAuditLogEntry(tx, ctx, txn.reservationId ?? input.transactionId, 'payment', refundTxnId, 'refunded', {
+    await pmsAuditLogEntry(tx, ctx, txn.propertyId, 'payment', refundTxnId, 'refunded', {
       originalTransactionId: input.transactionId,
       amountCents: refundAmount,
       status,

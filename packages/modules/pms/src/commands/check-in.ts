@@ -239,7 +239,7 @@ export async function checkIn(
 
     if (!updated) throw new ConcurrencyConflictError(reservationId);
 
-    await pmsAuditLogEntry(tx, ctx, reservationId, 'reservation', reservationId, 'checked_in', {
+    await pmsAuditLogEntry(tx, ctx, current.propertyId, 'reservation', reservationId, 'checked_in', {
       roomId,
       earlyCheckIn,
       checkInDate,

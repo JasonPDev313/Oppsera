@@ -137,6 +137,7 @@ export const updateGuestSchema = z.object({
   preferencesJson: z.record(z.unknown()).optional(),
   notes: z.string().optional(),
   isVip: z.boolean().optional(),
+  customerId: z.string().min(1).optional(),
 });
 export type UpdateGuestInput = z.input<typeof updateGuestSchema>;
 

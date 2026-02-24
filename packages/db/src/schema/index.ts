@@ -67,3 +67,5 @@ export * from './import';
 export * from './staff-import';
 export * from './tags';
 export * from './semantic-intelligence';
+export * from './nav-preferences';
+export * from './backup';

@@ -186,7 +186,7 @@ export async function resizeReservation(ctx: RequestContext, input: CalendarResi
     };
     await savePmsIdempotencyKey(tx, ctx.tenantId, input.idempotencyKey, 'resizeReservation', responseData);
 
-    await pmsAuditLogEntry(tx, ctx, input.reservationId, 'reservation', input.reservationId, 'resized', {
+    await pmsAuditLogEntry(tx, ctx, current.propertyId, 'reservation', input.reservationId, 'resized', {
       edge: input.edge,
       before: { checkInDate: current.checkInDate, checkOutDate: current.checkOutDate },
       after: { checkInDate: newCheckIn, checkOutDate: newCheckOut },

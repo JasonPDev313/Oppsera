@@ -25,6 +25,7 @@ import {
   taxRates,
   taxGroups,
   taxGroupRates,
+  tags,
 } from '@oppsera/db';
 import type { Database } from '@oppsera/db';
 import { bootstrapTenantCoa } from '@oppsera/module-accounting';
@@ -355,7 +356,28 @@ export const POST = withMiddleware(
         }
       }
 
-      // 12. Audit log entry
+      // 12. Create system tags for enabled modules
+      if (moduleSet.has('pms')) {
+        try {
+          await tx.insert(tags).values({
+            id: generateUlid(),
+            tenantId,
+            name: 'Hotel Guest',
+            slug: 'hotel-guest',
+            description: 'Automatically applied to customers created from PMS guest records',
+            color: '#0EA5E9',
+            icon: 'Hotel',
+            tagType: 'manual',
+            isSystem: true,
+            displayOrder: 0,
+            createdBy: 'system',
+          }).returning();
+        } catch (err) {
+          console.error('[onboard] Hotel Guest tag creation failed (non-blocking):', err);
+        }
+      }
+
+      // 13. Audit log entry
       await tx.insert(auditLog).values({
         id: generateUlid(),
         tenantId,

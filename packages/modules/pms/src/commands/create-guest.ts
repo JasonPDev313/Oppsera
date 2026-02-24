@@ -72,6 +72,7 @@ export async function createGuest(ctx: RequestContext, input: CreateGuestInput) 
       firstName: created!.firstName,
       lastName: created!.lastName,
       email: created!.email,
+      phone: created!.phone,
       isVip: created!.isVip,
     });
 

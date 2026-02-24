@@ -12,3 +12,6 @@ coverage
 .claude/settings.local.json
 
 .vercel
+
+# Backup storage
+data/backups/

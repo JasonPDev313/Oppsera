@@ -82,7 +82,7 @@ export async function cancelReservation(
 
     if (!updated) throw new ConcurrencyConflictError(reservationId);
 
-    await pmsAuditLogEntry(tx, ctx, reservationId, 'reservation', reservationId, 'cancelled', {
+    await pmsAuditLogEntry(tx, ctx, current.propertyId, 'reservation', reservationId, 'cancelled', {
       reason: input.reason ?? null,
       previousStatus: current.status,
     });

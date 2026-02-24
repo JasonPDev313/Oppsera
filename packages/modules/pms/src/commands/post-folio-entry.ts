@@ -48,7 +48,7 @@ export async function postFolioEntry(
     // Recalculate folio totals
     await recalculateFolioTotals(tx, ctx.tenantId, folioId);
 
-    await pmsAuditLogEntry(tx, ctx, folioId, 'folio', folioId, 'entry_posted', {
+    await pmsAuditLogEntry(tx, ctx, folio.propertyId, 'folio', folioId, 'entry_posted', {
       entryId,
       entryType: input.entryType,
       amountCents: input.amountCents,

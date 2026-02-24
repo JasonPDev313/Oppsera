@@ -144,7 +144,7 @@ export async function moveReservation(ctx: RequestContext, input: CalendarMoveIn
     await savePmsIdempotencyKey(tx, ctx.tenantId, input.idempotencyKey, 'moveReservation', responseData);
 
     // 12. Audit
-    await pmsAuditLogEntry(tx, ctx, input.reservationId, 'reservation', input.reservationId, 'moved', {
+    await pmsAuditLogEntry(tx, ctx, current.propertyId, 'reservation', input.reservationId, 'moved', {
       before: { roomId: current.roomId, checkInDate: current.checkInDate, checkOutDate: current.checkOutDate },
       after: { roomId: newRoomId, checkInDate: newCheckIn, checkOutDate: newCheckOut },
     });

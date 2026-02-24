@@ -51,7 +51,7 @@ export async function savePaymentMethod(ctx: RequestContext, input: SavePaymentM
       isDefault: input.isDefault ?? false,
     });
 
-    await pmsAuditLogEntry(tx, ctx, input.guestId, 'payment_method', id, 'created', {
+    await pmsAuditLogEntry(tx, ctx, guest.propertyId, 'payment_method', id, 'created', {
       gateway: input.gateway,
       cardLastFour: input.cardLastFour,
     });

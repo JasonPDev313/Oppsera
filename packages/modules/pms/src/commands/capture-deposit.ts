@@ -74,7 +74,7 @@ export async function captureDeposit(ctx: RequestContext, input: CaptureDepositI
         );
     }
 
-    await pmsAuditLogEntry(tx, ctx, txn.reservationId ?? input.transactionId, 'payment', input.transactionId, 'deposit_captured', {
+    await pmsAuditLogEntry(tx, ctx, txn.propertyId, 'payment', input.transactionId, 'deposit_captured', {
       amountCents: captureAmount,
       status: newStatus,
     });

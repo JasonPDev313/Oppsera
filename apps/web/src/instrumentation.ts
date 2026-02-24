@@ -168,6 +168,15 @@ export async function register() {
     } catch (e) {
       console.error('Failed to register PMS consumers:', e);
     }
+
+    // PMS → Customer sync (cross-module guest-to-customer linking + Hotel Guest tag)
+    try {
+      const { handlePmsGuestCreated } = await import('./lib/pms-customer-sync');
+      bus.subscribe('pms.guest.created.v1', handlePmsGuestCreated);
+      console.log('Registered PMS→Customer sync consumer');
+    } catch (e) {
+      console.error('Failed to register PMS→Customer sync consumer:', e);
+    }
   }
   // TODO: Uncomment when @sentry/nextjs is installed:
   // if (process.env.NEXT_RUNTIME === 'edge') {

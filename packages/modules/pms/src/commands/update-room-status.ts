@@ -37,7 +37,7 @@ export async function updateRoomStatus(
 
     await transitionRoomStatus(tx, ctx.tenantId, roomId, input.status, ctx.user.id, businessDate, input.reason);
 
-    await pmsAuditLogEntry(tx, ctx, roomId, 'room', roomId, 'status_changed', {
+    await pmsAuditLogEntry(tx, ctx, room.propertyId, 'room', roomId, 'status_changed', {
       fromStatus,
       toStatus: input.status,
       reason: input.reason ?? null,

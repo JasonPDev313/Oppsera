@@ -57,9 +57,12 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
   const [selectedState, setSelectedState] = useState<string>('');
   const [isBootstrapping, setIsBootstrapping] = useState(false);
 
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
+
   const handleBootstrap = useCallback(async () => {
     if (!selectedTemplate) return;
     setIsBootstrapping(true);
+    setErrorDetail(null);
     try {
       await apiFetch('/api/v1/accounting/bootstrap', {
         method: 'POST',
@@ -70,8 +73,11 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
       });
       toast.success('Accounting setup complete!');
       setStep(5);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Bootstrap failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Bootstrap failed';
+      const isMigration = message.includes('migration') || message.includes('schema') || message.includes('column') || message.includes('relation');
+      toast.error(isMigration ? 'Database migrations need to be run first' : message);
+      setErrorDetail(message);
     } finally {
       setIsBootstrapping(false);
     }
@@ -252,6 +258,12 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             Click below to create your chart of accounts and configure default settings.
             This will also set up control accounts for AP, AR, and sales tax.
           </p>
+          {errorDetail && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700">
+              <p className="font-medium">Setup failed</p>
+              <p className="mt-1 text-xs break-all">{errorDetail}</p>
+            </div>
+          )}
           <div className="flex justify-between pt-4">
             <button
               type="button"
@@ -266,7 +278,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
               disabled={isBootstrapping}
               className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
-              {isBootstrapping ? 'Setting up...' : 'Create Accounts'}
+              {isBootstrapping ? 'Setting up...' : errorDetail ? 'Retry' : 'Create Accounts'}
             </button>
           </div>
         </div>

@@ -6,7 +6,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
-import { pmsPaymentMethods } from '@oppsera/db';
+import { pmsPaymentMethods, pmsGuests } from '@oppsera/db';
 import { pmsAuditLogEntry } from '../helpers/pms-audit';
 
 export async function removePaymentMethod(ctx: RequestContext, paymentMethodId: string) {
@@ -23,6 +23,13 @@ export async function removePaymentMethod(ctx: RequestContext, paymentMethodId: 
       .limit(1);
     if (!existing) throw new NotFoundError('PaymentMethod', paymentMethodId);
 
+    // Look up guest to get propertyId for audit log
+    const [guest] = await tx
+      .select()
+      .from(pmsGuests)
+      .where(and(eq(pmsGuests.id, existing.guestId), eq(pmsGuests.tenantId, ctx.tenantId)))
+      .limit(1);
+
     await tx
       .delete(pmsPaymentMethods)
       .where(
@@ -32,7 +39,7 @@ export async function removePaymentMethod(ctx: RequestContext, paymentMethodId: 
         ),
       );
 
-    await pmsAuditLogEntry(tx, ctx, existing.guestId, 'payment_method', paymentMethodId, 'removed', {
+    await pmsAuditLogEntry(tx, ctx, guest?.propertyId ?? existing.guestId, 'payment_method', paymentMethodId, 'removed', {
       cardLastFour: existing.cardLastFour,
     });
 

@@ -222,7 +222,7 @@ export async function checkOut(
 
     if (!updated) throw new ConcurrencyConflictError(reservationId);
 
-    await pmsAuditLogEntry(tx, ctx, reservationId, 'reservation', reservationId, 'checked_out', {
+    await pmsAuditLogEntry(tx, ctx, current.propertyId, 'reservation', reservationId, 'checked_out', {
       roomId: current.roomId,
       lateCheckOut,
       checkOutDate,

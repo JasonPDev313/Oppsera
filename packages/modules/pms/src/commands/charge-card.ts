@@ -113,7 +113,7 @@ export async function chargeCard(ctx: RequestContext, input: ChargeCardInput) {
       await recalculateFolioTotals(tx, ctx.tenantId, input.folioId);
     }
 
-    await pmsAuditLogEntry(tx, ctx, input.reservationId, 'payment', txnId, 'card_charged', {
+    await pmsAuditLogEntry(tx, ctx, reservation.propertyId, 'payment', txnId, 'card_charged', {
       amountCents: input.amountCents,
       status,
       cardLastFour: pm.cardLastFour,

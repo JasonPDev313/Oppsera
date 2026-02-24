@@ -52,6 +52,7 @@ import {
   pmsReservations,
   pmsFolios,
   pmsFolioEntries,
+  tags,
   orders,
   orderLines,
   orderLineTaxes,
@@ -1596,6 +1597,22 @@ async function seed() {
     { first: 'Anthony', last: 'Russo', email: 'arusso@outlook.com', phone: '856-555-7744', vip: false, stays: 0 },
     { first: 'Elizabeth', last: 'Harper', email: 'eharper@yahoo.com', phone: '910-555-2255', vip: false, stays: 3 },
   ];
+
+  // ── Hotel Guest system tag ─────────────────────────────────────
+  await db.insert(tags).values({
+    id: generateUlid(),
+    tenantId,
+    name: 'Hotel Guest',
+    slug: 'hotel-guest',
+    description: 'Automatically applied to customers created from PMS guest records',
+    color: '#0EA5E9',
+    icon: 'Hotel',
+    tagType: 'manual',
+    isSystem: true,
+    displayOrder: 0,
+    createdBy: 'system',
+  });
+  console.log('Tags:       Hotel Guest system tag created');
 
   const guestIds: string[] = [];
   await db.insert(pmsGuests).values(

@@ -90,7 +90,7 @@ export async function markNoShow(
 
     if (!updated) throw new ConcurrencyConflictError(reservationId);
 
-    await pmsAuditLogEntry(tx, ctx, reservationId, 'reservation', reservationId, 'no_show', {
+    await pmsAuditLogEntry(tx, ctx, current.propertyId, 'reservation', reservationId, 'no_show', {
       previousStatus: current.status,
       checkInDate: current.checkInDate,
     });

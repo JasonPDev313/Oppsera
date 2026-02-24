@@ -1191,6 +1191,20 @@
       "when": 1708100169000,
       "tag": "0169_customer_list_performance",
       "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1708100170000,
+      "tag": "0170_tenant_nav_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 171,
+      "version": "7",
+      "when": 1708100171000,
+      "tag": "0171_platform_backups",
+      "breakpoints": true
     }
   ]
 }

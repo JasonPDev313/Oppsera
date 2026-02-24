@@ -95,7 +95,7 @@ export async function authorizeDeposit(ctx: RequestContext, input: AuthorizeDepo
         ),
       );
 
-    await pmsAuditLogEntry(tx, ctx, input.reservationId, 'payment', txnId, 'deposit_authorized', {
+    await pmsAuditLogEntry(tx, ctx, reservation.propertyId, 'payment', txnId, 'deposit_authorized', {
       amountCents: input.amountCents,
       status,
       gatewayChargeId: gatewayResult.chargeId,

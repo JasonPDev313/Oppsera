@@ -137,12 +137,19 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
           { status: error.statusCode },
         );
       }
-      console.error('Unhandled error in route handler:', error);
-      const devMsg = process.env.NODE_ENV === 'development' && error instanceof Error
-        ? error.message
-        : 'An unexpected error occurred';
+      const rawMsg = error instanceof Error ? error.message : String(error);
+      console.error('Unhandled error in route handler:', rawMsg, error);
+
+      // Surface DB schema mismatch errors clearly — most common cause of 500s during development
+      const isDbSchemaError = rawMsg.includes('column') || rawMsg.includes('relation') || rawMsg.includes('does not exist');
+      const userMsg = isDbSchemaError
+        ? `Database schema mismatch — run pending migrations (pnpm db:migrate). Detail: ${rawMsg}`
+        : process.env.NODE_ENV === 'development'
+          ? rawMsg
+          : 'An unexpected error occurred';
+
       return NextResponse.json(
-        { error: { code: 'INTERNAL_ERROR', message: devMsg } },
+        { error: { code: isDbSchemaError ? 'SCHEMA_MISMATCH' : 'INTERNAL_ERROR', message: userMsg } },
         { status: 500 },
       );
     }

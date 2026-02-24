@@ -35,3 +35,5 @@ export {
   FNB_CATEGORY_CONFIG,
 } from './fnb-gl';
 export type { FnbBatchCategoryKey } from './fnb-gl';
+export { navItemPreferenceSchema, updateNavPreferencesSchema } from './nav-preferences';
+export type { NavItemPreference, UpdateNavPreferencesInput } from './nav-preferences';

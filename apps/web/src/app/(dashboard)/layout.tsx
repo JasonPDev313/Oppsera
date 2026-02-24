@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -33,7 +33,9 @@ import { TerminalSessionProvider, useTerminalSession } from '@/components/termin
 import { TerminalSelectionScreen } from '@/components/terminal-selection-screen';
 import { CommandPalette } from '@/components/command-palette';
 import { ImpersonationBanner } from '@/components/impersonation-banner';
-import { navigation } from '@/lib/navigation';
+import type { NavItem } from '@/lib/navigation';
+import { applyNavPreferences } from '@/lib/navigation-order';
+import { useNavPreferences } from '@/hooks/use-nav-preferences';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -138,6 +140,7 @@ function SidebarContent({
   userEmail,
   onLogout,
   isModuleEnabled,
+  navItems,
   collapsed,
   onToggleCollapse,
 }: {
@@ -147,9 +150,102 @@ function SidebarContent({
   userEmail: string;
   onLogout: () => void;
   isModuleEnabled: (key: string) => boolean;
+  navItems: NavItem[];
   collapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
+  // Track which sections are expanded — initialized from current URL
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    const initial = new Set<string>();
+    for (const item of navItems) {
+      if (item.children) {
+        const isActive =
+          pathname.startsWith(item.href) ||
+          item.children.some((child) => pathname.startsWith(child.href));
+        if (isActive) initial.add(item.name);
+      }
+    }
+    return initial;
+  });
+
+  // Auto-expand section when navigating to a child page
+  const prevPathRef = useRef(pathname);
+  useEffect(() => {
+    if (pathname === prevPathRef.current) return;
+    prevPathRef.current = pathname;
+    for (const item of navItems) {
+      if (item.children) {
+        const isActive =
+          pathname.startsWith(item.href) ||
+          item.children.some((child) => pathname.startsWith(child.href));
+        if (isActive) {
+          setExpandedSections((prev) => {
+            if (prev.has(item.name)) return prev;
+            const next = new Set(prev);
+            next.add(item.name);
+            return next;
+          });
+        }
+      }
+    }
+  }, [pathname]);
+
+  const toggleSection = useCallback((name: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) {
+        next.delete(name);
+      } else {
+        next.add(name);
+      }
+      return next;
+    });
+  }, []);
+
+  // --- Collapsible group accordion state (Level-2 categories within a parent) ---
+  // Single-open: only one group expanded per parent at a time.
+  // To switch to multi-open, change value type to string[] and toggle individually.
+  const GROUPS_KEY = 'sidebar_expanded_groups';
+  const [expandedGroup, setExpandedGroup] = useState<Record<string, string | null>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const stored = localStorage.getItem(GROUPS_KEY);
+      return stored ? JSON.parse(stored) : {};
+    } catch { return {}; }
+  });
+
+  // Auto-expand the group containing the active route on navigation
+  const prevGroupPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    const isInitial = prevGroupPathRef.current === null;
+    const pathChanged = prevGroupPathRef.current !== pathname;
+    prevGroupPathRef.current = pathname;
+    if (!isInitial && !pathChanged) return;
+    for (const item of navItems) {
+      if (!item.collapsibleGroups || !item.children) continue;
+      const activeChild = item.children.find((c) => pathname.startsWith(c.href));
+      if (activeChild?.group) {
+        setExpandedGroup((prev) => {
+          if (prev[item.name] === activeChild.group) return prev;
+          const next = { ...prev, [item.name]: activeChild.group! };
+          localStorage.setItem(GROUPS_KEY, JSON.stringify(next));
+          return next;
+        });
+      }
+    }
+  }, [pathname]);
+
+  const toggleGroup = useCallback((parentName: string, groupName: string) => {
+    setExpandedGroup((prev) => {
+      const next = {
+        ...prev,
+        [parentName]: prev[parentName] === groupName ? null : groupName,
+      };
+      localStorage.setItem(GROUPS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
@@ -164,13 +260,14 @@ function SidebarContent({
 
       {/* Navigation */}
       <nav className={`sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
-        {navigation.map((item) => {
+        {navItems.map((item) => {
           const enabled = !item.moduleKey || isModuleEnabled(item.moduleKey);
           const isParentActive =
             item.href === '/dashboard'
               ? pathname === '/dashboard'
               : pathname.startsWith(item.href) ||
                 (item.children?.some((child) => pathname.startsWith(child.href)) ?? false);
+          const isExpanded = expandedSections.has(item.name);
 
           if (!enabled) {
             return null;
@@ -179,9 +276,9 @@ function SidebarContent({
           if (item.children) {
             return (
               <div key={item.name} className={collapsed ? 'group/nav relative' : ''}>
-                <Link
-                  href={item.href}
-                  onClick={onLinkClick}
+                <button
+                  type="button"
+                  onClick={() => toggleSection(item.name)}
                   title={collapsed ? item.name : undefined}
                   className={`group flex w-full items-center rounded-lg text-sm font-medium transition-colors ${
                     collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
@@ -201,46 +298,105 @@ function SidebarContent({
                       {item.name}
                       <ChevronDown
                         className={`ml-auto h-4 w-4 shrink-0 transition-transform ${
-                          isParentActive ? 'rotate-180 text-indigo-600' : 'text-gray-400'
-                        }`}
+                          isExpanded ? 'rotate-180' : ''
+                        } ${isParentActive ? 'text-indigo-600' : 'text-gray-400'}`}
                       />
                     </>
                   )}
-                </Link>
+                </button>
                 {/* Expanded: inline children */}
-                {isParentActive && !collapsed && (
-                  <div className="ml-6 mt-1 space-y-1 border-l border-gray-200 pl-3">
-                    {(() => {
-                      const filtered = item.children!.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey));
-                      let lastGroup: string | undefined;
-                      return filtered.map((child) => {
-                        const isChildActive =
-                          child.href === '/catalog'
-                            ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
-                            : pathname.startsWith(child.href);
-                        const showGroupHeader = child.group && child.group !== lastGroup;
-                        lastGroup = child.group;
-                        return (
-                          <div key={child.href}>
-                            {showGroupHeader && (
-                              <p className="mt-2 mb-1 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">{child.group}</p>
-                            )}
-                            <Link
-                              href={child.href}
-                              onClick={onLinkClick}
-                              className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                                isChildActive
-                                  ? 'text-indigo-600'
-                                  : 'text-gray-500 hover:text-gray-900'
-                              }`}
-                            >
-                              <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
-                              {child.name}
-                            </Link>
-                          </div>
-                        );
-                      });
-                    })()}
+                {isExpanded && !collapsed && (
+                  <div className={`ml-6 mt-1 border-l border-gray-200 pl-3 ${item.collapsibleGroups ? '' : 'space-y-1'}`}>
+                    {item.collapsibleGroups ? (
+                      // Collapsible accordion groups (e.g., Property Mgmt categories)
+                      (() => {
+                        const filtered = item.children!.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey));
+                        const groups: Array<{ name: string; items: typeof filtered }> = [];
+                        const seen = new Map<string, typeof filtered>();
+                        for (const child of filtered) {
+                          const g = child.group || 'Other';
+                          if (!seen.has(g)) {
+                            const items: typeof filtered = [];
+                            seen.set(g, items);
+                            groups.push({ name: g, items });
+                          }
+                          seen.get(g)!.push(child);
+                        }
+                        return groups
+                          .filter((g) => g.items.length > 0)
+                          .map((group) => {
+                            const isGrpExpanded = expandedGroup[item.name] === group.name;
+                            return (
+                              <div key={group.name}>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleGroup(item.name, group.name)}
+                                  className="mt-1 flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400 transition-colors hover:text-gray-600"
+                                >
+                                  <span>{group.name}</span>
+                                  <ChevronDown
+                                    className={`h-3 w-3 shrink-0 transition-transform ${isGrpExpanded ? '' : '-rotate-90'}`}
+                                  />
+                                </button>
+                                {isGrpExpanded && (
+                                  <div className="mt-0.5 space-y-0.5">
+                                    {group.items.map((child) => {
+                                      const isChildActive = pathname.startsWith(child.href);
+                                      return (
+                                        <Link
+                                          key={child.href}
+                                          href={child.href}
+                                          onClick={onLinkClick}
+                                          className={`block rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                                            isChildActive
+                                              ? 'text-indigo-600'
+                                              : 'text-gray-500 hover:text-gray-900'
+                                          }`}
+                                        >
+                                          {child.name}
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          });
+                      })()
+                    ) : (
+                      // Flat children with optional static group headers
+                      (() => {
+                        const filtered = item.children!.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey));
+                        let lastGroup: string | undefined;
+                        return filtered.map((child) => {
+                          const isChildActive =
+                            child.href === '/catalog'
+                              ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
+                              : pathname.startsWith(child.href);
+                          const showGroupHeader = child.group && child.group !== lastGroup;
+                          lastGroup = child.group;
+                          return (
+                            <div key={child.href}>
+                              {showGroupHeader && (
+                                <p className="mt-2 mb-1 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">{child.group}</p>
+                              )}
+                              <Link
+                                href={child.href}
+                                onClick={onLinkClick}
+                                className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                                  isChildActive
+                                    ? 'text-indigo-600'
+                                    : 'text-gray-500 hover:text-gray-900'
+                                }`}
+                              >
+                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                {child.name}
+                              </Link>
+                            </div>
+                          );
+                        });
+                      })()
+                    )}
                   </div>
                 )}
                 {/* Collapsed: hover flyout — pl-3 creates invisible bridge so mouse can cross the gap */}
@@ -352,6 +508,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const { user, tenant, locations, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
   const { isModuleEnabled } = useEntitlementsContext();
+  const { itemOrder } = useNavPreferences();
   const { guardedClick } = useNavigationGuard();
 
   // Preload POS catalog + category hierarchy + POS route chunks on login
@@ -430,6 +587,12 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   // During auth loading, show all modules — entitlements filter once loaded
   const checkModule = isLoading ? () => true : isModuleEnabled;
 
+  // Apply tenant nav preferences (order + visibility) — falls back to default order
+  const orderedNav = useMemo(
+    () => applyNavPreferences(itemOrder ?? [], checkModule),
+    [itemOrder, isLoading], // checkModule is stable when isLoading settles
+  );
+
   return (
     <ContextMenuProvider>
     <ProfileDrawerProvider>
@@ -467,6 +630,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           userEmail={userEmail}
           onLogout={handleLogout}
           isModuleEnabled={checkModule}
+          navItems={orderedNav}
         />
       </div>
 
@@ -490,6 +654,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             userEmail={userEmail}
             onLogout={handleLogout}
             isModuleEnabled={checkModule}
+            navItems={orderedNav}
             collapsed={collapsed}
             onToggleCollapse={toggleCollapse}
           />

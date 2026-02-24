@@ -12,6 +12,8 @@
     "db:migrate:remote": "tsx src/migrate.ts --remote",
     "db:seed": "tsx src/seed.ts",
     "db:seed:remote": "tsx src/seed.ts --remote",
+    "seed:year": "tsx src/seed-year.ts",
+    "seed:year:remote": "tsx src/seed-year.ts --remote",
     "db:create-partitions": "tsx scripts/create-partitions.ts",
     "generate": "drizzle-kit generate",
     "studio": "drizzle-kit studio",

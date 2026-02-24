@@ -56,7 +56,7 @@ export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloo
     queryKey: ['fnb-floor', roomId],
     queryFn: async ({ signal }) => {
       const json = await apiFetch<{ data: FloorPlanWithLiveStatus }>(
-        `/api/v1/fnb/tables/floor-plan?roomId=${roomId}&lite=true`,
+        `/api/v1/fnb/tables/floor-plan?roomId=${roomId}`,
         { signal },
       );
       // Persist to module-level cache for instant cold starts

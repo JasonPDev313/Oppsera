@@ -156,6 +156,9 @@ export * from './drawer-sessions';
 export * from './retail-close';
 export * from './pos-ops';
 
+// ── Settings ────────────────────────────────────────────────────
+export { getNavPreferences, saveNavPreferences } from './settings';
+
 // ── Email ───────────────────────────────────────────────────────
 export { sendEmail } from './email/send-email';
 export { memberVerificationEmail } from './email/templates';

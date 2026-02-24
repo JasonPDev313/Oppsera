@@ -109,7 +109,7 @@ export async function updateReservation(
 
     if (!updated) throw new ConcurrencyConflictError(reservationId);
 
-    await pmsAuditLogEntry(tx, ctx, reservationId, 'reservation', reservationId, 'updated', updates);
+    await pmsAuditLogEntry(tx, ctx, current.propertyId, 'reservation', reservationId, 'updated', updates);
 
     const event = buildEventFromContext(ctx, PMS_EVENTS.RESERVATION_UPDATED, {
       reservationId,
