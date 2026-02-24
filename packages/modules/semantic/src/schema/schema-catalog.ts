@@ -61,8 +61,8 @@ const EXCLUDED_TABLES = new Set([
 
 // Human-readable descriptions for tables (heuristic mapping)
 const TABLE_DESCRIPTIONS: Record<string, string> = {
-  // Core
-  users: 'App users (staff and system accounts)',
+  // Core — IMPORTANT: "users" = staff/employees, NOT customers. See "customers" table for CRM.
+  users: 'Staff/employee user accounts (NOT customers — see customers table for CRM records). Fields: name, email, status, primaryRoleId, posPin',
   tenants: 'Tenant organizations',
   locations: 'Business locations (sites and venues)',
   entitlements: 'Module access entitlements per tenant',
@@ -116,7 +116,7 @@ const TABLE_DESCRIPTIONS: Record<string, string> = {
   purchase_order_revisions: 'PO revision history snapshots',
 
   // Customers
-  customers: 'Customer records (person or organization)',
+  customers: 'Customer/member CRM records — people who BUY from the business (NOT staff — see users table). Fields: first_name, last_name, email, phone, customer_type (person/organization), display_name',
   customer_relationships: 'Customer-to-customer relationships',
   customer_identifiers: 'Customer ID cards and wristbands',
   customer_activity_log: 'Customer CRM activity timeline',

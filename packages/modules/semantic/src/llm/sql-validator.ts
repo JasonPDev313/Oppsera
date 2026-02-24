@@ -94,11 +94,14 @@ export function validateGeneratedSql(
     errors.push('SQL must include tenant_id = $1 in WHERE clause');
   }
 
-  // 11. Must have a LIMIT clause
+  // 11. Must have a LIMIT clause — unless it's an aggregate query (COUNT/SUM/AVG/etc.)
+  //     Aggregate queries naturally return a single row, so LIMIT is unnecessary.
+  const isAggregateOnly = /^\s*(SELECT|WITH\b[\s\S]*?\)\s*SELECT)\s+(?:[\s\S]*?\b(?:COUNT|SUM|AVG|MIN|MAX)\s*\()/i.test(sanitized)
+    && !/\bLIMIT\b/i.test(sanitized);
   const limitMatch = sanitized.match(/\bLIMIT\s+(\d+)/i);
-  if (!limitMatch) {
+  if (!limitMatch && !isAggregateOnly) {
     errors.push('SQL must include a LIMIT clause');
-  } else {
+  } else if (limitMatch) {
     const limitVal = parseInt(limitMatch[1]!, 10);
     if (limitVal > MAX_ROW_LIMIT) {
       errors.push(`LIMIT ${limitVal} exceeds maximum of ${MAX_ROW_LIMIT}`);

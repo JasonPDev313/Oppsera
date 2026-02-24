@@ -41,11 +41,16 @@ Respond with a single JSON object — no markdown fences, no prose before/after:
 ## CRITICAL RULES
 1. **SELECT only.** Never generate INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, or any DDL/DML.
 2. **Always include \`WHERE tenant_id = $1\`** in the main query and all subqueries/CTEs. The parameter $1 is the tenant ID — it is the ONLY parameter you may use.
-3. **Always include \`LIMIT\`** — max 500 rows. Default to LIMIT 100 for lists, LIMIT 1 for lookups.
+3. **Always include \`LIMIT\`** — max 500 rows. Default to LIMIT 100 for lists. **Exception:** Do NOT add LIMIT on COUNT/SUM/aggregate queries that return a single summary row — aggregates naturally return one row.
 4. **Use only tables from the schema below.** Never reference tables not listed.
 5. **Column names are snake_case** in the database.
 6. **No semicolons** at the end of the query.
 7. **No SQL comments** (no -- or /* */).
+
+## KEY TABLE DISTINCTIONS (READ CAREFULLY)
+- **\`users\`** = Staff/employee accounts (people who WORK at the business — managers, cashiers, servers). Has columns: name, email, status, primary_role_id, pos_pin. Use this table when the user asks about "users", "staff", "employees", "team members", or "workers".
+- **\`customers\`** = Customer/member CRM records (people who BUY from or are members of the business). Has columns: first_name, last_name, email, phone, customer_type, display_name. Use this table when the user asks about "customers", "clients", "members", or "patrons".
+- These are COMPLETELY DIFFERENT tables. "How many users?" → query \`users\`. "How many customers?" → query \`customers\`. NEVER confuse them.
 
 ## Money Conventions (CRITICAL)
 - **orders, order_lines, tenders**: amounts are in **cents** (INTEGER). To display as dollars: \`amount / 100.0\`
@@ -70,11 +75,21 @@ Respond with a single JSON object — no markdown fences, no prose before/after:
 - Inventory: on-hand = SUM(quantity_delta) from inventory_movements. Never a stored column.
 
 ## Common Patterns
-- Count of items: \`SELECT count(*) FROM table WHERE tenant_id = $1\`
-- List with details: \`SELECT col1, col2 FROM table WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 100\`
-- Aggregation: \`SELECT date_col, SUM(amount) FROM table WHERE tenant_id = $1 GROUP BY date_col ORDER BY date_col\`
-- Join: \`SELECT a.col, b.col FROM table_a a JOIN table_b b ON a.id = b.ref_id WHERE a.tenant_id = $1\`
-- On-hand inventory: \`SELECT im.inventory_item_id, SUM(im.quantity_delta) as on_hand FROM inventory_movements im WHERE im.tenant_id = $1 GROUP BY im.inventory_item_id\`
+- **Count of records**: \`SELECT count(*) as total FROM table WHERE tenant_id = $1\` — NO LIMIT on count queries!
+- **Count with label**: \`SELECT count(*) as total_customers FROM customers WHERE tenant_id = $1\` — NO LIMIT needed.
+- **List with details**: \`SELECT col1, col2 FROM table WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 100\`
+- **Aggregation**: \`SELECT date_col, SUM(amount) FROM table WHERE tenant_id = $1 GROUP BY date_col ORDER BY date_col LIMIT 500\`
+- **Join**: \`SELECT a.col, b.col FROM table_a a JOIN table_b b ON a.id = b.ref_id AND b.tenant_id = $1 WHERE a.tenant_id = $1 LIMIT 100\`
+- **On-hand inventory**: \`SELECT ii.id, ci.name, SUM(im.quantity_delta) as on_hand FROM inventory_movements im JOIN inventory_items ii ON im.inventory_item_id = ii.id AND ii.tenant_id = $1 JOIN catalog_items ci ON ii.catalog_item_id = ci.id AND ci.tenant_id = $1 WHERE im.tenant_id = $1 GROUP BY ii.id, ci.name LIMIT 100\`
+- **Users (staff)**: \`SELECT id, name, email, status FROM users WHERE tenant_id = $1 LIMIT 100\`
+- **Customers**: \`SELECT id, first_name, last_name, email, customer_type, display_name FROM customers WHERE tenant_id = $1 LIMIT 100\`
+
+## Important Query Guidelines
+- When the user says "how many" or asks for a count, use \`SELECT count(*) ...\` with NO LIMIT clause. Aggregates return a single row naturally.
+- When listing records, include the most useful columns (name, email, status, dates) not just IDs.
+- Always alias computed columns: \`count(*) as total\`, \`SUM(amount) / 100.0 as total_dollars\`.
+- For orders/tenders monetary values, always convert cents to dollars: \`subtotal_cents / 100.0 as subtotal\`.
+- Prefer human-readable output: include names, not just IDs. Join to get display names when possible.
 
 ## Context
 - Current date: ${context.currentDate}
