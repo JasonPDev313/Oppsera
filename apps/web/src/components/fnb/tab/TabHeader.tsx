@@ -27,18 +27,15 @@ export function TabHeader({ tab, onBack }: TabHeaderProps) {
 
   return (
     <div
-      className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 border-b shrink-0"
-      style={{
-        backgroundColor: 'var(--fnb-bg-surface)',
-        borderColor: 'rgba(148, 163, 184, 0.15)',
-      }}
+      className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 shrink-0"
+      style={{ backgroundColor: 'var(--fnb-bg-surface)', borderBottom: 'var(--fnb-border-subtle)' }}
     >
       {/* Back button */}
       <button
         type="button"
         onClick={onBack}
-        className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors hover:opacity-80"
-        style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+        className="flex items-center justify-center rounded-lg fnb-touch-min transition-opacity hover:opacity-80"
+        style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}
       >
         <ArrowLeft className="h-5 w-5" />
       </button>
@@ -51,19 +48,13 @@ export function TabHeader({ tab, onBack }: TabHeaderProps) {
           </span>
           <span
             className="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase"
-            style={{
-              backgroundColor: 'var(--fnb-bg-elevated)',
-              color: 'var(--fnb-text-secondary)',
-            }}
+            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}
           >
             {typeLabels[tab.tabType] ?? tab.tabType}
           </span>
           <span
             className="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase"
-            style={{
-              backgroundColor: 'var(--fnb-status-seated)',
-              color: '#fff',
-            }}
+            style={{ backgroundColor: 'var(--fnb-info)', color: '#fff' }}
           >
             {tab.status}
           </span>
@@ -86,19 +77,19 @@ export function TabHeader({ tab, onBack }: TabHeaderProps) {
       {tab.partySize && (
         <div className="hidden sm:flex items-center gap-1" style={{ color: 'var(--fnb-text-secondary)' }}>
           <Users className="h-3.5 w-3.5" />
-          <span className="text-sm font-semibold fnb-mono">{tab.partySize}</span>
+          <span className="text-sm font-semibold">{tab.partySize}</span>
         </div>
       )}
 
       {/* Timer */}
       <div className="flex items-center gap-1" style={{ color: 'var(--fnb-text-muted)' }}>
         <Clock className="h-3.5 w-3.5" />
-        <span className="text-sm fnb-mono">{formatElapsed(tab.openedAt)}</span>
+        <span className="text-sm">{formatElapsed(tab.openedAt)}</span>
       </div>
 
       {/* Running total */}
       <div className="text-right">
-        <span className="text-lg font-bold fnb-mono" style={{ color: 'var(--fnb-text-primary)' }}>
+        <span className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
           {formatMoney(tab.runningTotalCents ?? 0)}
         </span>
       </div>

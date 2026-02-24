@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp, jsonb, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, timestamp, jsonb, uniqueIndex, index, integer } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
 
 // ── Platform Admins ──────────────────────────────────────────────
@@ -119,5 +119,38 @@ export const platformAdminAuditLog = pgTable(
     index('idx_platform_audit_actor').on(table.actorAdminId, table.createdAt),
     index('idx_platform_audit_entity').on(table.entityType, table.entityId, table.createdAt),
     index('idx_platform_audit_action').on(table.action, table.createdAt),
+  ],
+);
+
+// ── Admin Impersonation Sessions ─────────────────────────────────
+// Tracks when platform admins impersonate tenant accounts for support.
+// No RLS — platform-level table.
+
+export const adminImpersonationSessions = pgTable(
+  'admin_impersonation_sessions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    adminId: text('admin_id')
+      .notNull()
+      .references(() => platformAdmins.id),
+    adminEmail: text('admin_email').notNull(),
+    adminName: text('admin_name').notNull(),
+    tenantId: text('tenant_id').notNull(),
+    tenantName: text('tenant_name').notNull(),
+    status: text('status').notNull().default('pending'),
+    // status: 'pending' | 'active' | 'ended' | 'expired'
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    endedAt: timestamp('ended_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    endReason: text('end_reason'),
+    // end_reason: 'user_exit' | 'admin_terminate' | 'expired' | 'new_session'
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    actionCount: integer('action_count').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_imp_sessions_admin').on(table.adminId, table.createdAt),
+    index('idx_imp_sessions_tenant').on(table.tenantId, table.createdAt),
   ],
 );

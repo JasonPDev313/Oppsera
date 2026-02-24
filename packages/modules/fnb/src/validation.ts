@@ -2067,6 +2067,95 @@ export const getHourlySalesSchema = z.object({
 
 export type GetHourlySalesInput = z.input<typeof getHourlySalesSchema>;
 
+// ═══════════════════════════════════════════════════════════════════
+// Guest Pay — Pay at the Table via QR Code
+// ═══════════════════════════════════════════════════════════════════
+
+export const GUEST_PAY_SESSION_STATUSES = [
+  'active', 'paid', 'expired', 'invalidated', 'superseded',
+] as const;
+
+export type GuestPaySessionStatus = (typeof GUEST_PAY_SESSION_STATUSES)[number];
+
+export const GUEST_PAY_ATTEMPT_STATUSES = [
+  'pending', 'succeeded', 'failed', 'simulated',
+] as const;
+
+export type GuestPayAttemptStatus = (typeof GUEST_PAY_ATTEMPT_STATUSES)[number];
+
+// ── Command Schemas ──────────────────────────────────────────────
+
+export const createGuestPaySessionSchema = z.object({
+  tabId: z.string().min(1),
+  orderId: z.string().min(1),
+  clientRequestId: z.string().optional(),
+});
+
+export type CreateGuestPaySessionInput = z.input<typeof createGuestPaySessionSchema>;
+
+export const selectGuestPayTipSchema = z.object({
+  tipAmountCents: z.number().int().min(0),
+  tipPresetPercent: z.number().optional(),
+});
+
+export type SelectGuestPayTipInput = z.input<typeof selectGuestPayTipSchema>;
+
+export const simulateGuestPaymentSchema = z.object({
+  tipAmountCents: z.number().int().min(0),
+});
+
+export type SimulateGuestPaymentInput = z.input<typeof simulateGuestPaymentSchema>;
+
+export const invalidateGuestPaySessionSchema = z.object({
+  sessionId: z.string().min(1),
+  reason: z.string().optional(),
+});
+
+export type InvalidateGuestPaySessionInput = z.input<typeof invalidateGuestPaySessionSchema>;
+
+export const updateGuestPayTipSettingsSchema = z.object({
+  locationId: z.string().min(1),
+  isActive: z.boolean().optional(),
+  tipType: z.enum(['percentage', 'amount']).optional(),
+  tipPresets: z.array(z.number()).min(1).max(5).optional(),
+  allowCustomTip: z.boolean().optional(),
+  allowNoTip: z.boolean().optional(),
+  defaultTipIndex: z.number().int().min(0).max(4).nullable().optional(),
+  tipCalculationBase: z.enum(['subtotal_pre_tax', 'total_with_tax']).optional(),
+  roundingMode: z.enum(['none', 'nearest_cent', 'nearest_5_cents']).optional(),
+  maxTipPercent: z.number().int().min(1).max(100).optional(),
+  maxTipAmountCents: z.number().int().min(100).max(1_000_000).optional(),
+  sessionExpiryMinutes: z.number().int().min(5).max(1440).optional(),
+});
+
+export type UpdateGuestPayTipSettingsInput = z.input<typeof updateGuestPayTipSettingsSchema>;
+
+// ── Guest Pay Member Charge ─────────────────────────────────────
+
+// Path B Step 1: member enters credentials
+export const guestPayMemberAuthSchema = z.object({
+  memberNumber: z.string().min(1).max(50).trim(),
+  phoneLast4: z.string().regex(/^\d{4}$/, 'Must be exactly 4 digits'),
+});
+
+export type GuestPayMemberAuthInput = z.input<typeof guestPayMemberAuthSchema>;
+
+// Path B Step 2: member enters email verification code
+export const guestPayMemberVerifySchema = z.object({
+  verificationId: z.string().min(1),
+  code: z.string().regex(/^\d{6}$/, 'Must be exactly 6 digits'),
+});
+
+export type GuestPayMemberVerifyInput = z.input<typeof guestPayMemberVerifySchema>;
+
+// Charge to member account (both paths)
+export const chargeMemberAccountSchema = z.object({
+  tipAmountCents: z.number().int().min(0),
+  verificationId: z.string().min(1).optional(), // Required for Path B, absent for Path A
+});
+
+export type ChargeMemberAccountInput = z.input<typeof chargeMemberAccountSchema>;
+
 export const getFnbDashboardSchema = z.object({
   tenantId: z.string().min(1),
   locationId: z.string().min(1),

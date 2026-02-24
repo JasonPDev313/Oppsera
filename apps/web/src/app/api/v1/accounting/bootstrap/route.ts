@@ -10,6 +10,7 @@ export const POST = withMiddleware(
     try { body = await request.json(); } catch { /* empty body uses default template */ }
     const result = await bootstrapTenantAccounting(ctx, {
       templateKey: body.templateKey as string | undefined,
+      stateName: body.stateName as string | undefined,
     });
 
     return NextResponse.json({ data: result }, { status: 201 });

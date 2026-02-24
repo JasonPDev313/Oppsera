@@ -341,15 +341,17 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
 
 // ── Singleton ────────────────────────────────────────────────────
 
-let _catalogReadApi: CatalogReadApi | null = null;
+// Use globalThis to persist across Next.js HMR module reloads in dev mode
+const GLOBAL_KEY = '__oppsera_catalog_read_api__' as const;
 
 export function getCatalogReadApi(): CatalogReadApi {
-  if (!_catalogReadApi) {
-    _catalogReadApi = new DrizzleCatalogReadApi();
-  }
-  return _catalogReadApi;
+  const api = (globalThis as Record<string, unknown>)[GLOBAL_KEY] as CatalogReadApi | undefined;
+  if (api) return api;
+  const instance = new DrizzleCatalogReadApi();
+  (globalThis as Record<string, unknown>)[GLOBAL_KEY] = instance;
+  return instance;
 }
 
 export function setCatalogReadApi(api: CatalogReadApi): void {
-  _catalogReadApi = api;
+  (globalThis as Record<string, unknown>)[GLOBAL_KEY] = api;
 }

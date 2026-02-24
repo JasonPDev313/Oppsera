@@ -28,14 +28,10 @@ export function RoomTabs({ rooms, activeRoomId, onSelect }: RoomTabsProps) {
               rounded-lg px-2 py-3 text-xs font-semibold text-center transition-colors
               fnb-touch-min
               ${isActive
-                ? 'text-white'
-                : 'hover:opacity-80'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }
             `}
-            style={{
-              backgroundColor: isActive ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-              color: isActive ? '#fff' : 'var(--fnb-text-secondary)',
-            }}
           >
             {room.name}
           </button>

@@ -1223,16 +1223,32 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 282. **ReconciliationReadApi is a 25-method cross-module singleton** — `packages/core/src/helpers/reconciliation-read-api.ts` defines the interface; `apps/web/src/lib/reconciliation-bootstrap.ts` wires it via `initializeReconciliationReadApi()`, called from `instrumentation.ts`. All accounting queries that need data from orders, tenders, settlements, tips, deposits, inventory, or F&B tables MUST use `getReconciliationReadApi()` — never import those tables directly. Implementations live in each owning module's `reconciliation/index.ts`.
 283. **Accounting queries MUST NOT import operational tables** — after the ReconciliationReadApi refactor, `packages/modules/accounting/src/queries/` should have ZERO imports of `orders`, `tenders`, `drawer_sessions`, `retail_close_batches`, `comp_events`, `payment_settlements`, `tip_payouts`, `deposit_slips`, `fnb_close_batches`, `inventory_movements`, `receiving_receipts`, `terminals`, or `users` from `@oppsera/db`. All cross-module reads go through `getReconciliationReadApi()`.
 284. **ReconciliationReadApi uses Promise.all for parallelism** — accounting queries that previously ran sequential SQL blocks now use `Promise.all([api.method1(), api.method2(), withTenant(tenantId, localQueries)])` to run API calls and local queries concurrently. This improves latency by 2-4x on the heaviest dashboard queries.
+285. **POS adapter uses fallback cascade, never drops revenue** — when a sub-department has no GL mapping, revenue posts to `defaultUncategorizedRevenueAccountId` (account 49900). When a payment type has no mapping, the debit posts to `defaultUndepositedFundsAccountId`. When a tax group has no mapping, tax posts to `defaultSalesTaxPayableAccountId`. Tips and service charges without dedicated accounts fall back to uncategorized revenue. When no line detail exists, the full tender amount posts to uncategorized revenue. Unmapped events are ALWAYS logged to `gl_unmapped_events` regardless of whether a fallback was used — preserving the "resolve later" workflow. The only scenario where posting is skipped entirely is when no fallback accounts are configured in settings (all defaults null) AND no specific mappings exist. Migration 0135 adds the `default_uncategorized_revenue_account_id` column + seeds account 49900 templates. Run `npx tsx tools/scripts/backfill-uncategorized-revenue.ts` for existing tenants.
+
+## Migration Rules (IMPORTANT — Multi-Agent Safety)
+
+Multiple agents work on this codebase concurrently. Migrations are a **serialized resource** — two agents creating the same numbered migration causes journal conflicts that silently skip migrations in production.
+
+1. **Before creating a migration file**, read `packages/db/migrations/meta/_journal.json` to find the highest `idx`. Your new migration uses `idx + 1`.
+2. **Always update `_journal.json` in the same commit** as the new `.sql` file. A migration without a journal entry will be silently ignored by `pnpm db:migrate`.
+3. **Never assume the next number** — another agent may have created one since your last check. Always re-read the journal right before writing.
+4. **Migration file naming**: `{number}_{snake_case_description}.sql` where `{number}` is zero-padded to 4 digits matching the journal `idx` offset (currently 0-based: idx 0 = file 0000).
+5. **Use `IF NOT EXISTS` / `IF EXISTS`** for all DDL (`CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, `DROP TABLE IF EXISTS`) so migrations are idempotent and safe to re-run.
+6. **Local vs Remote migrations**:
+   - `pnpm db:migrate` → runs against local DB (`.env.local`, port 54322)
+   - `pnpm db:migrate:remote` → runs against production Supabase (`.env.remote`)
+   - Always specify which target when asking for migrations to be run
 
 ## Quick Commands
 
 ```bash
-pnpm dev              # Start dev server
-pnpm build            # Build all packages
-pnpm test             # Run all tests
-pnpm test:coverage    # Run tests with coverage reporting
-pnpm lint             # Lint all packages
-pnpm type-check       # TypeScript check all packages
-pnpm db:migrate       # Run DB migrations
-pnpm db:seed          # Seed development data
+pnpm dev                  # Start dev server
+pnpm build                # Build all packages
+pnpm test                 # Run all tests
+pnpm test:coverage        # Run tests with coverage reporting
+pnpm lint                 # Lint all packages
+pnpm type-check           # TypeScript check all packages
+pnpm db:migrate           # Run DB migrations (LOCAL)
+pnpm db:migrate:remote    # Run DB migrations (PRODUCTION)
+pnpm db:seed              # Seed development data
 ```

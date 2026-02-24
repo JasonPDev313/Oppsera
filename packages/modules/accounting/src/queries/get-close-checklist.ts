@@ -230,7 +230,7 @@ export async function getCloseChecklist(
       const bankRecRows = await tx.execute(sql`
         SELECT
           COUNT(*)::int AS total_bank_accounts,
-          COUNT(*) FILTER (WHERE ba.last_reconciled_date IS NULL OR ba.last_reconciled_date < ${input.postingPeriod || new Date().toISOString().slice(0, 7)}::text || '-01')::int AS unreconciled
+          COUNT(*) FILTER (WHERE ba.last_reconciled_date IS NULL OR ba.last_reconciled_date < (${input.postingPeriod || new Date().toISOString().slice(0, 7)} || '-01')::date)::int AS unreconciled
         FROM bank_accounts ba
         WHERE ba.tenant_id = ${input.tenantId}
           AND ba.is_active = true

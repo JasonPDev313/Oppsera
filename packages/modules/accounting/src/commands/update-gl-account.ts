@@ -6,6 +6,8 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts, glJournalEntries, glJournalLines } from '@oppsera/db';
 import { NotFoundError, ConflictError, AppError } from '@oppsera/shared';
 import { resolveNormalBalance } from '../helpers/resolve-normal-balance';
+import { computeDepth, computePath, getDescendants } from '../services/hierarchy-helpers';
+import { logAccountChange, computeAccountDiff } from '../services/account-change-log';
 import type { UpdateGlAccountInput } from '../validation';
 
 export async function updateGlAccount(
@@ -82,11 +84,53 @@ export async function updateGlAccount(
       updateValues.normalBalance = resolveNormalBalance(input.accountType);
     }
 
+    // Recompute hierarchy if parentAccountId changed
+    if (input.parentAccountId !== undefined && input.parentAccountId !== existing.parentAccountId) {
+      const allAccounts = await tx
+        .select({ id: glAccounts.id, accountNumber: glAccounts.accountNumber, parentAccountId: glAccounts.parentAccountId })
+        .from(glAccounts)
+        .where(eq(glAccounts.tenantId, ctx.tenantId));
+
+      // Apply new parent in memory for computation
+      const modified = allAccounts.map((a) =>
+        a.id === accountId ? { ...a, parentAccountId: input.parentAccountId ?? null } : a,
+      );
+
+      updateValues.depth = computeDepth(accountId, modified);
+      updateValues.path = computePath(accountId, modified);
+
+      // Also update descendants' depth + path
+      const descendants = getDescendants(accountId, modified);
+      for (const desc of descendants) {
+        const descDepth = computeDepth(desc.id, modified);
+        const descPath = computePath(desc.id, modified);
+        await tx
+          .update(glAccounts)
+          .set({ depth: descDepth, path: descPath })
+          .where(eq(glAccounts.id, desc.id));
+      }
+    }
+
     const [updated] = await tx
       .update(glAccounts)
       .set(updateValues)
       .where(eq(glAccounts.id, accountId))
       .returning();
+
+    // Log field-level changes
+    const changes = computeAccountDiff(
+      existing as unknown as Record<string, unknown>,
+      updated as unknown as Record<string, unknown>,
+    );
+    if (changes.length > 0) {
+      await logAccountChange(tx, {
+        tenantId: ctx.tenantId,
+        accountId,
+        action: input.isActive === false ? 'DEACTIVATE' : input.isActive === true && !existing.isActive ? 'REACTIVATE' : 'UPDATE',
+        changes,
+        changedBy: ctx.user.id,
+      });
+    }
 
     const event = buildEventFromContext(ctx, 'accounting.account.updated.v1', {
       accountId,

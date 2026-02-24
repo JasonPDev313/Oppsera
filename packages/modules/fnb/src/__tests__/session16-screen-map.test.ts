@@ -28,7 +28,7 @@ describe('FNB_SCREENS', () => {
   });
 
   it('FLOOR_PLAN is restaurant home screen', () => {
-    const fp = FNB_SCREENS.FLOOR_PLAN;
+    const fp = FNB_SCREENS.FLOOR_PLAN!;
     expect(fp.path).toBe('/pos/fnb');
     expect(fp.primaryRole).toBe('all');
     expect(fp.sharedWithRetail).toBe(false);
@@ -37,7 +37,7 @@ describe('FNB_SCREENS', () => {
   });
 
   it('TAB_VIEW is main ordering screen', () => {
-    const tv = FNB_SCREENS.TAB_VIEW;
+    const tv = FNB_SCREENS.TAB_VIEW!;
     expect(tv.path).toContain('/pos/fnb/tab/');
     expect(tv.primaryRole).toBe('server');
     expect(tv.components).toContain('MenuBrowser');
@@ -47,41 +47,41 @@ describe('FNB_SCREENS', () => {
   });
 
   it('KDS_STATION uses kds_display responsive target', () => {
-    const kds = FNB_SCREENS.KDS_STATION;
+    const kds = FNB_SCREENS.KDS_STATION!;
     expect(kds.responsive.primary).toBe('kds_display');
     expect(kds.primaryRole).toBe('kitchen');
     expect(kds.components).toContain('BumpButton');
   });
 
   it('EXPO_VIEW is all-station readiness view', () => {
-    const expo = FNB_SCREENS.EXPO_VIEW;
+    const expo = FNB_SCREENS.EXPO_VIEW!;
     expect(expo.components).toContain('StationReadinessIndicator');
     expect(expo.components).toContain('CallBackButton');
   });
 
   it('PAYMENT is shared with retail (TenderDialog)', () => {
-    const pay = FNB_SCREENS.PAYMENT;
+    const pay = FNB_SCREENS.PAYMENT!;
     expect(pay.sharedWithRetail).toBe(true);
     expect(pay.components).toContain('SplitOptions');
     expect(pay.components).toContain('TipPrompt');
   });
 
   it('SERVER_DASHBOARD primary responsive is ipad_portrait', () => {
-    const sd = FNB_SCREENS.SERVER_DASHBOARD;
+    const sd = FNB_SCREENS.SERVER_DASHBOARD!;
     expect(sd.responsive.primary).toBe('ipad_portrait');
     expect(sd.components).toContain('MyTablesGrid');
     expect(sd.components).toContain('TipsTodayCard');
   });
 
   it('HOST_STAND has availability board', () => {
-    const hs = FNB_SCREENS.HOST_STAND;
+    const hs = FNB_SCREENS.HOST_STAND!;
     expect(hs.primaryRole).toBe('host');
     expect(hs.components).toContain('AvailabilityBoard');
     expect(hs.components).toContain('RotationQueue');
   });
 
   it('MANAGER_DASHBOARD has manager-level components', () => {
-    const md = FNB_SCREENS.MANAGER_DASHBOARD;
+    const md = FNB_SCREENS.MANAGER_DASHBOARD!;
     expect(md.primaryRole).toBe('manager');
     expect(md.components).toContain('LiveKpiCards');
     expect(md.components).toContain('EightySixBoard');
@@ -90,14 +90,14 @@ describe('FNB_SCREENS', () => {
   });
 
   it('CLOSE_BATCH has cash count and reconciliation', () => {
-    const cb = FNB_SCREENS.CLOSE_BATCH;
+    const cb = FNB_SCREENS.CLOSE_BATCH!;
     expect(cb.components).toContain('CashCountForm');
     expect(cb.components).toContain('OverShortDisplay');
     expect(cb.dataSources).toContain('getZReport');
   });
 
   it('SETTINGS references all 9 settings forms', () => {
-    const st = FNB_SCREENS.SETTINGS;
+    const st = FNB_SCREENS.SETTINGS!;
     expect(st.components).toContain('GeneralSettingsForm');
     expect(st.components).toContain('KitchenSettingsForm');
     expect(st.components).toContain('HardwareSettingsForm');

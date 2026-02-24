@@ -40,7 +40,6 @@ vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
 // ── Helpers ────────────────────────────────────────────────────────
 function createMockTx() {
   let selectCallCount = 0;
-  let insertCallCount = 0;
   const insertedValues: any[] = [];
   const updatedSets: any[] = [];
 
@@ -53,7 +52,7 @@ function createMockTx() {
       // Per-tender journal lookups: return the journals each time
       return Promise.resolve(mocks.state.originalJournals);
     }),
-    insert: vi.fn(function (this: any) { insertCallCount++; return this; }),
+    insert: vi.fn(function (this: any) { return this; }),
     values: vi.fn(function (this: any, data: any) {
       insertedValues.push(data);
       return this;

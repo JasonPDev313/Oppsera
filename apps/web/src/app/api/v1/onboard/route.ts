@@ -27,6 +27,7 @@ import {
   taxGroupRates,
 } from '@oppsera/db';
 import type { Database } from '@oppsera/db';
+import { bootstrapTenantCoa } from '@oppsera/module-accounting';
 
 const onboardSchema = z.object({
   businessType: z.enum(['restaurant', 'retail', 'golf', 'hybrid']),
@@ -42,6 +43,11 @@ const onboardSchema = z.object({
 });
 
 const SYSTEM_ROLES = [
+  {
+    name: 'Super Admin',
+    description: 'All permissions across all modules — auto-includes new permissions',
+    permissions: ['*'],
+  },
   {
     name: 'Owner',
     description: 'Full access to all features',
@@ -249,6 +255,16 @@ export const POST = withMiddleware(
           planTier: 'free',
           isEnabled: true,
         }).returning();
+      }
+
+      // 8b. Auto-bootstrap accounting if accounting module is selected
+      // Wrapped in try/catch — accounting bootstrap must NEVER block onboarding
+      if (moduleSet.has('accounting')) {
+        try {
+          await bootstrapTenantCoa(txDb, tenantId, `${businessType}_default`);
+        } catch (err) {
+          console.error('[onboard] Accounting bootstrap failed (non-blocking):', err);
+        }
       }
 
       // 9. Create starter tax rates

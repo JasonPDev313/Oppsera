@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
+import { useAuthContext } from '@/components/auth-provider';
 import { BUSINESS_TYPES, type BusinessTypeKey } from '@oppsera/shared';
 
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -92,6 +93,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 
 export default function OnboardPage() {
   const router = useRouter();
+  const auth = useAuthContext();
 
   const [step, setStep] = useState(1);
   const [businessType, setBusinessType] = useState<BusinessTypeKey | null>(null);
@@ -193,6 +195,10 @@ export default function OnboardPage() {
           modules,
         }),
       });
+      // Refresh auth state so tenant is populated before navigating.
+      // Without this, dashboard layout sees needsOnboarding=true and
+      // redirects back to /onboard, creating an infinite loop.
+      await auth.fetchMe();
       router.push('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
@@ -534,6 +540,21 @@ export default function OnboardPage() {
             </button>
           )}
         </div>
+
+        {/* Start over option for stuck users */}
+        <p className="mt-6 text-center text-sm text-gray-500">
+          Wrong account?{' '}
+          <button
+            type="button"
+            onClick={async () => {
+              await auth.logout();
+              router.replace('/login');
+            }}
+            className="font-semibold text-indigo-600 hover:text-indigo-500"
+          >
+            Sign out &amp; start over
+          </button>
+        </p>
       </div>
     </div>
   );

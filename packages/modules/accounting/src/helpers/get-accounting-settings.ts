@@ -27,6 +27,7 @@ export interface AccountingSettings {
   defaultCompExpenseAccountId: string | null;
   defaultReturnsAccountId: string | null;
   defaultPayrollClearingAccountId: string | null;
+  defaultUncategorizedRevenueAccountId: string | null;
   cogsPostingMode: string; // 'disabled' | 'perpetual' | 'periodic'
   periodicCogsLastCalculatedDate: string | null;
   periodicCogsMethod: string | null;
@@ -35,6 +36,8 @@ export interface AccountingSettings {
   breakageRecognitionMethod: string; // 'on_expiry' | 'proportional' | 'manual_only'
   breakageIncomeAccountId: string | null;
   voucherExpiryEnabled: boolean;
+  // Auto-remap toggle (migration 0143)
+  enableAutoRemap: boolean;
 }
 
 /**
@@ -81,6 +84,7 @@ export async function getAccountingSettings(
     defaultCompExpenseAccountId: row.defaultCompExpenseAccountId ?? null,
     defaultReturnsAccountId: row.defaultReturnsAccountId ?? null,
     defaultPayrollClearingAccountId: row.defaultPayrollClearingAccountId ?? null,
+    defaultUncategorizedRevenueAccountId: row.defaultUncategorizedRevenueAccountId ?? null,
     cogsPostingMode: row.cogsPostingMode,
     periodicCogsLastCalculatedDate: row.periodicCogsLastCalculatedDate ?? null,
     periodicCogsMethod: row.periodicCogsMethod ?? null,
@@ -88,5 +92,6 @@ export async function getAccountingSettings(
     breakageRecognitionMethod: row.breakageRecognitionMethod,
     breakageIncomeAccountId: row.breakageIncomeAccountId ?? null,
     voucherExpiryEnabled: row.voucherExpiryEnabled,
+    enableAutoRemap: row.enableAutoRemap,
   };
 }

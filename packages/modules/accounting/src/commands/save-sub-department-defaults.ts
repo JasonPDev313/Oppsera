@@ -6,6 +6,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts, subDepartmentGlDefaults } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 import type { SaveSubDepartmentDefaultsInput } from '../validation';
+import { tryAutoRemap } from '../helpers/try-auto-remap';
 
 export async function saveSubDepartmentDefaults(
   ctx: RequestContext,
@@ -96,5 +97,9 @@ export async function saveSubDepartmentDefaults(
   });
 
   await auditLog(ctx, 'accounting.sub_department_defaults.saved', 'sub_department_gl_defaults', subDepartmentId);
-  return result;
+
+  // Auto-remap eligible tenders if enabled (never throws)
+  const autoRemap = await tryAutoRemap(ctx);
+
+  return { ...result, autoRemapCount: autoRemap.remapped, autoRemapFailed: autoRemap.failed };
 }

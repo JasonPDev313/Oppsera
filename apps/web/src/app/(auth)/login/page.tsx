@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api-client';
 import { ApiError } from '@/lib/api-client';
@@ -9,6 +9,7 @@ import { useAuthContext } from '@/components/auth-provider';
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const auth = useAuthContext();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,16 +17,25 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
+  // If arriving with ?fresh=1, clear any stale session so the user can
+  // sign in with a different account (e.g., stuck incomplete onboarding).
+  useEffect(() => {
+    if (searchParams.get('fresh') === '1') {
+      auth.logout();
+    }
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      // Use auth context's login which stores tokens AND updates auth state
-      await auth.login(email, password);
-      // Dashboard layout handles onboarding redirect if needed
-      router.push('/dashboard');
+      // Use auth context's login which stores tokens AND updates auth state.
+      // login() returns onboarding status directly since React state updates
+      // are batched and won't be reflected in auth.needsOnboarding until next render.
+      const { needsOnboarding } = await auth.login(email, password);
+      router.push(needsOnboarding ? '/onboard' : '/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

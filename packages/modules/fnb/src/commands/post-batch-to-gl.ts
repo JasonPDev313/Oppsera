@@ -44,6 +44,42 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
 
     const summary = summaries[0]!;
 
+    // Aggregate revenue by sub-department from tab items (if not already on summary)
+    if (!summary.sales_by_sub_department) {
+      const subDeptRows = await tx.execute(
+        sql`SELECT fti.sub_department_id,
+                   COALESCE(MIN(cc.name), 'Uncategorized') AS sub_department_name,
+                   SUM(fti.extended_price_cents) AS net_sales_cents
+            FROM fnb_tab_items fti
+            JOIN fnb_tabs ft ON fti.tab_id = ft.id
+            LEFT JOIN catalog_categories cc ON cc.id = fti.sub_department_id
+            WHERE ft.tenant_id = ${ctx.tenantId}
+              AND ft.location_id = ${batch.location_id as string}
+              AND ft.business_date = ${batch.business_date as string}
+              AND ft.status = 'closed'
+              AND fti.status != 'voided'
+              AND fti.sub_department_id IS NOT NULL
+            GROUP BY fti.sub_department_id`,
+      );
+      const subDeptSales = Array.from(subDeptRows as Iterable<Record<string, unknown>>).map((r) => ({
+        subDepartmentId: r.sub_department_id as string,
+        subDepartmentName: r.sub_department_name as string,
+        netSalesCents: Number(r.net_sales_cents),
+      }));
+
+      if (subDeptSales.length > 0) {
+        summary.sales_by_sub_department = subDeptSales;
+
+        // Persist to the summary for Z-report display
+        await tx.execute(
+          sql`UPDATE fnb_close_batch_summaries
+              SET sales_by_sub_department = ${JSON.stringify(subDeptSales)}::jsonb,
+                  updated_at = NOW()
+              WHERE close_batch_id = ${input.closeBatchId}`,
+        );
+      }
+    }
+
     // Build journal lines from summary data
     const journalLines = buildBatchJournalLines(summary);
 
@@ -83,6 +119,7 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
         description: jl.description,
         debitCents: jl.debitCents,
         creditCents: jl.creditCents,
+        subDepartmentId: jl.subDepartmentId ?? null,
       })),
     };
     const event = buildEventFromContext(ctx, FNB_EVENTS.GL_POSTING_CREATED, payload as unknown as Record<string, unknown>);

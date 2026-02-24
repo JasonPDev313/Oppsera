@@ -20,31 +20,24 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
   const quickSizes = [1, 2, 3, 4, 5, 6, 7, 8];
 
   return createPortal(
-    <div
-      className="fixed inset-0 flex items-center justify-center"
-      style={{ zIndex: 'var(--fnb-z-modal)', backgroundColor: 'var(--fnb-bg-overlay)' }}
-    >
-      <div
-        className="rounded-xl p-6 shadow-lg w-[340px]"
-        style={{ backgroundColor: 'var(--fnb-bg-surface)' }}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="rounded-xl p-6 shadow-lg w-[340px] bg-white">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+          <h3 className="text-lg font-bold text-gray-900">
             Seat Table {tableNumber}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center justify-center rounded-lg h-8 w-8 transition-colors hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-muted)' }}
+            className="flex items-center justify-center rounded-lg h-8 w-8 transition-colors bg-gray-100 text-gray-400 hover:bg-gray-200"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Party size label */}
-        <p className="text-xs mb-3" style={{ color: 'var(--fnb-text-muted)' }}>
+        <p className="text-xs mb-3 text-gray-400">
           Capacity: {tableCapacity} &middot; Party size:
         </p>
 
@@ -53,22 +46,17 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
           <button
             type="button"
             onClick={() => setPartySize(Math.max(1, partySize - 1))}
-            className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+            className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
           >
             <Minus className="h-5 w-5" />
           </button>
-          <span
-            className="text-3xl font-bold fnb-mono w-16 text-center"
-            style={{ color: 'var(--fnb-text-primary)' }}
-          >
+          <span className="text-3xl font-bold w-16 text-center text-gray-900">
             {partySize}
           </span>
           <button
             type="button"
             onClick={() => setPartySize(partySize + 1)}
-            className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+            className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
           >
             <Plus className="h-5 w-5" />
           </button>
@@ -82,12 +70,10 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
               type="button"
               onClick={() => setPartySize(n)}
               className={`rounded-lg py-2.5 text-sm font-semibold transition-colors ${
-                partySize === n ? 'text-white' : ''
+                partySize === n
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
-              style={{
-                backgroundColor: partySize === n ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-                color: partySize === n ? '#fff' : 'var(--fnb-text-secondary)',
-              }}
             >
               {n}
             </button>
@@ -99,16 +85,14 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg py-3 text-sm font-semibold transition-colors hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}
+            className="flex-1 rounded-lg py-3 text-sm font-semibold transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={() => { onConfirm(partySize); onClose(); }}
-            className="flex-1 rounded-lg py-3 text-sm font-bold text-white transition-colors hover:opacity-90"
-            style={{ backgroundColor: 'var(--fnb-status-seated)' }}
+            className="flex-1 rounded-lg py-3 text-sm font-bold text-white transition-colors bg-indigo-600 hover:bg-indigo-700"
           >
             Seat {partySize} Guests
           </button>

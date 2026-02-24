@@ -40,6 +40,7 @@ const nextConfig: NextConfig = {
   },
   // Prevent VSCode file watcher from racing with webpack cache writes on Windows
   // (causes EPERM / ENOENT crashes on .next/trace and .next/cache/*.pack.gz)
+  // Also reduce polling overhead on Windows NTFS
   webpack: (config) => {
     const prev = config.watchOptions ?? {};
     const existing = prev.ignored;
@@ -52,8 +53,14 @@ const nextConfig: NextConfig = {
     } else if (typeof existing === 'string') {
       kept.push(existing);
     }
-    kept.push('**/.next/**');
-    config.watchOptions = { ...prev, ignored: kept };
+    kept.push('**/.next/**', '**/node_modules/**', '**/.git/**');
+    config.watchOptions = {
+      ...prev,
+      ignored: kept,
+      // Use polling with a longer interval on Windows to reduce CPU from inotify-like watchers
+      poll: 1000,
+      aggregateTimeout: 300,
+    };
     return config;
   },
   async redirects() {

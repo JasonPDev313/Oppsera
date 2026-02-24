@@ -42,6 +42,7 @@ describe('recordTenderSchema', () => {
   });
 
   it('should reject missing clientRequestId', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { clientRequestId, ...rest } = validInput;
     const result = recordTenderSchema.safeParse(rest);
     expect(result.success).toBe(false);
@@ -171,6 +172,7 @@ describe('reverseTenderSchema', () => {
   });
 
   it('should reject missing clientRequestId', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { clientRequestId, ...rest } = validInput;
     const result = reverseTenderSchema.safeParse(rest);
     expect(result.success).toBe(false);
@@ -215,12 +217,14 @@ describe('adjustTipSchema', () => {
   });
 
   it('should reject missing clientRequestId', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { clientRequestId, ...rest } = validInput;
     const result = adjustTipSchema.safeParse(rest);
     expect(result.success).toBe(false);
   });
 
   it('should reject missing tenderId', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { tenderId, ...rest } = validInput;
     const result = adjustTipSchema.safeParse(rest);
     expect(result.success).toBe(false);

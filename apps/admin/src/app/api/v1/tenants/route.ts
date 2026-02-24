@@ -1,9 +1,19 @@
-import type { NextRequest} from 'next/server';
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminAuth } from '@/lib/with-admin-auth';
 import { db, sql } from '@oppsera/db';
 import { generateSlug, generateUlid } from '@oppsera/shared';
-import { tenants } from '@oppsera/db';
+import { tenants, roles, rolePermissions } from '@oppsera/db';
+
+const SYSTEM_ROLES = [
+  { name: 'Super Admin', description: 'All permissions across all modules — auto-includes new permissions', permissions: ['*'] },
+  { name: 'Owner', description: 'Full access to all features', permissions: ['*'] },
+  { name: 'Manager', description: 'Full operational control across all modules', permissions: ['catalog.*', 'orders.*', 'inventory.*', 'customers.*', 'tenders.*', 'reports.view', 'settings.view', 'price.override', 'charges.manage', 'cash.drawer', 'shift.manage', 'discounts.apply', 'returns.create'] },
+  { name: 'Supervisor', description: 'Manage orders and POS operations, view catalog and inventory', permissions: ['catalog.view', 'orders.*', 'inventory.view', 'customers.view', 'tenders.create', 'tenders.view', 'reports.view', 'price.override', 'charges.manage', 'cash.drawer', 'shift.manage', 'discounts.apply', 'returns.create'] },
+  { name: 'Cashier', description: 'Ring up sales, process payments, manage cash drawer', permissions: ['catalog.view', 'orders.create', 'orders.view', 'tenders.create', 'tenders.view', 'customers.view', 'customers.create', 'discounts.apply', 'cash.drawer', 'shift.manage'] },
+  { name: 'Server', description: 'F&B order entry, process payments, manage tables', permissions: ['catalog.view', 'orders.create', 'orders.view', 'tenders.create', 'tenders.view', 'customers.view', 'discounts.apply', 'cash.drawer', 'shift.manage'] },
+  { name: 'Staff', description: 'View catalog and orders', permissions: ['catalog.view', 'orders.view'] },
+] as const;
 
 export const GET = withAdminAuth(async (req: NextRequest) => {
   const sp = new URL(req.url).searchParams;
@@ -109,19 +119,40 @@ export const POST = withAdminAuth(async (req: NextRequest) => {
   const tenantId = generateUlid();
   const locationId = generateUlid();
 
-  // Insert tenant
-  await db.insert(tenants).values({
-    id: tenantId,
-    name,
-    slug,
-    status,
-  });
+  await db.transaction(async (tx) => {
+    // Insert tenant
+    await tx.insert(tenants).values({
+      id: tenantId,
+      name,
+      slug,
+      status,
+    });
 
-  // Insert first site location
-  await db.execute(sql`
-    INSERT INTO locations (id, tenant_id, name, timezone, location_type, is_active)
-    VALUES (${locationId}, ${tenantId}, ${siteName}, ${timezone}, 'site', true)
-  `);
+    // Insert first site location
+    await tx.execute(sql`
+      INSERT INTO locations (id, tenant_id, name, timezone, location_type, is_active)
+      VALUES (${locationId}, ${tenantId}, ${siteName}, ${timezone}, 'site', true)
+    `);
+
+    // Seed system roles with permissions
+    for (const roleDef of SYSTEM_ROLES) {
+      const roleId = generateUlid();
+      await tx.insert(roles).values({
+        id: roleId,
+        tenantId,
+        name: roleDef.name,
+        description: roleDef.description,
+        isSystem: true,
+      });
+      for (const permission of roleDef.permissions) {
+        await tx.insert(rolePermissions).values({
+          id: generateUlid(),
+          roleId,
+          permission,
+        });
+      }
+    }
+  });
 
   return NextResponse.json(
     { data: { id: tenantId, name, slug, status } },

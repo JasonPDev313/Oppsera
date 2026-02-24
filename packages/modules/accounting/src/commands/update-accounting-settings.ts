@@ -22,6 +22,7 @@ export async function updateAccountingSettings(
       'defaultTipsPayableAccountId',
       'defaultServiceChargeRevenueAccountId',
       'breakageIncomeAccountId',
+      'defaultUncategorizedRevenueAccountId',
     ] as const;
 
     const accountIdsToCheck: string[] = [];

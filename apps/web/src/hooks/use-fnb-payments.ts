@@ -93,6 +93,18 @@ export function usePaymentSession({ tabId }: UsePaymentSessionOptions) {
     [refresh],
   );
 
+  const voidLastTender = useCallback(
+    async (sessionId: string) => {
+      const res = await apiFetch<{ data: unknown }>(
+        `/api/v1/fnb/payments/sessions/${sessionId}/void-last-tender`,
+        { method: 'POST' },
+      );
+      await refresh();
+      return res.data;
+    },
+    [refresh],
+  );
+
   return {
     sessions,
     isLoading,
@@ -101,6 +113,7 @@ export function usePaymentSession({ tabId }: UsePaymentSessionOptions) {
     completeSession,
     failSession,
     recordTender,
+    voidLastTender,
   };
 }
 

@@ -107,6 +107,7 @@ export interface FnbTableWithStatus {
   guestNames: string | null;
   combineGroupId: string | null;
   version: number;
+  guestPayActive?: boolean;
 }
 
 export interface FnbCombineGroup {
@@ -250,6 +251,7 @@ export interface FnbTabDetail {
   splitFromTabId: string | null;
   splitStrategy: FnbSplitStrategy | null;
   runningTotalCents: number;
+  taxTotalCents: number;
   openedAt: string;
   closedAt: string | null;
   openedBy: string;
@@ -775,3 +777,137 @@ export const FNB_COURSE_STATUS_LABELS: Record<FnbCourseStatus, string> = {
   ready: 'Ready',
   served: 'Served',
 };
+
+// ── Guest Pay ────────────────────────────────────────────────────
+
+export interface GuestPaySession {
+  id: string;
+  token: string;
+  status: 'active' | 'paid' | 'expired' | 'invalidated' | 'superseded';
+  totalCents: number;
+  tipCents: number | null;
+  tipPercentage: number | null;
+  expiresAt: string;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface GuestPayTipSettings {
+  isActive: boolean;
+  tipType: 'percentage' | 'amount';
+  tipPresets: number[];
+  allowCustomTip: boolean;
+  allowNoTip: boolean;
+  defaultTipIndex: number | null;
+  tipCalculationBase: 'subtotal_pre_tax' | 'total_with_tax';
+  roundingMode: 'none' | 'nearest_cent' | 'nearest_5_cents';
+  maxTipPercent: number;
+  maxTipAmountCents: number;
+  sessionExpiryMinutes: number;
+}
+
+// ── Receipt Template (Phase 6C) ──────────────────────────────────
+
+export interface ReceiptTemplate {
+  signatureLine: boolean;
+  tipLine: boolean;
+  tipSuggestions: number[]; // percentages, e.g. [18, 20, 22]
+  totalWithTipLine: boolean;
+  merchantName: string;
+  merchantAddress: string;
+  footerMessage?: string;
+}
+
+// ── Tier 3 Provisioning Types (Future Features) ─────────────────
+
+/** Phase 9A: QR Code Pay-at-Table */
+export interface QrPaymentRequest {
+  id: string;
+  tenantId: string;
+  tabId: string;
+  sessionId: string;
+  qrToken: string;
+  status: 'pending' | 'scanned' | 'completed' | 'expired';
+  amountCents: number;
+  tipCents: number;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** Phase 9B: Guest-Facing Tip Screen */
+export interface GuestTipSession {
+  id: string;
+  tenantId: string;
+  tabId: string;
+  sessionId: string;
+  deviceToken: string;
+  selectedTipCents: number | null;
+  selectedTipPercentage: number | null;
+  status: 'waiting' | 'selected' | 'confirmed';
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** Phase 9C: Loyalty Point Redemption */
+export interface LoyaltyRedemption {
+  id: string;
+  tenantId: string;
+  tabId: string;
+  tenderId: string;
+  customerId: string;
+  pointsRedeemed: number;
+  dollarValueCents: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  createdAt: string;
+}
+
+/** Phase 9D: NFC Tap-to-Pay on Server Device */
+export interface NfcPaymentIntent {
+  id: string;
+  tenantId: string;
+  tabId: string;
+  sessionId: string;
+  terminalId: string;
+  amountCents: number;
+  status: 'initiated' | 'tapped' | 'processing' | 'completed' | 'failed';
+  nfcTransactionId: string | null;
+  createdAt: string;
+}
+
+/** Phase 9E: Automatic Round-Up Donation */
+export interface DonationConfig {
+  id: string;
+  tenantId: string;
+  locationId: string;
+  charityName: string;
+  isActive: boolean;
+  roundUpEnabled: boolean;
+  fixedAmountCents: number | null;
+}
+
+export interface DonationEntry {
+  id: string;
+  tenantId: string;
+  tabId: string;
+  tenderId: string;
+  donationCents: number;
+  charityName: string;
+  createdAt: string;
+}
+
+/** Phase 9F: Real-Time Kitchen Fire on Payment */
+export interface KitchenFireOnPaymentConfig {
+  fireKitchenOnPayment: boolean;
+}
+
+/** Phase 9G: Fractional Item Split */
+export interface SplitItemFraction {
+  id: string;
+  tenantId: string;
+  splitCheckId: string;
+  orderLineId: string;
+  fraction: number; // e.g. 0.5 for half
+  amountCents: number;
+  createdAt: string;
+}

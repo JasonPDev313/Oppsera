@@ -6,6 +6,8 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   Building,
+  ExternalLink,
+  Loader2,
   MapPin,
   Monitor,
   Users,
@@ -13,17 +15,35 @@ import {
   Store,
 } from 'lucide-react';
 import { useTenantDetail } from '@/hooks/use-tenant-management';
+import { adminFetch } from '@/lib/api-fetch';
 import { TenantStatusBadge } from '@/components/tenants/TenantStatusBadge';
 import { OrgHierarchyBuilder } from '@/components/tenants/OrgHierarchyBuilder';
 import { ModuleManager } from '@/components/tenants/ModuleManager';
+import { TenantRolesTab } from '@/components/tenants/TenantRolesTab';
 import { TenantUsersTab } from '@/components/tenants/TenantUsersTab';
 
-type Tab = 'overview' | 'organization' | 'modules' | 'users';
+type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users';
 
 export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { tenant, isLoading, error, load } = useTenantDetail(id);
   const [tab, setTab] = useState<Tab>('overview');
+  const [isImpersonating, setIsImpersonating] = useState(false);
+
+  async function handleImpersonate() {
+    setIsImpersonating(true);
+    try {
+      const res = await adminFetch<{ data: { url: string } }>(`/api/v1/tenants/${id}/impersonate`, {
+        method: 'POST',
+      });
+      window.open(res.data.url, '_blank');
+    } catch (err) {
+      console.error('Failed to start impersonation:', err);
+      alert('Failed to start impersonation session');
+    } finally {
+      setIsImpersonating(false);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -63,12 +83,24 @@ export default function TenantDetailPage() {
             Created {new Date(tenant.createdAt).toLocaleDateString()}
           </p>
         </div>
+        <button
+          onClick={handleImpersonate}
+          disabled={isImpersonating}
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+        >
+          {isImpersonating ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <ExternalLink size={14} />
+          )}
+          Login as Tenant
+        </button>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-slate-700 pb-px">
-        {(['overview', 'organization', 'modules', 'users'] as Tab[]).map((t) => {
-          const labels: Record<Tab, string> = { overview: 'Overview', organization: 'Organization', modules: 'Modules', users: 'Users' };
+        {(['overview', 'organization', 'modules', 'roles', 'users'] as Tab[]).map((t) => {
+          const labels: Record<Tab, string> = { overview: 'Overview', organization: 'Organization', modules: 'Modules', roles: 'Roles', users: 'Users' };
           return (
             <button
               key={t}
@@ -89,6 +121,7 @@ export default function TenantDetailPage() {
       {tab === 'overview' && <OverviewTab tenant={tenant} />}
       {tab === 'organization' && <OrgHierarchyBuilder tenantId={id} />}
       {tab === 'modules' && <ModuleManager tenantId={id} />}
+      {tab === 'roles' && <TenantRolesTab tenantId={id} />}
       {tab === 'users' && <TenantUsersTab tenantId={id} />}
     </div>
   );

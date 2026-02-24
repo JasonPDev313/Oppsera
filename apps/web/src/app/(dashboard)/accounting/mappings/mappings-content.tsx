@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Package,
+  RefreshCw,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { AccountPicker } from '@/components/accounting/account-picker';
@@ -26,6 +27,8 @@ import {
 } from '@/hooks/use-mappings';
 import { useAuthContext } from '@/components/auth-provider';
 import { useToast } from '@/components/ui/toast';
+import { useRemappableTenders } from '@/hooks/use-gl-remap';
+import { RemapPreviewDialog } from '@/components/accounting/remap-preview-dialog';
 import { Select } from '@/components/ui/select';
 import { FNB_CATEGORY_CONFIG } from '@oppsera/shared';
 import type { FnbBatchCategoryKey } from '@oppsera/shared';
@@ -118,7 +121,7 @@ export default function MappingsContent() {
       {activeTab === 'departments' && <DepartmentMappingsTab />}
       {activeTab === 'payments' && <PaymentTypeMappingsTab />}
       {activeTab === 'taxes' && <TaxGroupMappingsTab />}
-      {activeTab === 'fnb' && <FnbCategoryMappingsTab />}
+      {activeTab === 'fnb' && <FnbCategoryMappingsTab onNavigateToSubDepartments={() => setActiveTab('departments')} />}
       {activeTab === 'unmapped' && <UnmappedEventsTab />}
     </AccountingPageShell>
   );
@@ -173,7 +176,7 @@ function DepartmentMappingsTab() {
 
   const handleSave = async (mapping: SubDepartmentMapping) => {
     try {
-      await saveSubDepartmentDefaults.mutateAsync({
+      const res = await saveSubDepartmentDefaults.mutateAsync({
         subDepartmentId: mapping.subDepartmentId,
         revenueAccountId: mapping.revenueAccountId,
         cogsAccountId: mapping.cogsAccountId,
@@ -181,7 +184,16 @@ function DepartmentMappingsTab() {
         discountAccountId: mapping.discountAccountId,
         returnsAccountId: mapping.returnsAccountId,
       });
-      toast.success('Mapping saved');
+      const d = (res as any)?.data;
+      if (d?.autoRemapCount > 0 && d?.autoRemapFailed > 0) {
+        toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
+      } else if (d?.autoRemapCount > 0) {
+        toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else if (d?.autoRemapFailed > 0) {
+        toast.error(`Mapping saved, but ${d.autoRemapFailed} auto-remap(s) failed — check Unmapped Events.`);
+      } else {
+        toast.success('Mapping saved');
+      }
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
@@ -207,6 +219,13 @@ function DepartmentMappingsTab() {
     );
   }
 
+  const infoBanner = (
+    <div className="flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-800 mb-4">
+      <CheckCircle className="h-4 w-4 shrink-0 text-indigo-500" />
+      Sub-department revenue mappings are used by both Retail POS and F&amp;B POS.
+    </div>
+  );
+
   // Detect if this is a flat (2-level) hierarchy: all groups are self-grouped
   const isFlat = grouped.every(
     (d) => d.totalCount === 1 && d.subDepartments[0]?.subDepartmentId === d.departmentId,
@@ -215,6 +234,8 @@ function DepartmentMappingsTab() {
   // Flat mode: render a single table without collapsible groups
   if (isFlat) {
     return (
+      <>
+      {infoBanner}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
         <table className="w-full">
           <thead>
@@ -261,12 +282,14 @@ function DepartmentMappingsTab() {
           </tbody>
         </table>
       </div>
+      </>
     );
   }
 
   // Grouped mode: collapsible department sections with sub-department rows
   return (
     <div className="space-y-4">
+      {infoBanner}
       {grouped.map((dept) => {
         const isExpanded = expandedDepts.has(dept.departmentId);
         const allMapped = dept.mappedCount === dept.totalCount;
@@ -539,13 +562,22 @@ function PaymentTypeMappingsTab() {
 
   const handleSave = async (mapping: typeof mappings[number]) => {
     try {
-      await savePaymentTypeDefaults.mutateAsync({
+      const res = await savePaymentTypeDefaults.mutateAsync({
         paymentType: mapping.paymentType,
-        cashBankAccountId: mapping.cashBankAccountId,
+        cashAccountId: mapping.cashAccountId,
         clearingAccountId: mapping.clearingAccountId,
         feeExpenseAccountId: mapping.feeExpenseAccountId,
       });
-      toast.success('Mapping saved');
+      const d = (res as any)?.data;
+      if (d?.autoRemapCount > 0 && d?.autoRemapFailed > 0) {
+        toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
+      } else if (d?.autoRemapCount > 0) {
+        toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else if (d?.autoRemapFailed > 0) {
+        toast.error(`Mapping saved, but ${d.autoRemapFailed} auto-remap(s) failed — check Unmapped Events.`);
+      } else {
+        toast.success('Mapping saved');
+      }
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
@@ -575,14 +607,14 @@ function PaymentTypeMappingsTab() {
           </thead>
           <tbody>
             {mappings.map((m) => {
-              const isMapped = !!m.cashBankAccountId;
+              const isMapped = !!m.cashAccountId;
               return (
                 <tr key={m.paymentType} className={`border-b border-gray-100 last:border-0 ${!isMapped ? 'bg-amber-500/5' : ''}`}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900 capitalize">{m.paymentType.replace(/_/g, ' ')}</td>
                   <td className="px-4 py-3">
                     <AccountPicker
-                      value={m.cashBankAccountId}
-                      onChange={(v) => handleSave({ ...m, cashBankAccountId: v })}
+                      value={m.cashAccountId}
+                      onChange={(v) => handleSave({ ...m, cashAccountId: v })}
                       accountTypes={['asset']}
                       className="w-48"
                     />
@@ -631,11 +663,20 @@ function TaxGroupMappingsTab() {
 
   const handleSave = async (mapping: typeof mappings[number]) => {
     try {
-      await saveTaxGroupDefaults.mutateAsync({
+      const res = await saveTaxGroupDefaults.mutateAsync({
         taxGroupId: mapping.taxGroupId,
         taxPayableAccountId: mapping.taxPayableAccountId,
       });
-      toast.success('Mapping saved');
+      const d = (res as any)?.data;
+      if (d?.autoRemapCount > 0 && d?.autoRemapFailed > 0) {
+        toast.info(`Mapping saved. ${d.autoRemapCount} remapped, ${d.autoRemapFailed} failed — check Unmapped Events.`);
+      } else if (d?.autoRemapCount > 0) {
+        toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
+      } else if (d?.autoRemapFailed > 0) {
+        toast.error(`Mapping saved, but ${d.autoRemapFailed} auto-remap(s) failed — check Unmapped Events.`);
+      } else {
+        toast.success('Mapping saved');
+      }
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
@@ -698,7 +739,7 @@ function TaxGroupMappingsTab() {
 
 // ── F&B Category Mappings ─────────────────────────────────────
 
-function FnbCategoryMappingsTab() {
+function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSubDepartments: () => void }) {
   const { locations } = useAuthContext();
   const [locationId, setLocationId] = useState(locations[0]?.id ?? '');
   const { data: coverage, isLoading, refetch } = useFnbMappingCoverage(locationId || undefined);
@@ -850,6 +891,7 @@ function FnbCategoryMappingsTab() {
                       <tr
                         key={cat.key}
                         className={`border-b border-gray-100 last:border-0 ${
+                          cat.key === 'sales_revenue' ? '' :
                           !cat.isMapped && cat.critical ? 'bg-red-500/5' : !cat.isMapped ? 'bg-amber-500/5' : ''
                         }`}
                       >
@@ -865,17 +907,29 @@ function FnbCategoryMappingsTab() {
                           <p className="text-xs text-gray-500 mt-0.5">{cat.description}</p>
                         </td>
                         <td className="px-4 py-3">
-                          {config && (
+                          {cat.key === 'sales_revenue' ? (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                              <span>Resolved via</span>
+                              <button
+                                type="button"
+                                onClick={onNavigateToSubDepartments}
+                                className="text-indigo-600 hover:text-indigo-800 font-medium"
+                              >
+                                Sub-Departments
+                              </button>
+                            </div>
+                          ) : config ? (
                             <AccountPicker
                               value={cat.accountId}
                               onChange={(v) => handleSave(cat.key as FnbBatchCategoryKey, v)}
                               accountTypes={accountTypeFilter(config.mappingColumn)}
                               className="w-56"
                             />
-                          )}
+                          ) : null}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {cat.isMapped ? (
+                          {cat.key === 'sales_revenue' || cat.isMapped ? (
                             <CheckCircle className="inline h-5 w-5 text-green-500" />
                           ) : (
                             <span
@@ -909,6 +963,10 @@ function UnmappedEventsTab() {
   const { data: events, isLoading, mutate } = useUnmappedEvents({ status: statusFilter });
   const { resolveEvent } = useUnmappedEventMutations();
   const { toast } = useToast();
+  const { data: remappable, refetch: refetchRemappable } = useRemappableTenders();
+  const [remapDialogOpen, setRemapDialogOpen] = useState(false);
+
+  const remappableCount = remappable.filter(t => t.canRemap).length;
 
   const handleResolve = async (id: string) => {
     try {
@@ -920,12 +978,48 @@ function UnmappedEventsTab() {
     }
   };
 
+  const handleRemapComplete = () => {
+    mutate();
+    refetchRemappable();
+    toast.success('GL entries remapped successfully');
+  };
+
   if (isLoading) {
     return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />)}</div>;
   }
 
   return (
     <div className="space-y-4">
+      {/* Remap banner */}
+      {remappable.length > 0 && (
+        <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+          <div className="flex items-center gap-3">
+            <RefreshCw className="h-5 w-5 text-indigo-600 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-indigo-900">
+                {remappableCount > 0
+                  ? `${remappableCount} transaction${remappableCount !== 1 ? 's' : ''} can be retroactively corrected`
+                  : `${remappable.length} transaction${remappable.length !== 1 ? 's' : ''} with unmapped GL entries`}
+              </p>
+              <p className="text-xs text-indigo-700">
+                {remappableCount > 0
+                  ? 'GL account mappings now exist for these tenders. Preview and remap their GL entries.'
+                  : 'Configure the missing mappings above, then return here to remap.'}
+              </p>
+            </div>
+          </div>
+          {remappableCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setRemapDialogOpen(true)}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shrink-0"
+            >
+              Preview & Remap
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2">
         {(['unresolved', 'resolved'] as const).map((s) => (
           <button
@@ -989,6 +1083,13 @@ function UnmappedEventsTab() {
           ))}
         </div>
       )}
+
+      <RemapPreviewDialog
+        open={remapDialogOpen}
+        onClose={() => setRemapDialogOpen(false)}
+        tenders={remappable}
+        onComplete={handleRemapComplete}
+      />
     </div>
   );
 }

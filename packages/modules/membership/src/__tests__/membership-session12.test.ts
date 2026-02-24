@@ -273,8 +273,8 @@ describe('Session 12 — Member Portal Queries', () => {
       expect(result.autopayEnabled).toBe(true);
       expect(result.recentStatements).toHaveLength(2);
       expect(result.recentStatements[0]!.statementNumber).toBe('STMT-001');
-      expect(result.recentStatements[0]!.closingBalanceCents).toBe(75000);
-      expect(result.recentStatements[1]!.closingBalanceCents).toBe(50000);
+      expect(result.recentStatements[0]!.totalDueCents).toBe(75000);
+      expect(result.recentStatements[1]!.totalDueCents).toBe(50000);
       expect(result.activeSubscriptionCount).toBe(2);
     });
 
@@ -435,7 +435,7 @@ describe('Session 12 — Member Portal Queries', () => {
       const result = await getMemberPortalSummary({ tenantId: TENANT_A, customerId: 'cust_7' });
       expect(result.accountStatus).toBe('suspended');
       expect(result.memberRole).toBe('corporate_designee');
-      expect(result.recentStatements[0]!.closingBalanceCents).toBe(0);
+      expect(result.recentStatements[0]!.totalDueCents).toBe(0);
     });
 
     it('defaults closingBalanceCents to 0 when null in DB row', async () => {
@@ -462,7 +462,7 @@ describe('Session 12 — Member Portal Queries', () => {
       mockSelectReturns.mockReturnValueOnce([]);
 
       const result = await getMemberPortalSummary({ tenantId: TENANT_A, customerId: 'cust_8' });
-      expect(result.recentStatements[0]!.closingBalanceCents).toBe(0);
+      expect(result.recentStatements[0]!.totalDueCents).toBe(0);
     });
 
     it('counts multiple active subscriptions', async () => {

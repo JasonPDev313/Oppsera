@@ -76,15 +76,22 @@ interface GlLine {
  *
  * GL entry structure (balanced):
  *   DEBIT:  Cash/Deposit/Clearing = tenderAmount + tipAmount
- *   DEBIT:  Discount (contra-revenue) = proportional share of discountTotal
- *   DEBIT:  Processing Fee Expense = fee amount (when available)
+ *   DEBIT:  Discount (contra-revenue by sub-department)
  *   CREDIT: Revenue = proportional share of line subtotals (by sub-department)
  *   CREDIT: Service Charge Revenue = proportional share of serviceChargeTotal
  *   CREDIT: Tax Payable = proportional share of taxTotal (by tax group)
  *   CREDIT: Tips Payable = tipAmount
- *   CREDIT: Cash/Deposit (fee offset) = fee amount (reduces net deposit)
  *   DEBIT:  COGS = proportional share of cost (when enabled)
  *   CREDIT: Inventory = proportional share of cost (when enabled)
+ *
+ * FALLBACK CASCADE: When GL mappings are missing, the adapter uses tenant-level
+ * fallback accounts instead of skipping. Revenue NEVER silently drops.
+ *   - Missing payment type → defaultUndepositedFundsAccountId
+ *   - Missing sub-department → defaultUncategorizedRevenueAccountId
+ *   - Missing tax group → defaultSalesTaxPayableAccountId
+ *   - Missing service charge account → defaultUncategorizedRevenueAccountId
+ *   - Missing tips payable account → defaultUncategorizedRevenueAccountId
+ * Unmapped events are ALWAYS logged regardless of whether a fallback was used.
  *
  * NEVER blocks tenders — all failures are logged and swallowed.
  */
@@ -94,7 +101,10 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
 
   // Check if accounting is enabled for this tenant
   const settings = await getAccountingSettings(db, tenantId);
-  if (!settings) return; // no accounting — skip silently
+  if (!settings) {
+    console.warn(`[pos-gl] GL posting skipped: accounting not bootstrapped (tenant=${tenantId}, tender=${data.tenderId})`);
+    return;
+  }
 
   const accountingApi = getAccountingPostingApi();
 
@@ -120,17 +130,22 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   const missingMappings: string[] = [];
 
   // ── 1. DEBIT: Payment received (tender amount + tip) ───────────
-  // The total cash/deposit = amount applied to order + tip
+  // Resolve deposit account: specific mapping > default undeposited funds
   const paymentMethod = data.tenderType ?? data.paymentMethod ?? 'unknown';
   const paymentTypeMapping = await resolvePaymentTypeAccounts(db, tenantId, paymentMethod);
-  if (!paymentTypeMapping) {
-    missingMappings.push(`payment_type:${paymentMethod}`);
-  } else {
-    // If undeposited funds workflow is enabled, use clearing account
-    const depositAccountId = settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId
+
+  let depositAccountId: string | null = null;
+  if (paymentTypeMapping) {
+    depositAccountId = settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId
       ? paymentTypeMapping.clearingAccountId
       : paymentTypeMapping.depositAccountId;
+  } else {
+    // Fallback: use default undeposited funds account
+    depositAccountId = settings.defaultUndepositedFundsAccountId ?? null;
+    missingMappings.push(`payment_type:${paymentMethod}`);
+  }
 
+  if (depositAccountId) {
     const totalDebitCents = data.amount + tipAmount;
     const tenderDollars = (totalDebitCents / 100).toFixed(2);
     glLines.push({
@@ -141,15 +156,10 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
       customerId: data.customerId,
       terminalId: data.terminalId,
       channel: 'pos',
-      memo: `POS tender ${paymentMethod}`,
+      memo: paymentTypeMapping
+        ? `POS tender ${paymentMethod}`
+        : `POS tender ${paymentMethod} (fallback: undeposited funds)`,
     });
-
-    // ── Processing fee (debit expense, credit deposit) ─────────
-    // When feeExpenseAccountId is configured and we have a fee amount,
-    // post the fee as a separate debit/credit pair. Currently, the POS
-    // does not calculate processing fees at tender time, so this is
-    // infrastructure-ready — will activate when fee data is available.
-    // (Intentionally a no-op until fee amount is added to the event.)
   }
 
   // ── 2. CREDIT: Revenue + Tax + COGS + Discounts + Svc Charges ──
@@ -174,7 +184,6 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
         for (const comp of line.packageComponents!) {
           const compSubDeptId = comp.subDepartmentId ?? 'unmapped';
           const existing = revenueBySubDept.get(compSubDeptId) ?? 0;
-          // Apply proportional ratio to each component's allocated revenue
           revenueBySubDept.set(compSubDeptId, existing + Math.round(comp.allocatedRevenueCents * tenderRatio));
         }
       } else {
@@ -200,32 +209,38 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     const totalRevenueCents = Array.from(revenueBySubDept.values()).reduce((sum, v) => sum + v, 0);
 
     for (const [subDeptId, amountCents] of revenueBySubDept) {
-      if (subDeptId === 'unmapped') {
-        missingMappings.push(`sub_department:unmapped`);
-        continue;
+      let revenueAccountId: string | null = null;
+      let subDeptMapping: Awaited<ReturnType<typeof resolveSubDepartmentAccounts>> = null;
+
+      if (subDeptId !== 'unmapped') {
+        subDeptMapping = await resolveSubDepartmentAccounts(db, tenantId, subDeptId);
       }
 
-      const subDeptMapping = await resolveSubDepartmentAccounts(db, tenantId, subDeptId);
-      if (!subDeptMapping) {
+      if (subDeptMapping) {
+        revenueAccountId = subDeptMapping.revenueAccountId;
+      } else {
+        // Fallback: uncategorized revenue account
+        revenueAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
         missingMappings.push(`sub_department:${subDeptId}`);
-        continue;
       }
 
-      if (amountCents > 0) {
+      if (revenueAccountId && amountCents > 0) {
         glLines.push({
-          accountId: subDeptMapping.revenueAccountId,
+          accountId: revenueAccountId,
           debitAmount: '0',
           creditAmount: (amountCents / 100).toFixed(2),
           locationId: data.locationId,
-          subDepartmentId: subDeptId,
+          subDepartmentId: subDeptId !== 'unmapped' ? subDeptId : undefined,
           terminalId: data.terminalId,
           channel: 'pos',
-          memo: `Revenue - sub-dept ${subDeptId}`,
+          memo: subDeptMapping
+            ? `Revenue - sub-dept ${subDeptId}`
+            : `Revenue - unmapped (fallback: uncategorized)`,
         });
       }
 
       // ── Discount debit (contra-revenue by sub-department) ────
-      if (discountTotal > 0 && totalRevenueCents > 0 && subDeptMapping.discountAccountId) {
+      if (discountTotal > 0 && totalRevenueCents > 0 && subDeptMapping?.discountAccountId) {
         const subDeptDiscountShare = Math.round(
           discountTotal * tenderRatio * (amountCents / totalRevenueCents),
         );
@@ -241,7 +256,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
             memo: `Discount - sub-dept ${subDeptId}`,
           });
         }
-      } else if (discountTotal > 0 && totalRevenueCents > 0 && !subDeptMapping.discountAccountId) {
+      } else if (discountTotal > 0 && totalRevenueCents > 0 && !subDeptMapping?.discountAccountId) {
         missingMappings.push(`discount_account:${subDeptId}`);
       }
     }
@@ -284,15 +299,17 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
       }
     }
 
-    // Tax credits — proportional share
+    // Tax credits — proportional share (with fallback to default tax payable)
     for (const [taxGroupId, taxCents] of taxByGroup) {
-      const taxAccountId = await resolveTaxGroupAccount(db, tenantId, taxGroupId);
+      let taxAccountId = await resolveTaxGroupAccount(db, tenantId, taxGroupId);
+
       if (!taxAccountId) {
+        // Fallback: use tenant-level default sales tax payable
+        taxAccountId = settings.defaultSalesTaxPayableAccountId ?? null;
         missingMappings.push(`tax_group:${taxGroupId}`);
-        continue;
       }
 
-      if (taxCents > 0) {
+      if (taxAccountId && taxCents > 0) {
         glLines.push({
           accountId: taxAccountId,
           debitAmount: '0',
@@ -305,46 +322,71 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
       }
     }
   } else {
-    // No line detail — single credit to a default revenue account or skip
+    // No line detail — post full tender amount to uncategorized revenue
     missingMappings.push('no_line_detail');
+    const fallbackRevenueAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
+    if (fallbackRevenueAccountId && data.amount > 0) {
+      const revenueDollars = (data.amount / 100).toFixed(2);
+      glLines.push({
+        accountId: fallbackRevenueAccountId,
+        debitAmount: '0',
+        creditAmount: revenueDollars,
+        locationId: data.locationId,
+        terminalId: data.terminalId,
+        channel: 'pos',
+        memo: 'Revenue - no line detail (fallback: uncategorized)',
+      });
+    }
   }
 
   // ── 3. CREDIT: Service charge revenue (proportional share) ─────
   if (serviceChargeTotal > 0) {
     const svcChargeCents = Math.round(serviceChargeTotal * tenderRatio);
-    if (svcChargeCents > 0 && settings.defaultServiceChargeRevenueAccountId) {
+    const svcAccountId = settings.defaultServiceChargeRevenueAccountId
+      ?? settings.defaultUncategorizedRevenueAccountId
+      ?? null;
+    if (svcChargeCents > 0 && svcAccountId) {
       glLines.push({
-        accountId: settings.defaultServiceChargeRevenueAccountId,
+        accountId: svcAccountId,
         debitAmount: '0',
         creditAmount: (svcChargeCents / 100).toFixed(2),
         locationId: data.locationId,
         terminalId: data.terminalId,
         channel: 'pos',
-        memo: 'Service charge revenue',
+        memo: settings.defaultServiceChargeRevenueAccountId
+          ? 'Service charge revenue'
+          : 'Service charge revenue (fallback: uncategorized)',
       });
-    } else if (svcChargeCents > 0 && !settings.defaultServiceChargeRevenueAccountId) {
-      missingMappings.push('service_charge_account:missing');
+      if (!settings.defaultServiceChargeRevenueAccountId) {
+        missingMappings.push('service_charge_account:missing');
+      }
     }
   }
 
   // ── 4. CREDIT: Tips payable (per-tender, not proportional) ─────
   if (tipAmount > 0) {
-    if (settings.defaultTipsPayableAccountId) {
+    const tipAccountId = settings.defaultTipsPayableAccountId
+      ?? settings.defaultUncategorizedRevenueAccountId
+      ?? null;
+    if (tipAccountId) {
       glLines.push({
-        accountId: settings.defaultTipsPayableAccountId,
+        accountId: tipAccountId,
         debitAmount: '0',
         creditAmount: (tipAmount / 100).toFixed(2),
         locationId: data.locationId,
         terminalId: data.terminalId,
         channel: 'pos',
-        memo: 'Tips payable',
+        memo: settings.defaultTipsPayableAccountId
+          ? 'Tips payable'
+          : 'Tips payable (fallback: uncategorized)',
       });
-    } else {
-      missingMappings.push('tips_payable_account:missing');
+      if (!settings.defaultTipsPayableAccountId) {
+        missingMappings.push('tips_payable_account:missing');
+      }
     }
   }
 
-  // ── 5. Handle missing mappings ─────────────────────────────────
+  // ── 5. Handle missing mappings — always log for resolution ─────
   if (missingMappings.length > 0) {
     for (const reason of missingMappings) {
       await logUnmappedEvent(db, tenantId, {
@@ -356,13 +398,14 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
         reason: `Missing GL mapping: ${reason}`,
       });
     }
-
-    // If we're missing the payment type mapping (debit side), we can't post at all
-    if (!paymentTypeMapping) return;
   }
 
   // ── 6. Only post if we have valid debit and credit lines ───────
-  if (glLines.length < 2) return;
+  // With fallback accounts, this should only fail when NO fallback is configured
+  if (glLines.length < 2) {
+    console.error(`POS GL posting skipped for tender ${data.tenderId}: insufficient GL lines (${glLines.length}) — check fallback account configuration`);
+    return;
+  }
 
   // ── 7. Post GL entry via accounting API ────────────────────────
   try {

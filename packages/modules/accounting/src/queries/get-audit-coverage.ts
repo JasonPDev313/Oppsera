@@ -91,8 +91,8 @@ export async function getAuditCoverage(
         FROM ar_invoices
         WHERE tenant_id = ${tenantId}
           AND status IN ('posted', 'partial', 'paid')
-          AND posted_at >= ${dateRange.from}::timestamptz
-          AND posted_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+          AND created_at >= ${dateRange.from}::timestamptz
+          AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
       `) as any[];
       const arCount = arResult?.count ?? 0;
 

@@ -24,12 +24,23 @@ interface LocationProfile {
   isActive: boolean;
 }
 
+export interface ImpersonationState {
+  sessionId: string;
+  adminEmail: string;
+  adminName: string;
+  tenantName: string;
+  expiresAt: string;
+}
+
+const IMPERSONATION_STORAGE_KEY = 'oppsera_impersonation';
+
 interface MeResponse {
   data: {
     user: AuthUserProfile;
     tenant: TenantProfile | null;
     locations: LocationProfile[];
     membership: { status: string };
+    impersonation: { sessionId: string; adminEmail: string } | null;
   };
 }
 
@@ -46,11 +57,23 @@ interface SignupResponse {
   };
 }
 
+function loadImpersonationFromStorage(): ImpersonationState | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = sessionStorage.getItem(IMPERSONATION_STORAGE_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored) as ImpersonationState;
+  } catch {
+    return null;
+  }
+}
+
 export function useAuth() {
   const [user, setUser] = useState<AuthUserProfile | null>(null);
   const [tenant, setTenant] = useState<TenantProfile | null>(null);
   const [locations, setLocations] = useState<LocationProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [impersonation, setImpersonation] = useState<ImpersonationState | null>(null);
 
   const retryCount = useRef(0);
 
@@ -66,6 +89,11 @@ export function useAuth() {
       setUser(response.data.user);
       setTenant(response.data.tenant);
       setLocations(response.data.locations);
+      // Hydrate impersonation state from sessionStorage if the server confirms it
+      if (response.data.impersonation) {
+        const stored = loadImpersonationFromStorage();
+        if (stored) setImpersonation(stored);
+      }
       retryCount.current = 0;
     } catch (err) {
       // Only clear tokens on actual auth failures (401).
@@ -99,7 +127,7 @@ export function useAuth() {
     fetchMe();
   }, [fetchMe]);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string): Promise<{ needsOnboarding: boolean }> => {
     const response = await apiFetch<LoginResponse>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
@@ -118,7 +146,9 @@ export function useAuth() {
         setTenant(meResponse.data.tenant);
         setLocations(meResponse.data.locations);
         setIsLoading(false);
-        return; // Success — login page can now safely redirect
+        // Return onboarding status directly — React state updates are batched
+        // and won't be reflected in auth.needsOnboarding until next render.
+        return { needsOnboarding: !!meResponse.data.user && !meResponse.data.tenant };
       } catch (err) {
         lastError = err;
         // Auth failure (401) means tokens are bad — don't retry
@@ -150,9 +180,28 @@ export function useAuth() {
       // Best effort
     }
     clearTokens();
+    sessionStorage.removeItem(IMPERSONATION_STORAGE_KEY);
     setUser(null);
     setTenant(null);
     setLocations([]);
+    setImpersonation(null);
+  }, []);
+
+  const exitImpersonation = useCallback(async () => {
+    try {
+      await apiFetch('/api/v1/auth/impersonate/end', { method: 'POST' });
+    } catch {
+      // Best effort — session may already be expired
+    }
+    clearTokens();
+    sessionStorage.removeItem(IMPERSONATION_STORAGE_KEY);
+    setUser(null);
+    setTenant(null);
+    setLocations([]);
+    setImpersonation(null);
+    // Redirect back to admin portal
+    const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+    window.location.href = adminUrl;
   }, []);
 
   return {
@@ -166,5 +215,8 @@ export function useAuth() {
     isLoading,
     isAuthenticated: !!user,
     needsOnboarding: !!user && !tenant,
+    impersonation,
+    isImpersonating: !!impersonation,
+    exitImpersonation,
   };
 }

@@ -11,7 +11,8 @@ type ChannelName =
   | 'tab'
   | 'kds'
   | 'expo'
-  | 'dashboard';
+  | 'dashboard'
+  | 'guest_pay';
 
 interface RealtimeOptions {
   /** Channels to subscribe to */
@@ -28,6 +29,7 @@ const DEFAULT_INTERVALS: Record<ChannelName, number> = {
   kds: 3000,
   expo: 3000,
   dashboard: 15000,
+  guest_pay: 5000,
 };
 
 type RefreshCallback = () => void | Promise<void>;

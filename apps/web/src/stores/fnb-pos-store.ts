@@ -35,6 +35,7 @@ export interface FnbPosState {
   sidebarMode: 'my-tables' | 'stats' | 'waitlist';
   sidebarOpen: boolean;
   menuColumns: 2 | 3 | 4;
+  menuMode: 'all_items' | 'hot_sellers' | 'tools';
   mySectionOnly: boolean;
 
   // Connection
@@ -74,6 +75,7 @@ export interface FnbPosActions {
   setSidebarMode: (mode: 'my-tables' | 'stats' | 'waitlist') => void;
   toggleSidebar: () => void;
   setMenuColumns: (columns: 2 | 3 | 4) => void;
+  setMenuMode: (mode: 'all_items' | 'hot_sellers' | 'tools') => void;
   toggleMySectionOnly: () => void;
 
   // Connection
@@ -107,6 +109,7 @@ const initialState: FnbPosState = {
   sidebarMode: 'my-tables',
   sidebarOpen: true,
   menuColumns: 3,
+  menuMode: 'all_items' as const,
   mySectionOnly: false,
   isOnline: true,
 };
@@ -305,6 +308,12 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
     setMenuColumns: (columns) => {
       set((state) => {
         state.menuColumns = columns;
+      });
+    },
+
+    setMenuMode: (mode) => {
+      set((state) => {
+        state.menuMode = mode;
       });
     },
 

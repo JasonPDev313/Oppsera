@@ -795,7 +795,7 @@ describe('Orders Module', () => {
       // save idempotency key - insert void
       mockInsertVoid();
 
-      const result = await openOrder(ctx, {}) as any;
+      const result = await openOrder(ctx, { clientRequestId: 'test-open-1' }) as any;
 
       expect(result.id).toBe(ORDER_ID);
       expect(result.orderNumber).toBe('0001');
@@ -816,7 +816,7 @@ describe('Orders Module', () => {
 
     it('throws when no locationId', async () => {
       const ctx = makeCtx({ locationId: undefined });
-      await expect(openOrder(ctx, {})).rejects.toThrow(
+      await expect(openOrder(ctx, { clientRequestId: 'test-open-2' })).rejects.toThrow(
         'X-Location-Id header is required',
       );
     });
@@ -832,7 +832,7 @@ describe('Orders Module', () => {
       mockInsertReturns(created);
       mockInsertVoid();
 
-      const result = await openOrder(ctx, { businessDate: '2026-01-01' }) as any;
+      const result = await openOrder(ctx, { clientRequestId: 'test-open-3', businessDate: '2026-01-01' }) as any;
       expect(result.orderNumber).toBe('0005');
     });
 
@@ -907,6 +907,7 @@ describe('Orders Module', () => {
       mockInsertVoid();
 
       const result = (await addLineItem(ctx, ORDER_ID, {
+        clientRequestId: 'test-line-1',
         catalogItemId: 'item_01',
         qty: 1,
       })) as any;
@@ -924,14 +925,14 @@ describe('Orders Module', () => {
       const ctx = makeCtx();
       mockGetItemForPOS.mockResolvedValue(null);
       await expect(
-        addLineItem(ctx, ORDER_ID, { catalogItemId: 'missing', qty: 1 }),
+        addLineItem(ctx, ORDER_ID, { clientRequestId: 'test-line-2', catalogItemId: 'missing', qty: 1 }),
       ).rejects.toThrow('not found');
     });
 
     it('throws when no locationId', async () => {
       const ctx = makeCtx({ locationId: undefined });
       await expect(
-        addLineItem(ctx, ORDER_ID, { catalogItemId: 'item_01', qty: 1 }),
+        addLineItem(ctx, ORDER_ID, { clientRequestId: 'test-line-3', catalogItemId: 'item_01', qty: 1 }),
       ).rejects.toThrow('X-Location-Id header is required');
     });
 
@@ -959,6 +960,7 @@ describe('Orders Module', () => {
       mockInsertVoid();
 
       const result = (await addLineItem(ctx, ORDER_ID, {
+        clientRequestId: 'test-line-4',
         catalogItemId: 'item_01',
         qty: 1,
         priceOverride: {
@@ -990,7 +992,7 @@ describe('Orders Module', () => {
       ]);
 
       await expect(
-        addLineItem(ctx, ORDER_ID, { catalogItemId: 'item_01', qty: 1 }),
+        addLineItem(ctx, ORDER_ID, { clientRequestId: 'test-line-5', catalogItemId: 'item_01', qty: 1 }),
       ).rejects.toThrow('expected open');
     });
   });
@@ -1020,6 +1022,7 @@ describe('Orders Module', () => {
       mockInsertVoid(); // idempotency
 
       const result = (await removeLineItem(ctx, ORDER_ID, {
+        clientRequestId: 'test-rm-line-1',
         lineItemId: 'line_01',
       })) as any;
       expect(result.lineId).toBe('line_01');
@@ -1031,14 +1034,14 @@ describe('Orders Module', () => {
       mockSelectReturns([]); // line not found
 
       await expect(
-        removeLineItem(ctx, ORDER_ID, { lineItemId: 'missing' }),
+        removeLineItem(ctx, ORDER_ID, { clientRequestId: 'test-rm-line-2', lineItemId: 'missing' }),
       ).rejects.toThrow('not found');
     });
 
     it('throws when no locationId', async () => {
       const ctx = makeCtx({ locationId: undefined });
       await expect(
-        removeLineItem(ctx, ORDER_ID, { lineItemId: 'line_01' }),
+        removeLineItem(ctx, ORDER_ID, { clientRequestId: 'test-rm-line-3', lineItemId: 'line_01' }),
       ).rejects.toThrow('X-Location-Id header is required');
     });
   });
@@ -1065,6 +1068,7 @@ describe('Orders Module', () => {
       mockInsertVoid();
 
       const result = (await addServiceCharge(ctx, ORDER_ID, {
+        clientRequestId: 'test-svc-1',
         chargeType: 'service_charge',
         name: 'Service Fee',
         calculationType: 'fixed',
@@ -1089,6 +1093,7 @@ describe('Orders Module', () => {
       mockInsertVoid();
 
       const result = (await addServiceCharge(ctx, ORDER_ID, {
+        clientRequestId: 'test-svc-2',
         chargeType: 'auto_gratuity',
         name: '10% Gratuity',
         calculationType: 'percentage',
@@ -1102,6 +1107,7 @@ describe('Orders Module', () => {
       const ctx = makeCtx({ locationId: undefined });
       await expect(
         addServiceCharge(ctx, ORDER_ID, {
+          clientRequestId: 'test-svc-3',
           chargeType: 'service_charge',
           name: 'Fee',
           calculationType: 'fixed',
@@ -1129,6 +1135,7 @@ describe('Orders Module', () => {
       mockInsertVoid();
 
       const result = (await removeServiceCharge(ctx, ORDER_ID, {
+        clientRequestId: 'test-rm-svc-1',
         chargeId: 'chg_01',
       })) as any;
       expect(result.chargeId).toBe('chg_01');
@@ -1140,7 +1147,7 @@ describe('Orders Module', () => {
       mockSelectReturns([]);
 
       await expect(
-        removeServiceCharge(ctx, ORDER_ID, { chargeId: 'missing' }),
+        removeServiceCharge(ctx, ORDER_ID, { clientRequestId: 'test-rm-svc-2', chargeId: 'missing' }),
       ).rejects.toThrow('not found');
     });
   });
@@ -1166,6 +1173,7 @@ describe('Orders Module', () => {
       mockInsertVoid();
 
       const result = (await applyDiscount(ctx, ORDER_ID, {
+        clientRequestId: 'test-disc-1',
         type: 'percentage',
         value: 10,
       })) as any;
@@ -1175,7 +1183,7 @@ describe('Orders Module', () => {
     it('throws when no locationId', async () => {
       const ctx = makeCtx({ locationId: undefined });
       await expect(
-        applyDiscount(ctx, ORDER_ID, { type: 'percentage', value: 10 }),
+        applyDiscount(ctx, ORDER_ID, { clientRequestId: 'test-disc-2', type: 'percentage', value: 10 }),
       ).rejects.toThrow('X-Location-Id header is required');
     });
   });
@@ -1226,7 +1234,7 @@ describe('Orders Module', () => {
       // idempotency
       mockInsertVoid();
 
-      const result = await placeOrder(ctx, ORDER_ID, {}) as any;
+      const result = await placeOrder(ctx, ORDER_ID, { clientRequestId: 'test-place-1' }) as any;
       expect(result.status).toBe('placed');
       expect(result.receiptSnapshot).toBeDefined();
     });
@@ -1236,7 +1244,7 @@ describe('Orders Module', () => {
       mockExecute.mockResolvedValueOnce([mockOrderDbRow]);
       mockSelectReturns([]); // no lines
 
-      await expect(placeOrder(ctx, ORDER_ID, {})).rejects.toThrow(
+      await expect(placeOrder(ctx, ORDER_ID, { clientRequestId: 'test-place-2' })).rejects.toThrow(
         'at least one line item',
       );
     });
@@ -1247,14 +1255,14 @@ describe('Orders Module', () => {
         { ...mockOrderDbRow, status: 'voided' },
       ]);
 
-      await expect(placeOrder(ctx, ORDER_ID, {})).rejects.toThrow(
+      await expect(placeOrder(ctx, ORDER_ID, { clientRequestId: 'test-place-3' })).rejects.toThrow(
         'expected open',
       );
     });
 
     it('throws when no locationId', async () => {
       const ctx = makeCtx({ locationId: undefined });
-      await expect(placeOrder(ctx, ORDER_ID, {})).rejects.toThrow(
+      await expect(placeOrder(ctx, ORDER_ID, { clientRequestId: 'test-place-4' })).rejects.toThrow(
         'X-Location-Id header is required',
       );
     });
@@ -1271,6 +1279,7 @@ describe('Orders Module', () => {
       mockInsertVoid();
 
       const result = (await voidOrder(ctx, ORDER_ID, {
+        clientRequestId: 'test-void-1',
         reason: 'Customer left',
       })) as any;
       expect(result.status).toBe('voided');
@@ -1287,6 +1296,7 @@ describe('Orders Module', () => {
       mockInsertVoid();
 
       const result = (await voidOrder(ctx, ORDER_ID, {
+        clientRequestId: 'test-void-2',
         reason: 'Wrong items',
       })) as any;
       expect(result.status).toBe('voided');
@@ -1299,14 +1309,14 @@ describe('Orders Module', () => {
       ]);
 
       await expect(
-        voidOrder(ctx, ORDER_ID, { reason: 'test' }),
+        voidOrder(ctx, ORDER_ID, { clientRequestId: 'test-void-3', reason: 'test' }),
       ).rejects.toThrow('expected open or placed');
     });
 
     it('throws when no locationId', async () => {
       const ctx = makeCtx({ locationId: undefined });
       await expect(
-        voidOrder(ctx, ORDER_ID, { reason: 'test' }),
+        voidOrder(ctx, ORDER_ID, { clientRequestId: 'test-void-4', reason: 'test' }),
       ).rejects.toThrow('X-Location-Id header is required');
     });
   });

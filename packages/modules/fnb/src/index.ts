@@ -399,6 +399,26 @@ export { resolveRoutedPrinter, isReceiptType, isStationType } from './helpers/pr
 export type { RoutingRule, PrintRoutingContext } from './helpers/printer-routing';
 
 // ═══════════════════════════════════════════════════════════════════
+// Guest Pay — Pay at the Table via QR Code
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { createGuestPaySession } from './commands/create-guest-pay-session';
+export { selectGuestPayTip } from './commands/select-guest-pay-tip';
+export { simulateGuestPayment } from './commands/simulate-guest-payment';
+export { invalidateGuestPaySession } from './commands/invalidate-guest-pay-session';
+export { updateGuestPayTipSettings } from './commands/update-guest-pay-tip-settings';
+export { expireGuestPaySessions } from './commands/expire-guest-pay-sessions';
+export { chargeMemberAccount } from './commands/charge-member-account';
+
+// Queries
+export { getGuestPaySessionByToken } from './queries/get-guest-pay-session-by-token';
+export { getGuestPaySession } from './queries/get-guest-pay-session';
+export { listGuestPaySessionsForTab } from './queries/list-guest-pay-sessions-for-tab';
+export { getGuestPayTipSettings } from './queries/get-guest-pay-tip-settings';
+export { getActiveGuestPayForTab } from './queries/get-active-guest-pay-for-tab';
+
+// ═══════════════════════════════════════════════════════════════════
 // Session 15: F&B Reporting Read Models
 // ═══════════════════════════════════════════════════════════════════
 
@@ -571,6 +591,12 @@ export {
   getKitchenPerformanceSchema, getDaypartSalesSchema,
   getMenuMixSchema, getDiscountCompAnalysisSchema,
   getHourlySalesSchema, getFnbDashboardSchema,
+  // Guest Pay
+  GUEST_PAY_SESSION_STATUSES, GUEST_PAY_ATTEMPT_STATUSES,
+  createGuestPaySessionSchema, selectGuestPayTipSchema,
+  simulateGuestPaymentSchema, invalidateGuestPaySessionSchema,
+  updateGuestPayTipSettingsSchema,
+  guestPayMemberAuthSchema, guestPayMemberVerifySchema, chargeMemberAccountSchema,
 } from './validation';
 
 export type {
@@ -662,6 +688,12 @@ export type {
   GetKitchenPerformanceInput, GetDaypartSalesInput,
   GetMenuMixInput, GetDiscountCompAnalysisInput,
   GetHourlySalesInput, GetFnbDashboardInput,
+  // Guest Pay
+  GuestPaySessionStatus, GuestPayAttemptStatus,
+  CreateGuestPaySessionInput, SelectGuestPayTipInput,
+  SimulateGuestPaymentInput, InvalidateGuestPaySessionInput,
+  UpdateGuestPayTipSettingsInput,
+  GuestPayMemberAuthInput, GuestPayMemberVerifyInput, ChargeMemberAccountInput,
 } from './validation';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -723,6 +755,9 @@ export type {
   // Session 14
   PrintJobCreatedPayload, PrintJobCompletedPayload,
   PrintJobFailedPayload, PrintJobReprintedPayload,
+  // Guest Pay
+  GuestPaySessionCreatedPayload, GuestPayPaymentSucceededPayload,
+  GuestPaySessionInvalidatedPayload, GuestPaySessionSupersededPayload,
 } from './events/types';
 
 // ═══════════════════════════════════════════════════════════════════

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CreditCard, Check, XCircle } from 'lucide-react';
+import { CreditCard, Check, XCircle, AlertTriangle, Clock } from 'lucide-react';
 
 interface PreAuth {
   id: string;
@@ -11,6 +11,7 @@ interface PreAuth {
   cardLast4: string;
   cardBrand: string | null;
   authorizedAt: string;
+  expiresAt?: string | null;
 }
 
 interface PreAuthCaptureProps {
@@ -21,6 +22,18 @@ interface PreAuthCaptureProps {
   disabled?: boolean;
 }
 
+// Phase 3D: Expiry thresholds
+const EXPIRY_WARNING_MS = 30 * 60 * 1000; // 30 minutes
+
+function getExpiryStatus(expiresAt: string | null | undefined): 'ok' | 'expiring_soon' | 'expired' {
+  if (!expiresAt) return 'ok';
+  const expiresDate = new Date(expiresAt);
+  const now = new Date();
+  if (expiresDate <= now) return 'expired';
+  if (expiresDate.getTime() - now.getTime() <= EXPIRY_WARNING_MS) return 'expiring_soon';
+  return 'ok';
+}
+
 export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabled }: PreAuthCaptureProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tipInput, setTipInput] = useState('');
@@ -28,7 +41,9 @@ export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabl
   const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
   const tipCents = tipInput ? Math.round(parseFloat(tipInput) * 100) : 0;
 
-  const activePreauths = preauths.filter((p) => p.status === 'authorized');
+  const activePreauths = preauths.filter(
+    (p) => p.status === 'authorized' || p.status === 'created',
+  );
 
   if (activePreauths.length === 0) {
     return (
@@ -41,43 +56,90 @@ export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabl
 
   return (
     <div className="flex flex-col gap-3">
-      <span className="text-[10px] font-bold uppercase px-1" style={{ color: 'var(--fnb-text-muted)' }}>
+      <span
+        className="text-[10px] font-bold uppercase px-1"
+        style={{ color: 'var(--fnb-text-muted)' }}
+      >
         Pre-Authorized Cards
       </span>
 
       {activePreauths.map((pa) => {
         const isSelected = selectedId === pa.id;
+        const expiryStatus = getExpiryStatus(pa.expiresAt);
+        const isExpired = expiryStatus === 'expired';
+
         return (
           <div key={pa.id}>
             <button
               type="button"
               onClick={() => setSelectedId(isSelected ? null : pa.id)}
-              className="w-full flex items-center justify-between rounded-lg px-3 py-2 border transition-colors"
+              disabled={isExpired}
+              className="w-full flex items-center justify-between rounded-lg px-3 py-2 border transition-colors disabled:opacity-50"
               style={{
-                borderColor: isSelected ? 'var(--fnb-status-seated)' : 'rgba(148, 163, 184, 0.15)',
-                backgroundColor: isSelected
-                  ? 'color-mix(in srgb, var(--fnb-status-seated) 10%, transparent)'
-                  : 'var(--fnb-bg-elevated)',
+                borderColor: isExpired
+                  ? 'var(--fnb-danger)'
+                  : isSelected
+                    ? 'var(--fnb-status-seated)'
+                    : 'rgba(148, 163, 184, 0.15)',
+                backgroundColor: isExpired
+                  ? 'var(--fnb-payment-error-bg)'
+                  : isSelected
+                    ? 'color-mix(in srgb, var(--fnb-status-seated) 10%, transparent)'
+                    : 'var(--fnb-bg-elevated)',
               }}
             >
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4" style={{ color: 'var(--fnb-text-muted)' }} />
-                <span className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+                <span
+                  className="text-sm font-bold"
+                  style={{ color: 'var(--fnb-text-primary)' }}
+                >
                   {pa.cardBrand ?? 'Card'} ····{pa.cardLast4}
                 </span>
+
+                {/* Phase 3D: Expiry badges */}
+                {expiryStatus === 'expired' && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                    style={{
+                      backgroundColor: 'var(--fnb-payment-error-bg)',
+                      color: 'var(--fnb-danger)',
+                    }}
+                  >
+                    <XCircle className="h-3 w-3" />
+                    Expired
+                  </span>
+                )}
+                {expiryStatus === 'expiring_soon' && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold"
+                    style={{
+                      backgroundColor: 'var(--fnb-payment-partial-bg)',
+                      color: 'var(--fnb-warning)',
+                    }}
+                  >
+                    <Clock className="h-3 w-3" />
+                    Expires soon
+                  </span>
+                )}
               </div>
               <span
                 className="text-sm font-mono"
-                style={{ color: 'var(--fnb-text-secondary)', fontFamily: 'var(--fnb-font-mono)' }}
+                style={{
+                  color: 'var(--fnb-text-secondary)',
+                  fontFamily: 'var(--fnb-font-mono)',
+                }}
               >
                 Auth: {formatMoney(pa.authAmountCents)}
               </span>
             </button>
 
-            {isSelected && (
+            {isSelected && !isExpired && (
               <div className="mt-2 flex flex-col gap-2 pl-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>Tip $</span>
+                  <span className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
+                    Tip $
+                  </span>
                   <input
                     type="number"
                     step="0.01"
@@ -92,10 +154,26 @@ export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabl
                       fontFamily: 'var(--fnb-font-mono)',
                     }}
                   />
-                  <span className="text-xs font-mono" style={{ color: 'var(--fnb-text-muted)' }}>
+                  <span
+                    className="text-xs font-mono"
+                    style={{ color: 'var(--fnb-text-muted)' }}
+                  >
                     Total: {formatMoney(totalCents + tipCents)}
                   </span>
                 </div>
+
+                {/* Warn if capture exceeds auth amount */}
+                {totalCents + tipCents > pa.authAmountCents && (
+                  <div
+                    className="flex items-center gap-1.5 text-[10px] px-1"
+                    style={{ color: 'var(--fnb-warning)' }}
+                  >
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    Capture exceeds auth by{' '}
+                    {formatMoney(totalCents + tipCents - pa.authAmountCents)}
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -112,7 +190,10 @@ export function PreAuthCapture({ preauths, totalCents, onCapture, onVoid, disabl
                     onClick={() => onVoid(pa.id)}
                     disabled={disabled}
                     className="flex items-center justify-center gap-1 rounded-lg px-3 py-2 text-xs font-bold transition-colors hover:opacity-80 disabled:opacity-40"
-                    style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-status-dirty)' }}
+                    style={{
+                      backgroundColor: 'var(--fnb-bg-elevated)',
+                      color: 'var(--fnb-status-dirty)',
+                    }}
                   >
                     <XCircle className="h-3.5 w-3.5" />
                     Void

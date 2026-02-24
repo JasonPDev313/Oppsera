@@ -53,7 +53,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
               group relative flex flex-col items-center justify-center
               border-2 transition-all select-none
               rounded-lg w-[100px] h-[90px]
-              ${isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-[var(--fnb-bg-primary)] scale-105' : ''}
+              ${isSelected ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-white scale-105' : ''}
             `}
             style={{
               borderColor: statusColor,
@@ -61,10 +61,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
             }}
           >
             {/* Table number */}
-            <span
-              className="font-bold leading-none text-lg"
-              style={{ color: 'var(--fnb-text-primary)' }}
-            >
+            <span className="font-bold leading-none text-lg text-gray-900">
               {table.tableNumber}
             </span>
 
@@ -78,10 +75,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
 
             {/* Party size badge */}
             {table.partySize != null && table.partySize > 0 && (
-              <span
-                className="absolute top-1 right-1 flex items-center gap-0.5 text-[9px]"
-                style={{ color: 'var(--fnb-text-secondary)' }}
-              >
+              <span className="absolute top-1 right-1 flex items-center gap-0.5 text-[9px] text-gray-500">
                 <Users className="h-2.5 w-2.5" />
                 {table.partySize}
               </span>
@@ -89,10 +83,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
 
             {/* Timer badge */}
             {elapsed && (
-              <span
-                className="absolute bottom-1 right-1 flex items-center gap-0.5 text-[9px] fnb-mono"
-                style={{ color: 'var(--fnb-text-muted)' }}
-              >
+              <span className="absolute bottom-1 right-1 flex items-center gap-0.5 text-[9px] text-gray-400">
                 <Clock className="h-2.5 w-2.5" />
                 {elapsed}
               </span>
@@ -111,11 +102,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
                 onClick={(e) => { e.stopPropagation(); onAddTab(table.tableId); }}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onAddTab(table.tableId); } }}
                 onPointerDown={(e) => e.stopPropagation()}
-                className="absolute -bottom-1.5 -right-1.5 flex items-center justify-center rounded-full w-5 h-5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shadow-md"
-                style={{
-                  backgroundColor: 'var(--fnb-status-available)',
-                  color: '#fff',
-                }}
+                className="absolute -bottom-1.5 -right-1.5 flex items-center justify-center rounded-full w-5 h-5 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity shadow-md bg-green-600 text-white"
                 title="Add new tab"
               >
                 <Plus className="h-3 w-3" />

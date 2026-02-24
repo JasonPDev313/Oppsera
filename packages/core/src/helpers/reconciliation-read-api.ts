@@ -245,6 +245,52 @@ export interface InventoryMovementsSummaryData {
   endingInventoryDollars: number;
 }
 
+// ── GL Remap Domain Return Types ────────────────────────────
+
+export interface TenderForGlRepostLineData {
+  catalogItemId: string;
+  catalogItemName: string;
+  subDepartmentId: string | null;
+  qty: number;
+  extendedPriceCents: number;
+  taxGroupId: string | null;
+  taxAmountCents: number;
+  costCents: number | null;
+  packageComponents: Array<{
+    catalogItemId: string;
+    catalogItemName: string;
+    subDepartmentId: string | null;
+    qty: number;
+    componentUnitPriceCents: number;
+    componentExtendedCents: number;
+    allocatedRevenueCents: number;
+    allocationWeight: number;
+  }> | null;
+}
+
+export interface TenderForGlRepostData {
+  tenderId: string;
+  orderId: string;
+  tenantId: string;
+  locationId: string;
+  tenderType: string;
+  paymentMethod: string;
+  amount: number;
+  tipAmount: number;
+  customerId: string | null;
+  terminalId: string | null;
+  tenderSequence: number;
+  isFullyPaid: boolean;
+  orderTotal: number;
+  subtotal: number;
+  taxTotal: number;
+  discountTotal: number;
+  serviceChargeTotal: number;
+  totalTendered: number;
+  businessDate: string;
+  lines: TenderForGlRepostLineData[];
+}
+
 // ── Interface ───────────────────────────────────────────────
 
 export interface ReconciliationReadApi {
@@ -356,17 +402,24 @@ export interface ReconciliationReadApi {
   getReceivingPurchasesTotals(
     tenantId: string, periodStart: string, periodEnd: string,
   ): Promise<number>;
+
+  // ── GL Remap Domain (1 method → payments module) ──────────
+  getTenderForGlRepost(
+    tenantId: string, tenderId: string,
+  ): Promise<TenderForGlRepostData | null>;
 }
 
 // ── Singleton ───────────────────────────────────────────────
 
-let _api: ReconciliationReadApi | null = null;
+// Use globalThis to persist across Next.js HMR module reloads in dev mode
+const GLOBAL_KEY = '__oppsera_reconciliation_read_api__' as const;
 
 export function getReconciliationReadApi(): ReconciliationReadApi {
-  if (!_api) throw new Error('ReconciliationReadApi not initialized');
-  return _api;
+  const api = (globalThis as Record<string, unknown>)[GLOBAL_KEY] as ReconciliationReadApi | undefined;
+  if (!api) throw new Error('ReconciliationReadApi not initialized');
+  return api;
 }
 
 export function setReconciliationReadApi(api: ReconciliationReadApi): void {
-  _api = api;
+  (globalThis as Record<string, unknown>)[GLOBAL_KEY] = api;
 }

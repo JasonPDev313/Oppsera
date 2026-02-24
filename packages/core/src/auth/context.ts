@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { AuthUser } from './index';
+import type { ImpersonationInfo } from './impersonation';
 
 export interface RequestContext {
   user: AuthUser;
@@ -7,6 +8,7 @@ export interface RequestContext {
   locationId?: string;
   requestId: string;
   isPlatformAdmin: boolean;
+  impersonation?: ImpersonationInfo;
 }
 
 export const requestContext = new AsyncLocalStorage<RequestContext>();

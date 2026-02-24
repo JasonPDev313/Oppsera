@@ -16,6 +16,8 @@ import type {
   TipPayoutItem,
   TerminalCloseStatus,
   LocationCloseStatusData,
+  TenderForGlRepostData,
+  TenderForGlRepostLineData,
 } from '@oppsera/core/helpers/reconciliation-read-api';
 
 // ── 1. getTendersSummary ─────────────────────────────────────
@@ -857,7 +859,7 @@ export async function getLocationCloseStatus(
         rcb.status AS close_batch_status,
         rcb.id AS close_batch_id
       FROM terminals t
-      JOIN terminal_locations tl ON tl.id = t.profit_center_id
+      JOIN terminal_locations tl ON tl.id = t.terminal_location_id
       LEFT JOIN drawer_sessions ds ON ds.terminal_id = t.id
         AND ds.tenant_id = ${tenantId}
         AND ds.business_date = ${businessDate}
@@ -920,6 +922,100 @@ export async function getLocationCloseStatus(
       allTerminalsClosed,
       fnbClosed,
       depositReady: allTerminalsClosed && fnbClosed,
+    };
+  });
+}
+
+// ── 18. getTenderForGlRepost ────────────────────────────────
+
+export async function getTenderForGlRepost(
+  tenantId: string,
+  tenderId: string,
+): Promise<TenderForGlRepostData | null> {
+  return withTenant(tenantId, async (tx) => {
+    // 1. Load tender
+    const tenderRows = await tx.execute(sql`
+      SELECT t.id, t.order_id, t.tender_type, t.amount, t.tip_amount,
+             t.business_date::text AS business_date, t.location_id, t.terminal_id,
+             t.tender_sequence, t.status
+      FROM tenders t
+      WHERE t.id = ${tenderId} AND t.tenant_id = ${tenantId}
+      LIMIT 1
+    `);
+    const tenderArr = Array.from(tenderRows as Iterable<Record<string, unknown>>);
+    if (tenderArr.length === 0) return null;
+    const t = tenderArr[0]!;
+
+    if (String(t.status) !== 'captured') return null;
+
+    const orderId = String(t.order_id);
+
+    // 2. Load order
+    const orderRows = await tx.execute(sql`
+      SELECT o.total, o.subtotal, o.tax_total, o.discount_total,
+             o.service_charge_total, o.customer_id
+      FROM orders o
+      WHERE o.id = ${orderId} AND o.tenant_id = ${tenantId}
+      LIMIT 1
+    `);
+    const orderArr = Array.from(orderRows as Iterable<Record<string, unknown>>);
+    if (orderArr.length === 0) return null;
+    const o = orderArr[0]!;
+
+    // 3. Determine isFullyPaid
+    const sumRows = await tx.execute(sql`
+      SELECT COALESCE(SUM(amount), 0)::integer AS total_tendered
+      FROM tenders
+      WHERE tenant_id = ${tenantId} AND order_id = ${orderId} AND status = 'captured'
+    `);
+    const sumArr = Array.from(sumRows as Iterable<Record<string, unknown>>);
+    const totalTendered = Number(sumArr[0]?.total_tendered ?? 0);
+    const orderTotal = Number(o.total ?? 0);
+    const isFullyPaid = totalTendered >= orderTotal;
+
+    // 4. Load order lines
+    const lineRows = await tx.execute(sql`
+      SELECT catalog_item_id, catalog_item_name, sub_department_id,
+             qty, line_subtotal, tax_group_id, line_tax,
+             cost_price, package_components
+      FROM order_lines
+      WHERE tenant_id = ${tenantId} AND order_id = ${orderId}
+    `);
+    const lineArr = Array.from(lineRows as Iterable<Record<string, unknown>>);
+
+    const lines: TenderForGlRepostLineData[] = lineArr.map((l) => ({
+      catalogItemId: String(l.catalog_item_id ?? ''),
+      catalogItemName: String(l.catalog_item_name ?? ''),
+      subDepartmentId: l.sub_department_id ? String(l.sub_department_id) : null,
+      qty: Number(l.qty ?? 1),
+      extendedPriceCents: Number(l.line_subtotal ?? 0),
+      taxGroupId: l.tax_group_id ? String(l.tax_group_id) : null,
+      taxAmountCents: Number(l.line_tax ?? 0),
+      costCents: l.cost_price != null ? Number(l.cost_price) : null,
+      packageComponents: (l.package_components as TenderForGlRepostLineData['packageComponents']) ?? null,
+    }));
+
+    return {
+      tenderId: String(t.id),
+      orderId,
+      tenantId,
+      locationId: String(t.location_id ?? ''),
+      tenderType: String(t.tender_type ?? 'cash'),
+      paymentMethod: String(t.tender_type ?? 'cash'),
+      amount: Number(t.amount),
+      tipAmount: Number(t.tip_amount ?? 0),
+      customerId: o.customer_id ? String(o.customer_id) : null,
+      terminalId: t.terminal_id ? String(t.terminal_id) : null,
+      tenderSequence: Number(t.tender_sequence ?? 1),
+      isFullyPaid,
+      orderTotal,
+      subtotal: Number(o.subtotal ?? 0),
+      taxTotal: Number(o.tax_total ?? 0),
+      discountTotal: Number(o.discount_total ?? 0),
+      serviceChargeTotal: Number(o.service_charge_total ?? 0),
+      totalTendered,
+      businessDate: String(t.business_date),
+      lines,
     };
   });
 }

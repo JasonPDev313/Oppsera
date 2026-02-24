@@ -1,18 +1,29 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api-client';
 import { ApiError } from '@/lib/api-client';
+import { useAuthContext } from '@/components/auth-provider';
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const auth = useAuthContext();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  // If arriving with ?fresh=1, clear any stale session so the user can
+  // create a new account (e.g., stuck incomplete onboarding from another account).
+  useEffect(() => {
+    if (searchParams.get('fresh') === '1') {
+      auth.logout();
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

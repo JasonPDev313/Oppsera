@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════
    F&B POS Design Tokens
-   Dark theme ONLY — standard for POS (reduces glare in dim restaurants)
+   Default: dark theme (standard POS). Light mode overrides below.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -34,7 +34,7 @@
   --fnb-info: #3b82f6;
   --fnb-neutral: #6b7280;
 
-  /* ── Background Tiers (dark theme) ─────────────────────────────── */
+  /* ── Background Tiers (dark theme default) ────────────────────── */
   --fnb-bg-primary: #0f172a;             /* slate-900 — app background */
   --fnb-bg-surface: #1e293b;             /* slate-800 — card/panel surface */
   --fnb-bg-elevated: #334155;            /* slate-700 — elevated panels */
@@ -146,6 +146,79 @@
   --fnb-delta-bg: rgba(239, 68, 68, 0.15);
   --fnb-delta-border: #ef4444;
   --fnb-delta-text: #fca5a5;
+
+  /* ── Action Button Colors (brand colors, same in dark/light) ──── */
+  --fnb-action-send: #2196F3;
+  --fnb-action-fire: #FF9800;
+  --fnb-action-split: #607D8B;
+  --fnb-action-void: #f44336;
+  --fnb-action-pay: #4CAF50;
+
+  /* ── Seat Rail ───────────────────────────────────────────────────── */
+  --fnb-seat-rail-bg: #16213e;
+
+  /* ── Category Sidebar ────────────────────────────────────────────── */
+  --fnb-category-sidebar-width: 230px;
+
+  /* ── Guest Pay ────────────────────────────────────────────────────── */
+  --fnb-guest-pay-active: #8b5cf6;    /* violet — distinct from check-presented yellow */
+
+  /* ── Payment Flow Tokens ────────────────────────────────────────── */
+  --fnb-payment-success-bg: color-mix(in srgb, var(--fnb-status-available) 12%, transparent);
+  --fnb-payment-partial-bg: color-mix(in srgb, var(--fnb-warning) 12%, transparent);
+  --fnb-payment-error-bg: color-mix(in srgb, var(--fnb-danger) 12%, transparent);
+  --fnb-tender-cash: var(--fnb-status-available);
+  --fnb-tender-card: var(--fnb-status-seated);
+  --fnb-tender-gift: var(--fnb-status-dessert);
+  --fnb-tender-house: var(--fnb-status-ordered);
+  --fnb-change-due-size: 2.25rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Light Mode Overrides
+   Only backgrounds, text, borders, and shadows change.
+   Status colors, seat/check colors, touch targets, spacing stay the same.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.light {
+  /* ── Background Tiers (light theme) ────────────────────────────── */
+  --fnb-bg-primary: #f8fafc;             /* slate-50 — app background */
+  --fnb-bg-surface: #ffffff;             /* white — card/panel surface */
+  --fnb-bg-elevated: #f1f5f9;            /* slate-100 — elevated panels */
+  --fnb-bg-overlay: rgba(0, 0, 0, 0.3);  /* lighter backdrop */
+
+  /* ── Text Hierarchy (light theme) ──────────────────────────────── */
+  --fnb-text-primary: #0f172a;           /* slate-900 */
+  --fnb-text-secondary: #475569;         /* slate-600 */
+  --fnb-text-muted: #64748b;            /* slate-500 */
+  --fnb-text-disabled: #cbd5e1;          /* slate-300 */
+
+  /* ── Borders (light theme — slightly more visible) ─────────────── */
+  --fnb-border-subtle: 1px solid rgba(100, 116, 139, 0.2);
+
+  /* ── Shadows (light theme — softer) ────────────────────────────── */
+  --fnb-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --fnb-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --fnb-shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --fnb-shadow-overlay: 0 25px 50px rgba(0, 0, 0, 0.15);
+
+  /* ── Status adjustments for light bg ───────────────────────────── */
+  --fnb-status-bg-opacity: 0.1;          /* slightly lower for light bg */
+  --fnb-status-blocked: #9ca3af;         /* gray-400 — visible on light bg */
+  --fnb-status-paid: #9ca3af;            /* gray-400 — visible on light bg */
+
+  /* ── Course/delta adjustments for light bg ──────────────────────── */
+  --fnb-course-unsent: #cbd5e1;          /* slate-300 — visible on light bg */
+  --fnb-delta-bg: rgba(239, 68, 68, 0.08);
+  --fnb-delta-text: #dc2626;             /* red-600 — readable on light bg */
+
+  /* ── Seat Rail (light) ────────────────────────────────────────── */
+  --fnb-seat-rail-bg: #e8edf5;
+
+  /* ── Payment Flow (light) ───────────────────────────────────────── */
+  --fnb-payment-success-bg: color-mix(in srgb, var(--fnb-status-available) 8%, transparent);
+  --fnb-payment-partial-bg: color-mix(in srgb, var(--fnb-warning) 8%, transparent);
+  --fnb-payment-error-bg: color-mix(in srgb, var(--fnb-danger) 8%, transparent);
 }
 
 /* ── Pulsing Alert Animation ──────────────────────────────────────── */

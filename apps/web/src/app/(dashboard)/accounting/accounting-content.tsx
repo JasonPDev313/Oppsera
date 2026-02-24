@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   FileSpreadsheet,
@@ -14,12 +15,15 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
+import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
+import { BootstrapWizard } from '@/components/accounting/bootstrap-wizard';
 import { StatusBadge } from '@/components/accounting/status-badge';
 import { formatAccountingMoney } from '@/types/accounting';
 import type { HealthSummary } from '@/types/accounting';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { useAuditCoverage } from '@/hooks/use-audit';
+import { useAccountingBootstrapStatus } from '@/hooks/use-accounting';
 
 // ── Quick link definitions ────────────────────────────────────
 
@@ -69,6 +73,9 @@ function getDefaultDateRange() {
 }
 
 export default function AccountingDashboardContent() {
+  const { isBootstrapped, isLoading: bootstrapLoading } = useAccountingBootstrapStatus();
+  const [showBootstrap, setShowBootstrap] = useState(false);
+
   const { data: health, isLoading } = useQuery({
     queryKey: ['accounting-health-summary'],
     queryFn: () =>
@@ -81,6 +88,23 @@ export default function AccountingDashboardContent() {
 
   const dateRange = getDefaultDateRange();
   const { data: auditCoverage } = useAuditCoverage(dateRange);
+
+  // Show bootstrap wizard if not bootstrapped
+  if (!bootstrapLoading && !isBootstrapped) {
+    return (
+      <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
+        {showBootstrap ? (
+          <BootstrapWizard onComplete={() => { setShowBootstrap(false); }} />
+        ) : (
+          <AccountingEmptyState
+            title="Accounting not configured"
+            description="Set up your chart of accounts to start tracking finances. Choose a template to get started quickly."
+            action={{ label: 'Set Up Accounting', onClick: () => setShowBootstrap(true) }}
+          />
+        )}
+      </AccountingPageShell>
+    );
+  }
 
   return (
     <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">

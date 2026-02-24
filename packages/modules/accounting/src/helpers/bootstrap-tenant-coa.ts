@@ -9,11 +9,13 @@ import {
 } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import { resolveNormalBalance } from './resolve-normal-balance';
+import { applyStatePlaceholders } from '../services/state-placeholder';
 
 export async function bootstrapTenantCoa(
   tx: Database,
   tenantId: string,
   templateKey: string,
+  stateName?: string,
 ): Promise<{ accountCount: number; classificationCount: number }> {
   // Idempotency: check if this tenant already has accounting settings
   const existingSettings = await tx
@@ -68,10 +70,15 @@ export async function bootstrapTenantCoa(
     throw new Error(`No account templates found for key: ${templateKey}`);
   }
 
+  // 3b. Apply state name to placeholders if provided
+  const resolvedTemplates = stateName
+    ? applyStatePlaceholders(accountTemplates, stateName)
+    : accountTemplates;
+
   // 4. Insert accounts
   const controlAccountIds: Record<string, string> = {};
 
-  for (const at of accountTemplates) {
+  for (const at of resolvedTemplates) {
     const id = generateUlid();
     const classificationId = classificationMap.get(at.classificationName) ?? null;
 
@@ -106,6 +113,9 @@ export async function bootstrapTenantCoa(
     if (at.accountNumber === '4500') {
       controlAccountIds['service_charge_revenue'] = id;
     }
+    if (at.accountNumber === '49900') {
+      controlAccountIds['uncategorized_revenue'] = id;
+    }
   }
 
   // 5. Create accounting_settings with sensible defaults
@@ -123,11 +133,12 @@ export async function bootstrapTenantCoa(
     defaultPmsGuestLedgerAccountId: controlAccountIds['pms_guest_ledger'] ?? null,
     defaultTipsPayableAccountId: controlAccountIds['tips_payable'] ?? null,
     defaultServiceChargeRevenueAccountId: controlAccountIds['service_charge_revenue'] ?? null,
+    defaultUncategorizedRevenueAccountId: controlAccountIds['uncategorized_revenue'] ?? null,
     roundingToleranceCents: 5,
   });
 
   return {
-    accountCount: accountTemplates.length,
+    accountCount: resolvedTemplates.length,
     classificationCount: classificationTemplates.length,
   };
 }

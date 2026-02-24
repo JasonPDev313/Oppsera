@@ -6,6 +6,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts, paymentTypeGlDefaults } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 import type { SavePaymentTypeDefaultsInput } from '../validation';
+import { tryAutoRemap } from '../helpers/try-auto-remap';
 
 export async function savePaymentTypeDefaults(
   ctx: RequestContext,
@@ -90,5 +91,9 @@ export async function savePaymentTypeDefaults(
   });
 
   await auditLog(ctx, 'accounting.payment_type_defaults.saved', 'payment_type_gl_defaults', paymentTypeId);
-  return result;
+
+  // Auto-remap eligible tenders if enabled (never throws)
+  const autoRemap = await tryAutoRemap(ctx);
+
+  return { ...result, autoRemapCount: autoRemap.remapped, autoRemapFailed: autoRemap.failed };
 }

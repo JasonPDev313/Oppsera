@@ -16,31 +16,33 @@ function formatMoney(cents: number): string {
 }
 
 const STATUS_ICONS: Record<string, string> = {
-  draft: '●',
-  sent: '→',
-  fired: '🔥',
-  served: '✓',
-  voided: '✕',
+  draft: '\u25CF',
+  sent: '\u2192',
+  fired: '\uD83D\uDD25',
+  served: '\u2713',
+  voided: '\u2715',
 };
 
 export function FnbOrderLine({ seatNumber, itemName, modifiers, priceCents, qty, status, isUnsent, onTap }: FnbOrderLineProps) {
+  const seatColorVar = `var(--fnb-seat-${Math.min(seatNumber, 9)})`;
+
   return (
     <button
       type="button"
       onClick={onTap}
-      className="flex items-start gap-2 w-full rounded-lg px-2 py-1.5 text-left transition-colors hover:opacity-80"
+      className="flex items-start gap-2 w-full rounded-lg px-2 py-1.5 text-left transition-opacity hover:opacity-80"
       style={{
-        borderLeft: isUnsent ? '3px solid var(--fnb-status-ordered)' : '3px solid transparent',
+        borderLeft: isUnsent ? '3px solid var(--fnb-warning)' : '3px solid transparent',
       }}
     >
       {/* Seat dot */}
       <span
         className="flex items-center justify-center rounded-full text-[9px] font-bold shrink-0 mt-0.5"
         style={{
-          width: '18px',
-          height: '18px',
-          backgroundColor: 'var(--fnb-bg-elevated)',
-          color: 'var(--fnb-text-secondary)',
+          width: 18,
+          height: 18,
+          backgroundColor: seatColorVar,
+          color: '#fff',
         }}
       >
         {seatNumber}
@@ -50,16 +52,13 @@ export function FnbOrderLine({ seatNumber, itemName, modifiers, priceCents, qty,
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1">
           {qty > 1 && (
-            <span className="text-xs font-bold fnb-mono" style={{ color: 'var(--fnb-text-primary)' }}>
+            <span className="text-xs font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
               {qty}x
             </span>
           )}
           <span
-            className="text-sm font-medium truncate"
-            style={{
-              color: status === 'voided' ? 'var(--fnb-text-muted)' : 'var(--fnb-text-primary)',
-              textDecoration: status === 'voided' ? 'line-through' : 'none',
-            }}
+            className={`text-sm font-medium truncate ${status === 'voided' ? 'line-through' : ''}`}
+            style={{ color: status === 'voided' ? 'var(--fnb-text-disabled)' : 'var(--fnb-text-primary)' }}
           >
             {itemName}
           </span>
@@ -72,7 +71,7 @@ export function FnbOrderLine({ seatNumber, itemName, modifiers, priceCents, qty,
       </div>
 
       {/* Price */}
-      <span className="text-xs fnb-mono shrink-0" style={{ color: 'var(--fnb-text-secondary)' }}>
+      <span className="text-xs shrink-0" style={{ color: 'var(--fnb-text-secondary)' }}>
         {formatMoney(priceCents * qty)}
       </span>
 

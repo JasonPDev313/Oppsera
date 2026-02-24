@@ -6,6 +6,8 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts } from '@oppsera/db';
 import { generateUlid, ConflictError } from '@oppsera/shared';
 import { resolveNormalBalance } from '../helpers/resolve-normal-balance';
+import { computeDepth, computePath } from '../services/hierarchy-helpers';
+import { logAccountChange } from '../services/account-change-log';
 import type { CreateGlAccountInput } from '../validation';
 
 export async function createGlAccount(
@@ -33,6 +35,21 @@ export async function createGlAccount(
 
     const normalBalance = resolveNormalBalance(input.accountType);
 
+    // Compute hierarchy fields if parent is set
+    let depth = 0;
+    let path = input.accountNumber;
+    if (input.parentAccountId) {
+      const allAccounts = await tx
+        .select({ id: glAccounts.id, accountNumber: glAccounts.accountNumber, parentAccountId: glAccounts.parentAccountId })
+        .from(glAccounts)
+        .where(eq(glAccounts.tenantId, ctx.tenantId));
+
+      const tempId = '__new__';
+      const withNew = [...allAccounts, { id: tempId, accountNumber: input.accountNumber, parentAccountId: input.parentAccountId }];
+      depth = computeDepth(tempId, withNew);
+      path = computePath(tempId, withNew);
+    }
+
     const [account] = await tx
       .insert(glAccounts)
       .values({
@@ -49,8 +66,19 @@ export async function createGlAccount(
         isContraAccount: input.isContraAccount ?? false,
         allowManualPosting: input.allowManualPosting ?? true,
         description: input.description ?? null,
+        depth,
+        path,
       })
       .returning();
+
+    // Log creation
+    await logAccountChange(tx, {
+      tenantId: ctx.tenantId,
+      accountId: account!.id,
+      action: 'CREATE',
+      changes: [],
+      changedBy: ctx.user.id,
+    });
 
     const event = buildEventFromContext(ctx, 'accounting.account.created.v1', {
       accountId: account!.id,

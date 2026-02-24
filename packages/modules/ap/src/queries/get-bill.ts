@@ -139,7 +139,7 @@ export async function getBill(input: GetBillInput): Promise<BillDetail> {
         p.payment_date,
         p.payment_method,
         p.reference_number,
-        pa.amount,
+        pa.amount_applied,
         pa.created_at AS allocated_at
       FROM ap_payment_allocations pa
       INNER JOIN ap_payments p ON p.id = pa.payment_id
@@ -155,7 +155,7 @@ export async function getBill(input: GetBillInput): Promise<BillDetail> {
       paymentDate: String(row.payment_date),
       paymentMethod: String(row.payment_method),
       referenceNumber: row.reference_number ? String(row.reference_number) : null,
-      amount: Number(row.amount),
+      amount: Number(row.amount_applied),
       allocatedAt: String(row.allocated_at),
     }));
 

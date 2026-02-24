@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, eventOutbox, processedEvents } from '@oppsera/db';
-import { getEventBus } from '@oppsera/core/events';
-import type { InMemoryEventBus } from '@oppsera/core/events';
+import { getDeadLetterStats } from '@oppsera/core/events';
 
 export const GET = withMiddleware(
   async (_request, ctx) => {
@@ -21,6 +20,7 @@ export const GET = withMiddleware(
       [publishedLast24h],
       [processedTotal],
       [processedLast24h],
+      deadLetterStats,
     ] = await Promise.all([
       db.select({ count: sql<number>`count(*)::int` }).from(eventOutbox),
       db
@@ -40,12 +40,8 @@ export const GET = withMiddleware(
         .select({ count: sql<number>`count(*)::int` })
         .from(processedEvents)
         .where(sql`${processedEvents.processedAt} > now() - interval '24 hours'`),
+      getDeadLetterStats(),
     ]);
-
-    const bus = getEventBus() as InMemoryEventBus;
-    const dlqCount = typeof bus.getDeadLetterQueue === 'function'
-      ? bus.getDeadLetterQueue().length
-      : 0;
 
     return NextResponse.json({
       data: {
@@ -59,9 +55,7 @@ export const GET = withMiddleware(
           processedEventsTotal: processedTotal?.count ?? 0,
           processedLast24h: processedLast24h?.count ?? 0,
         },
-        deadLetter: {
-          count: dlqCount,
-        },
+        deadLetter: deadLetterStats,
       },
     });
   },

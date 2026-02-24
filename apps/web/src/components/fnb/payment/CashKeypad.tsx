@@ -11,6 +11,8 @@ interface CashKeypadProps {
 
 const QUICK_AMOUNTS = [
   { label: 'Exact', cents: 0 },
+  { label: '$5', cents: 500 },
+  { label: '$10', cents: 1000 },
   { label: '$20', cents: 2000 },
   { label: '$50', cents: 5000 },
   { label: '$100', cents: 10000 },
@@ -64,7 +66,10 @@ export function CashKeypad({ totalCents, onSubmit, disabled }: CashKeypadProps) 
         className="rounded-lg p-3 text-center"
         style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
       >
-        <div className="text-[10px] font-bold uppercase mb-1" style={{ color: 'var(--fnb-text-muted)' }}>
+        <div
+          className="text-[10px] font-bold uppercase mb-1"
+          style={{ color: 'var(--fnb-text-muted)' }}
+        >
           Amount Tendered
         </div>
         <div
@@ -73,22 +78,42 @@ export function CashKeypad({ totalCents, onSubmit, disabled }: CashKeypadProps) 
         >
           {input ? `$${input}` : '$0.00'}
         </div>
-        {inputCents > 0 && inputCents >= totalCents && (
-          <div className="text-sm font-mono mt-1" style={{ color: 'var(--fnb-status-available)' }}>
-            Change: {formatMoney(changeCents)}
-          </div>
-        )}
       </div>
 
-      {/* Quick amounts */}
-      <div className="flex gap-2">
+      {/* Large change-due display (Phase 2B) */}
+      {inputCents > 0 && inputCents >= totalCents && (
+        <div
+          className="rounded-xl p-4 text-center"
+          style={{ backgroundColor: 'var(--fnb-payment-success-bg)' }}
+        >
+          <div
+            className="text-[10px] font-bold uppercase mb-1"
+            style={{ color: 'var(--fnb-text-muted)' }}
+          >
+            Change Due
+          </div>
+          <div
+            className="font-mono font-bold"
+            style={{
+              fontSize: 'var(--fnb-change-due-size)',
+              color: 'var(--fnb-status-available)',
+              fontFamily: 'var(--fnb-font-mono)',
+            }}
+          >
+            {formatMoney(changeCents)}
+          </div>
+        </div>
+      )}
+
+      {/* Quick amounts — 3×2 grid (Phase 2A) */}
+      <div className="grid grid-cols-3 gap-2">
         {QUICK_AMOUNTS.map(({ label, cents }) => (
           <button
             key={label}
             type="button"
             onClick={() => handleQuickAmount(cents)}
             disabled={disabled}
-            className="flex-1 rounded-lg py-2 text-xs font-bold transition-colors hover:opacity-80 disabled:opacity-40"
+            className="rounded-lg py-2 text-xs font-bold transition-colors hover:opacity-80 disabled:opacity-40"
             style={{
               backgroundColor: 'var(--fnb-bg-elevated)',
               color: 'var(--fnb-text-secondary)',

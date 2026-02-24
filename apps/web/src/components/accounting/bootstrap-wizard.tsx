@@ -37,12 +37,24 @@ const TEMPLATES = [
   },
 ];
 
-const STEPS = ['Welcome', 'Choose Template', 'Review', 'Configure', 'Complete'];
+const STEPS = ['Welcome', 'Choose Template', 'State', 'Review', 'Configure', 'Complete'];
+
+const US_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut',
+  'Delaware', 'District of Columbia', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois',
+  'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts',
+  'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada',
+  'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota',
+  'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota',
+  'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia',
+  'Wisconsin', 'Wyoming',
+];
 
 export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
   const { toast } = useToast();
   const [step, setStep] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [selectedState, setSelectedState] = useState<string>('');
   const [isBootstrapping, setIsBootstrapping] = useState(false);
 
   const handleBootstrap = useCallback(async () => {
@@ -51,16 +63,19 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
     try {
       await apiFetch('/api/v1/accounting/bootstrap', {
         method: 'POST',
-        body: JSON.stringify({ templateKey: selectedTemplate }),
+        body: JSON.stringify({
+          templateKey: selectedTemplate,
+          stateName: selectedState || undefined,
+        }),
       });
       toast.success('Accounting setup complete!');
-      setStep(4);
+      setStep(5);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Bootstrap failed');
     } finally {
       setIsBootstrapping(false);
     }
-  }, [selectedTemplate, toast]);
+  }, [selectedTemplate, selectedState, toast]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -151,21 +166,25 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
 
       {step === 2 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Review Template</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Select Your State</h2>
           <p className="text-sm text-gray-600">
-            The <strong>{TEMPLATES.find((t) => t.key === selectedTemplate)?.label}</strong> template
-            will create a standard chart of accounts including:
+            Choose your state to customize tax-related account names. You can skip this and edit later.
           </p>
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2 text-sm text-gray-700">
-            <p>• Asset accounts (cash, bank, receivables, inventory)</p>
-            <p>• Liability accounts (payables, tax payable, loans)</p>
-            <p>• Equity accounts (retained earnings, owner&apos;s equity)</p>
-            <p>• Revenue accounts (specific to your business type)</p>
-            <p>• Expense accounts (payroll, rent, utilities, supplies)</p>
-          </div>
-          <p className="text-xs text-gray-500">
-            All accounts can be customized, added, or removed after setup.
-          </p>
+          <select
+            value={selectedState}
+            onChange={(e) => setSelectedState(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          >
+            <option value="">Skip (leave as placeholder)</option>
+            {US_STATES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+          {selectedState && (
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+              Preview: <span className="font-medium text-gray-900">Sales Tax Payable - {selectedState}</span>
+            </div>
+          )}
           <div className="flex justify-between pt-4">
             <button
               type="button"
@@ -187,6 +206,47 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
 
       {step === 3 && (
         <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-gray-900">Review Template</h2>
+          <p className="text-sm text-gray-600">
+            The <strong>{TEMPLATES.find((t) => t.key === selectedTemplate)?.label}</strong> template
+            will create a standard chart of accounts including:
+          </p>
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-2 text-sm text-gray-700">
+            <p>• Asset accounts (cash, bank, receivables, inventory)</p>
+            <p>• Liability accounts (payables, tax payable, loans)</p>
+            <p>• Equity accounts (retained earnings, owner&apos;s equity)</p>
+            <p>• Revenue accounts (specific to your business type)</p>
+            <p>• Expense accounts (payroll, rent, utilities, supplies)</p>
+          </div>
+          {selectedState && (
+            <p className="text-xs text-gray-500">
+              State-specific accounts will be customized for <strong>{selectedState}</strong>.
+            </p>
+          )}
+          <p className="text-xs text-gray-500">
+            All accounts can be customized, added, or removed after setup.
+          </p>
+          <div className="flex justify-between pt-4">
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(4)}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="space-y-4">
           <h2 className="text-lg font-semibold text-gray-900">Ready to Set Up</h2>
           <p className="text-sm text-gray-600">
             Click below to create your chart of accounts and configure default settings.
@@ -195,7 +255,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
           <div className="flex justify-between pt-4">
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={() => setStep(3)}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Back
@@ -212,7 +272,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
         </div>
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <div className="text-center space-y-4">
           <Sparkles className="mx-auto h-16 w-16 text-green-500" />
           <h2 className="text-xl font-semibold text-gray-900">Accounting is Ready!</h2>

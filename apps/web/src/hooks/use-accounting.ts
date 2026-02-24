@@ -92,3 +92,102 @@ export function useAccountingBootstrapStatus() {
     isLoading: settings.isLoading || accounts.isLoading,
   };
 }
+
+// ── useCoaHealth ─────────────────────────────────────────────
+
+interface CoaHealthReport {
+  overallStatus: 'healthy' | 'warning' | 'error';
+  errorCount: number;
+  warningCount: number;
+  errors: Array<{ field?: string; message: string }>;
+  warnings: Array<{ field?: string; message: string }>;
+  accountDistribution: Record<string, number>;
+  totalAccounts: number;
+  activeAccounts: number;
+  fallbackCount: number;
+  systemAccountCount: number;
+}
+
+export function useCoaHealth() {
+  const result = useQuery({
+    queryKey: ['coa-health'],
+    queryFn: () =>
+      apiFetch<{ data: CoaHealthReport }>('/api/v1/accounting/health').then((r) => r.data),
+    staleTime: 30_000,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+// ── useAccountChangeLog ──────────────────────────────────────
+
+interface ChangeLogEntry {
+  id: string;
+  action: string;
+  fieldChanged: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  changedBy: string | null;
+  changedAt: string;
+  metadata: Record<string, unknown> | null;
+}
+
+interface ChangeLogResult {
+  items: ChangeLogEntry[];
+  cursor: string | null;
+  hasMore: boolean;
+}
+
+export function useAccountChangeLog(accountId: string | null) {
+  const result = useQuery({
+    queryKey: ['account-change-log', accountId],
+    queryFn: () =>
+      apiFetch<{ data: ChangeLogResult }>(
+        `/api/v1/accounting/accounts/${accountId}/change-log`,
+      ).then((r) => r.data),
+    enabled: !!accountId,
+    staleTime: 30_000,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+// ── useCoaImportHistory ──────────────────────────────────────
+
+interface CoaImportLog {
+  id: string;
+  fileName: string;
+  totalRows: number;
+  successRows: number;
+  errorRows: number;
+  status: string;
+  importedBy: string | null;
+  startedAt: string;
+  completedAt: string | null;
+}
+
+export function useCoaImportHistory() {
+  const result = useQuery({
+    queryKey: ['coa-import-history'],
+    queryFn: () =>
+      apiFetch<{ data: CoaImportLog[] }>('/api/v1/accounting/import/history').then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}

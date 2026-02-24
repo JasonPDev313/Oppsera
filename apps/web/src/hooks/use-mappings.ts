@@ -125,6 +125,8 @@ export function useMappingMutations() {
     queryClient.invalidateQueries({ queryKey: ['payment-type-mappings'] });
     queryClient.invalidateQueries({ queryKey: ['tax-group-mappings'] });
     queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+    queryClient.invalidateQueries({ queryKey: ['remappable-tenders'] });
+    queryClient.invalidateQueries({ queryKey: ['unmapped-events'] });
   };
 
   const saveSubDepartmentDefaults = useMutation({
@@ -137,7 +139,7 @@ export function useMappingMutations() {
   });
 
   const savePaymentTypeDefaults = useMutation({
-    mutationFn: (input: { paymentType: string; cashBankAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null }) =>
+    mutationFn: (input: { paymentType: string; cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null }) =>
       apiFetch(`/api/v1/accounting/mappings/payment-types/${input.paymentType}`, {
         method: 'PUT',
         body: JSON.stringify(input),

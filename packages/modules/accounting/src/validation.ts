@@ -60,6 +60,7 @@ export const updateAccountingSettingsSchema = z.object({
   defaultCompExpenseAccountId: z.string().nullable().optional(),
   defaultReturnsAccountId: z.string().nullable().optional(),
   defaultPayrollClearingAccountId: z.string().nullable().optional(),
+  defaultUncategorizedRevenueAccountId: z.string().nullable().optional(),
   cogsPostingMode: z.enum(['disabled', 'perpetual', 'periodic']).optional(),
   periodicCogsMethod: z.enum(['weighted_average', 'fifo', 'standard']).nullable().optional(),
   // Breakage income policy
@@ -67,6 +68,8 @@ export const updateAccountingSettingsSchema = z.object({
   breakageRecognitionMethod: z.enum(['on_expiry', 'proportional', 'manual_only']).optional(),
   breakageIncomeAccountId: z.string().nullable().optional(),
   voucherExpiryEnabled: z.boolean().optional(),
+  // Auto-remap toggle
+  enableAutoRemap: z.boolean().optional(),
 });
 
 export type UpdateAccountingSettingsInput = z.input<typeof updateAccountingSettingsSchema>;
@@ -420,3 +423,51 @@ export const listBankReconciliationsSchema = z.object({
 });
 
 export type ListBankReconciliationsInput = z.input<typeof listBankReconciliationsSchema>;
+
+// ── COA Import Schemas ──────────────────────────────────────────────
+
+export const importCoaFromCsvSchema = z.object({
+  csvContent: z.string().min(1, 'CSV content is required'),
+  stateName: z.string().optional(),
+  fileName: z.string().optional(),
+});
+
+export type ImportCoaFromCsvInput = z.input<typeof importCoaFromCsvSchema>;
+
+export const validateCsvPreviewSchema = z.object({
+  csvContent: z.string().min(1, 'CSV content is required'),
+  stateName: z.string().optional(),
+});
+
+export type ValidateCsvPreviewInput = z.input<typeof validateCsvPreviewSchema>;
+
+// ── Account Merge & Governance Schemas ──────────────────────────────
+
+export const mergeGlAccountsSchema = z.object({
+  sourceAccountId: z.string().min(1),
+  targetAccountId: z.string().min(1),
+});
+
+export type MergeGlAccountsInput = z.input<typeof mergeGlAccountsSchema>;
+
+export const renumberGlAccountSchema = z.object({
+  newAccountNumber: z.string().min(1).max(20),
+});
+
+export type RenumberGlAccountInput = z.input<typeof renumberGlAccountSchema>;
+
+// ── GL Remap Schemas ────────────────────────────────────────────────
+
+export const remapGlForTenderSchema = z.object({
+  tenderId: z.string().min(1),
+  reason: z.string().optional(),
+});
+
+export type RemapGlForTenderInput = z.input<typeof remapGlForTenderSchema>;
+
+export const batchRemapSchema = z.object({
+  tenderIds: z.array(z.string().min(1)).min(1).max(50),
+  reason: z.string().optional(),
+});
+
+export type BatchRemapInput = z.input<typeof batchRemapSchema>;

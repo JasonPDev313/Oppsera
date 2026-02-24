@@ -21,7 +21,7 @@ export const GET = withMiddleware(
       `);
 
       return Array.from(rows as Iterable<Record<string, unknown>>).map((row) => ({
-        paymentTypeId: String(row.payment_type_id),
+        paymentType: String(row.payment_type_id),
         cashAccountId: row.cash_account_id ? String(row.cash_account_id) : null,
         clearingAccountId: row.clearing_account_id ? String(row.clearing_account_id) : null,
         feeExpenseAccountId: row.fee_expense_account_id ? String(row.fee_expense_account_id) : null,

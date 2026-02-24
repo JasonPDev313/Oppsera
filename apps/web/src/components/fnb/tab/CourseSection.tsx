@@ -13,13 +13,6 @@ interface CourseSectionProps {
   onSend?: () => void;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  unsent: 'var(--fnb-text-muted)',
-  sent: 'var(--fnb-status-ordered)',
-  fired: 'var(--fnb-status-entrees-fired)',
-  served: 'var(--fnb-status-available)',
-};
-
 const STATUS_LABELS: Record<string, string> = {
   unsent: 'UNSENT',
   sent: 'SENT',
@@ -27,9 +20,21 @@ const STATUS_LABELS: Record<string, string> = {
   served: 'SERVED',
 };
 
+function getStatusBadgeStyle(status: string): React.CSSProperties {
+  switch (status) {
+    case 'sent':
+      return { backgroundColor: 'rgba(33, 150, 243, 0.15)', color: 'var(--fnb-info)' };
+    case 'fired':
+      return { backgroundColor: 'rgba(255, 152, 0, 0.15)', color: 'var(--fnb-status-entrees-fired)' };
+    case 'served':
+      return { backgroundColor: 'rgba(34, 197, 94, 0.15)', color: 'var(--fnb-success)' };
+    default: // unsent
+      return { backgroundColor: 'rgba(234, 179, 8, 0.15)', color: 'var(--fnb-warning)' };
+  }
+}
+
 export function CourseSection({ courseNumber, courseName, courseStatus, children, onHold, onFire, onSend }: CourseSectionProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const color = STATUS_COLORS[courseStatus] ?? 'var(--fnb-text-muted)';
 
   return (
     <div className="mb-1">
@@ -37,7 +42,7 @@ export function CourseSection({ courseNumber, courseName, courseStatus, children
       <button
         type="button"
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center gap-2 w-full px-2 py-2 rounded-lg transition-colors hover:opacity-80"
+        className="flex items-center gap-2 w-full px-2 py-2 rounded-lg transition-opacity hover:opacity-90"
         style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
       >
         {collapsed ? (
@@ -50,7 +55,7 @@ export function CourseSection({ courseNumber, courseName, courseStatus, children
         </span>
         <span
           className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase"
-          style={{ backgroundColor: `${color}20`, color }}
+          style={getStatusBadgeStyle(courseStatus)}
         >
           {STATUS_LABELS[courseStatus] ?? courseStatus}
         </span>
@@ -60,8 +65,8 @@ export function CourseSection({ courseNumber, courseName, courseStatus, children
         {courseStatus === 'unsent' && onSend && (
           <span
             onClick={(e) => { e.stopPropagation(); onSend(); }}
-            className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-status-ordered)', color: '#fff' }}
+            className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--fnb-action-send)', color: '#fff' }}
           >
             Send
           </span>
@@ -69,8 +74,8 @@ export function CourseSection({ courseNumber, courseName, courseStatus, children
         {courseStatus === 'sent' && onFire && (
           <span
             onClick={(e) => { e.stopPropagation(); onFire(); }}
-            className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-status-entrees-fired)', color: '#fff' }}
+            className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--fnb-action-fire)', color: '#fff' }}
           >
             Fire
           </span>
@@ -78,8 +83,8 @@ export function CourseSection({ courseNumber, courseName, courseStatus, children
         {(courseStatus === 'unsent' || courseStatus === 'sent') && onHold && (
           <span
             onClick={(e) => { e.stopPropagation(); onHold(); }}
-            className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-bg-primary)', color: 'var(--fnb-text-muted)' }}
+            className="rounded px-2 py-0.5 text-[10px] font-semibold cursor-pointer transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--fnb-bg-surface)', color: 'var(--fnb-text-muted)' }}
           >
             Hold
           </span>

@@ -9,6 +9,7 @@
   },
   "scripts": {
     "db:migrate": "tsx src/migrate.ts",
+    "db:migrate:remote": "tsx src/migrate.ts --remote",
     "db:seed": "tsx src/seed.ts",
     "db:create-partitions": "tsx scripts/create-partitions.ts",
     "generate": "drizzle-kit generate",

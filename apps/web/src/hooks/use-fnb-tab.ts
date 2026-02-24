@@ -165,12 +165,12 @@ export function useFnbTab({ tabId, pollIntervalMs = 5000, pollEnabled = true }: 
   }, [tabId, act]);
 
   const updatePartySizeFn = useCallback(async (newSize: number) => {
-    if (!tabId) return;
+    if (!tabId || !tab) return;
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}`, {
       method: 'PATCH',
-      body: JSON.stringify({ partySize: newSize }),
+      body: JSON.stringify({ partySize: newSize, expectedVersion: tab.version }),
     }));
-  }, [tabId, act]);
+  }, [tabId, tab, act]);
 
   return {
     tab,

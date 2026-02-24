@@ -23,9 +23,13 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const store = useFnbPosStore();
   const { rooms, isLoading: roomsLoading } = useFnbRooms();
 
-  // Select first room if none active, or if stored room was archived (no longer in active list)
+  // Select first room if none active, or if stored room was archived (no longer in active list).
+  // While rooms are still loading, trust the stored roomId so the floor plan fetch can start
+  // in parallel — avoids sequential room-then-floor-plan round trips on every mount.
   const storedRoomExists = store.activeRoomId ? rooms.some((r) => r.id === store.activeRoomId) : false;
-  const activeRoomId = (storedRoomExists ? store.activeRoomId : rooms[0]?.id) ?? null;
+  const activeRoomId = (roomsLoading && store.activeRoomId)
+    ? store.activeRoomId
+    : (storedRoomExists ? store.activeRoomId : rooms[0]?.id) ?? null;
 
   // Clear stale activeRoomId from store when the stored room is no longer available
   useEffect(() => {
@@ -273,25 +277,28 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   // ── Loading ─────────────────────────────────────────────────
 
-  if (roomsLoading || (isLoading && !floorPlan)) {
+  // Show spinner only when we have NO data yet. If we have a stored roomId, the floor
+  // plan fetch runs in parallel with rooms — show spinner only until floor plan arrives.
+  // Once rooms load, if the stored room was invalid we'll switch (handled by the effect above).
+  if ((roomsLoading && !store.activeRoomId) || (isLoading && !floorPlan)) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
+      <div className="flex h-full items-center justify-center bg-surface">
         <div className="text-center">
-          <div className="h-8 w-8 mx-auto mb-2 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: 'var(--fnb-status-seated)', borderTopColor: 'transparent' }} />
-          <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>Loading floor plan...</p>
+          <div className="h-8 w-8 mx-auto mb-2 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+          <p className="text-sm text-gray-400">Loading floor plan...</p>
         </div>
       </div>
     );
   }
 
-  if (rooms.length === 0) {
+  if (rooms.length === 0 && !roomsLoading) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
+      <div className="flex h-full items-center justify-center bg-surface">
         <div className="text-center p-8 max-w-sm">
-          <p className="text-lg font-semibold mb-2" style={{ color: 'var(--fnb-text-primary)' }}>
+          <p className="text-lg font-semibold mb-2 text-gray-900">
             No Rooms Configured
           </p>
-          <p className="text-sm" style={{ color: 'var(--fnb-text-muted)' }}>
+          <p className="text-sm text-gray-400">
             Create a room layout in Settings → Room Layouts, then sync tables to start using F&B POS.
           </p>
         </div>
@@ -301,19 +308,18 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   if (floorError) {
     return (
-      <div className="flex h-full items-center justify-center" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
+      <div className="flex h-full items-center justify-center bg-surface">
         <div className="text-center p-8 max-w-sm">
-          <p className="text-lg font-semibold mb-2" style={{ color: 'var(--fnb-text-primary)' }}>
+          <p className="text-lg font-semibold mb-2 text-gray-900">
             Floor Plan Error
           </p>
-          <p className="text-sm mb-3" style={{ color: 'var(--fnb-text-muted)' }}>
+          <p className="text-sm mb-3 text-gray-400">
             {floorError}
           </p>
           <button
             type="button"
             onClick={refresh}
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90"
-            style={{ backgroundColor: 'var(--fnb-status-seated)' }}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors bg-indigo-600 hover:bg-indigo-700"
           >
             Retry
           </button>
@@ -323,7 +329,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   }
 
   return (
-    <div className="flex flex-col sm:flex-row h-full" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
+    <div className="flex flex-col sm:flex-row h-full bg-surface">
       {/* Top on handheld, left on tablet+: Room tabs */}
       <RoomTabs
         rooms={rooms}
@@ -334,52 +340,38 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       {/* Center: Table grid */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Room header */}
-        <div
-          className="flex items-center justify-between px-4 py-2 border-b"
-          style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}
-        >
-          <h2 className="text-base font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+        <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+          <h2 className="text-base font-bold text-gray-900">
             {floorPlan?.room.name ?? 'Floor Plan'}
           </h2>
           <div className="flex items-center gap-2">
             {/* Sync feedback */}
             {syncFeedback === 'success' && (
-              <span className="text-xs font-medium" style={{ color: 'var(--fnb-status-available)' }}>
-                Synced
-              </span>
+              <span className="text-xs font-medium text-green-600">Synced</span>
             )}
             {syncFeedback === 'error' && (
-              <span className="text-xs font-medium" style={{ color: 'var(--fnb-status-overdue)' }}>
-                Sync failed
-              </span>
+              <span className="text-xs font-medium text-red-500">Sync failed</span>
             )}
             <button
               type="button"
               onClick={handleSync}
               disabled={actions.isActing}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1"
-              style={{
-                backgroundColor: 'var(--fnb-bg-elevated)',
-                color: 'var(--fnb-text-secondary)',
-              }}
+              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1 bg-gray-100 text-gray-600 hover:bg-gray-200"
               title="Sync tables from floor plan"
             >
               <RefreshCw className={`h-3 w-3 ${actions.isActing ? 'animate-spin' : ''}`} />
               Sync
             </button>
             {/* View mode toggle */}
-            <div
-              className="flex rounded-lg overflow-hidden"
-              style={{ border: '1px solid rgba(148, 163, 184, 0.2)' }}
-            >
+            <div className="flex rounded-lg overflow-hidden border border-gray-200">
               <button
                 type="button"
                 onClick={() => store.setFloorViewMode('layout')}
-                className="flex items-center justify-center h-7 w-8 transition-colors"
-                style={{
-                  backgroundColor: store.floorViewMode === 'layout' ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-                  color: store.floorViewMode === 'layout' ? '#fff' : 'var(--fnb-text-muted)',
-                }}
+                className={`flex items-center justify-center h-7 w-8 transition-colors ${
+                  store.floorViewMode === 'layout'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                }`}
                 title="Layout view"
               >
                 <Map className="h-3.5 w-3.5" />
@@ -387,11 +379,11 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               <button
                 type="button"
                 onClick={() => store.setFloorViewMode('grid')}
-                className="flex items-center justify-center h-7 w-8 transition-colors"
-                style={{
-                  backgroundColor: store.floorViewMode === 'grid' ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-                  color: store.floorViewMode === 'grid' ? '#fff' : 'var(--fnb-text-muted)',
-                }}
+                className={`flex items-center justify-center h-7 w-8 transition-colors ${
+                  store.floorViewMode === 'grid'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                }`}
                 title="Grid view"
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
@@ -400,11 +392,11 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
             <button
               type="button"
               onClick={() => store.toggleMySectionOnly()}
-              className="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
-              style={{
-                backgroundColor: store.mySectionOnly ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-                color: store.mySectionOnly ? '#fff' : 'var(--fnb-text-secondary)',
-              }}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                store.mySectionOnly
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
             >
               My Section
             </button>
@@ -422,11 +414,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           {/* Toast message */}
           {toastMessage && (
             <div
-              className="absolute top-2 left-1/2 -translate-x-1/2 z-20 rounded-lg px-4 py-2 text-sm font-medium shadow-lg"
-              style={{
-                backgroundColor: toastMessage.type === 'error' ? 'var(--fnb-status-overdue)' : 'var(--fnb-status-available)',
-                color: '#fff',
-              }}
+              className={`absolute top-2 left-1/2 -translate-x-1/2 z-20 rounded-lg px-4 py-2 text-sm font-medium text-white shadow-lg ${
+                toastMessage.type === 'error' ? 'bg-red-500' : 'bg-green-600'
+              }`}
             >
               {toastMessage.text}
             </div>
@@ -435,18 +425,17 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           {tables.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
-                <p className="text-sm font-medium mb-1" style={{ color: 'var(--fnb-text-secondary)' }}>
+                <p className="text-sm font-medium mb-1 text-gray-600">
                   No tables in this room
                 </p>
-                <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
+                <p className="text-xs text-gray-400">
                   Sync tables from the published floor plan
                 </p>
                 <button
                   type="button"
                   onClick={handleSync}
                   disabled={actions.isActing}
-                  className="mt-3 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors hover:opacity-90 flex items-center gap-1.5 mx-auto"
-                  style={{ backgroundColor: 'var(--fnb-status-seated)' }}
+                  className="mt-3 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 mx-auto"
                 >
                   {actions.isActing && <RefreshCw className="h-4 w-4 animate-spin" />}
                   Sync Tables
@@ -465,30 +454,22 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           ) : (
             <div className="p-4 relative h-full">
               {/* Zoom controls */}
-              <div
-                className="absolute top-2 right-2 z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md"
-                style={{ backgroundColor: 'var(--fnb-bg-surface)' }}
-              >
+              <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md bg-white border border-gray-200">
                 <button
                   type="button"
                   onClick={() => setUserZoom((z) => Math.min(3, z * 1.2))}
-                  className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
-                  style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+                  className="flex items-center justify-center rounded h-8 w-8 transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
                   title="Zoom in"
                 >
                   <Plus className="h-4 w-4" />
                 </button>
-                <span
-                  className="text-[10px] text-center font-medium py-0.5"
-                  style={{ color: 'var(--fnb-text-muted)' }}
-                >
+                <span className="text-[10px] text-center font-medium py-0.5 text-gray-400">
                   {Math.round(effectiveScale * 100)}%
                 </span>
                 <button
                   type="button"
                   onClick={() => setUserZoom((z) => Math.max(0.5, z / 1.2))}
-                  className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
-                  style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+                  className="flex items-center justify-center rounded h-8 w-8 transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
                   title="Zoom out"
                 >
                   <Minus className="h-4 w-4" />
@@ -496,8 +477,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                 <button
                   type="button"
                   onClick={() => setUserZoom(1)}
-                  className="flex items-center justify-center rounded h-8 w-8 transition-colors hover:opacity-80"
-                  style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-primary)' }}
+                  className="flex items-center justify-center rounded h-8 w-8 transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
                   title="Fit to screen"
                 >
                   <Maximize2 className="h-3.5 w-3.5" />
@@ -531,6 +511,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                       onContextMenu={handleTableContextMenu}
                       scalePxPerFt={scalePxPerFt}
                       viewScale={effectiveScale}
+                      guestPayActive={table.guestPayActive}
                     />
                   ))}
                 </div>

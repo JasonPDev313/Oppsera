@@ -65,13 +65,15 @@ export interface OrdersWriteApi {
 
 // ── Singleton ───────────────────────────────────────────────────
 
-let _api: OrdersWriteApi | null = null;
+// Use globalThis to persist across Next.js HMR module reloads in dev mode
+const GLOBAL_KEY = '__oppsera_orders_write_api__' as const;
 
 export function getOrdersWriteApi(): OrdersWriteApi {
-  if (!_api) throw new Error('OrdersWriteApi not initialized');
-  return _api;
+  const api = (globalThis as Record<string, unknown>)[GLOBAL_KEY] as OrdersWriteApi | undefined;
+  if (!api) throw new Error('OrdersWriteApi not initialized');
+  return api;
 }
 
 export function setOrdersWriteApi(api: OrdersWriteApi): void {
-  _api = api;
+  (globalThis as Record<string, unknown>)[GLOBAL_KEY] = api;
 }

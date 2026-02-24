@@ -58,6 +58,7 @@ export default function SettingsContent() {
     breakageRecognitionMethod: 'on_expiry' as BreakageRecognitionMethod,
     breakageIncomeAccountId: null as string | null,
     voucherExpiryEnabled: true,
+    enableAutoRemap: false,
   });
 
   useEffect(() => {
@@ -88,6 +89,7 @@ export default function SettingsContent() {
         breakageRecognitionMethod: settings.breakageRecognitionMethod ?? 'on_expiry',
         breakageIncomeAccountId: settings.breakageIncomeAccountId ?? null,
         voucherExpiryEnabled: settings.voucherExpiryEnabled ?? true,
+        enableAutoRemap: settings.enableAutoRemap ?? false,
       });
     }
   }, [settings]);
@@ -123,6 +125,7 @@ export default function SettingsContent() {
           breakageRecognitionMethod: form.breakageRecognitionMethod,
           breakageIncomeAccountId: form.breakageIncomeAccountId,
           voucherExpiryEnabled: form.voucherExpiryEnabled,
+          enableAutoRemap: form.enableAutoRemap,
         }),
       });
       toast.success('Settings saved');
@@ -325,6 +328,42 @@ export default function SettingsContent() {
                 </div>
               </label>
             ))}
+          </div>
+        </section>
+
+        {/* GL Remap */}
+        <section className="space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">GL Remap</h2>
+          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-3">
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.enableAutoRemap}
+                onChange={(e) => setForm((f) => ({ ...f, enableAutoRemap: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-700">Auto-remap on mapping save</span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  When enabled, saving a GL mapping automatically voids and reposts affected transactions
+                  with corrected accounts. Applies to tenders where all missing mappings are now configured.
+                </p>
+              </div>
+            </label>
+            {form.enableAutoRemap && (
+              <div className="ml-7 rounded-lg border border-amber-400/40 bg-amber-50/50 p-3">
+                <p className="text-xs font-medium text-amber-800">Risks to consider:</p>
+                <ul className="mt-1 text-xs text-amber-700 list-disc pl-4 space-y-0.5">
+                  <li>Original GL entries will be voided and replaced — creates reversal + new posting pairs</li>
+                  <li>Large batches (up to 50 tenders at a time) may take several seconds</li>
+                  <li>If a period has already been closed or exported, remapped entries may create discrepancies</li>
+                  <li>All remaps are audit-logged and can be reviewed in the Unmapped Events tab</li>
+                </ul>
+                <p className="mt-2 text-xs text-amber-600">
+                  You can always use the manual &quot;Preview &amp; Remap&quot; tool on the Mappings page regardless of this setting.
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
