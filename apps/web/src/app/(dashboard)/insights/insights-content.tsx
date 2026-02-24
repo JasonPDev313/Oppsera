@@ -2,12 +2,18 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Sparkles, Trash2, ToggleLeft, ToggleRight, Download, History, PanelRightOpen, PanelRightClose } from 'lucide-react';
+import {
+  Sparkles, Trash2, ToggleLeft, ToggleRight, Download, History,
+  PanelRightOpen, PanelRightClose, BarChart3, Wrench, CalendarDays, Globe, Sliders,
+} from 'lucide-react';
+import Link from 'next/link';
 import { useSemanticChat } from '@/hooks/use-semantic-chat';
 import type { LoadedTurn } from '@/hooks/use-semantic-chat';
 import { ChatMessageBubble } from '@/components/semantic/chat-message';
 import { ChatInput } from '@/components/semantic/chat-input';
 import { ChatHistorySidebar } from '@/components/insights/ChatHistorySidebar';
+import { NotificationBell } from '@/components/insights/NotificationBell';
+import { VoiceInput } from '@/components/insights/VoiceInput';
 import { apiFetch } from '@/lib/api-client';
 import { exportSessionAsTxt } from '@/lib/export-chat';
 
@@ -152,6 +158,9 @@ export default function InsightsContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* AI Notifications */}
+            <NotificationBell />
+
             {/* Debug toggle */}
             <button
               onClick={() => setShowDebug(!showDebug)}
@@ -263,6 +272,26 @@ export default function InsightsContent() {
                     </button>
                   ))}
                 </div>
+
+                {/* Quick access to AI tools */}
+                <div className="mt-8 flex flex-wrap justify-center gap-3">
+                  {[
+                    { href: '/insights/watchlist', icon: BarChart3, label: 'Watchlist' },
+                    { href: '/insights/tools', icon: Wrench, label: 'Analysis Tools' },
+                    { href: '/insights/reports', icon: CalendarDays, label: 'Scheduled Reports' },
+                    { href: '/insights/embeds', icon: Globe, label: 'Embed Widgets' },
+                    { href: '/insights/authoring', icon: Sliders, label: 'Semantic Authoring' },
+                  ].map((tool) => (
+                    <Link
+                      key={tool.href}
+                      href={tool.href}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground border border-border rounded-full hover:border-primary/50 hover:text-primary transition-colors"
+                    >
+                      <tool.icon className="h-3.5 w-3.5" />
+                      {tool.label}
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -271,6 +300,7 @@ export default function InsightsContent() {
                 key={msg.id}
                 message={msg}
                 showDebug={showDebug && msg.role === 'assistant'}
+                onFollowUpSelect={msg.role === 'assistant' ? handleSendMessage : undefined}
               />
             ))}
 
@@ -306,12 +336,21 @@ export default function InsightsContent() {
         {/* Input area */}
         <div className="shrink-0 px-4 pb-4 pt-2 border-t border-border bg-background">
           <div className="max-w-4xl mx-auto">
-            <ChatInput
-              onSend={handleSendMessage}
-              onCancel={cancelRequest}
-              isLoading={isLoading}
-              placeholder={"Ask a question about your data\u2026 (Enter to send, Shift+Enter for new line)"}
-            />
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <ChatInput
+                  onSend={handleSendMessage}
+                  onCancel={cancelRequest}
+                  isLoading={isLoading}
+                  placeholder={"Ask a question about your data\u2026 (Enter to send, Shift+Enter for new line)"}
+                />
+              </div>
+              <VoiceInput
+                onTranscript={handleSendMessage}
+                disabled={isLoading}
+                className="mb-0.5"
+              />
+            </div>
             <p className="mt-1.5 text-center text-xs text-muted-foreground">
               AI responses may contain errors. Verify important numbers independently.
             </p>

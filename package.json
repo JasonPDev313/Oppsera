@@ -3,8 +3,10 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev": "pnpm clean && NODE_OPTIONS='--max-old-space-size=4096' turbo dev",
-    "dev:fast": "NODE_OPTIONS='--max-old-space-size=4096' turbo dev",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=2048 turbo dev --filter=@oppsera/web",
+    "dev:all": "cross-env NODE_OPTIONS=--max-old-space-size=2048 turbo dev",
+    "dev:admin": "cross-env NODE_OPTIONS=--max-old-space-size=2048 turbo dev --filter=@oppsera/admin",
+    "dev:clean": "pnpm clean && cross-env NODE_OPTIONS=--max-old-space-size=2048 turbo dev --filter=@oppsera/web",
     "build": "turbo build",
     "test": "turbo test",
     "test:coverage": "turbo test:coverage",
@@ -15,11 +17,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "clean": "rm -rf apps/web/.next apps/admin/.next apps/member-portal/.next .turbo apps/web/.turbo apps/admin/.turbo apps/member-portal/.turbo packages/*/.turbo packages/modules/*/.turbo apps/web/tsconfig.tsbuildinfo apps/admin/tsconfig.tsbuildinfo apps/member-portal/tsconfig.tsbuildinfo",
-    "nuke": "pnpm clean && rm -rf node_modules apps/web/node_modules apps/admin/node_modules apps/member-portal/node_modules packages/*/node_modules packages/modules/*/node_modules && pnpm install"
+    "nuke": "pnpm clean && rm -rf node_modules apps/web/node_modules apps/admin/node_modules apps/member-portal/node_modules packages/*/node_modules packages/modules/*/node_modules && pnpm install",
+    "postinstall": "node scripts/fix-oxide-win32.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.16.0",
     "@vitest/coverage-v8": "^2.1.0",
+    "cross-env": "^10.1.0",
     "eslint": "^9.16.0",
     "prettier": "^3.4.0",
     "turbo": "^2.3.0",

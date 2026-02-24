@@ -125,6 +125,16 @@ If Deep Mode, label: **Deep Analysis — THE OPPS ERA LENS** and expand options 
 
 If user asks for fast improvements or urgent help, label: **Quick Wins — THE OPPS ERA LENS** and provide 5 immediate actions, minimal explanation, highest leverage first.
 
+## Data Interpretation Rules
+- All monetary values in query results are already in DOLLARS (not cents). Display as $X,XXX.XX.
+- Metrics from rm_daily_sales are pre-aggregated per day per location. Each row = one day at one location.
+- Metrics from rm_item_sales are per item per date per location. Multiple rows per day is normal.
+- Inventory metrics are SNAPSHOTS — "current as of last sync", not a date range. Don't say "inventory for this week."
+- Customer metrics are lifetime RUNNING TOTALS — not filtered by date. Don't say "customers this month."
+- "0 rows returned" for a date range likely means no transactions occurred that period, not a data error. Say so helpfully.
+- Order count and items sold are different: one order can contain many items. items_sold ≠ order_count.
+- avg_order_value is net_sales / order_count — it is a ratio, not a summable metric.
+
 ## RULES
 1. **Never refuse.** Every question gets a useful answer.
 2. **Lead with the answer.** Don't start with "Based on the data..." — just state the finding.
@@ -203,6 +213,11 @@ const HEADING_TO_SECTION: Record<string, NarrativeSection['type']> = {
   'risks to watch': 'risk',
   'risks': 'risk',
   'caveats': 'caveat',
+  // Proactive intelligence sections
+  'follow-up questions': 'follow_up',
+  'suggested questions': 'follow_up',
+  'chart': 'chart_hint',
+  'visualization': 'chart_hint',
 };
 
 interface RawNarrativeResponse {
@@ -400,6 +415,95 @@ export function buildEmptyResultNarrative(
     tokensOutput: 0,
     latencyMs: 0,
   };
+}
+
+/**
+ * Fallback narrative when narrative LLM fails but data WAS returned.
+ * Summarizes the actual query result rows so the user sees real data
+ * instead of a misleading "no data found" message.
+ */
+export function buildDataFallbackNarrative(
+  originalMessage: string,
+  queryResult: QueryResult,
+): NarrativeResponse {
+  const rows = queryResult.rows;
+  const rowCount = queryResult.rowCount;
+
+  // Build a simple textual summary from the first few rows
+  const lines: string[] = [`## Answer`, ''];
+
+  if (rowCount === 0) {
+    // Shouldn't normally hit this path, but guard anyway
+    return buildEmptyResultNarrative(originalMessage, {} as IntentContext);
+  }
+
+  lines.push(`Your query returned **${rowCount} result${rowCount === 1 ? '' : 's'}**. Here's a summary of the data:`);
+  lines.push('');
+
+  // Summarize up to 10 rows in a readable way
+  const sample = rows.slice(0, 10);
+  const keys = sample.length > 0 ? Object.keys(sample[0]!) : [];
+
+  if (keys.length > 0 && sample.length > 0) {
+    // Build a markdown table
+    lines.push(`| ${keys.map(formatColumnName).join(' | ')} |`);
+    lines.push(`| ${keys.map(() => '---').join(' | ')} |`);
+    for (const row of sample) {
+      const cells = keys.map((k) => formatCellValue(row[k]));
+      lines.push(`| ${cells.join(' | ')} |`);
+    }
+    if (rowCount > 10) {
+      lines.push('');
+      lines.push(`*Showing 10 of ${rowCount} rows. Check the data table below for full results.*`);
+    }
+  }
+
+  lines.push('');
+  lines.push(`---`);
+  lines.push(`*THE OPPS ERA LENS. Query: "${originalMessage}". ${rowCount} row${rowCount === 1 ? '' : 's'} returned.*`);
+
+  const text = lines.join('\n');
+
+  return {
+    text,
+    sections: [
+      {
+        type: 'answer',
+        content: `Your query returned ${rowCount} result${rowCount === 1 ? '' : 's'}. See the data table for details.`,
+      },
+      {
+        type: 'data_sources',
+        content: `${rowCount} row${rowCount === 1 ? '' : 's'} returned.`,
+      },
+    ],
+    tokensInput: 0,
+    tokensOutput: 0,
+    latencyMs: 0,
+  };
+}
+
+/** Convert snake_case column names to Title Case */
+function formatColumnName(col: string): string {
+  return col
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Format a cell value for markdown table display */
+function formatCellValue(value: unknown): string {
+  if (value == null) return '-';
+  // Postgres numeric columns come back as strings — parse them
+  if (typeof value === 'string' && /^-?\d+(\.\d+)?$/.test(value.trim())) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return value;
+    if (Number.isInteger(num)) return num.toLocaleString('en-US');
+    return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  if (typeof value === 'number') {
+    if (Number.isInteger(value)) return value.toLocaleString('en-US');
+    return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  return String(value);
 }
 
 // ── Exports for testing ──────────────────────────────────────────

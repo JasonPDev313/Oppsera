@@ -1,9 +1,10 @@
 'use client';
 
 import { memo, useCallback, useRef } from 'react';
+import { getContrastTextColor } from '@/lib/contrast';
 
 interface SubDepartmentTabsProps {
-  departments: Array<{ id: string; name: string }>;
+  departments: Array<{ id: string; name: string; color?: string | null }>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   size?: 'normal' | 'large';
@@ -39,7 +40,7 @@ export const SubDepartmentTabs = memo(function SubDepartmentTabs({
       <button
         type="button"
         onClick={() => handleSelect(null)}
-        className={`shrink-0 rounded-full font-medium transition-colors ${tabPadding} ${
+        className={`shrink-0 rounded-full font-medium transition-all active:scale-[0.97] ${tabPadding} ${
           selectedId === null
             ? 'bg-indigo-600 text-white shadow-sm'
             : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -48,20 +49,38 @@ export const SubDepartmentTabs = memo(function SubDepartmentTabs({
         All
       </button>
 
-      {departments.map((dept) => (
-        <button
-          key={dept.id}
-          type="button"
-          onClick={() => handleSelect(dept.id)}
-          className={`shrink-0 whitespace-nowrap rounded-full font-medium transition-colors ${tabPadding} ${
-            selectedId === dept.id
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          {dept.name}
-        </button>
-      ))}
+      {departments.map((dept) => {
+        const isActive = selectedId === dept.id;
+        const hasColor = !!dept.color && dept.color !== '#FFFFFF';
+        const activeBg = hasColor ? dept.color! : undefined;
+        const activeText = hasColor ? getContrastTextColor(dept.color!) : undefined;
+
+        return (
+          <button
+            key={dept.id}
+            type="button"
+            onClick={() => handleSelect(dept.id)}
+            className={`shrink-0 whitespace-nowrap rounded-full font-medium transition-all active:scale-[0.97] ${tabPadding} ${
+              isActive
+                ? hasColor
+                  ? 'shadow-sm'
+                  : 'bg-indigo-600 text-white shadow-sm'
+                : hasColor
+                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+            style={
+              isActive && hasColor
+                ? { backgroundColor: activeBg, color: activeText }
+                : !isActive && hasColor
+                  ? { borderLeft: `3px solid ${dept.color}` }
+                  : undefined
+            }
+          >
+            {dept.name}
+          </button>
+        );
+      })}
     </div>
   );
 });

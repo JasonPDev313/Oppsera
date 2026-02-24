@@ -1023,6 +1023,167 @@
       "when": 1708100145000,
       "tag": "0145_rm_item_sales_category",
       "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1708100146000,
+      "tag": "0146_eval_training_platform",
+      "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1708100147000,
+      "tag": "0147_ai_proactive_intelligence",
+      "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1708100148000,
+      "tag": "0148_pms_rate_restrictions",
+      "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1708100149000,
+      "tag": "0149_pms_deposits_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1708100150000,
+      "tag": "0150_pms_communications",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1708100151000,
+      "tag": "0151_pms_reporting_suite",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1708100152000,
+      "tag": "0152_pos_ux_enhancements",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1708100153000,
+      "tag": "0153_pms_housekeeping_maintenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1708100154000,
+      "tag": "0154_pms_rate_packages",
+      "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1708100155000,
+      "tag": "0155_pms_groups_corporate",
+      "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1708100156000,
+      "tag": "0156_semantic_training_pairs",
+      "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1708100157000,
+      "tag": "0157_catalog_import_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 158,
+      "version": "7",
+      "when": 1708100158000,
+      "tag": "0158_customer_import_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1708100159000,
+      "tag": "0159_legacy_transaction_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 160,
+      "version": "7",
+      "when": 1708100160000,
+      "tag": "0160_intelligent_coa_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1708100161000,
+      "tag": "0161_pms_yield_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "7",
+      "when": 1708100162000,
+      "tag": "0162_staff_import",
+      "breakpoints": true
+    },
+    {
+      "idx": 163,
+      "version": "7",
+      "when": 1708100163000,
+      "tag": "0163_tag_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 164,
+      "version": "7",
+      "when": 1708100164000,
+      "tag": "0164_pms_channel_booking",
+      "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1708100165000,
+      "tag": "0165_ai_world_class_features",
+      "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1708100166000,
+      "tag": "0166_pms_auto_assignment",
+      "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "7",
+      "when": 1708100167000,
+      "tag": "0167_pms_guest_portal",
+      "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1708100168000,
+      "tag": "0168_pms_loyalty",
+      "breakpoints": true
     }
   ]
 }

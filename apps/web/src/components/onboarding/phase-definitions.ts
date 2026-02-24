@@ -37,6 +37,7 @@ import {
   Sparkles,
   CheckCircle,
   ShoppingCart,
+  Upload,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -116,6 +117,13 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
         href: '/settings',
       },
       {
+        key: 'import_staff',
+        label: 'Import Staff from Legacy System',
+        description: 'Have a staff export from your current system? Upload a CSV and we\'ll auto-map columns, detect duplicates, and show a preview before anything changes.',
+        icon: Upload,
+        href: '/settings/import/staff',
+      },
+      {
         key: 'custom_roles',
         label: 'Create Custom Roles',
         description: 'The system includes 6 default roles. Create custom roles if you need different permission combinations.',
@@ -157,9 +165,16 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
       {
         key: 'items',
         label: 'Create Items',
-        description: 'Add your products, services, and packages. You can enter them manually or import via CSV (coming soon).',
+        description: 'Add your products, services, and packages. You can enter them manually or import via CSV.',
         icon: Package,
         href: '/catalog',
+      },
+      {
+        key: 'import_items',
+        label: 'Import Inventory from CSV',
+        description: 'Upload a CSV with your products from any system. We\'ll auto-match columns and you review before anything is imported.',
+        icon: Upload,
+        href: '/catalog?import=true',
       },
       {
         key: 'modifiers',
@@ -235,9 +250,9 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
       {
         key: 'customer_records',
         label: 'Import or Create Customers',
-        description: 'Add customer records manually or import from a CSV file (coming soon). Customers enable house accounts, loyalty, and CRM.',
+        description: 'Import customer records from a CSV file or add them manually. Visit the Import Dashboard to use the guided import wizard.',
         icon: UserCircle,
-        href: '/customers',
+        href: '/settings/import',
       },
       {
         key: 'membership_plans',
@@ -256,7 +271,30 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
     ],
   },
 
-  // ── Phase 6: Accounting (FULLY WIRED) ──
+  // ── Phase 6: Import Your Data ──
+  {
+    key: 'data_import',
+    label: 'Import Your Data',
+    description: 'Upload spreadsheets from your current system — we\'ll map your columns automatically',
+    icon: Upload,
+    steps: [
+      {
+        key: 'import_overview',
+        label: 'Choose Data to Import',
+        description: 'Visit the Import Dashboard to see all available data types. Pick one and upload a file.',
+        icon: Upload,
+        href: '/settings/data-imports',
+      },
+      {
+        key: 'first_import_complete',
+        label: 'Complete Your First Import',
+        description: 'Successfully import at least one file (customers, products, transactions, or chart of accounts).',
+        icon: CheckCircle,
+      },
+    ],
+  },
+
+  // ── Phase 7: Accounting (FULLY WIRED) ──
   {
     key: 'accounting',
     label: 'Accounting',
@@ -270,6 +308,13 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
         description: 'Initialize your Chart of Accounts from a template matching your business type. Creates GL accounts, classifications, and default settings.',
         icon: BookOpen,
         href: '/accounting/accounts',
+      },
+      {
+        key: 'import_coa',
+        label: 'Import Chart of Accounts',
+        description: 'Already have a chart of accounts? Import it from CSV instead of using a template.',
+        icon: Upload,
+        href: '/accounting/accounts?import=true',
       },
       {
         key: 'control_accounts',

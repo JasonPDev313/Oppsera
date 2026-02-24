@@ -108,6 +108,10 @@ export interface FnbTableWithStatus {
   combineGroupId: string | null;
   version: number;
   guestPayActive?: boolean;
+  /** Current course number (if seated with active tab) */
+  currentCourseNumber?: number | null;
+  /** Running check total in cents (if tab open) */
+  checkTotalCents?: number | null;
 }
 
 export interface FnbCombineGroup {

@@ -11,6 +11,7 @@ export {
   catalogItemModifierGroups,
   catalogLocationPrices,
   catalogItemChangeLogs,
+  catalogImportLogs,
   taxRates,
   taxGroups,
   taxGroupRates,

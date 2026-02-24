@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
-import { Users, X } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Users, X, Upload } from 'lucide-react';
+import { CustomerImportWizard } from '@/components/customers/csv-import/CustomerImportWizard';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
 import { Badge } from '@/components/ui/badge';
@@ -274,8 +275,17 @@ function CreateCustomerDialog({
 
 export default function CustomersPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+
+  // Auto-open import wizard from onboarding link (?import=true)
+  useEffect(() => {
+    if (searchParams.get('import') === 'true') {
+      setShowImport(true);
+    }
+  }, [searchParams]);
 
   const { data: customers, isLoading, hasMore, loadMore, mutate } = useCustomers({
     search: search || undefined,
@@ -357,13 +367,23 @@ export default function CustomersPage() {
             Manage your customer profiles, memberships, and billing
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowCreate(true)}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          Add Customer
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            <Upload className="h-4 w-4" />
+            Import CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Add Customer
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -412,6 +432,15 @@ export default function CustomersPage() {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={mutate}
+      />
+
+      {/* Import Wizard */}
+      <CustomerImportWizard
+        open={showImport}
+        onClose={() => {
+          setShowImport(false);
+          mutate();
+        }}
       />
     </div>
   );

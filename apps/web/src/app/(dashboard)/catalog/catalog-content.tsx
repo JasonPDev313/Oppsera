@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, AlertTriangle, Pencil, Power, RotateCcw, History } from 'lucide-react';
+import { Package, AlertTriangle, Pencil, Power, RotateCcw, History, Upload } from 'lucide-react';
 import { useItemEditDrawer } from '@/components/inventory/ItemEditDrawerContext';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
@@ -17,6 +17,7 @@ import { useCatalogItems, useDepartments, useSubDepartments, useCategories, arch
 import { getItemTypeGroup, ITEM_TYPE_BADGES } from '@/types/catalog';
 import type { CatalogItemRow } from '@/types/catalog';
 import { ItemChangeLogModal } from '@/components/catalog/ItemChangeLogModal';
+import { InventoryImportWizard } from '@/components/catalog/InventoryImportWizard';
 
 const typeFilterOptions = [
   { value: '', label: 'All Types' },
@@ -72,6 +73,7 @@ export default function CatalogPage() {
   const [deactivateReason, setDeactivateReason] = useState('');
   const [reactivateTarget, setReactivateTarget] = useState<EnrichedRow | null>(null);
   const [historyItem, setHistoryItem] = useState<{ id: string; name: string } | null>(null);
+  const [showImportWizard, setShowImportWizard] = useState(false);
 
   const { data: departments } = useDepartments();
   const { data: subDepartments } = useSubDepartments(deptId || undefined);
@@ -270,13 +272,23 @@ export default function CatalogPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Inventory Items</h1>
-        <button
-          type="button"
-          onClick={() => router.push('/catalog/items/new')}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
-        >
-          Add Item
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowImportWizard(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100/50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            <Upload className="w-4 h-4" />
+            Import
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/catalog/items/new')}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            Add Item
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -416,6 +428,13 @@ export default function CatalogPage() {
         onClose={() => setHistoryItem(null)}
         itemId={historyItem?.id ?? ''}
         itemName={historyItem?.name ?? ''}
+      />
+
+      {/* Import Wizard */}
+      <InventoryImportWizard
+        open={showImportWizard}
+        onClose={() => setShowImportWizard(false)}
+        onSuccess={() => mutate()}
       />
     </div>
   );

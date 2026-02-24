@@ -89,6 +89,10 @@ export const ItemButton = memo(function ItemButton({
   const textColor = hasMenuColor ? getContrastTextColor(menuColor) : null;
   const isLightText = textColor === '#FFFFFF';
 
+  // Stock status
+  const isOutOfStock = item.isTrackInventory && item.onHand !== null && item.onHand === 0;
+  const isLowStock = item.isTrackInventory && item.onHand !== null && item.onHand > 0 && item.onHand <= 10;
+
   const isNormal = size === 'normal';
   const sizeClasses = isNormal
     ? 'w-full h-[120px] text-sm'
@@ -103,11 +107,24 @@ export const ItemButton = memo(function ItemButton({
         data-contextmenu
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className={`${sizeClasses} relative flex flex-col overflow-hidden rounded-lg border border-gray-200 shadow-sm transition-all hover:shadow-md hover:border-gray-300 active:scale-95 active:shadow-inner select-none ${
-          hasMenuColor ? '' : 'bg-surface'
-        }`}
+        className={`${sizeClasses} relative flex flex-col overflow-hidden rounded-lg shadow-sm transition-all hover:shadow-md active:scale-[0.97] active:shadow-inner select-none ${
+          isOutOfStock
+            ? 'border border-gray-300 opacity-60'
+            : isLowStock
+              ? 'border border-gray-200 border-b-2 border-b-amber-400 hover:border-gray-300'
+              : 'border border-gray-200 hover:border-gray-300'
+        } ${hasMenuColor ? '' : 'bg-surface'}`}
         style={hasMenuColor ? { backgroundColor: menuColor } : undefined}
       >
+        {/* Out of stock overlay */}
+        {isOutOfStock && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-surface/60">
+            <span className="rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+              Out of Stock
+            </span>
+          </div>
+        )}
+
         {/* Type-colored top bar */}
         <div className={`h-1 w-full shrink-0 ${barColor}`} />
 
@@ -116,7 +133,10 @@ export const ItemButton = memo(function ItemButton({
           {/* Item name */}
           <span
             className={`line-clamp-2 text-left font-medium leading-tight ${hasMenuColor ? '' : 'text-gray-900'}`}
-            style={textColor ? { color: textColor } : undefined}
+            style={{
+              fontSize: `calc(${isNormal ? '0.875rem' : '1rem'} * var(--pos-font-scale, 1))`,
+              ...(textColor ? { color: textColor } : {}),
+            }}
           >
             {item.name}
           </span>
@@ -124,7 +144,10 @@ export const ItemButton = memo(function ItemButton({
           {/* Price */}
           <span
             className={`text-left font-semibold ${hasMenuColor ? '' : 'text-gray-700'}`}
-            style={textColor ? { color: textColor, opacity: 0.85 } : undefined}
+            style={{
+              fontSize: `calc(${isNormal ? '0.875rem' : '1rem'} * var(--pos-font-scale, 1))`,
+              ...(textColor ? { color: textColor, opacity: 0.85 } : {}),
+            }}
           >
             {formatPrice(item.price)}
           </span>

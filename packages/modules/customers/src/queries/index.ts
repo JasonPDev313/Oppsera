@@ -196,3 +196,48 @@ export type {
   StoredValueSummary,
   CustomerPrivilegesExtended,
 } from './get-customer-privileges-extended';
+
+// ── Tag Management ──────────────────────────────────────────────────
+export { listTags } from './list-tags';
+export type { ListTagsInput, TagListItem, ListTagsResult } from './list-tags';
+
+export { getTag } from './get-tag';
+export type { GetTagInput, TagDetail } from './get-tag';
+
+export { getCustomerTags } from './get-customer-tags';
+export type { GetCustomerTagsInput, CustomerTagEntry } from './get-customer-tags';
+
+export { getTaggedCustomers } from './get-tagged-customers';
+export type {
+  GetTaggedCustomersInput,
+  TaggedCustomerEntry,
+  GetTaggedCustomersResult,
+} from './get-tagged-customers';
+
+export { listSmartTagRules } from './list-smart-tag-rules';
+export type {
+  ListSmartTagRulesInput,
+  SmartTagRuleListItem,
+  ListSmartTagRulesResult,
+} from './list-smart-tag-rules';
+
+export { getSmartTagRule } from './get-smart-tag-rule';
+export type {
+  GetSmartTagRuleInput,
+  SmartTagRuleDetail,
+  SmartTagEvaluationSummary,
+} from './get-smart-tag-rule';
+
+export { getTagAuditLog } from './get-tag-audit-log';
+export type {
+  GetTagAuditLogInput,
+  TagAuditLogEntry,
+  GetTagAuditLogResult,
+} from './get-tag-audit-log';
+
+export { getSmartTagEvaluationHistory } from './get-smart-tag-evaluation-history';
+export type {
+  GetSmartTagEvaluationHistoryInput,
+  SmartTagEvaluationEntry,
+  GetSmartTagEvaluationHistoryResult,
+} from './get-smart-tag-evaluation-history';

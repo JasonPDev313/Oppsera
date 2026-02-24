@@ -22,3 +22,9 @@ export * from './cache';
 
 // ── Observability ─────────────────────────────────────────────
 export * from './observability';
+
+// ── Intelligence services (proactive AI) ─────────────────────
+export * from './intelligence';
+
+// ── RAG training store ───────────────────────────────────────
+export * from './rag';

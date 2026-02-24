@@ -1,9 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Database, Zap, AlertCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight, Database, Zap, AlertCircle, Code2, Info, Search, TrendingUp, GitBranch, Lightbulb } from 'lucide-react';
 import type { ChatMessage, QueryPlan } from '@/hooks/use-semantic-chat';
 import { FeedbackWidget } from '@/components/insights/FeedbackWidget';
+import { InlineChart } from '@/components/insights/InlineChart';
+import { FollowUpChips } from '@/components/insights/FollowUpChips';
+import { DataQualityBadge } from '@/components/insights/DataQualityBadge';
+import { DataLineagePanel } from '@/components/insights/DataLineagePanel';
 
 // ── Simple markdown renderer ──────────────────────────────────────
 // Renders bold, italics, code spans, and block code from LLM narrative.
@@ -100,6 +104,175 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
   );
 }
 
+// ── Query explanation builder ─────────────────────────────────────
+// Generates a human-readable explanation of what the query looked at and why.
+
+function buildQueryExplanation(
+  plan: QueryPlan | null | undefined,
+  sqlExplanation: string | null | undefined,
+  mode: 'metrics' | 'sql' | undefined,
+  tablesAccessed: string[] | undefined,
+): string | null {
+  // SQL mode — use the LLM-generated explanation directly
+  if (mode === 'sql' && sqlExplanation) {
+    return sqlExplanation;
+  }
+
+  // Metrics mode — build from the query plan
+  if (!plan) return null;
+
+  const parts: string[] = [];
+
+  // What metrics were analyzed
+  if (plan.metrics.length > 0) {
+    const metricNames = plan.metrics.map((m) => m.replace(/_/g, ' '));
+    parts.push(`Analyzed **${metricNames.join('**, **')}**`);
+  }
+
+  // How data was grouped
+  if (plan.dimensions.length > 0) {
+    const dimNames = plan.dimensions.map((d) => d.replace(/_/g, ' '));
+    parts.push(`grouped by **${dimNames.join('**, **')}**`);
+  }
+
+  // Date range
+  if (plan.dateRange) {
+    parts.push(`for **${plan.dateRange.start}** to **${plan.dateRange.end}**`);
+  }
+
+  // Time granularity
+  if (plan.timeGranularity) {
+    parts.push(`at **${plan.timeGranularity}** granularity`);
+  }
+
+  // Filters
+  if (Array.isArray(plan.filters) && plan.filters.length > 0) {
+    const filterDescs = plan.filters
+      .map((f: unknown) => {
+        if (f && typeof f === 'object' && 'dimensionSlug' in f) {
+          const filter = f as { dimensionSlug: string; operator: string; value: unknown };
+          return `${filter.dimensionSlug.replace(/_/g, ' ')} ${filter.operator} ${String(filter.value)}`;
+        }
+        return null;
+      })
+      .filter(Boolean);
+    if (filterDescs.length > 0) {
+      parts.push(`filtered by ${filterDescs.join(', ')}`);
+    }
+  }
+
+  // Sort & limit
+  if (plan.sort && plan.sort.length > 0) {
+    const sortDesc = plan.sort
+      .map((s) => `${s.metricSlug.replace(/_/g, ' ')} (${s.direction === 'desc' ? 'highest first' : 'lowest first'})`)
+      .join(', ');
+    parts.push(`sorted by ${sortDesc}`);
+  }
+  if (plan.limit) {
+    parts.push(`limited to top **${plan.limit}** results`);
+  }
+
+  // Tables accessed
+  if (tablesAccessed && tablesAccessed.length > 0) {
+    const tableNames = tablesAccessed.map((t) => t.replace(/_/g, ' '));
+    parts.push(`from the **${tableNames.join('**, **')}** tables`);
+  }
+
+  if (parts.length === 0) return null;
+
+  // Join with commas and periods
+  let explanation = parts[0]!;
+  if (parts.length > 1) {
+    explanation += ', ' + parts.slice(1).join(', ');
+  }
+  return explanation + '.';
+}
+
+// ── QueryTransparencyPanel ───────────────────────────────────────
+// User-facing panel showing the SQL query and explanation of field choices.
+
+function QueryTransparencyPanel({
+  compiledSql,
+  sqlExplanation,
+  plan,
+  mode,
+  tablesAccessed,
+}: {
+  compiledSql: string | null | undefined;
+  sqlExplanation: string | null | undefined;
+  plan: QueryPlan | null | undefined;
+  mode: 'metrics' | 'sql' | undefined;
+  tablesAccessed: string[] | undefined;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // Only show if we have a SQL query
+  if (!compiledSql) return null;
+
+  const explanation = buildQueryExplanation(plan, sqlExplanation, mode, tablesAccessed);
+
+  return (
+    <div className="mt-3 border border-border rounded-lg overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+      >
+        <Code2 className="h-3.5 w-3.5 shrink-0" />
+        <span className="font-medium">How this was calculated</span>
+        {open ? <ChevronDown className="h-3 w-3 ml-auto" /> : <ChevronRight className="h-3 w-3 ml-auto" />}
+      </button>
+
+      {open && (
+        <div className="border-t border-border">
+          {/* Explanation section */}
+          {explanation && (
+            <div className="px-3 py-2.5 bg-accent/30">
+              <div className="flex items-start gap-2">
+                <Info className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
+                <div className="text-xs text-foreground leading-relaxed">
+                  {formatInline(explanation)}
+                </div>
+              </div>
+              {plan?.intent && (
+                <div className="mt-1.5 ml-6 text-xs text-muted-foreground italic">
+                  Intent: {plan.intent}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SQL section */}
+          <div className="px-3 py-2.5 bg-muted/50">
+            <div className="text-xs text-muted-foreground mb-1.5 font-medium">SQL Query</div>
+            <pre className="text-xs font-mono text-foreground whitespace-pre-wrap overflow-x-auto leading-relaxed bg-muted rounded p-2">
+              {formatSql(compiledSql)}
+            </pre>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Light SQL formatter — adds line breaks at keywords for readability */
+function formatSql(sql: string): string {
+  return sql
+    .replace(/\bSELECT\b/gi, '\nSELECT')
+    .replace(/\bFROM\b/gi, '\nFROM')
+    .replace(/\bWHERE\b/gi, '\nWHERE')
+    .replace(/\bAND\b/gi, '\n  AND')
+    .replace(/\bOR\b/gi, '\n  OR')
+    .replace(/\bGROUP BY\b/gi, '\nGROUP BY')
+    .replace(/\bORDER BY\b/gi, '\nORDER BY')
+    .replace(/\bLIMIT\b/gi, '\nLIMIT')
+    .replace(/\bJOIN\b/gi, '\nJOIN')
+    .replace(/\bLEFT JOIN\b/gi, '\nLEFT JOIN')
+    .replace(/\bINNER JOIN\b/gi, '\nINNER JOIN')
+    .replace(/\bHAVING\b/gi, '\nHAVING')
+    .replace(/\bWITH\b/gi, 'WITH')
+    .trim();
+}
+
 // ── PlanDebugPanel ────────────────────────────────────────────────
 
 function PlanDebugPanel({
@@ -176,14 +349,75 @@ function PlanDebugPanel({
   );
 }
 
+// ── AnalysisActionBar ────────────────────────────────────────────
+// One-click analysis actions that leverage the current message's data context.
+
+function AnalysisActionBar({
+  message,
+  onFollowUpSelect,
+}: {
+  message: ChatMessage;
+  onFollowUpSelect?: (question: string) => void;
+}) {
+  if (!onFollowUpSelect) return null;
+
+  // Only show for responses with actual data
+  const hasData = message.rows && message.rows.length > 0;
+  const hasMetrics = message.plan?.metrics && message.plan.metrics.length > 0;
+  if (!hasData && !hasMetrics) return null;
+
+  const metricName = message.plan?.metrics?.[0]?.replace(/_/g, ' ') ?? 'this metric';
+  const dateRange = message.plan?.dateRange;
+  const period = dateRange ? `from ${dateRange.start} to ${dateRange.end}` : 'this week';
+
+  const actions = [
+    {
+      label: 'Root Cause',
+      icon: Search,
+      prompt: `Why did ${metricName} change ${period}? Analyze the root causes.`,
+    },
+    {
+      label: 'Forecast',
+      icon: TrendingUp,
+      prompt: `Forecast ${metricName} for the next 7 days based on recent trends.`,
+    },
+    {
+      label: 'Correlations',
+      icon: GitBranch,
+      prompt: `What metrics are most correlated with ${metricName}?`,
+    },
+    {
+      label: 'Deeper Analysis',
+      icon: Lightbulb,
+      prompt: `Give me a deeper multi-step analysis of ${metricName} ${period}. Look for patterns, anomalies, and actionable insights.`,
+    },
+  ];
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {actions.map((action) => (
+        <button
+          key={action.label}
+          onClick={() => onFollowUpSelect(action.prompt)}
+          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-muted-foreground bg-muted/50 border border-border rounded-full hover:border-primary/50 hover:text-primary transition-colors"
+        >
+          <action.icon className="h-3 w-3" />
+          {action.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── ChatMessageBubble ─────────────────────────────────────────────
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
   showDebug?: boolean;
+  onFollowUpSelect?: (question: string) => void;
 }
 
-export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBubbleProps) {
+export function ChatMessageBubble({ message, showDebug = false, onFollowUpSelect }: ChatMessageBubbleProps) {
   const isUser = message.role === 'user';
 
   if (isUser) {
@@ -200,10 +434,17 @@ export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBub
   return (
     <div className="flex justify-start">
       <div className="max-w-[90%] w-full">
-        {/* Sparkle indicator */}
+        {/* Sparkle indicator + data quality badge */}
         <div className="flex items-center gap-1.5 mb-1.5 text-primary">
           <Zap className="h-3.5 w-3.5" />
           <span className="text-xs font-medium">AI Insights</span>
+          {message.dataQuality && (
+            <DataQualityBadge
+              grade={message.dataQuality.grade}
+              score={message.dataQuality.score}
+              factors={message.dataQuality.factors}
+            />
+          )}
         </div>
 
         {/* Error state */}
@@ -229,9 +470,44 @@ export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBub
               {renderMarkdown(message.content)}
             </div>
 
-            {/* Data table (if rows returned) */}
-            {message.rows && message.rows.length > 0 && (
+            {/* Inline chart (if chart config returned) */}
+            {message.chartConfig && message.rows && message.rows.length > 0 && (
+              <InlineChart
+                config={message.chartConfig}
+                data={message.rows}
+                className="mt-2"
+              />
+            )}
+
+            {/* Data table (if rows returned and chart type is not table) */}
+            {message.rows && message.rows.length > 0 && message.chartConfig?.type !== 'table' && (
               <QueryResultTable rows={message.rows} rowCount={message.rowCount ?? message.rows.length} />
+            )}
+
+            {/* Query transparency — how this was calculated */}
+            {message.compiledSql && (
+              <QueryTransparencyPanel
+                compiledSql={message.compiledSql}
+                sqlExplanation={message.sqlExplanation}
+                plan={message.plan}
+                mode={message.mode}
+                tablesAccessed={message.tablesAccessed}
+              />
+            )}
+
+            {/* Data lineage */}
+            {message.tablesAccessed && message.tablesAccessed.length > 0 && message.compiledSql && (
+              <DataLineagePanel
+                tablesAccessed={message.tablesAccessed}
+                compiledSql={message.compiledSql!}
+                mode={message.mode ?? 'metrics'}
+                plan={message.plan ? {
+                  metrics: message.plan.metrics,
+                  dimensions: message.plan.dimensions,
+                  filters: message.plan.filters as { field: string; operator: string; value: string }[] | undefined,
+                  dateRange: message.plan.dateRange ?? undefined,
+                } : undefined}
+              />
             )}
 
             {/* Debug panel */}
@@ -251,6 +527,20 @@ export function ChatMessageBubble({ message, showDebug = false }: ChatMessageBub
               <FeedbackWidget evalTurnId={message.evalTurnId} />
             )}
           </div>
+        )}
+
+        {/* Follow-up suggestion chips */}
+        {!message.error && message.suggestedFollowUps && message.suggestedFollowUps.length > 0 && onFollowUpSelect && (
+          <FollowUpChips
+            suggestions={message.suggestedFollowUps}
+            onSelect={onFollowUpSelect}
+            className="mt-2 pl-1"
+          />
+        )}
+
+        {/* Analysis action bar — one-click deeper analysis */}
+        {!message.error && !message.isClarification && (
+          <AnalysisActionBar message={message} onFollowUpSelect={onFollowUpSelect} />
         )}
 
         <div className="mt-1 text-xs text-muted-foreground pl-1">

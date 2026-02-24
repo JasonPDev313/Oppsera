@@ -35,6 +35,7 @@ export const terminalLocations = pgTable(
     isActive: boolean('is_active').notNull().default(true),
     icon: text('icon'),
     sortOrder: integer('sort_order').notNull().default(0),
+    posLayoutConfig: jsonb('pos_layout_config'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

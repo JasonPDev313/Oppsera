@@ -3,14 +3,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed } from 'lucide-react';
+import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed, Moon, Sun } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { refreshTokenIfNeeded } from '@/lib/api-client';
 import { warmCustomerCache } from '@/lib/customer-cache';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { POSErrorBoundary } from '@/components/pos/pos-error-boundary';
+import { ConnectionIndicator } from '@/components/pos/shared/ConnectionIndicator';
+import { usePOSDisplaySize } from '@/hooks/use-pos-display-size';
+import type { POSDisplaySize } from '@/hooks/use-pos-display-size';
 import '@/styles/fnb-design-tokens.css';
+import '@/styles/pos-design-tokens.css';
+import '@/styles/pos-animations.css';
 import RetailPOSLoading from './retail/loading';
 import FnBPOSLoading from './fnb/loading';
 
@@ -139,6 +144,25 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   // Proactive warm-up when returning from idle (token refresh + function warm + data refresh)
   usePOSVisibilityRefresh();
 
+  // ── POS display size ───────────────────────────────────────────
+  const { displaySize, setDisplaySize, fontScale } = usePOSDisplaySize();
+
+  // ── POS dark mode ──────────────────────────────────────────────
+  const [posDark, setPosDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pos_dark_mode') === 'true';
+    }
+    return false;
+  });
+
+  const toggleDarkMode = useCallback(() => {
+    setPosDark((prev) => {
+      const next = !prev;
+      localStorage.setItem('pos_dark_mode', String(next));
+      return next;
+    });
+  }, []);
+
   // ── Mode state ─────────────────────────────────────────────────
   // React state drives the CSS toggle for instant switching.
   // URL is synced via router.replace (deferred, non-blocking).
@@ -206,21 +230,35 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
     : employeeName;
 
   return (
-    <div className="flex h-full flex-col bg-gray-50">
+    <div
+      className={`flex h-full flex-col ${posDark ? 'pos-dark' : ''}`}
+      style={{
+        backgroundColor: 'var(--pos-bg-primary)',
+        ['--pos-font-scale' as string]: fontScale,
+      }}
+    >
       {/* ── Top Bar ──────────────────────────────────────────────── */}
-      <header className="flex h-12 shrink-0 items-center justify-between border-b border-gray-200 bg-surface px-4 shadow-sm">
+      <header
+        className="flex h-12 shrink-0 items-center justify-between px-4"
+        style={{
+          backgroundColor: 'var(--pos-bg-surface)',
+          borderBottom: '1px solid var(--pos-border)',
+          boxShadow: 'var(--pos-shadow-header)',
+        }}
+      >
         {/* Left: Mode toggle, location, terminal, employee */}
         <div className="flex items-center gap-4">
           {/* Retail / F&B mode toggle — instant switch via React state */}
-          <div className="flex items-center gap-0.5 rounded-lg bg-gray-200 p-0.5">
+          <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ backgroundColor: 'var(--pos-bg-elevated)' }}>
             <button
               type="button"
               onClick={() => switchMode('retail')}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
                 isRetail
                   ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-300'
+                  : ''
               }`}
+              style={isRetail ? undefined : { color: 'var(--pos-text-muted)' }}
             >
               <ShoppingCart className="h-3.5 w-3.5" />
               Retail
@@ -231,8 +269,9 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
                 isFnB
                   ? 'bg-amber-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-300'
+                  : ''
               }`}
+              style={isFnB ? undefined : { color: 'var(--pos-text-muted)' }}
             >
               <UtensilsCrossed className="h-3.5 w-3.5" />
               F&B
@@ -240,46 +279,76 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Divider */}
-          <div className="h-5 w-px bg-gray-200" />
+          <div className="h-5 w-px" style={{ backgroundColor: 'var(--pos-border)' }} />
 
           {/* Location */}
           <div className="flex items-center gap-1.5">
-            <MapPin className="h-4 w-4 text-indigo-600" />
-            <span className="text-sm font-semibold text-gray-900">
+            <MapPin className="h-4 w-4" style={{ color: 'var(--pos-accent)' }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--pos-text-primary)' }}>
               {locationName}
             </span>
           </div>
 
           {/* Divider */}
-          <div className="h-5 w-px bg-gray-200" />
+          <div className="h-5 w-px" style={{ backgroundColor: 'var(--pos-border)' }} />
 
           {/* Terminal */}
           <div className="flex items-center gap-1.5">
-            <Monitor className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-600">
+            <Monitor className="h-4 w-4" style={{ color: 'var(--pos-text-muted)' }} />
+            <span className="text-sm font-medium" style={{ color: 'var(--pos-text-secondary)' }}>
               {terminalId}
             </span>
           </div>
 
           {/* Divider */}
-          <div className="h-5 w-px bg-gray-200" />
+          <div className="h-5 w-px" style={{ backgroundColor: 'var(--pos-border)' }} />
 
           {/* Employee */}
           <div className="flex items-center gap-1.5">
-            <User className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-600">
+            <User className="h-4 w-4" style={{ color: 'var(--pos-text-muted)' }} />
+            <span className="text-sm font-medium" style={{ color: 'var(--pos-text-secondary)' }}>
               {displayName}
             </span>
           </div>
         </div>
 
-        {/* Right: Exit */}
-        <div className="flex items-center gap-4">
+        {/* Right: Connection + Exit */}
+        <div className="flex items-center gap-3">
+          <ConnectionIndicator />
+          {/* Font size selector */}
+          <div className="flex items-center gap-0.5 rounded-md p-0.5" style={{ backgroundColor: 'var(--pos-bg-elevated)' }}>
+            {(['default', 'large', 'xlarge'] as POSDisplaySize[]).map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => setDisplaySize(size)}
+                className={`rounded px-1.5 py-0.5 font-semibold transition-colors ${
+                  displaySize === size ? 'bg-indigo-600 text-white shadow-sm' : ''
+                }`}
+                style={displaySize === size ? undefined : { color: 'var(--pos-text-muted)' }}
+                title={`Font size: ${size}`}
+              >
+                <span style={{ fontSize: size === 'default' ? '11px' : size === 'large' ? '13px' : '15px' }}>A</span>
+              </button>
+            ))}
+          </div>
+          {/* Dark mode toggle */}
+          <button
+            type="button"
+            onClick={toggleDarkMode}
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+            style={{ color: 'var(--pos-text-muted)' }}
+            title={posDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label="Toggle dark mode"
+          >
+            {posDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           {/* Exit POS */}
           <button
             type="button"
             onClick={handleExitPOS}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
+            style={{ color: 'var(--pos-text-muted)' }}
             title="Exit POS"
             aria-label="Exit POS"
           >

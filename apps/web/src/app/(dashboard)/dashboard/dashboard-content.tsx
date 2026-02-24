@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
+import { PosInsightCard } from '@/components/insights/PosInsightCard';
 import type { Order } from '@/types/pos';
 import type { InventoryItem } from '@/types/inventory';
 
@@ -217,6 +218,9 @@ export default function DashboardContent() {
 
       {/* Setup Status */}
       <SetupStatusBanner />
+
+      {/* AI Insight */}
+      <PosInsightCard />
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

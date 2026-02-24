@@ -201,6 +201,103 @@ const TABLE_DESCRIPTIONS: Record<string, string> = {
   comp_events: 'Comp/void audit events',
 };
 
+// Column-level descriptions for key tables where the LLM needs semantic
+// context (e.g., which amounts are cents vs dollars, what status values mean).
+// Only annotate columns that cause confusion — not every column needs a description.
+const COLUMN_DESCRIPTIONS: Record<string, Record<string, string>> = {
+  orders: {
+    subtotal_cents: 'order subtotal in CENTS (divide by 100 for dollars)',
+    tax_cents: 'tax amount in CENTS',
+    discount_cents: 'discount amount in CENTS',
+    total_cents: 'grand total in CENTS (divide by 100 for dollars)',
+    service_charge_cents: 'service charge in CENTS',
+    business_date: 'business date YYYY-MM-DD (use for date filtering, NOT created_at)',
+    status: 'open|placed|paid|voided — active orders are placed or paid',
+    order_number: 'human-readable sequential order number',
+  },
+  order_lines: {
+    qty: 'quantity (numeric, can be fractional for F&B e.g. 0.5)',
+    unit_price_cents: 'per-unit price in CENTS',
+    extended_price_cents: 'qty * unit_price in CENTS',
+    subtotal_cents: 'line subtotal in CENTS',
+  },
+  tenders: {
+    amount_cents: 'payment amount in CENTS (divide by 100 for dollars)',
+    amount_given_cents: 'amount given by customer in CENTS (for cash, may exceed amount)',
+    change_given_cents: 'change returned in CENTS',
+    tip_amount_cents: 'tip amount in CENTS (separate from order total)',
+    tender_type: 'cash|card|house_account|gift_card|etc',
+    status: 'captured|reversed — active tenders have status=captured',
+  },
+  catalog_items: {
+    price: 'unit price in DOLLARS (NUMERIC 12,2)',
+    cost: 'unit cost in DOLLARS (NUMERIC 12,2)',
+    item_type: 'retail|fnb|service|package|green_fee|rental',
+    archived_at: 'NULL = active, non-NULL = archived (no is_active column)',
+  },
+  rm_daily_sales: {
+    net_sales: 'net sales in DOLLARS (pre-aggregated from orders)',
+    gross_sales: 'gross sales in DOLLARS',
+    order_count: 'completed orders count',
+    void_count: 'voided orders count',
+    void_total: 'voided amount in DOLLARS',
+    discount_total: 'discount amount in DOLLARS',
+    tax_total: 'tax collected in DOLLARS',
+    tender_cash: 'cash payments in DOLLARS',
+    tender_card: 'card payments in DOLLARS',
+    business_date: 'aggregation date (one row per location per date)',
+  },
+  rm_item_sales: {
+    quantity_sold: 'units sold',
+    quantity_voided: 'units voided',
+    gross_revenue: 'item revenue in DOLLARS',
+    catalog_item_name: 'item name at time of sale',
+    category_name: 'category/department name',
+    business_date: 'aggregation date',
+  },
+  rm_inventory_on_hand: {
+    on_hand: 'current stock level (SNAPSHOT, not time-series)',
+    reorder_point: 'reorder threshold',
+    is_below_threshold: 'true if on_hand < reorder_point',
+    item_name: 'product name',
+  },
+  rm_customer_activity: {
+    total_visits: 'lifetime visit count (RUNNING TOTAL, not per-date)',
+    total_spend: 'lifetime spend in DOLLARS (RUNNING TOTAL)',
+    customer_name: 'customer display name',
+  },
+  customers: {
+    first_name: 'customer first name',
+    last_name: 'customer last name',
+    display_name: 'formatted display name',
+    customer_type: 'person|organization',
+  },
+  users: {
+    name: 'staff member full name (NOT customers — see customers table)',
+    email: 'staff email',
+    status: 'active|suspended|etc',
+    primary_role_id: 'FK to role — this is STAFF not customers',
+  },
+  inventory_movements: {
+    quantity_delta: 'positive=in, negative=out (append-only ledger)',
+    movement_type: 'receive|sale_deduction|adjustment|transfer_in|transfer_out|shrink|void_reversal',
+  },
+  gl_journal_lines: {
+    debit_amount: 'debit in DOLLARS (NUMERIC 12,2)',
+    credit_amount: 'credit in DOLLARS (NUMERIC 12,2)',
+  },
+  ap_bills: {
+    total_amount: 'bill total in DOLLARS',
+    balance_due: 'remaining balance in DOLLARS',
+    status: 'draft|posted|partial|paid|voided',
+  },
+  ar_invoices: {
+    total_amount: 'invoice total in DOLLARS',
+    balance_due: 'remaining balance in DOLLARS',
+    status: 'draft|posted|partial|paid|voided',
+  },
+};
+
 // ── postgres.js singleton (shared with executor) ─────────────────
 
 const globalForSchema = globalThis as unknown as { __semantic_schema_pg?: postgres.Sql };
@@ -338,10 +435,13 @@ export async function buildSchemaCatalog(): Promise<SchemaCatalog> {
 function buildFullText(tables: TableInfo[]): string {
   const lines: string[] = [];
   for (const table of tables) {
+    const tableColDescs = COLUMN_DESCRIPTIONS[table.name];
     const colDefs = table.columns.map((c) => {
       let def = `${c.name} ${c.dataType}`;
       if (c.isPrimaryKey) def += ' PK';
       if (!c.isNullable && !c.isPrimaryKey) def += ' NOT NULL';
+      const desc = tableColDescs?.[c.name];
+      if (desc) def += ` -- ${desc}`;
       return def;
     });
     lines.push(`## ${table.name} — ${table.description}`);

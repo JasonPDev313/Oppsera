@@ -45,6 +45,7 @@ export const catalogCategories = pgTable(
     parentId: text('parent_id'),
     name: text('name').notNull(),
     sortOrder: integer('sort_order').notNull().default(0),
+    color: text('color'),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -167,6 +168,33 @@ export const catalogLocationPrices = pgTable(
       table.tenantId,
       table.catalogItemId,
     ),
+  ],
+);
+
+// ── Import Logs ──────────────────────────────────────────────────
+export const catalogImportLogs = pgTable(
+  'catalog_import_logs',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    fileName: text('file_name').notNull(),
+    totalRows: integer('total_rows').notNull().default(0),
+    successRows: integer('success_rows').notNull().default(0),
+    errorRows: integer('error_rows').notNull().default(0),
+    skippedRows: integer('skipped_rows').notNull().default(0),
+    updatedRows: integer('updated_rows').notNull().default(0),
+    categoriesCreated: integer('categories_created').notNull().default(0),
+    errors: jsonb('errors'),
+    mappings: jsonb('mappings'),
+    status: text('status').notNull().default('pending'),
+    importedBy: text('imported_by'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('idx_catalog_import_logs_tenant').on(table.tenantId),
   ],
 );
 

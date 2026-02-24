@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, RefreshCw, Users } from 'lucide-react';
+import { Plus, RefreshCw, Users, DollarSign, Clock } from 'lucide-react';
 
 interface BottomDockProps {
   totalCovers: number;
@@ -8,9 +8,13 @@ interface BottomDockProps {
   seatedCount: number;
   onNewTab: () => void;
   onRefresh: () => void;
+  /** Total open revenue in cents */
+  openRevenueCents?: number;
+  /** Average turn time in minutes */
+  avgTurnMinutes?: number | null;
 }
 
-export function BottomDock({ totalCovers, availableCount, seatedCount, onNewTab, onRefresh }: BottomDockProps) {
+export function BottomDock({ totalCovers, availableCount, seatedCount, onNewTab, onRefresh, openRevenueCents, avgTurnMinutes }: BottomDockProps) {
   return (
     <div
       className="flex items-center justify-between px-2 sm:px-4 border-t border-gray-200 bg-surface"
@@ -32,6 +36,30 @@ export function BottomDock({ totalCovers, availableCount, seatedCount, onNewTab,
         <span className="text-xs hidden sm:inline text-indigo-600">
           {seatedCount} seated
         </span>
+        {openRevenueCents != null && openRevenueCents > 0 && (
+          <>
+            <div className="h-4 w-px hidden sm:block bg-gray-200" />
+            <div className="hidden sm:flex items-center gap-1">
+              <DollarSign className="h-3 w-3 text-green-500" />
+              <span className="text-xs font-semibold text-green-600">
+                ${(openRevenueCents / 100).toFixed(0)}
+              </span>
+              <span className="text-xs text-gray-400">open</span>
+            </div>
+          </>
+        )}
+        {avgTurnMinutes != null && avgTurnMinutes > 0 && (
+          <>
+            <div className="h-4 w-px hidden sm:block bg-gray-200" />
+            <div className="hidden sm:flex items-center gap-1">
+              <Clock className="h-3 w-3 text-gray-400" />
+              <span className="text-xs font-semibold text-gray-500">
+                ~{avgTurnMinutes}m
+              </span>
+              <span className="text-xs text-gray-400">avg turn</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Right: actions */}

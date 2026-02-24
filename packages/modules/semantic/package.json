@@ -11,7 +11,10 @@
     "./llm": "./src/llm/index.ts",
     "./lenses": "./src/lenses/index.ts",
     "./cache": "./src/cache/index.ts",
-    "./observability": "./src/observability/index.ts"
+    "./observability": "./src/observability/index.ts",
+    "./intelligence": "./src/intelligence/index.ts",
+    "./intelligence/*": "./src/intelligence/*.ts",
+    "./schema/*": "./src/schema/*.ts"
   },
   "scripts": {
     "lint": "eslint src/",

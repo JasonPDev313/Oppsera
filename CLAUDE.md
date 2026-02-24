@@ -41,7 +41,8 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Accounts Payable (bills, payments, vendors, aging) | ap | V1 | Done |
 | Accounts Receivable v0 (invoices, receipts, aging) | ar | V1 | Done |
 | Golf Operations | golf_ops | V2 | Planned |
-| AI Insights (Semantic Layer) | semantic | V1 | Done (registry + compiler + LLM pipeline + lenses + cache + observability) |
+| AI Insights (Semantic Layer) | semantic | V1 | Done (dual-mode pipeline + SQL generation + RAG + eval training platform) |
+| Property Management (PMS) | pms | V1 | Done (reservations, calendar, folios, housekeeping, yield mgmt, channels, loyalty) |
 
 ## Monorepo Structure
 
@@ -60,7 +61,7 @@ oppsera/
 │   │   ├── src/lib/                  # Utilities (api-client)
 │   │   └── src/types/                # Frontend type definitions
 │   └── admin/                        # Platform admin panel (eval QA, tenant mgmt, user mgmt)
-│       ├── src/app/(admin)/eval/     # Eval feed, dashboard, examples, patterns, turn detail
+│       ├── src/app/(admin)/train-ai/ # AI training: examples, turns, batch review, experiments, playground, regression, safety, cost
 │       ├── src/app/(admin)/tenants/  # Tenant management (list, detail, org hierarchy, entitlements)
 │       ├── src/app/(admin)/users/    # User management (staff invite/suspend, customer search)
 │       ├── src/app/api/v1/eval/      # Admin eval API routes
@@ -82,7 +83,8 @@ oppsera/
 │       ├── customers/                # @oppsera/module-customers — IMPLEMENTED (CRM + Universal Profile)
 │       ├── reporting/                # @oppsera/module-reporting — IMPLEMENTED (queries + consumers + CSV)
 │       ├── golf-reporting/           # @oppsera/module-golf-reporting — IMPLEMENTED (golf analytics)
-│       ├── semantic/                 # @oppsera/module-semantic — IMPLEMENTED (AI insights)
+│       ├── semantic/                 # @oppsera/module-semantic — IMPLEMENTED (AI insights + dual-mode pipeline)
+│       ├── pms/                      # @oppsera/module-pms — IMPLEMENTED (property management)
 │       ├── kds/                      # @oppsera/module-kds — scaffolded
 │       ├── golf-ops/                 # @oppsera/module-golf-ops — scaffolded
 │       ├── accounting/               # @oppsera/module-accounting — IMPLEMENTED (GL, COA, posting, statements)
@@ -612,6 +614,48 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - Admin + Manager roles get `pos_fnb.*`, `accounting.*`, `ap.*`, `ar.*`
   - Dead letter routes now read from persistent `event_dead_letters` table (was in-memory, lost on Vercel cold starts)
   - Migration 0134 made fully idempotent (`DROP POLICY IF EXISTS`, `IF NOT EXISTS` for indexes)
+- **Property Management System (PMS)** (`packages/modules/pms/`) — Session 2026-02-24:
+  - **50+ schema tables** in `packages/db/src/schema/pms.ts`: properties, room types, rooms, rate plans, rate plan prices, guests, reservations, room blocks, folios, folio entries, room status log, audit log, idempotency keys, outbox, rate restrictions, payment methods, payment transactions, deposit policies, cancellation policies, message templates, message log, housekeepers, housekeeping assignments, work orders, work order comments, rate packages, groups, group room blocks, corporate accounts, corporate rate overrides, pricing rules, pricing log, channels, channel sync log, booking engine config, room assignment preferences, guest portal sessions, loyalty programs, loyalty members, loyalty transactions
+  - **CQRS read models**: `rm_pms_calendar_segments`, `rm_pms_daily_occupancy`, `rm_pms_revenue_by_room_type`, `rm_pms_housekeeping_productivity`
+  - **55+ commands**: property/room/rate CRUD, reservation lifecycle (create, update, cancel, no-show, check-in/check-out, move room, resize), folio posting/close, rate restrictions, payment methods, deposits (authorize/capture), card charges, refunds, deposit/cancellation policies, messaging (templates, send, log), housekeeping (assign, start/complete/skip cleaning, work orders), rate packages, groups (create, blocks, pickup, release), corporate accounts + rate overrides, pricing rules + engine, channels (create, update, sync), booking engine config, room assignment preferences + auto-assignment, guest portal sessions, loyalty programs + enrollment + earn/redeem/adjust points
+  - **60+ queries**: list/get for all entities, calendar week/day/month views, occupancy forecast, revenue by room type, pickup report, manager flash report, no-show report, housekeeping productivity, pricing preview/log, channel sync log, booking engine config, room suggestions, guest portal folio, loyalty transactions
+  - **State machines**: `RESERVATION_TRANSITIONS` (confirmed→checked_in→checked_out, confirmed→cancelled, confirmed→no_show), `ROOM_STATUS_TRANSITIONS` (clean→occupied→dirty→cleaning→inspected→clean). Assert functions throw `InvalidStatusTransitionError`.
+  - **Event consumers**: `handleCalendarProjection`, `handleOccupancyProjection` for CQRS read model updates
+  - **Background jobs**: `runNightlyChargePosting`, `runNoShowMarking`, `runHousekeepingAutoDirty`
+  - **Helpers**: `bootstrapPropertiesFromLocations`, `computeDynamicRate` (pricing engine), `scoreRoom`/`rankRooms` (room assignment), `renderTemplate` (message templates), SMS/Stripe gateway stubs
+  - **30+ PMS permissions** across 10 categories (properties, rooms, reservations, rates, guests, folios, housekeeping, reports, settings, channels, loyalty)
+  - **Own idempotency + outbox tables**: `pms_idempotency_keys`, `pms_outbox` — module-specific for microservice extractability
+  - **Migrations**: 0148-0168 (rate restrictions, deposits/payments, communications, reporting, housekeeping/maintenance, rate packages, groups/corporate, pricing rules, channels/booking, auto-assignment, guest portal, loyalty)
+  - **Frontend**: `use-pms.ts` hook, PMS calendar page (code-split), sub-pages for corporate, groups, loyalty, maintenance, reports, revenue management
+- **Semantic Layer Upgrades** (Session 2026-02-24):
+  - **Dual-mode pipeline**: Mode A (metrics via registry compiler) + Mode B (SQL via LLM generation). Mode routing is automatic based on intent and schema availability
+  - **SQL generation pipeline**: `generateSql()` → `validateGeneratedSql()` → `executeSqlQuery()` → auto-retry via `retrySqlGeneration()`. Full schema catalog built from live DB introspection via `buildSchemaCatalog()`
+  - **SQL validation (defense-in-depth)**: SELECT/WITH only, no DDL/DML/TX/utility commands, no dangerous functions, no comments/semicolons, tenant_id=$1 required, LIMIT required (except aggregates), table whitelist
+  - **RAG few-shot retrieval**: `retrieveFewShotExamples()` injects similar past queries into SQL generator system prompt. Best-effort, never blocks
+  - **Conversation pruning**: `pruneForSqlGenerator()` with token-aware history trimming
+  - **LLM response cache**: Separate from query cache. Keyed on `(tenantId, promptHash, message+dataSummary, history)`. Prevents redundant LLM calls for identical questions with same data
+  - **Intelligence enrichments**: `generateFollowUps()` (suggested questions), `inferChartConfig()` (auto chart type), `scoreDataQuality()` (confidence scoring)
+  - **Eval training platform expanded**: batch review, conversation analysis, cost analytics, experiments, regression testing, safety engine, example effectiveness tracking, bulk import/export
+  - **New admin pages**: 8 new sub-pages under `/train-ai/` (batch-review, comparative, conversations, cost, experiments, playground, regression, safety)
+- **Insights Sub-Pages** (Session 2026-02-24):
+  - **Authoring**: `/insights/authoring` — semantic authoring panel for creating custom metrics/reports
+  - **Embeds**: `/insights/embeds` — embeddable widget management
+  - **Reports**: `/insights/reports` — NL report builder panel
+  - **Tools**: `/insights/tools` — analysis tools
+  - **Watchlist**: `/insights/watchlist` — metric watchlist panel
+  - **Components**: `SemanticAuthoringPanel`, `EmbeddableWidget`, `NLReportBuilderPanel`, `WatchlistPanel`, `AnnotationOverlay`, `BranchTree`, `CorrelationChart`, `DataLineagePanel`, `DataQualityBadge`, `DigestViewer`, `DrillDownTable`, `FollowUpChips`, `ForecastChart`, `InlineChart`, `NotificationBell`, `PosInsightCard`, `RootCausePanel`, `ScheduledReportsPanel`, `VoiceInput`, `WhatIfPanel`
+  - **Hooks**: `use-agentic`, `use-ai-alerts`, `use-ai-digests`, `use-ai-feed`, `use-ai-findings`, `use-ai-goals`, `use-ai-preferences`, `use-ai-shared`, `use-ai-simulations`, `use-annotations`, `use-branches`, `use-correlations`, `use-data-quality`, `use-digests`, `use-embed-widgets`, `use-forecast`, `use-nl-report`, `use-pinned-metrics`, `use-root-cause`, `use-scheduled-reports`, `use-whatif`
+- **Catalog Import System** (Session 2026-02-24):
+  - **Inventory import**: `importInventory` command, `InventoryImportWizard` component, `use-inventory-import.ts` hook, `inventory-import-analyzer.ts`, `inventory-import-parser.ts`, `inventory-import-validator.ts` services, `validation-import.ts` schemas
+  - **Customer import**: `bulkImportCustomers` command, `use-customer-import.ts` hook, CSV import test suite
+  - **Staff import**: `use-staff-import.ts` hook, migration 0162
+  - **Unified import framework**: `apps/web/src/lib/import-registry.ts`, `apps/web/src/components/import/` shared components, `/settings/data-imports` page, `use-import-wizard.ts`, `use-import-jobs.ts`, `use-import-progress.ts`, `use-import-completion.ts`
+- **Customer Tag Management** (Session 2026-02-24):
+  - **11 commands**: `createTag`, `updateTag`, `archiveTag`, `unarchiveTag`, `applyTagToCustomer`, `removeTagFromCustomer`, `createSmartTagRule`, `updateSmartTagRule`, `toggleSmartTagRule`, `evaluateSmartTags`
+  - **8 queries**: `listTags`, `getTag`, `getTaggedCustomers`, `getCustomerTags`, `listSmartTagRules`, `getSmartTagRule`, `getSmartTagEvaluationHistory`, `getTagAuditLog`
+  - **Schema**: `packages/db/src/schema/tags.ts`, migration 0163
+  - **API routes**: `/api/v1/customers/tags/`, `/api/v1/customers/[id]/tags/`, `/api/v1/customers/smart-tag-rules/`
+  - **Settings page**: `/settings/tag-management`
 - **Build & Deployment Fixes** (Session 2026-02-22–23):
   - **Vercel build blockers resolved** across all 3 apps (web, admin, member-portal)
   - 30+ ESLint `consistent-type-imports` fixes, unused variable removal
@@ -791,7 +835,9 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **Schema**: `packages/db/src/schema/semantic.ts` (6 tables: metrics, dimensions, metric-dimensions, table-sources, lenses) + `evaluation.ts` (4 tables: eval-sessions, eval-turns, eval-examples, eval-quality-daily) + `platform.ts` (platform-admins). Migrations 0070–0073.
   - **Registry**: In-memory with stale-while-revalidate (5min TTL + 10min SWR window). 16 core metrics, 8 core dimensions, 8 golf metrics, 6 golf dimensions, 60+ metric-dimension relations, 4 system lenses. `syncRegistryToDb()` + `invalidateRegistryCache()`.
   - **Query Compiler**: `compilePlan()` — validates metrics/dimensions against registry, builds parameterized SQL with GROUP BY, WHERE, ORDER BY, LIMIT. Enforces tenant isolation, date range, max rows (10K), max cols (20), max filters (15).
-  - **LLM Pipeline**: `runPipeline()` — intent resolution → compilation → execution → narrative. Anthropic adapter (Claude Haiku). Clarification short-circuit. Query cache (5min LRU, 200 entries). Observability metrics recording. Best-effort eval capture.
+  - **LLM Pipeline (Dual-Mode)**: `runPipeline()` orchestrates two modes: **Mode A (metrics)**: intent → compile via registry → execute → narrate. **Mode B (SQL)**: intent → generate SQL via LLM → validate → execute → auto-retry on failure → narrate. Mode routing is automatic based on intent confidence and schema catalog availability. Both modes share eval capture, caching (query cache + LLM response cache), and observability. Post-pipeline enrichments: `generateFollowUps()`, `inferChartConfig()`, `scoreDataQuality()`.
+  - **SQL Generation Pipeline (Mode B)**: `generateSql()` builds a system prompt with full DB schema (via `buildSchemaCatalog()`), money/date/status conventions, common query patterns, and RAG few-shot examples. `validateGeneratedSql()` enforces SELECT-only, tenant isolation, LIMIT, table whitelist, and blocks dangerous functions. `retrySqlGeneration()` sends errors back to LLM for one auto-correction attempt. `pruneForSqlGenerator()` trims conversation history to fit token budgets.
+  - **Intelligence Enrichments**: `generateFollowUps()` suggests contextual follow-up questions based on query results and plan. `inferChartConfig()` auto-detects optimal chart type (line/bar/pie/table) from data shape. `scoreDataQuality()` computes confidence score from row count, execution time, date range coverage, and schema tables used.
   - **Narrative Engine — THE OPPS ERA LENS**: Universal SMB optimization framework powering all AI responses. System prompt in `narrative.ts` with `buildNarrativeSystemPrompt()`. Features:
     - **DATA-FIRST DECISION RULE**: Priority chain: REAL DATA → ASSUMPTIONS → BEST PRACTICE. Never refuses a question.
     - **Adaptive depth**: DEFAULT MODE (concise, <400 words) for most responses; DEEP MODE for strategic/financial decisions; QUICK WINS MODE for urgent help.
@@ -814,13 +860,10 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - **Admin App** (`apps/admin/`):
   - Separate Next.js app on port 3001 for platform operators (NOT tenant-scoped)
   - **Auth**: Email/password → JWT (HS256, 8h TTL) + HttpOnly cookie. `platformAdmins` table with bcrypt password hashing. Legacy 3 roles: viewer, admin, super_admin. `withAdminAuth(handler, minRole)` middleware. New granular RBAC via `platform_admin_roles` + `platform_admin_role_permissions`.
-  - **Eval Feed**: `/eval/feed` — paginated eval turns with filters (status, sortBy, search), `EvalTurnCard` component
-  - **Turn Detail**: `/eval/turns/[turnId]` — full turn context (user message, LLM plan via `PlanViewer`, compiled SQL via `SqlViewer`, result sample table, user feedback, admin review form)
-  - **Quality Dashboard**: `/eval/dashboard` — KPI cards + Recharts trend charts (hallucination rate, rating distribution, exec time, by-lens breakdown)
-  - **Golden Examples**: `/eval/examples` — manage few-shot training data (filter by category/difficulty, delete)
-  - **Patterns**: `/eval/patterns` — identify recurring problematic plan hashes with common verdicts/flags
-  - **Components**: AdminSidebar, EvalTurnCard, QualityFlagPills, QualityKpiCard, VerdictBadge, RatingStars, PlanViewer, SqlViewer, TenantSelector
-  - **API Routes**: 12 eval endpoints + ~6 admin staff/customer endpoints + ~12 tenant endpoints + module template endpoints
+  - **Train AI Section** (expanded from Eval): `/train-ai/examples` (golden examples with bulk import/export + effectiveness tracking), `/train-ai/turns/[turnId]` (turn detail with plan viewer, SQL viewer, result sample, admin review), `/train-ai/batch-review` (bulk review workflows), `/train-ai/comparative` (A/B comparison), `/train-ai/conversations` (conversation analysis), `/train-ai/cost` (token/cost analytics), `/train-ai/experiments` (A/B experiments), `/train-ai/playground` (interactive testing), `/train-ai/regression` (regression testing), `/train-ai/safety` (safety evaluation)
+  - **Eval Training Hook**: `useEvalTraining()` centralizes all AI training operations — examples CRUD + bulk import/export + effectiveness, batch review, experiments, regression, cost analytics, safety, conversations
+  - **Components**: AdminSidebar (with Train AI section), EvalTurnCard, QualityFlagPills, QualityKpiCard, VerdictBadge, RatingStars, PlanViewer, SqlViewer, TenantSelector
+  - **API Routes**: 20+ eval endpoints (examples CRUD + bulk-import + export + effectiveness, turns + promote-correction, batch-review, conversations, cost, experiments, playground, regression, safety) + ~6 admin staff/customer endpoints + ~12 tenant endpoints + module template endpoints
   - **Tests**: 45 tests (28 auth + 17 eval API)
   - **Entitlement**: `semantic` module added to core entitlements registry. Script: `tools/scripts/add-semantic-entitlement.ts` for existing tenants.
   - **Utility**: `scripts/switch-env.sh` (toggle local/remote Supabase)
@@ -1061,14 +1104,24 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~Dead letter routes switched to DB persistence~~ ✓ DONE
 - ~~Vercel build blockers resolved (all 3 apps)~~ ✓ DONE
 - ~~1,500+ new accounting tests~~ ✓ DONE
-- Run migrations 0134-0144 on dev DB
+- ~~PMS module (reservations, calendar, folios, housekeeping, yield mgmt, channels, loyalty)~~ ✓ DONE
+- ~~Semantic dual-mode pipeline (metrics + SQL generation)~~ ✓ DONE
+- ~~Admin train-ai platform (batch review, experiments, regression, safety, cost analytics)~~ ✓ DONE
+- ~~Insights sub-pages (authoring, embeds, reports, tools, watchlist)~~ ✓ DONE
+- ~~Catalog/customer/staff import system~~ ✓ DONE
+- ~~Customer tag management (smart tags, rules, audit)~~ ✓ DONE
+- ~~PMS calendar frontend~~ ✓ IN PROGRESS (uncommitted)
+- Run migrations 0134-0168 on dev DB
 - Run `tools/scripts/seed-admin-roles.ts` after migration 0097
 - Run `tools/scripts/backfill-accounting-accounts.ts` after migration 0100 (creates Tips Payable + Service Charge Revenue for existing tenants)
 - Toggle `enableLegacyGlPosting = false` per tenant after validating GL reconciliation
+- PMS frontend: reservation detail, guest profile, housekeeping dashboard, rate management
+- PMS testing: unit tests for commands/queries, integration tests for lifecycle flows
 - Admin invite flow (email sending integration)
 - Admin customer detail page (cross-tenant profile viewer)
 - Module template management UI (create/apply presets)
 - Entitlement bulk mode change (batch enable/disable with dependency resolution)
+- Semantic SQL mode testing: regression suite for common SQL patterns
 
 ## Critical Gotchas (Quick Reference)
 
@@ -1386,6 +1439,41 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 303. **COA CSV import validates before creating** — `importCoaFromCsv` parses the CSV, validates all rows (account number format, type, classification, parent references), reports errors per row, then creates accounts atomically. Invalid rows don't block valid ones — partial imports are supported.
 304. **ReconciliationReadApi has 61 methods** — expanded from 25 to 61 to support GL remap, settlements, and enhanced reconciliation. New methods include `getTendersForRemapping`, `getPaymentsForRemapping`, `getTransactionsWithGlStatus`. Always check existing methods before adding new ones.
 305. **F&B payment tier 3 includes house accounts** — `chargeGuestMemberAccount` debits the member's billing account (AR). Member lookup via `GET /api/v1/fnb/payments/member-lookup?search=`. Gift card balance via `GET /api/v1/fnb/payments/gift-card-balance?cardNumber=`. NFC and loyalty are stubs for V2.
+306. **Semantic pipeline is now dual-mode (metrics + SQL)** — `runPipeline()` resolves intent first, then branches: Mode A (metrics) compiles via registry → executes → narrates. Mode B (SQL) generates SQL via LLM → validates → executes → auto-retries on failure → narrates. Mode selection is automatic based on intent confidence and schema availability. Both modes share the same eval capture, caching, and observability infrastructure.
+307. **LLM-generated SQL has defense-in-depth validation** — `validateGeneratedSql()` in `sql-validator.ts` enforces: SELECT/WITH only, no DDL/DML/TX control, no dangerous functions (`pg_sleep`, `set_config`, etc.), no comments, no semicolons (multi-statement prevention), `tenant_id = $1` required, LIMIT required (except aggregates), table whitelist check against schema catalog. RLS is the primary security layer — validation is an additional guard. Always validate before executing.
+308. **SQL auto-correction retry sends errors back to LLM** — when LLM-generated SQL fails execution, `retrySqlGeneration()` sends the failed SQL + error message back to the LLM for one correction attempt. The corrected SQL is re-validated before execution. Token counts and latency accumulate across retries. Max retries default to 1 to control cost. Never retry more than once.
+309. **Semantic pipeline uses RAG few-shot retrieval** — `retrieveFewShotExamples()` in `rag/few-shot-retriever.ts` retrieves similar past queries for injection into the SQL generator system prompt. Best-effort — never blocks SQL generation on RAG failure. Supports `includeSqlMode` / `includeMetricsMode` filtering.
+310. **Conversation pruning is token-aware** — `pruneForSqlGenerator()` in `conversation-pruner.ts` trims conversation history to fit within token budgets before sending to the SQL generator. Preserves the most recent messages. Different pruning strategies for intent resolution vs SQL generation.
+311. **LLM response cache is separate from query cache** — `llm-cache.ts` caches narrative LLM responses keyed on `(tenantId, promptHash, userMessage + dataSummary, history)`. `query-cache.ts` caches SQL query results keyed on `(tenantId, sql, params)`. Both are in-memory LRU with TTL. Check both caches before making LLM/DB calls.
+312. **Pipeline generates follow-ups, chart config, and data quality scores** — after execution + narrative, the pipeline calls `generateFollowUps()` (context-aware suggested questions), `inferChartConfig()` (auto-detect best chart type from data shape), and `scoreDataQuality()` (confidence scoring based on row count, execution time, date range, schema tables). All are optional enrichments that never block the response.
+313. **SQL generator system prompt includes money conventions** — the `buildSqlGeneratorPrompt()` explicitly documents which tables use cents (orders, tenders) vs dollars (catalog, GL, read models, receiving). LLM must convert cents to dollars with `/ 100.0` when users ask about dollar amounts. Also documents status conventions, date patterns, and the critical users vs customers table distinction.
+314. **PMS module follows standard module architecture** — `packages/modules/pms/` has 50+ commands, 60+ queries, state machines for reservations and rooms, event consumers for calendar/occupancy projections, background jobs (nightly charges, no-show marking, housekeeping auto-dirty), and `rm_pms_*` CQRS read models. Uses `publishWithOutbox` for all write ops.
+315. **PMS uses state machines for lifecycle management** — `state-machines.ts` defines `RESERVATION_TRANSITIONS` (confirmed→checked_in→checked_out, confirmed→cancelled, confirmed→no_show) and `ROOM_STATUS_TRANSITIONS` (clean→occupied→dirty→cleaning→inspected→clean). `assertReservationTransition()` and `assertRoomTransition()` throw `InvalidStatusTransitionError` on invalid moves.
+316. **PMS calendar queries return room-centric segments** — `getCalendarWeek()` and `getCalendarDay()` return rooms with reservation segments for Gantt-style rendering. `getCalendarMonth()` returns day-level occupancy summaries. Calendar queries are optimized for frontend rendering — no N+1 queries.
+317. **PMS has its own idempotency + outbox tables** — `pms_idempotency_keys` and `pms_outbox` are PMS-specific (not shared with the core outbox). This allows PMS to be extracted to a microservice later without depending on the core event infrastructure.
+318. **PMS pricing engine is rule-based** — `computeDynamicRate()` evaluates `pms_pricing_rules` (occupancy-based, day-of-week, lead-time, length-of-stay, demand) in priority order. `pricingConditionsSchema` validates rule conditions. `pms_pricing_log` records which rules fired for each rate calculation.
+319. **PMS room assignment engine uses weighted scoring** — `scoreRoom()` evaluates rooms by floor preference, view, accessibility, loyalty tier, previous stays, and room features. `rankRooms()` returns sorted candidates. Preferences stored in `pms_room_assignment_preferences` per property.
+320. **PMS schema uses `pms_` prefix on all tables** — all 50+ PMS tables are prefixed `pms_` (e.g., `pms_reservations`, `pms_rooms`, `pms_folios`). Read models use `rm_pms_` prefix. This avoids name collisions and makes the module clearly identifiable in SQL.
+321. **PMS channel management syncs availability** — `pms_channels` (OTA integrations), `pms_channel_sync_log` (sync history), `pms_booking_engine_config` (direct booking). `syncChannel` command pushes availability/rates to external channels. Channel sync is async and logged for debugging.
+322. **PMS loyalty is points-based** — `pms_loyalty_programs` (earn/burn rates, tiers), `pms_loyalty_members` (points balance, tier), `pms_loyalty_transactions` (earn/redeem/adjust/expire). `enrollLoyaltyGuest`, `earnLoyaltyPoints`, `redeemLoyaltyPoints`, `adjustLoyaltyPoints` commands. Redemption validates sufficient balance.
+323. **PMS guest portal uses secure token sessions** — `pms_guest_portal_sessions` with expiring tokens for pre-check-in self-service. `createGuestPortalSession` generates the token, `completePreCheckin` captures guest preferences. `expireGuestPortalSessions` runs as a background job.
+324. **Admin train-ai section replaces eval** — the admin sidebar now uses "Train AI" as the top-level section (was "Eval"). Sub-pages: Examples, Turns (detail), Batch Review, Comparative, Conversations, Cost Analytics, Experiments, Playground, Regression Testing, Safety. Each has corresponding API routes under `/api/v1/eval/`.
+325. **Admin eval training hook centralizes all training operations** — `useEvalTraining()` in `apps/admin/src/hooks/use-eval-training.ts` provides CRUD operations for examples (including bulk import/export and effectiveness tracking), batch review workflows, experiment management, regression testing, cost analytics, safety evaluation, and conversation analysis. Single hook for all AI training features.
+326. **Eval examples support bulk import/export** — `POST /api/v1/eval/examples/bulk-import` for batch creation, `GET /api/v1/eval/examples/export` for CSV/JSON export. Examples track effectiveness via `GET /api/v1/eval/examples/[id]/effectiveness`. Promoted corrections from turns create examples via `POST /api/v1/eval/turns/[id]/promote-correction`.
+327. **Semantic schema catalog is built from live DB introspection** — `buildSchemaCatalog()` in `schema/schema-catalog.ts` introspects the actual database schema to build a catalog of tables, columns, and types. This is loaded in parallel with the registry catalog at pipeline start. Non-blocking — schema catalog failure falls back to metrics-only mode.
+328. **Intelligence modules are post-pipeline enrichments** — `intelligence/follow-up-generator.ts`, `intelligence/chart-inferrer.ts`, `intelligence/data-quality-scorer.ts` run after query execution. They analyze the query results and plan to generate contextual follow-up questions, optimal chart configurations, and data quality scores. All are pure functions with no side effects.
+329. **PMS hooks follow standard pattern** — `use-pms.ts` provides `usePmsCalendar()`, `usePmsReservations()`, `usePmsRoomTypes()`, etc. Each returns `{ data, isLoading, error, mutate }`. Mutations use `useMutation` pattern. Calendar hooks support week/day/month views with date-range parameters.
+330. **Catalog module now exports modifier group queries** — `getCatalogModifierGroups` and `getModifierGroupsForItem` added to catalog query exports. Used by F&B menu panel for modifier resolution. Also exports `importInventory` command for catalog-level inventory import.
+331. **Customer module expanded with import and tag management** — new commands: `bulkImportCustomers`, `createTag`, `updateTag`, `archiveTag`, `unarchiveTag`, `applyTagToCustomer`, `removeTagFromCustomer`, `createSmartTagRule`, `updateSmartTagRule`, `toggleSmartTagRule`, `evaluateSmartTags`. New queries: `listTags`, `getTag`, `getTaggedCustomers`, `getCustomerTags`, `listSmartTagRules`, `getSmartTagRule`, `getSmartTagEvaluationHistory`, `getTagAuditLog`, `listCustomerImportLogs`.
+332. **Insights page has sub-sections** — `/insights` is now a hub with sub-pages: `/insights/authoring` (semantic authoring panel), `/insights/embeds` (embeddable widgets), `/insights/reports` (NL report builder), `/insights/tools` (analysis tools), `/insights/watchlist` (metric watchlist). Each has its own content component and hooks.
+333. **PMS calendar content is code-split** — `apps/web/src/app/(dashboard)/pms/calendar/calendar-content.tsx` follows the standard code-split pattern: thin `page.tsx` with `next/dynamic` + `ssr: false`, heavy content in separate file. PMS sub-pages (corporate, groups, loyalty, maintenance, reports, revenue-management) follow the same pattern.
+334. **Import system uses a centralized registry** — `apps/web/src/lib/import-registry.ts` defines available import types (catalog, customer, staff, COA, legacy transactions). Import wizard components in `apps/web/src/components/import/` share a common flow. API routes under `/api/v1/import/` handle file upload, validation, and processing. Hooks: `use-import-wizard.ts`, `use-import-jobs.ts`, `use-import-progress.ts`, `use-import-completion.ts`.
+335. **POS design tokens are in a separate CSS file** — `apps/web/src/styles/pos-design-tokens.css` defines POS-specific CSS custom properties (colors, spacing, touch targets) separate from F&B design tokens. POS animations in `pos-animations.css`. Both imported in the POS layout.
+336. **POS offline queue and sync are typed but not yet wired** — `apps/web/src/lib/pos-offline-queue.ts` and `pos-offline-sync.ts` define the offline operation queue and sync strategy as TypeScript implementations. V1 still blocks tenders when offline.
+337. **Accounting CSV import flow is wizard-based** — `apps/web/src/components/accounting/csv-import-flow.tsx` and `import-wizard.tsx` provide a step-by-step CSV import experience for COA data. Maps columns, validates, previews, and creates accounts.
+338. **Semantic module now exports SQL-mode types and functions** — `packages/modules/semantic/src/index.ts` exports `generateSql`, `validateGeneratedSql`, `retrySqlGeneration`, `pruneForSqlGenerator`, `buildSchemaCatalog`, `retrieveFewShotExamples`, plus intelligence functions (`generateFollowUps`, `inferChartConfig`, `scoreDataQuality`). Also exports batch review, conversation analysis, cost analytics, experiments, regression runner, and safety engine from the evaluation submodule.
+339. **PMS permissions are separate from core RBAC** — `PMS_PERMISSIONS` defines 30+ PMS-specific permissions across categories (properties, rooms, reservations, rates, guests, folios, housekeeping, reports, settings, channels, loyalty). `PMS_ROLE_PERMISSIONS` maps system roles to PMS permissions. Same pattern as F&B permissions (`pos_fnb.*`).
+340. **Tailwind CSS v4 on Windows: CSS disappears (0 utility classes)** — Known intermittent issue where the dev server serves CSS with only the base reset layer (12KB) but zero utility classes (should be ~185KB). Root causes: (1) `.next` cache corruption from Windows EPERM file locks on `.next/trace`, (2) Tailwind v4 oxide native binary fails to load and WASM fallback returns 0 scan results on Windows, (3) Turbopack cache holding stale empty CSS. **Fix procedure**: `taskkill /F /IM node.exe` → `rm -rf apps/web/.next` → `pnpm dev` → hard refresh browser (`Ctrl+Shift+R`). The `@source "../../"` directive in `globals.css` is REQUIRED for monorepo scanning — without it, Tailwind v4's PostCSS plugin finds zero source files. If CSS breaks after a clean restart, check `node -e "require('@tailwindcss/oxide')"` — if it fails, run `pnpm install` to restore the native binary. Never remove the `@source` directive.
 
 ## Migration Rules (IMPORTANT — Multi-Agent Safety)
 
@@ -1414,3 +1502,47 @@ pnpm db:migrate           # Run DB migrations (LOCAL)
 pnpm db:migrate:remote    # Run DB migrations (PRODUCTION)
 pnpm db:seed              # Seed development data
 ```
+
+### Troubleshooting: CSS Not Loading (Windows)
+
+If the page renders unstyled (raw text, no layout), Tailwind utility classes aren't being generated. This is a recurring Windows-specific issue with Tailwind v4's native binary + Turbopack cache corruption.
+
+**Quick fix (90% of cases):**
+```bash
+taskkill /F /IM node.exe          # Kill all Node (Windows file locks prevent .next deletion)
+rm -rf apps/web/.next             # Delete corrupted Turbopack cache
+pnpm dev                          # Restart dev server
+# Then Ctrl+Shift+R in browser    # Hard refresh to bypass browser cache
+```
+
+**Verify CSS is healthy:**
+```bash
+# After dev server starts, check the CSS file size (should be ~185KB, NOT ~12KB)
+curl -s http://localhost:3000/dashboard | grep -oP 'href="(/[^"]*\.css[^"]*)"'
+# Then fetch that URL and check size:
+curl -s http://localhost:3000/<css-url> | wc -c
+```
+
+**If CSS is still broken after clean restart:**
+```bash
+# 1. Verify Tailwind oxide native binary loads (should print "Scanner")
+node -e "console.log(Object.keys(require('@tailwindcss/oxide')))"
+
+# 2. If oxide fails, reinstall
+pnpm install
+
+# 3. Verify @source directive exists in globals.css (REQUIRED for monorepo)
+head -2 apps/web/src/app/globals.css
+# Must show: @import 'tailwindcss';
+#            @source "../../";
+
+# 4. Nuclear option — full cache wipe
+rm -rf apps/web/.next node_modules/.cache
+pnpm dev
+```
+
+**Root causes:**
+- `.next/trace` EPERM file locks (Windows antivirus / lingering Node processes)
+- Tailwind v4 oxide WASM fallback (returns 0 scan results on Windows)
+- Missing `@source "../../"` directive (monorepo files not scanned)
+- Turbopack caching stale empty CSS from a previous broken session

@@ -10,6 +10,7 @@ import type { CatalogItemForPOS, CatalogNavState, CatalogNavLevel } from '@/type
 // ── Constants ──────────────────────────────────────────────────────
 
 const FAVORITES_KEY_PREFIX = 'pos_favorites_';
+const RECENT_KEY_PREFIX = 'pos_recent_';
 const CACHE_KEY_PREFIX = 'pos_catalog_';
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes — keep POS catalog fresh during long shifts
 const MAX_RECENT_ITEMS = 20;
@@ -34,6 +35,7 @@ interface POSRawCategory {
   name: string;
   parentId: string | null;
   sortOrder: number;
+  color?: string | null;
 }
 
 interface CachedCatalog {
@@ -115,6 +117,7 @@ function buildCategoryMap(categories: POSRawCategory[]): Map<string, CategoryRow
       name: cat.name,
       parentId: cat.parentId,
       sortOrder: cat.sortOrder,
+      color: cat.color ?? null,
       isActive: true, // POS endpoint only returns active categories
     });
   }
@@ -178,8 +181,17 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
   // Favorites
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(() => loadFavorites(locationId));
 
-  // Recent (session-scoped, in-memory)
-  const [recentIds, setRecentIds] = useState<string[]>([]);
+  // Recent (session-scoped, persisted to sessionStorage)
+  const [recentIds, setRecentIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = sessionStorage.getItem(`${RECENT_KEY_PREFIX}${locationId}`);
+      if (!raw) return [];
+      return JSON.parse(raw) as string[];
+    } catch {
+      return [];
+    }
+  });
 
   // Category map ref for quick lookup
   const categoryMapRef = useRef<Map<string, CategoryRow>>(new Map());
@@ -452,10 +464,14 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
       setRecentIds((prev) => {
         const filtered = prev.filter((id) => id !== itemId);
         const next = [itemId, ...filtered].slice(0, MAX_RECENT_ITEMS);
+        // Persist to sessionStorage so recent items survive React remounts
+        try {
+          sessionStorage.setItem(`${RECENT_KEY_PREFIX}${locationId}`, JSON.stringify(next));
+        } catch { /* storage full */ }
         return next;
       });
     },
-    [],
+    [locationId],
   );
 
   const allItemsMap = useMemo(() => new Map(allItems.map((item) => [item.id, item])), [allItems]);

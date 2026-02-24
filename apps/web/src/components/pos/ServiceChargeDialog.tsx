@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { POSSlidePanel } from './shared/POSSlidePanel';
 
 function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -15,7 +14,7 @@ function QuickButton({ label, onClick }: { label: string; onClick: () => void })
     <button
       type="button"
       onClick={onClick}
-      className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+      className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 active:scale-[0.97]"
     >
       {label}
     </button>
@@ -101,8 +100,6 @@ export interface ServiceChargeDialogProps {
 }
 
 export function ServiceChargeDialog({ open, onClose, subtotalCents, onAddCharge }: ServiceChargeDialogProps) {
-  if (!open || typeof document === 'undefined') return null;
-
   const handleQuick = (pct: number) => {
     onAddCharge({
       chargeType: 'service_charge',
@@ -114,37 +111,23 @@ export function ServiceChargeDialog({ open, onClose, subtotalCents, onAddCharge 
     onClose();
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Add Service Charge</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-600"
-          >
-            <X className="h-5 w-5" />
-          </button>
+  return (
+    <POSSlidePanel open={open} onClose={onClose} title="Add Service Charge">
+      <div className="space-y-3">
+        <p className="text-sm text-gray-500">
+          Subtotal: {formatMoney(subtotalCents)}
+        </p>
+        <div className="flex gap-2">
+          <QuickButton label="10% Service" onClick={() => handleQuick(10)} />
+          <QuickButton label="15% Service" onClick={() => handleQuick(15)} />
         </div>
-        <div className="px-6 py-4 space-y-3">
-          <p className="text-sm text-gray-500">
-            Subtotal: {formatMoney(subtotalCents)}
-          </p>
-          <div className="flex gap-2">
-            <QuickButton label="10% Service" onClick={() => handleQuick(10)} />
-            <QuickButton label="15% Service" onClick={() => handleQuick(15)} />
-          </div>
-          <CustomChargeInput
-            onAdd={(charge) => {
-              onAddCharge(charge);
-              onClose();
-            }}
-          />
-        </div>
+        <CustomChargeInput
+          onAdd={(charge) => {
+            onAddCharge(charge);
+            onClose();
+          }}
+        />
       </div>
-    </div>,
-    document.body,
+    </POSSlidePanel>
   );
 }

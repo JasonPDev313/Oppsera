@@ -21,6 +21,12 @@ export interface CalendarSegment {
   checkOutDate: string;
   sourceType: string;
   colorKey: string;
+  confirmationNumber: string | null;
+  nightlyRateCents: number;
+  adults: number;
+  children: number;
+  internalNotes: string | null;
+  version: number;
 }
 
 export interface OooBlock {
@@ -144,7 +150,13 @@ export async function getCalendarWeek(
         ) AS guest_name,
         to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
         to_char(res.check_out_date, 'YYYY-MM-DD') AS check_out_date,
-        res.source_type
+        res.source_type,
+        res.confirmation_number,
+        res.nightly_rate_cents,
+        res.adults,
+        res.children,
+        LEFT(res.internal_notes, 80) AS internal_notes,
+        res.version
       FROM pms_reservations res
       CROSS JOIN LATERAL generate_series(
         GREATEST(res.check_in_date, ${startDate}::date),
@@ -170,6 +182,12 @@ export async function getCalendarWeek(
       checkOutDate: toDateString(s.check_out_date),
       sourceType: s.source_type,
       colorKey: computeColorKey(s.status),
+      confirmationNumber: s.confirmation_number ?? null,
+      nightlyRateCents: Number(s.nightly_rate_cents ?? 0),
+      adults: Number(s.adults ?? 1),
+      children: Number(s.children ?? 0),
+      internalNotes: s.internal_notes ?? null,
+      version: Number(s.version ?? 1),
     }));
 
     // Query 3: OOO blocks for date range

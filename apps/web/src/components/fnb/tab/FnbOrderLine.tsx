@@ -1,5 +1,7 @@
 'use client';
 
+import { useRef, useCallback } from 'react';
+
 interface FnbOrderLineProps {
   seatNumber: number;
   itemName: string;
@@ -9,6 +11,7 @@ interface FnbOrderLineProps {
   status: 'draft' | 'sent' | 'fired' | 'served' | 'voided';
   isUnsent?: boolean;
   onTap?: () => void;
+  onLongPress?: () => void;
 }
 
 function formatMoney(cents: number): string {
@@ -23,13 +26,39 @@ const STATUS_ICONS: Record<string, string> = {
   voided: '\u2715',
 };
 
-export function FnbOrderLine({ seatNumber, itemName, modifiers, priceCents, qty, status, isUnsent, onTap }: FnbOrderLineProps) {
+export function FnbOrderLine({ seatNumber, itemName, modifiers, priceCents, qty, status, isUnsent, onTap, onLongPress }: FnbOrderLineProps) {
   const seatColorVar = `var(--fnb-seat-${Math.min(seatNumber, 9)})`;
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+
+  const handlePointerDown = useCallback(() => {
+    if (!onLongPress) return;
+    didLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      didLongPress.current = true;
+      onLongPress();
+    }, 500);
+  }, [onLongPress]);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleClick = useCallback(() => {
+    if (didLongPress.current) return;
+    onTap?.();
+  }, [onTap]);
 
   return (
     <button
       type="button"
-      onClick={onTap}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       className="flex items-start gap-2 w-full rounded-lg px-2 py-1.5 text-left transition-opacity hover:opacity-80"
       style={{
         borderLeft: isUnsent ? '3px solid var(--fnb-warning)' : '3px solid transparent',

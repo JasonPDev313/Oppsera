@@ -14,6 +14,8 @@ import {
   Moon,
   CalendarDays,
   Clock,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
@@ -385,6 +387,23 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  // Fullscreen toggle
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace('/login');
@@ -500,6 +519,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
           <div className="flex items-center gap-4">
             <CommandPalette />
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+            >
+              {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+            </button>
             <LiveClockDisplay />
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 transition-colors hover:bg-indigo-700">
               <span className="text-sm font-medium text-white">{getInitials(userName)}</span>

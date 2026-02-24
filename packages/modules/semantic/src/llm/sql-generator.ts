@@ -2,6 +2,8 @@ import type { LLMAdapter, LLMMessage, IntentContext } from './types';
 import { LLMError } from './types';
 import { getLLMAdapter } from './adapters/anthropic';
 import type { SchemaCatalog } from '../schema/schema-catalog';
+import { pruneForSqlGenerator } from './conversation-pruner';
+import { retrieveFewShotExamples } from '../rag/few-shot-retriever';
 
 // ── SQL Generator (Mode B) ───────────────────────────────────────
 // Generates SELECT SQL from a user's natural-language question
@@ -170,13 +172,29 @@ export async function generateSql(
   const { schemaCatalog, adapter } = opts;
   const llm = adapter ?? getLLMAdapter();
 
-  const systemPrompt = buildSqlGeneratorPrompt(schemaCatalog, context);
+  // ── RAG: retrieve similar past SQL queries for few-shot injection ──
+  let ragExamplesSnippet = '';
+  try {
+    ragExamplesSnippet = await retrieveFewShotExamples(
+      userMessage,
+      context.tenantId,
+      { maxExamples: 3, includeSqlMode: true, includeMetricsMode: false },
+    );
+  } catch {
+    // RAG retrieval is best-effort — never block SQL generation
+  }
 
-  // Include recent user messages for multi-turn context
-  const historyUserMessages = (context.history ?? [])
-    .filter((m) => m.role === 'user')
-    .slice(-3)
-    .map((m) => ({ role: 'user' as const, content: m.content }));
+  let systemPrompt = buildSqlGeneratorPrompt(schemaCatalog, context);
+
+  // Append RAG examples to system prompt if any were found
+  if (ragExamplesSnippet) {
+    systemPrompt += '\n\n' + ragExamplesSnippet;
+  }
+
+  // Include recent user messages for multi-turn context (token-aware pruning)
+  const historyUserMessages = pruneForSqlGenerator(
+    (context.history ?? []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+  );
 
   const messages: LLMMessage[] = [
     ...historyUserMessages,

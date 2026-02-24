@@ -1,6 +1,12 @@
 import { eq, and, asc, isNull } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { catalogItems, catalogCategories } from '../schema';
+import {
+  catalogItems,
+  catalogCategories,
+  catalogModifierGroups,
+  catalogModifiers,
+  catalogItemModifierGroups,
+} from '../schema';
 
 export interface POSCatalogItem {
   id: string;
@@ -22,9 +28,36 @@ export interface POSCategory {
   sortOrder: number;
 }
 
+export interface POSModifierOption {
+  id: string;
+  name: string;
+  priceCents: number;
+  sortOrder: number;
+  isDefault: boolean;
+}
+
+export interface POSModifierGroup {
+  id: string;
+  name: string;
+  selectionType: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  options: POSModifierOption[];
+}
+
+/** Maps item ID → array of modifier group IDs */
+export interface POSItemModifierAssignment {
+  catalogItemId: string;
+  modifierGroupId: string;
+  isDefault: boolean;
+}
+
 export interface POSCatalogResult {
   items: POSCatalogItem[];
   categories: POSCategory[];
+  modifierGroups: POSModifierGroup[];
+  itemModifierAssignments: POSItemModifierAssignment[];
 }
 
 /**
@@ -39,7 +72,7 @@ export interface POSCatalogResult {
  */
 export async function getCatalogForPOS(tenantId: string): Promise<POSCatalogResult> {
   return withTenant(tenantId, async (tx) => {
-    const [items, categories] = await Promise.all([
+    const [items, categories, groups, modifiers, assignments] = await Promise.all([
       tx
         .select({
           id: catalogItems.id,
@@ -75,8 +108,57 @@ export async function getCatalogForPOS(tenantId: string): Promise<POSCatalogResu
           ),
         )
         .orderBy(asc(catalogCategories.sortOrder), asc(catalogCategories.name)),
+      // Modifier groups
+      tx
+        .select()
+        .from(catalogModifierGroups)
+        .where(eq(catalogModifierGroups.tenantId, tenantId))
+        .orderBy(asc(catalogModifierGroups.name)),
+      // All modifiers (active only)
+      tx
+        .select()
+        .from(catalogModifiers)
+        .where(
+          and(
+            eq(catalogModifiers.tenantId, tenantId),
+            eq(catalogModifiers.isActive, true),
+          ),
+        )
+        .orderBy(asc(catalogModifiers.sortOrder)),
+      // Item-to-modifier-group assignments
+      tx
+        .select({
+          catalogItemId: catalogItemModifierGroups.catalogItemId,
+          modifierGroupId: catalogItemModifierGroups.modifierGroupId,
+          isDefault: catalogItemModifierGroups.isDefault,
+        })
+        .from(catalogItemModifierGroups),
     ]);
 
-    return { items, categories };
+    // Build modifier groups with options
+    const modifierGroups: POSModifierGroup[] = groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      selectionType: g.selectionType,
+      isRequired: g.isRequired,
+      minSelections: g.minSelections,
+      maxSelections: g.maxSelections ?? 99,
+      options: modifiers
+        .filter((m) => m.modifierGroupId === g.id)
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          priceCents: Math.round(parseFloat(m.priceAdjustment || '0') * 100),
+          sortOrder: m.sortOrder,
+          isDefault: false, // default flag is on the junction, not the modifier itself
+        })),
+    }));
+
+    return {
+      items,
+      categories,
+      modifierGroups,
+      itemModifierAssignments: assignments,
+    };
   });
 }

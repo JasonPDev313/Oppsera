@@ -83,7 +83,9 @@ export interface NarrativeSection {
     // General-purpose types
     | 'takeaway' | 'action' | 'risk'
     // Legacy types kept for backward compat
-    | 'summary' | 'detail' | 'insight' | 'caveat' | 'suggestion';
+    | 'summary' | 'detail' | 'insight' | 'caveat' | 'suggestion'
+    // Proactive intelligence types
+    | 'follow_up' | 'chart_hint';
   content: string;
 }
 
@@ -102,6 +104,21 @@ export interface PipelineInput {
   context: IntentContext;
   examples?: import('../evaluation/types').EvalExample[];
   skipNarrative?: boolean;     // return raw data without narrative (for API mode)
+}
+
+export interface ChartConfig {
+  type: 'line' | 'bar' | 'sparkline' | 'table' | 'metric_card' | 'comparison';
+  // Data columns to use
+  xAxis?: string;   // column name for x-axis (usually date or category)
+  yAxis?: string[];  // column names for y-axis (metric values)
+  // Labels
+  title?: string;
+  xLabel?: string;
+  yLabel?: string;
+  // Formatting
+  yFormat?: 'currency' | 'number' | 'percent';
+  // Comparison
+  comparisonLabel?: string;
 }
 
 export interface PipelineOutput {
@@ -128,6 +145,16 @@ export interface PipelineOutput {
   cacheStatus: 'HIT' | 'MISS' | 'SKIP';
   // Mode B only: the generated SQL explanation
   sqlExplanation?: string;
+  // Proactive intelligence
+  suggestedFollowUps?: string[];
+  chartConfig?: ChartConfig | null;
+  // Data quality assessment
+  dataQuality?: {
+    grade: 'A' | 'B' | 'C' | 'D' | 'F';
+    score: number;
+    factors: Array<{ name: string; score: number; weight: number; detail: string }>;
+    summary: string;
+  } | null;
 }
 
 // ── Errors ────────────────────────────────────────────────────────

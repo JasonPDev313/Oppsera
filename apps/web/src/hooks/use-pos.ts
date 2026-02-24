@@ -349,6 +349,23 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     [fetchOrder, handleMutationError],
   );
 
+  // ── Update Line Note (optimistic, client-side only) ───────────
+
+  const updateLineNote = useCallback(
+    (lineId: string, note: string): void => {
+      setCurrentOrder((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          lines: (prev.lines ?? []).map((l) =>
+            l.id === lineId ? { ...l, notes: note || null } : l,
+          ),
+        };
+      });
+    },
+    [],
+  );
+
   // ── Service Charges ────────────────────────────────────────────
 
   const addServiceCharge = useCallback(
@@ -752,6 +769,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     openOrder,
     addItem,
     removeItem,
+    updateLineNote,
 
     // Charges & Discounts
     addServiceCharge,

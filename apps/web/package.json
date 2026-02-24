@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "mkdir -p .next/static/development && next dev --turbopack",
+    "dev": "node -e \"require('fs').mkdirSync('.next/static/development',{recursive:true})\" && next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src/",
@@ -26,6 +26,7 @@
     "@oppsera/module-customers": "workspace:*",
     "@oppsera/module-fnb": "workspace:*",
     "@oppsera/module-golf-reporting": "workspace:*",
+    "@oppsera/module-import": "workspace:*",
     "@oppsera/module-inventory": "workspace:*",
     "@oppsera/module-membership": "workspace:*",
     "@oppsera/module-orders": "workspace:*",

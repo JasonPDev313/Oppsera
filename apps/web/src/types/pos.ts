@@ -1,5 +1,26 @@
 import type { ItemTypeGroup } from '@oppsera/shared';
 
+// ── POS Layout Configuration ──────────────────────────────────────
+
+export interface POSLayoutConfig {
+  /** Left/right split ratio as left panel percentage (50-80). Default: 60. */
+  splitRatio?: number;
+  /** Item tile size in the catalog grid. */
+  itemTileSize?: 'small' | 'medium' | 'large';
+  /** Default catalog view mode. */
+  defaultViewMode?: 'grid' | 'list';
+}
+
+// ── POS Tip Settings ──────────────────────────────────────────────
+
+export interface POSTipSettings {
+  enabled: boolean;
+  percentageOptions: number[];
+  dollarAmounts: number[];
+  calculateBeforeTax: boolean;
+  defaultSelectionIndex: number | null;
+}
+
 // ── POS Terminal Configuration ─────────────────────────────────────
 
 export interface POSConfig {
@@ -14,9 +35,11 @@ export interface POSConfig {
     isTaxable: boolean;
   }>;
   tipEnabled: boolean;
+  tipSettings?: POSTipSettings;
   receiptMode: 'print' | 'email' | 'both' | 'ask';
   barcodeEnabled: boolean;
   kitchenSendEnabled: boolean;
+  layout?: POSLayoutConfig;
 }
 
 // ── Catalog Navigation ─────────────────────────────────────────────

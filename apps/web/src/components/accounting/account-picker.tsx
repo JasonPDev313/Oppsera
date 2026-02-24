@@ -408,6 +408,77 @@ export function getSuggestedAccount(
   return null;
 }
 
+/**
+ * Returns top N suggested GL accounts ranked by relevance.
+ * Uses the same scoring logic as getSuggestedAccount but returns multiple results.
+ * Only works for revenue/cogs/inventory roles (hint + dynamic scoring).
+ */
+export function getTopSuggestions(
+  accounts: GLAccount[],
+  suggestFor: string | undefined,
+  mappingRole: 'revenue' | 'cogs' | 'inventory',
+  limit: number = 3,
+): GLAccount[] {
+  if (!suggestFor || accounts.length === 0) return [];
+
+  const hintsTable = mappingRole === 'revenue' ? REVENUE_HINTS
+    : mappingRole === 'cogs' ? COGS_HINTS
+    : INVENTORY_HINTS;
+
+  const scored: { account: GLAccount; score: number }[] = [];
+
+  // Score via hint tables
+  for (const [pattern, hints] of hintsTable) {
+    if (pattern.test(suggestFor)) {
+      for (const acc of accounts) {
+        const s = scoreSuggestion(acc, hints);
+        if (s > 0) scored.push({ account: acc, score: s });
+      }
+      break; // use first matching pattern
+    }
+  }
+
+  // Score via dynamic matching (semantic groups + token overlap)
+  const tokens = suggestFor.toLowerCase().split(/[\s&/,\-()]+/).filter((t) => t.length > 1 && !STOP_WORDS.has(t));
+  if (tokens.length > 0) {
+    const roleKeywords: Record<string, string[]> = {
+      revenue: ['sales', 'revenue', 'income', 'fee', 'fees'],
+      cogs: ['cogs', 'cost', 'cost of'],
+      inventory: ['inventory', 'stock'],
+    };
+    const roleKws = roleKeywords[mappingRole] ?? [];
+    const groups = SEMANTIC_GROUPS[mappingRole] ?? [];
+    const expandedTerms = new Set(tokens);
+    for (const group of groups) {
+      if (tokens.some((t) => group.some((g) => g.includes(t) || t.includes(g)))) {
+        for (const g of group) expandedTerms.add(g);
+      }
+    }
+    const tokenSet = new Set(tokens);
+
+    for (const acc of accounts) {
+      if (scored.some((s) => s.account.id === acc.id)) continue;
+      const accName = acc.name.toLowerCase();
+      const accTokens = accName.split(/[\s\-/()&,]+/).filter((t) => t.length > 1);
+      let score = 0;
+      for (const token of tokens) { if (accName.includes(token)) score += 20; }
+      for (const term of expandedTerms) { if (!tokenSet.has(term) && accName.includes(term)) score += 8; }
+      for (const kw of roleKws) { if (accName.includes(kw)) score += 6; }
+      if (/\bother\b|\bmisc/i.test(accName)) score -= 5;
+      for (const token of expandedTerms) { if (accTokens[0] === token) score += 3; }
+      if (score >= 14) scored.push({ account: acc, score });
+    }
+  }
+
+  // Deduplicate, sort desc, take top N
+  const seen = new Set<string>();
+  return scored
+    .filter((s) => { if (seen.has(s.account.id)) return false; seen.add(s.account.id); return true; })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((s) => s.account);
+}
+
 // ── Component ──────────────────────────────────────────────────
 
 export function AccountPicker({

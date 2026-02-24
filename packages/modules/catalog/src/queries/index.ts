@@ -6,3 +6,5 @@ export { listTaxCategories } from './list-tax-categories';
 export { listTaxRates } from './list-tax-rates';
 export { listTaxGroups } from './list-tax-groups';
 export { getItemTaxGroupsAtLocation } from './get-item-tax-groups';
+export { listCatalogImportLogs } from './list-catalog-import-logs';
+export type { CatalogImportLogSummary } from './list-catalog-import-logs';

@@ -131,14 +131,23 @@ export function validateGeneratedSql(
 function extractTableReferences(sql: string): string[] {
   const tables = new Set<string>();
 
+  // Postgres functions that use FROM as syntax (not table references):
+  //   EXTRACT(field FROM expr), POSITION(str FROM str),
+  //   SUBSTRING(str FROM pos), TRIM(chars FROM str), OVERLAY(... FROM ...)
+  // Pre-strip function-internal FROM to avoid false positives.
+  const stripped = sql.replace(
+    /\b(EXTRACT|POSITION|SUBSTRING|TRIM|OVERLAY)\s*\([^)]*\bFROM\b/gi,
+    (match) => match.replace(/\bFROM\b/gi, '_FRM_'),
+  );
+
   // Match FROM table_name (with optional alias)
-  const fromMatches = sql.matchAll(/\bFROM\s+([a-z_][a-z0-9_]*)/gi);
+  const fromMatches = stripped.matchAll(/\bFROM\s+([a-z_][a-z0-9_]*)/gi);
   for (const m of fromMatches) {
     tables.add(m[1]!.toLowerCase());
   }
 
   // Match JOIN table_name (any type of join)
-  const joinMatches = sql.matchAll(/\bJOIN\s+([a-z_][a-z0-9_]*)/gi);
+  const joinMatches = stripped.matchAll(/\bJOIN\s+([a-z_][a-z0-9_]*)/gi);
   for (const m of joinMatches) {
     tables.add(m[1]!.toLowerCase());
   }

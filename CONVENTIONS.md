@@ -728,6 +728,21 @@ Tailwind CSS v4, utility classes directly in JSX. Design tokens:
 - Text: `gray-900` (primary), `gray-500` (secondary), `gray-400` (muted)
 - Destructive: `red-600`
 
+#### Tailwind v4 Monorepo Configuration
+
+Tailwind v4 uses CSS-first configuration (no `tailwind.config.js`). Critical files:
+
+- **`apps/web/src/app/globals.css`** — must start with `@import 'tailwindcss';` then `@source "../../";`
+- **`apps/web/postcss.config.mjs`** — uses `@tailwindcss/postcss` plugin (not the legacy `tailwindcss` plugin)
+- **Native binary**: `@tailwindcss/oxide` + `@tailwindcss/oxide-win32-x64-msvc` (Windows)
+
+The `@source "../../"` directive tells the Tailwind v4 scanner to look for utility class usage starting from the monorepo root (`../../` relative to `apps/web/src/app/globals.css`). Without it, the PostCSS plugin finds zero source files and generates CSS with only the base reset layer (~12KB instead of ~185KB). **Never remove the `@source` directive.**
+
+On Windows, Tailwind v4's native binary (`@tailwindcss/oxide`) can intermittently fail to load, falling back to WASM which returns 0 scan results. The PostCSS plugin uses explicit `@source` directives (not `detectSources`), which bypasses the broken WASM `detectSources` path. If the native binary loads correctly (`node -e "require('@tailwindcss/oxide')"` prints `{ Scanner }`), CSS generation should work. If it fails, run `pnpm install` to restore the binary.
+
+**Symptom**: Page renders as unstyled raw text — sidebar items visible but no layout, spacing, or colors.
+**Fix**: Kill all Node processes → delete `apps/web/.next` → restart `pnpm dev` → hard refresh browser (`Ctrl+Shift+R`). See CLAUDE.md "Troubleshooting: CSS Not Loading" for full procedure.
+
 ### Dark Mode (Inverted Gray Scale)
 
 Dark mode is the **default** (`:root` has `color-scheme: dark`). Light mode is opt-in via `.light` class. The gray scale is **inverted** in `globals.css` — in dark mode, `gray-900` maps to near-white (`#f0f6fc`) and `gray-50` maps to dark (`#1c2128`). Other color palettes (red, indigo, amber, etc.) are NOT inverted.
@@ -6632,4 +6647,417 @@ Expanded from 332 → 619 lines. Now includes:
 - House account member lookup
 - Fractional split tender support
 - Enhanced cash keypad
+
+---
+
+## 121. Semantic Dual-Mode Pipeline Architecture
+
+### Pipeline Modes
+
+The semantic pipeline now supports two execution modes, selected automatically by the intent resolver:
+
+| Mode | Trigger | Flow | Best For |
+|---|---|---|---|
+| **Mode A (Metrics)** | Question maps to registry metrics | intent → compile → execute → narrate | Known KPIs, standard metrics |
+| **Mode B (SQL)** | Question requires arbitrary data access | intent → generate SQL → validate → execute → retry on failure → narrate | Ad-hoc queries, ERP data exploration |
+
+### SQL Generation Safety Stack
+
+Defense-in-depth for LLM-generated SQL (all layers required):
+
+1. **RLS (primary)**: Postgres Row-Level Security filters by `tenant_id` — even if SQL is wrong, data is isolated
+2. **SQL Validator**: `validateGeneratedSql()` blocks DDL, DML, dangerous functions, multi-statement injection
+3. **Table Whitelist**: Only tables in the schema catalog are allowed
+4. **Tenant Isolation**: `WHERE tenant_id = $1` is required in all queries
+5. **Row Limit**: LIMIT clause required (max 500), except for aggregate queries (COUNT/SUM/AVG)
+
+### SQL Validator Rules
+
+```typescript
+// sql-validator.ts — NEVER relax these rules
+const rules = {
+  maxLength: 10_000,       // chars
+  maxRowLimit: 500,        // LIMIT value
+  mustStartWith: /^(SELECT|WITH)\b/i,
+  noDDL: true,             // CREATE, ALTER, DROP, TRUNCATE, etc.
+  noDML: true,             // INSERT, UPDATE, DELETE, MERGE
+  noTxControl: true,       // BEGIN, COMMIT, ROLLBACK
+  noUtility: true,         // VACUUM, EXPLAIN, ANALYZE
+  noDangerousFns: true,    // pg_sleep, set_config, dblink, etc.
+  noComments: true,         // -- and /* */
+  noSemicolons: true,      // multi-statement prevention (trailing ; stripped)
+  requireTenantId: true,   // tenant_id = $1 in WHERE
+  requireLimit: true,      // except aggregate-only queries
+  tableWhitelist: true,    // only schema catalog tables
+};
+```
+
+### SQL Auto-Retry Pattern
+
+```
+Failed SQL + Error message → LLM (sql-retry.ts) → Corrected SQL → Validate → Execute
+```
+
+- Max 1 retry (controls latency + token cost)
+- Cumulative token/latency tracking across retries
+- Corrected SQL is re-validated before execution
+- If retry fails, falls back to ADVISOR MODE narrative
+
+### LLM Response Cache vs Query Cache
+
+| Cache | Key | TTL | Purpose |
+|---|---|---|---|
+| **Query Cache** | `(tenantId, sql, params)` | 5 min | Avoid re-executing identical SQL |
+| **LLM Response Cache** | `(tenantId, promptHash, message+data, history)` | 5 min | Avoid re-generating identical narratives |
+
+Both are in-memory LRU. Always check both before making calls.
+
+### Post-Pipeline Enrichments
+
+Run after execution, never block the response:
+- `generateFollowUps()` — context-aware suggested questions
+- `inferChartConfig()` — auto-detect chart type from data shape
+- `scoreDataQuality()` — confidence score from row count, execution time, date range
+
+---
+
+## 122. PMS Module Architecture
+
+### Module Structure
+
+```
+packages/modules/pms/
+├── src/
+│   ├── commands/          # 55+ commands (reservation lifecycle, housekeeping, etc.)
+│   ├── queries/           # 60+ queries (calendar views, reports, etc.)
+│   │   └── index.ts       # Barrel exports with types
+│   ├── events/
+│   │   ├── types.ts       # PMS_EVENTS constant + PmsEventType
+│   │   ├── payloads.ts    # Event payload types
+│   │   └── consumers.ts   # Calendar/occupancy projection consumers
+│   ├── helpers/
+│   │   ├── pricing-engine.ts          # Dynamic rate computation
+│   │   ├── room-assignment-engine.ts  # Weighted room scoring
+│   │   ├── bootstrap-properties.ts    # Location → property bootstrap
+│   │   ├── template-renderer.ts       # Message template rendering
+│   │   ├── sms-gateway.ts            # SMS sending (stub)
+│   │   └── stripe-gateway.ts         # Payment processing (stub)
+│   ├── jobs/              # Background jobs (nightly charges, no-show, auto-dirty)
+│   ├── state-machines.ts  # Reservation + room status FSMs
+│   ├── permissions.ts     # PMS_PERMISSIONS, PMS_ROLE_PERMISSIONS
+│   ├── validation.ts      # All Zod schemas
+│   ├── errors.ts          # PMS-specific error classes
+│   ├── types.ts           # Enums + shared types
+│   └── index.ts           # Module barrel exports
+```
+
+### Table Naming Convention
+
+All PMS tables use the `pms_` prefix:
+```
+pms_properties, pms_room_types, pms_rooms, pms_rate_plans,
+pms_reservations, pms_folios, pms_folio_entries, ...
+```
+
+CQRS read models use `rm_pms_` prefix:
+```
+rm_pms_calendar_segments, rm_pms_daily_occupancy,
+rm_pms_revenue_by_room_type, rm_pms_housekeeping_productivity
+```
+
+### State Machines
+
+```typescript
+// Reservation lifecycle
+const RESERVATION_TRANSITIONS = {
+  confirmed:   ['checked_in', 'cancelled', 'no_show'],
+  checked_in:  ['checked_out'],
+  checked_out: [], // terminal
+  cancelled:   [], // terminal
+  no_show:     [], // terminal
+};
+
+// Room status lifecycle
+const ROOM_STATUS_TRANSITIONS = {
+  clean:      ['occupied', 'out_of_order', 'inspected'],
+  occupied:   ['dirty'],
+  dirty:      ['cleaning', 'out_of_order'],
+  cleaning:   ['inspected', 'clean'],
+  inspected:  ['clean', 'occupied'],
+  out_of_order: ['dirty', 'clean'],
+};
+```
+
+Use `assertReservationTransition(currentStatus, targetStatus)` — throws `InvalidStatusTransitionError` on invalid moves.
+
+### Own Idempotency & Outbox
+
+PMS has its own `pms_idempotency_keys` and `pms_outbox` tables (separate from core). This enables:
+- Independent microservice extraction
+- PMS-specific retry policies
+- Isolated event processing
+
+### Pricing Engine
+
+`computeDynamicRate(context, rules)` evaluates pricing rules in priority order:
+- Occupancy-based (high demand = higher rates)
+- Day-of-week
+- Lead-time (last-minute vs advance booking)
+- Length-of-stay (longer = discount)
+- Demand-based
+
+Results logged to `pms_pricing_log` for audit.
+
+### Room Assignment Engine
+
+`scoreRoom(room, context, preferences)` computes a weighted score:
+- Floor preference (matching guest's preferred floor)
+- View preference
+- Accessibility requirements
+- Loyalty tier benefits
+- Previous stay history (return guest gets same room)
+- Room features match
+
+`rankRooms(rooms, context)` sorts by score descending.
+
+---
+
+## 123. AI Training & Evaluation Platform
+
+### Admin Train-AI Section
+
+The admin app's "Train AI" section provides tools for improving AI response quality:
+
+| Page | Purpose | API Route |
+|---|---|---|
+| Examples | Golden few-shot training data management | `/eval/examples` + `bulk-import` + `export` |
+| Turns | Individual turn review + admin corrections | `/eval/turns/[id]` + `/promote-correction` |
+| Batch Review | Bulk review workflows for pending turns | `/eval/batch-review` |
+| Comparative | A/B comparison of pipeline versions | `/eval/comparative` (stub) |
+| Conversations | Multi-turn conversation analysis | `/eval/conversations` |
+| Cost | Token usage + cost analytics | `/eval/cost` |
+| Experiments | A/B experiment management | `/eval/experiments` |
+| Playground | Interactive testing sandbox | `/eval/playground` |
+| Regression | Automated regression testing | `/eval/regression` |
+| Safety | Safety evaluation engine | `/eval/safety` |
+
+### `useEvalTraining()` Hook
+
+Single hook centralizing all training operations:
+
+```typescript
+const {
+  // Examples
+  examples, createExample, updateExample, deleteExample,
+  bulkImportExamples, exportExamples, getEffectiveness,
+  // Batch Review
+  batchReviewItems, submitBatchReview,
+  // Experiments
+  experiments, createExperiment, runExperiment,
+  // Regression
+  regressionResults, runRegression,
+  // Cost
+  costAnalytics,
+  // Safety
+  safetyResults, runSafetyEval,
+  // Conversations
+  conversations, analyzeConversation,
+} = useEvalTraining();
+```
+
+### Example Effectiveness Tracking
+
+Each golden example tracks its impact:
+- How often it's retrieved as a few-shot example
+- Whether turns using it score higher
+- Admin rating of the example's quality
+
+API: `GET /api/v1/eval/examples/[id]/effectiveness`
+
+---
+
+## 124. Import System Architecture
+
+### Unified Import Framework
+
+```
+apps/web/src/lib/import-registry.ts     # Available import types
+apps/web/src/components/import/          # Shared wizard components
+apps/web/src/hooks/use-import-wizard.ts  # Wizard state management
+apps/web/src/hooks/use-import-jobs.ts    # Background job tracking
+apps/web/src/hooks/use-import-progress.ts # Progress monitoring
+apps/web/src/hooks/use-import-completion.ts # Completion callbacks
+```
+
+### Import Types
+
+| Type | Module | Validator | Parser |
+|---|---|---|---|
+| Catalog/Inventory | `@oppsera/module-catalog` | `inventory-import-validator.ts` | `inventory-import-parser.ts` |
+| Customers | `@oppsera/module-customers` | CSV validation in command | `bulkImportCustomers` |
+| Staff | Core | Via admin API | `use-staff-import.ts` |
+| COA | `@oppsera/module-accounting` | `importCoaFromCsv` | Built-in CSV parser |
+
+### Import Flow
+
+1. **Upload**: User selects file type + uploads CSV/JSON
+2. **Parse**: Column detection + mapping UI
+3. **Validate**: Row-by-row validation with error reporting (partial imports supported)
+4. **Preview**: Show valid rows + error summary
+5. **Execute**: Background job processes rows in batches
+6. **Complete**: Success/error summary with downloadable error report
+
+### Key Rules
+
+- Invalid rows don't block valid ones (partial import)
+- All imports are idempotent via dedup keys
+- Import logs stored per entity type (e.g., `list-catalog-import-logs`)
+- Settings page at `/settings/data-imports` provides centralized access
+
+---
+
+## 125. Customer Tag Management
+
+### Tag Types
+
+| Type | Description | Implementation |
+|---|---|---|
+| Manual tags | User-applied labels | `applyTagToCustomer`, `removeTagFromCustomer` |
+| Smart tags | Auto-applied via rules | `createSmartTagRule`, `evaluateSmartTags` |
+
+### Smart Tag Rules
+
+Rules define conditions that auto-tag customers:
+- Condition types: visit count, spend threshold, last visit date, membership status
+- Evaluation: periodic background job or on-demand via `evaluateSmartTags`
+- History: `getSmartTagEvaluationHistory` tracks when rules fired
+- Toggleable: `toggleSmartTagRule` enables/disables without deleting
+
+### Tag Audit Trail
+
+All tag operations are logged:
+- `getTagAuditLog(tagId)` returns chronological history
+- Tracks: who applied/removed, when, via rule or manual
+- Tags use soft-delete (`archiveTag` / `unarchiveTag`)
+
+---
+
+## 126. Module Independence Pattern (PMS Example)
+
+When creating new modules, follow the PMS module's pattern for maximum independence:
+
+### Own Infrastructure Tables
+
+```typescript
+// Module-specific outbox (not shared with core)
+export const pmsOutbox = pgTable('pms_outbox', { ... });
+
+// Module-specific idempotency keys
+export const pmsIdempotencyKeys = pgTable('pms_idempotency_keys', { ... });
+```
+
+### Own Audit Log
+
+```typescript
+export const pmsAuditLog = pgTable('pms_audit_log', { ... });
+```
+
+### Table Prefix
+
+All tables use a consistent module prefix (`pms_`, `fnb_`, etc.) to:
+- Avoid name collisions across modules
+- Make SQL debugging easier (which module owns a table is obvious)
+- Enable clean microservice extraction
+
+### Permission Namespace
+
+```typescript
+export const PMS_PERMISSIONS = {
+  'pms.properties.view': { ... },
+  'pms.properties.manage': { ... },
+  'pms.reservations.create': { ... },
+  // ... always use module prefix
+} as const;
+```
+
+### Export Structure
+
+Module `index.ts` should export in this order:
+1. Module metadata (`MODULE_KEY`, `MODULE_NAME`, `MODULE_VERSION`)
+2. Schema re-exports (from `@oppsera/db`)
+3. Validation schemas + input types
+4. Permissions
+5. Types + enums
+6. State machines (if applicable)
+7. Events (types + consumers)
+8. Errors
+9. Helpers
+10. Commands (one per file)
+11. Queries (barrel from `queries/index.ts`)
+12. Background jobs
+
+---
+
+## 127. LLM Integration Best Practices
+
+### System Prompt Conventions
+
+1. **Output contract first**: State the expected output format (JSON, markdown) at the top of the system prompt
+2. **CRITICAL RULES in caps**: Important constraints (SELECT only, tenant isolation) get capitalized headings
+3. **Table distinctions**: When similar tables exist (users vs customers), explicitly document the difference
+4. **Money conventions**: Always document which tables use cents vs dollars
+5. **Common patterns**: Include SQL/code examples for the most common query types
+6. **Context injection**: Append current date, tenant ID, user role, location at the bottom
+
+### LLM Response Parsing
+
+Always handle markdown fences and surrounding prose:
+
+```typescript
+function parseLLMResponse(raw: string): unknown {
+  let cleaned = raw.trim();
+  // Strip markdown fences
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  }
+  // Extract JSON from surrounding prose
+  if (!cleaned.startsWith('{')) {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) cleaned = jsonMatch[0];
+  }
+  return JSON.parse(cleaned);
+}
+```
+
+### Error Handling for LLM Calls
+
+- **Rate limit detection**: Check error message for "rate limit" and show user-friendly message
+- **Never throw to user**: Wrap all LLM calls in try/catch, return graceful fallbacks
+- **ADVISOR MODE**: When data queries fail, still call LLM with business context to provide advice
+- **Token tracking**: Always accumulate `tokensInput` + `tokensOutput` across all LLM calls in a pipeline run
+- **Latency tracking**: Record `startMs` before each LLM call, accumulate across pipeline
+
+### Caching Strategy
+
+- **Query results**: Cache SQL results for 5 minutes (data changes slowly)
+- **LLM narratives**: Cache narrative responses keyed on question + data fingerprint
+- **Never cache**: Intent resolution (context-dependent), validation results
+- **Cache invalidation**: Admin API endpoint for manual cache flush per tenant
+
+### Best-Effort Eval Capture
+
+```typescript
+// ALWAYS fire-and-forget — never block the response
+void captureEvalTurnBestEffort({
+  id: generateUlid(),  // pre-generate ID for fire-and-forget
+  // ... capture data
+}).catch(() => {}); // swallow errors silently
+```
+
+### RAG Few-Shot Injection
+
+- Retrieve similar past queries as examples in system prompt
+- Best-effort — RAG failure never blocks generation
+- Filter by mode (SQL vs metrics) for relevance
+- Limit to 3 examples to control prompt size
 

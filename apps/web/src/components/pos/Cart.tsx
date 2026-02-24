@@ -1,7 +1,7 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { X, Plus, Minus } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { X, Plus, Minus, Pencil, CheckSquare, Trash2, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getItemTypeGroup } from '@/types/catalog';
 import type { Order, OrderLine } from '@/types/pos';
@@ -55,7 +55,10 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="font-medium text-gray-900 truncate">
+            <span
+              className="font-medium text-gray-900 truncate"
+              style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+            >
               {line.catalogItemName}
             </span>
             {qtyDisplay && (
@@ -115,7 +118,10 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
         {/* Right side: total + remove */}
         <div className="flex items-start gap-1 shrink-0">
           <div className="text-right">
-            <div className="text-sm font-semibold text-gray-900">
+            <div
+              className="text-sm font-semibold text-gray-900"
+              style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+            >
               {formatMoney(line.lineTotal)}
             </div>
             {line.lineTax > 0 && (
@@ -147,7 +153,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
           >
             <Minus className="h-3 w-3" />
           </button>
-          <span className="min-w-[2rem] text-center text-sm font-medium text-gray-700">
+          <span className="min-w-8 text-center text-sm font-medium text-gray-700">
             {formatQty(qty)}
           </span>
           <button
@@ -168,7 +174,10 @@ function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty
   return (
     <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
       <div className="flex-1 min-w-0">
-        <span className="font-medium text-gray-900 truncate block">
+        <span
+          className="font-medium text-gray-900 truncate block"
+          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+        >
           {line.catalogItemName}
         </span>
 
@@ -206,7 +215,10 @@ function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty
 
       <div className="flex items-start gap-1 shrink-0">
         <div className="text-right">
-          <div className="text-sm font-semibold text-gray-900">
+          <div
+            className="text-sm font-semibold text-gray-900"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+          >
             {formatMoney(line.lineTotal)}
           </div>
           {line.lineTax > 0 && (
@@ -234,7 +246,10 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
   return (
     <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
       <div className="flex-1 min-w-0">
-        <span className="font-medium text-gray-900 truncate block">
+        <span
+          className="font-medium text-gray-900 truncate block"
+          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+        >
           {line.catalogItemName}
         </span>
         {durationMinutes && (
@@ -268,7 +283,10 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
 
       <div className="flex items-start gap-1 shrink-0">
         <div className="text-right">
-          <div className="text-sm font-semibold text-gray-900">
+          <div
+            className="text-sm font-semibold text-gray-900"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+          >
             {formatMoney(line.lineTotal)}
           </div>
           {line.lineTax > 0 && (
@@ -294,7 +312,10 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
   return (
     <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
       <div className="flex-1 min-w-0">
-        <span className="font-medium text-gray-900 truncate block">
+        <span
+          className="font-medium text-gray-900 truncate block"
+          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+        >
           {line.catalogItemName}
         </span>
 
@@ -333,7 +354,10 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
 
       <div className="flex items-start gap-1 shrink-0">
         <div className="text-right">
-          <div className="text-sm font-semibold text-gray-900">
+          <div
+            className="text-sm font-semibold text-gray-900"
+            style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+          >
             {formatMoney(line.lineTotal)}
           </div>
           {line.lineTax > 0 && (
@@ -355,13 +379,91 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
   );
 }
 
+// ── Inline Line Editor ────────────────────────────────────────────
+
+function ExpandedLineEditor({
+  line,
+  onUpdateQty,
+  onRemove,
+  onUpdateNote,
+}: {
+  line: OrderLine;
+  onUpdateQty?: (lineId: string, newQty: number) => void;
+  onRemove: (lineId: string) => void;
+  onUpdateNote?: (lineId: string, note: string) => void;
+}) {
+  const qty = Number(line.qty);
+  const [note, setNote] = useState(line.notes ?? '');
+
+  return (
+    <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 space-y-2">
+      {/* Qty stepper */}
+      {onUpdateQty && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-500 w-8">Qty</span>
+          <button
+            type="button"
+            onClick={() => onUpdateQty(line.id, Math.max(1, qty - 1))}
+            disabled={qty <= 1}
+            className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 active:scale-[0.97]"
+          >
+            <Minus className="h-3 w-3" />
+          </button>
+          <span className="min-w-8 text-center text-sm font-semibold text-gray-700">{qty}</span>
+          <button
+            type="button"
+            onClick={() => onUpdateQty(line.id, qty + 1)}
+            className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100 active:scale-[0.97]"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+
+      {/* Note input */}
+      {onUpdateNote && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-500 w-8">Note</span>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onBlur={() => onUpdateNote(line.id, note)}
+            onKeyDown={(e) => { if (e.key === 'Enter') onUpdateNote(line.id, note); }}
+            placeholder="Add a note..."
+            className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+          />
+        </div>
+      )}
+
+      {/* Remove button */}
+      <button
+        type="button"
+        onClick={() => onRemove(line.id)}
+        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 active:scale-[0.97]"
+      >
+        <X className="h-3 w-3" />
+        Remove Item
+      </button>
+    </div>
+  );
+}
+
 // ── Cart Component ────────────────────────────────────────────────
 
 interface CartProps {
   order: Order | null;
   onRemoveItem: (lineId: string) => void;
   onUpdateQty?: (lineId: string, newQty: number) => void;
+  onUpdateLineNote?: (lineId: string, note: string) => void;
   label?: string;
+  /** Multi-select mode */
+  selectMode?: boolean;
+  selectedLineIds?: Set<string>;
+  onToggleSelect?: (lineId: string) => void;
+  onToggleSelectMode?: () => void;
+  onBatchRemove?: () => void;
+  onBatchDiscount?: () => void;
 }
 
 const CartLineItem = memo(function CartLineItem({ line, onRemoveItem, onUpdateQty }: {
@@ -391,16 +493,90 @@ const CartLineItem = memo(function CartLineItem({ line, onRemoveItem, onUpdateQt
   }
 });
 
+// ── Consolidation helpers ──────────────────────────────────────────
+
+interface ConsolidatedGroup {
+  key: string;
+  lines: OrderLine[];
+  displayLine: OrderLine;
+  count: number;
+  totalCents: number;
+}
+
+function buildConsolidationKey(line: OrderLine): string {
+  return `${line.catalogItemId}|${JSON.stringify(line.modifiers ?? [])}|${JSON.stringify(line.selectedOptions ?? {})}`;
+}
+
+function consolidateLines(lines: OrderLine[]): ConsolidatedGroup[] {
+  const groups = new Map<string, OrderLine[]>();
+  for (const line of lines) {
+    const key = buildConsolidationKey(line);
+    const group = groups.get(key) ?? [];
+    group.push(line);
+    groups.set(key, group);
+  }
+
+  return Array.from(groups.entries()).map(([key, groupLines]) => ({
+    key,
+    lines: groupLines,
+    displayLine: groupLines[0]!,
+    count: groupLines.length,
+    totalCents: groupLines.reduce((sum, l) => sum + l.lineTotal, 0),
+  }));
+}
+
+// ── Cart Component ────────────────────────────────────────────────
+
 export const Cart = memo(function Cart({
   order,
   onRemoveItem,
   onUpdateQty,
+  onUpdateLineNote,
   label = 'Cart',
+  selectMode,
+  selectedLineIds,
+  onToggleSelect,
+  onToggleSelectMode,
+  onBatchRemove,
+  onBatchDiscount,
 }: CartProps) {
   const lines = order?.lines ?? [];
   const itemCount = lines.length;
   const scrollRef = useRef<HTMLDivElement>(null);
   const sortedLines = useMemo(() => [...lines].sort((a, b) => a.sortOrder - b.sortOrder), [lines]);
+
+  // Inline editing — only one line expanded at a time
+  const [expandedLineId, setExpandedLineId] = useState<string | null>(null);
+  const toggleExpand = useCallback((lineId: string) => {
+    setExpandedLineId((prev) => (prev === lineId ? null : lineId));
+  }, []);
+
+  // Track new line IDs for slide-in animation
+  const prevLineIdsRef = useRef<Set<string>>(new Set());
+  const newLineIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const currentIds = new Set(lines.map((l) => l.id));
+    const newIds = new Set<string>();
+    for (const id of currentIds) {
+      if (!prevLineIdsRef.current.has(id)) {
+        newIds.add(id);
+      }
+    }
+    newLineIdsRef.current = newIds;
+    prevLineIdsRef.current = currentIds;
+
+    // Clear animation class after 300ms
+    if (newIds.size > 0) {
+      const timer = setTimeout(() => {
+        newLineIdsRef.current = new Set();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [lines]);
+
+  // Display-only consolidation
+  const consolidated = useMemo(() => consolidateLines(sortedLines), [sortedLines]);
 
   // Auto-scroll to bottom when new items are added
   useEffect(() => {
@@ -413,10 +589,67 @@ export const Cart = memo(function Cart({
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-gray-200 px-3 py-0.5">
-        <h2 className="text-sm font-semibold text-gray-900">{label}</h2>
-        <span className="text-xs text-gray-500">
-          {itemCount} {itemCount === 1 ? 'item' : 'items'}
-        </span>
+        {selectMode ? (
+          <>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-indigo-700">
+                {selectedLineIds?.size ?? 0} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {(selectedLineIds?.size ?? 0) > 0 && (
+                <>
+                  {onBatchRemove && (
+                    <button
+                      type="button"
+                      onClick={onBatchRemove}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                      Remove
+                    </button>
+                  )}
+                  {onBatchDiscount && (
+                    <button
+                      type="button"
+                      onClick={onBatchDiscount}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
+                    >
+                      <DollarSign className="h-3 w-3" />
+                      Discount
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                type="button"
+                onClick={onToggleSelectMode}
+                className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+              >
+                Done
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2 className="text-sm font-semibold text-gray-900">{label}</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">
+                {itemCount} {itemCount === 1 ? 'item' : 'items'}
+              </span>
+              {onToggleSelectMode && itemCount > 0 && (
+                <button
+                  type="button"
+                  onClick={onToggleSelectMode}
+                  className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  title="Select items"
+                >
+                  <CheckSquare className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Lines */}
@@ -426,14 +659,123 @@ export const Cart = memo(function Cart({
         </div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
-          {sortedLines.map((line) => (
-              <CartLineItem
-                key={line.id}
-                line={line}
-                onRemoveItem={onRemoveItem}
-                onUpdateQty={onUpdateQty}
-              />
-            ))}
+          {consolidated.map((group) => {
+            const isNew = newLineIdsRef.current.has(group.displayLine.id);
+            const isExpanded = expandedLineId === group.displayLine.id;
+            return (
+              <div
+                key={group.key}
+                className={isNew ? 'cart-line-enter' : ''}
+              >
+                {group.count > 1 ? (
+                  /* Consolidated group row */
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectMode && onToggleSelect ? onToggleSelect(group.displayLine.id) : toggleExpand(group.displayLine.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectMode && onToggleSelect) { onToggleSelect(group.displayLine.id); } else { toggleExpand(group.displayLine.id); } } }}
+                    className="group flex cursor-pointer items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5 transition-colors hover:bg-gray-50"
+                  >
+                    {selectMode && (
+                      <input
+                        type="checkbox"
+                        checked={selectedLineIds?.has(group.displayLine.id) ?? false}
+                        onChange={() => onToggleSelect?.(group.displayLine.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="font-medium text-gray-900 truncate"
+                          style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+                        >
+                          {group.displayLine.catalogItemName}
+                        </span>
+                        <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">
+                          x{group.count}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Pencil className="h-3 w-3 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
+                      <div
+                        className="text-sm font-semibold text-gray-900"
+                        style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
+                      >
+                        {formatMoney(group.totalCents)}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          for (const line of group.lines) {
+                            onRemoveItem(line.id);
+                          }
+                        }}
+                        className="rounded p-0.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                        aria-label={`Remove all ${group.displayLine.catalogItemName}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Single item row — wrap to make tappable */
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => selectMode && onToggleSelect ? onToggleSelect(group.displayLine.id) : toggleExpand(group.displayLine.id)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectMode && onToggleSelect) { onToggleSelect(group.displayLine.id); } else { toggleExpand(group.displayLine.id); } } }}
+                    className="cursor-pointer transition-colors hover:bg-gray-50"
+                  >
+                    {selectMode ? (
+                      <div className="flex items-start gap-2 border-b border-gray-100 px-3 py-0.5">
+                        <input
+                          type="checkbox"
+                          checked={selectedLineIds?.has(group.displayLine.id) ?? false}
+                          onChange={() => onToggleSelect?.(group.displayLine.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <CartLineItem
+                            line={group.displayLine}
+                            onRemoveItem={onRemoveItem}
+                            onUpdateQty={onUpdateQty}
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <CartLineItem
+                        line={group.displayLine}
+                        onRemoveItem={onRemoveItem}
+                        onUpdateQty={onUpdateQty}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* Expanded inline editor */}
+                {isExpanded && (
+                  <ExpandedLineEditor
+                    line={group.displayLine}
+                    onUpdateQty={onUpdateQty}
+                    onRemove={(lineId) => {
+                      if (group.count > 1) {
+                        for (const l of group.lines) onRemoveItem(l.id);
+                      } else {
+                        onRemoveItem(lineId);
+                      }
+                      setExpandedLineId(null);
+                    }}
+                    onUpdateNote={onUpdateLineNote}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

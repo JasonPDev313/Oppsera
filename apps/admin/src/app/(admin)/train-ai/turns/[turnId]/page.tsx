@@ -2,14 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Zap } from 'lucide-react';
+import { ArrowLeft, Zap, GitBranch } from 'lucide-react';
 import { useEvalTurn } from '@/hooks/use-eval';
+import { useExampleCrud } from '@/hooks/use-eval-training';
 import { PlanViewer } from '@/components/PlanViewer';
 import { SqlViewer } from '@/components/SqlViewer';
 import { VerdictBadge } from '@/components/VerdictBadge';
 import { QualityFlagPills } from '@/components/QualityFlagPills';
 import { RatingStars } from '@/components/RatingStars';
 import type { AdminVerdict } from '@/types/eval';
+
+const CATEGORY_OPTIONS = ['sales', 'inventory', 'customer', 'golf', 'comparison', 'trend', 'anomaly'];
+const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'];
 
 const VERDICT_OPTIONS: { value: AdminVerdict; label: string }[] = [
   { value: 'correct', label: 'Correct' },
@@ -29,6 +33,13 @@ export default function EvalTurnDetailPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPromoting, setIsPromoting] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [correctedPlanJson, setCorrectedPlanJson] = useState('');
+  const [correctedPlanError, setCorrectedPlanError] = useState('');
+  const [showPromoteCorrection, setShowPromoteCorrection] = useState(false);
+  const [promoteCategory, setPromoteCategory] = useState('sales');
+  const [promoteDifficulty, setPromoteDifficulty] = useState('medium');
+  const [promoteCorrectionSuccess, setPromoteCorrectionSuccess] = useState(false);
+  const { promoteCorrection } = useExampleCrud();
 
   useEffect(() => {
     load();
@@ -57,6 +68,35 @@ export default function EvalTurnDetailPage() {
     setIsPromoting(true);
     try {
       await promote({});
+    } finally {
+      setIsPromoting(false);
+    }
+  };
+
+  const handleSaveCorrectedPlan = () => {
+    if (!correctedPlanJson.trim()) {
+      setCorrectedPlanError('');
+      return;
+    }
+    try {
+      JSON.parse(correctedPlanJson);
+      setCorrectedPlanError('');
+    } catch {
+      setCorrectedPlanError('Invalid JSON');
+    }
+  };
+
+  const handlePromoteCorrection = async () => {
+    setIsPromoting(true);
+    try {
+      await promoteCorrection(turnId, {
+        category: promoteCategory,
+        difficulty: promoteDifficulty,
+      });
+      setPromoteCorrectionSuccess(true);
+      setShowPromoteCorrection(false);
+      setTimeout(() => setPromoteCorrectionSuccess(false), 3000);
+      await load();
     } finally {
       setIsPromoting(false);
     }
@@ -113,7 +153,15 @@ export default function EvalTurnDetailPage() {
             className="flex items-center gap-1.5 text-xs bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
           >
             <Zap size={12} />
-            {isPromoting ? 'Promoting…' : 'Promote to Example'}
+            {isPromoting ? 'Promoting…' : 'Promote LLM Plan'}
+          </button>
+          <button
+            onClick={() => setShowPromoteCorrection(true)}
+            disabled={isPromoting || promoteCorrectionSuccess}
+            className="flex items-center gap-1.5 text-xs bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <GitBranch size={12} />
+            {promoteCorrectionSuccess ? '✓ Promoted' : 'Promote Correction'}
           </button>
         </div>
       </div>
@@ -274,6 +322,76 @@ export default function EvalTurnDetailPage() {
               </button>
             </div>
           </div>
+
+          {/* Corrected Plan Editor */}
+          <div className="bg-slate-800 rounded-xl p-5 border border-slate-700">
+            <h2 className="text-sm font-semibold text-white mb-3">Corrected Plan</h2>
+            <p className="text-xs text-slate-400 mb-3">
+              Paste the corrected plan JSON here. This will be used when promoting to a golden example.
+            </p>
+            <textarea
+              value={correctedPlanJson}
+              onChange={(e) => setCorrectedPlanJson(e.target.value)}
+              onBlur={handleSaveCorrectedPlan}
+              rows={6}
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              placeholder='{"metrics": [...], "dimensions": [...], "filters": [...], "dateRange": {...}}'
+            />
+            {correctedPlanError && (
+              <p className="text-xs text-red-400 mt-1">{correctedPlanError}</p>
+            )}
+          </div>
+
+          {/* Promote Correction Dialog */}
+          {showPromoteCorrection && (
+            <div className="bg-emerald-900/30 rounded-xl p-5 border border-emerald-700/50">
+              <h2 className="text-sm font-semibold text-emerald-300 mb-3">Promote Corrected Plan to Example</h2>
+              <p className="text-xs text-slate-400 mb-4">
+                This creates a golden example using the admin-corrected plan (not the original LLM plan).
+              </p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Category</label>
+                  <select
+                    value={promoteCategory}
+                    onChange={(e) => setPromoteCategory(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {CATEGORY_OPTIONS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Difficulty</label>
+                  <select
+                    value={promoteDifficulty}
+                    onChange={(e) => setPromoteDifficulty(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 text-white text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {DIFFICULTY_OPTIONS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePromoteCorrection}
+                  disabled={isPromoting}
+                  className="px-4 py-2 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                >
+                  {isPromoting ? 'Promoting…' : 'Confirm Promote'}
+                </button>
+                <button
+                  onClick={() => setShowPromoteCorrection(false)}
+                  className="px-4 py-2 bg-slate-700 text-slate-300 text-xs rounded-lg hover:bg-slate-600 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Metadata */}
           <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700 space-y-2 text-xs">

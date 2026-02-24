@@ -1,10 +1,11 @@
 import type { PipelineInput, PipelineOutput, QueryResult } from './types';
 import { resolveIntent } from './intent-resolver';
 import { executeCompiledQuery } from './executor';
-import { generateNarrative, buildEmptyResultNarrative } from './narrative';
+import { generateNarrative, buildEmptyResultNarrative, buildDataFallbackNarrative } from './narrative';
 import { generateSql } from './sql-generator';
 import { validateGeneratedSql } from './sql-validator';
 import { executeSqlQuery } from './sql-executor';
+import { retrySqlGeneration } from './sql-retry';
 import { compilePlan } from '../compiler/compiler';
 import { buildRegistryCatalog, getLens } from '../registry/registry';
 import { buildSchemaCatalog } from '../schema/schema-catalog';
@@ -13,8 +14,12 @@ import { setEvalCaptureService } from '../evaluation/capture';
 import { getLLMAdapter, setLLMAdapter } from './adapters/anthropic';
 import type { LLMAdapter } from './types';
 import { getFromQueryCache, setInQueryCache } from '../cache/query-cache';
+import { getFromLLMCache, setInLLMCache, hashSystemPrompt } from '../cache/llm-cache';
 import { recordSemanticRequest } from '../observability/metrics';
 import { generateUlid } from '@oppsera/shared';
+import { generateFollowUps } from '../intelligence/follow-up-generator';
+import { inferChartConfig } from '../intelligence/chart-inferrer';
+import { scoreDataQuality } from '../intelligence/data-quality-scorer';
 
 export { getLLMAdapter, setLLMAdapter };
 
@@ -62,10 +67,15 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     console.log(`[semantic] Intent resolved in ${Date.now() - intentStart}ms (mode=${intent.mode}, clarification=${intent.isClarification}, confidence=${intent.confidence})`);
   } catch (err) {
     console.error(`[semantic] Intent resolution FAILED in ${Date.now() - intentStart}ms:`, err);
+    const errStr = String(err);
+    const isRateLimit = errStr.toLowerCase().includes('rate limit');
+    const userMessage = isRateLimit
+      ? "I'm experiencing high demand right now. Please try again in a minute — your question is a good one and I want to give it a proper answer."
+      : "I wasn't able to process that question right now. Please try rephrasing or try again shortly.";
     return {
       mode: 'metrics',
-      narrative: null,
-      sections: [],
+      narrative: `## Answer\n\n${userMessage}`,
+      sections: [{ type: 'answer' as const, content: userMessage }],
       data: null,
       plan: null,
       isClarification: false,
@@ -79,7 +89,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
       provider: '',
       model: '',
       compiledSql: null,
-      compilationErrors: [String(err)],
+      compilationErrors: [errStr],
       tablesAccessed: [],
       cacheStatus: 'SKIP',
     };
@@ -260,30 +270,70 @@ async function runMetricsMode(
     }
   }
 
-  // ── Narrative ──────────────────────────────────────────────────
+  // ── Narrative (with LLM response cache) ────────────────────────
   let narrativeText: string | null = null;
   let narrativeSections: PipelineOutput['sections'] = [];
   let narrativeTokensIn = 0;
   let narrativeTokensOut = 0;
 
   if (!skipNarrative) {
-    try {
-      const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
-        lensSlug: context.lensSlug,
-        lensPromptFragment,
-        metricDefs: compiled.metaDefs,
-        dimensionDefs: compiled.dimensionDefs,
-      });
-      narrativeText = narrativeResult.text;
-      narrativeSections = narrativeResult.sections;
-      narrativeTokensIn = narrativeResult.tokensInput;
-      narrativeTokensOut = narrativeResult.tokensOutput;
-    } catch {
-      const fallback = buildEmptyResultNarrative(message, context);
-      narrativeText = fallback.text;
-      narrativeSections = fallback.sections;
+    // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
+    const narrativePromptKey = hashSystemPrompt(`metrics:${context.lensSlug ?? 'default'}:${queryResult.rowCount}`);
+    const dataSummary = JSON.stringify(queryResult.rows.slice(0, 3));
+    const cachedNarrative = getFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
+
+    if (cachedNarrative) {
+      narrativeText = cachedNarrative.content;
+      narrativeSections = JSON.parse(cachedNarrative.model) as PipelineOutput['sections'];
+      console.log('[semantic] Narrative served from LLM cache');
+    } else {
+      try {
+        const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
+          lensSlug: context.lensSlug,
+          lensPromptFragment,
+          metricDefs: compiled.metaDefs,
+          dimensionDefs: compiled.dimensionDefs,
+        });
+        narrativeText = narrativeResult.text;
+        narrativeSections = narrativeResult.sections;
+        narrativeTokensIn = narrativeResult.tokensInput;
+        narrativeTokensOut = narrativeResult.tokensOutput;
+
+        // Cache the narrative response
+        setInLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history, {
+          content: narrativeResult.text,
+          tokensInput: narrativeResult.tokensInput,
+          tokensOutput: narrativeResult.tokensOutput,
+          model: JSON.stringify(narrativeResult.sections),
+          provider: intent.provider,
+          latencyMs: 0,
+        });
+      } catch (narrativeErr) {
+        console.warn('[semantic] Narrative generation failed (metrics mode), using data-aware fallback:', narrativeErr instanceof Error ? narrativeErr.message : narrativeErr);
+        // Use data-aware fallback when we have rows, empty fallback when we don't
+        const fallback = queryResult.rowCount > 0
+          ? buildDataFallbackNarrative(message, queryResult)
+          : buildEmptyResultNarrative(message, context);
+        narrativeText = fallback.text;
+        narrativeSections = fallback.sections;
+      }
     }
   }
+
+  // ── Follow-ups & chart config ────────────────────────────────
+  const suggestedFollowUps = generateFollowUps(message, intent.plan, narrativeSections, context);
+  const chartConfig = compiled ? inferChartConfig(intent.plan, compiled, queryResult) : null;
+
+  // ── Data quality scoring ───────────────────────────────────
+  const dataQuality = scoreDataQuality({
+    rowCount: queryResult.rowCount,
+    executionTimeMs: queryResult.executionTimeMs,
+    dateRange: intent.plan.dateRange ?? undefined,
+    compiledSql,
+    compilationErrors,
+    llmConfidence: intent.confidence,
+    schemaTablesUsed: tablesAccessed,
+  });
 
   // ── Eval capture ──────────────────────────────────────────────
   const resultSample = queryResult.rows.slice(0, 5);
@@ -331,6 +381,9 @@ async function runMetricsMode(
     compilationErrors,
     tablesAccessed,
     cacheStatus,
+    suggestedFollowUps,
+    chartConfig,
+    dataQuality,
   };
 }
 
@@ -438,10 +491,11 @@ async function runSqlMode(
     };
   }
 
-  const validatedSql = validation.sanitizedSql;
+  let validatedSql = validation.sanitizedSql;
 
   // ── Execution (with query cache) ──────────────────────────────
-  let queryResult: QueryResult;
+  // Definite assignment assertion: all non-return paths through the if/else/retry block set this
+  let queryResult!: QueryResult;
   let cacheStatus: PipelineOutput['cacheStatus'] = 'MISS';
 
   const cachedResult = getFromQueryCache(tenantId, validatedSql, [tenantId]);
@@ -461,66 +515,150 @@ async function runSqlMode(
       const executionError = String(err);
       console.warn(`[semantic] SQL execution failed: ${executionError}`);
 
-      const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+      // ── SQL Auto-Correction Retry ──────────────────────────────
+      // Send the failed SQL + error back to the LLM for one correction attempt
+      let retrySucceeded = false;
+      try {
+        console.log('[semantic] Attempting SQL auto-correction retry...');
+        const retryResult = await retrySqlGeneration({
+          originalQuestion: message,
+          failedSql: validatedSql,
+          errorMessage: executionError,
+          context,
+          options: {
+            maxRetries: 1,
+            schemaContext: schemaCatalog.summaryText,
+          },
+        });
+        totalTokensIn += retryResult.tokensInput;
+        totalTokensOut += retryResult.tokensOutput;
 
-      evalTurnId = generateUlid();
-      void captureEvalTurnBestEffort({
-        id: evalTurnId, message, context, intent,
-        compiledSql: validatedSql, compilationErrors: [],
-        tablesAccessed: extractTablesFromSql(validatedSql),
-        executionTimeMs: null, rowCount: null, resultSample: null,
-        executionError, cacheStatus: 'MISS',
-        narrative: advisor.text, responseSections: advisor.sectionTypes,
-      });
+        // Validate the corrected SQL before executing
+        const retryValidation = validateGeneratedSql(retryResult.correctedSql, schemaCatalog.tableNames);
+        if (retryValidation.valid) {
+          queryResult = await executeSqlQuery(retryValidation.sanitizedSql, { tenantId });
+          setInQueryCache(tenantId, retryValidation.sanitizedSql, [tenantId], queryResult.rows, queryResult.rowCount);
+          // Update references so the rest of the pipeline uses the corrected version
+          validatedSql = retryValidation.sanitizedSql;
+          sqlResult = {
+            ...sqlResult,
+            sql: retryValidation.sanitizedSql,
+            explanation: `${sqlResult.explanation} [Auto-corrected: ${retryResult.explanation}]`,
+          };
+          retrySucceeded = true;
+          console.log(`[semantic] SQL auto-correction succeeded (retry ${retryResult.retryCount})`);
+        } else {
+          console.warn('[semantic] Corrected SQL failed validation:', retryValidation.errors);
+        }
+      } catch (retryErr) {
+        console.warn('[semantic] SQL auto-correction retry failed:', retryErr);
+      }
 
-      return {
-        mode: 'sql',
-        narrative: advisor.text,
-        sections: advisor.sections,
-        data: null,
-        plan: intent.plan,
-        isClarification: false,
-        clarificationText: null,
-        evalTurnId,
-        llmConfidence: intent.confidence,
-        llmLatencyMs: intent.latencyMs + sqlResult.latencyMs,
-        executionTimeMs: null,
-        tokensInput: totalTokensIn + advisor.tokensIn,
-        tokensOutput: totalTokensOut + advisor.tokensOut,
-        provider: intent.provider,
-        model: intent.model,
-        compiledSql: validatedSql,
-        compilationErrors: [executionError],
-        tablesAccessed: extractTablesFromSql(validatedSql),
-        cacheStatus: 'MISS',
-      };
+      if (!retrySucceeded) {
+        const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+
+        evalTurnId = generateUlid();
+        void captureEvalTurnBestEffort({
+          id: evalTurnId, message, context, intent,
+          compiledSql: validatedSql, compilationErrors: [],
+          tablesAccessed: extractTablesFromSql(validatedSql),
+          executionTimeMs: null, rowCount: null, resultSample: null,
+          executionError, cacheStatus: 'MISS',
+          narrative: advisor.text, responseSections: advisor.sectionTypes,
+        });
+
+        return {
+          mode: 'sql',
+          narrative: advisor.text,
+          sections: advisor.sections,
+          data: null,
+          plan: intent.plan,
+          isClarification: false,
+          clarificationText: null,
+          evalTurnId,
+          llmConfidence: intent.confidence,
+          llmLatencyMs: intent.latencyMs + sqlResult.latencyMs,
+          executionTimeMs: null,
+          tokensInput: totalTokensIn + advisor.tokensIn,
+          tokensOutput: totalTokensOut + advisor.tokensOut,
+          provider: intent.provider,
+          model: intent.model,
+          compiledSql: validatedSql,
+          compilationErrors: [executionError],
+          tablesAccessed: extractTablesFromSql(validatedSql),
+          cacheStatus: 'MISS',
+        };
+      }
     }
   }
 
   const tablesAccessed = extractTablesFromSql(validatedSql);
 
-  // ── Narrative ──────────────────────────────────────────────────
+  // ── Narrative (with LLM response cache) ────────────────────────
   let narrativeText: string | null = null;
   let narrativeSections: PipelineOutput['sections'] = [];
   let narrativeTokensIn = 0;
   let narrativeTokensOut = 0;
+  let narrativeCacheHit = false;
 
   if (!skipNarrative) {
-    try {
-      const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
-        lensSlug: context.lensSlug,
-        lensPromptFragment,
-      });
-      narrativeText = narrativeResult.text;
-      narrativeSections = narrativeResult.sections;
-      narrativeTokensIn = narrativeResult.tokensInput;
-      narrativeTokensOut = narrativeResult.tokensOutput;
-    } catch {
-      const fallback = buildEmptyResultNarrative(message, context);
-      narrativeText = fallback.text;
-      narrativeSections = fallback.sections;
+    // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
+    const narrativePromptKey = hashSystemPrompt(`sql:${context.lensSlug ?? 'default'}:${queryResult.rowCount}`);
+    const dataSummary = JSON.stringify(queryResult.rows.slice(0, 3));
+    const cachedNarrative = getFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
+
+    if (cachedNarrative) {
+      narrativeText = cachedNarrative.content;
+      narrativeSections = JSON.parse(cachedNarrative.model) as PipelineOutput['sections']; // stash sections in model field
+      narrativeCacheHit = true;
+      console.log('[semantic] Narrative served from LLM cache');
+    } else {
+      try {
+        const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
+          lensSlug: context.lensSlug,
+          lensPromptFragment,
+        });
+        narrativeText = narrativeResult.text;
+        narrativeSections = narrativeResult.sections;
+        narrativeTokensIn = narrativeResult.tokensInput;
+        narrativeTokensOut = narrativeResult.tokensOutput;
+
+        // Cache the narrative response for future identical questions
+        setInLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history, {
+          content: narrativeResult.text,
+          tokensInput: narrativeResult.tokensInput,
+          tokensOutput: narrativeResult.tokensOutput,
+          model: JSON.stringify(narrativeResult.sections), // stash sections in model field
+          provider: intent.provider,
+          latencyMs: 0,
+        });
+      } catch (narrativeErr) {
+        console.warn('[semantic] Narrative generation failed (SQL mode), using data-aware fallback:', narrativeErr instanceof Error ? narrativeErr.message : narrativeErr);
+        // Use data-aware fallback when we have rows, empty fallback when we don't
+        const fallback = queryResult.rowCount > 0
+          ? buildDataFallbackNarrative(message, queryResult)
+          : buildEmptyResultNarrative(message, context);
+        narrativeText = fallback.text;
+        narrativeSections = fallback.sections;
+      }
     }
   }
+
+  // ── Follow-ups & chart config ────────────────────────────────
+  // SQL mode has no compiled query, so chart config is null
+  const suggestedFollowUps = generateFollowUps(message, intent.plan, narrativeSections, context);
+  const chartConfig = null;
+
+  // ── Data quality scoring ───────────────────────────────────
+  const dataQuality = scoreDataQuality({
+    rowCount: queryResult.rowCount,
+    executionTimeMs: queryResult.executionTimeMs,
+    dateRange: intent.plan.dateRange ?? undefined,
+    compiledSql: validatedSql,
+    compilationErrors: [],
+    llmConfidence: intent.confidence,
+    schemaTablesUsed: tablesAccessed,
+  });
 
   // ── Eval capture ──────────────────────────────────────────────
   const resultSample = queryResult.rows.slice(0, 5);
@@ -569,6 +707,9 @@ async function runSqlMode(
     tablesAccessed,
     cacheStatus,
     sqlExplanation: sqlResult.explanation,
+    suggestedFollowUps,
+    chartConfig,
+    dataQuality,
   };
 }
 

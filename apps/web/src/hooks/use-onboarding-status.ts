@@ -123,11 +123,12 @@ async function hasRecords(url: string): Promise<boolean> {
 function buildStaticDefaults(): StepCompletion {
   return {
     organization: { locations: false, profit_centers: false, terminals: false, terminal_settings: false },
-    users: { invite_users: false, custom_roles: false, location_assignments: false },
-    catalog: { hierarchy: false, tax_config: false, items: false, modifiers: false, packages: false },
+    users: { invite_users: false, import_staff: false, custom_roles: false, location_assignments: false },
+    catalog: { hierarchy: false, tax_config: false, items: false, import_items: false, modifiers: false, packages: false },
     inventory: { vendors: false, uom: false, costing: false, reorder_levels: false, opening_balances: false },
     customers: { customer_records: false, membership_plans: false, billing_accounts: false },
-    accounting: { bootstrap: false, control_accounts: false, mappings: false, bank_accounts: false, pos_posting: false },
+    data_import: { import_overview: false, first_import_complete: false },
+    accounting: { bootstrap: false, import_coa: false, control_accounts: false, mappings: false, bank_accounts: false, pos_posting: false },
     pos_config: { pos_terminal_prefs: false, quick_menu: false, drawer_defaults: false, tip_config: false },
     fnb: { floor_plans: false, sync_tables: false, kds_stations: false, menu_periods: false, allergens: false, tip_pools: false },
     reporting: { dashboard_widgets: false, custom_reports: false, ai_lenses: false },
@@ -195,6 +196,7 @@ export function useOnboardingStatus(): OnboardingStatus {
           hasRecords('/api/v1/catalog/categories?limit=1').then((v) => ['catalog', 'hierarchy', v]),
           hasRecords('/api/v1/catalog/tax-rates').then((v) => ['catalog', 'tax_config', v]),
           hasRecords('/api/v1/catalog/items?limit=1').then((v) => ['catalog', 'items', v]),
+          hasRecords('/api/v1/catalog/import/history?limit=1').then((v) => ['catalog', 'import_items', v]),
           hasRecords('/api/v1/catalog/modifier-groups').then((v) => ['catalog', 'modifiers', v]),
           hasRecords('/api/v1/catalog/items?itemType=package&limit=1').then((v) => ['catalog', 'packages', v]),
         );
@@ -214,6 +216,21 @@ export function useOnboardingStatus(): OnboardingStatus {
           hasRecords('/api/v1/customers?limit=1').then((v) => ['customers', 'customer_records', v]),
           hasRecords('/api/v1/memberships/plans?limit=1').then((v) => ['customers', 'membership_plans', v]),
           hasRecords('/api/v1/billing/accounts?limit=1').then((v) => ['customers', 'billing_accounts', v]),
+        );
+      }
+
+      // ── Phase 6: Data Import ──
+      // import_overview is always true (navigation step)
+      checks.push(Promise.resolve<[string, string, boolean]>(['data_import', 'import_overview', true]));
+      // first_import_complete: true if ANY module has at least one completed import
+      checks.push(
+        hasRecords('/api/v1/import/all-history?limit=1').then((v) => ['data_import', 'first_import_complete', v] as [string, string, boolean]),
+      );
+
+      // ── Phase 7: Accounting (COA import auto-detection) ──
+      if (checkModule('accounting')) {
+        checks.push(
+          hasRecords('/api/v1/accounting/import/history?limit=1').then((v) => ['accounting', 'import_coa', v]),
         );
       }
 
@@ -265,8 +282,11 @@ export function useOnboardingStatus(): OnboardingStatus {
         if (updated[phase]) updated[phase]![step] = value;
       }
 
-      // Apply accounting from existing hook
-      updated.accounting = acctMap;
+      // import_items shares detection with items (if items exist, import is satisfied)
+      if (updated.catalog) updated.catalog.import_items = updated.catalog.items ?? false;
+
+      // Apply accounting from existing hook (merge, don't replace — import_coa comes from API check)
+      updated.accounting = { ...updated.accounting, ...acctMap };
 
       setCompletion(updated);
       saveCachedCompletion(updated);

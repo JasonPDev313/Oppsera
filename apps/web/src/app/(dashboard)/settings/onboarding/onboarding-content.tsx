@@ -8,6 +8,7 @@ import { ONBOARDING_PHASES } from '@/components/onboarding/phase-definitions';
 import { OnboardingPhase, type PhaseStatus } from '@/components/onboarding/onboarding-phase';
 import { OnboardingStep } from '@/components/onboarding/onboarding-step';
 import { BootstrapWizard } from '@/components/accounting/bootstrap-wizard';
+import { ImportDataSection } from '@/components/onboarding/ImportDataSection';
 
 // Steps that have automatic API-based completion detection (no manual toggle needed)
 const AUTO_DETECTED_STEPS = new Set([
@@ -22,6 +23,7 @@ const AUTO_DETECTED_STEPS = new Set([
   'catalog.hierarchy',
   'catalog.tax_config',
   'catalog.items',
+  'catalog.import_items',
   'catalog.modifiers',
   'catalog.packages',
   // Inventory
@@ -31,8 +33,12 @@ const AUTO_DETECTED_STEPS = new Set([
   'customers.customer_records',
   'customers.membership_plans',
   'customers.billing_accounts',
+  // Data Import
+  'data_import.import_overview',
+  'data_import.first_import_complete',
   // Accounting (all from useAccountingSetupStatus)
   'accounting.bootstrap',
+  'accounting.import_coa',
   'accounting.control_accounts',
   'accounting.mappings',
   'accounting.bank_accounts',
@@ -211,11 +217,13 @@ export default function OnboardingContent() {
                   isManuallyDone: !isAutoDetected && isComplete,
                 };
 
-                // Special handling: accounting bootstrap step gets inline wizard
-                const inlineContent =
-                  phaseDef.key === 'accounting' && stepDef.key === 'bootstrap' && !isComplete
-                    ? renderBootstrapInline(showBootstrapWizard, setShowBootstrapWizard, handleBootstrapComplete)
-                    : undefined;
+                // Special inline content for specific steps
+                let inlineContent: React.ReactNode | undefined;
+                if (phaseDef.key === 'accounting' && stepDef.key === 'bootstrap' && !isComplete) {
+                  inlineContent = renderBootstrapInline(showBootstrapWizard, setShowBootstrapWizard, handleBootstrapComplete);
+                } else if (phaseDef.key === 'data_import' && stepDef.key === 'import_overview' && !isComplete) {
+                  inlineContent = <ImportDataSection />;
+                }
 
                 return (
                   <OnboardingStep

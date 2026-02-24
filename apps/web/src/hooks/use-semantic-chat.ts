@@ -24,8 +24,32 @@ export interface ChatMessage {
   llmLatencyMs?: number;
   cacheStatus?: 'HIT' | 'MISS' | 'SKIP';
   sqlExplanation?: string | null;
+  tablesAccessed?: string[];
+  // Proactive intelligence
+  suggestedFollowUps?: string[];
+  chartConfig?: ChartConfigData | null;
+  // Data quality assessment
+  dataQuality?: DataQualityData | null;
   error?: string | null;
   timestamp: number;
+}
+
+export interface DataQualityData {
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  score: number;
+  factors: Array<{ name: string; score: number; weight: number; detail: string }>;
+  summary: string;
+}
+
+export interface ChartConfigData {
+  type: 'line' | 'bar' | 'sparkline' | 'table' | 'metric_card' | 'comparison';
+  xAxis?: string;
+  yAxis?: string[];
+  title?: string;
+  xLabel?: string;
+  yLabel?: string;
+  yFormat?: 'currency' | 'number' | 'percent';
+  comparisonLabel?: string;
 }
 
 export interface QueryPlan {
@@ -150,6 +174,10 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
           llmLatencyMs: number;
           cacheStatus: 'HIT' | 'MISS' | 'SKIP';
           sqlExplanation: string | null;
+          tablesAccessed: string[];
+          suggestedFollowUps: string[];
+          chartConfig: ChartConfigData | null;
+          dataQuality: DataQualityData | null;
         };
       }>('/api/v1/semantic/ask', {
         method: 'POST',
@@ -192,6 +220,10 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
         llmLatencyMs: data.llmLatencyMs,
         cacheStatus: data.cacheStatus,
         sqlExplanation: data.sqlExplanation,
+        tablesAccessed: data.tablesAccessed ?? [],
+        suggestedFollowUps: data.suggestedFollowUps ?? [],
+        chartConfig: data.chartConfig ?? null,
+        dataQuality: data.dataQuality ?? null,
         error: null,
         timestamp: Date.now(),
       };

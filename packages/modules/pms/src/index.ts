@@ -20,6 +20,34 @@ export {
   pmsOutbox,
   rmPmsCalendarSegments,
   rmPmsDailyOccupancy,
+  pmsRateRestrictions,
+  pmsPaymentMethods,
+  pmsPaymentTransactions,
+  pmsDepositPolicies,
+  pmsCancellationPolicies,
+  pmsMessageTemplates,
+  pmsMessageLog,
+  rmPmsRevenueByRoomType,
+  rmPmsHousekeepingProductivity,
+  pmsHousekeepers,
+  pmsHousekeepingAssignments,
+  pmsWorkOrders,
+  pmsWorkOrderComments,
+  pmsRatePackages,
+  pmsGroups,
+  pmsGroupRoomBlocks,
+  pmsCorporateAccounts,
+  pmsCorporateRateOverrides,
+  pmsPricingRules,
+  pmsPricingLog,
+  pmsChannels,
+  pmsChannelSyncLog,
+  pmsBookingEngineConfig,
+  pmsRoomAssignmentPreferences,
+  pmsGuestPortalSessions,
+  pmsLoyaltyPrograms,
+  pmsLoyaltyMembers,
+  pmsLoyaltyTransactions,
 } from '@oppsera/db';
 
 // Validation schemas
@@ -48,6 +76,73 @@ export {
   updateRoomHousekeepingSchema,
   postFolioEntrySchema,
   setOutOfOrderSchema,
+  setRateRestrictionsSchema,
+  clearRateRestrictionsSchema,
+  savePaymentMethodSchema,
+  chargeCardSchema,
+  authorizeDepositSchema,
+  captureDepositSchema,
+  refundPaymentSchema,
+  createDepositPolicySchema,
+  updateDepositPolicySchema,
+  createCancellationPolicySchema,
+  updateCancellationPolicySchema,
+  createMessageTemplateSchema,
+  updateMessageTemplateSchema,
+  sendReservationMessageSchema,
+  logCommunicationSchema,
+  createHousekeeperSchema,
+  updateHousekeeperSchema,
+  assignHousekeepingSchema,
+  completeCleaningSchema,
+  createWorkOrderSchema,
+  updateWorkOrderSchema,
+  completeWorkOrderSchema,
+  addWorkOrderCommentSchema,
+  createRatePackageSchema,
+  updateRatePackageSchema,
+  // Groups
+  createGroupSchema,
+  updateGroupSchema,
+  setGroupRoomBlocksSchema,
+  pickUpGroupRoomSchema,
+  groupTypeEnum,
+  groupStatusEnum,
+  groupBillingTypeEnum,
+  // Corporate
+  createCorporateAccountSchema,
+  updateCorporateAccountSchema,
+  setCorporateRateOverridesSchema,
+  corporateBillingTypeEnum,
+  // Pricing Rules
+  pricingRuleTypeEnum,
+  pricingAdjustmentTypeEnum,
+  pricingAdjustmentDirectionEnum,
+  pricingConditionsSchema,
+  pricingAdjustmentsSchema,
+  createPricingRuleSchema,
+  updatePricingRuleSchema,
+  runPricingEngineSchema,
+  // Channels
+  channelCodeEnum,
+  createChannelSchema,
+  updateChannelSchema,
+  syncChannelSchema,
+  // Booking Engine
+  updateBookingEngineConfigSchema,
+  // Auto Room Assignment
+  updateRoomAssignmentPreferencesSchema,
+  runAutoAssignmentSchema,
+  // Guest Portal
+  createGuestPortalSessionSchema,
+  completePreCheckinSchema,
+  // Loyalty
+  createLoyaltyProgramSchema,
+  updateLoyaltyProgramSchema,
+  enrollLoyaltyGuestSchema,
+  earnLoyaltyPointsSchema,
+  redeemLoyaltyPointsSchema,
+  adjustLoyaltyPointsSchema,
 } from './validation';
 
 export type {
@@ -75,6 +170,73 @@ export type {
   UpdateRoomHousekeepingInput,
   PostFolioEntryInput,
   SetOutOfOrderInput,
+  SetRateRestrictionsInput,
+  ClearRateRestrictionsInput,
+  SavePaymentMethodInput,
+  ChargeCardInput,
+  AuthorizeDepositInput,
+  CaptureDepositInput,
+  RefundPaymentInput,
+  CreateDepositPolicyInput,
+  UpdateDepositPolicyInput,
+  CreateCancellationPolicyInput,
+  UpdateCancellationPolicyInput,
+  CreateMessageTemplateInput,
+  UpdateMessageTemplateInput,
+  SendReservationMessageInput,
+  LogCommunicationInput,
+  CreateHousekeeperInput,
+  UpdateHousekeeperInput,
+  AssignHousekeepingInput,
+  CompleteCleaningInput,
+  CreateWorkOrderInput,
+  UpdateWorkOrderInput,
+  CompleteWorkOrderInput,
+  AddWorkOrderCommentInput,
+  CreateRatePackageInput,
+  UpdateRatePackageInput,
+  // Groups
+  CreateGroupInput,
+  UpdateGroupInput,
+  SetGroupRoomBlocksInput,
+  PickUpGroupRoomInput,
+  GroupType,
+  GroupStatus,
+  GroupBillingType,
+  // Corporate
+  CreateCorporateAccountInput,
+  UpdateCorporateAccountInput,
+  SetCorporateRateOverridesInput,
+  CorporateBillingType,
+  // Pricing Rules
+  PricingRuleType,
+  PricingAdjustmentType,
+  PricingAdjustmentDirection,
+  PricingConditions,
+  PricingAdjustments,
+  CreatePricingRuleInput,
+  UpdatePricingRuleInput,
+  RunPricingEngineInput,
+  // Channels
+  ChannelCode,
+  CreateChannelInput,
+  UpdateChannelInput,
+  SyncChannelInput,
+  // Booking Engine
+  UpdateBookingEngineConfigInput,
+  // Auto Room Assignment
+  UpdateRoomAssignmentPreferencesInput,
+  RunAutoAssignmentInput,
+  // Guest Portal
+  CreateGuestPortalSessionInput,
+  CompletePreCheckinInput,
+  // Loyalty
+  CreateLoyaltyProgramInput,
+  UpdateLoyaltyProgramInput,
+  EnrollLoyaltyGuestInput,
+  EarnLoyaltyPointsInput,
+  RedeemLoyaltyPointsInput,
+  AdjustLoyaltyPointsInput,
 } from './validation';
 
 // Permissions
@@ -151,6 +313,81 @@ export { moveRoom } from './commands/move-room';
 export { updateRoomStatus } from './commands/update-room-status';
 export { postFolioEntry } from './commands/post-folio-entry';
 export { closeFolio } from './commands/close-folio';
+export { setRateRestrictions } from './commands/set-rate-restrictions';
+export { clearRateRestrictions } from './commands/clear-rate-restrictions';
+export { savePaymentMethod } from './commands/save-payment-method';
+export { removePaymentMethod } from './commands/remove-payment-method';
+export { authorizeDeposit } from './commands/authorize-deposit';
+export { captureDeposit } from './commands/capture-deposit';
+export { chargeCard } from './commands/charge-card';
+export { refundPayment } from './commands/refund-payment';
+export { createDepositPolicy } from './commands/create-deposit-policy';
+export { updateDepositPolicy } from './commands/update-deposit-policy';
+export { createCancellationPolicy } from './commands/create-cancellation-policy';
+export { updateCancellationPolicy } from './commands/update-cancellation-policy';
+export { createMessageTemplate } from './commands/create-message-template';
+export { updateMessageTemplate } from './commands/update-message-template';
+export { sendReservationMessage } from './commands/send-reservation-message';
+export { logCommunication } from './commands/log-communication';
+export { createHousekeeper } from './commands/create-housekeeper';
+export { updateHousekeeper } from './commands/update-housekeeper';
+export { assignHousekeeping } from './commands/assign-housekeeping';
+export { startCleaning } from './commands/start-cleaning';
+export { completeCleaning } from './commands/complete-cleaning';
+export { skipCleaning } from './commands/skip-cleaning';
+export { createWorkOrder } from './commands/create-work-order';
+export { updateWorkOrder } from './commands/update-work-order';
+export { completeWorkOrder } from './commands/complete-work-order';
+export { addWorkOrderComment } from './commands/add-work-order-comment';
+export { createRatePackage } from './commands/create-rate-package';
+export { updateRatePackage } from './commands/update-rate-package';
+export { deactivateRatePackage } from './commands/deactivate-rate-package';
+// Group commands
+export { createGroup } from './commands/create-group';
+export { updateGroup } from './commands/update-group';
+export { setGroupRoomBlocks } from './commands/set-group-room-blocks';
+export { pickUpGroupRoom } from './commands/pick-up-group-room';
+export { releaseGroupBlocks } from './commands/release-group-blocks';
+// Corporate commands
+export { createCorporateAccount } from './commands/create-corporate-account';
+export { updateCorporateAccount } from './commands/update-corporate-account';
+export { setCorporateRateOverrides } from './commands/set-corporate-rate-overrides';
+export { deactivateCorporateAccount } from './commands/deactivate-corporate-account';
+// Pricing rule commands
+export { createPricingRule } from './commands/create-pricing-rule';
+export { updatePricingRule } from './commands/update-pricing-rule';
+export { deactivatePricingRule } from './commands/deactivate-pricing-rule';
+export { runPricingEngine } from './commands/run-pricing-engine';
+// Channel commands
+export { createChannel } from './commands/create-channel';
+export { updateChannel } from './commands/update-channel';
+export { syncChannel } from './commands/sync-channel';
+// Booking engine commands
+export { updateBookingEngineConfig } from './commands/update-booking-engine-config';
+// Auto room assignment commands
+export { updateRoomAssignmentPreferences } from './commands/update-room-assignment-preferences';
+export { runAutoAssignment } from './commands/run-auto-assignment';
+export type { AutoAssignmentResult } from './commands/run-auto-assignment';
+// Guest portal commands
+export { createGuestPortalSession } from './commands/create-guest-portal-session';
+export { completePreCheckin } from './commands/complete-pre-checkin';
+export { expireGuestPortalSessions } from './commands/expire-guest-portal-sessions';
+// Loyalty commands
+export { createLoyaltyProgram } from './commands/create-loyalty-program';
+export { updateLoyaltyProgram } from './commands/update-loyalty-program';
+export { enrollLoyaltyGuest } from './commands/enroll-loyalty-guest';
+export { earnLoyaltyPoints } from './commands/earn-loyalty-points';
+export { redeemLoyaltyPoints } from './commands/redeem-loyalty-points';
+export type { RedemptionResult } from './commands/redeem-loyalty-points';
+export { adjustLoyaltyPoints } from './commands/adjust-loyalty-points';
+
+// Pricing engine helper
+export { computeDynamicRate, evaluateConditions, applyAdjustment } from './helpers/pricing-engine';
+export type { PricingContext, PricingRuleRow, ComputedRate } from './helpers/pricing-engine';
+
+// Room assignment engine helper
+export { scoreRoom, rankRooms } from './helpers/room-assignment-engine';
+export type { ScoredRoom, AssignmentContext, PreferenceWeight, RoomScore } from './helpers/room-assignment-engine';
 
 // Queries
 export {
@@ -175,6 +412,59 @@ export {
   getCalendarWeek,
   getCalendarDay,
   getDailyOccupancy,
+  getRateRestrictions,
+  checkRestrictions,
+  listPaymentMethods,
+  listPaymentTransactions,
+  listDepositPolicies,
+  listCancellationPolicies,
+  listMessageTemplates,
+  getMessageTemplate,
+  listMessageLog,
+  getOccupancyForecast,
+  getRevenueByRoomType,
+  getPickupReport,
+  getManagerFlashReport,
+  getNoShowReport,
+  getHousekeepingProductivity,
+  listHousekeepers,
+  listHousekeepingAssignments,
+  getHousekeeperWorkload,
+  listWorkOrders,
+  getWorkOrder,
+  listRatePackages,
+  getRatePackage,
+  // Groups
+  listGroups,
+  getGroup,
+  // Corporate
+  listCorporateAccounts,
+  getCorporateAccount,
+  getCorporateRate,
+  // Calendar Month
+  getCalendarMonth,
+  // Pricing Rules
+  listPricingRules,
+  getPricingRule,
+  getPricingLog,
+  previewPricing,
+  // Channels
+  listChannels,
+  getChannel,
+  listChannelSyncLog,
+  // Booking Engine
+  getBookingEngineConfig,
+  // Auto Room Assignment
+  listRoomAssignmentPreferences,
+  getRoomSuggestions,
+  // Guest Self-Service Portal
+  getGuestPortalSessionByToken,
+  getGuestPortalSession,
+  getGuestPortalFolio,
+  // Loyalty/Points
+  listLoyaltyPrograms,
+  getLoyaltyMember,
+  listLoyaltyTransactions,
 } from './queries';
 
 export type {
@@ -205,6 +495,75 @@ export type {
   CalendarDayResponse,
   UnassignedReservation,
   DailyOccupancyRow,
+  RateRestrictionRow,
+  GetRateRestrictionsInput,
+  CheckRestrictionsInput,
+  CheckRestrictionsResult,
+  PaymentMethodItem,
+  PaymentTransactionItem,
+  DepositPolicyItem,
+  CancellationPolicyItem,
+  MessageTemplateItem,
+  MessageTemplateDetail,
+  MessageLogItem,
+  ListMessageLogInput,
+  ListMessageLogResult,
+  OccupancyForecastDay,
+  RevenueByRoomTypeRow,
+  PickupReportRow,
+  ManagerFlashReport,
+  NoShowReportRow,
+  NoShowReportResult,
+  HousekeepingProductivityRow,
+  HousekeeperItem,
+  HousekeepingAssignmentItem,
+  HousekeeperWorkload,
+  WorkOrderListItem,
+  ListWorkOrdersResult,
+  WorkOrderDetail,
+  RatePackageListItem,
+  ListRatePackagesResult,
+  RatePackageDetail,
+  // Groups
+  GroupListItem,
+  ListGroupsResult,
+  GroupDetail,
+  GroupRoomBlock,
+  // Corporate
+  CorporateAccountListItem,
+  ListCorporateAccountsResult,
+  CorporateAccountDetail,
+  CorporateRateOverride,
+  CorporateRateResult,
+  // Calendar Month
+  MonthDay,
+  CalendarMonthResult,
+  // Pricing Rules
+  PricingRuleListItem,
+  ListPricingRulesResult,
+  PricingRuleDetail,
+  PricingLogEntry,
+  GetPricingLogInput,
+  PricingPreviewDay,
+  // Channels
+  ChannelListItem,
+  ListChannelsResult,
+  ChannelDetail,
+  ChannelSyncLogItem,
+  // Booking Engine
+  BookingEngineConfigDetail,
+  // Auto Room Assignment
+  RoomAssignmentPreferenceItem,
+  RoomSuggestion,
+  // Guest Self-Service Portal
+  GuestPortalSessionDetail,
+  GuestPortalFolio,
+  GuestPortalFolioEntry,
+  // Loyalty/Points
+  LoyaltyProgramItem,
+  LoyaltyMemberDetail,
+  LoyaltyTransactionItem,
+  ListLoyaltyTransactionsResult,
 } from './queries';
 
 // Background Jobs

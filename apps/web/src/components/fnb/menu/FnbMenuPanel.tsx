@@ -1,10 +1,83 @@
 'use client';
 
-import { memo, useCallback } from 'react';
-import { Search, ChevronRight, X, RefreshCw, AlertCircle, Zap, Wrench, LayoutGrid } from 'lucide-react';
+import { memo, useCallback, useState, useEffect } from 'react';
+import { Search, ChevronRight, X, RefreshCw, AlertCircle, Zap, Wrench, LayoutGrid, Star, Clock } from 'lucide-react';
 import type { UseFnbMenuReturn } from '@/hooks/use-fnb-menu';
 import { useFnbMenu } from '@/hooks/use-fnb-menu';
 import { FnbItemTile } from './FnbItemTile';
+
+// ── Favorites & Recents (localStorage V1) ─────────────────────────
+
+const FAVORITES_KEY = 'oppsera:fnb-favorites';
+const RECENTS_KEY = 'oppsera:fnb-recents';
+const MAX_RECENTS = 20;
+
+interface RecentItem {
+  id: string;
+  name: string;
+  priceCents: number;
+  itemType: string;
+  ts: number;
+}
+
+function getFavorites(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const raw = localStorage.getItem(FAVORITES_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch { return new Set(); }
+}
+
+function saveFavorites(ids: Set<string>): void {
+  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...ids])); } catch { /* ignore */ }
+}
+
+export function toggleFavorite(itemId: string): Set<string> {
+  const favs = getFavorites();
+  if (favs.has(itemId)) favs.delete(itemId);
+  else favs.add(itemId);
+  saveFavorites(favs);
+  return favs;
+}
+
+function getRecents(): RecentItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    return raw ? (JSON.parse(raw) as RecentItem[]) : [];
+  } catch { return []; }
+}
+
+export function recordRecentItem(item: { id: string; name: string; priceCents: number; itemType: string }): void {
+  try {
+    const recents = getRecents().filter((r) => r.id !== item.id);
+    recents.unshift({ ...item, ts: Date.now() });
+    if (recents.length > MAX_RECENTS) recents.length = MAX_RECENTS;
+    localStorage.setItem(RECENTS_KEY, JSON.stringify(recents));
+  } catch { /* ignore */ }
+}
+
+/** Hook to read favorites + recents with live updates */
+function useFnbFavorites() {
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [recents, setRecents] = useState<RecentItem[]>([]);
+
+  useEffect(() => {
+    setFavorites(getFavorites());
+    setRecents(getRecents());
+  }, []);
+
+  const toggle = useCallback((itemId: string) => {
+    const updated = toggleFavorite(itemId);
+    setFavorites(new Set(updated));
+  }, []);
+
+  const refreshRecents = useCallback(() => {
+    setRecents(getRecents());
+  }, []);
+
+  return { favorites, recents, toggle, refreshRecents };
+}
 
 // ── Menu Mode Tabs (All Items / Hot Sellers / Tools) ────────────────
 
@@ -12,7 +85,7 @@ type MenuMode = 'all_items' | 'hot_sellers' | 'tools';
 
 const MODE_TABS: Array<{ key: MenuMode; label: string; icon: typeof LayoutGrid }> = [
   { key: 'all_items', label: 'All Items', icon: LayoutGrid },
-  { key: 'hot_sellers', label: 'Hot Sellers', icon: Zap },
+  { key: 'hot_sellers', label: 'Favorites', icon: Star },
   { key: 'tools', label: 'Tools', icon: Wrench },
 ];
 
@@ -338,6 +411,8 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
   menuMode?: MenuMode;
   onItemTap: (itemId: string, itemName: string, priceCents: number, itemType: string) => void;
 }) {
+  const { favorites, recents, toggle: toggleFav } = useFnbFavorites();
+
   const handleBreadcrumbNavigate = useCallback((level: string) => {
     if (level === 'department') {
       menu.setActiveSubDepartment(null);
@@ -349,24 +424,112 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
 
   const handleItemTap = useCallback((id: string) => {
     const item = menu.items.find((i) => i.id === id);
-    if (item) onItemTap(item.id, item.name, item.unitPriceCents, item.itemType);
+    if (item) {
+      recordRecentItem({ id: item.id, name: item.name, priceCents: item.unitPriceCents, itemType: item.itemType });
+      onItemTap(item.id, item.name, item.unitPriceCents, item.itemType);
+    }
   }, [menu.items, onItemTap]);
 
-  // Show stub for non-catalog modes
-  if (menuMode && menuMode !== 'all_items') {
+  // ── Hot Sellers / Favorites + Recent ──────────────────────────
+  if (menuMode === 'hot_sellers') {
+    const favoriteItems = menu.items.filter((i) => favorites.has(i.id));
+    const recentItems = recents
+      .map((r) => menu.items.find((i) => i.id === r.id))
+      .filter(Boolean) as typeof menu.items;
+
+    return (
+      <div
+        className="flex-1 overflow-y-auto p-3 min-h-0 min-w-0"
+        style={{ backgroundColor: 'var(--fnb-bg-surface)' }}
+      >
+        {/* Favorites section */}
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Star className="h-4 w-4" style={{ color: 'var(--fnb-warning)', fill: 'var(--fnb-warning)' }} />
+            <span className="text-xs font-bold uppercase" style={{ color: 'var(--fnb-text-secondary)' }}>
+              Favorites
+            </span>
+            <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+              {favoriteItems.length}
+            </span>
+          </div>
+          {favoriteItems.length === 0 ? (
+            <p className="text-xs py-4 text-center" style={{ color: 'var(--fnb-text-muted)' }}>
+              Tap the star on any item to add it here
+            </p>
+          ) : (
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+              {favoriteItems.map((item) => (
+                <FnbItemTile
+                  key={item.id}
+                  name={item.name}
+                  priceCents={item.unitPriceCents}
+                  is86d={item.is86d}
+                  isFavorite
+                  onToggleFavorite={() => toggleFav(item.id)}
+                  allergenIcons={item.allergenIds
+                    .map((aid) => menu.allergens.find((a) => a.id === aid)?.icon)
+                    .filter(Boolean) as string[]}
+                  menuColor={(item.metadata?.menuColor as string) ?? null}
+                  hasModifiers={item.modifierGroupIds.length > 0}
+                  onTap={() => handleItemTap(item.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent section */}
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4" style={{ color: 'var(--fnb-text-muted)' }} />
+            <span className="text-xs font-bold uppercase" style={{ color: 'var(--fnb-text-secondary)' }}>
+              Recently Ordered
+            </span>
+            <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+              {recentItems.length}
+            </span>
+          </div>
+          {recentItems.length === 0 ? (
+            <p className="text-xs py-4 text-center" style={{ color: 'var(--fnb-text-muted)' }}>
+              Items you add to orders will appear here
+            </p>
+          ) : (
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+              {recentItems.map((item) => (
+                <FnbItemTile
+                  key={item.id}
+                  name={item.name}
+                  priceCents={item.unitPriceCents}
+                  is86d={item.is86d}
+                  isFavorite={favorites.has(item.id)}
+                  onToggleFavorite={() => toggleFav(item.id)}
+                  allergenIcons={item.allergenIds
+                    .map((aid) => menu.allergens.find((a) => a.id === aid)?.icon)
+                    .filter(Boolean) as string[]}
+                  menuColor={(item.metadata?.menuColor as string) ?? null}
+                  hasModifiers={item.modifierGroupIds.length > 0}
+                  onTap={() => handleItemTap(item.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tools stub ───────────────────────────────────────────────
+  if (menuMode === 'tools') {
     return (
       <div
         className="flex flex-1 min-h-0 min-w-0 items-center justify-center"
         style={{ backgroundColor: 'var(--fnb-bg-surface)' }}
       >
         <div className="text-center p-8">
-          {menuMode === 'hot_sellers' ? (
-            <Zap className="h-10 w-10 mx-auto mb-3" style={{ color: 'var(--fnb-text-muted)' }} />
-          ) : (
-            <Wrench className="h-10 w-10 mx-auto mb-3" style={{ color: 'var(--fnb-text-muted)' }} />
-          )}
+          <Wrench className="h-10 w-10 mx-auto mb-3" style={{ color: 'var(--fnb-text-muted)' }} />
           <p className="text-sm font-semibold" style={{ color: 'var(--fnb-text-secondary)' }}>
-            {menuMode === 'hot_sellers' ? 'Hot Sellers' : 'Tools'}
+            Tools
           </p>
           <p className="text-xs mt-1" style={{ color: 'var(--fnb-text-muted)' }}>
             Coming Soon
@@ -434,9 +597,13 @@ export const FnbMenuContent = memo(function FnbMenuContent({ menu, menuMode, onI
                   name={item.name}
                   priceCents={item.unitPriceCents}
                   is86d={item.is86d}
+                  isFavorite={favorites.has(item.id)}
+                  onToggleFavorite={() => toggleFav(item.id)}
                   allergenIcons={item.allergenIds
                     .map((aid) => menu.allergens.find((a) => a.id === aid)?.icon)
                     .filter(Boolean) as string[]}
+                  menuColor={(item.metadata?.menuColor as string) ?? null}
+                  hasModifiers={item.modifierGroupIds.length > 0}
                   onTap={() => handleItemTap(item.id)}
                 />
               ))}

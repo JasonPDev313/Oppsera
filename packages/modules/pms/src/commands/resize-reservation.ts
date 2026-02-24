@@ -15,6 +15,7 @@ import { assertRoomAvailable, checkRoomNotOutOfOrder } from '../helpers/check-av
 import { checkPmsIdempotency, savePmsIdempotencyKey } from '../helpers/pms-idempotency';
 import { IMMOVABLE_STATUSES } from '../state-machines';
 import { ConcurrencyConflictError, ReservationNotMovableError } from '../errors';
+import { checkRestrictions } from '../queries/check-restrictions';
 
 export async function resizeReservation(ctx: RequestContext, input: CalendarResizeInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
@@ -89,6 +90,24 @@ export async function resizeReservation(ctx: RequestContext, input: CalendarResi
     const newNights = Math.round(
       (new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24),
     );
+
+    // 6b. Check rate restrictions (skip if restriction_override on reservation)
+    if (!current.restrictionOverride) {
+      const restrictionCheck = await checkRestrictions({
+        tenantId: ctx.tenantId,
+        propertyId: current.propertyId,
+        roomTypeId: current.roomTypeId,
+        ratePlanId: current.ratePlanId ?? null,
+        checkInDate: newCheckIn,
+        checkOutDate: newCheckOut,
+      });
+      if (!restrictionCheck.allowed) {
+        throw new ValidationError('Rate restrictions violated', restrictionCheck.violations.map((v) => ({
+          field: 'restrictions',
+          message: v,
+        })));
+      }
+    }
 
     // 7. Check availability for new date range (exclude self)
     const roomId = current.roomId ?? input.from.roomId;

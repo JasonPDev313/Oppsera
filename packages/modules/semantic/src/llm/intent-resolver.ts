@@ -4,6 +4,8 @@ import type { QueryPlan } from '../compiler/types';
 import type { RegistryCatalog, MetricDef, DimensionDef } from '../registry/types';
 import type { EvalExample } from '../evaluation/types';
 import { getLLMAdapter } from './adapters/anthropic';
+import { pruneForIntentResolver } from './conversation-pruner';
+import { retrieveFewShotExamples } from '../rag/few-shot-retriever';
 
 // ── System prompt builder ─────────────────────────────────────────
 // Constructs the intent-resolution prompt from:
@@ -14,15 +16,67 @@ import { getLLMAdapter } from './adapters/anthropic';
 //  5. Golden examples (few-shot, if provided)
 
 function buildCatalogSnippet(catalog: RegistryCatalog): string {
-  const metrics = catalog.metrics.map((m: MetricDef) =>
-    `  - ${m.slug}: ${m.displayName}${m.description ? ` — ${m.description}` : ''}`,
-  ).join('\n');
+  const metrics = catalog.metrics.map((m: MetricDef) => {
+    const meta: string[] = [];
+    if (m.unit) meta.push(m.unit);
+    if (m.sqlTable) meta.push(`from ${m.sqlTable}`);
+    if (m.dataType) meta.push(m.dataType);
+    const metaSuffix = meta.length > 0 ? ` [${meta.join(', ')}]` : '';
+    return `  - ${m.slug}: ${m.displayName}${m.description ? ` — ${m.description}` : ''}${metaSuffix}`;
+  }).join('\n');
 
-  const dimensions = catalog.dimensions.map((d: DimensionDef) =>
-    `  - ${d.slug}: ${d.displayName}${d.isTimeDimension ? ' [time]' : ''}${d.description ? ` — ${d.description}` : ''}`,
-  ).join('\n');
+  const dimensions = catalog.dimensions.map((d: DimensionDef) => {
+    const meta: string[] = [];
+    if (d.sqlTable) meta.push(`from ${d.sqlTable}`);
+    if (d.sqlTable?.startsWith('rm_inventory')) meta.push('SNAPSHOT');
+    else if (d.sqlTable?.startsWith('rm_customer')) meta.push('RUNNING TOTAL');
+    else if (d.isTimeDimension) meta.push('time');
+    const metaSuffix = meta.length > 0 ? ` [${meta.join(', ')}]` : '';
+    return `  - ${d.slug}: ${d.displayName}${d.description ? ` — ${d.description}` : ''}${metaSuffix}`;
+  }).join('\n');
 
   return `## Available Metrics\n${metrics}\n\n## Available Dimensions\n${dimensions}`;
+}
+
+function buildMetricDimensionCompatibility(catalog: RegistryCatalog): string {
+  // Group metrics by source table for compatibility hints
+  const groups = new Map<string, { metrics: string[]; dims: string[] }>();
+  for (const m of catalog.metrics) {
+    const table = m.sqlTable;
+    if (!groups.has(table)) groups.set(table, { metrics: [], dims: [] });
+    groups.get(table)!.metrics.push(m.slug);
+  }
+  for (const d of catalog.dimensions) {
+    const table = d.sqlTable;
+    if (groups.has(table)) {
+      const g = groups.get(table)!;
+      if (!g.dims.includes(d.slug)) g.dims.push(d.slug);
+    }
+  }
+
+  const lines: string[] = ['## Metric-Dimension Compatibility'];
+  const labels: Record<string, string> = {
+    rm_daily_sales: 'Daily Sales',
+    rm_item_sales: 'Item Sales',
+    rm_inventory_on_hand: 'Inventory Snapshot (NO date)',
+    rm_customer_activity: 'Customer Running Totals (NO date)',
+    rm_golf_daily_revenue: 'Golf Revenue',
+    rm_golf_utilization: 'Golf Utilization',
+    rm_golf_pace_daily: 'Golf Pace of Play',
+    rm_golf_channel_daily: 'Golf Channels',
+    rm_golf_daypart_revenue: 'Golf Daypart',
+  };
+
+  for (const [table, group] of groups) {
+    if (group.metrics.length === 0) continue;
+    const label = labels[table] ?? table;
+    const noDate = table.includes('inventory') || table.includes('customer');
+    lines.push(`- **${label}** (${table})${noDate ? ' — NO date dimension' : ''}: dims=[${group.dims.join(', ')}], metrics=[${group.metrics.join(', ')}]`);
+  }
+  lines.push('');
+  lines.push('Do NOT mix metrics from different groups in a single query. If the user asks about both sales and inventory, pick the most relevant group.');
+
+  return lines.join('\n');
 }
 
 function buildExamplesSnippet(examples: EvalExample[]): string {
@@ -52,6 +106,8 @@ function buildSystemPrompt(
   const schemaSection = schemaSummary
     ? `\n## Full Database Tables (for SQL mode routing)\nThe tenant database also contains these tables that can be queried directly via SQL mode:\n${schemaSummary}\n`
     : '';
+
+  const compatSection = buildMetricDimensionCompatibility(catalog);
 
   return `You are the intent-resolution engine for OppsEra, a business analytics platform for hospitality and retail operators.
 
@@ -91,11 +147,39 @@ Respond with a single JSON object — no markdown fences, no prose before/after.
 - When in doubt, prefer **mode="sql"** — it can answer any question about the database.
 - For mode="sql", still fill in the plan with "intent" and "rationale" fields (metrics/dimensions can be empty arrays).
 
+## Data Dictionary — Critical Rules
+
+### Money Conventions
+- Metrics from rm_daily_sales and rm_item_sales are already in DOLLARS (no conversion needed)
+- Metrics from rm_customer_activity total_spend is in DOLLARS
+- If you route to SQL mode: orders/tenders tables store amounts in CENTS (divide by 100 for dollars)
+- catalog_items, GL, AP, AR tables store amounts in DOLLARS
+
+### Data Source Types
+- rm_daily_sales: Pre-aggregated DAILY totals per location. Can group by date + location only. Cannot filter by individual item or customer.
+- rm_item_sales: Pre-aggregated by item + date + location + category. Use for item-level and category-level breakdowns.
+- rm_inventory_on_hand: SNAPSHOT (point-in-time, not time-series). Do NOT add date dimensions or date ranges for inventory metrics.
+- rm_customer_activity: RUNNING TOTALS per customer (not time-series). Do NOT add date dimensions for customer metrics.
+
+### Date Conventions
+- "business_date" is the operational date — events after midnight may belong to the previous business day
+- Use business_date (not created_at) for date filtering on sales/order metrics
+
+### Table Distinctions
+- "users" = Staff/employees who WORK at the business (name, email, role). "customers" = People who BUY from the business (first_name, last_name, display_name).
+- These are COMPLETELY DIFFERENT tables. "How many users?" → SQL query users. "How many customers?" → SQL query customers. NEVER confuse them.
+
+### Status Filters
+- Active orders: status IN ('placed', 'paid'). Voided orders: status = 'voided'.
+- Active catalog items: archived_at IS NULL (not a boolean flag).
+- Active vendors: is_active = true.
+- Inventory on-hand = SUM(quantity_delta) from inventory_movements. Never a stored column.
+
 ## Rules
 1. Only use metric/dimension slugs from the lists below. Never invent slugs.
 2. If the user's question is ambiguous but answerable with reasonable assumptions, make the best plan and set confidence < 0.8.
 3. **Bias toward attempting a query.** If the question is ambiguous, make your best attempt with reasonable assumptions and set confidence < 0.7. Only set clarificationNeeded = true when you genuinely cannot map ANY part of the question to available metrics AND the question is about something not in the database at all (e.g., weather data). A partial answer is better than no answer.
-4. Date ranges: resolve relative terms ("last month", "this week", "YTD") using currentDate. If no date range is specified for metrics mode, default to the last 7 days.
+4. Date ranges: resolve relative terms ("last month", "this week", "YTD") using currentDate. If no date range is specified for metrics mode, default to the last 7 days. **Exception:** Inventory and customer metrics are NOT time-series — do NOT add date ranges for them.
 5. Always include a date dimension when a date range is specified (metrics mode).
 6. Filters must reference dimension slugs that are included in dimensions[] (metrics mode).
 7. Return null for plan only when clarificationNeeded = true.
@@ -109,6 +193,8 @@ ${context.locationId ? `- Location: ${context.locationId}` : '- Scope: all locat
 ${context.timezone ? `- Timezone: ${context.timezone}` : ''}
 
 ${lensSection}${catalogSection}
+
+${compatSection}
 ${schemaSection}
 ${examplesSection}`.trim();
 }
@@ -229,15 +315,32 @@ export async function resolveIntent(
   const { catalog, examples = [], lensPromptFragment, adapter, schemaSummary } = opts;
   const llm = adapter ?? getLLMAdapter();
 
-  const systemPrompt = buildSystemPrompt(catalog, context, examples, lensPromptFragment, schemaSummary);
+  // ── RAG: retrieve similar past queries for few-shot injection ──
+  let ragExamplesSnippet = '';
+  try {
+    ragExamplesSnippet = await retrieveFewShotExamples(
+      userMessage,
+      context.tenantId,
+      { maxExamples: 3, includeMetricsMode: true, includeSqlMode: true },
+    );
+  } catch (err) {
+    // RAG retrieval is best-effort — never block intent resolution
+    console.warn('[semantic] RAG retrieval failed (non-blocking):', err);
+  }
+
+  let systemPrompt = buildSystemPrompt(catalog, context, examples, lensPromptFragment, schemaSummary);
+
+  // Append RAG examples after golden examples (if any were found)
+  if (ragExamplesSnippet) {
+    systemPrompt += '\n\n' + ragExamplesSnippet;
+  }
 
   // Compose conversation: only user messages from history (assistant messages
   // contain narrative prose which causes the LLM to respond conversationally
-  // instead of with JSON).
-  const historyUserMessages = (context.history ?? [])
-    .filter((m) => m.role === 'user')
-    .slice(-5)
-    .map((m) => ({ role: 'user' as const, content: m.content }));
+  // instead of with JSON). Uses token-aware pruning instead of hard-coded slice.
+  const historyUserMessages = pruneForIntentResolver(
+    (context.history ?? []).map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+  );
 
   const messages: LLMMessage[] = [
     ...historyUserMessages,

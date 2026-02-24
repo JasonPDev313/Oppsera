@@ -21,6 +21,13 @@ export const PMS_PERMISSIONS = {
   // Housekeeping
   HOUSEKEEPING_VIEW: 'pms.housekeeping.view',
   HOUSEKEEPING_MANAGE: 'pms.housekeeping.manage',
+  // Housekeepers
+  HOUSEKEEPERS_MANAGE: 'pms.housekeepers.manage',
+  HOUSEKEEPING_ASSIGN: 'pms.housekeeping.assign',
+  HOUSEKEEPING_COMPLETE: 'pms.housekeeping.complete',
+  // Maintenance
+  MAINTENANCE_VIEW: 'pms.maintenance.view',
+  MAINTENANCE_MANAGE: 'pms.maintenance.manage',
   // Guests
   GUESTS_VIEW: 'pms.guests.view',
   GUESTS_MANAGE: 'pms.guests.manage',
@@ -31,6 +38,46 @@ export const PMS_PERMISSIONS = {
   // Rates
   RATES_VIEW: 'pms.rates.view',
   RATES_MANAGE: 'pms.rates.manage',
+  // Restrictions
+  RESTRICTIONS_VIEW: 'pms.restrictions.view',
+  RESTRICTIONS_MANAGE: 'pms.restrictions.manage',
+  // Payments
+  PAYMENTS_VIEW: 'pms.payments.view',
+  PAYMENTS_CHARGE: 'pms.payments.charge',
+  PAYMENTS_REFUND: 'pms.payments.refund',
+  // Policies
+  POLICIES_MANAGE: 'pms.policies.manage',
+  // Messages
+  MESSAGES_VIEW: 'pms.messages.view',
+  MESSAGES_SEND: 'pms.messages.send',
+  TEMPLATES_MANAGE: 'pms.templates.manage',
+  // Packages
+  PACKAGES_VIEW: 'pms.packages.view',
+  PACKAGES_MANAGE: 'pms.packages.manage',
+  // Reports
+  REPORTS_VIEW: 'pms.reports.view',
+  REPORTS_EXPORT: 'pms.reports.export',
+  // Groups
+  GROUPS_VIEW: 'pms.groups.view',
+  GROUPS_MANAGE: 'pms.groups.manage',
+  // Corporate
+  CORPORATE_VIEW: 'pms.corporate.view',
+  CORPORATE_MANAGE: 'pms.corporate.manage',
+  // Revenue/Yield
+  REVENUE_VIEW: 'pms.revenue.view',
+  REVENUE_MANAGE: 'pms.revenue.manage',
+  // Channels
+  CHANNELS_VIEW: 'pms.channels.view',
+  CHANNELS_MANAGE: 'pms.channels.manage',
+  // Auto Room Assignment
+  ASSIGNMENT_VIEW: 'pms.assignment.view',
+  ASSIGNMENT_MANAGE: 'pms.assignment.manage',
+  // Guest Portal
+  PORTAL_VIEW: 'pms.portal.view',
+  PORTAL_MANAGE: 'pms.portal.manage',
+  // Loyalty
+  LOYALTY_VIEW: 'pms.loyalty.view',
+  LOYALTY_MANAGE: 'pms.loyalty.manage',
 } as const;
 
 export type PmsPermission = (typeof PMS_PERMISSIONS)[keyof typeof PMS_PERMISSIONS];
@@ -60,12 +107,28 @@ export const PMS_ROLE_PERMISSIONS: Record<string, PmsPermission[]> = {
     PMS_PERMISSIONS.FOLIO_VIEW,
     PMS_PERMISSIONS.FOLIO_POST_CHARGES,
     PMS_PERMISSIONS.FOLIO_POST_PAYMENTS,
+    PMS_PERMISSIONS.PAYMENTS_VIEW,
+    PMS_PERMISSIONS.PAYMENTS_CHARGE,
+    PMS_PERMISSIONS.MESSAGES_VIEW,
+    PMS_PERMISSIONS.MESSAGES_SEND,
+    PMS_PERMISSIONS.MAINTENANCE_VIEW,
+    PMS_PERMISSIONS.GROUPS_VIEW,
+    PMS_PERMISSIONS.CORPORATE_VIEW,
+    PMS_PERMISSIONS.ASSIGNMENT_VIEW,
+    PMS_PERMISSIONS.PORTAL_VIEW,
+    PMS_PERMISSIONS.PORTAL_MANAGE,
+    PMS_PERMISSIONS.LOYALTY_VIEW,
+    PMS_PERMISSIONS.LOYALTY_MANAGE,
   ],
 
   'PMS Housekeeping': [
     PMS_PERMISSIONS.ROOMS_VIEW,
     PMS_PERMISSIONS.HOUSEKEEPING_VIEW,
     PMS_PERMISSIONS.HOUSEKEEPING_MANAGE,
+    PMS_PERMISSIONS.HOUSEKEEPERS_MANAGE,
+    PMS_PERMISSIONS.HOUSEKEEPING_ASSIGN,
+    PMS_PERMISSIONS.HOUSEKEEPING_COMPLETE,
+    PMS_PERMISSIONS.MAINTENANCE_VIEW,
   ],
 
   'PMS Revenue Manager': [
@@ -79,6 +142,21 @@ export const PMS_ROLE_PERMISSIONS: Record<string, PmsPermission[]> = {
     PMS_PERMISSIONS.FOLIO_VIEW,
     PMS_PERMISSIONS.RATES_VIEW,
     PMS_PERMISSIONS.RATES_MANAGE,
+    PMS_PERMISSIONS.RESTRICTIONS_VIEW,
+    PMS_PERMISSIONS.RESTRICTIONS_MANAGE,
+    PMS_PERMISSIONS.POLICIES_MANAGE,
+    PMS_PERMISSIONS.PACKAGES_VIEW,
+    PMS_PERMISSIONS.PACKAGES_MANAGE,
+    PMS_PERMISSIONS.REPORTS_VIEW,
+    PMS_PERMISSIONS.REPORTS_EXPORT,
+    PMS_PERMISSIONS.GROUPS_VIEW,
+    PMS_PERMISSIONS.GROUPS_MANAGE,
+    PMS_PERMISSIONS.CORPORATE_VIEW,
+    PMS_PERMISSIONS.CORPORATE_MANAGE,
+    PMS_PERMISSIONS.REVENUE_VIEW,
+    PMS_PERMISSIONS.REVENUE_MANAGE,
+    PMS_PERMISSIONS.CHANNELS_VIEW,
+    PMS_PERMISSIONS.CHANNELS_MANAGE,
   ],
 
   'PMS Read Only': [
@@ -90,6 +168,18 @@ export const PMS_ROLE_PERMISSIONS: Record<string, PmsPermission[]> = {
     PMS_PERMISSIONS.GUESTS_VIEW,
     PMS_PERMISSIONS.FOLIO_VIEW,
     PMS_PERMISSIONS.RATES_VIEW,
+    PMS_PERMISSIONS.RESTRICTIONS_VIEW,
+    PMS_PERMISSIONS.PAYMENTS_VIEW,
+    PMS_PERMISSIONS.MESSAGES_VIEW,
+    PMS_PERMISSIONS.PACKAGES_VIEW,
+    PMS_PERMISSIONS.REPORTS_VIEW,
+    PMS_PERMISSIONS.GROUPS_VIEW,
+    PMS_PERMISSIONS.CORPORATE_VIEW,
+    PMS_PERMISSIONS.REVENUE_VIEW,
+    PMS_PERMISSIONS.CHANNELS_VIEW,
+    PMS_PERMISSIONS.ASSIGNMENT_VIEW,
+    PMS_PERMISSIONS.PORTAL_VIEW,
+    PMS_PERMISSIONS.LOYALTY_VIEW,
   ],
 };
 

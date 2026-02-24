@@ -11,9 +11,13 @@ import {
   CORE_DIMENSIONS,
   GOLF_METRICS,
   GOLF_DIMENSIONS,
+  PMS_METRICS,
+  PMS_DIMENSIONS,
   CORE_METRIC_DIMENSIONS,
   GOLF_METRIC_DIMENSIONS,
+  PMS_METRIC_DIMENSIONS,
   SYSTEM_LENSES,
+  PMS_SYSTEM_LENSES,
 } from './seed-data';
 import { GOLF_EXAMPLES, toEvalExampleInserts } from './golf-examples';
 import { invalidateRegistryCache } from './registry';
@@ -207,15 +211,16 @@ export async function syncRegistryToDb(): Promise<{
   const pg = postgres(url, { max: 1, prepare: false });
 
   try {
-    const allMetrics = [...CORE_METRICS, ...GOLF_METRICS];
-    const allDimensions = [...CORE_DIMENSIONS, ...GOLF_DIMENSIONS];
-    const allRelations = [...CORE_METRIC_DIMENSIONS, ...GOLF_METRIC_DIMENSIONS];
+    const allMetrics = [...CORE_METRICS, ...GOLF_METRICS, ...PMS_METRICS];
+    const allDimensions = [...CORE_DIMENSIONS, ...GOLF_DIMENSIONS, ...PMS_DIMENSIONS];
+    const allRelations = [...CORE_METRIC_DIMENSIONS, ...GOLF_METRIC_DIMENSIONS, ...PMS_METRIC_DIMENSIONS];
+    const allLenses = [...SYSTEM_LENSES, ...PMS_SYSTEM_LENSES];
     const allExamples = toEvalExampleInserts(GOLF_EXAMPLES);
 
     await upsertDimensions(pg, allDimensions);
     await upsertMetrics(pg, allMetrics);
     await upsertRelations(pg, allRelations);
-    await upsertLenses(pg, SYSTEM_LENSES);
+    await upsertLenses(pg, allLenses);
     await upsertExamples(pg, allExamples);
 
     // Invalidate in-memory cache so next request picks up fresh data
@@ -225,7 +230,7 @@ export async function syncRegistryToDb(): Promise<{
       metrics: allMetrics.length,
       dimensions: allDimensions.length,
       relations: allRelations.length,
-      lenses: SYSTEM_LENSES.length,
+      lenses: allLenses.length,
       examples: allExamples.length,
     };
   } finally {

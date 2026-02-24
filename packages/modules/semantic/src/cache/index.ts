@@ -9,6 +9,17 @@ export {
 export type { CachedQueryResult, QueryCacheStats } from './query-cache';
 
 export {
+  getFromLLMCache,
+  setInLLMCache,
+  invalidateLLMCache,
+  getLLMCacheStats,
+  hashSystemPrompt,
+  resetLLMCacheStats,
+} from './llm-cache';
+
+export type { CachedLLMResponse, LLMCacheStats } from './llm-cache';
+
+export {
   checkSemanticRateLimit,
   getSemanticRateLimitStatus,
   resetSemanticRateLimiter,

@@ -3,7 +3,7 @@
 import { memo, useCallback } from 'react';
 
 interface CategoryRailProps {
-  categories: Array<{ id: string; name: string }>;
+  categories: Array<{ id: string; name: string; color?: string | null }>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
 }
@@ -26,7 +26,7 @@ export const CategoryRail = memo(function CategoryRail({
       <button
         type="button"
         onClick={() => handleSelect(null)}
-        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${
+        className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all active:scale-[0.97] ${
           selectedId === null
             ? 'border-l-2 border-indigo-600 bg-indigo-50 text-indigo-600'
             : 'border-l-2 border-transparent text-gray-700 hover:bg-gray-100'
@@ -35,20 +35,33 @@ export const CategoryRail = memo(function CategoryRail({
         All
       </button>
 
-      {categories.map((cat) => (
-        <button
-          key={cat.id}
-          type="button"
-          onClick={() => handleSelect(cat.id)}
-          className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-colors ${
-            selectedId === cat.id
-              ? 'border-l-2 border-indigo-600 bg-indigo-50 text-indigo-600'
-              : 'border-l-2 border-transparent text-gray-700 hover:bg-gray-100'
-          }`}
-        >
-          {cat.name}
-        </button>
-      ))}
+      {categories.map((cat) => {
+        const isActive = selectedId === cat.id;
+        const hasColor = !!cat.color && cat.color !== '#FFFFFF';
+        const borderColor = hasColor ? cat.color! : undefined;
+
+        return (
+          <button
+            key={cat.id}
+            type="button"
+            onClick={() => handleSelect(cat.id)}
+            className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all active:scale-[0.97] ${
+              isActive
+                ? hasColor
+                  ? 'bg-indigo-50 text-indigo-600'
+                  : 'border-l-2 border-indigo-600 bg-indigo-50 text-indigo-600'
+                : 'border-l-2 border-transparent text-gray-700 hover:bg-gray-100'
+            }`}
+            style={
+              isActive && hasColor
+                ? { borderLeft: `2px solid ${borderColor}` }
+                : undefined
+            }
+          >
+            {cat.name}
+          </button>
+        );
+      })}
     </div>
   );
 });

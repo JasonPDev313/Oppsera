@@ -17,6 +17,7 @@ import type { CreateReservationInput } from '../validation';
 import { PMS_EVENTS } from '../events/types';
 import { pmsAuditLogEntry } from '../helpers/pms-audit';
 import { assertRoomAvailable, checkRoomNotOutOfOrder } from '../helpers/check-availability';
+import { checkRestrictions } from '../queries/check-restrictions';
 
 /**
  * Create a new reservation.
@@ -159,7 +160,25 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       }
     }
 
-    // 6. Check room availability if room is assigned
+    // 6. Check rate restrictions (skip if restrictionOverride)
+    if (!input.restrictionOverride) {
+      const restrictionCheck = await checkRestrictions({
+        tenantId: ctx.tenantId,
+        propertyId: input.propertyId,
+        roomTypeId: input.roomTypeId,
+        ratePlanId: input.ratePlanId ?? null,
+        checkInDate: input.checkInDate,
+        checkOutDate: input.checkOutDate,
+      });
+      if (!restrictionCheck.allowed) {
+        throw new ValidationError('Rate restrictions violated', restrictionCheck.violations.map((v) => ({
+          field: 'restrictions',
+          message: v,
+        })));
+      }
+    }
+
+    // 7. Check room availability if room is assigned
     if (input.roomId) {
       await checkRoomNotOutOfOrder(tx, ctx.tenantId, input.roomId);
       await assertRoomAvailable(tx, ctx.tenantId, input.roomId, input.checkInDate, input.checkOutDate);
@@ -204,6 +223,7 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
         sourceType: input.sourceType ?? 'DIRECT',
         internalNotes: input.internalNotes ?? null,
         guestNotes: input.guestNotes ?? null,
+        restrictionOverride: input.restrictionOverride ?? false,
         version: 1,
         createdBy: ctx.user.id,
       })

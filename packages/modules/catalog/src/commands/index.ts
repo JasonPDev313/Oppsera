@@ -15,3 +15,5 @@ export { removeTaxRateFromGroup } from './remove-tax-rate-from-group';
 export { assignItemTaxGroups } from './assign-item-tax-groups';
 export { archiveItem } from './archive-item';
 export { unarchiveItem } from './unarchive-item';
+export { importInventory } from './import-inventory';
+export type { ImportResult } from './import-inventory';

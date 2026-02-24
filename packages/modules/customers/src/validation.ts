@@ -862,3 +862,130 @@ export const toggleDiscountRuleSchema = z.object({
   isActive: z.boolean(),
 });
 export type ToggleDiscountRuleInput = z.infer<typeof toggleDiscountRuleSchema>;
+
+// ── CSV Import Schemas ──────────────────────────────────────────
+
+export const detectColumnsSchema = z.object({
+  csvContent: z.string().min(1, 'CSV content is required'),
+});
+export type DetectColumnsInput = z.infer<typeof detectColumnsSchema>;
+
+export const validateImportSchema = z.object({
+  csvContent: z.string().min(1),
+  mappings: z.array(z.object({
+    sourceHeader: z.string(),
+    targetField: z.string().nullable(),
+    confidence: z.number().min(0).max(100),
+    method: z.enum(['alias', 'ai', 'manual', 'unmapped']),
+    reasoning: z.string().nullable().optional(),
+  })),
+  transforms: z.array(z.object({
+    type: z.enum(['split_name', 'split_address']),
+    sourceHeader: z.string(),
+  })).optional().default([]),
+});
+export type ValidateImportInput = z.infer<typeof validateImportSchema>;
+
+export const executeImportSchema = z.object({
+  csvContent: z.string().min(1),
+  mappings: z.array(z.object({
+    sourceHeader: z.string(),
+    targetField: z.string().nullable(),
+    confidence: z.number().min(0).max(100),
+    method: z.enum(['alias', 'ai', 'manual', 'unmapped']),
+    reasoning: z.string().nullable().optional(),
+  })),
+  transforms: z.array(z.object({
+    type: z.enum(['split_name', 'split_address']),
+    sourceHeader: z.string(),
+  })).optional().default([]),
+  duplicateResolutions: z.record(z.string(), z.enum(['skip', 'update', 'create_new'])).optional().default({}),
+  fileName: z.string().min(1),
+  fileSizeBytes: z.number().optional(),
+});
+
+// ── Tag Management ──────────────────────────────────────────────────────────
+
+export const createTagSchema = z.object({
+  name: z.string().min(1).max(100),
+  slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).max(100).optional(),
+  description: z.string().max(500).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default('#6366f1'),
+  icon: z.string().max(50).optional(),
+  tagType: z.enum(['manual', 'smart']).default('manual'),
+  category: z.enum(['behavior', 'lifecycle', 'demographic', 'operational']).optional(),
+  displayOrder: z.number().int().min(0).default(0),
+  metadata: z.record(z.unknown()).optional(),
+  clientRequestId: z.string().optional(),
+});
+export type CreateTagInput = z.input<typeof createTagSchema>;
+
+export const updateTagSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional().nullable(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+  icon: z.string().max(50).optional().nullable(),
+  category: z.enum(['behavior', 'lifecycle', 'demographic', 'operational']).optional().nullable(),
+  displayOrder: z.number().int().min(0).optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+export type UpdateTagInput = z.input<typeof updateTagSchema>;
+
+export const archiveTagSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+export type ArchiveTagInput = z.input<typeof archiveTagSchema>;
+
+export const applyTagToCustomerSchema = z.object({
+  tagId: z.string().min(1),
+  expiresAt: z.string().optional(),
+  clientRequestId: z.string().optional(),
+});
+export type ApplyTagToCustomerInput = z.input<typeof applyTagToCustomerSchema>;
+
+export const removeTagFromCustomerSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+export type RemoveTagFromCustomerInput = z.input<typeof removeTagFromCustomerSchema>;
+
+const smartTagConditionSchema = z.object({
+  metric: z.string().min(1),
+  operator: z.enum(['gt', 'gte', 'lt', 'lte', 'eq', 'neq', 'between', 'in', 'not_in', 'contains', 'is_null', 'is_not_null']),
+  value: z.union([z.number(), z.string(), z.boolean(), z.array(z.string()), z.tuple([z.number(), z.number()])]),
+  unit: z.string().optional(),
+});
+
+const smartTagConditionGroupSchema = z.object({
+  conditions: z.array(smartTagConditionSchema).min(1),
+});
+
+export const createSmartTagRuleSchema = z.object({
+  tagId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  evaluationMode: z.enum(['scheduled', 'event_driven', 'hybrid']).default('scheduled'),
+  scheduleCron: z.string().max(50).optional(),
+  conditions: z.array(smartTagConditionGroupSchema).min(1),
+  autoRemove: z.boolean().default(true),
+  cooldownHours: z.number().int().min(0).optional(),
+  priority: z.number().int().min(1).max(9999).default(100),
+  clientRequestId: z.string().optional(),
+});
+export type CreateSmartTagRuleInput = z.input<typeof createSmartTagRuleSchema>;
+
+export const updateSmartTagRuleSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).optional().nullable(),
+  evaluationMode: z.enum(['scheduled', 'event_driven', 'hybrid']).optional(),
+  scheduleCron: z.string().max(50).optional().nullable(),
+  conditions: z.array(smartTagConditionGroupSchema).min(1).optional(),
+  autoRemove: z.boolean().optional(),
+  cooldownHours: z.number().int().min(0).optional().nullable(),
+  priority: z.number().int().min(1).max(9999).optional(),
+});
+export type UpdateSmartTagRuleInput = z.input<typeof updateSmartTagRuleSchema>;
+
+export const toggleSmartTagRuleSchema = z.object({
+  isActive: z.boolean(),
+});
+export type ToggleSmartTagRuleInput = z.input<typeof toggleSmartTagRuleSchema>;

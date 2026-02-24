@@ -127,6 +127,13 @@ export const POST = withMiddleware(
         model: output.model,
         cacheStatus: output.cacheStatus,
         sqlExplanation: output.sqlExplanation ?? null,
+
+        // Proactive intelligence
+        suggestedFollowUps: output.suggestedFollowUps ?? [],
+        chartConfig: output.chartConfig ?? null,
+
+        // Data quality assessment
+        dataQuality: output.dataQuality ?? null,
       },
     });
   },

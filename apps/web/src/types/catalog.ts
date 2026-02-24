@@ -78,6 +78,7 @@ export interface CategoryRow {
   name: string;
   parentId: string | null;
   sortOrder: number;
+  color?: string | null;
   isActive: boolean;
   itemCount?: number;
 }

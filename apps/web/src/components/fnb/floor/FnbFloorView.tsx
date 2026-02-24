@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { RefreshCw, Plus, Minus, Maximize2, LayoutGrid, Map } from 'lucide-react';
+import { RefreshCw, Plus, Minus, Maximize2, LayoutGrid, Map, Eye } from 'lucide-react';
+import type { FloorDisplayMode } from './FnbTableNode';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbFloor, useFnbRooms, useTableActions } from '@/hooks/use-fnb-floor';
 import { openTabApi } from '@/hooks/use-fnb-tab';
@@ -13,6 +14,33 @@ import { ContextSidebar } from './ContextSidebar';
 import { SeatGuestsModal } from './SeatGuestsModal';
 import { TableActionMenu } from './TableActionMenu';
 import { TableGridView } from './TableGridView';
+
+// ── Turn Time Prediction ────────────────────────────────────────
+// V1: Simple heuristic based on party size and elapsed time.
+// Base turn = 45 min for 2, +8 min per additional guest, +15 min per additional course.
+// V2: ML-based prediction using historical turn times from rm_fnb_table_turns.
+
+function predictTurnMinutes(table: FnbTableWithStatus): number | null {
+  if (table.status !== 'seated') return null;
+  const partySize = table.partySize ?? 2;
+  const courseCount = table.currentCourseNumber ?? 1;
+  const baseTurn = 45;
+  const perGuest = 8;
+  const perCourse = 15;
+  return baseTurn + Math.max(0, partySize - 2) * perGuest + Math.max(0, courseCount - 1) * perCourse;
+}
+
+/** Compute average turn time from all seated tables */
+function computeAvgTurnMinutes(tables: FnbTableWithStatus[]): number | null {
+  const seated = tables.filter((t) => t.status === 'seated' && t.seatedAt);
+  if (seated.length === 0) return null;
+  const now = Date.now();
+  const totalMinutes = seated.reduce((sum, t) => {
+    const elapsed = (now - new Date(t.seatedAt!).getTime()) / 60_000;
+    return sum + elapsed;
+  }, 0);
+  return Math.round(totalMinutes / seated.length);
+}
 
 interface FnbFloorViewProps {
   userId: string;
@@ -407,6 +435,35 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
             >
               My Section
             </button>
+            {/* Display mode selector */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200"
+              >
+                <Eye className="h-3 w-3" />
+                {store.floorDisplayMode === 'status' ? 'Status' :
+                 store.floorDisplayMode === 'covers' ? 'Covers' :
+                 store.floorDisplayMode === 'revenue' ? 'Revenue' :
+                 store.floorDisplayMode === 'time' ? 'Time' : 'Course'}
+              </button>
+              <div className="absolute right-0 top-full mt-1 hidden group-hover:flex flex-col rounded-lg overflow-hidden shadow-lg border border-gray-200 bg-white z-20">
+                {(['status', 'covers', 'revenue', 'time', 'course'] as FloorDisplayMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => store.setFloorDisplayMode(mode)}
+                    className={`px-4 py-2 text-xs font-medium text-left transition-colors whitespace-nowrap ${
+                      store.floorDisplayMode === mode
+                        ? 'bg-indigo-50 text-indigo-700'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -519,6 +576,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                       scalePxPerFt={scalePxPerFt}
                       viewScale={effectiveScale}
                       guestPayActive={table.guestPayActive}
+                      displayMode={store.floorDisplayMode}
+                      predictedTurnMinutes={predictTurnMinutes(table)}
                     />
                   ))}
                 </div>
@@ -534,6 +593,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           seatedCount={seatedCount}
           onNewTab={handleNewTab}
           onRefresh={refresh}
+          openRevenueCents={tables.reduce((sum, t) => sum + (t.checkTotalCents ?? 0), 0)}
+          avgTurnMinutes={computeAvgTurnMinutes(tables)}
         />
       </div>
 

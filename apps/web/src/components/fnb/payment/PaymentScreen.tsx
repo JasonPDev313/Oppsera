@@ -61,6 +61,12 @@ interface PaymentScreenProps {
   onCancelPayment: () => void;
   onCheckRefresh?: () => void;
   disabled?: boolean;
+  /** Skip the confirm step and execute payment immediately */
+  skipConfirm?: boolean;
+  /** Called to initiate a split by seat */
+  onSplitBySeat?: () => void;
+  /** Called to initiate an even split */
+  onSplitEven?: () => void;
 }
 
 // ── Component ────────────────────────────────────────────────────
@@ -78,6 +84,9 @@ export function PaymentScreen({
   onCancelPayment,
   onCheckRefresh,
   disabled,
+  skipConfirm,
+  onSplitBySeat,
+  onSplitEven,
 }: PaymentScreenProps) {
   const [step, setStep] = useState<PaymentStep>('tender_select');
   const [selectedTender, setSelectedTender] = useState<TenderType | null>(null);
@@ -104,6 +113,32 @@ export function PaymentScreen({
       setStep('tip_prompt');
     }
   }, []);
+
+  // ── Fast Cash: one-tap cash payment (bypasses keypad) ─────────────
+  const handleFastCash = useCallback(async (amountCents: number) => {
+    setSelectedTender('cash');
+    setPendingAmount(amountCents);
+    setPendingTip(0);
+    if (skipConfirm) {
+      // Execute immediately
+      setIsProcessing(true);
+      setErrorMessage('');
+      try {
+        const result = await onTender('cash', amountCents, 0);
+        const tender: RecordedTender = { type: 'cash', amountCents, tipCents: 0 };
+        setTenders((prev) => [...prev, tender]);
+        setLastTenderAmount(amountCents);
+        setStep(result.isFullyPaid ? 'receipt' : 'partial_summary');
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : 'Payment failed');
+        setStep('error');
+      } finally {
+        setIsProcessing(false);
+      }
+    } else {
+      setStep('confirm');
+    }
+  }, [skipConfirm, onTender]);
 
   // ── Step: cash_keypad → confirm ───────────────────────────────
   const handleCashSubmit = useCallback((amountCents: number) => {
@@ -418,20 +453,77 @@ export function PaymentScreen({
         </div>
       </div>
 
-      {/* ── Right: Payment Actions ─────────────────────────────── */}
+      {/* ── Right: Payment Actions (widened for better touch targets) ── */}
       <div className="flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
         {/* ── STEP: tender_select ──────────────────────────────── */}
         {step === 'tender_select' && (
-          <div className="flex flex-col gap-6 w-full max-w-xs">
-            <h3
-              className="text-sm font-bold text-center"
-              style={{ color: 'var(--fnb-text-primary)' }}
+          <div className="flex flex-col gap-4 w-full max-w-md">
+            {/* Prominent total display */}
+            <div
+              className="rounded-2xl p-5 text-center"
+              style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
             >
-              Select Payment Method
-            </h3>
-            <TenderGrid onSelect={handleTenderSelect} disabled={disabled || isProcessing} />
+              <div
+                className="text-[10px] font-bold uppercase mb-1"
+                style={{ color: 'var(--fnb-text-muted)' }}
+              >
+                {check.paidCents > 0 ? 'Remaining Balance' : 'Total Due'}
+              </div>
+              <div
+                className="font-mono font-black"
+                style={{
+                  fontSize: '2.5rem',
+                  lineHeight: 1,
+                  color: 'var(--fnb-accent-primary, var(--fnb-info))',
+                  fontFamily: 'var(--fnb-font-mono)',
+                }}
+              >
+                {formatMoney(check.remainingCents)}
+              </div>
+            </div>
 
-            {/* Comp / Discount adjustments (Phase 4) */}
+            <TenderGrid
+              onSelect={handleTenderSelect}
+              onFastCash={handleFastCash}
+              totalCents={check.remainingCents}
+              disabled={disabled || isProcessing}
+            />
+
+            {/* Split shortcuts */}
+            {(onSplitBySeat || onSplitEven) && (
+              <div className="flex gap-2">
+                {onSplitBySeat && (
+                  <button
+                    type="button"
+                    onClick={onSplitBySeat}
+                    disabled={disabled || isProcessing}
+                    className="flex-1 rounded-lg py-2.5 text-xs font-bold transition-colors hover:opacity-80 disabled:opacity-40"
+                    style={{
+                      backgroundColor: 'var(--fnb-bg-elevated)',
+                      color: 'var(--fnb-text-secondary)',
+                    }}
+                  >
+                    Split by Seat
+                  </button>
+                )}
+                {onSplitEven && (
+                  <button
+                    type="button"
+                    onClick={onSplitEven}
+                    disabled={disabled || isProcessing}
+                    className="flex-1 rounded-lg py-2.5 text-xs font-bold transition-colors hover:opacity-80 disabled:opacity-40"
+                    style={{
+                      backgroundColor: 'var(--fnb-bg-elevated)',
+                      color: 'var(--fnb-text-secondary)',
+                    }}
+                  >
+                    Split Even
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Comp / Discount adjustments */}
             <PaymentAdjustments
               tabId={tab.id}
               onAdjusted={() => onCheckRefresh?.()}
@@ -475,7 +567,7 @@ export function PaymentScreen({
 
         {/* ── STEP: cash_keypad ────────────────────────────────── */}
         {step === 'cash_keypad' && (
-          <div className="w-full max-w-xs">
+          <div className="w-full max-w-md">
             <CashKeypad
               totalCents={check.remainingCents}
               onSubmit={handleCashSubmit}
@@ -486,7 +578,7 @@ export function PaymentScreen({
 
         {/* ── STEP: tip_prompt ─────────────────────────────────── */}
         {step === 'tip_prompt' && (
-          <div className="w-full max-w-xs">
+          <div className="w-full max-w-md">
             <TipPrompt
               subtotalCents={check.subtotalCents}
               onSelect={handleTipSelect}
@@ -497,7 +589,7 @@ export function PaymentScreen({
 
         {/* ── STEP: gift_card_panel ─────────────────────────────── */}
         {step === 'gift_card_panel' && (
-          <div className="w-full max-w-xs">
+          <div className="w-full max-w-md">
             <GiftCardPanel
               remainingCents={check.remainingCents}
               onTender={handleSpecialtyTender}
@@ -508,7 +600,7 @@ export function PaymentScreen({
 
         {/* ── STEP: house_account_panel ─────────────────────────── */}
         {step === 'house_account_panel' && (
-          <div className="w-full max-w-xs">
+          <div className="w-full max-w-md">
             <HouseAccountPanel
               remainingCents={check.remainingCents}
               onTender={handleSpecialtyTender}
@@ -519,7 +611,7 @@ export function PaymentScreen({
 
         {/* ── STEP: confirm ────────────────────────────────────── */}
         {step === 'confirm' && selectedTender && (
-          <div className="w-full max-w-xs flex flex-col gap-4">
+          <div className="w-full max-w-md flex flex-col gap-4">
             <h3
               className="text-sm font-bold text-center"
               style={{ color: 'var(--fnb-text-primary)' }}
@@ -608,7 +700,7 @@ export function PaymentScreen({
 
         {/* ── STEP: partial_summary ────────────────────────────── */}
         {step === 'partial_summary' && (
-          <div className="w-full max-w-xs flex flex-col gap-4">
+          <div className="w-full max-w-md flex flex-col gap-4">
             <div className="text-center">
               <div
                 className="inline-flex items-center justify-center h-14 w-14 rounded-full mb-3"
@@ -682,7 +774,7 @@ export function PaymentScreen({
 
         {/* ── STEP: receipt ─────────────────────────────────────── */}
         {step === 'receipt' && (
-          <div className="w-full max-w-xs flex flex-col gap-4">
+          <div className="w-full max-w-md flex flex-col gap-4">
             <div className="text-center">
               <div
                 className="inline-flex items-center justify-center h-16 w-16 rounded-full mb-3"
@@ -724,7 +816,7 @@ export function PaymentScreen({
 
         {/* ── STEP: error ──────────────────────────────────────── */}
         {step === 'error' && (
-          <div className="w-full max-w-xs flex flex-col gap-4">
+          <div className="w-full max-w-md flex flex-col gap-4">
             <div className="text-center">
               <div
                 className="inline-flex items-center justify-center h-14 w-14 rounded-full mb-3"

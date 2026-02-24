@@ -30,7 +30,11 @@
       "Bash(node tools/check-pe2.mjs:*)",
       "Bash(node:*)",
       "Bash(__NEW_LINE_5e400bb8d4f9e3b8__ echo \"=== DASHBOARD ===\")",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "WebFetch(domain:dev.pro)",
+      "WebFetch(domain:retail-support.lightspeedhq.com)",
+      "Bash(cross-env NODE_OPTIONS=--max-old-space-size=2048 npx next dev:*)",
+      "Bash(npx @tailwindcss/cli:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jason\\Dev Laptop\\Oppsera\\apps\\web\\src\\app\\(dashboard)\\pms\\rate-plans",

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { DollarSign, FileText, Check, X } from 'lucide-react';
+import { DollarSign, FileText, X } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
@@ -199,8 +199,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/50" />
         <div className="relative w-full max-w-md rounded-2xl bg-surface p-8 text-center shadow-xl">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <Check className="h-8 w-8 text-green-600" />
+          <div className="payment-success-icon mx-auto flex h-16 w-16 items-center justify-center">
+            <svg viewBox="0 0 56 56" className="h-14 w-14" fill="none">
+              <circle cx="28" cy="28" r="26" stroke="#22c55e" strokeWidth="2" className="payment-success-circle" />
+              <path d="M16 28l8 8 16-16" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="payment-success-check" />
+            </svg>
           </div>
           <h2 className="mt-4 text-xl font-bold text-gray-900">Payment Complete</h2>
           {tenderType === 'cash' && lastResult.changeGiven > 0 && (

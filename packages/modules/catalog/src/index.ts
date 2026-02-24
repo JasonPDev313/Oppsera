@@ -45,7 +45,9 @@ export {
   addTaxRateToGroup,
   removeTaxRateFromGroup,
   assignItemTaxGroups,
+  importInventory,
 } from './commands';
+export type { ImportResult } from './commands';
 
 // Re-export queries
 export {
@@ -57,7 +59,9 @@ export {
   listTaxRates,
   listTaxGroups,
   getItemTaxGroupsAtLocation,
+  listCatalogImportLogs,
 } from './queries';
+export type { CatalogImportLogSummary } from './queries/list-catalog-import-logs';
 export { getCatalogForPOS } from './queries/get-catalog-for-pos';
 export type { POSCatalogItem, POSCategory, POSCatalogResult } from './queries/get-catalog-for-pos';
 export { getItemChangeLog } from './queries/get-item-change-log';
@@ -118,6 +122,22 @@ export type {
   RemoveTaxRateFromGroupInput,
   AssignItemTaxGroupsInput,
 } from './validation-taxes';
+
+// Re-export import validation schemas
+export {
+  analyzeImportSchema,
+  validateImportSchema,
+  executeImportSchema,
+} from './validation-import';
+export type {
+  AnalyzeImportInput,
+  ValidateImportInput,
+  ExecuteImportInput,
+} from './validation-import';
+
+// Re-export import service types
+export type { ColumnMapping, AnalysisResult, TargetField } from './services/inventory-import-analyzer';
+export type { ParsedItem, ValidationResult, ValidationStats } from './services/inventory-import-validator';
 
 // Re-export tax calculation
 export { calculateTaxes } from './tax-calc';

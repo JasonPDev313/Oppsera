@@ -208,6 +208,16 @@ export const MODULE_REGISTRY: readonly ModuleDefinition[] = [
     supportsViewMode: true,
     category: 'finance',
   },
+  {
+    key: 'legacy_import',
+    name: 'Legacy Transaction Import',
+    phase: 'v1',
+    description: 'Import historical transactions from legacy POS/ERP systems with auto-mapping and reconciliation',
+    dependencies: ['catalog', 'payments'],
+    riskLevel: 'medium',
+    supportsViewMode: true,
+    category: 'integrations',
+  },
 ] as const;
 
 export type ModuleKey = (typeof MODULE_REGISTRY)[number]['key'];

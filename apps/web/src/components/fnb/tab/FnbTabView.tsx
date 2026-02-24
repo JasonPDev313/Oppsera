@@ -1,7 +1,83 @@
 'use client';
 
-import { useCallback, useState } from 'react';
-import { ChevronLeft, Users, ShoppingCart, QrCode, Copy, XCircle } from 'lucide-react';
+import { useCallback, useState, useEffect } from 'react';
+import { ChevronLeft, Users, ShoppingCart, QrCode, Copy, XCircle, Sparkles, Hand, UtensilsCrossed, LayoutGrid } from 'lucide-react';
+
+// ── Handheld detection hook ─────────────────────────────────────
+
+function useIsHandheld(): boolean {
+  const [isHandheld, setIsHandheld] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 639px)');
+    setIsHandheld(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsHandheld(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+  return isHandheld;
+}
+
+type HandheldPanel = 'menu' | 'cart';
+
+// ── Handheld Bottom Tab Bar ────────────────────────────────────
+
+function HandheldTabBar({
+  activePanel,
+  onSelectPanel,
+  cartCount,
+  onBack,
+}: {
+  activePanel: HandheldPanel;
+  onSelectPanel: (panel: HandheldPanel) => void;
+  cartCount: number;
+  onBack: () => void;
+}) {
+  const tabs: Array<{ key: HandheldPanel | 'floor'; label: string; icon: typeof LayoutGrid }> = [
+    { key: 'floor', label: 'Floor', icon: LayoutGrid },
+    { key: 'menu', label: 'Menu', icon: UtensilsCrossed },
+    { key: 'cart', label: 'Cart', icon: ShoppingCart },
+  ];
+
+  return (
+    <div
+      className="shrink-0 flex items-center justify-around"
+      style={{
+        height: 'var(--fnb-touch-primary)',
+        backgroundColor: 'var(--fnb-bg-surface)',
+        borderTop: 'var(--fnb-border-subtle)',
+      }}
+    >
+      {tabs.map((tab) => {
+        const isActive = tab.key === activePanel;
+        const Icon = tab.icon;
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => tab.key === 'floor' ? onBack() : onSelectPanel(tab.key)}
+            className="flex flex-col items-center justify-center gap-0.5 flex-1 py-1"
+            style={{
+              color: isActive ? 'var(--fnb-info)' : 'var(--fnb-text-muted)',
+            }}
+          >
+            <div className="relative">
+              <Icon className="h-5 w-5" />
+              {tab.key === 'cart' && cartCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-2 flex items-center justify-center rounded-full text-[9px] font-bold text-white"
+                  style={{ width: 16, height: 16, backgroundColor: 'var(--fnb-action-void)' }}
+                >
+                  {cartCount > 9 ? '9+' : cartCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-semibold">{tab.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 import { useFnbTab } from '@/hooks/use-fnb-tab';
 import { useFnbMenu } from '@/hooks/use-fnb-menu';
 import { useFnbGuestPay } from '@/hooks/use-fnb-guest-pay';
@@ -12,7 +88,8 @@ import { SeatRail } from './SeatRail';
 import { CourseSelector } from './CourseSelector';
 import { OrderTicket } from './OrderTicket';
 import { TabActionBar } from './TabActionBar';
-import { FnbMenuNav, FnbMenuContent, FnbMenuError } from '@/components/fnb/menu/FnbMenuPanel';
+import { FnbMenuNav, FnbMenuContent, FnbMenuError, recordRecentItem } from '@/components/fnb/menu/FnbMenuPanel';
+import { FnbModifierDrawer } from '@/components/fnb/menu/FnbModifierDrawer';
 
 interface FnbTabViewProps {
   userId: string;
@@ -106,13 +183,49 @@ function TabSkeleton({ onBack }: { onBack: () => void }) {
 
 // ── Main Tab View ──────────────────────────────────────────────
 
+// ── AI Upsell Suggestion Banner ──────────────────────────────────
+// Shows contextual upsell based on items in the current order.
+// V1: simple rule-based suggestions. V2: wire to semantic layer.
+
+function UpsellBanner({ items, onTap: _onTap }: {
+  items: Array<{ id: string; name: string; priceCents: number; itemType: string }>;
+  onTap: (id: string) => void;
+}) {
+  // Simple logic: if order has food but no beverage, suggest a drink
+  // If order has drinks only, suggest an appetizer
+  const hasFood = items.some((i) => i.itemType === 'food');
+  const hasBeverage = items.some((i) => i.itemType === 'beverage');
+
+  let suggestion: string | null = null;
+  if (hasFood && !hasBeverage) suggestion = 'Add a drink?';
+  else if (hasBeverage && !hasFood) suggestion = 'Add an appetizer?';
+  else if (items.length === 0) return null;
+  else return null; // Already has both — no upsell
+
+  return (
+    <div
+      className="shrink-0 flex items-center gap-2 px-3 py-1.5"
+      style={{ backgroundColor: 'rgba(139, 92, 246, 0.08)', borderBottom: 'var(--fnb-border-subtle)' }}
+    >
+      <Sparkles className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--fnb-info)' }} />
+      <span className="text-xs font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
+        {suggestion}
+      </span>
+    </div>
+  );
+}
+
 export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbTabViewProps) {
   const store = useFnbPosStore();
   const tabId = store.activeTabId;
   const activeSeat = store.activeSeatNumber;
   const activeCourse = store.activeCourseNumber;
+  const courseNames = store.courseNames;
   const isTabScreen = store.currentScreen === 'tab';
   const menuMode = store.menuMode;
+  const leftHandMode = store.leftHandMode;
+  const isHandheld = useIsHandheld();
+  const [handheldPanel, setHandheldPanel] = useState<HandheldPanel>('menu');
 
   const {
     tab,
@@ -140,6 +253,23 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
   });
 
   const draftLines = tabId ? (store.draftLines[tabId] ?? []) : [];
+
+  // ── Modifier drawer state ──────────────────────────────────────
+  const [modifierDrawerOpen, setModifierDrawerOpen] = useState(false);
+  const [modifierDrawerItem, setModifierDrawerItem] = useState<{
+    id: string;
+    name: string;
+    priceCents: number;
+    itemType: string;
+    groups: Array<{
+      id: string;
+      name: string;
+      isRequired: boolean;
+      minSelections: number;
+      maxSelections: number;
+      options: Array<{ id: string; name: string; priceCents: number; isDefault: boolean }>;
+    }>;
+  } | null>(null);
 
   const handleBack = useCallback(() => {
     store.goBack();
@@ -236,9 +366,28 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     store.setMenuMode(mode);
   }, [store]);
 
-  // Item tap handler — works even during loading (adds to Zustand draft lines)
+  // Item tap handler — checks for modifier groups before adding to cart
   const handleItemTap = useCallback((itemId: string, itemName: string, priceCents: number, itemType: string) => {
     if (!tabId) return;
+    // Record to recents for Favorites tab
+    recordRecentItem({ id: itemId, name: itemName, priceCents, itemType });
+
+    // Check if item has modifier groups
+    const groups = menu.getModifierGroupsForItem(itemId);
+    if (groups.length > 0) {
+      // Open modifier drawer instead of adding directly
+      setModifierDrawerItem({
+        id: itemId,
+        name: itemName,
+        priceCents,
+        itemType,
+        groups,
+      });
+      setModifierDrawerOpen(true);
+      return;
+    }
+
+    // No modifiers — add directly to cart
     store.addDraftLine(tabId, {
       localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       catalogItemId: itemId,
@@ -252,7 +401,34 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
       courseNumber: activeCourse,
       addedAt: Date.now(),
     });
-  }, [tabId, store, activeSeat, activeCourse]);
+  }, [tabId, store, activeSeat, activeCourse, menu]);
+
+  // Modifier drawer confirm handler — adds item with selected modifiers to cart
+  const handleModifierConfirm = useCallback((
+    selectedModifiers: { groupId: string; optionId: string; name: string; priceCents: number }[],
+    qty: number,
+    notes: string,
+  ) => {
+    if (!tabId || !modifierDrawerItem) return;
+    store.addDraftLine(tabId, {
+      localId: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      catalogItemId: modifierDrawerItem.id,
+      catalogItemName: modifierDrawerItem.name,
+      unitPriceCents: modifierDrawerItem.priceCents,
+      qty,
+      itemType: modifierDrawerItem.itemType,
+      seatNumber: activeSeat || 1,
+      modifiers: selectedModifiers.map((m) => ({
+        modifierId: m.optionId,
+        name: m.name,
+        priceAdjustment: m.priceCents,
+      })),
+      specialInstructions: notes || null,
+      courseNumber: activeCourse,
+      addedAt: Date.now(),
+    });
+    setModifierDrawerItem(null);
+  }, [tabId, modifierDrawerItem, store, activeSeat, activeCourse]);
 
   // ── Determine content state ────────────────────────────────────
 
@@ -328,7 +504,110 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
     );
   }
 
-  // ── Main layout ─────────────────────────────────────────────────
+  // ── Handheld layout (<640px) ───────────────────────────────────
+  // Shows one panel at a time with a bottom tab bar.
+  if (isHandheld) {
+    return (
+      <div className="flex h-full flex-col" style={{ backgroundColor: 'var(--fnb-bg-primary)' }}>
+        <TabHeader tab={tab} onBack={handleBack} />
+
+        {/* Active panel */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {handheldPanel === 'menu' ? (
+            <div className="flex flex-col flex-1 min-h-0" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
+              <FnbMenuNav menu={menu} menuMode={menuMode} onSelectMode={handleSelectMenuMode} />
+              <FnbMenuContent menu={menu} menuMode={menuMode} onItemTap={handleItemTap} />
+            </div>
+          ) : (
+            <div className="flex flex-col flex-1 min-h-0" style={{ backgroundColor: 'var(--fnb-bg-surface)' }}>
+              {/* Seat selector (horizontal on mobile) */}
+              <div
+                className="shrink-0 flex items-center gap-1 overflow-x-auto px-3 py-2"
+                style={{ scrollbarWidth: 'none', borderBottom: 'var(--fnb-border-subtle)' }}
+              >
+                {Array.from({ length: tab.partySize ?? 1 }, (_, i) => i + 1).map((seat) => (
+                  <button
+                    key={seat}
+                    type="button"
+                    onClick={() => handleSelectSeat(seat)}
+                    className="shrink-0 rounded-full font-bold text-xs transition-opacity hover:opacity-80"
+                    style={{
+                      width: 36,
+                      height: 36,
+                      backgroundColor: activeSeat === seat ? 'var(--fnb-info)' : 'var(--fnb-bg-elevated)',
+                      color: activeSeat === seat ? '#fff' : 'var(--fnb-text-secondary)',
+                    }}
+                  >
+                    {seat}
+                  </button>
+                ))}
+              </div>
+
+              <CourseSelector activeCourse={activeCourse} onSelectCourse={handleSelectCourse} courseNames={courseNames} />
+
+              <OrderTicket
+                tab={tab}
+                activeSeat={activeSeat}
+                activeCourse={activeCourse}
+                courseNames={courseNames}
+                draftLines={draftLines}
+                onSendCourse={sendCourse}
+                onFireCourse={fireCourse}
+              />
+
+              {/* Totals */}
+              <div
+                className="shrink-0 px-3 py-2"
+                style={{ borderTop: 'var(--fnb-border-subtle)', backgroundColor: 'var(--fnb-bg-elevated)' }}
+              >
+                <div
+                  className="flex justify-between text-sm font-bold"
+                  style={{ color: 'var(--fnb-text-primary)' }}
+                >
+                  <span>Total</span>
+                  <span>{formatMoney(totalCents)}</span>
+                </div>
+              </div>
+
+              <TabActionBar
+                onSendAll={handleSendAll}
+                onFireNext={handleFireNext}
+                onPay={handlePay}
+                onSplit={handleSplit}
+                onVoid={handleVoid}
+                onPrintCheck={handlePrintCheck}
+                hasUnsentItems={hasUnsentItems}
+                guestPayEnabled
+                disabled={isActing}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Bottom tab bar */}
+        <HandheldTabBar
+          activePanel={handheldPanel}
+          onSelectPanel={setHandheldPanel}
+          cartCount={totalItemCount}
+          onBack={handleBack}
+        />
+
+        {/* Modifier drawer (portal-based) */}
+        {modifierDrawerItem && (
+          <FnbModifierDrawer
+            open={modifierDrawerOpen}
+            onClose={() => { setModifierDrawerOpen(false); setModifierDrawerItem(null); }}
+            itemName={modifierDrawerItem.name}
+            itemPriceCents={modifierDrawerItem.priceCents}
+            modifierGroups={modifierDrawerItem.groups}
+            onConfirm={handleModifierConfirm}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // ── Main layout (tablet/desktop) ──────────────────────────────
   //
   //  ┌───────────────────────────────────────────────────────────────────────┐
   //  │  TabHeader (full width)                                               │
@@ -402,25 +681,36 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
         </div>
       )}
 
-      {/* ── Body: 3-column CSS Grid ──────────────────────────────── */}
+      {/* ── Body: 3-column CSS Grid (flips for left-hand mode) ──── */}
       <div
         className="flex-1 overflow-hidden"
-        style={{ display: 'grid', gridTemplateColumns: '80px 1fr 400px' }}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: leftHandMode ? '400px 1fr 80px' : '80px 1fr 400px',
+        }}
       >
 
-        {/* ── COL 1: Seat rail (80px, full height) ──────────────── */}
-        <SeatRail
-          seatCount={tab.partySize ?? 1}
-          activeSeat={activeSeat}
-          onSelectSeat={handleSelectSeat}
-          onAddSeat={handleAddSeat}
-          unsentBySeat={unsentBySeat}
-        />
+        {/* ── Seat rail (80px, full height) ──────────────── */}
+        <div style={{ gridColumn: leftHandMode ? '3' : '1', gridRow: '1' }}>
+          <SeatRail
+            seatCount={tab.partySize ?? 1}
+            activeSeat={activeSeat}
+            onSelectSeat={handleSelectSeat}
+            onAddSeat={handleAddSeat}
+            unsentBySeat={unsentBySeat}
+          />
+        </div>
 
-        {/* ── COL 2: Menu browsing (1fr, full height) ─────────── */}
+        {/* ── Menu browsing (1fr, full height) ─────────── */}
         <div
           className="flex flex-col min-w-0"
-          style={{ gridColumn: '2', backgroundColor: 'var(--fnb-bg-surface)', borderRight: 'var(--fnb-border-subtle)' }}
+          style={{
+            gridColumn: '2',
+            gridRow: '1',
+            backgroundColor: 'var(--fnb-bg-surface)',
+            borderLeft: leftHandMode ? 'var(--fnb-border-subtle)' : undefined,
+            borderRight: leftHandMode ? undefined : 'var(--fnb-border-subtle)',
+          }}
         >
           {/* Navigation: search bar + mode tabs + department tabs + sub-department tabs */}
           <FnbMenuNav menu={menu} menuMode={menuMode} onSelectMode={handleSelectMenuMode} />
@@ -429,8 +719,15 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
           <FnbMenuContent menu={menu} menuMode={menuMode} onItemTap={handleItemTap} />
         </div>
 
-        {/* ── COL 3: Cart / Ticket (400px, full height) ─────────── */}
-        <div className="flex flex-col min-w-0" style={{ gridColumn: '3', backgroundColor: 'var(--fnb-bg-surface)' }}>
+        {/* ── Cart / Ticket (400px, full height) ─────────── */}
+        <div
+          className="flex flex-col min-w-0"
+          style={{
+            gridColumn: leftHandMode ? '1' : '3',
+            gridRow: '1',
+            backgroundColor: 'var(--fnb-bg-surface)',
+          }}
+        >
           {/* Cart header */}
           <div
             className="shrink-0 flex items-center justify-between px-3 py-2"
@@ -448,6 +745,16 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
               )}
             </div>
             <div className="flex items-center gap-3">
+              {/* Left-hand mode toggle */}
+              <button
+                type="button"
+                onClick={() => store.toggleLeftHandMode()}
+                className="flex items-center justify-center rounded transition-opacity hover:opacity-70"
+                title={leftHandMode ? 'Switch to right-hand mode' : 'Switch to left-hand mode'}
+                style={{ color: leftHandMode ? 'var(--fnb-info)' : 'var(--fnb-text-muted)' }}
+              >
+                <Hand className="h-3.5 w-3.5" />
+              </button>
               <div className="flex items-center gap-1" style={{ color: 'var(--fnb-text-muted)' }}>
                 <Users className="h-3 w-3" />
                 <span className="text-[10px] font-semibold">{tab.partySize ?? 1}</span>
@@ -458,16 +765,30 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
             </div>
           </div>
 
+          {/* AI Upsell suggestion */}
+          <UpsellBanner
+            items={(tab.lines ?? []).map((l) => ({
+              id: l.catalogItemId ?? '',
+              name: l.catalogItemName ?? '',
+              priceCents: l.unitPriceCents ?? 0,
+              itemType: 'food',
+            }))}
+            onTap={() => {}}
+          />
+
           {/* Course selector */}
           <CourseSelector
             activeCourse={activeCourse}
             onSelectCourse={handleSelectCourse}
+            courseNames={courseNames}
           />
 
           {/* Order ticket (scrollable cart body) */}
           <OrderTicket
             tab={tab}
             activeSeat={activeSeat}
+            activeCourse={activeCourse}
+            courseNames={courseNames}
             draftLines={draftLines}
             onSendCourse={sendCourse}
             onFireCourse={fireCourse}
@@ -511,6 +832,18 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
           />
         </div>
       </div>
+
+      {/* Modifier drawer — portal-based, opens when item with modifier groups is tapped */}
+      {modifierDrawerItem && (
+        <FnbModifierDrawer
+          open={modifierDrawerOpen}
+          onClose={() => { setModifierDrawerOpen(false); setModifierDrawerItem(null); }}
+          itemName={modifierDrawerItem.name}
+          itemPriceCents={modifierDrawerItem.priceCents}
+          modifierGroups={modifierDrawerItem.groups}
+          onConfirm={handleModifierConfirm}
+        />
+      )}
     </div>
   );
 }

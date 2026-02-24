@@ -11,7 +11,7 @@ import type { GLAccount, AccountType } from '@/types/accounting';
 import { AccountDialog } from '@/components/accounting/account-dialog';
 import { ClassificationsPanel } from '@/components/accounting/classifications-panel';
 import { BootstrapWizard } from '@/components/accounting/bootstrap-wizard';
-import { CsvImportFlow } from '@/components/accounting/csv-import-flow';
+import { ImportWizard } from '@/components/accounting/import-wizard';
 
 const ACCOUNT_TYPE_ORDER: AccountType[] = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 
@@ -130,7 +130,7 @@ export default function AccountsContent() {
             className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
           >
             <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Import CSV</span>
+            <span className="hidden sm:inline">Import COA</span>
           </button>
           <button
             type="button"
@@ -185,7 +185,7 @@ export default function AccountsContent() {
         onClose={() => setClassificationsOpen(false)}
       />
 
-      <CsvImportFlow
+      <ImportWizard
         open={importOpen}
         onClose={() => setImportOpen(false)}
         onSuccess={() => { mutate(); setImportOpen(false); }}

@@ -50,8 +50,12 @@ const nextConfig: NextConfig = {
     } else if (typeof existing === 'string') {
       kept.push(existing);
     }
-    kept.push('**/.next/**');
-    config.watchOptions = { ...prev, ignored: kept };
+    kept.push('**/.next/**', '**/node_modules/**', '**/.git/**', '**/.turbo/**', '**/coverage/**');
+    config.watchOptions = {
+      ...prev,
+      ignored: kept,
+      aggregateTimeout: 300,
+    };
     return config;
   },
   async headers() {

@@ -15,6 +15,7 @@ import type {
   QualityFlag,
 } from './types';
 import { computeQualityScore, computeQualityFlags } from './capture';
+import { addTrainingPair } from '../rag/training-store';
 
 // ── submitUserRating ────────────────────────────────────────────
 // Called from apps/web via the user feedback API.
@@ -83,6 +84,36 @@ export async function submitUserRating(
 
   // Update session rolling average for user rating
   await updateSessionAvgUserRating(turn.sessionId, tenantId);
+
+  // ── Auto-promote to RAG training store on thumbs-up ──────────
+  // When a user gives a high rating (>=4) and the turn produced valid data,
+  // auto-insert into the training pairs table for future few-shot retrieval.
+  const effectiveRating = input.rating ?? turn.userRating;
+  const effectiveThumbsUp = input.thumbsUp ?? turn.userThumbsUp;
+  const hasValidData = turn.rowCount != null && Number(turn.rowCount) > 0;
+  const noExecError = !turn.executionError;
+  const hasCompiledSql = !!turn.compiledSql;
+  const shouldPromote =
+    ((effectiveRating != null && effectiveRating >= 4) || effectiveThumbsUp === true) &&
+    hasValidData &&
+    noExecError &&
+    hasCompiledSql;
+
+  if (shouldPromote) {
+    // Fire-and-forget — never block the feedback response
+    addTrainingPair({
+      tenantId,
+      question: turn.userMessage,
+      compiledSql: turn.compiledSql,
+      plan: turn.llmPlan as Record<string, unknown> | null,
+      mode: inferModeFromTurn(turn),
+      qualityScore: newScore !== null ? newScore : undefined,
+      source: 'thumbs_up',
+      sourceEvalTurnId: evalTurnId,
+    }).catch((err) => {
+      console.warn('[semantic] Auto-promotion to RAG store failed (non-blocking):', err);
+    });
+  }
 }
 
 // ── submitAdminReview ───────────────────────────────────────────
@@ -195,6 +226,17 @@ export async function promoteToExample(
     .where(eq(semanticEvalTurns.id, evalTurnId));
 
   return exampleId;
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+
+/** Infer pipeline mode from the eval turn's LLM plan JSON. */
+function inferModeFromTurn(turn: { llmPlan: unknown }): 'metrics' | 'sql' {
+  if (turn.llmPlan && typeof turn.llmPlan === 'object') {
+    const plan = turn.llmPlan as Record<string, unknown>;
+    if (plan.mode === 'sql') return 'sql';
+  }
+  return 'metrics';
 }
 
 // ── Session rolling averages ────────────────────────────────────

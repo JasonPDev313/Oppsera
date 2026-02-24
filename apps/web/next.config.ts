@@ -33,10 +33,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: process.env.DOCKER_BUILD ? 'standalone' : undefined,
-  transpilePackages: ['@oppsera/shared', '@oppsera/core'],
+  transpilePackages: ['@oppsera/shared', '@oppsera/core', '@oppsera/module-import'],
   poweredByHeader: false,
   experimental: {
-    optimizePackageImports: ['@oppsera/shared', '@oppsera/core', 'lucide-react'],
+    optimizePackageImports: ['@oppsera/shared', '@oppsera/core', '@oppsera/module-import', 'lucide-react'],
   },
   // Webpack watcher config (production builds only — Turbopack ignores this in dev).
   // Uses native FS events (no polling) with broad ignore patterns to reduce overhead.

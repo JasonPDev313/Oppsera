@@ -365,6 +365,89 @@ export {
   getCustomerPrivilegesExtended,
 } from './queries';
 
+// Commands (Tag Management)
+export { createTag } from './commands/create-tag';
+export { updateTag } from './commands/update-tag';
+export { archiveTag } from './commands/archive-tag';
+export { unarchiveTag } from './commands/unarchive-tag';
+export { applyTagToCustomer } from './commands/apply-tag-to-customer';
+export { removeTagFromCustomer } from './commands/remove-tag-from-customer';
+export { createSmartTagRule } from './commands/create-smart-tag-rule';
+export { updateSmartTagRule } from './commands/update-smart-tag-rule';
+export { toggleSmartTagRule } from './commands/toggle-smart-tag-rule';
+export { evaluateSmartTags } from './commands/evaluate-smart-tags';
+export type { EvaluateSmartTagsInput, EvaluateSmartTagsResult } from './commands/evaluate-smart-tags';
+
+// Validation schemas (Tag Management)
+export {
+  createTagSchema,
+  updateTagSchema,
+  archiveTagSchema,
+  applyTagToCustomerSchema,
+  removeTagFromCustomerSchema,
+  createSmartTagRuleSchema,
+  updateSmartTagRuleSchema,
+  toggleSmartTagRuleSchema,
+} from './validation';
+
+// Inferred types (Tag Management)
+export type {
+  CreateTagInput,
+  UpdateTagInput,
+  ArchiveTagInput,
+  ApplyTagToCustomerInput,
+  RemoveTagFromCustomerInput,
+  CreateSmartTagRuleInput,
+  UpdateSmartTagRuleInput,
+  ToggleSmartTagRuleInput,
+} from './validation';
+
+// Queries (Tag Management)
+export {
+  listTags,
+  getTag,
+  getCustomerTags,
+  getTaggedCustomers,
+  listSmartTagRules,
+  getSmartTagRule,
+  getTagAuditLog,
+  getSmartTagEvaluationHistory,
+} from './queries';
+
+// Types (Tag Management)
+export type {
+  ConditionMetric,
+  ConditionOperator,
+  SmartTagCondition,
+  SmartTagConditionGroup,
+  SmartTagEvidence,
+  MetricDefinition,
+} from './types/smart-tag-conditions';
+export { METRIC_DEFINITIONS } from './types/smart-tag-conditions';
+
 // Event types + consumers
 export * from './events/types';
 export { handleOrderPlaced, handleOrderVoided, handleTenderRecorded } from './events/consumers';
+
+// CSV Import services
+export { parseCsvContent } from './services/csv-import/csv-parser';
+export { detectColumns } from './services/csv-import/column-detector';
+export { validateAndMapRows } from './services/csv-import/row-validator';
+export { detectDuplicates } from './services/csv-import/duplicate-detector';
+export { bulkImportCustomers } from './commands/bulk-import-customers';
+export { listCustomerImportLogs } from './queries/list-customer-import-logs';
+export type {
+  ColumnMapping,
+  DetectedTransform,
+  DuplicateMatch,
+  DuplicateResolution,
+  DetectColumnsResult,
+  ImportValidationResult,
+  ImportResult,
+  MappedCustomerRow,
+  ValidationMessage,
+} from './services/csv-import/import-types';
+
+// Smart Tag Seed Templates
+export { SMART_TAG_SEED_TEMPLATES } from './seeds/smart-tag-seeds';
+export type { SmartTagSeedTemplate } from './seeds/smart-tag-seeds';

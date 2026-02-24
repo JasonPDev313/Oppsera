@@ -99,6 +99,9 @@ export async function register() {
       bus.subscribe('order.voided.v1', accounting.handleOrderVoidForAccounting);
       bus.subscribe('order.returned.v1', accounting.handleOrderReturnForAccounting);
       bus.subscribe('pms.folio.charge_posted.v1', accounting.handleFolioChargeForAccounting);
+      bus.subscribe('pms.loyalty.points_redeemed.v1', accounting.handleLoyaltyRedemptionForAccounting);
+      bus.subscribe('pms.payment.authorized.v1', accounting.handleDepositAuthorizedForAccounting);
+      bus.subscribe('pms.payment.captured.v1', accounting.handleDepositCapturedForAccounting);
       bus.subscribe('fnb.gl.posting_created.v1', accounting.handleFnbGlPostingForAccounting);
       bus.subscribe('voucher.purchased.v1', accounting.handleVoucherPurchaseForAccounting);
       bus.subscribe('voucher.redeemed.v1', accounting.handleVoucherRedemptionForAccounting);

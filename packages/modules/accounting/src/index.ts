@@ -61,11 +61,17 @@ export { deactivateTenderType } from './commands/deactivate-tender-type';
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
 export type { CoaHealthReport } from './queries/get-coa-health';
+export { listGlClassifications } from './queries/list-gl-classifications';
+export type { GlClassificationListItem } from './queries/list-gl-classifications';
+export { listCoaImportLogs } from './queries/list-coa-import-logs';
+export type { CoaImportLogItem } from './queries/list-coa-import-logs';
 
 // Adapters
 export { handleTenderForAccounting } from './adapters/pos-posting-adapter';
 export { handleOrderVoidForAccounting } from './adapters/void-posting-adapter';
 export { handleFolioChargeForAccounting } from './adapters/folio-posting-adapter';
+export { handleLoyaltyRedemptionForAccounting } from './adapters/loyalty-posting-adapter';
+export { handleDepositAuthorizedForAccounting, handleDepositCapturedForAccounting } from './adapters/deposit-posting-adapter';
 export { handleOrderReturnForAccounting } from './adapters/return-posting-adapter';
 export { handleFnbGlPostingForAccounting } from './adapters/fnb-posting-adapter';
 export { handleVoucherPurchaseForAccounting, handleVoucherRedemptionForAccounting, handleVoucherExpirationForAccounting } from './adapters/voucher-posting-adapter';
@@ -225,6 +231,43 @@ export type { ChangeLogEntry, LogAccountChangeParams } from './services/account-
 // CSV Import
 export { parseCsvImport } from './services/csv-import';
 export type { ParsedAccount, CsvValidationMessage, CsvValidationResult } from './services/csv-import';
+
+// Intelligent COA Import
+export {
+  analyzeFile,
+  reanalyzeWithOverrides,
+  executeImport,
+  parseFile,
+  detectFormat,
+  detectColumns,
+  inferAccountType,
+  detectHierarchy,
+  validateAccounts,
+  getConfidenceLevel,
+} from './services/coa-import';
+export type {
+  FileFormat,
+  ParsedFile,
+  TargetField,
+  ColumnMapping,
+  ConfidenceLevel,
+  AccountType,
+  NormalBalance,
+  TypeInference,
+  TypeSignal,
+  HierarchyStrategy,
+  HierarchyDetectionResult,
+  HierarchyResultSerialized,
+  AccountPreview,
+  IssueSeverity,
+  IssueCode,
+  PreviewIssue,
+  IssueResolution,
+  ValidationSummary,
+  AnalysisResult,
+  ImportOptions,
+  ImportExecutionResult,
+} from './services/coa-import';
 
 // Errors
 export {

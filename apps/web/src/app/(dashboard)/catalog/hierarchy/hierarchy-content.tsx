@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { MoreVertical, Plus } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { AddSubDepartmentDialog } from '@/components/catalog/add-subdepartment-dialog';
 import { useToast } from '@/components/ui/toast';
 import { useAllCategories, useDepartments, useSubDepartments, useCategories } from '@/hooks/use-catalog';
 import { apiFetch } from '@/lib/api-client';
@@ -36,6 +37,7 @@ function HierarchyPane({
   onAdd,
   onRename,
   onDeactivate,
+  onAddAction,
 }: {
   title: string;
   items: HierarchyItem[];
@@ -44,6 +46,7 @@ function HierarchyPane({
   onAdd: (name: string) => void;
   onRename: (id: string, name: string) => void;
   onDeactivate: (id: string) => void;
+  onAddAction?: () => void;
 }) {
   const [addMode, setAddMode] = useState(false);
   const [addName, setAddName] = useState('');
@@ -171,7 +174,7 @@ function HierarchyPane({
         ) : (
           <button
             type="button"
-            onClick={() => setAddMode(true)}
+            onClick={() => (onAddAction ? onAddAction() : setAddMode(true))}
             className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-400/50 px-3 py-2 text-sm text-gray-500 transition-colors hover:border-indigo-500/50 hover:text-indigo-500"
           >
             <Plus className="h-4 w-4" /> Add {title.replace(/ies$/, 'y').replace(/s$/, '')}
@@ -200,9 +203,14 @@ export default function HierarchyContent() {
   toastRef.current = toast;
   const [selectedDeptId, setSelectedDeptId] = useState<string | null>(null);
   const [selectedSubDeptId, setSelectedSubDeptId] = useState<string | null>(null);
+  const [showSubDeptDialog, setShowSubDeptDialog] = useState(false);
 
   const { isLoading } = useAllCategories();
   const { data: departments, mutate: refreshDepts } = useDepartments();
+  const selectedDeptName = useMemo(
+    () => departments.find((d) => d.id === selectedDeptId)?.name ?? '',
+    [departments, selectedDeptId],
+  );
   const { data: subDepartments, mutate: refreshSubDepts } = useSubDepartments(selectedDeptId || undefined);
   const { data: categories, mutate: refreshCats } = useCategories(selectedSubDeptId || undefined);
 
@@ -304,6 +312,13 @@ export default function HierarchyContent() {
           }}
           onRename={renameCategory}
           onDeactivate={deactivateCategory}
+          onAddAction={() => {
+            if (!selectedDeptId) {
+              toastRef.current.error('Select a department first');
+              return;
+            }
+            setShowSubDeptDialog(true);
+          }}
         />
         <HierarchyPane
           title="Categories"
@@ -321,6 +336,17 @@ export default function HierarchyContent() {
           onDeactivate={deactivateCategory}
         />
       </div>
+      <AddSubDepartmentDialog
+        open={showSubDeptDialog}
+        onClose={() => setShowSubDeptDialog(false)}
+        departmentId={selectedDeptId ?? ''}
+        departmentName={selectedDeptName}
+        onCreated={() => {
+          refreshDepts();
+          refreshSubDepts();
+          refreshCats();
+        }}
+      />
     </div>
   );
 }

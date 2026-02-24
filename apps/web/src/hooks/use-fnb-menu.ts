@@ -13,6 +13,22 @@ interface FnbMenuCategory {
   sortOrder: number;
 }
 
+interface FnbModifierOption {
+  id: string;
+  name: string;
+  priceCents: number;
+  isDefault: boolean;
+}
+
+interface FnbModifierGroup {
+  id: string;
+  name: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  options: FnbModifierOption[];
+}
+
 interface FnbMenuItem {
   id: string;
   name: string;
@@ -24,6 +40,8 @@ interface FnbMenuItem {
   is86d: boolean;
   allergenIds: string[];
   metadata: Record<string, unknown> | null;
+  /** Modifier group IDs assigned to this item (from junction table) */
+  modifierGroupIds: string[];
 }
 
 interface AllergenItem {
@@ -50,6 +68,30 @@ interface RawPOSCategory {
   name: string;
   parentId: string | null;
   sortOrder: number;
+}
+
+interface RawPOSModifierOption {
+  id: string;
+  name: string;
+  priceCents: number;
+  sortOrder: number;
+  isDefault: boolean;
+}
+
+interface RawPOSModifierGroup {
+  id: string;
+  name: string;
+  selectionType: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  options: RawPOSModifierOption[];
+}
+
+interface RawPOSItemModifierAssignment {
+  catalogItemId: string;
+  modifierGroupId: string;
+  isDefault: boolean;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -100,6 +142,7 @@ interface MenuCacheEntry {
   categories: FnbMenuCategory[];
   items: FnbMenuItem[];
   allergens: AllergenItem[];
+  modifierGroups: FnbModifierGroup[];
   ts: number;
 }
 
@@ -134,6 +177,10 @@ export interface UseFnbMenuReturn {
   categories: FnbMenuCategory[];
   items: FnbMenuItem[];
   allergens: AllergenItem[];
+  /** All modifier groups (with options) available for this tenant */
+  modifierGroups: FnbModifierGroup[];
+  /** Get modifier groups assigned to a specific item (returns empty if none) */
+  getModifierGroupsForItem: (itemId: string) => FnbModifierGroup[];
   activeDepartmentId: string | null;
   activeSubDepartmentId: string | null;
   activeCategoryId: string | null;
@@ -153,12 +200,42 @@ export interface UseFnbMenuReturn {
 /** Fetch and process catalog data (shared between instances via _menuFetchPromise) */
 async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
   // Fetch catalog; allergens load in background (non-blocking)
-  const catResult = await apiFetch<{ data: { items: RawPOSItem[]; categories: RawPOSCategory[] } }>(
-    '/api/v1/catalog/pos',
-  );
+  const catResult = await apiFetch<{
+    data: {
+      items: RawPOSItem[];
+      categories: RawPOSCategory[];
+      modifierGroups?: RawPOSModifierGroup[];
+      itemModifierAssignments?: RawPOSItemModifierAssignment[];
+    };
+  }>('/api/v1/catalog/pos');
 
   const rawItems = catResult.data.items ?? [];
   const rawCats = catResult.data.categories ?? [];
+  const rawModGroups = catResult.data.modifierGroups ?? [];
+  const rawAssignments = catResult.data.itemModifierAssignments ?? [];
+
+  // Build item → modifier group IDs lookup
+  const itemModGroupMap = new Map<string, string[]>();
+  for (const a of rawAssignments) {
+    const existing = itemModGroupMap.get(a.catalogItemId) ?? [];
+    existing.push(a.modifierGroupId);
+    itemModGroupMap.set(a.catalogItemId, existing);
+  }
+
+  // Build modifier groups with options (already in POS-friendly format)
+  const modifierGroups: FnbModifierGroup[] = rawModGroups.map((g) => ({
+    id: g.id,
+    name: g.name,
+    isRequired: g.isRequired,
+    minSelections: g.minSelections,
+    maxSelections: g.maxSelections,
+    options: g.options.map((o) => ({
+      id: o.id,
+      name: o.name,
+      priceCents: o.priceCents,
+      isDefault: o.isDefault,
+    })),
+  }));
 
   // Build depth map and lookup from flat categories
   const depthMap = computeDepthMap(rawCats);
@@ -198,6 +275,7 @@ async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
       is86d: false,
       allergenIds: [] as string[],
       metadata: i.metadata,
+      modifierGroupIds: itemModGroupMap.get(i.id) ?? [],
     }));
 
   // Build set of category IDs that contain at least one F&B item
@@ -244,6 +322,7 @@ async function fetchAndProcessMenu(): Promise<MenuCacheEntry> {
     categories: filteredCats,
     items: fnbItems,
     allergens: [], // loaded separately, non-blocking
+    modifierGroups,
     ts: Date.now(),
   };
 }
@@ -254,6 +333,7 @@ export function useFnbMenu(): UseFnbMenuReturn {
   const [allCategories, setAllCategories] = useState<FnbMenuCategory[]>(cached?.categories ?? []);
   const [items, setItems] = useState<FnbMenuItem[]>(cached?.items ?? []);
   const [allergens, setAllergens] = useState<AllergenItem[]>(cached?.allergens ?? []);
+  const [modifierGroups, setModifierGroups] = useState<FnbModifierGroup[]>(cached?.modifierGroups ?? []);
   const [isLoading, setIsLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
   const [activeDepartmentId, setActiveDepartment] = useState<string | null>(null);
@@ -278,6 +358,7 @@ export function useFnbMenu(): UseFnbMenuReturn {
     setAllCategories(entry.categories);
     setItems(entry.items);
     if (entry.allergens.length > 0) setAllergens(entry.allergens);
+    if (entry.modifierGroups.length > 0) setModifierGroups(entry.modifierGroups);
 
     // Auto-select first department once
     if (!initialDeptSetRef.current) {
@@ -461,12 +542,34 @@ export function useFnbMenu(): UseFnbMenuReturn {
     [fetchMenu],
   );
 
+  // Build a lookup: itemId → modifier group IDs for quick access
+  const modGroupLookup = useMemo(() => {
+    const map = new Map<string, FnbModifierGroup[]>();
+    const groupMap = new Map(modifierGroups.map((g) => [g.id, g]));
+    for (const item of items) {
+      if (item.modifierGroupIds.length > 0) {
+        const groups = item.modifierGroupIds
+          .map((gid) => groupMap.get(gid))
+          .filter(Boolean) as FnbModifierGroup[];
+        if (groups.length > 0) map.set(item.id, groups);
+      }
+    }
+    return map;
+  }, [items, modifierGroups]);
+
+  const getModifierGroupsForItem = useCallback(
+    (itemId: string) => modGroupLookup.get(itemId) ?? [],
+    [modGroupLookup],
+  );
+
   return {
     departments,
     subDepartments,
     categories: categoriesList,
     items,
     allergens,
+    modifierGroups,
+    getModifierGroupsForItem,
     activeDepartmentId,
     activeSubDepartmentId,
     activeCategoryId,

@@ -82,8 +82,16 @@ export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
 
       {/* Total */}
       <div className="flex items-center justify-between">
-        <span className="text-base font-bold text-gray-900">TOTAL</span>
-        <span className="text-lg font-bold text-gray-900">
+        <span
+          className="text-base font-bold text-gray-900"
+          style={{ fontSize: 'calc(1rem * var(--pos-font-scale, 1))' }}
+        >
+          TOTAL
+        </span>
+        <span
+          className="text-lg font-bold text-gray-900"
+          style={{ fontSize: 'calc(1.125rem * var(--pos-font-scale, 1))' }}
+        >
           {formatMoney(order.total)}
         </span>
       </div>

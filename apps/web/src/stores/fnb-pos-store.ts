@@ -30,13 +30,20 @@ export interface FnbPosState {
   // Split check workspace (active only during split flow)
   splitWorkspace: FnbSplitWorkspace | null;
 
+  // Course configuration (loaded from fnb_ordering settings)
+  courseNames: string[];
+
   // UI preferences
   floorViewMode: 'layout' | 'grid';
+  floorDisplayMode: 'status' | 'covers' | 'revenue' | 'time' | 'course';
   sidebarMode: 'my-tables' | 'stats' | 'waitlist';
   sidebarOpen: boolean;
   menuColumns: 2 | 3 | 4;
   menuMode: 'all_items' | 'hot_sellers' | 'tools';
   mySectionOnly: boolean;
+  leftHandMode: boolean;
+  tileSize: 'compact' | 'standard' | 'large';
+  skipPaymentConfirm: boolean;
 
   // Connection
   isOnline: boolean;
@@ -70,13 +77,20 @@ export interface FnbPosActions {
   moveLineToCheck: (lineId: string, fromCheckIndex: number, toCheckIndex: number) => void;
   clearSplit: () => void;
 
+  // Course config
+  setCourseNames: (names: string[]) => void;
+
   // UI preferences
   setFloorViewMode: (mode: 'layout' | 'grid') => void;
+  setFloorDisplayMode: (mode: 'status' | 'covers' | 'revenue' | 'time' | 'course') => void;
   setSidebarMode: (mode: 'my-tables' | 'stats' | 'waitlist') => void;
   toggleSidebar: () => void;
   setMenuColumns: (columns: 2 | 3 | 4) => void;
   setMenuMode: (mode: 'all_items' | 'hot_sellers' | 'tools') => void;
   toggleMySectionOnly: () => void;
+  toggleLeftHandMode: () => void;
+  setTileSize: (size: 'compact' | 'standard' | 'large') => void;
+  toggleSkipPaymentConfirm: () => void;
 
   // Connection
   setOnline: (online: boolean) => void;
@@ -96,6 +110,26 @@ function getPersistedRoomId(): string | null {
   }
 }
 
+function getPersistedLeftHandMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  try { return localStorage.getItem('oppsera:fnb-left-hand') === 'true'; } catch { return false; }
+}
+
+function getPersistedTileSize(): 'compact' | 'standard' | 'large' {
+  if (typeof window === 'undefined') return 'standard';
+  try {
+    const v = localStorage.getItem('oppsera:fnb-tile-size');
+    return v === 'compact' || v === 'large' ? v : 'standard';
+  } catch { return 'standard'; }
+}
+
+function getPersistedSkipConfirm(): boolean {
+  if (typeof window === 'undefined') return false;
+  try { return localStorage.getItem('oppsera:fnb-skip-confirm') === 'true'; } catch { return false; }
+}
+
+const DEFAULT_COURSE_NAMES = ['Apps', 'Entrees', 'Desserts'];
+
 const initialState: FnbPosState = {
   currentScreen: 'floor',
   previousScreen: null,
@@ -104,13 +138,18 @@ const initialState: FnbPosState = {
   draftLines: {},
   activeSeatNumber: 1,
   activeCourseNumber: 1,
+  courseNames: DEFAULT_COURSE_NAMES,
   splitWorkspace: null,
   floorViewMode: 'layout',
+  floorDisplayMode: 'status',
   sidebarMode: 'my-tables',
   sidebarOpen: true,
   menuColumns: 3,
   menuMode: 'all_items' as const,
   mySectionOnly: false,
+  leftHandMode: getPersistedLeftHandMode(),
+  tileSize: getPersistedTileSize(),
+  skipPaymentConfirm: getPersistedSkipConfirm(),
   isOnline: true,
 };
 
@@ -285,11 +324,29 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
       });
     },
 
+    // ── Course Config ─────────────────────────────────────────
+
+    setCourseNames: (names) => {
+      set((state) => {
+        state.courseNames = names.length > 0 ? names : DEFAULT_COURSE_NAMES;
+        // Reset active course if it exceeds new course count
+        if (state.activeCourseNumber > names.length && names.length > 0) {
+          state.activeCourseNumber = 1;
+        }
+      });
+    },
+
     // ── UI Preferences ──────────────────────────────────────────
 
     setFloorViewMode: (mode) => {
       set((state) => {
         state.floorViewMode = mode;
+      });
+    },
+
+    setFloorDisplayMode: (mode) => {
+      set((state) => {
+        state.floorDisplayMode = mode;
       });
     },
 
@@ -323,6 +380,27 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
       });
     },
 
+    toggleLeftHandMode: () => {
+      set((state) => {
+        state.leftHandMode = !state.leftHandMode;
+      });
+      try { localStorage.setItem('oppsera:fnb-left-hand', String(!get().leftHandMode)); } catch { /* ignore */ }
+    },
+
+    setTileSize: (size) => {
+      set((state) => {
+        state.tileSize = size;
+      });
+      try { localStorage.setItem('oppsera:fnb-tile-size', size); } catch { /* ignore */ }
+    },
+
+    toggleSkipPaymentConfirm: () => {
+      set((state) => {
+        state.skipPaymentConfirm = !state.skipPaymentConfirm;
+      });
+      try { localStorage.setItem('oppsera:fnb-skip-confirm', String(!get().skipPaymentConfirm)); } catch { /* ignore */ }
+    },
+
     // ── Connection ──────────────────────────────────────────────
 
     setOnline: (online) => {
@@ -338,6 +416,9 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
       set(() => ({
         ...initialState,
         activeRoomId: null, // override persisted value on explicit reset
+        leftHandMode: getPersistedLeftHandMode(), // preserve preference
+        tileSize: getPersistedTileSize(), // preserve preference
+        skipPaymentConfirm: getPersistedSkipConfirm(), // preserve preference
       }));
     },
   })),

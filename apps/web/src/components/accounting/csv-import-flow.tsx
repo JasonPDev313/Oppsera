@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Upload, X, AlertTriangle, CheckCircle, FileText, Loader2 } from 'lucide-react';
+import { Upload, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
+import { ImportWizardShell } from '@/components/import/ImportWizardShell';
+import { ImportProgressStep } from '@/components/import/ImportProgressStep';
+import { ImportResultsCard } from '@/components/import/ImportResultsCard';
+import { ReassuranceBanner } from '@/components/import/ReassuranceBanner';
 
 interface CsvImportFlowProps {
   open: boolean;
@@ -52,6 +55,18 @@ interface ImportResult {
 
 type Step = 'upload' | 'validating' | 'preview' | 'importing' | 'complete';
 
+const STEPS = [
+  { key: 'upload', label: 'Upload' },
+  { key: 'preview', label: 'Preview' },
+  { key: 'complete', label: 'Done' },
+];
+
+function resolveStepKey(step: Step): string {
+  if (step === 'validating') return 'upload';
+  if (step === 'importing') return 'preview';
+  return step;
+}
+
 export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -87,7 +102,6 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
     setCsvContent(text);
     setFileName(file.name);
 
-    // Auto-validate
     setStep('validating');
     try {
       const res = await apiFetch<{ data: ValidationResult }>('/api/v1/accounting/import/validate', {
@@ -148,292 +162,291 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
     }
   }, [handleFileSelect, toast]);
 
-  if (!open) return null;
+  // ── Footer ──
 
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative z-10 mx-4 w-full max-w-2xl rounded-xl bg-surface shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Import Chart of Accounts</h2>
-          <button type="button" onClick={handleClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+  const footer = (() => {
+    if (step === 'validating' || step === 'importing') return undefined;
 
-        {/* Body */}
-        <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
-          {/* Upload Step */}
-          {step === 'upload' && (
-            <div className="space-y-4">
-              <p className="text-sm text-gray-600">
-                Upload a CSV file with your chart of accounts. Required columns:
-                <strong> Account Number</strong> and <strong>Name</strong>.
-                Optional: Account Type, Parent Account, Classification, Description.
-              </p>
-
-              {/* State Selector */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">State (optional)</label>
-                <select
-                  value={stateName}
-                  onChange={(e) => setStateName(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                >
-                  <option value="">None — leave state placeholders as-is</option>
-                  {US_STATES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  If your CSV contains state-specific accounts (e.g., &quot;Sales Tax Payable - Michigan&quot;),
-                  selecting a state will auto-detect and standardize them.
-                </p>
-              </div>
-
-              {/* Drop Zone */}
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleDrop}
-                className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 transition-colors hover:border-indigo-400"
-              >
-                <Upload className="mb-3 h-10 w-10 text-gray-400" />
-                <p className="text-sm font-medium text-gray-700">
-                  Drag &amp; drop your CSV here, or{' '}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="text-indigo-600 hover:text-indigo-700"
-                  >
-                    browse
-                  </button>
-                </p>
-                <p className="mt-1 text-xs text-gray-500">CSV files only, max 5MB, up to 2000 accounts</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv,text/csv"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleFileSelect(file);
-                  }}
-                />
-              </div>
-            </div>
+    return (
+      <>
+        <button
+          type="button"
+          onClick={step === 'complete' ? () => { handleClose(); onSuccess(); } : handleClose}
+          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          {step === 'complete' ? 'Done' : 'Cancel'}
+        </button>
+        <div className="flex gap-2">
+          {step === 'preview' && !validation?.isValid && (
+            <button
+              type="button"
+              onClick={reset}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Upload Different File
+            </button>
           )}
-
-          {/* Validating Step */}
-          {step === 'validating' && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="mb-3 h-10 w-10 animate-spin text-indigo-600" />
-              <p className="text-sm font-medium text-gray-700">Validating CSV...</p>
-            </div>
+          {step === 'preview' && validation?.isValid && (
+            <button
+              type="button"
+              onClick={handleImport}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              Import {validation.accountCount} Accounts
+            </button>
           )}
-
-          {/* Preview Step */}
-          {step === 'preview' && validation && (
-            <div className="space-y-4">
-              {/* Summary */}
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700">{fileName}</span>
-                </div>
-                <span className="text-sm text-gray-500">{validation.accountCount} accounts</span>
-              </div>
-
-              {/* Error/Warning Counts */}
-              <div className="flex gap-3">
-                {validation.errors.length > 0 && (
-                  <div className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-700">
-                    <AlertTriangle className="h-4 w-4" />
-                    {validation.errors.length} error{validation.errors.length !== 1 ? 's' : ''}
-                  </div>
-                )}
-                {validation.warnings.length > 0 && (
-                  <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700">
-                    <AlertTriangle className="h-4 w-4" />
-                    {validation.warnings.length} warning{validation.warnings.length !== 1 ? 's' : ''}
-                  </div>
-                )}
-                {validation.isValid && validation.errors.length === 0 && (
-                  <div className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700">
-                    <CheckCircle className="h-4 w-4" />
-                    Valid — ready to import
-                  </div>
-                )}
-              </div>
-
-              {/* State Detection */}
-              {validation.stateDetections.length > 0 && (
-                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
-                  <p className="text-sm font-medium text-blue-800">State names detected:</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {validation.stateDetections.slice(0, 5).map((d, i) => (
-                      <li key={i} className="text-xs text-blue-700">
-                        &quot;{d.originalName}&quot; → detected {d.stateDetected}
-                      </li>
-                    ))}
-                    {validation.stateDetections.length > 5 && (
-                      <li className="text-xs text-blue-600">
-                        ...and {validation.stateDetections.length - 5} more
-                      </li>
-                    )}
-                  </ul>
-                  {!stateName && (
-                    <div className="mt-2">
-                      <select
-                        value={stateName}
-                        onChange={(e) => setStateName(e.target.value)}
-                        className="rounded border border-blue-300 px-2 py-1 text-xs text-blue-900"
-                      >
-                        <option value="">Apply state...</option>
-                        {US_STATES.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={handleRevalidate}
-                        className="ml-2 text-xs text-blue-700 underline"
-                      >
-                        Re-validate
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Errors */}
-              {validation.errors.length > 0 && (
-                <div className="max-h-40 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3">
-                  <p className="mb-1 text-sm font-medium text-red-800">Errors (must fix before import):</p>
-                  {validation.errors.map((e, i) => (
-                    <p key={i} className="text-xs text-red-700">
-                      {e.row ? `Row ${e.row}: ` : ''}{e.message}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              {/* Warnings */}
-              {validation.warnings.length > 0 && (
-                <details className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-                  <summary className="cursor-pointer text-sm font-medium text-amber-800">
-                    Warnings ({validation.warnings.length})
-                  </summary>
-                  <div className="mt-2 max-h-32 overflow-y-auto">
-                    {validation.warnings.map((w, i) => (
-                      <p key={i} className="text-xs text-amber-700">
-                        {w.row ? `Row ${w.row}: ` : ''}{w.message}
-                      </p>
-                    ))}
-                  </div>
-                </details>
-              )}
-
-              {/* Preview Table */}
-              {validation.preview.length > 0 && (
-                <div className="overflow-hidden rounded-lg border border-gray-200">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Number</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Name</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Type</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Parent</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {validation.preview.map((row, i) => (
-                        <tr key={i}>
-                          <td className="px-3 py-1.5 font-mono text-xs text-gray-900">{row.accountNumber}</td>
-                          <td className="px-3 py-1.5 text-xs text-gray-700">{row.name}</td>
-                          <td className="px-3 py-1.5 text-xs capitalize text-gray-500">{row.accountType}</td>
-                          <td className="px-3 py-1.5 font-mono text-xs text-gray-400">{row.parentAccountNumber ?? '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {validation.accountCount > 50 && (
-                    <p className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500">
-                      Showing first 50 of {validation.accountCount} accounts
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Importing Step */}
-          {step === 'importing' && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="mb-3 h-10 w-10 animate-spin text-indigo-600" />
-              <p className="text-sm font-medium text-gray-700">Importing accounts...</p>
-            </div>
-          )}
-
-          {/* Complete Step */}
-          {step === 'complete' && importResult && (
-            <div className="space-y-4 text-center">
-              <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-              <h3 className="text-lg font-semibold text-gray-900">Import Complete!</h3>
-              <div className="mx-auto max-w-xs space-y-1 text-sm text-gray-600">
-                <p>{importResult.successRows} accounts created</p>
-                {importResult.skipCount > 0 && (
-                  <p className="text-amber-600">{importResult.skipCount} accounts skipped (already exist)</p>
-                )}
-                {importResult.errorCount > 0 && (
-                  <p className="text-red-600">{importResult.errorCount} accounts failed</p>
-                )}
-              </div>
-            </div>
+          {step === 'complete' && (
+            <button
+              type="button"
+              onClick={() => { handleClose(); onSuccess(); }}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              View Accounts
+            </button>
           )}
         </div>
+      </>
+    );
+  })();
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-          <button
-            type="button"
-            onClick={step === 'complete' ? () => { handleClose(); onSuccess(); } : handleClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+  return (
+    <ImportWizardShell
+      open={open}
+      onClose={handleClose}
+      title="Import Chart of Accounts"
+      subtitle="Upload a CSV with your chart of accounts"
+      steps={STEPS}
+      currentStep={resolveStepKey(step)}
+      footer={footer}
+      preventClose={step === 'importing'}
+      onReset={reset}
+      maxWidth="max-w-2xl"
+    >
+      {/* Upload Step */}
+      {step === 'upload' && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Upload a CSV file with your chart of accounts. Required columns:
+            <strong> Account Number</strong> and <strong>Name</strong>.
+            Optional: Account Type, Parent Account, Classification, Description.
+          </p>
+
+          {/* State Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">State (optional)</label>
+            <select
+              value={stateName}
+              onChange={(e) => setStateName(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-surface focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600"
+            >
+              <option value="">None — leave state placeholders as-is</option>
+              {US_STATES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              If your CSV contains state-specific accounts (e.g., &quot;Sales Tax Payable - Michigan&quot;),
+              selecting a state will auto-detect and standardize them.
+            </p>
+          </div>
+
+          {/* Drop Zone */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleDrop}
+            className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 transition-colors hover:border-indigo-400 dark:border-gray-600 dark:hover:border-indigo-500/50"
           >
-            {step === 'complete' ? 'Done' : 'Cancel'}
-          </button>
-          <div className="flex gap-2">
-            {step === 'preview' && !validation?.isValid && (
+            <Upload className="mb-3 h-10 w-10 text-gray-400" />
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Drag &amp; drop your CSV here, or{' '}
               <button
                 type="button"
-                onClick={reset}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={() => fileInputRef.current?.click()}
+                className="text-indigo-600 hover:text-indigo-700"
               >
-                Upload Different File
+                browse
               </button>
+            </p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">CSV files only, max 5MB, up to 2000 accounts</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileSelect(file);
+              }}
+            />
+          </div>
+
+          <ReassuranceBanner variant="subtle" />
+        </div>
+      )}
+
+      {/* Validating Step */}
+      {step === 'validating' && (
+        <ImportProgressStep
+          label="Validating CSV..."
+          sublabel="Checking account numbers, types, and hierarchy"
+        />
+      )}
+
+      {/* Preview Step */}
+      {step === 'preview' && validation && (
+        <div className="space-y-4">
+          {/* Summary */}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-gray-400" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{fileName}</span>
+            </div>
+            <span className="text-sm text-gray-500">{validation.accountCount} accounts</span>
+          </div>
+
+          {/* Error/Warning Counts */}
+          <div className="flex gap-3">
+            {validation.errors.length > 0 && (
+              <div className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                <AlertTriangle className="h-4 w-4" />
+                {validation.errors.length} error{validation.errors.length !== 1 ? 's' : ''}
+              </div>
             )}
-            {step === 'preview' && validation?.isValid && (
-              <button
-                type="button"
-                onClick={handleImport}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-              >
-                Import {validation.accountCount} Accounts
-              </button>
+            {validation.warnings.length > 0 && (
+              <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4" />
+                {validation.warnings.length} warning{validation.warnings.length !== 1 ? 's' : ''}
+              </div>
             )}
-            {step === 'complete' && (
-              <button
-                type="button"
-                onClick={() => { handleClose(); onSuccess(); }}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-              >
-                View Accounts
-              </button>
+            {validation.isValid && validation.errors.length === 0 && (
+              <div className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                <CheckCircle className="h-4 w-4" />
+                Valid — ready to import
+              </div>
             )}
           </div>
+
+          {/* State Detection */}
+          {validation.stateDetections.length > 0 && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-300">State names detected:</p>
+              <ul className="mt-1 space-y-0.5">
+                {validation.stateDetections.slice(0, 5).map((d, i) => (
+                  <li key={i} className="text-xs text-blue-700 dark:text-blue-400">
+                    &quot;{d.originalName}&quot; → detected {d.stateDetected}
+                  </li>
+                ))}
+                {validation.stateDetections.length > 5 && (
+                  <li className="text-xs text-blue-600 dark:text-blue-400">
+                    ...and {validation.stateDetections.length - 5} more
+                  </li>
+                )}
+              </ul>
+              {!stateName && (
+                <div className="mt-2">
+                  <select
+                    value={stateName}
+                    onChange={(e) => setStateName(e.target.value)}
+                    className="rounded border border-blue-300 bg-surface px-2 py-1 text-xs dark:border-blue-700"
+                  >
+                    <option value="">Apply state...</option>
+                    {US_STATES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleRevalidate}
+                    className="ml-2 text-xs text-blue-700 underline dark:text-blue-400"
+                  >
+                    Re-validate
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Errors */}
+          {validation.errors.length > 0 && (
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+              <p className="mb-1 text-sm font-medium text-red-800 dark:text-red-300">Errors (must fix before import):</p>
+              {validation.errors.map((e, i) => (
+                <p key={i} className="text-xs text-red-700 dark:text-red-400">
+                  {e.row ? `Row ${e.row}: ` : ''}{e.message}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* Warnings */}
+          {validation.warnings.length > 0 && (
+            <details className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
+              <summary className="cursor-pointer text-sm font-medium text-amber-800 dark:text-amber-300">
+                Warnings ({validation.warnings.length})
+              </summary>
+              <div className="mt-2 max-h-32 overflow-y-auto">
+                {validation.warnings.map((w, i) => (
+                  <p key={i} className="text-xs text-amber-700 dark:text-amber-400">
+                    {w.row ? `Row ${w.row}: ` : ''}{w.message}
+                  </p>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* Preview Table */}
+          {validation.preview.length > 0 && (
+            <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-800">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Number</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Parent</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {validation.preview.map((row, i) => (
+                    <tr key={i}>
+                      <td className="px-3 py-1.5 font-mono text-xs text-gray-900 dark:text-gray-100">{row.accountNumber}</td>
+                      <td className="px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300">{row.name}</td>
+                      <td className="px-3 py-1.5 text-xs capitalize text-gray-500 dark:text-gray-400">{row.accountType}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs text-gray-400">{row.parentAccountNumber ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {validation.accountCount > 50 && (
+                <p className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800">
+                  Showing first 50 of {validation.accountCount} accounts
+                </p>
+              )}
+            </div>
+          )}
         </div>
-      </div>
-    </div>,
-    document.body,
+      )}
+
+      {/* Importing Step */}
+      {step === 'importing' && (
+        <ImportProgressStep
+          label="Importing accounts..."
+          sublabel="Creating chart of accounts entries"
+        />
+      )}
+
+      {/* Complete Step */}
+      {step === 'complete' && importResult && (
+        <ImportResultsCard
+          status={importResult.errorCount > 0 ? 'partial' : 'completed'}
+          totalRows={importResult.totalRows}
+          successRows={importResult.successRows}
+          errorRows={importResult.errorCount}
+          skippedRows={importResult.skipCount}
+          entityLabel="accounts"
+          errors={importResult.errors}
+        />
+      )}
+    </ImportWizardShell>
   );
 }

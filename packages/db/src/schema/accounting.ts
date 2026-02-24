@@ -437,9 +437,81 @@ export const glCoaImportLogs = pgTable(
     importedBy: text('imported_by'), // user ID
     startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp('completed_at', { withTimezone: true }),
+    // Added in migration 0160 — intelligent import extensions
+    rawContent: text('raw_content'),
+    fileFormat: text('file_format').default('csv'),
+    analysisConfidence: integer('analysis_confidence'),
   },
   (table) => [
     index('idx_gl_coa_import_logs_tenant').on(table.tenantId),
     index('idx_gl_coa_import_logs_tenant_status').on(table.tenantId, table.status),
+  ],
+);
+
+// ── coa_import_sessions (migration 0160) ─────────────────────────
+// Multi-step wizard state persistence for intelligent COA import.
+// Lifecycle: uploaded → analyzed → mapping_review → previewed → importing → complete | failed
+export const coaImportSessions = pgTable(
+  'coa_import_sessions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+
+    // File info
+    fileName: text('file_name').notNull(),
+    fileFormat: text('file_format').notNull().default('csv'),
+    fileSizeBytes: integer('file_size_bytes'),
+
+    // Status lifecycle
+    status: text('status').notNull().default('uploaded'),
+
+    // Analysis results (JSONB) — column mappings, hierarchy detection, overall confidence
+    analysisResult: jsonb('analysis_result'),
+
+    // User-adjusted column mappings (JSONB) — overrides from the mapping review step
+    customMappings: jsonb('custom_mappings'),
+
+    // User-selected hierarchy strategy
+    hierarchyStrategy: text('hierarchy_strategy'),
+
+    // Account previews with inferred types (JSONB)
+    previewAccounts: jsonb('preview_accounts'),
+
+    // Validation summary (JSONB)
+    validationResult: jsonb('validation_result'),
+
+    // Import execution results
+    importLogId: text('import_log_id').references(() => glCoaImportLogs.id),
+    accountsCreated: integer('accounts_created').default(0),
+    accountsSkipped: integer('accounts_skipped').default(0),
+    headersCreated: integer('headers_created').default(0),
+    errorsCount: integer('errors_count').default(0),
+
+    // Options
+    stateName: text('state_name'),
+    mergeMode: text('merge_mode').default('fresh'),
+
+    // Row-level overrides from user (JSONB) — { rowNumber: { accountType, parentAccountNumber, ... } }
+    rowOverrides: jsonb('row_overrides'),
+
+    // Rows to skip (JSONB array of row numbers)
+    skipRows: jsonb('skip_rows'),
+
+    // Metadata
+    createdBy: text('created_by').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    // Auto-cleanup stale sessions after 7 days
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('idx_coa_import_sessions_tenant').on(table.tenantId),
+    index('idx_coa_import_sessions_status').on(table.tenantId, table.status),
   ],
 );
