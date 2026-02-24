@@ -48,7 +48,6 @@ export function PreviewStep({
   onDryRun,
   onBack,
 }: PreviewStepProps) {
-  const [_showErrors, _setShowErrors] = useState(false);
   const [filter, setFilter] = useState<string>('all');
   const { summary, rows } = validation;
 

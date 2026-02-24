@@ -327,7 +327,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   // Legacy fallbacks (kept for TenderDialog in edge cases)
   const [, setShowPaymentPicker] = useState(false);
   const [showTenderDialog, setShowTenderDialog] = useState(false);
-  const [selectedTenderType, setSelectedTenderType] = useState<'cash' | 'check' | 'voucher'>('cash');
+  const [selectedTenderType] = useState<'cash' | 'check' | 'voucher'>('cash');
   const [remainingBalance, setRemainingBalance] = useState<number | null>(null);
 
   // Confirm dialogs
