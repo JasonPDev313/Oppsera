@@ -23,7 +23,7 @@ function todayBusinessDate(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-type TenderType = 'cash' | 'check' | 'voucher';
+type TenderType = 'cash' | 'check' | 'voucher' | 'card';
 
 interface PaymentPanelProps {
   order: Order;
@@ -37,12 +37,9 @@ interface PaymentPanelProps {
 
 const TENDER_TYPES: { type: TenderType; label: string; icon: typeof Banknote; color: string }[] = [
   { type: 'cash', label: 'Cash', icon: Banknote, color: 'text-green-600 bg-green-50 border-green-200 hover:bg-green-100' },
+  { type: 'card', label: 'Card', icon: CreditCard, color: 'text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100' },
   { type: 'check', label: 'Check', icon: FileText, color: 'text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100' },
   { type: 'voucher', label: 'Voucher', icon: Ticket, color: 'text-amber-600 bg-amber-50 border-amber-200 hover:bg-amber-100' },
-];
-
-const DISABLED_TYPES = [
-  { label: 'Card', icon: CreditCard, note: 'Coming Soon' },
 ];
 
 // ── Quick Cash Amounts ────────────────────────────────────────────
@@ -60,6 +57,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
   const [amount, setAmount] = useState('');
   const [tipAmount, setTipAmount] = useState('');
   const [checkNumber, setCheckNumber] = useState('');
+  const [cardToken, setCardToken] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tenderSummary, setTenderSummary] = useState<TenderSummary | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState<RecordTenderResult | null>(null);
@@ -142,6 +140,10 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
       toast.error('Check number is required');
       return;
     }
+    if (selectedType === 'card' && !cardToken.trim()) {
+      toast.error('Card token is required');
+      return;
+    }
     if (!order.id) {
       toast.error('Order is still being created — please wait');
       return;
@@ -163,6 +165,9 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
       };
       if (selectedType === 'check') {
         body.metadata = { checkNumber: checkNumber.trim() };
+      }
+      if (selectedType === 'card') {
+        body.token = cardToken.trim();
       }
 
       const res = await apiFetch<{ data: RecordTenderResult }>(
@@ -194,15 +199,19 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         } catch { /* best-effort */ }
       }
     } catch (err) {
-      if (err instanceof ApiError && err.statusCode === 409) {
+      if (err instanceof ApiError && err.statusCode === 402) {
+        toast.error('Card declined — please try a different card');
+      } else if (err instanceof ApiError && err.statusCode === 409) {
         toast.error('Payment conflict — please try again');
+      } else if (err instanceof ApiError && err.statusCode === 502) {
+        toast.error('Card processing error — please try again');
       } else {
         toast.error(err instanceof Error ? err.message : 'Payment failed');
       }
     } finally {
       setIsSubmitting(false);
     }
-  }, [amountCents, tipCents, selectedType, checkNumber, order, config, shiftId, user, toast, locationHeaders]);
+  }, [amountCents, tipCents, selectedType, checkNumber, cardToken, order, config, shiftId, user, toast, locationHeaders]);
 
   // ── Success State ─────────────────────────────────────────────
 
@@ -259,24 +268,12 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
               type="button"
               onClick={() => {
                 setSelectedType(type);
-                if (type === 'check') setAmount((remaining / 100).toFixed(2));
+                if (type === 'check' || type === 'card') setAmount((remaining / 100).toFixed(2));
               }}
               className={`flex w-full items-center gap-3 rounded-xl border px-4 py-4 text-left transition-all active:scale-[0.98] ${color}`}
             >
               <Icon className="h-6 w-6" />
               <span className="text-base font-semibold">{label}</span>
-            </button>
-          ))}
-          {DISABLED_TYPES.map(({ label, icon: Icon, note }) => (
-            <button
-              key={label}
-              type="button"
-              disabled
-              className="flex w-full items-center gap-3 rounded-xl border border-gray-200 px-4 py-4 text-left opacity-50"
-            >
-              <Icon className="h-6 w-6 text-gray-400" />
-              <span className="text-base font-medium text-gray-400">{label}</span>
-              <span className="ml-auto text-xs text-gray-400">{note}</span>
             </button>
           ))}
         </div>
@@ -297,6 +294,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
             setAmount('');
             setTipAmount('');
             setCheckNumber('');
+            setCardToken('');
           }}
           className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:scale-[0.97]"
         >
@@ -356,6 +354,27 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           </div>
         )}
 
+        {/* Card token input (V1: manual token from CardSecure iframe or device) */}
+        {selectedType === 'card' && (
+          <div>
+            <label htmlFor="pp-card-token" className="block text-xs font-medium text-gray-500 mb-1">
+              Card Token
+            </label>
+            <input
+              id="pp-card-token"
+              type="text"
+              value={cardToken}
+              onChange={(e) => setCardToken(e.target.value)}
+              placeholder="Scan card or enter token"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+              autoFocus
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Token from card reader or CardSecure hosted field
+            </p>
+          </div>
+        )}
+
         {/* Numpad */}
         <Numpad value={amount} onChange={setAmount} disabled={isSubmitting} />
 
@@ -390,7 +409,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         </button>
 
         {/* Tip section */}
-        {config.tipEnabled && selectedType === 'cash' && (
+        {config.tipEnabled && (selectedType === 'cash' || selectedType === 'card') && (
           <div>
             <label htmlFor="pp-tip" className="block text-xs font-medium text-gray-500 mb-1">
               Tip
@@ -457,7 +476,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         <button
           type="button"
           onClick={() => handleSubmit()}
-          disabled={isSubmitting || amountCents <= 0 || (selectedType === 'check' && !checkNumber.trim())}
+          disabled={isSubmitting || amountCents <= 0 || (selectedType === 'check' && !checkNumber.trim()) || (selectedType === 'card' && !cardToken.trim())}
           className="flex-[2] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-indigo-300"
         >
           {isSubmitting ? 'Processing...' : `Pay ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : ''}`}

@@ -126,7 +126,23 @@ function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
 }
 
-function parseCsvLine(line: string): string[] {
+function detectDelimiter(headerLine: string): string {
+  const candidates = [',', '\t', ';', '|'];
+  let best = ',';
+  let bestCount = 0;
+  for (const d of candidates) {
+    let count = 0;
+    let inQ = false;
+    for (const ch of headerLine) {
+      if (ch === '"') inQ = !inQ;
+      else if (ch === d && !inQ) count++;
+    }
+    if (count > bestCount) { bestCount = count; best = d; }
+  }
+  return best;
+}
+
+function parseCsvLine(line: string, delimiter = ','): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -140,7 +156,7 @@ function parseCsvLine(line: string): string[] {
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (char === ',' && !inQuotes) {
+    } else if (char === delimiter && !inQuotes) {
       result.push(current.trim());
       current = '';
     } else {
@@ -149,6 +165,20 @@ function parseCsvLine(line: string): string[] {
   }
   result.push(current.trim());
   return result;
+}
+
+const ROW_TYPE_HEADER_MARKERS = new Set(['hdr', 'rec', 'record_type', 'recordtype', 'row_type', 'rowtype', 'type']);
+
+function detectRowTypePrefix(headers: string[], firstFewRows: string[][]): boolean {
+  if (headers.length < 2) return false;
+  const firstHeader = headers[0]!.toLowerCase().trim();
+  if (!ROW_TYPE_HEADER_MARKERS.has(firstHeader)) return false;
+  if (firstFewRows.length === 0) return false;
+  const prefixRe = /^[A-Z]{1,6}$/;
+  const firstVal = firstFewRows[0]?.[0]?.trim() ?? '';
+  if (!prefixRe.test(firstVal)) return false;
+  const matchCount = firstFewRows.filter((r) => (r[0]?.trim() ?? '') === firstVal).length;
+  return matchCount / firstFewRows.length >= 0.8;
 }
 
 function resolveColumnIndex(headerColumns: string[], targetAliases: string[]): number {
@@ -193,17 +223,36 @@ export function parseCsvImport(
     return { isValid: false, errors, warnings, parsedAccounts: [], stateDetections };
   }
 
+  // Detect delimiter from header line
+  const delimiter = detectDelimiter(lines[0]!);
+
   // Parse header
-  const headerCols = parseCsvLine(lines[0]!);
+  const headerCols = parseCsvLine(lines[0]!, delimiter);
+
+  // Parse all data rows first (needed for row-type prefix detection)
+  const allParsedRows: string[][] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCsvLine(lines[i]!, delimiter);
+    if (vals.every((v) => !v)) continue; // skip empty rows
+    allParsedRows.push(vals);
+  }
+
+  // Detect and strip row-type prefix column (e.g., HDR/CU from legacy system exports)
+  let finalHeaders = headerCols;
+  let finalRows = allParsedRows;
+  if (detectRowTypePrefix(headerCols, allParsedRows.slice(0, 10))) {
+    finalHeaders = headerCols.slice(1);
+    finalRows = allParsedRows.map((r) => r.slice(1));
+  }
 
   // Resolve columns
-  const acctNumIdx = resolveColumnIndex(headerCols, COLUMN_ALIASES.accountNumber!);
-  const nameIdx = resolveColumnIndex(headerCols, COLUMN_ALIASES.name!);
-  const typeIdx = resolveColumnIndex(headerCols, COLUMN_ALIASES.accountType!);
-  const parentIdx = resolveColumnIndex(headerCols, COLUMN_ALIASES.parentAccountNumber!);
-  const classIdx = resolveColumnIndex(headerCols, COLUMN_ALIASES.classificationName!);
-  const descIdx = resolveColumnIndex(headerCols, COLUMN_ALIASES.description!);
-  const activeIdx = resolveColumnIndex(headerCols, COLUMN_ALIASES.isActive!);
+  const acctNumIdx = resolveColumnIndex(finalHeaders, COLUMN_ALIASES.accountNumber!);
+  const nameIdx = resolveColumnIndex(finalHeaders, COLUMN_ALIASES.name!);
+  const typeIdx = resolveColumnIndex(finalHeaders, COLUMN_ALIASES.accountType!);
+  const parentIdx = resolveColumnIndex(finalHeaders, COLUMN_ALIASES.parentAccountNumber!);
+  const classIdx = resolveColumnIndex(finalHeaders, COLUMN_ALIASES.classificationName!);
+  const descIdx = resolveColumnIndex(finalHeaders, COLUMN_ALIASES.description!);
+  const activeIdx = resolveColumnIndex(finalHeaders, COLUMN_ALIASES.isActive!);
 
   // Require at minimum accountNumber + name
   if (acctNumIdx === -1) {
@@ -217,13 +266,13 @@ export function parseCsvImport(
     return { isValid: false, errors, warnings, parsedAccounts: [], stateDetections };
   }
 
-  // Parse rows
+  // Validate rows
   const parsedAccounts: ParsedAccount[] = [];
   const seenNumbers = new Set<string>();
 
-  for (let i = 1; i < lines.length; i++) {
-    const rowNum = i + 1; // 1-indexed with header
-    const values = parseCsvLine(lines[i]!);
+  for (let i = 0; i < finalRows.length; i++) {
+    const rowNum = i + 2; // 1-indexed with header
+    const values = finalRows[i]!;
 
     const rawNumber = values[acctNumIdx]?.trim().replace(/"/g, '') ?? '';
     const rawName = values[nameIdx]?.trim().replace(/"/g, '') ?? '';

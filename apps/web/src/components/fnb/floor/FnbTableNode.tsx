@@ -26,6 +26,8 @@ interface FnbTableNodeProps {
   displayMode?: FloorDisplayMode;
   /** Predicted turn time in minutes */
   predictedTurnMinutes?: number | null;
+  /** Dim this table (not in server's section) */
+  dimmed?: boolean;
 }
 
 function formatElapsed(seatedAt: string | null): string {
@@ -61,7 +63,7 @@ export function FnbTableNode({
   table, isSelected, onTap, onLongPress, onAddTab, onContextMenu,
   scalePxPerFt, viewScale, guestPayActive,
   serverInitials, checkTotalCents, courseLabel, displayMode = 'status',
-  predictedTurnMinutes,
+  predictedTurnMinutes, dimmed,
 }: FnbTableNodeProps) {
   const statusColor = FNB_TABLE_STATUS_COLORS[table.status] ?? '#6b7280';
   const statusLabel = FNB_TABLE_STATUS_LABELS[table.status] ?? table.status;
@@ -127,6 +129,8 @@ export function FnbTableNode({
         transformOrigin: 'center center',
         fontSize: `${Math.max(10, 14 * viewScale)}px`,
         animation: isNeglected ? 'fnb-neglect-pulse 2s ease-in-out infinite' : undefined,
+        opacity: dimmed ? 0.25 : undefined,
+        pointerEvents: dimmed ? 'none' : undefined,
       }}
     >
       {/* Server initials badge (top-left) */}

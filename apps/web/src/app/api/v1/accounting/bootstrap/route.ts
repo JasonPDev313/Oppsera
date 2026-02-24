@@ -16,12 +16,12 @@ export const POST = withMiddleware(
       return NextResponse.json({ data: result }, { status: 201 });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Bootstrap failed';
-      // Surface DB column/constraint errors clearly — usually means migrations are pending
-      const isDbError = message.includes('column') || message.includes('relation') || message.includes('constraint');
+      // Distinguish schema errors (missing columns/tables) from constraint errors (duplicate data)
+      const isSchemaError = message.includes('column') || message.includes('relation');
       console.error('[accounting/bootstrap] Error:', message);
       return NextResponse.json(
-        { error: { code: 'BOOTSTRAP_ERROR', message: isDbError ? `Database schema mismatch — run pending migrations (pnpm db:migrate). Detail: ${message}` : message } },
-        { status: isDbError ? 500 : 400 },
+        { error: { code: 'BOOTSTRAP_ERROR', message: isSchemaError ? `Database schema mismatch — run pending migrations (pnpm db:migrate). Detail: ${message}` : message } },
+        { status: isSchemaError ? 500 : 400 },
       );
     }
   },

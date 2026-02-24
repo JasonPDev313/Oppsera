@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { RefreshCw, Plus, Minus, Maximize2, LayoutGrid, Map, Eye } from 'lucide-react';
+import { RefreshCw, Plus, Minus, Maximize2, LayoutGrid, Map, Eye, Pencil } from 'lucide-react';
 import type { FloorDisplayMode } from './FnbTableNode';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbFloor, useFnbRooms, useTableActions } from '@/hooks/use-fnb-floor';
@@ -15,6 +15,8 @@ import { SeatGuestsModal } from './SeatGuestsModal';
 import { TableActionMenu } from './TableActionMenu';
 import { TableGridView } from './TableGridView';
 import { FloorBackgroundObjects } from './FloorBackgroundObjects';
+import { MySectionDialog } from './MySectionDialog';
+import { useMySection } from '@/hooks/use-my-section';
 
 // ── Turn Time Prediction ────────────────────────────────────────
 // V1: Simple heuristic based on party size and elapsed time.
@@ -73,6 +75,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   const actions = useTableActions(refresh);
 
+  // ── My Section ────────────────────────────────────────────
+  const mySection = useMySection({ roomId: activeRoomId, userId });
+
   // ── Local UI State ──────────────────────────────────────────
 
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
@@ -90,8 +95,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       setActionMenuOpen(false);
       setSeatTargetTable(null);
       setActionMenuTable(null);
+      store.setMySectionEditing(false);
     }
-  }, [isActive]);
+  }, [isActive, store]);
 
   // Derive locationId from the active room (needed for API calls)
   const activeRoom = rooms.find((r) => r.id === activeRoomId);
@@ -214,19 +220,26 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   const handleTouchEnd = useCallback(() => { lastPinchDist.current = null; }, []);
 
-  // ── Stats ───────────────────────────────────────────────────
+  // ── Stats (scoped by My Section filter when active) ────────
+
+  const statsTables = useMemo(
+    () => store.mySectionOnly && mySection.hasSelection
+      ? tables.filter((t) => mySection.myTableIds.has(t.tableId))
+      : tables,
+    [tables, store.mySectionOnly, mySection.hasSelection, mySection.myTableIds],
+  );
 
   const totalCovers = useMemo(
-    () => tables.reduce((sum, t) => sum + (t.partySize ?? 0), 0),
-    [tables],
+    () => statsTables.reduce((sum, t) => sum + (t.partySize ?? 0), 0),
+    [statsTables],
   );
   const availableCount = useMemo(
-    () => tables.filter((t) => t.status === 'available').length,
-    [tables],
+    () => statsTables.filter((t) => t.status === 'available').length,
+    [statsTables],
   );
   const seatedCount = useMemo(
-    () => tables.filter((t) => !['available', 'dirty', 'blocked'].includes(t.status)).length,
-    [tables],
+    () => statsTables.filter((t) => !['available', 'dirty', 'blocked'].includes(t.status)).length,
+    [statsTables],
   );
 
   // ── Sync with feedback ─────────────────────────────────────
@@ -443,17 +456,37 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                 <LayoutGrid className="h-3.5 w-3.5" />
               </button>
             </div>
-            <button
-              type="button"
-              onClick={() => store.toggleMySectionOnly()}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                store.mySectionOnly
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              My Section
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!mySection.hasSelection) {
+                    store.setMySectionEditing(true);
+                  } else {
+                    store.toggleMySectionOnly();
+                  }
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  store.mySectionOnly
+                    ? 'bg-indigo-600 text-white'
+                    : mySection.hasSelection
+                      ? 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                My Section{mySection.hasSelection ? ` (${mySection.selectedCount})` : ''}
+              </button>
+              {mySection.hasSelection && (
+                <button
+                  type="button"
+                  onClick={() => store.setMySectionEditing(true)}
+                  className="flex items-center justify-center rounded-lg h-7 w-7 transition-colors text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                  title="Edit my section"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+            </div>
             {/* Display mode selector */}
             <div className="relative group">
               <button
@@ -533,6 +566,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               onLongPress={handleTableLongPress}
               onAddTab={handleAddTab}
               onContextMenu={handleTableContextMenu}
+              filteredTableIds={store.mySectionOnly && mySection.hasSelection ? mySection.myTableIds : undefined}
             />
           ) : (
             <div className="p-4 relative h-full">
@@ -592,22 +626,26 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                     />
                   )}
                   {/* Interactive table layer (above background) */}
-                  {tables.map((table) => (
-                    <FnbTableNode
-                      key={table.tableId}
-                      table={table}
-                      isSelected={table.tableId === selectedTableId}
-                      onTap={handleTableTap}
-                      onLongPress={handleTableLongPress}
-                      onAddTab={handleAddTab}
-                      onContextMenu={handleTableContextMenu}
-                      scalePxPerFt={scalePxPerFt}
-                      viewScale={effectiveScale}
-                      guestPayActive={table.guestPayActive}
-                      displayMode={store.floorDisplayMode}
-                      predictedTurnMinutes={predictTurnMinutes(table)}
-                    />
-                  ))}
+                  {tables.map((table) => {
+                    const isDimmed = store.mySectionOnly && mySection.hasSelection && !mySection.myTableIds.has(table.tableId);
+                    return (
+                      <FnbTableNode
+                        key={table.tableId}
+                        table={table}
+                        isSelected={table.tableId === selectedTableId}
+                        onTap={handleTableTap}
+                        onLongPress={handleTableLongPress}
+                        onAddTab={handleAddTab}
+                        onContextMenu={handleTableContextMenu}
+                        scalePxPerFt={scalePxPerFt}
+                        viewScale={effectiveScale}
+                        guestPayActive={table.guestPayActive}
+                        displayMode={store.floorDisplayMode}
+                        predictedTurnMinutes={predictTurnMinutes(table)}
+                        dimmed={isDimmed}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -621,8 +659,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           seatedCount={seatedCount}
           onNewTab={handleNewTab}
           onRefresh={refresh}
-          openRevenueCents={tables.reduce((sum, t) => sum + (t.checkTotalCents ?? 0), 0)}
-          avgTurnMinutes={computeAvgTurnMinutes(tables)}
+          openRevenueCents={statsTables.reduce((sum, t) => sum + (t.checkTotalCents ?? 0), 0)}
+          avgTurnMinutes={computeAvgTurnMinutes(statsTables)}
         />
       </div>
 
@@ -635,6 +673,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           mySectionOnly={store.mySectionOnly}
           currentUserId={userId}
           onTableTap={handleTableTap}
+          myTableIds={mySection.hasSelection ? mySection.myTableIds : undefined}
         />
       )}
 
@@ -645,6 +684,13 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
         tableNumber={seatTargetTable?.tableNumber ?? 0}
         tableCapacity={seatTargetTable?.capacityMax ?? 4}
         onConfirm={handleSeatConfirm}
+      />
+
+      <MySectionDialog
+        open={store.mySectionEditing}
+        onClose={() => store.setMySectionEditing(false)}
+        tables={tables}
+        section={mySection}
       />
 
       <TableActionMenu

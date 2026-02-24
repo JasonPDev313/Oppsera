@@ -105,6 +105,27 @@ export function usePaymentSession({ tabId }: UsePaymentSessionOptions) {
     [refresh],
   );
 
+  const processCardPayment = useCallback(
+    async (input: {
+      sessionId: string;
+      amountCents: number;
+      tipCents?: number;
+      token?: string;
+      paymentMethodId?: string;
+      orderId?: string;
+      customerId?: string;
+      clientRequestId: string;
+    }) => {
+      const res = await apiFetch<{ data: unknown }>('/api/v1/fnb/payments/card', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      await refresh();
+      return res.data;
+    },
+    [refresh],
+  );
+
   return {
     sessions,
     isLoading,
@@ -114,6 +135,7 @@ export function usePaymentSession({ tabId }: UsePaymentSessionOptions) {
     failSession,
     recordTender,
     voidLastTender,
+    processCardPayment,
   };
 }
 

@@ -12,6 +12,8 @@ interface TableGridViewProps {
   onLongPress?: (tableId: string) => void;
   onAddTab?: (tableId: string) => void;
   onContextMenu?: (tableId: string) => void;
+  /** When provided, only show tables in this set */
+  filteredTableIds?: Set<string>;
 }
 
 function formatElapsed(seatedAt: string | null): string {
@@ -21,11 +23,13 @@ function formatElapsed(seatedAt: string | null): string {
   return `${Math.floor(minutes / 60)}h${minutes % 60}m`;
 }
 
-export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onAddTab, onContextMenu }: TableGridViewProps) {
-  const sorted = useMemo(
-    () => [...tables].sort((a, b) => a.tableNumber - b.tableNumber),
-    [tables],
-  );
+export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onAddTab, onContextMenu, filteredTableIds }: TableGridViewProps) {
+  const sorted = useMemo(() => {
+    const base = filteredTableIds
+      ? tables.filter((t) => filteredTableIds.has(t.tableId))
+      : tables;
+    return [...base].sort((a, b) => a.tableNumber - b.tableNumber);
+  }, [tables, filteredTableIds]);
 
   return (
     <div className="flex flex-wrap gap-3 p-4 content-start">

@@ -4,3 +4,5 @@ export { listTenders } from './list-tenders';
 export type { ListTendersInput, ListTendersResult } from './list-tenders';
 export { getPaymentJournalEntries } from './get-payment-journal-entries';
 export type { GetJournalInput, GetJournalResult } from './get-payment-journal-entries';
+export { listPaymentMethods } from './list-payment-methods';
+export type { StoredPaymentMethod } from './list-payment-methods';

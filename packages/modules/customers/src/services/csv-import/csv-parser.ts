@@ -60,6 +60,22 @@ export interface ParseError {
   message: string;
 }
 
+// ── Row-Type Prefix Detection ───────────────────────────────────────
+
+const ROW_TYPE_HEADER_MARKERS = new Set(['hdr', 'rec', 'record_type', 'recordtype', 'row_type', 'rowtype', 'type']);
+
+function detectRowTypePrefix(headers: string[], firstFewRows: string[][]): boolean {
+  if (headers.length < 2) return false;
+  const firstHeader = headers[0]!.toLowerCase().trim();
+  if (!ROW_TYPE_HEADER_MARKERS.has(firstHeader)) return false;
+  if (firstFewRows.length === 0) return false;
+  const prefixRe = /^[A-Z]{1,6}$/;
+  const firstVal = firstFewRows[0]?.[0]?.trim() ?? '';
+  if (!prefixRe.test(firstVal)) return false;
+  const matchCount = firstFewRows.filter((r) => (r[0]?.trim() ?? '') === firstVal).length;
+  return matchCount / firstFewRows.length >= 0.8;
+}
+
 // ── Main Parser ─────────────────────────────────────────────────────
 
 export function parseCsvContent(
@@ -105,12 +121,20 @@ export function parseCsvContent(
     return { error: { message: 'No data rows found after header' } };
   }
 
+  // Detect and strip row-type prefix column (e.g., HDR/CU from legacy system exports)
+  let finalHeaders = headers;
+  let finalRows = rows;
+  if (detectRowTypePrefix(headers, rows.slice(0, 10))) {
+    finalHeaders = headers.slice(1);
+    finalRows = rows.map((r) => r.slice(1));
+  }
+
   return {
     data: {
-      headers,
-      rows,
+      headers: finalHeaders,
+      rows: finalRows,
       delimiter,
-      totalRows: rows.length,
+      totalRows: finalRows.length,
     },
   };
 }

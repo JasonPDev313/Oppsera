@@ -41,6 +41,7 @@ export const tenders = pgTable(
     giftCardId: text('gift_card_id'),
     employeeId: text('employee_id').notNull(),
     terminalId: text('terminal_id').notNull(),
+    paymentIntentId: text('payment_intent_id'), // FK to payment_intents (app-enforced, avoids circular schema import)
     drawerEventId: text('drawer_event_id'),
     allocationSnapshot: jsonb('allocation_snapshot'),
     metadata: jsonb('metadata'),

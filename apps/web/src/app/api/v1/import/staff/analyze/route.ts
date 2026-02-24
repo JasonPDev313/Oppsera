@@ -16,6 +16,7 @@ async function handler(req: NextRequest) {
   const contentType = req.headers.get('content-type') ?? '';
 
   let csvText: string;
+  let uploadedFileName = 'upload.csv';
 
   if (contentType.includes('multipart/form-data')) {
     const formData = await req.formData();
@@ -27,6 +28,7 @@ async function handler(req: NextRequest) {
       );
     }
     csvText = await file.text();
+    uploadedFileName = file.name || 'upload.csv';
   } else {
     csvText = await req.text();
   }
@@ -47,9 +49,7 @@ async function handler(req: NextRequest) {
       data: {
         ...analysis,
         delimiter,
-        fileName: contentType.includes('multipart/form-data')
-          ? ((await req.formData?.()) as any)?.get?.('file')?.name ?? 'upload.csv'
-          : 'upload.csv',
+        fileName: uploadedFileName,
         rawRowCount: rows.length,
       },
     });

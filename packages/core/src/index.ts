@@ -106,6 +106,16 @@ export { getAccountingPostingApi, setAccountingPostingApi } from './helpers/acco
 export type { AccountingPostingApi, AccountingPostJournalInput } from './helpers/accounting-posting-api';
 export { getOrdersWriteApi, setOrdersWriteApi } from './helpers/orders-write-api';
 export type { OrdersWriteApi, OrdersWriteOpenInput, OrdersWriteAddLineInput, OrdersWriteUpdateInput, OrdersWriteResult } from './helpers/orders-write-api';
+export { getPaymentsGatewayApi, setPaymentsGatewayApi, hasPaymentsGateway } from './helpers/payments-gateway-api';
+export type {
+  PaymentsGatewayApi,
+  GatewayAuthorizeInput,
+  GatewayCaptureInput,
+  GatewaySaleInput,
+  GatewayVoidInput,
+  GatewayRefundInput,
+  GatewayResult,
+} from './helpers/payments-gateway-api';
 export { getReconciliationReadApi, setReconciliationReadApi } from './helpers/reconciliation-read-api';
 export type {
   ReconciliationReadApi,

@@ -41,6 +41,7 @@ export interface FnbPosState {
   menuColumns: 2 | 3 | 4;
   menuMode: 'all_items' | 'hot_sellers' | 'tools';
   mySectionOnly: boolean;
+  mySectionEditing: boolean;
   leftHandMode: boolean;
   tileSize: 'compact' | 'standard' | 'large';
   skipPaymentConfirm: boolean;
@@ -88,6 +89,7 @@ export interface FnbPosActions {
   setMenuColumns: (columns: 2 | 3 | 4) => void;
   setMenuMode: (mode: 'all_items' | 'hot_sellers' | 'tools') => void;
   toggleMySectionOnly: () => void;
+  setMySectionEditing: (editing: boolean) => void;
   toggleLeftHandMode: () => void;
   setTileSize: (size: 'compact' | 'standard' | 'large') => void;
   toggleSkipPaymentConfirm: () => void;
@@ -147,6 +149,7 @@ const initialState: FnbPosState = {
   menuColumns: 3,
   menuMode: 'all_items' as const,
   mySectionOnly: false,
+  mySectionEditing: false,
   leftHandMode: getPersistedLeftHandMode(),
   tileSize: getPersistedTileSize(),
   skipPaymentConfirm: getPersistedSkipConfirm(),
@@ -377,6 +380,12 @@ export const useFnbPosStore = create<FnbPosState & FnbPosActions>()(
     toggleMySectionOnly: () => {
       set((state) => {
         state.mySectionOnly = !state.mySectionOnly;
+      });
+    },
+
+    setMySectionEditing: (editing) => {
+      set((state) => {
+        state.mySectionEditing = editing;
       });
     },
 

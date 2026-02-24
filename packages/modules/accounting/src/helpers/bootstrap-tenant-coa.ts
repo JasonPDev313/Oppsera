@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Database } from '@oppsera/db';
 import {
   glAccounts,
@@ -46,18 +46,18 @@ export async function bootstrapTenantCoa(
     .from(glClassificationTemplates)
     .where(eq(glClassificationTemplates.templateKey, 'shared'));
 
-  // 2. Insert classifications
+  // 2. Insert classifications (ON CONFLICT skip — safe for retries after partial failure)
   const classificationMap = new Map<string, string>(); // name → id
   for (const ct of classificationTemplates) {
     const id = generateUlid();
-    classificationMap.set(ct.name, id);
-    await tx.insert(glClassifications).values({
-      id,
-      tenantId,
-      name: ct.name,
-      accountType: ct.accountType,
-      sortOrder: ct.sortOrder,
-    });
+    const result = await tx.execute(
+      sql`INSERT INTO gl_classifications (id, tenant_id, name, account_type, sort_order, created_at, updated_at)
+          VALUES (${id}, ${tenantId}, ${ct.name}, ${ct.accountType}, ${ct.sortOrder}, NOW(), NOW())
+          ON CONFLICT (tenant_id, name) DO UPDATE SET id = gl_classifications.id
+          RETURNING id`,
+    );
+    const row = Array.from(result as Iterable<{ id: string }>)[0];
+    classificationMap.set(ct.name, row!.id);
   }
 
   // 3. Load account templates for the requested business type
@@ -79,64 +79,52 @@ export async function bootstrapTenantCoa(
     ? applyStatePlaceholders(accountTemplates, stateName)
     : accountTemplates;
 
-  // 4. Insert accounts
+  // 4. Insert accounts (ON CONFLICT skip — safe for retries after partial failure)
   const controlAccountIds: Record<string, string> = {};
 
   for (const at of resolvedTemplates) {
     const id = generateUlid();
     const classificationId = classificationMap.get(at.classificationName) ?? null;
 
-    await tx.insert(glAccounts).values({
-      id,
-      tenantId,
-      accountNumber: at.accountNumber,
-      name: at.name,
-      accountType: at.accountType,
-      normalBalance: at.normalBalance,
-      classificationId,
-      isActive: true,
-      isControlAccount: at.isControlAccount,
-      controlAccountType: at.controlAccountType,
-      allowManualPosting: true,
-    });
+    const result = await tx.execute(
+      sql`INSERT INTO gl_accounts (id, tenant_id, account_number, name, account_type, normal_balance, classification_id, is_active, is_control_account, control_account_type, allow_manual_posting, created_at, updated_at)
+          VALUES (${id}, ${tenantId}, ${at.accountNumber}, ${at.name}, ${at.accountType}, ${at.normalBalance}, ${classificationId}, true, ${at.isControlAccount ?? false}, ${at.controlAccountType ?? null}, true, NOW(), NOW())
+          ON CONFLICT (tenant_id, account_number) DO UPDATE SET id = gl_accounts.id
+          RETURNING id, control_account_type`,
+    );
+    const row = Array.from(result as Iterable<{ id: string; control_account_type: string | null }>)[0];
+    const accountId = row!.id;
 
-    if (at.controlAccountType) {
-      controlAccountIds[at.controlAccountType] = id;
+    if (row!.control_account_type) {
+      controlAccountIds[row!.control_account_type] = accountId;
     }
 
     // Track special accounts by number
     if (at.accountNumber === '3000') {
-      controlAccountIds['retained_earnings'] = id;
+      controlAccountIds['retained_earnings'] = accountId;
     }
     if (at.accountNumber === '9999') {
-      controlAccountIds['rounding'] = id;
+      controlAccountIds['rounding'] = accountId;
     }
     if (at.accountNumber === '2160') {
-      controlAccountIds['tips_payable'] = id;
+      controlAccountIds['tips_payable'] = accountId;
     }
     if (at.accountNumber === '4500') {
-      controlAccountIds['service_charge_revenue'] = id;
+      controlAccountIds['service_charge_revenue'] = accountId;
     }
     if (at.accountNumber === '49900') {
-      controlAccountIds['uncategorized_revenue'] = id;
+      controlAccountIds['uncategorized_revenue'] = accountId;
     }
   }
 
   // 5. Create accounting_settings with sensible defaults
   // Base columns from migration 0075 — always safe to insert
-  await tx.insert(accountingSettings).values({
-    tenantId,
-    baseCurrency: 'USD',
-    fiscalYearStartMonth: 1,
-    autoPostMode: 'auto_post',
-    defaultAPControlAccountId: controlAccountIds['ap'] ?? null,
-    defaultARControlAccountId: controlAccountIds['ar'] ?? null,
-    defaultSalesTaxPayableAccountId: controlAccountIds['sales_tax'] ?? null,
-    defaultUndepositedFundsAccountId: controlAccountIds['undeposited_funds'] ?? null,
-    defaultRetainedEarningsAccountId: controlAccountIds['retained_earnings'] ?? null,
-    defaultRoundingAccountId: controlAccountIds['rounding'] ?? null,
-    roundingToleranceCents: 5,
-  });
+  // ON CONFLICT skip — safe for retries
+  await tx.execute(
+    sql`INSERT INTO accounting_settings (tenant_id, base_currency, fiscal_year_start_month, auto_post_mode, default_ap_control_account_id, default_ar_control_account_id, default_sales_tax_payable_account_id, default_undeposited_funds_account_id, default_retained_earnings_account_id, default_rounding_account_id, rounding_tolerance_cents)
+        VALUES (${tenantId}, 'USD', 1, 'auto_post', ${controlAccountIds['ap'] ?? null}, ${controlAccountIds['ar'] ?? null}, ${controlAccountIds['sales_tax'] ?? null}, ${controlAccountIds['undeposited_funds'] ?? null}, ${controlAccountIds['retained_earnings'] ?? null}, ${controlAccountIds['rounding'] ?? null}, 5)
+        ON CONFLICT (tenant_id) DO NOTHING`,
+  );
 
   // Extended columns from later migrations (0084, 0099, 0100, 0135, etc.)
   // If these columns don't exist yet, the UPDATE fails silently — bootstrap still succeeds

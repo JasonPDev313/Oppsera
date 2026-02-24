@@ -34,12 +34,12 @@ const CASH_RATIO = 0.33;
 const CUSTOMER_ASSIGN_RATE = 0.40;
 
 // Seasonal base revenue per day (in dollars)
-// With avg order ~$53, need ~18,900 paid orders for $1M revenue
-// 366 days × ~52 orders/day = ~19,000 orders → bumped daily revenue targets
+// Targets ~$1M total: 366 days × ~$2,730/day avg
+// Actual avg order ~$98 → ~10,200 paid orders → ~11,100 total
 const SEASON_BASE: Record<string, number> = {
-  summer: 5200,   // Jun-Aug: ~$5,200/day
-  shoulder: 3800, // Apr-May, Sep-Oct: ~$3,800/day
-  winter: 2400,   // Nov-Mar: ~$2,400/day
+  summer: 4000,   // Jun-Aug: peak golf season
+  shoulder: 2800, // Apr-May, Sep-Oct
+  winter: 1700,   // Nov-Mar: off-season
 };
 
 // Tournament days — scattered through the year (day offsets from start)

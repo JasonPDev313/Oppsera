@@ -2163,3 +2163,30 @@ export const getFnbDashboardSchema = z.object({
 });
 
 export type GetFnbDashboardInput = z.input<typeof getFnbDashboardSchema>;
+
+// ── My Section ────────────────────────────────────────────────────
+
+export const saveMySectionSchema = z.object({
+  roomId: z.string().min(1),
+  tableIds: z.array(z.string().min(1)).max(100),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export type SaveMySectionInput = z.input<typeof saveMySectionSchema>;
+
+export const getMySectionFilterSchema = z.object({
+  tenantId: z.string().min(1),
+  serverUserId: z.string().min(1),
+  roomId: z.string().min(1),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export type GetMySectionFilterInput = z.input<typeof getMySectionFilterSchema>;
+
+export const getRoomSectionAssignmentsFilterSchema = z.object({
+  tenantId: z.string().min(1),
+  roomId: z.string().min(1),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+
+export type GetRoomSectionAssignmentsFilterInput = z.input<typeof getRoomSectionAssignmentsFilterSchema>;

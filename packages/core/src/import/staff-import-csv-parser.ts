@@ -13,6 +13,30 @@ export interface ParsedCsv {
   delimiter: string;
 }
 
+/**
+ * Known row-type prefixes used by legacy golf/club management systems.
+ * When the first column header matches one of these and data rows have a
+ * consistent prefix value (e.g., "CU" for course users), we strip the
+ * prefix column since it's a record-type marker, not real data.
+ */
+const ROW_TYPE_HEADER_MARKERS = new Set(['hdr', 'rec', 'record_type', 'recordtype', 'row_type', 'rowtype', 'type']);
+
+function detectRowTypePrefix(headers: string[], firstFewRows: string[][]): boolean {
+  if (headers.length < 2) return false;
+  const firstHeader = headers[0]!.toLowerCase().trim();
+  if (!ROW_TYPE_HEADER_MARKERS.has(firstHeader)) return false;
+
+  // Verify data rows all have a short constant prefix (2-4 uppercase chars)
+  if (firstFewRows.length === 0) return false;
+  const prefixRe = /^[A-Z]{1,6}$/;
+  const firstVal = firstFewRows[0]?.[0]?.trim() ?? '';
+  if (!prefixRe.test(firstVal)) return false;
+
+  // Check that at least 80% of rows share the same prefix
+  const matchCount = firstFewRows.filter((r) => (r[0]?.trim() ?? '') === firstVal).length;
+  return matchCount / firstFewRows.length >= 0.8;
+}
+
 export function parseStaffCsv(raw: string): ParsedCsv {
   if (raw.length > MAX_FILE_SIZE) {
     throw new Error(`File too large (max ${MAX_FILE_SIZE / 1024 / 1024}MB)`);
@@ -32,7 +56,7 @@ export function parseStaffCsv(raw: string): ParsedCsv {
     throw new Error('File must have at least a header row and one data row');
   }
 
-  const headers = parseLine(lines[0]!, delimiter).map((h) => h.trim());
+  let headers = parseLine(lines[0]!, delimiter).map((h) => h.trim());
   const rows: string[][] = [];
 
   for (let i = 1; i < lines.length && rows.length < MAX_ROWS; i++) {
@@ -46,6 +70,14 @@ export function parseStaffCsv(raw: string): ParsedCsv {
 
   if (rows.length === 0) {
     throw new Error('No data rows found after header');
+  }
+
+  // Detect and strip row-type prefix column (e.g., HDR/CU from Club Caddie exports)
+  if (detectRowTypePrefix(headers, rows.slice(0, 10))) {
+    headers = headers.slice(1);
+    for (let i = 0; i < rows.length; i++) {
+      rows[i] = rows[i]!.slice(1);
+    }
   }
 
   return { headers, rows, delimiter };

@@ -1205,6 +1205,27 @@
       "when": 1708100171000,
       "tag": "0171_platform_backups",
       "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1708100172000,
+      "tag": "0172_payment_gateway_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1708100173000,
+      "tag": "0173_fnb_my_section_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1708100174000,
+      "tag": "0174_payment_profile_extensions",
+      "breakpoints": true
     }
   ]
 }

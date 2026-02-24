@@ -69,3 +69,4 @@ export * from './tags';
 export * from './semantic-intelligence';
 export * from './nav-preferences';
 export * from './backup';
+export * from './payment-gateway';

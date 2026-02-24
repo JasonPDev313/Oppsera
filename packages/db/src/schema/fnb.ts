@@ -287,6 +287,48 @@ export const fnbServerAssignments = pgTable(
   ],
 );
 
+// ── F&B My Section Tables ─────────────────────────────────────────
+// Lightweight per-server, per-day table claims. Queries always filter by
+// business_date so old rows are automatically invisible (no cleanup needed).
+export const fnbMySectionTables = pgTable(
+  'fnb_my_section_tables',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id')
+      .notNull()
+      .references(() => locations.id),
+    roomId: text('room_id')
+      .notNull()
+      .references(() => floorPlanRooms.id),
+    serverUserId: text('server_user_id').notNull(),
+    tableId: text('table_id')
+      .notNull()
+      .references(() => fnbTables.id),
+    businessDate: date('business_date').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_my_section_tenant_table_date').on(
+      table.tenantId,
+      table.tableId,
+      table.businessDate,
+    ),
+    index('idx_fnb_my_section_server_date').on(
+      table.tenantId,
+      table.serverUserId,
+      table.businessDate,
+    ),
+    index('idx_fnb_my_section_room_date').on(
+      table.tenantId,
+      table.roomId,
+      table.businessDate,
+    ),
+  ],
+);
+
 // ── F&B Shift Extensions ─────────────────────────────────────────
 export const fnbShiftExtensions = pgTable(
   'fnb_shift_extensions',

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { DollarSign, FileText, X } from 'lucide-react';
+import { CreditCard, DollarSign, FileText, X } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
@@ -19,6 +19,7 @@ function todayBusinessDate(): string {
 
 const TENDER_LABELS: Record<string, string> = {
   cash: 'Cash Payment',
+  card: 'Card Payment',
   check: 'Check Payment',
   voucher: 'Voucher Payment',
 };
@@ -28,7 +29,7 @@ interface TenderDialogProps {
   onClose: () => void;
   order: Order;
   config: POSConfig;
-  tenderType: 'cash' | 'check' | 'voucher';
+  tenderType: 'cash' | 'card' | 'check' | 'voucher';
   shiftId?: string;
   onPaymentComplete: (result: RecordTenderResult) => void;
   onPartialPayment?: (remaining: number, version: number) => void;
@@ -43,6 +44,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const [amountGiven, setAmountGiven] = useState('');
   const [tipAmount, setTipAmount] = useState('');
   const [checkNumber, setCheckNumber] = useState('');
+  const [cardToken, setCardToken] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<RecordTenderResult | null>(null);
 
@@ -68,6 +70,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       setAmountGiven('');
       setTipAmount('');
       setCheckNumber('');
+      setCardToken('');
       setLastResult(null);
       return;
     }
@@ -77,9 +80,10 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const fetchTenders = async () => {
     if (!order.id) return;
     // Don't fetch tenders for unplaced orders — there can't be any yet
+    const autoFillExact = tenderType === 'check' || tenderType === 'card';
     if (!isPlacedRef.current) {
       setTenderSummary(null);
-      if (tenderType === 'check') {
+      if (autoFillExact) {
         setAmountGiven((order.total / 100).toFixed(2));
       }
       return;
@@ -90,12 +94,12 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         { headers: locationHeaders },
       );
       setTenderSummary(res.data);
-      if (tenderType === 'check') {
+      if (autoFillExact) {
         setAmountGiven((res.data.summary.remainingBalance / 100).toFixed(2));
       }
     } catch {
       setTenderSummary(null);
-      if (tenderType === 'check') {
+      if (autoFillExact) {
         setAmountGiven((order.total / 100).toFixed(2));
       }
     }
@@ -130,6 +134,10 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       toast.error('Check number is required');
       return;
     }
+    if (tenderType === 'card' && !cardToken.trim()) {
+      toast.error('Card token is required — scan or swipe a card');
+      return;
+    }
     if (!order.id) {
       toast.error('Order is still being created — please wait');
       return;
@@ -155,6 +163,9 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       if (tenderType === 'check') {
         body.metadata = { checkNumber: checkNumber.trim() };
       }
+      if (tenderType === 'card') {
+        body.token = cardToken.trim();
+      }
 
       const res = await apiFetch<{ data: RecordTenderResult }>(
         `/api/v1/orders/${order.id}/place-and-pay`,
@@ -177,11 +188,16 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         setAmountGiven('');
         setTipAmount('');
         setCheckNumber('');
+        setCardToken('');
         await fetchTenders();
       }
     } catch (err) {
-      if (err instanceof ApiError && err.statusCode === 409) {
+      if (err instanceof ApiError && err.statusCode === 402) {
+        toast.error('Card declined — please try a different card');
+      } else if (err instanceof ApiError && err.statusCode === 409) {
         toast.error('Payment conflict — please try again');
+      } else if (err instanceof ApiError && err.statusCode === 502) {
+        toast.error('Card processing error — please try again');
       } else {
         const e = err instanceof Error ? err : new Error('Payment failed');
         toast.error(e.message);
@@ -218,8 +234,8 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
     );
   }
 
-  const HeaderIcon = tenderType === 'check' ? FileText : DollarSign;
-  const headerColor = tenderType === 'check' ? 'text-blue-600' : 'text-green-600';
+  const HeaderIcon = tenderType === 'card' ? CreditCard : tenderType === 'check' ? FileText : DollarSign;
+  const headerColor = tenderType === 'card' ? 'text-indigo-600' : tenderType === 'check' ? 'text-blue-600' : 'text-green-600';
 
   return createPortal(
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
@@ -255,8 +271,67 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
             </div>
           </div>
 
-          {/* Check-specific fields */}
-          {tenderType === 'check' ? (
+          {/* Card-specific fields */}
+          {tenderType === 'card' ? (
+            <>
+              {/* Card Token */}
+              <div>
+                <label htmlFor="cardToken" className="block text-sm font-medium text-gray-700 mb-1">
+                  Card Token
+                </label>
+                <input
+                  id="cardToken"
+                  type="text"
+                  value={cardToken}
+                  onChange={(e) => setCardToken(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 py-3 px-4 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  placeholder="Scan card or enter token"
+                  autoFocus
+                />
+                <p className="mt-1 text-xs text-gray-400">Token from card reader or CardSecure hosted field</p>
+              </div>
+              {/* Amount */}
+              <div>
+                <label htmlFor="amountGiven" className="block text-sm font-medium text-gray-700 mb-1">
+                  Charge Amount
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    id="amountGiven"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amountGiven}
+                    onChange={(e) => setAmountGiven(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 py-3 pl-8 pr-4 text-right text-xl font-bold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              {/* Tip section (card tips) */}
+              {config.tipEnabled && (
+                <div>
+                  <label htmlFor="tipAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                    Tip
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <input
+                      id="tipAmount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={tipAmount}
+                      onChange={(e) => setTipAmount(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 text-right text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          ) : tenderType === 'check' ? (
             <>
               {/* Amount */}
               <div>
@@ -393,11 +468,13 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
           <button
             type="button"
             onClick={() => handleSubmit()}
-            disabled={isSubmitting || amountCents <= 0 || (tenderType === 'check' && !checkNumber.trim())}
+            disabled={isSubmitting || amountCents <= 0 || (tenderType === 'check' && !checkNumber.trim()) || (tenderType === 'card' && !cardToken.trim())}
             className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-              tenderType === 'check'
-                ? 'bg-blue-600 hover:bg-blue-700'
-                : 'bg-green-600 hover:bg-green-700'
+              tenderType === 'card'
+                ? 'bg-indigo-600 hover:bg-indigo-700'
+                : tenderType === 'check'
+                  ? 'bg-blue-600 hover:bg-blue-700'
+                  : 'bg-green-600 hover:bg-green-700'
             }`}
           >
             {isSubmitting ? 'Processing...' : `Pay ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : ''}`}

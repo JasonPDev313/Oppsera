@@ -70,6 +70,15 @@ export async function register() {
       console.error('Failed to register customer consumers:', e);
     }
 
+    // ── Register payments gateway API (cross-module card processing) ──
+    try {
+      const { initializePaymentsGatewayApi } = await import('./lib/payments-bootstrap');
+      await initializePaymentsGatewayApi();
+      console.log('Initialized PaymentsGatewayApi singleton');
+    } catch (e) {
+      console.error('Failed to initialize PaymentsGatewayApi:', e);
+    }
+
     // Payment consumers (tender reversal on void)
     try {
       const payments = await import('@oppsera/module-payments');

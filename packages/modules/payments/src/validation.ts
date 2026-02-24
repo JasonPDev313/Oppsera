@@ -17,6 +17,11 @@ export const recordTenderSchema = z.object({
     .object({
       denominations: z.record(z.string(), z.number()).optional(),
       checkNumber: z.string().max(50).optional(),
+      // Card payment fields (populated by gateway integration at API layer)
+      paymentIntentId: z.string().optional(),
+      providerRef: z.string().optional(),
+      cardLast4: z.string().max(4).optional(),
+      cardBrand: z.string().max(20).optional(),
     })
     .optional(),
 });

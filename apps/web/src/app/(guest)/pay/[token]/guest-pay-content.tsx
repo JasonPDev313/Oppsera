@@ -22,6 +22,12 @@ type PageState =
   | 'expired'
   | 'error';
 
+interface TokenizerConfigData {
+  site: string;
+  iframeUrl: string;
+  isSandbox: boolean;
+}
+
 interface SessionData {
   restaurantName: string | null;
   tableLabel: string | null;
@@ -68,6 +74,11 @@ export default function GuestPayContent() {
   const [memberInfo, setMemberInfo] = useState<MemberInfo | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
+  // Card payment state
+  const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfigData | null>(null);
+  const [isCardProcessing, setIsCardProcessing] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+
   // Path B verification flow state
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [emailHint, setEmailHint] = useState<string>('');
@@ -113,6 +124,23 @@ export default function GuestPayContent() {
       .catch(() => {
         setState('error');
         setErrorMessage('Unable to load payment details. Please try again.');
+      });
+  }, [token]);
+
+  // Fetch tokenizer config (for real card payments in live mode)
+  useEffect(() => {
+    if (!token) return;
+    if (process.env.NEXT_PUBLIC_GUEST_PAY_LIVE !== 'true') return;
+
+    fetch(`/api/v1/guest-pay/${token}/tokenizer-config`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (json?.data) {
+          setTokenizerConfig(json.data as TokenizerConfigData);
+        }
+      })
+      .catch(() => {
+        // Silent — tokenizer not available, will show "Coming Soon"
       });
   }, [token]);
 
@@ -169,6 +197,33 @@ export default function GuestPayContent() {
     } catch {
       setState('review');
       setErrorMessage('Payment failed. Please try again.');
+    }
+  }, [token, selectedTipCents]);
+
+  // Real card payment handler (via CardPointe iFrame token)
+  const handleCardPay = useCallback(async (data: { token: string; expiry?: string }) => {
+    setIsCardProcessing(true);
+    setCardError(null);
+    try {
+      const res = await fetch(`/api/v1/guest-pay/${token}/card-charge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: data.token,
+          tipAmountCents: selectedTipCents,
+        }),
+      });
+      const json = await res.json();
+      if (json.error) {
+        setCardError(json.error.message ?? 'Payment failed');
+        return;
+      }
+      setPaymentMethod('card');
+      setState('confirmed');
+    } catch {
+      setCardError('Payment failed. Please try again.');
+    } finally {
+      setIsCardProcessing(false);
     }
   }, [token, selectedTipCents]);
 
@@ -477,6 +532,11 @@ export default function GuestPayContent() {
             // Show "Club Member?" link only if no member is already linked (Path A)
             !session.memberId ? () => setState('member-auth') : undefined
           }
+          tokenizerConfig={tokenizerConfig}
+          amountCents={grandTotal}
+          onCardPay={handleCardPay}
+          isCardProcessing={isCardProcessing}
+          cardError={cardError}
         />
       </div>
 

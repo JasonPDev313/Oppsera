@@ -41,8 +41,8 @@ const COLUMN_ALIASES: Record<StaffTargetField, string[]> = {
     'work_phone', 'work phone',
   ],
   status: [
-    'status', 'active', 'is_active', 'isactive', 'enabled', 'is_enabled',
-    'user_status', 'account_status', 'state',
+    'status', 'active', 'is_active', 'isactive', 'is active', 'enabled',
+    'is_enabled', 'user_status', 'account_status', 'state',
   ],
   role: [
     'role', 'role_name', 'rolename', 'role name', 'user_type', 'usertype',
@@ -60,12 +60,13 @@ const COLUMN_ALIASES: Record<StaffTargetField, string[]> = {
   posPin: [
     'pin', 'pos_pin', 'pospin', 'pos pin', 'id_pin', 'unique_pin',
     'unique pin', 'login_pin', 'login pin', 'clock_in_pin', 'clock in pin',
-    'unique id pin', 'unique_id_pin',
+    'unique id pin', 'unique_id_pin', 'unique identification pin',
+    'uniqueidentificationpin', 'identification pin', 'id pin',
   ],
   overridePin: [
     'override_pin', 'overridepin', 'override pin', 'pos_override_pin',
-    'pos override pin', 'manager_pin', 'manager pin', 'mgr_pin', 'mgr pin',
-    'supervisor_pin', 'supervisor pin', 'admin_pin',
+    'pos override pin', 'posoverridepin', 'manager_pin', 'manager pin',
+    'mgr_pin', 'mgr pin', 'supervisor_pin', 'supervisor pin', 'admin_pin',
   ],
   tabColor: [
     'tab_color', 'tabcolor', 'tab color', 'user_tab_color', 'user tab color',
@@ -76,11 +77,12 @@ const COLUMN_ALIASES: Record<StaffTargetField, string[]> = {
     'staff_color', 'staff color',
   ],
   externalPayrollEmployeeId: [
-    'employee_id', 'employeeid', 'employee id', 'emp_id', 'empid', 'emp id',
+    'id', 'employee_id', 'employeeid', 'employee id', 'emp_id', 'empid', 'emp id',
     'payroll_employee_id', 'payroll employee id', 'payroll_id', 'payrollid',
     'payroll id', 'staff_id', 'staffid', 'staff id', 'worker_id',
     'external_id', 'external id', 'badge_number', 'badge number', 'badge',
-    'clock_number', 'clock number',
+    'clock_number', 'clock number', 'record_id', 'recordid', 'record id',
+    'user_id', 'userid',
   ],
   externalPayrollId: [
     'external_payroll_id', 'payroll_system_id', 'payroll system id',
@@ -161,19 +163,24 @@ function detectColorPattern(values: string[]): { confidence: number; explanation
 
 const KNOWN_ROLES = new Set([
   'admin', 'administrator', 'super admin', 'super_admin', 'superadmin',
+  'super administrator', 'course administrator',
   'manager', 'mgr', 'general manager', 'gm', 'assistant manager',
+  'golf shop manager',
   'supervisor', 'lead', 'shift lead', 'shift_lead',
   'cashier', 'register', 'pos', 'pos operator',
   'server', 'waiter', 'waitress', 'wait staff', 'waitstaff',
-  'bartender', 'barista', 'bar',
+  'bartender', 'barista', 'bar', 'bevcart', 'bev cart', 'beer garden',
   'host', 'hostess', 'greeter',
   'cook', 'chef', 'kitchen', 'line cook', 'prep cook', 'sous chef',
   'busser', 'bus', 'runner', 'food runner',
   'staff', 'employee', 'team member', 'associate', 'crew',
   'owner', 'proprietor',
   'pro shop', 'proshop', 'pro_shop', 'golf pro',
-  'starter', 'marshal', 'ranger',
+  'pro shop user', 'course pro shop user',
+  'starter', 'marshal', 'ranger', 'course ranger user',
+  'cartie head', 'course cartie head', 'cart attendant',
   'maintenance', 'grounds', 'groundskeeper',
+  'admin user',
   'housekeeping', 'housekeeper', 'cleaning',
   'front desk', 'front_desk', 'reception', 'receptionist',
   'all access', 'all_access', 'full access', 'full_access',
@@ -197,7 +204,12 @@ function detectRolePattern(values: string[]): { confidence: number; explanation:
 // ── Fuzzy Matching ───────────────────────────────────────────────────
 
 function normalizeHeader(header: string): string {
-  return header.toLowerCase().replace(/[^a-z0-9_# ]/g, '').trim();
+  // Split camelCase/PascalCase into words before lowercasing
+  // e.g., "POSOverridePin" → "pos override pin", "UniqueIdentificationPin" → "unique identification pin"
+  const spaced = header
+    .replace(/([a-z])([A-Z])/g, '$1 $2')           // camelCase split
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');    // acronym split (POS Override → POS Override)
+  return spaced.toLowerCase().replace(/[^a-z0-9_# ]/g, '').trim();
 }
 
 function tokenOverlap(a: string, b: string): number {
@@ -425,12 +437,34 @@ export function analyzeStaffColumns(
 
   mappings.sort((a, b) => a.columnIndex - b.columnIndex);
 
-  // Warnings
+  // Warnings for required columns
   if (!usedTargets.has('email') && !usedTargets.has('username')) {
     warnings.push('No email or username column detected — at least one is required for identity.');
   }
   if (!usedTargets.has('firstName') && !usedTargets.has('lastName')) {
     warnings.push('No first/last name columns detected — names are required.');
+  }
+
+  // Warn about sensitive/unsupported columns
+  const SENSITIVE_COLUMNS = new Set(['password', 'pass', 'pwd', 'secret', 'token']);
+  const sensitiveFound = mappings.filter(
+    (m) => m.targetField === null && SENSITIVE_COLUMNS.has(m.sourceHeader.toLowerCase().trim()),
+  );
+  if (sensitiveFound.length > 0) {
+    const names = sensitiveFound.map((m) => `"${m.sourceHeader}"`).join(', ');
+    warnings.push(
+      `${names} column${sensitiveFound.length === 1 ? '' : 's'} detected and will be skipped — OppsEra does not import passwords for security reasons. Users will set their own credentials.`,
+    );
+  }
+
+  // List remaining unmapped columns so the user knows what's being skipped
+  const sensitiveSet = new Set(sensitiveFound.map((m) => m.columnIndex));
+  const unmappedCols = mappings.filter((m) => m.targetField === null && !sensitiveSet.has(m.columnIndex));
+  if (unmappedCols.length > 0) {
+    const names = unmappedCols.map((m) => `"${m.sourceHeader}"`).join(', ');
+    warnings.push(
+      `${unmappedCols.length} column${unmappedCols.length === 1 ? '' : 's'} not recognized and will be skipped: ${names}. You can manually map them in the next step if needed.`,
+    );
   }
 
   // Extract distinct role + location values for the value mapping step

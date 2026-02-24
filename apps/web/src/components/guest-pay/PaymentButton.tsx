@@ -1,12 +1,33 @@
 'use client';
 
+import { OnlinePaymentForm } from '@/components/payments/online-payment-form';
+
 interface PaymentButtonProps {
   onPay: () => void;
   onMemberAuth?: () => void;
   disabled?: boolean;
+  /** CardPointe tokenizer config — when present, shows real card form in live mode */
+  tokenizerConfig?: { site: string; iframeUrl: string } | null;
+  /** Amount to charge in cents (required for card form) */
+  amountCents?: number;
+  /** Called when card form submits with token */
+  onCardPay?: (data: { token: string; expiry?: string }) => Promise<void>;
+  /** Whether card payment is currently processing */
+  isCardProcessing?: boolean;
+  /** Card payment error message */
+  cardError?: string | null;
 }
 
-export function PaymentButton({ onPay, onMemberAuth, disabled }: PaymentButtonProps) {
+export function PaymentButton({
+  onPay,
+  onMemberAuth,
+  disabled,
+  tokenizerConfig,
+  amountCents,
+  onCardPay,
+  isCardProcessing,
+  cardError,
+}: PaymentButtonProps) {
   const isLive = process.env.NEXT_PUBLIC_GUEST_PAY_LIVE === 'true';
 
   const memberLink = onMemberAuth ? (
@@ -39,7 +60,27 @@ export function PaymentButton({ onPay, onMemberAuth, disabled }: PaymentButtonPr
     );
   }
 
-  // Production: Coming Soon (card) + member charge link
+  // Live mode WITH tokenizer configured — show real card form
+  if (tokenizerConfig && amountCents && onCardPay) {
+    return (
+      <div>
+        <OnlinePaymentForm
+          site={tokenizerConfig.site}
+          iframeUrl={tokenizerConfig.iframeUrl}
+          amountCents={amountCents}
+          amountLabel="Total Charge"
+          onSubmit={onCardPay}
+          isSubmitting={isCardProcessing}
+          error={cardError}
+          buttonLabel={`Pay $${(amountCents / 100).toFixed(2)}`}
+          showAmount={false}
+        />
+        {memberLink}
+      </div>
+    );
+  }
+
+  // Live mode WITHOUT tokenizer — card payments not configured
   return (
     <div className="text-center">
       <div className="w-full rounded-2xl bg-gray-200 py-4 text-base font-bold text-gray-500">

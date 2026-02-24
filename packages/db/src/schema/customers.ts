@@ -1300,6 +1300,10 @@ export const customerPaymentMethods = pgTable(
     isDefault: boolean('is_default').notNull().default(false),
     status: text('status').notNull().default('active'),
     metadata: jsonb('metadata'),
+    providerProfileId: text('provider_profile_id'), // CardPointe profileid
+    providerAccountId: text('provider_account_id'), // CardPointe acctid
+    nickname: text('nickname'),
+    billingAddress: jsonb('billing_address'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

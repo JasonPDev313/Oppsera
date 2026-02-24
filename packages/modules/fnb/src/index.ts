@@ -419,6 +419,16 @@ export { getGuestPayTipSettings } from './queries/get-guest-pay-tip-settings';
 export { getActiveGuestPayForTab } from './queries/get-active-guest-pay-for-tab';
 
 // ═══════════════════════════════════════════════════════════════════
+// My Section — Server Table Claims
+// ═══════════════════════════════════════════════════════════════════
+
+export { saveMySection } from './commands/save-my-section';
+export { getMySection } from './queries/get-my-section';
+export type { MySectionResult } from './queries/get-my-section';
+export { getRoomSectionAssignments } from './queries/get-room-section-assignments';
+export type { RoomSectionAssignment } from './queries/get-room-section-assignments';
+
+// ═══════════════════════════════════════════════════════════════════
 // Session 15: F&B Reporting Read Models
 // ═══════════════════════════════════════════════════════════════════
 
@@ -597,6 +607,8 @@ export {
   simulateGuestPaymentSchema, invalidateGuestPaySessionSchema,
   updateGuestPayTipSettingsSchema,
   guestPayMemberAuthSchema, guestPayMemberVerifySchema, chargeMemberAccountSchema,
+  // My Section
+  saveMySectionSchema, getMySectionFilterSchema, getRoomSectionAssignmentsFilterSchema,
 } from './validation';
 
 export type {
@@ -694,6 +706,8 @@ export type {
   SimulateGuestPaymentInput, InvalidateGuestPaySessionInput,
   UpdateGuestPayTipSettingsInput,
   GuestPayMemberAuthInput, GuestPayMemberVerifyInput, ChargeMemberAccountInput,
+  // My Section
+  SaveMySectionInput, GetMySectionFilterInput, GetRoomSectionAssignmentsFilterInput,
 } from './validation';
 
 // ═══════════════════════════════════════════════════════════════════

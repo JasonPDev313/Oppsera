@@ -14,6 +14,8 @@ interface ContextSidebarProps {
   mySectionOnly: boolean;
   currentUserId?: string;
   onTableTap: (tableId: string) => void;
+  /** When provided, filter by table ID set instead of currentServerUserId */
+  myTableIds?: Set<string>;
 }
 
 function formatElapsed(seatedAt: string | null): string {
@@ -23,11 +25,15 @@ function formatElapsed(seatedAt: string | null): string {
   return `${Math.floor(minutes / 60)}h${minutes % 60}m`;
 }
 
-export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, currentUserId, onTableTap }: ContextSidebarProps) {
+export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, currentUserId, onTableTap, myTableIds }: ContextSidebarProps) {
   const [expandedStatus, setExpandedStatus] = useState<string | null>('seated');
 
-  const filteredTables = mySectionOnly && currentUserId
-    ? tables.filter((t) => t.currentServerUserId === currentUserId)
+  const filteredTables = mySectionOnly
+    ? myTableIds
+      ? tables.filter((t) => myTableIds.has(t.tableId))
+      : currentUserId
+        ? tables.filter((t) => t.currentServerUserId === currentUserId)
+        : tables
     : tables;
 
   // Group tables by status for stats
