@@ -4,7 +4,7 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, generateUlid } from '@oppsera/shared';
 import { surchargeSettings } from '@oppsera/db';
-import { eq, and, isNull, sql } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import type {
   SaveSurchargeSettingsInput,
   DeleteSurchargeSettingsInput,

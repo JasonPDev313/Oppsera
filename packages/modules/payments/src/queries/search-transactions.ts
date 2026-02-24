@@ -104,7 +104,7 @@ export async function searchTransactions(
 
     // Get latest provider ref for each intent
     const intentIds = items.map((r) => r.id);
-    let providerRefs: Map<string, string> = new Map();
+    const providerRefs: Map<string, string> = new Map();
 
     if (intentIds.length > 0) {
       const txnRows = await tx

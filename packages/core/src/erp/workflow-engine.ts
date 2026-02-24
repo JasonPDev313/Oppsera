@@ -3,8 +3,7 @@ import { erpWorkflowConfigs, erpWorkflowConfigChangeLog, tenants } from '@oppser
 import { TIER_WORKFLOW_DEFAULTS } from '@oppsera/shared';
 import type { BusinessTier } from '@oppsera/shared';
 import { generateUlid } from '@oppsera/shared';
-import { eq, and, sql } from 'drizzle-orm';
-import type { Database } from '@oppsera/db';
+import { eq, sql } from 'drizzle-orm';
 
 export interface WorkflowConfig {
   autoMode: boolean;

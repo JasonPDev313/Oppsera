@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { providerRegistry } from '../providers/registry';
 import {
   centsToDollars,
@@ -8,7 +8,6 @@ import {
   detectCardBrand,
 } from '../helpers/amount';
 import {
-  INTENT_STATUS_TRANSITIONS,
   PAYMENT_GATEWAY_EVENTS,
 } from '../events/gateway-types';
 import { redactWebhookPayload } from '../webhooks/verify-webhook';
@@ -17,24 +16,6 @@ import { redactWebhookPayload } from '../webhooks/verify-webhook';
 
 describe('PaymentProvider interface compliance', () => {
   it('interface requires all core methods', () => {
-    // Type-level test: verify the interface shape
-    const requiredMethods = [
-      'authorize',
-      'capture',
-      'sale',
-      'void',
-      'refund',
-      'inquire',
-      'inquireByOrderId',
-      'tokenize',
-      'createProfile',
-      'getProfile',
-      'deleteProfile',
-      'getSettlementStatus',
-      'captureSignature',
-      'voidByOrderId',
-    ];
-
     // Just verify the registry works and types are consistent
     expect(providerRegistry).toBeDefined();
     expect(typeof providerRegistry.has).toBe('function');

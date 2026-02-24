@@ -1244,7 +1244,7 @@ async function seed() {
 
   // Daily sales read model
   const dailySalesRows = Object.entries(dailyAgg).map(([key, agg]) => {
-    const [bd2, _locId] = key.split('|');
+    const [bd2] = key.split('|');
     const avgOrderValue = agg.orderCount > 0 ? agg.netSales / agg.orderCount : 0;
     return {
       tenantId,

@@ -7,7 +7,7 @@ import { paymentIntents, paymentTransactions } from '@oppsera/db';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import type { RefundPaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
-import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gateway-types';
+import { PAYMENT_GATEWAY_EVENTS } from '../events/gateway-types';
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents } from '../helpers/amount';
 import { interpretResponse } from '../services/response-interpreter';

@@ -1,10 +1,8 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { FNB_EVENTS } from '../events/types';
 import { TabNotFoundError, TabVersionConflictError, SplitNotAllowedError } from '../errors';
 import type { ApplySplitStrategyInput } from '../validation';
 

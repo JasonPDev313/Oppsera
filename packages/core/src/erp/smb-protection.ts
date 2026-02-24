@@ -1,4 +1,4 @@
-import type { BusinessTier, WorkflowDefault } from '@oppsera/shared';
+import type { BusinessTier } from '@oppsera/shared';
 
 /**
  * Workflows that MUST always run regardless of tier or visibility.

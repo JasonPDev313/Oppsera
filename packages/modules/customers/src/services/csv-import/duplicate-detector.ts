@@ -13,9 +13,6 @@
 import { sql } from 'drizzle-orm';
 import {
   withTenant,
-  customers,
-  customerIdentifiers,
-  customerExternalIds,
 } from '@oppsera/db';
 import type { MappedCustomerRow, DuplicateMatch } from './import-types';
 
@@ -26,18 +23,6 @@ interface ExistingCustomerLookup {
   displayName: string;
   email: string | null;
   phone: string | null;
-}
-
-// ── Helpers ─────────────────────────────────────────────────────
-
-function buildDisplayName(row: MappedCustomerRow): string {
-  const c = row.customer;
-  if (c.displayName) return String(c.displayName);
-  if (c.firstName || c.lastName) {
-    return [c.firstName, c.lastName].filter(Boolean).join(' ');
-  }
-  if (c.email) return String(c.email);
-  return `Row ${row.rowIndex + 1}`;
 }
 
 // ── Main Detection ──────────────────────────────────────────────

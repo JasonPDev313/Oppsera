@@ -60,7 +60,7 @@ export async function assertRoomAvailable(
   endDate: string,
   excludeReservationId?: string,
 ): Promise<void> {
-  const { available, conflicts } = await checkRoomAvailability(
+  const { available } = await checkRoomAvailability(
     tx,
     tenantId,
     roomId,

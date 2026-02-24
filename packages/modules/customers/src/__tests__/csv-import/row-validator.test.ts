@@ -18,7 +18,7 @@ describe('row-validator', () => {
       const rows = [['John', 'Smith', 'john@test.com']];
       const mappings = makeMappings([['First Name', 'firstName'], ['Last Name', 'lastName'], ['Email', 'email']]);
 
-      const { validRows, errors, warnings } = validateAndMapRows(rows, mappings, []);
+      const { validRows } = validateAndMapRows(rows, mappings, []);
 
       expect(validRows).toHaveLength(1);
       expect(validRows[0]?.customer.firstName).toBe('John');
@@ -52,7 +52,7 @@ describe('row-validator', () => {
       const rows = [['', '']];
       const mappings = makeMappings([['Notes', null], ['Tags', null]]);
 
-      const { validRows, errors } = validateAndMapRows(rows, mappings, []);
+      const { validRows } = validateAndMapRows(rows, mappings, []);
 
       // All columns are unmapped, so no valid rows
       expect(validRows).toHaveLength(0);
@@ -168,7 +168,7 @@ describe('row-validator', () => {
       ];
       const mappings = makeMappings([['First', 'firstName'], ['Last', 'lastName'], ['Email', 'email']]);
 
-      const { validRows, errors } = validateAndMapRows(rows, mappings, []);
+      const { validRows } = validateAndMapRows(rows, mappings, []);
 
       // Empty row should either be invalid or skipped
       expect(validRows.length).toBeGreaterThanOrEqual(2);

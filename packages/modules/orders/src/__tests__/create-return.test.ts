@@ -132,9 +132,7 @@ describe('createReturn', () => {
       },
     ];
 
-    let capturedFn: any;
     (publishWithOutbox as any).mockImplementation(async (_ctx: any, fn: any) => {
-      capturedFn = fn;
       const mockTx = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),

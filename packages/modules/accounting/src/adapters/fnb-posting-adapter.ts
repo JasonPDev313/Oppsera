@@ -1,6 +1,6 @@
 import type { EventEnvelope } from '@oppsera/shared';
 import { db, fnbGlAccountMappings, subDepartmentGlDefaults } from '@oppsera/db';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';

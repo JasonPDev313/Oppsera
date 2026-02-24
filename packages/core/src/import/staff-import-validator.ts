@@ -112,8 +112,8 @@ export function validateStaffImport(input: {
       return colIdx != null ? (row[colIdx] ?? '').trim() : '';
     };
 
-    let firstName = getVal('firstName') || null;
-    let lastName = getVal('lastName') || null;
+    const firstName = getVal('firstName') || null;
+    const lastName = getVal('lastName') || null;
     let email = getVal('email') || null;
     let username = getVal('username') || null;
     const phone = getVal('phone') || null;

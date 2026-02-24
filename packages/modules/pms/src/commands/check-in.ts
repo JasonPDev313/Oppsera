@@ -18,7 +18,6 @@ import {
   pmsRoomBlocks,
   pmsRooms,
   pmsFolios,
-  pmsFolioEntries,
   pmsProperties,
 } from '@oppsera/db';
 import type { CheckInInput } from '../validation';

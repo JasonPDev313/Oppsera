@@ -1,4 +1,4 @@
-import { eq, and, desc, lt, sql } from 'drizzle-orm';
+import { eq, and, desc, lt } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { periodicCogsCalculations } from '@oppsera/db';
 import type { ListPeriodicCogsInput } from '../validation';

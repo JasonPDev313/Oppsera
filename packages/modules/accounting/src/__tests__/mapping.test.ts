@@ -6,7 +6,6 @@ import {
   logUnmappedEvent,
 } from '../helpers/resolve-mapping';
 import { saveSubDepartmentDefaults } from '../commands/save-sub-department-defaults';
-import { savePaymentTypeDefaults } from '../commands/save-payment-type-defaults';
 import { saveTaxGroupDefaults } from '../commands/save-tax-group-defaults';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
@@ -209,10 +208,7 @@ describe('saveSubDepartmentDefaults', () => {
         .mockReturnThis();  // subsequent calls chain normally
 
       // Re-mock select chain for the UPSERT existence check
-      let selectCallCount = 0;
-      const origSelect = mockTx.select;
       (mockTx.select as any).mockImplementation(() => {
-        selectCallCount++;
         return mockTx;
       });
 

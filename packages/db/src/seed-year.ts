@@ -9,7 +9,7 @@ dotenv.config({ path: '../../.env.local' });
 dotenv.config({ path: '../../.env' });
 
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { eq, sql, desc } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import { generateUlid } from '@oppsera/shared';
 import {
@@ -20,7 +20,6 @@ import {
   orderCounters,
   tenders,
   rmDailySales,
-  rmItemSales,
 } from './schema';
 
 // ══════════════════════════════════════════════════════════════
@@ -28,7 +27,6 @@ import {
 // ══════════════════════════════════════════════════════════════
 
 const DAYS_BACK = 366;
-const TARGET_TOTAL_REVENUE_CENTS = 100_000_000; // ~$1,000,000
 const VOID_RATE = 0.08;
 const CASH_RATIO = 0.33;
 const CUSTOMER_ASSIGN_RATE = 0.40;

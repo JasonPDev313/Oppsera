@@ -7,12 +7,12 @@ import { paymentIntents, paymentTransactions } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { TerminalAuthCardInput } from '../validation/terminal-operations';
 import type { PaymentIntentResult } from '../types/gateway-results';
-import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gateway-types';
+import { PAYMENT_GATEWAY_EVENTS } from '../events/gateway-types';
 import { resolveTerminalContext } from '../helpers/resolve-terminal-context';
 import { getTerminalSession, invalidateTerminalSession } from '../services/terminal-session-manager';
 import { CardPointeTerminalClient, TerminalTimeoutError } from '../providers/cardpointe/terminal-client';
 import { normalizeEntryMode } from '../providers/cardpointe/terminal-types';
-import { centsToDollars, dollarsToCents, generateProviderOrderId, detectCardBrand } from '../helpers/amount';
+import { centsToDollars, dollarsToCents, generateProviderOrderId } from '../helpers/amount';
 
 /**
  * Card-present authorization/sale via physical terminal device.

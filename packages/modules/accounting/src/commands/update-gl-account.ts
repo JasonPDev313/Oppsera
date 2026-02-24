@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { glAccounts, glJournalEntries, glJournalLines } from '@oppsera/db';
+import { glAccounts } from '@oppsera/db';
 import { NotFoundError, ConflictError, AppError } from '@oppsera/shared';
 import { resolveNormalBalance } from '../helpers/resolve-normal-balance';
 import { computeDepth, computePath, getDescendants } from '../services/hierarchy-helpers';

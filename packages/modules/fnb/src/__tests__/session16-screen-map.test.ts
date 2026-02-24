@@ -7,7 +7,6 @@ import {
   FNB_BREAKPOINTS,
   MODE_SWITCHING,
 } from '../helpers/ux-screen-map';
-import type { ScreenDefinition, ComponentReuse, ScreenPermission, NavItem } from '../helpers/ux-screen-map';
 
 describe('FNB_SCREENS', () => {
   it('has 10 screens', () => {
@@ -15,7 +14,7 @@ describe('FNB_SCREENS', () => {
   });
 
   it('each screen has required properties', () => {
-    for (const [key, screen] of Object.entries(FNB_SCREENS)) {
+    for (const screen of Object.values(FNB_SCREENS)) {
       expect(screen.id).toBeTruthy();
       expect(screen.name).toBeTruthy();
       expect(screen.path).toBeTruthy();

@@ -61,10 +61,10 @@ export function analyzeFile(
   const nameIdx = columnMappings.find((m) => m.targetField === 'name')?.sourceIndex;
   const typeIdx = columnMappings.find((m) => m.targetField === 'accountType')?.sourceIndex;
   const detailTypeIdx = columnMappings.find((m) => m.targetField === 'detailType')?.sourceIndex;
-  const parentIdx = columnMappings.find((m) => m.targetField === 'parentAccountNumber')?.sourceIndex;
-  const classIdx = columnMappings.find((m) => m.targetField === 'classificationName')?.sourceIndex;
-  const descIdx = columnMappings.find((m) => m.targetField === 'description')?.sourceIndex;
-  const activeIdx = columnMappings.find((m) => m.targetField === 'isActive')?.sourceIndex;
+  const _parentIdx = columnMappings.find((m) => m.targetField === 'parentAccountNumber')?.sourceIndex;
+  const _classIdx = columnMappings.find((m) => m.targetField === 'classificationName')?.sourceIndex;
+  const _descIdx = columnMappings.find((m) => m.targetField === 'description')?.sourceIndex;
+  const _activeIdx = columnMappings.find((m) => m.targetField === 'isActive')?.sourceIndex;
 
   // 4. First pass: infer types for all rows (needed for hierarchy detection)
   const inferredTypes = new Map<number, AccountType>();

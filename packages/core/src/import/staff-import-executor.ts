@@ -17,7 +17,10 @@ import {
   roleAssignments,
   userLocations,
 } from '@oppsera/db';
+import type { withTenant } from '@oppsera/db';
 import type { ValidatedStaffRow, StaffImportResult } from './staff-import-types';
+
+type TenantTx = Parameters<Parameters<typeof withTenant>[1]>[0];
 
 // Simple hash for PINs — in production, use bcrypt. Here we use a
 // lightweight SHA-256 approach that doesn't require an external dep.
@@ -39,7 +42,7 @@ export interface ExecuteStaffImportInput {
  * The caller is responsible for wrapping in `withTenant(tenantId, ...)`.
  */
 export async function executeStaffImport(
-  tx: Parameters<Parameters<typeof import('@oppsera/db').withTenant>[1]>[0],
+  tx: TenantTx,
   input: ExecuteStaffImportInput,
 ): Promise<StaffImportResult> {
   const { jobId, tenantId, importedByUserId, rows } = input;

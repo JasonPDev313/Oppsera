@@ -763,8 +763,6 @@ const instrumentTypeEnum = z.enum([
   'gift_card', 'credit_book', 'raincheck', 'range_card',
   'rounds_card', 'prepaid_balance', 'punchcard', 'award',
 ]);
-const svStatusEnum = z.enum(['active', 'frozen', 'expired', 'redeemed', 'voided']);
-
 export const issueStoredValueSchema = z.object({
   customerId: z.string().optional(),
   instrumentType: instrumentTypeEnum,

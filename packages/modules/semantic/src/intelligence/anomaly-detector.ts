@@ -9,7 +9,7 @@ import {
   semanticAlertRules,
   semanticAlertNotifications,
 } from '@oppsera/db';
-import { sql, eq, and, gte, lte, desc } from 'drizzle-orm';
+import { sql, eq, and } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 
 // ── Types ────────────────────────────────────────────────────────

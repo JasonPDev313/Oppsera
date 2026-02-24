@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -80,9 +80,6 @@ export async function syncTablesFromFloorPlan(
 
     const existingByObjectId = new Map(
       (existingTables as any[]).map((t: any) => [t.floorPlanObjectId, t]),
-    );
-    const existingObjectIds = new Set(
-      (existingTables as any[]).map((t: any) => t.floorPlanObjectId).filter(Boolean),
     );
 
     // Find max table number for auto-assignment

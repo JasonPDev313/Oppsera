@@ -12,7 +12,7 @@ import {
   semanticAnalysisFindings,
   semanticMetricGoals,
 } from '@oppsera/db';
-import { sql, eq, and, gte, lte, desc, asc, isNull } from 'drizzle-orm';
+import { sql, eq, and, gte, lte, desc, asc } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 
 // ── Types ──────────────────────────────────────────────────────────

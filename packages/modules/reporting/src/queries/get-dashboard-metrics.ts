@@ -4,9 +4,6 @@ import {
   rmDailySales,
   rmInventoryOnHand,
   rmCustomerActivity,
-  orders,
-  inventoryItems,
-  inventoryMovements,
 } from '@oppsera/db';
 
 export interface GetDashboardMetricsInput {

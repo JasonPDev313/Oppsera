@@ -18,7 +18,6 @@ export async function handleFnbTabClosed(
 ): Promise<void> {
   const saleDollars = (data.totalCents / 100).toFixed(4);
   const tipDollars = (data.tipCents / 100).toFixed(4);
-  const discountDollars = (data.discountCents / 100).toFixed(4);
   const compDollars = (data.compCents / 100).toFixed(4);
   const turnTimeMinutes = computeTurnTimeMinutes(data.openedAt, data.closedAt);
   const daypart = computeDaypart(data.hour);

@@ -12,8 +12,6 @@ export async function updateGuestPayTipSettings(
   input: UpdateGuestPayTipSettingsInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
-    // Build SET clauses dynamically from provided fields
-    const setClauses: string[] = ['updated_at = NOW()'];
     const values: Record<string, unknown> = {};
 
     if (input.isActive !== undefined) {

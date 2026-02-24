@@ -11,7 +11,6 @@ import {
   STATE_PLACEHOLDER,
   US_STATES,
   TAX_CONTEXT_KEYWORDS,
-  resolveState,
 } from './state-constants';
 
 export { resolveState, isValidStateName } from './state-constants';

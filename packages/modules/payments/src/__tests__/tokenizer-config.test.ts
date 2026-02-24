@@ -14,9 +14,6 @@ const mocks = vi.hoisted(() => {
 
 // ── vi.mock declarations ───────────────────────────────────────────
 vi.mock('@oppsera/db', () => {
-  // Track which query is being executed based on the table
-  let selectFields: any = null;
-
   const buildChain = (resolveWith: () => any) => ({
     where: vi.fn().mockReturnValue({
       limit: vi.fn(() => {
@@ -27,8 +24,7 @@ vi.mock('@oppsera/db', () => {
   });
 
   const mockTx = {
-    select: vi.fn((fields?: any) => {
-      selectFields = fields;
+    select: vi.fn((_fields?: any) => {
       return mockTx;
     }),
     from: vi.fn((table: any) => {
@@ -41,7 +37,7 @@ vi.mock('@oppsera/db', () => {
         // We use the selectFields to detect the call pattern, but since both
         // credential queries use the same select fields, we track via state.
         const chain = {
-          where: vi.fn((condition: any) => {
+          where: vi.fn((_condition: any) => {
             return {
               limit: vi.fn(() => {
                 // Check if condition args include a locationId eq (not isNull)
@@ -65,7 +61,7 @@ vi.mock('@oppsera/db', () => {
   };
 
   return {
-    withTenant: vi.fn((_tenantId: string, fn: Function) => fn(mockTx)),
+    withTenant: vi.fn((_tenantId: string, fn: (...args: any[]) => any) => fn(mockTx)),
     paymentProviders: 'paymentProviders',
     paymentProviderCredentials: 'paymentProviderCredentials',
   };

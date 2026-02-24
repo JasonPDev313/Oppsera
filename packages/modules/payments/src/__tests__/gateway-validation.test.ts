@@ -41,7 +41,7 @@ describe('authorizePaymentSchema', () => {
   });
 
   it('should reject missing clientRequestId', () => {
-    const { clientRequestId, ...rest } = valid;
+    const { clientRequestId: _clientRequestId, ...rest } = valid;
     expect(authorizePaymentSchema.safeParse(rest).success).toBe(false);
   });
 
@@ -115,7 +115,7 @@ describe('capturePaymentSchema', () => {
   });
 
   it('should reject missing paymentIntentId', () => {
-    const { paymentIntentId, ...rest } = valid;
+    const { paymentIntentId: _paymentIntentId, ...rest } = valid;
     expect(capturePaymentSchema.safeParse(rest).success).toBe(false);
   });
 
@@ -179,7 +179,7 @@ describe('voidPaymentSchema', () => {
   });
 
   it('should reject missing paymentIntentId', () => {
-    const { paymentIntentId, ...rest } = valid;
+    const { paymentIntentId: _paymentIntentId, ...rest } = valid;
     expect(voidPaymentSchema.safeParse(rest).success).toBe(false);
   });
 
@@ -270,7 +270,7 @@ describe('createPaymentProfileSchema', () => {
   });
 
   it('should reject missing customerId', () => {
-    const { customerId, ...rest } = valid;
+    const { customerId: _customerId, ...rest } = valid;
     expect(createPaymentProfileSchema.safeParse(rest).success).toBe(false);
   });
 

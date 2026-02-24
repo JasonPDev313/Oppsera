@@ -5,7 +5,6 @@ import {
   numeric,
   timestamp,
   index,
-  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
 import { tenants, locations } from './core';

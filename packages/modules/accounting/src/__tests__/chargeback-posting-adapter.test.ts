@@ -233,7 +233,7 @@ describe('Chargeback GL Posting Adapters', () => {
       await handleChargebackResolvedForAccounting(baseResolvedEvent as any);
 
       expect(mockPostEntry).toHaveBeenCalledOnce();
-      const [ctx, input] = mockPostEntry.mock.calls[0]!;
+      const [_ctx, input] = mockPostEntry.mock.calls[0]!;
 
       expect(input.sourceModule).toBe('chargeback');
       expect(input.sourceReferenceId).toBe('won-cb-1');

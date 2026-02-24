@@ -54,9 +54,7 @@ export interface CaptureResponse {
   rawResponse: Record<string, unknown>;
 }
 
-export interface SaleRequest extends AuthorizeRequest {
-  // Sale = authorize + capture in one call (capture = 'Y')
-}
+export type SaleRequest = AuthorizeRequest;
 
 export type SaleResponse = AuthorizeResponse;
 

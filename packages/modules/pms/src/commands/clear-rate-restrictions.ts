@@ -2,7 +2,7 @@
  * Clear rate restrictions for a date range on a property.
  * Optionally filtered by room type and/or rate plan.
  */
-import { sql, and, eq, gte, lte } from 'drizzle-orm';
+import { and, eq, gte, lte } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';

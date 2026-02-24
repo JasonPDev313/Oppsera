@@ -27,7 +27,7 @@ export async function releaseGroupBlocks(ctx: RequestContext, groupId: string) {
     }
 
     // Release all unreleased blocks for this group
-    const updateResult = await tx.execute(sql`
+    await tx.execute(sql`
       UPDATE pms_group_room_blocks
       SET released = true, updated_at = now()
       WHERE tenant_id = ${ctx.tenantId}

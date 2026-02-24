@@ -9,7 +9,6 @@ import {
   getAvsMap,
   getCvvMap,
   DECLINE_CATEGORY_LABELS,
-  SUGGESTED_ACTION_LABELS,
 } from '@oppsera/shared';
 
 // ── Types ──────────────────────────────────────────────────────

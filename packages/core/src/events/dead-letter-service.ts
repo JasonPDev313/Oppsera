@@ -1,6 +1,5 @@
 import { sql, eq, and, desc } from 'drizzle-orm';
 import { db, eventDeadLetters } from '@oppsera/db';
-import { generateUlid } from '@oppsera/shared';
 import type { EventBus } from './bus';
 
 export interface DeadLetterEntry {

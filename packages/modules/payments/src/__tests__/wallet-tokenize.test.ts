@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // ── Hoisted mocks ──────────────────────────────────────────────────
 const mocks = vi.hoisted(() => {
@@ -48,7 +48,7 @@ vi.mock('@oppsera/core', () => ({
 }));
 
 vi.mock('@oppsera/core/auth/with-middleware', () => ({
-  withMiddleware: vi.fn((handler: Function) => handler),
+  withMiddleware: vi.fn((handler: (...args: any[]) => any) => handler),
 }));
 
 vi.mock('@oppsera/shared', () => ({
@@ -76,11 +76,6 @@ const MAX_APPLE_PAY_TOKEN_AGE_MS = 2 * 60 * 1000; // 2 minutes
 // so we can unit test them without spinning up Next.js request/response.
 
 type WalletType = 'apple_pay' | 'google_pay';
-
-interface WalletTokenizeInput {
-  walletType: string;
-  paymentData: unknown;
-}
 
 interface TokenizeResult {
   provider: string;

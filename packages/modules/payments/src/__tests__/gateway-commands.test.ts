@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────
 
@@ -33,7 +33,7 @@ vi.mock('@oppsera/db', () => {
   };
 
   return {
-    withTenant: vi.fn((_tenantId: string, fn: Function) => fn(mockTx)),
+    withTenant: vi.fn((_tenantId: string, fn: (...args: any[]) => any) => fn(mockTx)),
     paymentIntents: { tenantId: 'tenant_id', id: 'id', idempotencyKey: 'idempotency_key', status: 'status' },
     paymentTransactions: { tenantId: 'tenant_id', paymentIntentId: 'payment_intent_id' },
     paymentProviders: {},
@@ -45,7 +45,7 @@ vi.mock('@oppsera/db', () => {
 
 // Mock core dependencies
 vi.mock('@oppsera/core', () => ({
-  publishWithOutbox: vi.fn((_ctx: any, fn: Function) => fn({})),
+  publishWithOutbox: vi.fn((_ctx: any, fn: (...args: any[]) => any) => fn({})),
   buildEventFromContext: vi.fn((_ctx: any, type: string, payload: any) => ({
     type,
     payload,
@@ -55,7 +55,7 @@ vi.mock('@oppsera/core', () => ({
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
-  publishWithOutbox: vi.fn((_ctx: any, fn: Function) => fn({})),
+  publishWithOutbox: vi.fn((_ctx: any, fn: (...args: any[]) => any) => fn({})),
 }));
 
 vi.mock('@oppsera/core/events/build-event', () => ({
@@ -146,7 +146,6 @@ import {
 
 import {
   assertIntentTransition,
-  INTENT_STATUS_TRANSITIONS,
 } from '../events/gateway-types';
 
 import { resolveFailedPaymentSchema } from '../commands/resolve-failed-payment';

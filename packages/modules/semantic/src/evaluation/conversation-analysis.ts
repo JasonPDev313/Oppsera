@@ -1,6 +1,6 @@
 import { db } from '@oppsera/db';
 import { semanticEvalTurns, semanticEvalSessions } from '@oppsera/db';
-import { sql, eq, and, asc } from 'drizzle-orm';
+import { sql, eq, asc } from 'drizzle-orm';
 import type { EvalTurn, EvalSession, QualityFlag } from './types';
 
 // ── Types ────────────────────────────────────────────────────────

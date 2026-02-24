@@ -3,7 +3,6 @@ import { withTenant } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 import {
   catalogItems,
-  catalogCategories,
   catalogLocationPrices,
   catalogItemModifierGroups,
   catalogModifierGroups,

@@ -3,8 +3,8 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, AppError } from '@oppsera/shared';
-import { tags, customerTags, tagAuditLog } from '@oppsera/db';
-import { eq, and, isNull, sql } from 'drizzle-orm';
+import { tags, customerTags } from '@oppsera/db';
+import { eq, and, isNull } from 'drizzle-orm';
 import type { ArchiveTagInput } from '../validation';
 
 export async function archiveTag(ctx: RequestContext, tagId: string, input: ArchiveTagInput) {

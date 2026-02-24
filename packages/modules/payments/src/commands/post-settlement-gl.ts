@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { withTenant } from '@oppsera/db';
-import { paymentSettlements, paymentSettlementLines, paymentTypeGlDefaults } from '@oppsera/db';
+import { paymentSettlements, paymentTypeGlDefaults } from '@oppsera/db';
 import { eq, and, sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';

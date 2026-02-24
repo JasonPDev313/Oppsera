@@ -1,5 +1,4 @@
 import { db } from '@oppsera/db';
-import { semanticEvalQualityDaily } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
 
 // ── Daily quality aggregation ───────────────────────────────────

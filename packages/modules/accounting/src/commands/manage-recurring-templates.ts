@@ -83,7 +83,6 @@ function computeNextDueDate(
   lastPostedPeriod: string | null,
   endDate: string | null,
 ): string | null {
-  const now = new Date();
   let year: number;
   let month: number;
 

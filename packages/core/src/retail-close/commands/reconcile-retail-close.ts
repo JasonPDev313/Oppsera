@@ -1,4 +1,4 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import { retailCloseBatches } from '@oppsera/db';
 import { publishWithOutbox } from '../../events/publish-with-outbox';

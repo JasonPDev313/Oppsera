@@ -196,20 +196,12 @@ import {
   updateCustomerEmailSchema,
   removeCustomerEmailSchema,
   addCustomerPhoneSchema,
-  updateCustomerPhoneSchema,
-  removeCustomerPhoneSchema,
   addCustomerAddressSchema,
-  updateCustomerAddressSchema,
-  removeCustomerAddressSchema,
   addEmergencyContactSchema,
-  updateEmergencyContactSchema,
-  removeEmergencyContactSchema,
   updateCustomerMemberNumberSchema,
 } from '../validation';
 
 import { addCustomerEmail } from '../commands/add-customer-email';
-import { updateCustomerEmail } from '../commands/update-customer-email';
-import { removeCustomerEmail } from '../commands/remove-customer-email';
 import { addCustomerPhone } from '../commands/add-customer-phone';
 import { addCustomerAddress } from '../commands/add-customer-address';
 import { addEmergencyContact } from '../commands/add-emergency-contact';

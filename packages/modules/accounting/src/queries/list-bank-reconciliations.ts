@@ -34,7 +34,6 @@ export async function listBankReconciliations(
 ): Promise<{ items: BankReconciliationListItem[]; cursor: string | null; hasMore: boolean }> {
   return withTenant(input.tenantId, async (tx) => {
     const limit = input.limit ?? 50;
-    const conditions: string[] = [`br.tenant_id = '${input.tenantId}'`];
 
     // Build conditions — note: we use parameterized queries below
     const bankAccountFilter = input.bankAccountId

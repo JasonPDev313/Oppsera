@@ -80,7 +80,7 @@ export function computePackageAllocations(
 
     // Remainder correction: ensure exact sum
     const allocated = allocations.reduce((s, a) => s + a, 0);
-    let remainder = packageSalePriceCents - allocated;
+    const remainder = packageSalePriceCents - allocated;
 
     if (remainder !== 0) {
       // Sort indices by extended cost DESC (tie-break: original index ASC) to find adjustment targets

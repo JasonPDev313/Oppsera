@@ -1,7 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { fnbRotationTracker, fnbServerAssignments } from '@oppsera/db';
+import { fnbRotationTracker } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { AdvanceRotationInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';

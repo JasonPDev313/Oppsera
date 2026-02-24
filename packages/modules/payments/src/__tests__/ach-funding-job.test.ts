@@ -6,8 +6,8 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 // referenced inside them must be created via vi.hoisted().
 
 const mocks = vi.hoisted(() => {
-  let selectResults: any[][] = [];
-  let selectCallIndex = 0;
+  const selectResults: any[][] = [];
+  const selectCallIndex = 0;
 
   const mockInsertValues = vi.fn().mockReturnValue({
     returning: vi.fn().mockReturnValue([]),
@@ -77,7 +77,7 @@ const mocks = vi.hoisted(() => {
 // ── vi.mock declarations ──────────────────────────────────────────
 
 vi.mock('@oppsera/db', () => ({
-  withTenant: vi.fn((_tenantId: string, fn: Function) => fn(mocks.mockTx)),
+  withTenant: vi.fn((_tenantId: string, fn: (...args: any[]) => any) => fn(mocks.mockTx)),
   paymentProviders: { tenantId: 'tenant_id', isActive: 'is_active', id: 'id', code: 'code' },
   paymentProviderCredentials: {
     tenantId: 'tenant_id',
@@ -137,7 +137,7 @@ vi.mock('drizzle-orm', () => ({
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
-  publishWithOutbox: vi.fn((_ctx: any, fn: Function) => fn(mocks.mockTx)),
+  publishWithOutbox: vi.fn((_ctx: any, fn: (...args: any[]) => any) => fn(mocks.mockTx)),
 }));
 
 vi.mock('@oppsera/core/events/build-event', () => ({

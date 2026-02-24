@@ -6,7 +6,7 @@
 
 import { db, withTenant } from '@oppsera/db';
 import { rmDailySales, semanticSimulations } from '@oppsera/db';
-import { sql, eq, and, gte, lte, desc } from 'drizzle-orm';
+import { sql, eq, and, gte, lte } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { getLLMAdapter } from '../llm/adapters/anthropic';
 import type { NarrativeSection } from '../llm/types';

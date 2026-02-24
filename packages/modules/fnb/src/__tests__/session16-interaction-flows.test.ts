@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { FNB_INTERACTION_FLOWS, FNB_SCREENS } from '../helpers/ux-screen-map';
-import type { InteractionFlow, FlowStep } from '../helpers/ux-screen-map';
 
 describe('FNB_INTERACTION_FLOWS', () => {
   it('has 6 interaction flows', () => {

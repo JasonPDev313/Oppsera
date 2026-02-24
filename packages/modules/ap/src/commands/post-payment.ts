@@ -56,7 +56,7 @@ export async function postPayment(ctx: RequestContext, paymentId: string) {
       bankGlAccountId = bank?.glAccountId ?? null;
     }
     if (!bankGlAccountId) {
-      const settings = await accountingApi.getSettings(ctx.tenantId);
+      await accountingApi.getSettings(ctx.tenantId);
       // Use AP control as fallback if no bank — though this is a config error
       bankGlAccountId = apControlAccountId;
     }

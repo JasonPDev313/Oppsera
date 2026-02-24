@@ -227,7 +227,6 @@ export type GenerateRetainedEarningsInput = z.input<typeof generateRetainedEarni
 
 // ── Settlement Schemas ───────────────────────────────────────────────
 
-const SETTLEMENT_STATUSES = ['pending', 'matched', 'posted', 'disputed'] as const;
 const IMPORT_SOURCES = ['csv', 'webhook', 'manual'] as const;
 
 export const createSettlementSchema = z.object({

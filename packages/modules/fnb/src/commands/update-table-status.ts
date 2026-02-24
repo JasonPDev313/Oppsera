@@ -1,8 +1,8 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
-import { fnbTables, fnbTableLiveStatus, fnbTableStatusHistory } from '@oppsera/db';
+import { fnbTableStatusHistory } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { UpdateTableStatusInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';

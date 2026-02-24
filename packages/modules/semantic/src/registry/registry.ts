@@ -5,7 +5,7 @@ import {
   semanticMetricDimensions,
   semanticLenses,
 } from '@oppsera/db';
-import { eq, and, isNull, inArray } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import type {
   MetricDef,
   DimensionDef,
@@ -16,8 +16,6 @@ import type {
 import {
   UnknownMetricError,
   UnknownDimensionError,
-  IncompatibleMetricError,
-  InvalidDimensionForMetricError,
 } from './types';
 
 // ── In-memory cache (stale-while-revalidate) ──────────────────────

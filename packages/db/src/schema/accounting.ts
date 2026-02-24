@@ -2,7 +2,6 @@ import {
   pgTable,
   text,
   integer,
-  smallint,
   boolean,
   timestamp,
   date,
@@ -11,7 +10,6 @@ import {
   jsonb,
   index,
   uniqueIndex,
-  check,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';

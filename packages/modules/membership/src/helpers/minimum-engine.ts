@@ -122,7 +122,7 @@ export function allocateSpend(
       });
 
       // Distribute remainder cents (largest fractional parts first)
-      let allocated = rawAllocations.reduce((sum, r) => sum + r.allocatedCents, 0);
+      const allocated = rawAllocations.reduce((sum, r) => sum + r.allocatedCents, 0);
       let remainder = cappedSpent - allocated;
 
       // Sort by fractional DESC for remainder distribution, stable sort by ruleId for ties

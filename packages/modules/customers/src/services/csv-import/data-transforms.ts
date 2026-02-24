@@ -129,7 +129,7 @@ export function coerceDate(value: string): string | null {
   }
 
   // US format: M/D/YYYY or MM/DD/YYYY
-  const usSlash = trimmed.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+  const usSlash = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
   if (usSlash) {
     const month = usSlash[1]!.padStart(2, '0');
     const day = usSlash[2]!.padStart(2, '0');
@@ -140,7 +140,7 @@ export function coerceDate(value: string): string | null {
   }
 
   // 2-digit year: M/D/YY
-  const shortYear = trimmed.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{2})$/);
+  const shortYear = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2})$/);
   if (shortYear) {
     const month = shortYear[1]!.padStart(2, '0');
     const day = shortYear[2]!.padStart(2, '0');

@@ -3,8 +3,8 @@
 // and on-track status based on actual data from rm_daily_sales.
 
 import { db } from '@oppsera/db';
-import { semanticMetricGoals, rmDailySales } from '@oppsera/db';
-import { sql, eq, and, gte, lte } from 'drizzle-orm';
+import { semanticMetricGoals } from '@oppsera/db';
+import { sql, eq, and } from 'drizzle-orm';
 
 // ── Types ────────────────────────────────────────────────────────
 

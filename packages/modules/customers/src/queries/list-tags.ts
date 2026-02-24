@@ -1,4 +1,4 @@
-import { eq, and, desc, isNull, isNotNull, ilike, or, sql } from 'drizzle-orm';
+import { eq, and, desc, isNull, ilike, or, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { tags } from '@oppsera/db';
 

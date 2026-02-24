@@ -8,7 +8,6 @@ import {
   accountingSettings,
 } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
-import { resolveNormalBalance } from './resolve-normal-balance';
 import { applyStatePlaceholders } from '../services/state-placeholder';
 
 export async function bootstrapTenantCoa(

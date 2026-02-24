@@ -1,4 +1,4 @@
-import { eq, and, or, isNull } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { discountRules, customerSegmentMemberships } from '@oppsera/db';
 

@@ -4,7 +4,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
-import { pmsGroups, pmsGroupRoomBlocks } from '@oppsera/db';
+import { pmsGroups } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { SetGroupRoomBlocksInput } from '../validation';
 import { PMS_EVENTS } from '../events/types';
@@ -29,7 +29,6 @@ export async function setGroupRoomBlocks(ctx: RequestContext, input: SetGroupRoo
     }
 
     // Upsert room blocks: ON CONFLICT (tenant_id, group_id, room_type_id, block_date) DO UPDATE
-    let totalRoomsBlocked = 0;
     for (const block of input.blocks) {
       const blockId = generateUlid();
       await tx.execute(sql`
@@ -38,7 +37,6 @@ export async function setGroupRoomBlocks(ctx: RequestContext, input: SetGroupRoo
         ON CONFLICT (tenant_id, group_id, room_type_id, block_date)
         DO UPDATE SET rooms_blocked = ${block.roomsBlocked}, updated_at = now()
       `);
-      totalRoomsBlocked += block.roomsBlocked;
     }
 
     // Recompute total rooms blocked from the actual blocks table

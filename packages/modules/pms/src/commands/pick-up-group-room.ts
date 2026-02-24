@@ -6,7 +6,6 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError, ValidationError } from '@oppsera/shared';
 import {
   pmsGroups,
-  pmsGroupRoomBlocks,
   pmsReservations,
   pmsRoomBlocks,
   pmsRoomTypes,

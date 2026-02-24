@@ -4,8 +4,8 @@
 // narrative engine for an executive-summary style output.
 
 import { db } from '@oppsera/db';
-import { semanticInsightDigests, rmDailySales } from '@oppsera/db';
-import { sql, eq, and, gte, lte } from 'drizzle-orm';
+import { semanticInsightDigests } from '@oppsera/db';
+import { sql, eq, and } from 'drizzle-orm';
 import type { NarrativeSection } from '../llm/types';
 import { generateNarrative } from '../llm/narrative';
 

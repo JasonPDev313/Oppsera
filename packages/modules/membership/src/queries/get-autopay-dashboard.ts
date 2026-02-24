@@ -1,4 +1,4 @@
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { autopayRuns, autopayProfiles, autopayAttempts } from '@oppsera/db';
 

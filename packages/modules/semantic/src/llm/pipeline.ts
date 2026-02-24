@@ -10,9 +10,7 @@ import { compilePlan } from '../compiler/compiler';
 import { buildRegistryCatalog, getLens } from '../registry/registry';
 import { buildSchemaCatalog } from '../schema/schema-catalog';
 import { getEvalCaptureService } from '../evaluation/capture';
-import { setEvalCaptureService } from '../evaluation/capture';
 import { getLLMAdapter, setLLMAdapter } from './adapters/anthropic';
-import type { LLMAdapter } from './types';
 import { getFromQueryCache, setInQueryCache } from '../cache/query-cache';
 import { getFromLLMCache, setInLLMCache, hashSystemPrompt } from '../cache/llm-cache';
 import { recordSemanticRequest } from '../observability/metrics';
@@ -31,7 +29,7 @@ export { getLLMAdapter, setLLMAdapter };
 // Captures an EvalTurn after completion (best-effort, never blocks response).
 
 export async function runPipeline(input: PipelineInput): Promise<PipelineOutput> {
-  const { message, context, examples = [], skipNarrative = false } = input;
+  const { message, context, examples = [] } = input;
   const { tenantId, lensSlug } = context;
 
   const startMs = Date.now();
@@ -634,7 +632,6 @@ async function runSqlMode(
   let narrativeSections: PipelineOutput['sections'] = [];
   let narrativeTokensIn = 0;
   let narrativeTokensOut = 0;
-  let narrativeCacheHit = false;
 
   if (!skipNarrative) {
     // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
@@ -645,7 +642,6 @@ async function runSqlMode(
     if (cachedNarrative) {
       narrativeText = cachedNarrative.content;
       narrativeSections = JSON.parse(cachedNarrative.model) as PipelineOutput['sections']; // stash sections in model field
-      narrativeCacheHit = true;
       console.log('[semantic] Narrative served from LLM cache');
     } else {
       try {

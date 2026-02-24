@@ -15,7 +15,6 @@ import {
   updateFnbSettingsSchema,
   updateFnbSettingSchema,
   getFnbSettingSchema,
-  getFnbSettingsDefaultsSchema,
   validateFnbSettingsSchema,
 } from '../validation';
 

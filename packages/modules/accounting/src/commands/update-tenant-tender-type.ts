@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { glAccounts, tenantTenderTypes, glTransactionTypes } from '@oppsera/db';
+import { glAccounts, tenantTenderTypes } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 import type { UpdateTenantTenderTypeInput } from '../validation';
 

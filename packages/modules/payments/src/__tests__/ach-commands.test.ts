@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ vi.mock('@oppsera/db', () => {
   };
 
   return {
-    withTenant: vi.fn((_tenantId: string, fn: Function) => fn(mockTx)),
+    withTenant: vi.fn((_tenantId: string, fn: (...args: any[]) => any) => fn(mockTx)),
     paymentIntents: { tenantId: 'tenant_id', id: 'id', status: 'status', paymentMethodType: 'payment_method_type' },
     paymentTransactions: { tenantId: 'tenant_id', paymentIntentId: 'payment_intent_id', providerRef: 'provider_ref' },
     paymentProviders: {},
@@ -55,7 +55,7 @@ vi.mock('@oppsera/db', () => {
 });
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
-  publishWithOutbox: vi.fn((_ctx: any, fn: Function) => fn({})),
+  publishWithOutbox: vi.fn((_ctx: any, fn: (...args: any[]) => any) => fn({})),
 }));
 
 vi.mock('@oppsera/core/events/build-event', () => ({
@@ -140,17 +140,17 @@ describe('tokenizeBankAccountSchema', () => {
   });
 
   it('should reject missing routing number', () => {
-    const { routingNumber, ...rest } = valid;
+    const { routingNumber: _routingNumber, ...rest } = valid;
     expect(tokenizeBankAccountSchema.safeParse(rest).success).toBe(false);
   });
 
   it('should reject missing account number', () => {
-    const { accountNumber, ...rest } = valid;
+    const { accountNumber: _accountNumber, ...rest } = valid;
     expect(tokenizeBankAccountSchema.safeParse(rest).success).toBe(false);
   });
 
   it('should reject missing account type', () => {
-    const { accountType, ...rest } = valid;
+    const { accountType: _accountType, ...rest } = valid;
     expect(tokenizeBankAccountSchema.safeParse(rest).success).toBe(false);
   });
 });

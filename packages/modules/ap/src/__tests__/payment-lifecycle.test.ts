@@ -34,7 +34,7 @@ vi.mock('@oppsera/db', () => {
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
   publishWithOutbox: vi.fn(async (_ctx: any, fn: any) => {
     const mockTx = createMockTx();
-    const { result, events } = await fn(mockTx);
+    const { result } = await fn(mockTx);
     return result;
   }),
 }));
@@ -245,7 +245,7 @@ describe('Payment Lifecycle', () => {
 
       await expect(
         (pwb as any)(ctx, async (tx: any) => {
-          const [vendor] = await tx.select().from({}).where({}).limit(1);
+          await tx.select().from({}).where({}).limit(1);
           const [bill] = await tx.select().from({}).where({}).limit(1);
 
           const allocAmount = 500;
@@ -292,7 +292,7 @@ describe('Payment Lifecycle', () => {
 
       await expect(
         (pwb as any)(ctx, async (tx: any) => {
-          const [vendor] = await tx.select().from({}).where({}).limit(1);
+          await tx.select().from({}).where({}).limit(1);
           const [bill] = await tx.select().from({}).where({}).limit(1);
 
           if (bill.vendorId !== 'vendor-1') {
@@ -356,10 +356,7 @@ describe('Payment Lifecycle', () => {
         });
 
         // After posting, select allocations
-        const originalFrom = mockTx.from;
-        let fromCallCount = 0;
         (mockTx.from as any).mockImplementation(function (this: any) {
-          fromCallCount++;
           return this;
         });
 
@@ -371,7 +368,6 @@ describe('Payment Lifecycle', () => {
         }]);
 
         // Mock the select for allocations (comes after the update)
-        const origSelect = mockTx.select;
         let selectCount = 0;
         (mockTx.select as any).mockImplementation(function (this: any) {
           selectCount++;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Hoisted mocks ─────────────────────────────────────────────
-const { mockInsert, mockSelect, mockUpdate, mockPublishWithOutbox, mockAuditLog, mockBuildEvent } = vi.hoisted(() => {
+const { mockInsert, mockPublishWithOutbox, mockAuditLog, mockBuildEvent } = vi.hoisted(() => {
   const mockInsert = vi.fn();
   const mockSelect = vi.fn();
   const mockUpdate = vi.fn();

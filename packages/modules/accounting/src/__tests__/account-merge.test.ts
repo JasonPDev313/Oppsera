@@ -6,16 +6,9 @@
  * and validate the logic/validation paths.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // ── Mock infrastructure ──────────────────────────────────────────
-
-const mockTxUpdate = vi.fn().mockReturnThis();
-const mockTxSet = vi.fn().mockReturnThis();
-const mockTxWhere = vi.fn().mockResolvedValue([]);
-const mockTxSelect = vi.fn().mockReturnThis();
-const mockTxFrom = vi.fn().mockReturnThis();
-const mockTxExecute = vi.fn().mockResolvedValue([]);
 
 vi.mock('@oppsera/db', () => ({
   db: {},

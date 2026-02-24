@@ -92,24 +92,6 @@ function mockInsertReturns(data: unknown[]) {
   });
 }
 
-function mockUpdateReturns(data: unknown[]) {
-  mockUpdate.mockReturnValueOnce({
-    set: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        returning: vi.fn().mockResolvedValue(data),
-      }),
-    }),
-  });
-}
-
-function mockDeleteReturns(data: unknown[]) {
-  mockDelete.mockReturnValueOnce({
-    where: vi.fn().mockReturnValue({
-      returning: vi.fn().mockResolvedValue(data),
-    }),
-  });
-}
-
 // ── Module mocks ──────────────────────────────────────────────
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({

@@ -30,8 +30,6 @@ export async function authorizePayment(
   );
 
   const providerOrderId = generateProviderOrderId();
-  const isCapture = false;
-
   const result = await publishWithOutbox(ctx, async (tx) => {
     // 1. Idempotency check via unique idempotency_key on payment_intents
     const [existing] = await tx

@@ -1,4 +1,5 @@
 import type { QueryPlan } from '../compiler/types';
+import type { EvalExample } from '../evaluation/types';
 
 // ── LLM adapter interface ─────────────────────────────────────────
 // Abstraction over different LLM providers (Anthropic, OpenAI, etc.)
@@ -104,7 +105,7 @@ export interface NarrativeResponse {
 export interface PipelineInput {
   message: string;
   context: IntentContext;
-  examples?: import('../evaluation/types').EvalExample[];
+  examples?: EvalExample[];
   skipNarrative?: boolean;     // return raw data without narrative (for API mode)
 }
 

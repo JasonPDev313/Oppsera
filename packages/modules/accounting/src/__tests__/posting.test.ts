@@ -36,7 +36,7 @@ vi.mock('@oppsera/db', () => {
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
   publishWithOutbox: vi.fn(async (_ctx: any, fn: any) => {
     const mockTx = createMockTx();
-    const { result, events } = await fn(mockTx);
+    const { result } = await fn(mockTx);
     return result;
   }),
 }));
@@ -358,7 +358,6 @@ describe('postDraftEntry', () => {
 
       // Override where to return lines for the second call (lines query has no .limit)
       let whereCallCount = 0;
-      const origWhere = mockTx.where;
       (mockTx.where as any).mockImplementation(function(this: any) {
         whereCallCount++;
         if (whereCallCount === 2) {

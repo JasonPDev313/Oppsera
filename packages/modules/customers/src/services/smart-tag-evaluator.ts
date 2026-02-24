@@ -6,12 +6,7 @@ import {
   customerIncidents,
   customerVisits,
   customerTags,
-  smartTagRules,
-  smartTagEvaluations,
-  tagAuditLog,
-  tags,
 } from '@oppsera/db';
-import { generateUlid } from '@oppsera/shared';
 import type {
   SmartTagConditionGroup,
   SmartTagCondition,

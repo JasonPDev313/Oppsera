@@ -4,9 +4,6 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { generateUlid } from '@oppsera/shared';
 import { bankAccounts, bankReconciliations, bankReconciliationItems } from '@oppsera/db';
-import { glJournalLines, glJournalEntries } from '@oppsera/db';
-import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
-import { db } from '@oppsera/db';
 import type {
   StartBankReconciliationInput,
   ClearReconciliationItemsInput,
@@ -360,8 +357,6 @@ export async function completeBankReconciliation(
           sql`${bankReconciliationItems.glJournalLineId} IS NULL`,
         ),
       );
-
-    const postingApi = getAccountingPostingApi();
 
     // Look up bank account for GL account
     const [bankAccount] = await tx

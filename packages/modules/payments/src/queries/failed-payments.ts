@@ -1,6 +1,6 @@
 import { withTenant } from '@oppsera/db';
 import { paymentIntents, paymentTransactions } from '@oppsera/db';
-import { eq, and, desc, lt, gte, lte, sql, inArray } from 'drizzle-orm';
+import { eq, and, desc, lt, gte, sql } from 'drizzle-orm';
 
 // ── Types ─────────────────────────────────────────────────────
 

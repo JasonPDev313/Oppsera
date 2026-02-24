@@ -3,9 +3,7 @@ import type { MetricDef, DimensionDef } from '../registry/types';
 import type {
   CompilerInput,
   CompiledQuery,
-  QueryPlan,
   PlanFilter,
-  PlanSort,
   TimeGranularity,
 } from './types';
 import {

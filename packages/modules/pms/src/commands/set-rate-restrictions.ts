@@ -8,7 +8,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
-import { pmsRateRestrictions, pmsProperties } from '@oppsera/db';
+import { pmsProperties } from '@oppsera/db';
 import type { SetRateRestrictionsInput } from '../validation';
 import { PMS_EVENTS } from '../events/types';
 import { pmsAuditLogEntry } from '../helpers/pms-audit';

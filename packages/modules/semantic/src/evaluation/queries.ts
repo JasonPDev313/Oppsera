@@ -3,10 +3,9 @@ import {
   semanticEvalTurns,
   semanticEvalSessions,
   semanticEvalExamples,
-  semanticEvalQualityDaily,
 } from '@oppsera/db';
-import { sql, eq, and, gte, lte, desc, asc, isNotNull, like, inArray } from 'drizzle-orm';
-import type { EvalTurn, EvalSession, EvalExample, QualityDaily, ExampleCategory, ExampleDifficulty, FeedbackTag, QualityFlag } from './types';
+import { sql, eq, and, gte, lte, desc, asc, isNotNull, like } from 'drizzle-orm';
+import type { EvalTurn, EvalSession, EvalExample, ExampleCategory, ExampleDifficulty, FeedbackTag, QualityFlag } from './types';
 
 // ── Feed filters ────────────────────────────────────────────────
 

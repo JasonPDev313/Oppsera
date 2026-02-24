@@ -1,6 +1,6 @@
 import { db } from '@oppsera/db';
 import { semanticEvalTurns } from '@oppsera/db';
-import { sql, eq, and } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { NotFoundError } from '@oppsera/shared';
 import { submitAdminReview } from './feedback';

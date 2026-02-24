@@ -1,9 +1,9 @@
-import { sql, eq, and, isNull } from 'drizzle-orm';
+import { sql, eq, and } from 'drizzle-orm';
 import { db } from '@oppsera/db';
 import { glJournalEntries } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { EventEnvelope } from '@oppsera/shared';
-import { generateUlid, AppError } from '@oppsera/shared';
+import { generateUlid } from '@oppsera/shared';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { getReconciliationReadApi } from '@oppsera/core/helpers/reconciliation-read-api';
 import { voidJournalEntry } from './void-journal-entry';

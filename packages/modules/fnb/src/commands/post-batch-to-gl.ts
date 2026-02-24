@@ -9,7 +9,7 @@ import {
   BatchAlreadyPostedError,
 } from '../errors';
 import { FNB_EVENTS } from '../events/types';
-import type { GlPostingCreatedPayload, GlPostingFailedPayload } from '../events/types';
+import type { GlPostingCreatedPayload } from '../events/types';
 import { buildBatchJournalLines } from '../helpers/build-batch-journal-lines';
 
 interface PostBatchToGlInput {

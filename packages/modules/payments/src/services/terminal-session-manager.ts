@@ -10,7 +10,6 @@
 
 import {
   CardPointeTerminalClient,
-  TerminalConnectionError,
 } from '../providers/cardpointe/terminal-client';
 import type { TerminalClientConfig } from '../providers/cardpointe/terminal-client';
 

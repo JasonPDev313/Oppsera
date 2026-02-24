@@ -1,9 +1,9 @@
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { glAccounts, glJournalLines } from '@oppsera/db';
+import { glAccounts } from '@oppsera/db';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { validateMerge } from '../services/coa-validation';
 import type { GLAccountForValidation } from '../services/coa-validation';
@@ -51,7 +51,7 @@ export async function mergeGlAccounts(
     }
 
     // 2. Reassign journal lines from source → target
-    const reassignResult = await tx.execute(sql`
+    await tx.execute(sql`
       UPDATE gl_journal_lines
       SET account_id = ${target.id}
       WHERE account_id = ${source.id}

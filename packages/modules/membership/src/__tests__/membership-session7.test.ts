@@ -154,7 +154,7 @@ vi.mock('@oppsera/core/audit/helpers', () => ({
 }));
 
 vi.mock('@oppsera/core/auth/context', () => ({
-  withTenant: vi.fn((_tenantId: string, fn: Function) =>
+  withTenant: vi.fn((_tenantId: string, fn: (...args: any[]) => any) =>
     fn({
       select: mockSelect,
       insert: mockInsert,

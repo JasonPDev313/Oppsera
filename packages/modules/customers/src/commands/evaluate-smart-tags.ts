@@ -1,4 +1,4 @@
-import { eq, and, isNull, desc, sql, gt } from 'drizzle-orm';
+import { eq, and, isNull, sql, gt } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import {
   customers,

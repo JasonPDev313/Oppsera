@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { resolveNormalBalance } from '../helpers/resolve-normal-balance';
 import { UnbalancedJournalError, PeriodLockedError, CurrencyMismatchError, ControlAccountError } from '../errors';
 import { postJournalEntrySchema, updateAccountingSettingsSchema, lockAccountingPeriodSchema } from '../validation';

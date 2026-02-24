@@ -1,4 +1,4 @@
-import { sql, and, eq, desc, gte, lte } from 'drizzle-orm';
+import { and, eq, desc, gte, lte } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { pmsReservations, pmsRooms, pmsRoomTypes } from '@oppsera/db';
 

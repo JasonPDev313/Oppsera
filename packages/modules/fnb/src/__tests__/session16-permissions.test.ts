@@ -91,8 +91,6 @@ describe('FNB_ROLE_DEFAULTS', () => {
   });
 
   it('role permissions are subsets (staff ⊂ server ⊂ supervisor ⊂ manager ⊂ owner)', () => {
-    const staffPerms = new Set(FNB_ROLE_DEFAULTS.staff);
-    const serverPerms = new Set(FNB_ROLE_DEFAULTS.server);
     const supervisorPerms = new Set(FNB_ROLE_DEFAULTS.supervisor);
     const managerPerms = new Set(FNB_ROLE_DEFAULTS.manager);
     const ownerPerms = new Set(FNB_ROLE_DEFAULTS.owner);

@@ -30,7 +30,7 @@ vi.mock('@oppsera/db', () => {
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
   publishWithOutbox: vi.fn(async (_ctx: any, fn: any) => {
     const mockTx = createMockTx();
-    const { result, events } = await fn(mockTx);
+    const { result } = await fn(mockTx);
     return result;
   }),
 }));

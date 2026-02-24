@@ -481,7 +481,7 @@ export async function runAgenticAnalysis(
     );
     totalTokens += synthesisResponse.tokensInput + synthesisResponse.tokensOutput;
     finalAnswer = synthesisResponse.content;
-  } catch (err) {
+  } catch {
     // Fallback: concatenate step insights
     finalAnswer = completedSteps.map((s) =>
       `**Step ${s.stepNumber}**: ${s.insight}`,

@@ -60,13 +60,22 @@ class DevPaymentGateway implements PaymentGateway {
 
 class StripePaymentGateway implements PaymentGateway {
   private stripe: any;
+  private secretKey: string;
+  private initialized = false;
 
   constructor(secretKey: string) {
-    // Dynamic import to avoid hard dependency — string concat prevents webpack static resolution (gotcha #55)
+    this.secretKey = secretKey;
+    this.stripe = null;
+  }
+
+  private async ensureStripe(): Promise<void> {
+    if (this.initialized) return;
+    this.initialized = true;
     try {
       const pkg = 'str' + 'ipe';
-      const Stripe = require(pkg);
-      this.stripe = new Stripe(secretKey, { apiVersion: '2024-12-18.acacia' });
+      const mod = await import(/* webpackIgnore: true */ pkg);
+      const Stripe = mod.default ?? mod;
+      this.stripe = new Stripe(this.secretKey, { apiVersion: '2024-12-18.acacia' });
     } catch {
       console.warn('[StripeGateway] stripe package not installed, falling back to dev gateway');
       this.stripe = null;
@@ -74,6 +83,7 @@ class StripePaymentGateway implements PaymentGateway {
   }
 
   async createCustomer(email: string, name: string) {
+    await this.ensureStripe();
     if (!this.stripe) return new DevPaymentGateway().createCustomer(email, name);
     const customer = await this.stripe.customers.create({ email, name });
     return { customerId: customer.id };
@@ -88,6 +98,7 @@ class StripePaymentGateway implements PaymentGateway {
     idempotencyKey?: string;
     description?: string;
   }) {
+    await this.ensureStripe();
     if (!this.stripe) return new DevPaymentGateway().createPaymentIntent(input);
     const pi = await this.stripe.paymentIntents.create(
       {
@@ -106,6 +117,7 @@ class StripePaymentGateway implements PaymentGateway {
   }
 
   async capturePaymentIntent(chargeId: string, amountCents?: number) {
+    await this.ensureStripe();
     if (!this.stripe) return new DevPaymentGateway().capturePaymentIntent(chargeId);
     const pi = await this.stripe.paymentIntents.capture(
       chargeId,
@@ -120,6 +132,7 @@ class StripePaymentGateway implements PaymentGateway {
     reason?: string;
     idempotencyKey?: string;
   }) {
+    await this.ensureStripe();
     if (!this.stripe) return new DevPaymentGateway().refund(input);
     const refund = await this.stripe.refunds.create(
       {

@@ -185,7 +185,7 @@ describe('complete intent status transition matrix', () => {
   });
 
   it('all transition targets are valid statuses', () => {
-    for (const [from, targets] of Object.entries(INTENT_STATUS_TRANSITIONS)) {
+    for (const [_from, targets] of Object.entries(INTENT_STATUS_TRANSITIONS)) {
       for (const target of targets) {
         expect(VALID_INTENT_STATUSES).toContain(target);
       }

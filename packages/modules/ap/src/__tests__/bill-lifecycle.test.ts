@@ -33,7 +33,7 @@ vi.mock('@oppsera/db', () => {
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
   publishWithOutbox: vi.fn(async (_ctx: any, fn: any) => {
     const mockTx = createMockTx();
-    const { result, events } = await fn(mockTx);
+    const { result } = await fn(mockTx);
     return result;
   }),
 }));
@@ -176,12 +176,10 @@ describe('Bill Lifecycle', () => {
   describe('createBill', () => {
     it('should create a bill in draft status', async () => {
       const { publishWithOutbox } = await import('@oppsera/core/events/publish-with-outbox');
-      let capturedInsert: any = null;
 
       (publishWithOutbox as any).mockImplementationOnce(async (_ctx: any, fn: any) => {
         const mockTx = createMockTx();
-        (mockTx.values as any).mockImplementation(function (this: any, vals: any) {
-          capturedInsert = vals;
+        (mockTx.values as any).mockImplementation(function (this: any) {
           return this;
         });
         (mockTx.returning as any).mockReset();
@@ -352,9 +350,7 @@ describe('Bill Lifecycle', () => {
       const { getAccountingPostingApi } = await import('@oppsera/core/helpers/accounting-posting-api');
       const postingApi = (getAccountingPostingApi as any)();
 
-      let glEntryInput: any = null;
-      postingApi.postEntry.mockImplementation(async (input: any) => {
-        glEntryInput = input;
+      postingApi.postEntry.mockImplementation(async () => {
         return { id: 'je-ap-1', journalNumber: 10, status: 'posted' };
       });
 
@@ -397,7 +393,7 @@ describe('Bill Lifecycle', () => {
         expect(bill.status).toBe('draft');
 
         // Load lines
-        const lines = await tx.execute();
+        await tx.execute();
 
         // Post GL entry via accounting API
         const je = await postingApi.postEntry({
@@ -469,7 +465,7 @@ describe('Bill Lifecycle', () => {
       const { publishWithOutbox: pwb } = await import('@oppsera/core/events/publish-with-outbox');
 
       const result = await (pwb as any)(ctx, async (tx: any) => {
-        const [bill] = await tx.select().from({}).where({}).limit(1);
+        await tx.select().from({}).where({}).limit(1);
         const [posted] = await tx.update({}).set({
           status: 'posted',
           glJournalEntryId: 'je-linked',

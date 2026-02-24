@@ -12,7 +12,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
-import { tenants, locations, users } from './core';
+import { tenants, locations } from './core';
 import { floorPlanRooms } from './room-layouts';
 
 // ═══════════════════════════════════════════════════════════════════

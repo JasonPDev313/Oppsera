@@ -86,7 +86,7 @@ vi.mock('../helpers/resolve-normal-balance', () => ({
 // ── Test applyStatePlaceholders directly ─────────────────────────
 
 import { applyStatePlaceholders } from '../services/state-placeholder';
-import { replaceStatePlaceholder, STATE_PLACEHOLDER } from '../services/state-placeholder';
+import { replaceStatePlaceholder } from '../services/state-placeholder';
 
 describe('bootstrap — state placeholder integration', () => {
   it('applies state name to templates with [STATE_NAME]', () => {

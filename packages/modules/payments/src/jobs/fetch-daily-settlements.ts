@@ -11,7 +11,7 @@ import { eq, and, isNull, sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { providerRegistry } from '../providers/registry';
 import { decryptCredentials } from '../helpers/credentials';
-import type { SettlementStatusResponse, SettlementTransaction } from '../providers/interface';
+import type { SettlementTransaction } from '../providers/interface';
 
 export interface FetchSettlementInput {
   tenantId: string;

@@ -86,7 +86,6 @@ const MSG_LOST_STOLEN = 'Payment declined. Please contact your card issuer.';
 const MSG_DUPLICATE = 'This transaction has already been processed.';
 const MSG_PROFILE_SAVED = 'Payment profile saved.';
 const MSG_PROFILE_DELETED = 'Payment profile deleted.';
-const MSG_VOID_OK = 'Transaction voided.';
 const MSG_SETTLED = 'Transaction settled.';
 const MSG_PARTIAL = 'Partial approval. Remaining balance due.';
 

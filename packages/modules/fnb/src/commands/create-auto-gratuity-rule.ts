@@ -1,10 +1,8 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
-import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { FNB_EVENTS } from '../events/types';
 import type { CreateAutoGratuityRuleInput } from '../validation';
 
 export async function createAutoGratuityRule(
@@ -32,11 +30,6 @@ export async function createAutoGratuityRule(
     );
 
     const row = created as Record<string, unknown>;
-
-    const event = buildEventFromContext(ctx, FNB_EVENTS.CHECK_PRESENTED, {
-      // Re-use a generic event; real event would be a rule-created event
-      // but the spec only defines payment-flow events. We'll emit nothing extra for rule CRUD.
-    });
 
     if (input.clientRequestId) {
       await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createAutoGratuityRule', row);

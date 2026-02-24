@@ -1,5 +1,5 @@
 import { eq, and, sql } from 'drizzle-orm';
-import { AppError, generateUlid } from '@oppsera/shared';
+import { AppError } from '@oppsera/shared';
 import { orderLines, orders } from '@oppsera/db';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
 import { buildEventFromContext } from '../../events/build-event';

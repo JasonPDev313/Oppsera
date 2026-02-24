@@ -6,7 +6,6 @@ import { getWorkflowConfig } from '@oppsera/core/erp';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { getCloseChecklist } from '../queries/get-close-checklist';
-import type { CloseChecklistItem } from '../queries/get-close-checklist';
 
 export interface StepResult {
   stepKey: string;

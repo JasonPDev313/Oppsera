@@ -126,7 +126,7 @@ export async function handleAchOriginatedForAccounting(event: EventEnvelope): Pr
       settings.defaultUncategorizedRevenueAccountId ?? null;
 
     // Try to resolve ACH payment type mapping for a better revenue target
-    const achMapping = await resolvePaymentTypeAccounts(db, tenantId, 'ach');
+    const _achMapping = await resolvePaymentTypeAccounts(db, tenantId, 'ach');
 
     // If ACH payment type maps to a deposit account that ISN'T the ACH Receivable,
     // it means the POS adapter may have posted to a different account — use ACH Receivable

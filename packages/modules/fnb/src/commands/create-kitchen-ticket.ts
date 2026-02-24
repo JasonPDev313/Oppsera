@@ -3,7 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
-import { fnbKitchenTickets, fnbKitchenTicketCounters, fnbKitchenTicketItems, fnbTabs } from '@oppsera/db';
+import { fnbKitchenTickets, fnbKitchenTicketItems, fnbTabs } from '@oppsera/db';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { CreateKitchenTicketInput } from '../validation';
 import { FNB_EVENTS } from '../events/types';

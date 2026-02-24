@@ -171,7 +171,7 @@ describe('voidJournalEntry', () => {
 
   it('reversal entry should have swapped debits and credits', async () => {
     const { publishWithOutbox } = await import('@oppsera/core/events/publish-with-outbox');
-    let insertedValues: any[] = [];
+    const insertedValues: any[] = [];
 
     (publishWithOutbox as any).mockImplementationOnce(async (_ctx: any, fn: any) => {
       const mockTx = {

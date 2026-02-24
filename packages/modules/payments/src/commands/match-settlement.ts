@@ -3,10 +3,9 @@ import { withTenant } from '@oppsera/db';
 import {
   paymentSettlements,
   paymentSettlementLines,
-  paymentTransactions,
 } from '@oppsera/db';
 import { eq, and, sql } from 'drizzle-orm';
-import { AppError, generateUlid } from '@oppsera/shared';
+import { AppError } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
 // ── Validation ─────────────────────────────────────────────────────

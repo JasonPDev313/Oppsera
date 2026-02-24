@@ -67,7 +67,7 @@ vi.mock('../helpers/catalog-gl-resolution', () => ({
   ]),
 }));
 
-const mockPostEntry = vi.fn().mockImplementation((_ctx, input) => {
+const mockPostEntry = vi.fn().mockImplementation((_ctx, _input) => {
   return Promise.resolve({ id: 'je-1', journalNumber: 1, status: 'posted' });
 });
 
@@ -96,7 +96,7 @@ function expectBalanced(lines: Array<{ debitAmount: string; creditAmount: string
 
 // ── Shared settings ────────────────────────────────────────────
 
-const fullSettings = {
+const _fullSettings = {
   tenantId: 'tenant-1',
   baseCurrency: 'USD',
   fiscalYearStartMonth: 1,
