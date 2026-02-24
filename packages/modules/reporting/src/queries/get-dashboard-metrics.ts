@@ -21,6 +21,8 @@ export interface DashboardMetrics {
   todayVoids: number;
   lowStockCount: number;
   activeCustomers30d: number;
+  /** 'today' when filtered to business_date, 'all' when using all-time fallback */
+  period: 'today' | 'all';
 }
 
 const num = (v: string | number | null | undefined): number => Number(v) || 0;
@@ -59,6 +61,7 @@ export async function getDashboardMetrics(
     let todaySales = num(salesRow?.netSales);
     let todayOrders = salesRow?.orderCount ?? 0;
     let todayVoids = salesRow?.voidCount ?? 0;
+    let period: 'today' | 'all' = 'today';
 
     // Fallback: query operational orders table when read model is empty
     if (todayOrders === 0) {
@@ -66,6 +69,7 @@ export async function getDashboardMetrics(
         ? sql` AND location_id = ${input.locationId}`
         : sql``;
 
+      // Try today's business_date first
       const [fallbackRow] = await tx.execute(sql`
         SELECT
           coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::int AS net_sales_cents,
@@ -74,6 +78,7 @@ export async function getDashboardMetrics(
         FROM orders
         WHERE tenant_id = ${input.tenantId}
           AND business_date = ${today}
+          AND status IN ('placed', 'paid', 'voided')
           ${locFilter}
       `);
 
@@ -81,10 +86,35 @@ export async function getDashboardMetrics(
         const row = fallbackRow as Record<string, unknown>;
         const fallbackOrders = Number(row.order_count) || 0;
         if (fallbackOrders > 0) {
-          // Convert cents to dollars for consistency with read model
           todaySales = (Number(row.net_sales_cents) || 0) / 100;
           todayOrders = fallbackOrders;
           todayVoids = Number(row.void_count) || 0;
+        }
+      }
+
+      // Final fallback: all orders regardless of date (handles NULL business_date
+      // and seed data with dates from other days)
+      if (todayOrders === 0) {
+        const [allTimeRow] = await tx.execute(sql`
+          SELECT
+            coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::int AS net_sales_cents,
+            count(*)::int AS order_count,
+            count(*) FILTER (WHERE status = 'voided')::int AS void_count
+          FROM orders
+          WHERE tenant_id = ${input.tenantId}
+            AND status IN ('placed', 'paid', 'voided')
+            ${locFilter}
+        `);
+
+        if (allTimeRow) {
+          const row = allTimeRow as Record<string, unknown>;
+          const allOrders = Number(row.order_count) || 0;
+          if (allOrders > 0) {
+            todaySales = (Number(row.net_sales_cents) || 0) / 100;
+            todayOrders = allOrders;
+            todayVoids = Number(row.void_count) || 0;
+            period = 'all';
+          }
         }
       }
     }
@@ -155,6 +185,7 @@ export async function getDashboardMetrics(
       todayVoids,
       lowStockCount,
       activeCustomers30d: customerRow?.count ?? 0,
+      period,
     };
   });
 }

@@ -48,6 +48,7 @@ interface DashboardMetrics {
   todayVoids: number;
   lowStockCount: number;
   activeCustomers30d: number;
+  period?: 'today' | 'all';
 }
 
 // ── Persistence helpers ──────────────────────────────────────────
@@ -168,6 +169,9 @@ export default function DashboardContent() {
   const greeting = getGreeting();
 
   // Derive display values — prefer reporting metrics, fall back to order data
+  const isAllTime = metrics?.period === 'all';
+  const salesLabel = isAllTime ? 'Total Sales' : 'Total Sales Today';
+  const ordersLabel = isAllTime ? 'Total Orders' : 'Orders Today';
   const totalSalesDisplay = metrics
     ? formatDollars(metrics.todaySales)
     : null;
@@ -213,7 +217,7 @@ export default function DashboardContent() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {prefs.showSales && (
           <MetricCard
-            label="Total Sales Today"
+            label={salesLabel}
             value={metricsLoading && !totalSalesDisplay ? null : totalSalesDisplay}
             icon={DollarSign}
             iconColor="text-green-600 bg-green-100"
@@ -222,7 +226,7 @@ export default function DashboardContent() {
         )}
         {prefs.showOrders && (
           <MetricCard
-            label="Orders Today"
+            label={ordersLabel}
             value={metricsLoading && !orderCountDisplay ? null : orderCountDisplay}
             icon={ShoppingCart}
             iconColor="text-blue-600 bg-blue-100"
