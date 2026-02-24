@@ -1,4 +1,4 @@
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { catalogItemModifierGroups, catalogModifierGroups, catalogModifiers } from '../schema';
 

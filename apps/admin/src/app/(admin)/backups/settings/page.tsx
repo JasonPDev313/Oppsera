@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import {
-  Settings,
   RefreshCw,
   Clock,
   Calendar,

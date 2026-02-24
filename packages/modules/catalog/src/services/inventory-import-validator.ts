@@ -130,7 +130,6 @@ function parsePrice(raw: string): number | null {
 
 export function validateImport(input: ValidateImportInput): ValidationResult {
   const {
-    headers,
     rows,
     mappings,
     existingSkus,

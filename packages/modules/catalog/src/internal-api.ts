@@ -2,7 +2,6 @@ import { eq, and, inArray, asc, isNull, sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import {
   catalogItems,
-  catalogCategories,
   catalogLocationPrices,
   catalogItemModifierGroups,
   catalogModifierGroups,

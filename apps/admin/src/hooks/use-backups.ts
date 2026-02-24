@@ -197,16 +197,12 @@ export function useBackupSettings() {
   useEffect(() => { fetchSettings(); }, [fetchSettings]);
 
   const updateSettings = useCallback(async (updates: Partial<BackupSettings>) => {
-    try {
-      const json = await adminFetch('/api/v1/admin/backups/settings', {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      });
-      setSettings(json.data);
-      return json.data;
-    } catch (err) {
-      throw err;
-    }
+    const json = await adminFetch('/api/v1/admin/backups/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
+    setSettings(json.data);
+    return json.data;
   }, []);
 
   return { settings, isLoading, error, refresh: fetchSettings, updateSettings };

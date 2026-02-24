@@ -1,6 +1,6 @@
 import { db } from '@oppsera/db';
-import { platformBackups, platformBackupSettings } from '@oppsera/db/schema';
-import { sql, eq, and, lt, isNotNull, ne } from 'drizzle-orm';
+import { platformBackups } from '@oppsera/db/schema';
+import { sql, eq } from 'drizzle-orm';
 import { getBackupStorage } from './storage';
 
 /**
