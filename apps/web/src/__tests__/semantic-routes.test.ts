@@ -81,6 +81,7 @@ const VALID_QUERY_BODY = {
 };
 
 const MOCK_PIPELINE_OUTPUT = {
+  mode: 'metrics' as const,
   narrative: null,
   sections: [],
   data: {

@@ -203,6 +203,7 @@ export type {
   OooBlock,
   OccupancyByDate,
   CalendarDayResponse,
+  UnassignedReservation,
   DailyOccupancyRow,
 } from './queries';
 

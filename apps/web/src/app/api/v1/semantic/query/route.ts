@@ -70,6 +70,7 @@ export const POST = withMiddleware(
 
     return NextResponse.json({
       data: {
+        mode: output.mode,
         plan: output.plan,
         rows: output.data?.rows ?? [],
         rowCount: output.data?.rowCount ?? 0,
@@ -85,6 +86,7 @@ export const POST = withMiddleware(
         provider: output.provider,
         model: output.model,
         cacheStatus: output.cacheStatus,
+        sqlExplanation: output.sqlExplanation ?? null,
       },
     });
   },

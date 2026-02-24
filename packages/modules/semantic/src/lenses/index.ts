@@ -1,5 +1,7 @@
 export { createCustomLens, updateCustomLens, deactivateCustomLens, reactivateCustomLens } from './commands';
 export { getCustomLens, listCustomLenses, listAllLensesForTenant } from './queries';
+export { createSystemLens, updateSystemLens, deactivateSystemLens, reactivateSystemLens } from './system-commands';
+export { getSystemLens, listSystemLenses } from './system-queries';
 export { validateLensSlug, validateLensMetricsAndDimensions } from './validation';
 export type {
   CreateLensInput,
@@ -7,6 +9,10 @@ export type {
   LensFilterInput,
   CustomLensRow,
   ListCustomLensesInput,
+  CreateSystemLensInput,
+  UpdateSystemLensInput,
+  SystemLensRow,
+  ListSystemLensesInput,
 } from './types';
 export {
   DuplicateLensSlugError,

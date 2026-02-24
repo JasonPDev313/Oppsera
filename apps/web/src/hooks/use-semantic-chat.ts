@@ -13,6 +13,7 @@ export interface ChatMessage {
   content: string;          // user's question OR assistant's narrative
   // Assistant-only fields
   evalTurnId?: string | null;  // ULID of the eval turn — used for feedback submission
+  mode?: 'metrics' | 'sql';   // pipeline mode used for this response
   plan?: QueryPlan | null;
   rows?: Record<string, unknown>[];
   rowCount?: number;
@@ -22,6 +23,7 @@ export interface ChatMessage {
   llmConfidence?: number | null;
   llmLatencyMs?: number;
   cacheStatus?: 'HIT' | 'MISS' | 'SKIP';
+  sqlExplanation?: string | null;
   error?: string | null;
   timestamp: number;
 }
@@ -133,6 +135,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     try {
       const res = await apiFetch<{
         data: {
+          mode: 'metrics' | 'sql';
           narrative: string | null;
           sections: Array<{ type: string; content: string }>;
           plan: QueryPlan | null;
@@ -146,6 +149,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
           llmConfidence: number | null;
           llmLatencyMs: number;
           cacheStatus: 'HIT' | 'MISS' | 'SKIP';
+          sqlExplanation: string | null;
         };
       }>('/api/v1/semantic/ask', {
         method: 'POST',
@@ -177,6 +181,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
         role: 'assistant',
         content: assistantContent,
         evalTurnId: data.evalTurnId ?? null,
+        mode: data.mode,
         plan: data.plan,
         rows: data.rows,
         rowCount: data.rowCount,
@@ -186,6 +191,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
         llmConfidence: data.llmConfidence,
         llmLatencyMs: data.llmLatencyMs,
         cacheStatus: data.cacheStatus,
+        sqlExplanation: data.sqlExplanation,
         error: null,
         timestamp: Date.now(),
       };
@@ -272,8 +278,10 @@ function evalTurnToChatMessages(turn: LoadedTurn): ChatMessage[] {
     assistantContent = turn.clarificationMessage ?? 'Could you clarify your question?';
   } else if (turn.narrative) {
     assistantContent = turn.narrative;
+  } else if (turn.compilationErrors && turn.compilationErrors.length > 0) {
+    assistantContent = `I wasn't able to process that query. ${turn.compilationErrors[0]}`;
   } else {
-    assistantContent = 'No response was generated for this question.';
+    assistantContent = "I couldn't generate a response for that question. Try rephrasing or asking about specific metrics like revenue, orders, or items sold.";
   }
 
   const assistantMsg: ChatMessage = {

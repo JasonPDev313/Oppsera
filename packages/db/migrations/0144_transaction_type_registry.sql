@@ -76,22 +76,26 @@ ALTER TABLE gl_transaction_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE gl_transaction_types FORCE ROW LEVEL SECURITY;
 
 -- System types (tenant_id IS NULL) are readable by everyone
-CREATE POLICY IF NOT EXISTS gl_txn_types_select_system ON gl_transaction_types
+DROP POLICY IF EXISTS gl_txn_types_select_system ON gl_transaction_types;
+CREATE POLICY gl_txn_types_select_system ON gl_transaction_types
   FOR SELECT USING (tenant_id IS NULL);
 
 -- Tenant types: only own tenant
-CREATE POLICY IF NOT EXISTS gl_txn_types_select_tenant ON gl_transaction_types
+DROP POLICY IF EXISTS gl_txn_types_select_tenant ON gl_transaction_types;
+CREATE POLICY gl_txn_types_select_tenant ON gl_transaction_types
   FOR SELECT USING (
     tenant_id IS NOT NULL
     AND tenant_id = (SELECT current_setting('app.current_tenant_id', true))
   );
 
-CREATE POLICY IF NOT EXISTS gl_txn_types_insert ON gl_transaction_types
+DROP POLICY IF EXISTS gl_txn_types_insert ON gl_transaction_types;
+CREATE POLICY gl_txn_types_insert ON gl_transaction_types
   FOR INSERT WITH CHECK (
     tenant_id = (SELECT current_setting('app.current_tenant_id', true))
   );
 
-CREATE POLICY IF NOT EXISTS gl_txn_types_update ON gl_transaction_types
+DROP POLICY IF EXISTS gl_txn_types_update ON gl_transaction_types;
+CREATE POLICY gl_txn_types_update ON gl_transaction_types
   FOR UPDATE USING (
     tenant_id = (SELECT current_setting('app.current_tenant_id', true))
   );
@@ -100,17 +104,20 @@ CREATE POLICY IF NOT EXISTS gl_txn_types_update ON gl_transaction_types
 ALTER TABLE tenant_tender_types ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_tender_types FORCE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS tenant_tender_types_select ON tenant_tender_types
+DROP POLICY IF EXISTS tenant_tender_types_select ON tenant_tender_types;
+CREATE POLICY tenant_tender_types_select ON tenant_tender_types
   FOR SELECT USING (
     tenant_id = (SELECT current_setting('app.current_tenant_id', true))
   );
 
-CREATE POLICY IF NOT EXISTS tenant_tender_types_insert ON tenant_tender_types
+DROP POLICY IF EXISTS tenant_tender_types_insert ON tenant_tender_types;
+CREATE POLICY tenant_tender_types_insert ON tenant_tender_types
   FOR INSERT WITH CHECK (
     tenant_id = (SELECT current_setting('app.current_tenant_id', true))
   );
 
-CREATE POLICY IF NOT EXISTS tenant_tender_types_update ON tenant_tender_types
+DROP POLICY IF EXISTS tenant_tender_types_update ON tenant_tender_types;
+CREATE POLICY tenant_tender_types_update ON tenant_tender_types
   FOR UPDATE USING (
     tenant_id = (SELECT current_setting('app.current_tenant_id', true))
   );

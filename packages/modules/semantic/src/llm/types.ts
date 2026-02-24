@@ -48,7 +48,10 @@ export interface IntentContext {
   timezone?: string;
 }
 
+export type PipelineMode = 'metrics' | 'sql';
+
 export interface ResolvedIntent {
+  mode: PipelineMode;          // 'metrics' for registry-based, 'sql' for direct SQL
   plan: QueryPlan;
   confidence: number;          // 0–1, LLM's self-reported confidence
   isClarification: boolean;    // true if LLM asked a question instead of planning
@@ -102,6 +105,7 @@ export interface PipelineInput {
 }
 
 export interface PipelineOutput {
+  mode: PipelineMode;
   narrative: string | null;
   sections: NarrativeSection[];
   data: QueryResult | null;
@@ -122,6 +126,8 @@ export interface PipelineOutput {
   compilationErrors: string[];
   tablesAccessed: string[];
   cacheStatus: 'HIT' | 'MISS' | 'SKIP';
+  // Mode B only: the generated SQL explanation
+  sqlExplanation?: string;
 }
 
 // ── Errors ────────────────────────────────────────────────────────

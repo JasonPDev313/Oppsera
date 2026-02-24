@@ -1,4 +1,4 @@
-import type { LLMAdapter, LLMMessage, IntentContext, ResolvedIntent } from './types';
+import type { LLMAdapter, LLMMessage, IntentContext, ResolvedIntent, PipelineMode } from './types';
 import { LLMError } from './types';
 import type { QueryPlan } from '../compiler/types';
 import type { RegistryCatalog, MetricDef, DimensionDef } from '../registry/types';
@@ -41,6 +41,7 @@ function buildSystemPrompt(
   context: IntentContext,
   examples: EvalExample[],
   lensPromptFragment?: string | null,
+  schemaSummary?: string | null,
 ): string {
   const catalogSection = buildCatalogSnippet(catalog);
   const examplesSection = buildExamplesSnippet(examples);
@@ -48,18 +49,23 @@ function buildSystemPrompt(
     ? `## Active Lens Context\n${lensPromptFragment}\n`
     : '';
 
+  const schemaSection = schemaSummary
+    ? `\n## Full Database Tables (for SQL mode routing)\nThe tenant database also contains these tables that can be queried directly via SQL mode:\n${schemaSummary}\n`
+    : '';
+
   return `You are the intent-resolution engine for OppsEra, a business analytics platform for hospitality and retail operators.
 
-Your job: translate a user's natural-language question into a structured query plan.
+Your job: translate a user's natural-language question into a structured query plan, AND decide which execution mode to use.
 
 ## Output Contract
 Respond with a single JSON object — no markdown fences, no prose before/after. Schema:
 \`\`\`
 {
+  "mode": "metrics" | "sql",     // "metrics" for analytics via pre-defined metrics, "sql" for direct database queries
   "plan": {
-    "metrics": string[],          // slugs from Available Metrics
-    "dimensions": string[],       // slugs from Available Dimensions
-    "filters": [                  // optional filters
+    "metrics": string[],          // slugs from Available Metrics (only for mode="metrics")
+    "dimensions": string[],       // slugs from Available Dimensions (only for mode="metrics")
+    "filters": [                  // optional filters (only for mode="metrics")
       { "dimensionSlug": string, "operator": "eq"|"neq"|"gt"|"gte"|"lt"|"lte"|"in"|"nin"|"between"|"like"|"is_null"|"is_not_null",
         "value"?: string|number,
         "values"?: (string|number)[],
@@ -79,15 +85,21 @@ Respond with a single JSON object — no markdown fences, no prose before/after.
 }
 \`\`\`
 
+## Mode Routing Rules
+- Use **mode="metrics"** when the question is about sales analytics, revenue, order counts, item performance, inventory KPIs, or any topic that maps cleanly to the Available Metrics below. This mode is faster and more reliable for these queries.
+- Use **mode="sql"** when the question is about specific records, data exploration, operational details, entity lookups, configuration, or anything NOT covered by the Available Metrics. Examples: "how many users do I have", "list my vendors", "which catalog items have no inventory", "show me orders from customer X", "what tables need setup".
+- When in doubt, prefer **mode="sql"** — it can answer any question about the database.
+- For mode="sql", still fill in the plan with "intent" and "rationale" fields (metrics/dimensions can be empty arrays).
+
 ## Rules
 1. Only use metric/dimension slugs from the lists below. Never invent slugs.
 2. If the user's question is ambiguous but answerable with reasonable assumptions, make the best plan and set confidence < 0.8.
-3. **Bias toward attempting a query.** If the question is ambiguous, make your best attempt with reasonable assumptions and set confidence < 0.7. Only set clarificationNeeded = true when you genuinely cannot map ANY part of the question to available metrics (e.g., asks about weather data we don't have). A partial answer is better than no answer.
-4. Date ranges: resolve relative terms ("last month", "this week", "YTD") using currentDate. If no date range is specified, default to the last 7 days.
-5. Always include a date dimension when a date range is specified.
-6. Filters must reference dimension slugs that are included in dimensions[].
+3. **Bias toward attempting a query.** If the question is ambiguous, make your best attempt with reasonable assumptions and set confidence < 0.7. Only set clarificationNeeded = true when you genuinely cannot map ANY part of the question to available metrics AND the question is about something not in the database at all (e.g., weather data). A partial answer is better than no answer.
+4. Date ranges: resolve relative terms ("last month", "this week", "YTD") using currentDate. If no date range is specified for metrics mode, default to the last 7 days.
+5. Always include a date dimension when a date range is specified (metrics mode).
+6. Filters must reference dimension slugs that are included in dimensions[] (metrics mode).
 7. Return null for plan only when clarificationNeeded = true.
-8. For general business questions that don't map directly to metrics (e.g., "how should I schedule staff?", "any ideas to boost revenue?"), still build a plan using the most relevant available metrics and set confidence < 0.6. The downstream narrative layer will augment your data with business advice.
+8. For general business questions that don't map directly to metrics (e.g., "how should I schedule staff?", "any ideas to boost revenue?"), use mode="metrics" with the most relevant available metrics and set confidence < 0.6. The downstream narrative layer will augment your data with business advice.
 
 ## Context
 - Current date: ${context.currentDate}
@@ -97,7 +109,7 @@ ${context.locationId ? `- Location: ${context.locationId}` : '- Scope: all locat
 ${context.timezone ? `- Timezone: ${context.timezone}` : ''}
 
 ${lensSection}${catalogSection}
-
+${schemaSection}
 ${examplesSection}`.trim();
 }
 
@@ -105,6 +117,7 @@ ${examplesSection}`.trim();
 // Tolerant parser: strips outer markdown fences if present.
 
 interface RawIntentResponse {
+  mode: PipelineMode;
   plan: Record<string, unknown> | null;
   confidence: number;
   clarificationNeeded: boolean;
@@ -150,7 +163,14 @@ function parseIntentResponse(raw: string): RawIntentResponse {
     throw new LLMError('Intent resolver missing clarificationNeeded field', 'PARSE_ERROR');
   }
 
+  // Parse mode — default to 'metrics' for backward compat with older prompts
+  const mode: PipelineMode =
+    typeof obj.mode === 'string' && (obj.mode === 'metrics' || obj.mode === 'sql')
+      ? obj.mode
+      : 'metrics';
+
   return {
+    mode,
     plan: (obj.plan as Record<string, unknown> | null) ?? null,
     confidence: Math.min(1, Math.max(0, obj.confidence as number)),
     clarificationNeeded: obj.clarificationNeeded as boolean,
@@ -197,6 +217,8 @@ export interface ResolveIntentOptions {
   examples?: EvalExample[];
   lensPromptFragment?: string | null;
   adapter?: LLMAdapter;
+  /** Schema summary for mode routing (table names + descriptions) */
+  schemaSummary?: string | null;
 }
 
 export async function resolveIntent(
@@ -204,10 +226,10 @@ export async function resolveIntent(
   context: IntentContext,
   opts: ResolveIntentOptions,
 ): Promise<ResolvedIntent> {
-  const { catalog, examples = [], lensPromptFragment, adapter } = opts;
+  const { catalog, examples = [], lensPromptFragment, adapter, schemaSummary } = opts;
   const llm = adapter ?? getLLMAdapter();
 
-  const systemPrompt = buildSystemPrompt(catalog, context, examples, lensPromptFragment);
+  const systemPrompt = buildSystemPrompt(catalog, context, examples, lensPromptFragment, schemaSummary);
 
   // Compose conversation: only user messages from history (assistant messages
   // contain narrative prose which causes the LLM to respond conversationally
@@ -237,6 +259,7 @@ export async function resolveIntent(
   const isClarification = parsed.clarificationNeeded || plan === null;
 
   return {
+    mode: parsed.mode,
     plan: plan ?? {
       metrics: [],
       dimensions: [],

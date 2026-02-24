@@ -48,6 +48,7 @@ export type {
   CalendarSegment,
   OooBlock,
   OccupancyByDate,
+  UnassignedReservation,
 } from './calendar-week';
 
 export { getCalendarDay } from './calendar-day';

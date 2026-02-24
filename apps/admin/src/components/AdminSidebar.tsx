@@ -18,6 +18,7 @@ import {
   UserCog,
   Shield,
   Zap,
+  Layers,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
@@ -64,6 +65,7 @@ const MODULES: NavModule[] = [
       { href: '/train-ai/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/train-ai/examples', label: 'Golden Examples', icon: BookOpen },
       { href: '/train-ai/patterns', label: 'Patterns', icon: AlertTriangle },
+      { href: '/train-ai/lenses', label: 'System Lenses', icon: Layers },
     ],
   },
 ];

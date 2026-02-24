@@ -63,6 +63,63 @@ export interface ListCustomLensesInput {
   includeInactive?: boolean;
 }
 
+// ── System Lens Types ───────────────────────────────────────────────
+// System lenses are platform-wide (tenantId = NULL, isSystem = true).
+// Managed by super admins via the admin portal.
+
+export interface CreateSystemLensInput {
+  slug: string;
+  displayName: string;
+  description?: string;
+  domain: string;
+  allowedMetrics?: string[];
+  allowedDimensions?: string[];
+  defaultMetrics?: string[];
+  defaultDimensions?: string[];
+  defaultFilters?: LensFilterInput[];
+  systemPromptFragment?: string;
+  exampleQuestions?: string[];
+}
+
+export interface UpdateSystemLensInput {
+  slug: string;
+  displayName?: string;
+  description?: string;
+  domain?: string;
+  allowedMetrics?: string[];
+  allowedDimensions?: string[];
+  defaultMetrics?: string[];
+  defaultDimensions?: string[];
+  defaultFilters?: LensFilterInput[];
+  systemPromptFragment?: string;
+  exampleQuestions?: string[];
+}
+
+export interface SystemLensRow {
+  id: string;
+  tenantId: null;
+  slug: string;
+  displayName: string;
+  description: string | null;
+  domain: string;
+  allowedMetrics: string[] | null;
+  allowedDimensions: string[] | null;
+  defaultMetrics: string[] | null;
+  defaultDimensions: string[] | null;
+  defaultFilters: LensFilterInput[] | null;
+  systemPromptFragment: string | null;
+  exampleQuestions: string[] | null;
+  isActive: boolean;
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ListSystemLensesInput {
+  domain?: string;
+  includeInactive?: boolean;
+}
+
 // ── Validation errors ─────────────────────────────────────────────
 
 export class DuplicateLensSlugError extends Error {

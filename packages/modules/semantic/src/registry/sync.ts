@@ -140,6 +140,9 @@ async function upsertLenses(
   pg: postgres.Sql,
   lenses: Omit<LensDef, 'isActive'>[],
 ) {
+  // ON CONFLICT DO NOTHING — seed-only. Once a system lens exists in the DB
+  // it is managed exclusively via the admin portal. Re-running sync will
+  // create any NEW lenses but never overwrite admin edits to existing ones.
   for (const l of lenses) {
     await pg`
       INSERT INTO semantic_lenses (
@@ -155,19 +158,7 @@ async function upsertLenses(
         ${l.systemPromptFragment ?? null}, ${l.exampleQuestions ?? null},
         TRUE, ${l.isSystem}, NOW(), NOW()
       )
-      ON CONFLICT (slug) WHERE tenant_id IS NULL DO UPDATE SET
-        display_name           = EXCLUDED.display_name,
-        description            = EXCLUDED.description,
-        domain                 = EXCLUDED.domain,
-        allowed_metrics        = EXCLUDED.allowed_metrics,
-        allowed_dimensions     = EXCLUDED.allowed_dimensions,
-        default_metrics        = EXCLUDED.default_metrics,
-        default_dimensions     = EXCLUDED.default_dimensions,
-        default_filters        = EXCLUDED.default_filters,
-        system_prompt_fragment = EXCLUDED.system_prompt_fragment,
-        example_questions      = EXCLUDED.example_questions,
-        is_system              = EXCLUDED.is_system,
-        updated_at             = NOW()
+      ON CONFLICT (slug) WHERE tenant_id IS NULL DO NOTHING
     `;
   }
 }

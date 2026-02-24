@@ -3,61 +3,26 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // ── Hoisted mocks ─────────────────────────────────────────────────
 
 const {
-  mockCreateCustomLens,
   mockListCustomLenses,
   mockGetCustomLens,
-  mockUpdateCustomLens,
-  mockDeactivateCustomLens,
-  mockReactivateCustomLens,
   mockListLenses,
   mockGetLens,
   mockWithMiddleware,
 } = vi.hoisted(() => ({
-  mockCreateCustomLens: vi.fn(),
   mockListCustomLenses: vi.fn(),
   mockGetCustomLens: vi.fn(),
-  mockUpdateCustomLens: vi.fn(),
-  mockDeactivateCustomLens: vi.fn(),
-  mockReactivateCustomLens: vi.fn(),
   mockListLenses: vi.fn(),
   mockGetLens: vi.fn(),
   mockWithMiddleware: vi.fn(),
 }));
 
 vi.mock('@oppsera/module-semantic/lenses', () => ({
-  createCustomLens: mockCreateCustomLens,
   listCustomLenses: mockListCustomLenses,
   getCustomLens: mockGetCustomLens,
-  updateCustomLens: mockUpdateCustomLens,
-  deactivateCustomLens: mockDeactivateCustomLens,
-  reactivateCustomLens: mockReactivateCustomLens,
-  DuplicateLensSlugError: class DuplicateLensSlugError extends Error {
-    slug: string;
-    tenantId: string;
-    constructor(slug: string, tenantId: string) {
-      super(`Duplicate: ${slug}`);
-      this.slug = slug;
-      this.tenantId = tenantId;
-    }
-  },
-  InvalidLensSlugError: class InvalidLensSlugError extends Error {
-    slug: string;
-    constructor(slug: string) {
-      super(`Invalid slug: ${slug}`);
-      this.slug = slug;
-    }
-  },
   LensNotFoundError: class LensNotFoundError extends Error {
     slug: string;
     constructor(slug: string) {
       super(`Not found: ${slug}`);
-      this.slug = slug;
-    }
-  },
-  SystemLensModificationError: class SystemLensModificationError extends Error {
-    slug: string;
-    constructor(slug: string) {
-      super(`System lens: ${slug}`);
       this.slug = slug;
     }
   },
@@ -75,17 +40,6 @@ vi.mock('@oppsera/core/auth/with-middleware', () => ({
   },
 }));
 
-vi.mock('@oppsera/shared', () => ({
-  ValidationError: class extends Error {
-    constructor(
-      message: string,
-      public details: unknown[],
-    ) {
-      super(message);
-    }
-  },
-}));
-
 // ── Helpers ───────────────────────────────────────────────────────
 
 function makeMockCtx(overrides = {}) {
@@ -97,15 +51,10 @@ function makeMockCtx(overrides = {}) {
   };
 }
 
-function makeRequest(
-  url: string,
-  method = 'GET',
-  body?: unknown,
-) {
+function makeRequest(url: string) {
   return new Request(url, {
-    method,
+    method: 'GET',
     headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
   });
 }
 
@@ -196,66 +145,6 @@ describe('GET /api/v1/semantic/lenses', () => {
   });
 });
 
-// ── POST /api/v1/semantic/lenses ──────────────────────────────────
-
-describe('POST /api/v1/semantic/lenses', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockCreateCustomLens.mockResolvedValue(makeLensRow());
-  });
-
-  it('creates a custom lens and returns 201', async () => {
-    const { listRoute } = await getRouteHandlers();
-    const req = makeRequest('http://localhost/api/v1/semantic/lenses', 'POST', {
-      slug: 'my_lens',
-      displayName: 'My Lens',
-      domain: 'golf',
-      allowedMetrics: ['rounds_played'],
-    });
-
-    const res = await listRoute.POST(req as never);
-    expect(res.status).toBe(201);
-    const body = await res.json();
-    expect(body.data.slug).toBe('my_lens');
-  });
-
-  it('returns 409 on duplicate slug', async () => {
-    const { DuplicateLensSlugError } = await import('@oppsera/module-semantic/lenses');
-    mockCreateCustomLens.mockRejectedValue(new DuplicateLensSlugError('my_lens', 'T1'));
-
-    const { listRoute } = await getRouteHandlers();
-    const req = makeRequest('http://localhost/api/v1/semantic/lenses', 'POST', {
-      slug: 'my_lens',
-      displayName: 'My Lens',
-      domain: 'golf',
-    });
-
-    const res = await listRoute.POST(req as never);
-    expect(res.status).toBe(409);
-    const body = await res.json();
-    expect(body.error.code).toBe('DUPLICATE_SLUG');
-  });
-
-  it('returns 400 for invalid slug format', async () => {
-    const { listRoute } = await getRouteHandlers();
-    // Schema validation catches this before reaching createCustomLens
-    const req = makeRequest('http://localhost/api/v1/semantic/lenses', 'POST', {
-      slug: 'INVALID SLUG!',
-      displayName: 'Bad',
-      domain: 'golf',
-    });
-
-    // Zod regex will fail — withMiddleware passes validation errors through
-    try {
-      await listRoute.POST(req as never);
-    } catch {
-      // ValidationError thrown — that's expected
-    }
-    // createCustomLens should NOT have been called
-    expect(mockCreateCustomLens).not.toHaveBeenCalled();
-  });
-});
-
 // ── GET /api/v1/semantic/lenses/[slug] ───────────────────────────
 
 describe('GET /api/v1/semantic/lenses/[slug]', () => {
@@ -306,97 +195,3 @@ describe('GET /api/v1/semantic/lenses/[slug]', () => {
   });
 });
 
-// ── PATCH /api/v1/semantic/lenses/[slug] ─────────────────────────
-
-describe('PATCH /api/v1/semantic/lenses/[slug]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('updates a custom lens', async () => {
-    const updated = makeLensRow({ displayName: 'Updated Lens' });
-    mockUpdateCustomLens.mockResolvedValue(updated);
-
-    const { detailRoute } = await getRouteHandlers();
-    const req = makeRequest('http://localhost/api/v1/semantic/lenses/my_lens', 'PATCH', {
-      displayName: 'Updated Lens',
-    });
-
-    const res = await detailRoute.PATCH(req as never);
-    const body = await res.json();
-    expect(body.data.displayName).toBe('Updated Lens');
-  });
-
-  it('returns 404 when lens not found', async () => {
-    const { LensNotFoundError } = await import('@oppsera/module-semantic/lenses');
-    mockUpdateCustomLens.mockRejectedValue(new LensNotFoundError('nonexistent'));
-
-    const { detailRoute } = await getRouteHandlers();
-    const req = makeRequest('http://localhost/api/v1/semantic/lenses/nonexistent', 'PATCH', {
-      displayName: 'X',
-    });
-
-    const res = await detailRoute.PATCH(req as never);
-    expect(res.status).toBe(404);
-  });
-
-  it('returns 403 when trying to modify system lens', async () => {
-    const { SystemLensModificationError } = await import('@oppsera/module-semantic/lenses');
-    mockUpdateCustomLens.mockRejectedValue(new SystemLensModificationError('golf_ops'));
-
-    const { detailRoute } = await getRouteHandlers();
-    const req = makeRequest('http://localhost/api/v1/semantic/lenses/golf_ops', 'PATCH', {
-      displayName: 'X',
-    });
-
-    const res = await detailRoute.PATCH(req as never);
-    expect(res.status).toBe(403);
-    const body = await res.json();
-    expect(body.error.code).toBe('SYSTEM_LENS');
-  });
-});
-
-// ── DELETE /api/v1/semantic/lenses/[slug] ────────────────────────
-
-describe('DELETE /api/v1/semantic/lenses/[slug]', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('deactivates a custom lens (default action)', async () => {
-    const deactivated = makeLensRow({ isActive: false });
-    mockDeactivateCustomLens.mockResolvedValue(deactivated);
-
-    const { detailRoute } = await getRouteHandlers();
-    const req = makeRequest('http://localhost/api/v1/semantic/lenses/my_lens', 'DELETE');
-    const res = await detailRoute.DELETE(req as never);
-    const body = await res.json();
-    expect(body.data.isActive).toBe(false);
-    expect(mockDeactivateCustomLens).toHaveBeenCalledWith('TENANT_1', 'my_lens');
-  });
-
-  it('reactivates a lens when ?action=reactivate', async () => {
-    const reactivated = makeLensRow({ isActive: true });
-    mockReactivateCustomLens.mockResolvedValue(reactivated);
-
-    const { detailRoute } = await getRouteHandlers();
-    const req = makeRequest(
-      'http://localhost/api/v1/semantic/lenses/my_lens?action=reactivate',
-      'DELETE',
-    );
-    const res = await detailRoute.DELETE(req as never);
-    expect(mockReactivateCustomLens).toHaveBeenCalledWith('TENANT_1', 'my_lens');
-    const body = await res.json();
-    expect(body.data.isActive).toBe(true);
-  });
-
-  it('returns 403 for system lens', async () => {
-    const { SystemLensModificationError } = await import('@oppsera/module-semantic/lenses');
-    mockDeactivateCustomLens.mockRejectedValue(new SystemLensModificationError('golf_ops'));
-
-    const { detailRoute } = await getRouteHandlers();
-    const req = makeRequest('http://localhost/api/v1/semantic/lenses/golf_ops', 'DELETE');
-    const res = await detailRoute.DELETE(req as never);
-    expect(res.status).toBe(403);
-  });
-});

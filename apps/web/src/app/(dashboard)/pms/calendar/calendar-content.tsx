@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Calendar, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Loader2, AlertCircle } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
@@ -43,17 +43,37 @@ interface OccupancyByDate {
   departures: number;
 }
 
+interface UnassignedReservation {
+  reservationId: string;
+  status: string;
+  guestName: string;
+  checkInDate: string;
+  checkOutDate: string;
+  roomTypeName: string;
+  sourceType: string;
+}
+
 interface CalendarWeekData {
   startDate: string;
   endDate: string;
   rooms: CalendarRoom[];
   segments: CalendarSegment[];
   oooBlocks: OooBlock[];
+  unassigned: UnassignedReservation[];
   meta: {
     totalRooms: number;
     occupancyByDate: Record<string, OccupancyByDate>;
     lastUpdatedAt: string;
   };
+}
+
+interface CalendarDayData {
+  date: string;
+  rooms: CalendarRoom[];
+  segments: CalendarSegment[];
+  oooBlocks: OooBlock[];
+  occupancy: OccupancyByDate | null;
+  unassigned: UnassignedReservation[];
 }
 
 interface Property {
@@ -78,11 +98,20 @@ interface ReservationContextMenuState {
   status: string;
 }
 
+type ViewMode = 'week' | 'day';
+
 const STATUS_COLORS: Record<string, string> = {
   CONFIRMED: 'bg-indigo-500 text-white',
   CHECKED_IN: 'bg-blue-500 text-white',
   HOLD: 'bg-amber-400 text-gray-900',
   NO_SHOW: 'bg-red-500 text-white',
+};
+
+const STATUS_DOT_COLORS: Record<string, string> = {
+  CONFIRMED: 'bg-indigo-500',
+  CHECKED_IN: 'bg-blue-500',
+  HOLD: 'bg-amber-400',
+  NO_SHOW: 'bg-red-500',
 };
 
 const POS_TERMINAL_KEY = 'pos_terminal_id';
@@ -109,6 +138,11 @@ function formatDateDisplay(dateStr: string): string {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+function formatDateLong(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
 function formatWeekRange(start: Date): string {
   const end = new Date(start);
   end.setDate(end.getDate() + 6);
@@ -132,10 +166,13 @@ export default function CalendarContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
 
+  const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState('');
   const [weekStart, setWeekStart] = useState<Date>(() => getMonday(new Date()));
-  const [data, setData] = useState<CalendarWeekData | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string>(() => formatDate(new Date()));
+  const [weekData, setWeekData] = useState<CalendarWeekData | null>(null);
+  const [dayData, setDayData] = useState<CalendarDayData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ReservationContextMenuState | null>(null);
@@ -168,8 +205,9 @@ export default function CalendarContent() {
     };
   }, []); // eslint-disable-line
 
+  // Fetch week data
   useEffect(() => {
-    if (!propertyId) return;
+    if (!propertyId || viewMode !== 'week') return;
     let cancelled = false;
     setIsLoading(true);
     setError(null);
@@ -181,7 +219,7 @@ export default function CalendarContent() {
 
     apiFetch<{ data: CalendarWeekData }>(`/api/v1/pms/calendar/week${qs}`)
       .then((res) => {
-        if (!cancelled) setData(res.data);
+        if (!cancelled) setWeekData(res.data);
       })
       .catch((err) => {
         if (!cancelled) setError(err.message ?? 'Failed to load calendar');
@@ -193,7 +231,35 @@ export default function CalendarContent() {
     return () => {
       cancelled = true;
     };
-  }, [propertyId, weekStart]);
+  }, [propertyId, weekStart, viewMode]);
+
+  // Fetch day data
+  useEffect(() => {
+    if (!propertyId || viewMode !== 'day') return;
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    const qs = buildQueryString({
+      propertyId,
+      date: selectedDate,
+    });
+
+    apiFetch<{ data: CalendarDayData }>(`/api/v1/pms/calendar/day${qs}`)
+      .then((res) => {
+        if (!cancelled) setDayData(res.data);
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message ?? 'Failed to load calendar');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [propertyId, selectedDate, viewMode]);
 
   useEffect(() => {
     if (!contextMenu) return undefined;
@@ -230,9 +296,29 @@ export default function CalendarContent() {
     });
   }, []);
 
-  const goToToday = useCallback(() => {
-    setWeekStart(getMonday(new Date()));
+  const prevDay = useCallback(() => {
+    setSelectedDate((prev) => {
+      const d = new Date(`${prev}T00:00:00`);
+      d.setDate(d.getDate() - 1);
+      return formatDate(d);
+    });
   }, []);
+
+  const nextDay = useCallback(() => {
+    setSelectedDate((prev) => {
+      const d = new Date(`${prev}T00:00:00`);
+      d.setDate(d.getDate() + 1);
+      return formatDate(d);
+    });
+  }, []);
+
+  const goToToday = useCallback(() => {
+    if (viewMode === 'week') {
+      setWeekStart(getMonday(new Date()));
+    } else {
+      setSelectedDate(formatDate(new Date()));
+    }
+  }, [viewMode]);
 
   const handleCheckInToPos = useCallback(
     async (reservationId: string) => {
@@ -280,20 +366,21 @@ export default function CalendarContent() {
     [locations, reservationCatalogItemId, terminalId, router],
   );
 
+  // Week view data derivations
   const segmentsByRoomDate = useMemo(() => {
     const map = new Map<string, Map<string, CalendarSegment>>();
-    if (!data) return map;
-    for (const seg of data.segments) {
+    if (!weekData) return map;
+    for (const seg of weekData.segments) {
       if (!map.has(seg.roomId)) map.set(seg.roomId, new Map());
       map.get(seg.roomId)!.set(seg.businessDate, seg);
     }
     return map;
-  }, [data]);
+  }, [weekData]);
 
   const oooByRoomDate = useMemo(() => {
     const map = new Map<string, Set<string>>();
-    if (!data) return map;
-    for (const block of data.oooBlocks) {
+    if (!weekData) return map;
+    for (const block of weekData.oooBlocks) {
       if (!map.has(block.roomId)) map.set(block.roomId, new Set());
       const blockDates = map.get(block.roomId)!;
       for (const date of weekDates) {
@@ -303,13 +390,13 @@ export default function CalendarContent() {
       }
     }
     return map;
-  }, [data, weekDates]);
+  }, [weekData, weekDates]);
 
   const occupancyByDate = useMemo(() => {
-    if (!data) return {};
+    if (!weekData) return {};
     const result: Record<string, number> = {};
     for (const date of weekDates) {
-      const occ = data.meta.occupancyByDate[date];
+      const occ = weekData.meta.occupancyByDate[date];
       if (occ) {
         const total = occ.occupied + occ.available;
         result[date] = total > 0 ? Math.round((occ.occupied / total) * 100) : 0;
@@ -318,15 +405,15 @@ export default function CalendarContent() {
       }
     }
     return result;
-  }, [data, weekDates]);
+  }, [weekData, weekDates]);
 
   const reservationBars = useMemo(() => {
-    if (!data) return new Map<string, Map<string, { segment: CalendarSegment; span: number }>>();
+    if (!weekData) return new Map<string, Map<string, { segment: CalendarSegment; span: number }>>();
 
     const bars = new Map<string, Map<string, { segment: CalendarSegment; span: number }>>();
     const rendered = new Set<string>();
 
-    for (const room of data.rooms) {
+    for (const room of weekData.rooms) {
       const roomBars = new Map<string, { segment: CalendarSegment; span: number }>();
       bars.set(room.roomId, roomBars);
 
@@ -354,9 +441,45 @@ export default function CalendarContent() {
     }
 
     return bars;
-  }, [data, weekDates, segmentsByRoomDate]);
+  }, [weekData, weekDates, segmentsByRoomDate]);
+
+  // Day view data derivations
+  const daySegmentsByRoom = useMemo(() => {
+    const map = new Map<string, CalendarSegment>();
+    if (!dayData) return map;
+    for (const seg of dayData.segments) {
+      map.set(seg.roomId, seg);
+    }
+    return map;
+  }, [dayData]);
+
+  const dayOooRooms = useMemo(() => {
+    const set = new Set<string>();
+    if (!dayData) return set;
+    for (const block of dayData.oooBlocks) {
+      set.add(block.roomId);
+    }
+    return set;
+  }, [dayData]);
 
   const todayStr = formatDate(new Date());
+
+  // Current data depending on view mode
+  const currentData = viewMode === 'week' ? weekData : dayData;
+  const unassigned = viewMode === 'week' ? (weekData?.unassigned ?? []) : (dayData?.unassigned ?? []);
+
+  const handleReservationContextMenu = useCallback(
+    (event: React.MouseEvent, reservationId: string, status: string) => {
+      event.preventDefault();
+      setContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        reservationId,
+        status,
+      });
+    },
+    [],
+  );
 
   return (
     <div className="space-y-4">
@@ -366,6 +489,29 @@ export default function CalendarContent() {
           <h1 className="text-xl font-semibold text-gray-900">Calendar</h1>
         </div>
         <div className="flex items-center gap-2">
+          {/* View mode toggle */}
+          <div className="flex rounded-lg border border-gray-200 bg-surface">
+            <button
+              onClick={() => setViewMode('week')}
+              className={`rounded-l-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === 'week'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-200/50'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setViewMode('day')}
+              className={`rounded-r-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                viewMode === 'day'
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-gray-600 hover:bg-gray-200/50'
+              }`}
+            >
+              Day
+            </button>
+          </div>
           {properties.length > 1 && (
             <select
               value={propertyId}
@@ -403,16 +549,19 @@ export default function CalendarContent() {
         </label>
       </div>
 
+      {/* Navigation bar */}
       <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface px-4 py-2">
         <button
-          onClick={prevWeek}
+          onClick={viewMode === 'week' ? prevWeek : prevDay}
           className="rounded-md p-1.5 text-gray-600 hover:bg-gray-200/50"
-          aria-label="Previous week"
+          aria-label={viewMode === 'week' ? 'Previous week' : 'Previous day'}
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-900">{formatWeekRange(weekStart)}</span>
+          <span className="text-sm font-medium text-gray-900">
+            {viewMode === 'week' ? formatWeekRange(weekStart) : formatDateLong(selectedDate)}
+          </span>
           <button
             onClick={goToToday}
             className="rounded-md border border-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-gray-200/50"
@@ -421,9 +570,9 @@ export default function CalendarContent() {
           </button>
         </div>
         <button
-          onClick={nextWeek}
+          onClick={viewMode === 'week' ? nextWeek : nextDay}
           className="rounded-md p-1.5 text-gray-600 hover:bg-gray-200/50"
-          aria-label="Next week"
+          aria-label={viewMode === 'week' ? 'Next week' : 'Next day'}
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -439,7 +588,8 @@ export default function CalendarContent() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      {!isLoading && !error && data && (
+      {/* ── Week View ────────────────────────────────────────────── */}
+      {!isLoading && !error && viewMode === 'week' && weekData && (
         <div className="overflow-x-auto rounded-lg border border-gray-200">
           <table className="w-full min-w-[800px] border-collapse">
             <thead>
@@ -454,13 +604,21 @@ export default function CalendarContent() {
                       date === todayStr ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500'
                     }`}
                   >
-                    {formatDateDisplay(date)}
+                    <button
+                      onClick={() => {
+                        setSelectedDate(date);
+                        setViewMode('day');
+                      }}
+                      className="hover:underline"
+                    >
+                      {formatDateDisplay(date)}
+                    </button>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {data.rooms.map((room) => (
+              {weekData.rooms.map((room) => (
                 <tr key={room.roomId} className="group">
                   <td className="sticky left-0 z-10 border-r border-b border-gray-200 bg-surface px-3 py-2">
                     <div className="text-sm font-medium text-gray-900">{room.roomNumber}</div>
@@ -486,15 +644,9 @@ export default function CalendarContent() {
                         {bar && (
                           <button
                             onClick={() => router.push(`/pms/reservations/${bar.segment.reservationId}`)}
-                            onContextMenu={(event) => {
-                              event.preventDefault();
-                              setContextMenu({
-                                x: event.clientX,
-                                y: event.clientY,
-                                reservationId: bar.segment.reservationId,
-                                status: bar.segment.status,
-                              });
-                            }}
+                            onContextMenu={(event) =>
+                              handleReservationContextMenu(event, bar.segment.reservationId, bar.segment.status)
+                            }
                             className={`block w-full truncate rounded-md px-2 py-1.5 text-left text-xs font-medium transition-opacity hover:opacity-80 ${
                               STATUS_COLORS[bar.segment.status] ?? 'bg-gray-300 text-gray-900'
                             }`}
@@ -543,7 +695,157 @@ export default function CalendarContent() {
         </div>
       )}
 
-      {!isLoading && !error && data && data.rooms.length === 0 && (
+      {/* ── Day View ─────────────────────────────────────────────── */}
+      {!isLoading && !error && viewMode === 'day' && dayData && (
+        <div className="space-y-4">
+          {/* Occupancy stats */}
+          {dayData.occupancy && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-gray-200 bg-surface p-3">
+                <div className="text-xs text-gray-500">Occupied</div>
+                <div className="text-lg font-semibold text-gray-900">{dayData.occupancy.occupied}</div>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-surface p-3">
+                <div className="text-xs text-gray-500">Available</div>
+                <div className="text-lg font-semibold text-gray-900">{dayData.occupancy.available}</div>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-surface p-3">
+                <div className="text-xs text-gray-500">Arrivals</div>
+                <div className="text-lg font-semibold text-green-600">{dayData.occupancy.arrivals}</div>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-surface p-3">
+                <div className="text-xs text-gray-500">Departures</div>
+                <div className="text-lg font-semibold text-amber-600">{dayData.occupancy.departures}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Room list for the day */}
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-surface">
+                  <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-500">
+                    Room
+                  </th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-500">
+                    Type
+                  </th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-500">
+                    Status
+                  </th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-500">
+                    Guest
+                  </th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-500">
+                    Check-in
+                  </th>
+                  <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-500">
+                    Check-out
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {dayData.rooms.map((room) => {
+                  const seg = daySegmentsByRoom.get(room.roomId);
+                  const isOoo = dayOooRooms.has(room.roomId);
+
+                  return (
+                    <tr key={room.roomId} className="hover:bg-gray-50/50">
+                      <td className="border-b border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-900">
+                        {room.roomNumber}
+                      </td>
+                      <td className="border-b border-gray-200 px-4 py-2.5 text-sm text-gray-500">
+                        {room.roomTypeName}
+                      </td>
+                      <td className="border-b border-gray-200 px-4 py-2.5">
+                        {seg ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium">
+                            <span className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT_COLORS[seg.status] ?? 'bg-gray-400'}`} />
+                            {seg.status}
+                          </span>
+                        ) : isOoo ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                            <span className="inline-block h-2 w-2 rounded-full bg-gray-400" />
+                            OOO
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">Vacant</span>
+                        )}
+                      </td>
+                      <td className="border-b border-gray-200 px-4 py-2.5 text-sm">
+                        {seg ? (
+                          <button
+                            onClick={() => router.push(`/pms/reservations/${seg.reservationId}`)}
+                            onContextMenu={(event) =>
+                              handleReservationContextMenu(event, seg.reservationId, seg.status)
+                            }
+                            className="font-medium text-indigo-600 hover:underline"
+                          >
+                            {seg.guestName}
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="border-b border-gray-200 px-4 py-2.5 text-sm text-gray-500">
+                        {seg ? formatDateDisplay(seg.checkInDate) : '-'}
+                      </td>
+                      <td className="border-b border-gray-200 px-4 py-2.5 text-sm text-gray-500">
+                        {seg ? formatDateDisplay(seg.checkOutDate) : '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Unassigned Reservations ──────────────────────────────── */}
+      {!isLoading && !error && currentData && unassigned.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50/50">
+          <div className="flex items-center gap-2 border-b border-amber-200 px-4 py-2.5">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <span className="text-sm font-medium text-amber-800">
+              Unassigned Reservations ({unassigned.length})
+            </span>
+          </div>
+          <div className="divide-y divide-amber-100">
+            {unassigned.map((res) => (
+              <button
+                key={res.reservationId}
+                onClick={() => router.push(`/pms/reservations/${res.reservationId}`)}
+                onContextMenu={(event) =>
+                  handleReservationContextMenu(event, res.reservationId, res.status)
+                }
+                className="flex w-full items-center justify-between px-4 py-2.5 text-left transition-colors hover:bg-amber-100/50"
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${STATUS_DOT_COLORS[res.status] ?? 'bg-gray-400'}`} />
+                  <div>
+                    <span className="text-sm font-medium text-gray-900">{res.guestName}</span>
+                    <span className="ml-2 text-xs text-gray-500">{res.roomTypeName}</span>
+                  </div>
+                </div>
+                <div className="text-right text-xs text-gray-500">
+                  {formatDateDisplay(res.checkInDate)} - {formatDateDisplay(res.checkOutDate)}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!isLoading && !error && currentData && viewMode === 'week' && weekData?.rooms.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+          <Calendar className="mb-2 h-10 w-10 text-gray-300" />
+          <p className="text-sm">No rooms found for this property.</p>
+        </div>
+      )}
+
+      {!isLoading && !error && currentData && viewMode === 'day' && dayData?.rooms.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-gray-500">
           <Calendar className="mb-2 h-10 w-10 text-gray-300" />
           <p className="text-sm">No rooms found for this property.</p>

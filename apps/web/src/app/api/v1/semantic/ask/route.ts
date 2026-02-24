@@ -114,6 +114,9 @@ export const POST = withMiddleware(
         // Eval turn — used by FeedbackWidget to submit user ratings
         evalTurnId: output.evalTurnId ?? null,
 
+        // Pipeline mode (metrics = registry-based, sql = direct SQL)
+        mode: output.mode,
+
         // Metadata
         compiledSql: output.compiledSql,
         compilationErrors: output.compilationErrors,
@@ -123,6 +126,7 @@ export const POST = withMiddleware(
         provider: output.provider,
         model: output.model,
         cacheStatus: output.cacheStatus,
+        sqlExplanation: output.sqlExplanation ?? null,
       },
     });
   },

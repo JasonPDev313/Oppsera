@@ -1,9 +1,13 @@
-import type { PipelineInput, PipelineOutput } from './types';
+import type { PipelineInput, PipelineOutput, QueryResult } from './types';
 import { resolveIntent } from './intent-resolver';
 import { executeCompiledQuery } from './executor';
 import { generateNarrative, buildEmptyResultNarrative } from './narrative';
+import { generateSql } from './sql-generator';
+import { validateGeneratedSql } from './sql-validator';
+import { executeSqlQuery } from './sql-executor';
 import { compilePlan } from '../compiler/compiler';
 import { buildRegistryCatalog, getLens } from '../registry/registry';
+import { buildSchemaCatalog } from '../schema/schema-catalog';
 import { getEvalCaptureService } from '../evaluation/capture';
 import { setEvalCaptureService } from '../evaluation/capture';
 import { getLLMAdapter, setLLMAdapter } from './adapters/anthropic';
@@ -15,7 +19,10 @@ import { generateUlid } from '@oppsera/shared';
 export { getLLMAdapter, setLLMAdapter };
 
 // ── Pipeline ──────────────────────────────────────────────────────
-// Orchestrates: intent resolution → compilation → execution → narrative
+// Orchestrates: intent resolution → compilation/sql-gen → execution → narrative
+// Two modes:
+//   Mode A (metrics): intent → compile → execute → narrate
+//   Mode B (sql):     intent → generate SQL → validate → execute → narrate
 // Captures an EvalTurn after completion (best-effort, never blocks response).
 
 export async function runPipeline(input: PipelineInput): Promise<PipelineOutput> {
@@ -25,17 +32,23 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
   const startMs = Date.now();
   let evalTurnId: string | null = null;
 
-  // ── 1. Load registry catalog ──────────────────────────────────
-  console.log('[semantic] Pipeline start — loading registry...');
+  // ── 1. Load registry catalog + schema catalog in parallel ───────
+  console.log('[semantic] Pipeline start — loading registry + schema...');
   const lens = lensSlug ? await getLens(lensSlug, tenantId) : null;
   const domain = lens?.domain;
 
-  const catalog = await buildRegistryCatalog(domain);
-  console.log(`[semantic] Registry loaded in ${Date.now() - startMs}ms (${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims)`);
+  const [catalog, schemaCatalog] = await Promise.all([
+    buildRegistryCatalog(domain),
+    buildSchemaCatalog().catch((err) => {
+      console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
+      return null;
+    }),
+  ]);
+  console.log(`[semantic] Registry loaded in ${Date.now() - startMs}ms (${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims, ${schemaCatalog?.tables.length ?? 0} schema tables)`);
 
   const lensPromptFragment = lens?.systemPromptFragment ?? null;
 
-  // ── 2. Intent resolution ──────────────────────────────────────
+  // ── 2. Intent resolution (with schema summary for mode routing) ──
   console.log('[semantic] Resolving intent via LLM...');
   const intentStart = Date.now();
   let intent;
@@ -44,12 +57,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
       catalog,
       examples,
       lensPromptFragment,
+      schemaSummary: schemaCatalog?.summaryText ?? null,
     });
-    console.log(`[semantic] Intent resolved in ${Date.now() - intentStart}ms (clarification=${intent.isClarification}, confidence=${intent.confidence})`);
+    console.log(`[semantic] Intent resolved in ${Date.now() - intentStart}ms (mode=${intent.mode}, clarification=${intent.isClarification}, confidence=${intent.confidence})`);
   } catch (err) {
     console.error(`[semantic] Intent resolution FAILED in ${Date.now() - intentStart}ms:`, err);
-    // LLM failure — return an error pipeline output without crashing
     return {
+      mode: 'metrics',
       narrative: null,
       sections: [],
       data: null,
@@ -92,6 +106,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     });
 
     return {
+      mode: intent.mode,
       narrative: intent.clarificationText ?? null,
       sections: [],
       data: null,
@@ -113,7 +128,29 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     };
   }
 
-  // ── 4. Compilation ────────────────────────────────────────────
+  // ── 4. Branch by mode ─────────────────────────────────────────
+  if (intent.mode === 'sql' && schemaCatalog) {
+    return runSqlMode(input, intent, schemaCatalog, lensPromptFragment, startMs);
+  }
+
+  // Fall through to metrics mode (Mode A) — also used when schema catalog is unavailable
+  return runMetricsMode(input, intent, lensPromptFragment, startMs);
+}
+
+// ── Mode A: Metrics-based pipeline ──────────────────────────────
+
+async function runMetricsMode(
+  input: PipelineInput,
+  intent: Awaited<ReturnType<typeof resolveIntent>>,
+  lensPromptFragment: string | null,
+  startMs: number,
+): Promise<PipelineOutput> {
+  const { message, context, skipNarrative = false } = input;
+  const { tenantId } = context;
+
+  let evalTurnId: string | null = null;
+
+  // ── Compilation ────────────────────────────────────────────────
   let compiled;
   let compilationErrors: string[] = [];
   let tablesAccessed: string[] = [];
@@ -128,57 +165,27 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     compiledSql = compiled.sql;
     tablesAccessed = [compiled.primaryTable, ...compiled.joinTables].filter(Boolean);
     if (compiled.warnings.length > 0) {
-      compilationErrors = compiled.warnings; // treat warnings as soft errors
+      compilationErrors = compiled.warnings;
     }
   } catch (err) {
     const errMsg = String(err);
     compilationErrors = [errMsg];
 
-    // Attempt ADVISOR MODE narrative even on compilation failure
-    let advisorNarrative: string | null = null;
-    let advisorSections: PipelineOutput['sections'] = [];
-    let advisorTokensIn = 0;
-    let advisorTokensOut = 0;
-
-    if (!skipNarrative) {
-      try {
-        const advisorResult = await generateNarrative(null, intent, message, context, {
-          lensSlug: context.lensSlug,
-          lensPromptFragment,
-        });
-        advisorNarrative = advisorResult.text;
-        advisorSections = advisorResult.sections;
-        advisorTokensIn = advisorResult.tokensInput;
-        advisorTokensOut = advisorResult.tokensOutput;
-      } catch {
-        // If narrative also fails, fall back to static text
-        const fallback = buildEmptyResultNarrative(message, context);
-        advisorNarrative = fallback.text;
-        advisorSections = fallback.sections;
-      }
-    }
+    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
 
     evalTurnId = generateUlid();
     void captureEvalTurnBestEffort({
-      id: evalTurnId,
-      message,
-      context,
-      intent,
-      compiledSql: null,
-      compilationErrors,
-      tablesAccessed: [],
-      executionTimeMs: null,
-      rowCount: null,
-      resultSample: null,
-      executionError: errMsg,
-      cacheStatus: 'MISS',
-      narrative: advisorNarrative,
-      responseSections: advisorSections.map((s) => s.type),
+      id: evalTurnId, message, context, intent,
+      compiledSql: null, compilationErrors, tablesAccessed: [],
+      executionTimeMs: null, rowCount: null, resultSample: null,
+      executionError: errMsg, cacheStatus: 'MISS',
+      narrative: advisor.text, responseSections: advisor.sectionTypes,
     });
 
     return {
-      narrative: advisorNarrative,
-      sections: advisorSections,
+      mode: 'metrics',
+      narrative: advisor.text,
+      sections: advisor.sections,
       data: null,
       plan: intent.plan,
       isClarification: false,
@@ -187,8 +194,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
       llmConfidence: intent.confidence,
       llmLatencyMs: intent.latencyMs,
       executionTimeMs: null,
-      tokensInput: intent.tokensInput + advisorTokensIn,
-      tokensOutput: intent.tokensOutput + advisorTokensOut,
+      tokensInput: intent.tokensInput + advisor.tokensIn,
+      tokensOutput: intent.tokensOutput + advisor.tokensOut,
       provider: intent.provider,
       model: intent.model,
       compiledSql: null,
@@ -198,12 +205,10 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     };
   }
 
-  // ── 5. Execution (with query cache) ───────────────────────────
-  let queryResult;
-  let executionError: string | null = null;
+  // ── Execution (with query cache) ──────────────────────────────
+  let queryResult: QueryResult;
   let cacheStatus: PipelineOutput['cacheStatus'] = 'MISS';
 
-  // Check query cache before hitting the DB
   const cachedResult = getFromQueryCache(tenantId, compiled.sql, compiled.params);
   if (cachedResult) {
     cacheStatus = 'HIT';
@@ -216,55 +221,25 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
   } else {
     try {
       queryResult = await executeCompiledQuery(compiled, { tenantId });
-      // Cache the result for subsequent identical queries
       setInQueryCache(tenantId, compiled.sql, compiled.params, queryResult.rows, queryResult.rowCount);
     } catch (err) {
-      executionError = String(err);
+      const executionError = String(err);
 
-      // Attempt ADVISOR MODE narrative on execution failure (same as compilation errors)
-      let advisorNarrative: string | null = null;
-      let advisorSections: PipelineOutput['sections'] = [];
-      let advisorTokensIn = 0;
-      let advisorTokensOut = 0;
-
-      if (!skipNarrative) {
-        try {
-          const advisorResult = await generateNarrative(null, intent, message, context, {
-            lensSlug: context.lensSlug,
-            lensPromptFragment,
-          });
-          advisorNarrative = advisorResult.text;
-          advisorSections = advisorResult.sections;
-          advisorTokensIn = advisorResult.tokensInput;
-          advisorTokensOut = advisorResult.tokensOutput;
-        } catch {
-          const fallback = buildEmptyResultNarrative(message, context);
-          advisorNarrative = fallback.text;
-          advisorSections = fallback.sections;
-        }
-      }
+      const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
 
       evalTurnId = generateUlid();
       void captureEvalTurnBestEffort({
-        id: evalTurnId,
-        message,
-        context,
-        intent,
-        compiledSql,
-        compilationErrors,
-        tablesAccessed,
-        executionTimeMs: null,
-        rowCount: null,
-        resultSample: null,
-        executionError,
-        cacheStatus: 'MISS',
-        narrative: advisorNarrative,
-        responseSections: advisorSections.map((s) => s.type),
+        id: evalTurnId, message, context, intent,
+        compiledSql, compilationErrors, tablesAccessed,
+        executionTimeMs: null, rowCount: null, resultSample: null,
+        executionError, cacheStatus: 'MISS',
+        narrative: advisor.text, responseSections: advisor.sectionTypes,
       });
 
       return {
-        narrative: advisorNarrative,
-        sections: advisorSections,
+        mode: 'metrics',
+        narrative: advisor.text,
+        sections: advisor.sections,
         data: null,
         plan: intent.plan,
         isClarification: false,
@@ -273,8 +248,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
         llmConfidence: intent.confidence,
         llmLatencyMs: intent.latencyMs,
         executionTimeMs: null,
-        tokensInput: intent.tokensInput + advisorTokensIn,
-        tokensOutput: intent.tokensOutput + advisorTokensOut,
+        tokensInput: intent.tokensInput + advisor.tokensIn,
+        tokensOutput: intent.tokensOutput + advisor.tokensOut,
         provider: intent.provider,
         model: intent.model,
         compiledSql,
@@ -285,9 +260,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     }
   }
 
-  // ── 6. Narrative ──────────────────────────────────────────────
-  // Always call LLM for narrative — even for 0-row results (ADVISOR MODE).
-  // buildEmptyResultNarrative is only used as a fallback if the LLM call fails.
+  // ── Narrative ──────────────────────────────────────────────────
   let narrativeText: string | null = null;
   let narrativeSections: PipelineOutput['sections'] = [];
   let narrativeTokensIn = 0;
@@ -301,43 +274,31 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
         metricDefs: compiled.metaDefs,
         dimensionDefs: compiled.dimensionDefs,
       });
-
       narrativeText = narrativeResult.text;
       narrativeSections = narrativeResult.sections;
       narrativeTokensIn = narrativeResult.tokensInput;
       narrativeTokensOut = narrativeResult.tokensOutput;
     } catch {
-      // Fallback: static narrative if LLM fails
       const fallback = buildEmptyResultNarrative(message, context);
       narrativeText = fallback.text;
       narrativeSections = fallback.sections;
     }
   }
 
-  // ── 7. Eval capture (fire-and-forget — never blocks response) ──
+  // ── Eval capture ──────────────────────────────────────────────
   const resultSample = queryResult.rows.slice(0, 5);
-
   evalTurnId = generateUlid();
   void captureEvalTurnBestEffort({
-    id: evalTurnId,
-    message,
-    context,
-    intent,
-    compiledSql,
-    compilationErrors,
-    tablesAccessed,
+    id: evalTurnId, message, context, intent,
+    compiledSql, compilationErrors, tablesAccessed,
     executionTimeMs: queryResult.executionTimeMs,
-    rowCount: queryResult.rowCount,
-    resultSample,
-    executionError: null,
-    cacheStatus,
+    rowCount: queryResult.rowCount, resultSample,
+    executionError: null, cacheStatus,
     narrative: narrativeText,
     responseSections: narrativeSections.map((s) => s.type),
   });
 
   const totalLatencyMs = Date.now() - startMs;
-
-  // Record observability metrics (best-effort)
   recordSemanticRequest({
     tenantId,
     latencyMs: totalLatencyMs,
@@ -351,6 +312,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
   });
 
   return {
+    mode: 'metrics',
     narrative: narrativeText,
     sections: narrativeSections,
     data: queryResult,
@@ -370,6 +332,300 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     tablesAccessed,
     cacheStatus,
   };
+}
+
+// ── Mode B: Direct SQL pipeline ─────────────────────────────────
+
+async function runSqlMode(
+  input: PipelineInput,
+  intent: Awaited<ReturnType<typeof resolveIntent>>,
+  schemaCatalog: Awaited<ReturnType<typeof buildSchemaCatalog>>,
+  lensPromptFragment: string | null,
+  startMs: number,
+): Promise<PipelineOutput> {
+  const { message, context, skipNarrative = false } = input;
+  const { tenantId } = context;
+
+  let evalTurnId: string | null = null;
+  let totalTokensIn = intent.tokensInput;
+  let totalTokensOut = intent.tokensOutput;
+
+  // ── SQL Generation ────────────────────────────────────────────
+  console.log('[semantic] Mode B: Generating SQL via LLM...');
+  const sqlGenStart = Date.now();
+  let sqlResult;
+  try {
+    sqlResult = await generateSql(message, context, { schemaCatalog });
+    totalTokensIn += sqlResult.tokensInput;
+    totalTokensOut += sqlResult.tokensOutput;
+    console.log(`[semantic] SQL generated in ${Date.now() - sqlGenStart}ms (confidence=${sqlResult.confidence})`);
+  } catch (err) {
+    const errMsg = `SQL generation failed: ${String(err)}`;
+    console.error(`[semantic] ${errMsg}`);
+
+    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+
+    evalTurnId = generateUlid();
+    void captureEvalTurnBestEffort({
+      id: evalTurnId, message, context, intent,
+      compiledSql: null, compilationErrors: [errMsg], tablesAccessed: [],
+      executionTimeMs: null, rowCount: null, resultSample: null,
+      executionError: errMsg, cacheStatus: 'MISS',
+      narrative: advisor.text, responseSections: advisor.sectionTypes,
+    });
+
+    return {
+      mode: 'sql',
+      narrative: advisor.text,
+      sections: advisor.sections,
+      data: null,
+      plan: intent.plan,
+      isClarification: false,
+      clarificationText: null,
+      evalTurnId,
+      llmConfidence: intent.confidence,
+      llmLatencyMs: intent.latencyMs + (Date.now() - sqlGenStart),
+      executionTimeMs: null,
+      tokensInput: totalTokensIn + advisor.tokensIn,
+      tokensOutput: totalTokensOut + advisor.tokensOut,
+      provider: intent.provider,
+      model: intent.model,
+      compiledSql: null,
+      compilationErrors: [errMsg],
+      tablesAccessed: [],
+      cacheStatus: 'MISS',
+    };
+  }
+
+  // ── SQL Validation ────────────────────────────────────────────
+  const validation = validateGeneratedSql(sqlResult.sql, schemaCatalog.tableNames);
+  if (!validation.valid) {
+    const errMsg = `SQL validation failed: ${validation.errors.join('; ')}`;
+    console.warn(`[semantic] ${errMsg}`);
+    console.warn(`[semantic] Rejected SQL: ${sqlResult.sql.slice(0, 500)}`);
+
+    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+
+    evalTurnId = generateUlid();
+    void captureEvalTurnBestEffort({
+      id: evalTurnId, message, context, intent,
+      compiledSql: sqlResult.sql, compilationErrors: validation.errors, tablesAccessed: [],
+      executionTimeMs: null, rowCount: null, resultSample: null,
+      executionError: errMsg, cacheStatus: 'MISS',
+      narrative: advisor.text, responseSections: advisor.sectionTypes,
+    });
+
+    return {
+      mode: 'sql',
+      narrative: advisor.text,
+      sections: advisor.sections,
+      data: null,
+      plan: intent.plan,
+      isClarification: false,
+      clarificationText: null,
+      evalTurnId,
+      llmConfidence: intent.confidence,
+      llmLatencyMs: intent.latencyMs + sqlResult.latencyMs,
+      executionTimeMs: null,
+      tokensInput: totalTokensIn + advisor.tokensIn,
+      tokensOutput: totalTokensOut + advisor.tokensOut,
+      provider: intent.provider,
+      model: intent.model,
+      compiledSql: sqlResult.sql,
+      compilationErrors: validation.errors,
+      tablesAccessed: [],
+      cacheStatus: 'MISS',
+    };
+  }
+
+  const validatedSql = validation.sanitizedSql;
+
+  // ── Execution (with query cache) ──────────────────────────────
+  let queryResult: QueryResult;
+  let cacheStatus: PipelineOutput['cacheStatus'] = 'MISS';
+
+  const cachedResult = getFromQueryCache(tenantId, validatedSql, [tenantId]);
+  if (cachedResult) {
+    cacheStatus = 'HIT';
+    queryResult = {
+      rows: cachedResult.rows,
+      rowCount: cachedResult.rowCount,
+      executionTimeMs: 0,
+      truncated: false,
+    };
+  } else {
+    try {
+      queryResult = await executeSqlQuery(validatedSql, { tenantId });
+      setInQueryCache(tenantId, validatedSql, [tenantId], queryResult.rows, queryResult.rowCount);
+    } catch (err) {
+      const executionError = String(err);
+      console.warn(`[semantic] SQL execution failed: ${executionError}`);
+
+      const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+
+      evalTurnId = generateUlid();
+      void captureEvalTurnBestEffort({
+        id: evalTurnId, message, context, intent,
+        compiledSql: validatedSql, compilationErrors: [],
+        tablesAccessed: extractTablesFromSql(validatedSql),
+        executionTimeMs: null, rowCount: null, resultSample: null,
+        executionError, cacheStatus: 'MISS',
+        narrative: advisor.text, responseSections: advisor.sectionTypes,
+      });
+
+      return {
+        mode: 'sql',
+        narrative: advisor.text,
+        sections: advisor.sections,
+        data: null,
+        plan: intent.plan,
+        isClarification: false,
+        clarificationText: null,
+        evalTurnId,
+        llmConfidence: intent.confidence,
+        llmLatencyMs: intent.latencyMs + sqlResult.latencyMs,
+        executionTimeMs: null,
+        tokensInput: totalTokensIn + advisor.tokensIn,
+        tokensOutput: totalTokensOut + advisor.tokensOut,
+        provider: intent.provider,
+        model: intent.model,
+        compiledSql: validatedSql,
+        compilationErrors: [executionError],
+        tablesAccessed: extractTablesFromSql(validatedSql),
+        cacheStatus: 'MISS',
+      };
+    }
+  }
+
+  const tablesAccessed = extractTablesFromSql(validatedSql);
+
+  // ── Narrative ──────────────────────────────────────────────────
+  let narrativeText: string | null = null;
+  let narrativeSections: PipelineOutput['sections'] = [];
+  let narrativeTokensIn = 0;
+  let narrativeTokensOut = 0;
+
+  if (!skipNarrative) {
+    try {
+      const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
+        lensSlug: context.lensSlug,
+        lensPromptFragment,
+      });
+      narrativeText = narrativeResult.text;
+      narrativeSections = narrativeResult.sections;
+      narrativeTokensIn = narrativeResult.tokensInput;
+      narrativeTokensOut = narrativeResult.tokensOutput;
+    } catch {
+      const fallback = buildEmptyResultNarrative(message, context);
+      narrativeText = fallback.text;
+      narrativeSections = fallback.sections;
+    }
+  }
+
+  // ── Eval capture ──────────────────────────────────────────────
+  const resultSample = queryResult.rows.slice(0, 5);
+  evalTurnId = generateUlid();
+  void captureEvalTurnBestEffort({
+    id: evalTurnId, message, context, intent,
+    compiledSql: validatedSql, compilationErrors: [],
+    tablesAccessed, executionTimeMs: queryResult.executionTimeMs,
+    rowCount: queryResult.rowCount, resultSample,
+    executionError: null, cacheStatus,
+    narrative: narrativeText,
+    responseSections: narrativeSections.map((s) => s.type),
+  });
+
+  const totalLatencyMs = Date.now() - startMs;
+  recordSemanticRequest({
+    tenantId,
+    latencyMs: totalLatencyMs,
+    llmLatencyMs: intent.latencyMs + sqlResult.latencyMs,
+    executionTimeMs: queryResult.executionTimeMs,
+    tokensInput: totalTokensIn + narrativeTokensIn,
+    tokensOutput: totalTokensOut + narrativeTokensOut,
+    cacheStatus,
+    hadError: false,
+    isClarification: false,
+  });
+
+  return {
+    mode: 'sql',
+    narrative: narrativeText,
+    sections: narrativeSections,
+    data: queryResult,
+    plan: intent.plan,
+    isClarification: false,
+    clarificationText: null,
+    evalTurnId,
+    llmConfidence: intent.confidence,
+    llmLatencyMs: intent.latencyMs + sqlResult.latencyMs,
+    executionTimeMs: queryResult.executionTimeMs,
+    tokensInput: totalTokensIn + narrativeTokensIn,
+    tokensOutput: totalTokensOut + narrativeTokensOut,
+    provider: intent.provider,
+    model: intent.model,
+    compiledSql: validatedSql,
+    compilationErrors: [],
+    tablesAccessed,
+    cacheStatus,
+    sqlExplanation: sqlResult.explanation,
+  };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+/** Extract table names from SQL for observability */
+function extractTablesFromSql(sql: string): string[] {
+  const tables = new Set<string>();
+  for (const m of sql.matchAll(/\bFROM\s+([a-z_][a-z0-9_]*)/gi)) {
+    tables.add(m[1]!.toLowerCase());
+  }
+  for (const m of sql.matchAll(/\bJOIN\s+([a-z_][a-z0-9_]*)/gi)) {
+    tables.add(m[1]!.toLowerCase());
+  }
+  return Array.from(tables);
+}
+
+/** Safe wrapper for ADVISOR MODE narrative generation */
+async function safeAdvisorNarrative(
+  skipNarrative: boolean,
+  intent: Awaited<ReturnType<typeof resolveIntent>>,
+  message: string,
+  context: PipelineInput['context'],
+  lensPromptFragment: string | null,
+): Promise<{
+  text: string | null;
+  sections: PipelineOutput['sections'];
+  sectionTypes: string[];
+  tokensIn: number;
+  tokensOut: number;
+}> {
+  if (skipNarrative) {
+    return { text: null, sections: [], sectionTypes: [], tokensIn: 0, tokensOut: 0 };
+  }
+
+  try {
+    const result = await generateNarrative(null, intent, message, context, {
+      lensSlug: context.lensSlug,
+      lensPromptFragment,
+    });
+    return {
+      text: result.text,
+      sections: result.sections,
+      sectionTypes: result.sections.map((s) => s.type),
+      tokensIn: result.tokensInput,
+      tokensOut: result.tokensOutput,
+    };
+  } catch {
+    const fallback = buildEmptyResultNarrative(message, context);
+    return {
+      text: fallback.text,
+      sections: fallback.sections,
+      sectionTypes: fallback.sections.map((s) => s.type),
+      tokensIn: 0,
+      tokensOut: 0,
+    };
+  }
 }
 
 // ── Eval capture (fire-and-forget) ────────────────────────────────

@@ -37,12 +37,23 @@ export interface OccupancyByDate {
   departures: number;
 }
 
+export interface UnassignedReservation {
+  reservationId: string;
+  status: string;
+  guestName: string;
+  checkInDate: string;
+  checkOutDate: string;
+  roomTypeName: string;
+  sourceType: string;
+}
+
 export interface CalendarWeekResponse {
   startDate: string;
   endDate: string;
   rooms: CalendarRoom[];
   segments: CalendarSegment[];
   oooBlocks: OooBlock[];
+  unassigned: UnassignedReservation[];
   meta: {
     totalRooms: number;
     occupancyByDate: Record<string, OccupancyByDate>;
@@ -214,12 +225,54 @@ export async function getCalendarWeek(
       };
     }
 
+    // Query 5: Unassigned reservations overlapping the week
+    const unassignedRows = await tx.execute(sql`
+      SELECT
+        res.id AS reservation_id,
+        res.status,
+        COALESCE(
+          NULLIF(
+            concat_ws(
+              ' ',
+              (res.primary_guest_json::jsonb ->> 'firstName'),
+              (res.primary_guest_json::jsonb ->> 'lastName')
+            ),
+            ''
+          ),
+          'Guest'
+        ) AS guest_name,
+        to_char(res.check_in_date, 'YYYY-MM-DD') AS check_in_date,
+        to_char(res.check_out_date, 'YYYY-MM-DD') AS check_out_date,
+        rt.name AS room_type_name,
+        res.source_type
+      FROM pms_reservations res
+      JOIN pms_room_types rt ON rt.id = res.room_type_id
+      WHERE res.tenant_id = ${tenantId}
+        AND res.property_id = ${propertyId}
+        AND res.room_id IS NULL
+        AND res.status IN ('HOLD', 'CONFIRMED')
+        AND res.check_in_date < ${endDate}::date
+        AND res.check_out_date > ${startDate}::date
+      ORDER BY res.check_in_date
+    `);
+
+    const unassigned: UnassignedReservation[] = Array.from(unassignedRows as Iterable<any>).map((r) => ({
+      reservationId: r.reservation_id,
+      status: r.status,
+      guestName: r.guest_name,
+      checkInDate: toDateString(r.check_in_date),
+      checkOutDate: toDateString(r.check_out_date),
+      roomTypeName: r.room_type_name,
+      sourceType: r.source_type,
+    }));
+
     return {
       startDate,
       endDate,
       rooms,
       segments,
       oooBlocks,
+      unassigned,
       meta: {
         totalRooms,
         occupancyByDate,
