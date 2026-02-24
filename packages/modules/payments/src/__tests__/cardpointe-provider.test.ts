@@ -9,6 +9,7 @@ import {
 } from '../helpers/amount';
 import {
   PAYMENT_GATEWAY_EVENTS,
+  INTENT_STATUS_TRANSITIONS,
 } from '../events/gateway-types';
 import { redactWebhookPayload } from '../webhooks/verify-webhook';
 

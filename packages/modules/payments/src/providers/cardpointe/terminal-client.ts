@@ -278,7 +278,7 @@ export class CardPointeTerminalClient {
 
   private async post<T>(
     path: string,
-    body: Record<string, unknown>,
+    body: Record<string, unknown> | object,
     timeoutMs: number,
     options?: {
       sessionKey?: string;
@@ -321,16 +321,17 @@ export class CardPointeTerminalClient {
           const responseText = await response.text().catch(() => '');
 
           // Connection-specific error
+          const bodyRecord = body as Record<string, unknown>;
           if (path === '/connect' && response.status === 401) {
             throw new TerminalConnectionError(
-              (body.hsn as string) ?? 'unknown',
+              (bodyRecord.hsn as string) ?? 'unknown',
               response.status,
               'Authentication failed — check API credentials',
             );
           }
           if (response.status === 409) {
             throw new TerminalConnectionError(
-              (body.hsn as string) ?? 'unknown',
+              (bodyRecord.hsn as string) ?? 'unknown',
               response.status,
               'Terminal session conflict — another session may be active',
             );

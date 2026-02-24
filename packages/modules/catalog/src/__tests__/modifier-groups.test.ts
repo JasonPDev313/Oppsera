@@ -567,9 +567,9 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
 
       // Verify modifier insert was called with default field values
       expect(modifierValuesFn).toHaveBeenCalledTimes(1);
-      const insertedRows = modifierValuesFn.mock.calls[0][0];
+      const insertedRows = modifierValuesFn.mock.calls[0]![0];
       expect(insertedRows).toHaveLength(1);
-      const row = insertedRows[0];
+      const row = insertedRows[0]!;
       expect(row.extraPriceDelta).toBeNull();
       expect(row.kitchenLabel).toBeNull();
       expect(row.allowNone).toBe(true);
@@ -725,24 +725,24 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
         ],
       });
 
-      const insertedRows = modifierValuesFn.mock.calls[0][0];
+      const insertedRows = modifierValuesFn.mock.calls[0]![0];
       expect(insertedRows).toHaveLength(2);
 
       // Full option has explicit values
-      expect(insertedRows[0].extraPriceDelta).toBe('1.5');
-      expect(insertedRows[0].kitchenLabel).toBe('FULL');
-      expect(insertedRows[0].allowNone).toBe(false);
-      expect(insertedRows[0].allowExtra).toBe(false);
-      expect(insertedRows[0].allowOnSide).toBe(false);
-      expect(insertedRows[0].isDefaultOption).toBe(true);
+      expect(insertedRows[0]!.extraPriceDelta).toBe('1.5');
+      expect(insertedRows[0]!.kitchenLabel).toBe('FULL');
+      expect(insertedRows[0]!.allowNone).toBe(false);
+      expect(insertedRows[0]!.allowExtra).toBe(false);
+      expect(insertedRows[0]!.allowOnSide).toBe(false);
+      expect(insertedRows[0]!.isDefaultOption).toBe(true);
 
       // Minimal option has defaults
-      expect(insertedRows[1].extraPriceDelta).toBeNull();
-      expect(insertedRows[1].kitchenLabel).toBeNull();
-      expect(insertedRows[1].allowNone).toBe(true);
-      expect(insertedRows[1].allowExtra).toBe(true);
-      expect(insertedRows[1].allowOnSide).toBe(true);
-      expect(insertedRows[1].isDefaultOption).toBe(false);
+      expect(insertedRows[1]!.extraPriceDelta).toBeNull();
+      expect(insertedRows[1]!.kitchenLabel).toBeNull();
+      expect(insertedRows[1]!.allowNone).toBe(true);
+      expect(insertedRows[1]!.allowExtra).toBe(true);
+      expect(insertedRows[1]!.allowOnSide).toBe(true);
+      expect(insertedRows[1]!.isDefaultOption).toBe(false);
     });
 
     // ── Test 9: extraPriceDelta stored as string ────────────────────
@@ -777,9 +777,9 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
         ],
       });
 
-      const insertedRows = modifierValuesFn.mock.calls[0][0];
-      expect(insertedRows[0].priceAdjustment).toBe('2');
-      expect(insertedRows[0].extraPriceDelta).toBe('0.5');
+      const insertedRows = modifierValuesFn.mock.calls[0]![0];
+      expect(insertedRows[0]!.priceAdjustment).toBe('2');
+      expect(insertedRows[0]!.extraPriceDelta).toBe('0.5');
     });
 
     // ── Test 10: channelVisibility defaults to all channels ─────────
@@ -1123,14 +1123,14 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
 
       // Verify modifier detail
       expect(result!.modifiers).toHaveLength(2);
-      expect(result!.modifiers[0].name).toBe('Pepperoni');
-      expect(result!.modifiers[0].extraPriceDelta).toBe('0.75');
-      expect(result!.modifiers[0].kitchenLabel).toBe('PEPP');
-      expect(result!.modifiers[0].isDefaultOption).toBe(true);
-      expect(result!.modifiers[1].name).toBe('Mushrooms');
-      expect(result!.modifiers[1].extraPriceDelta).toBeNull();
-      expect(result!.modifiers[1].kitchenLabel).toBeNull();
-      expect(result!.modifiers[1].allowOnSide).toBe(true);
+      expect(result!.modifiers[0]!.name).toBe('Pepperoni');
+      expect(result!.modifiers[0]!.extraPriceDelta).toBe('0.75');
+      expect(result!.modifiers[0]!.kitchenLabel).toBe('PEPP');
+      expect(result!.modifiers[0]!.isDefaultOption).toBe(true);
+      expect(result!.modifiers[1]!.name).toBe('Mushrooms');
+      expect(result!.modifiers[1]!.extraPriceDelta).toBeNull();
+      expect(result!.modifiers[1]!.kitchenLabel).toBeNull();
+      expect(result!.modifiers[1]!.allowOnSide).toBe(true);
     });
 
     // ── Test 20: returns null for nonexistent group ─────────────────
@@ -1256,11 +1256,11 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
       const result = await listModifierGroups(TENANT_A);
 
       expect(result).toHaveLength(3);
-      expect(result[0].id).toBe('mg_A');
-      expect(result[0].modifiers).toHaveLength(1);
-      expect(result[1].id).toBe('mg_B');
-      expect(result[1].modifiers).toHaveLength(1);
-      expect(result[2].id).toBe('mg_C');
+      expect(result[0]!.id).toBe('mg_A');
+      expect(result[0]!.modifiers).toHaveLength(1);
+      expect(result[1]!.id).toBe('mg_B');
+      expect(result[1]!.modifiers).toHaveLength(1);
+      expect(result[2]!.id).toBe('mg_C');
     });
 
     // ── Test 23: filter by categoryId ───────────────────────────────
@@ -1272,8 +1272,8 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
 
       // mg_A and mg_C have categoryId = mgc_001
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('mg_A');
-      expect(result[1].id).toBe('mg_C');
+      expect(result[0]!.id).toBe('mg_A');
+      expect(result[1]!.id).toBe('mg_C');
     });
 
     // ── Test 24: filter by channel ──────────────────────────────────
@@ -1302,7 +1302,7 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
       // mgc_001: mg_A and mg_C
       // kiosk: mg_A has it, mg_C does not
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('mg_A');
+      expect(result[0]!.id).toBe('mg_A');
     });
 
     // ── Test 26: empty result when no groups match filter ───────────
@@ -1331,14 +1331,14 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
       const result = await listModifierGroups(TENANT_A);
 
       const toppingsGroup = result.find((g) => g.id === 'mg_B')!;
-      expect(toppingsGroup.modifiers[0].extraPriceDelta).toBe('0.75');
-      expect(toppingsGroup.modifiers[0].kitchenLabel).toBe('PEPP');
-      expect(toppingsGroup.modifiers[0].isDefaultOption).toBe(true);
-      expect(toppingsGroup.modifiers[0].allowOnSide).toBe(false);
+      expect(toppingsGroup.modifiers[0]!.extraPriceDelta).toBe('0.75');
+      expect(toppingsGroup.modifiers[0]!.kitchenLabel).toBe('PEPP');
+      expect(toppingsGroup.modifiers[0]!.isDefaultOption).toBe(true);
+      expect(toppingsGroup.modifiers[0]!.allowOnSide).toBe(false);
 
       const cookingGroup = result.find((g) => g.id === 'mg_C')!;
-      expect(cookingGroup.modifiers[0].kitchenLabel).toBe('RARE');
-      expect(cookingGroup.modifiers[0].allowExtra).toBe(false);
+      expect(cookingGroup.modifiers[0]!.kitchenLabel).toBe('RARE');
+      expect(cookingGroup.modifiers[0]!.allowExtra).toBe(false);
     });
   });
 
@@ -1441,7 +1441,7 @@ describe('Modifier Group CRUD — Enhanced Fields', () => {
       });
       expect(result.success).toBe(true);
       if (result.success) {
-        const mod = result.data.modifiers[0];
+        const mod = result.data.modifiers[0]!;
         expect(mod.allowNone).toBe(true);
         expect(mod.allowExtra).toBe(true);
         expect(mod.allowOnSide).toBe(true);

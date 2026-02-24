@@ -18,7 +18,7 @@ describe('row-validator', () => {
       const rows = [['John', 'Smith', 'john@test.com']];
       const mappings = makeMappings([['First Name', 'firstName'], ['Last Name', 'lastName'], ['Email', 'email']]);
 
-      const { validRows } = validateAndMapRows(rows, mappings, []);
+      const { validRows, errors } = validateAndMapRows(rows, mappings, []);
 
       expect(validRows).toHaveLength(1);
       expect(validRows[0]?.customer.firstName).toBe('John');

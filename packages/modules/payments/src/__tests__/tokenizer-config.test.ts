@@ -1,3 +1,5 @@
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+
 // ── Hoisted mocks ──────────────────────────────────────────────────
 const mocks = vi.hoisted(() => {
   const state = {

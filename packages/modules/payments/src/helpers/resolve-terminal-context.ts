@@ -21,6 +21,7 @@ import type { ResolvedDevice } from './resolve-device';
 export interface TerminalContext {
   device: ResolvedDevice;
   merchantId: string;
+  merchantAccountId: string;
   credentials: {
     site: string;
     username: string;
@@ -67,10 +68,11 @@ export async function resolveTerminalContext(
 
     // Resolve MID: terminal assignment → location default → tenant-wide
     let merchantId: string | undefined;
+    let merchantAccountId: string | undefined;
 
     // Terminal-specific
     const [assignment] = await tx
-      .select({ merchantId: paymentMerchantAccounts.merchantId })
+      .select({ merchantId: paymentMerchantAccounts.merchantId, merchantAccountId: paymentMerchantAccounts.id })
       .from(terminalMerchantAssignments)
       .innerJoin(
         paymentMerchantAccounts,
@@ -88,12 +90,13 @@ export async function resolveTerminalContext(
 
     if (assignment) {
       merchantId = assignment.merchantId;
+      merchantAccountId = assignment.merchantAccountId;
     }
 
     // Location default
     if (!merchantId) {
       const [locDefault] = await tx
-        .select({ merchantId: paymentMerchantAccounts.merchantId })
+        .select({ merchantId: paymentMerchantAccounts.merchantId, merchantAccountId: paymentMerchantAccounts.id })
         .from(paymentMerchantAccounts)
         .where(
           and(
@@ -106,13 +109,16 @@ export async function resolveTerminalContext(
         )
         .limit(1);
 
-      if (locDefault) merchantId = locDefault.merchantId;
+      if (locDefault) {
+        merchantId = locDefault.merchantId;
+        merchantAccountId = locDefault.merchantAccountId;
+      }
     }
 
     // Tenant-wide default
     if (!merchantId) {
       const [tenantDefault] = await tx
-        .select({ merchantId: paymentMerchantAccounts.merchantId })
+        .select({ merchantId: paymentMerchantAccounts.merchantId, merchantAccountId: paymentMerchantAccounts.id })
         .from(paymentMerchantAccounts)
         .where(
           and(
@@ -125,10 +131,13 @@ export async function resolveTerminalContext(
         )
         .limit(1);
 
-      if (tenantDefault) merchantId = tenantDefault.merchantId;
+      if (tenantDefault) {
+        merchantId = tenantDefault.merchantId;
+        merchantAccountId = tenantDefault.merchantAccountId;
+      }
     }
 
-    if (!merchantId) {
+    if (!merchantId || !merchantAccountId) {
       throw new AppError('NO_MERCHANT_ACCOUNT', 'No active merchant account (MID) configured', 422);
     }
 
@@ -180,6 +189,7 @@ export async function resolveTerminalContext(
     return {
       device,
       merchantId,
+      merchantAccountId,
       credentials: rawCreds,
     };
   });

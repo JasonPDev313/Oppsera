@@ -234,5 +234,5 @@ async function insertBatch(
 
   // Use sql.raw with params — build a tagged template dynamically
   // Since we've built the query string with numbered $N placeholders, execute with params
-  await db.execute(sql.raw(query), params as never);
+  await (db.execute as any)(sql.raw(query), params);
 }

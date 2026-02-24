@@ -270,6 +270,12 @@ function mapIntentToResult(
     cardBrand: intent.cardBrand ?? null,
     providerRef: providerRef ?? null,
     errorMessage: intent.errorMessage ?? null,
+    userMessage: intent.userMessage ?? null,
+    suggestedAction: intent.suggestedAction ?? null,
+    declineCategory: intent.declineCategory ?? null,
+    retryable: intent.retryable ?? false,
+    avsResult: intent.avsResult ?? null,
+    cvvResult: intent.cvvResult ?? null,
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
   };

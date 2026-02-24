@@ -93,8 +93,8 @@ describe('runCloseOrchestrator', () => {
     expect(result.totalSteps).toBe(2);
     expect(result.completedSteps).toBe(2);
     expect(result.status).toBe('completed');
-    expect(result.stepResults[0].status).toBe('passed');
-    expect(result.stepResults[1].status).toBe('passed');
+    expect(result.stepResults[0]!.status).toBe('passed');
+    expect(result.stepResults[1]!.status).toBe('passed');
   });
 
   it('auto-executes draft_entries step when autoMode is on', async () => {
@@ -117,7 +117,7 @@ describe('runCloseOrchestrator', () => {
     });
 
     const result = await runCloseOrchestrator(buildCtx(), { businessDate: '2026-02-24' });
-    expect(result.stepResults[0].status).toBe('auto_executed');
+    expect(result.stepResults[0]!.status).toBe('auto_executed');
     expect(result.completedSteps).toBe(1);
   });
 
@@ -131,7 +131,7 @@ describe('runCloseOrchestrator', () => {
 
     const result = await runCloseOrchestrator(buildCtx(), { businessDate: '2026-02-24' });
     expect(result.skippedSteps).toBe(1);
-    expect(result.stepResults[0].status).toBe('skipped');
+    expect(result.stepResults[0]!.status).toBe('skipped');
   });
 
   it('marks non-auto-executable fail items as manual_required', async () => {
@@ -143,7 +143,7 @@ describe('runCloseOrchestrator', () => {
     });
 
     const result = await runCloseOrchestrator(buildCtx(), { businessDate: '2026-02-24' });
-    expect(result.stepResults[0].status).toBe('manual_required');
+    expect(result.stepResults[0]!.status).toBe('manual_required');
     expect(result.remainingManualSteps).toContain('Some manual step');
     expect(result.status).toBe('partial');
   });
@@ -174,8 +174,8 @@ describe('runCloseOrchestrator', () => {
 
     const result = await runCloseOrchestrator(buildCtx(), { businessDate: '2026-02-24' });
     expect(result.failedSteps).toBe(1);
-    expect(result.stepResults[0].status).toBe('failed');
-    expect(result.stepResults[0].error).toContain('DB connection failed');
+    expect(result.stepResults[0]!.status).toBe('failed');
+    expect(result.stepResults[0]!.error).toContain('DB connection failed');
     expect(result.status).toBe('failed');
   });
 
@@ -196,7 +196,7 @@ describe('runCloseOrchestrator', () => {
 
     const result = await runCloseOrchestrator(buildCtx(), { businessDate: '2026-02-24' });
     // With autoMode off, the draft_entries step should be treated as manual_required
-    expect(result.stepResults[0].status).toBe('manual_required');
+    expect(result.stepResults[0]!.status).toBe('manual_required');
     expect(result.remainingManualSteps).toContain('Open draft journal entries');
   });
 

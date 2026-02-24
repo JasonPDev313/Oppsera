@@ -62,7 +62,7 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
   const data = await storage.read(backup.storage_path);
   const filename = `backup-${id}.json.gz`;
 
-  return new NextResponse(data, {
+  return new NextResponse(new Uint8Array(data), {
     status: 200,
     headers: {
       'Content-Type': 'application/gzip',

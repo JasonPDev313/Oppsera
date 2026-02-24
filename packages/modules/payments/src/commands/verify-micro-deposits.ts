@@ -20,7 +20,7 @@ export async function verifyMicroDeposits(
   ctx: RequestContext,
   input: VerifyMicroDepositsInput,
 ): Promise<VerifyMicroDepositsResult> {
-  const result = await publishWithOutbox(ctx, async (tx) => {
+  const result = await publishWithOutbox(ctx, async (tx): Promise<{ result: VerifyMicroDepositsResult; events: never[] }> => {
     // 1. Load the pending micro-deposit record
     const [deposit] = await tx
       .select()
@@ -42,7 +42,7 @@ export async function verifyMicroDeposits(
     if (deposit.expiresAt && new Date() > deposit.expiresAt) {
       await tx
         .update(achMicroDeposits)
-        .set({ status: 'expired', updatedAt: new Date() })
+        .set({ status: 'expired' })
         .where(eq(achMicroDeposits.id, deposit.id));
 
       await tx
@@ -65,7 +65,6 @@ export async function verifyMicroDeposits(
         .set({
           status: 'verified',
           attempts: deposit.attempts + 1,
-          updatedAt: new Date(),
         })
         .where(eq(achMicroDeposits.id, deposit.id));
 
@@ -93,7 +92,6 @@ export async function verifyMicroDeposits(
       .set({
         status: maxExceeded ? 'failed' : 'pending',
         attempts: newAttempts,
-        updatedAt: new Date(),
       })
       .where(eq(achMicroDeposits.id, deposit.id));
 
@@ -126,5 +124,5 @@ export async function verifyMicroDeposits(
   });
 
   await auditLog(ctx, 'payment.micro_deposit.verified', 'customer_payment_method', input.paymentMethodId);
-  return result;
+  return result as VerifyMicroDepositsResult;
 }

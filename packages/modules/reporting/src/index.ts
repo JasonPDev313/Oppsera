@@ -63,7 +63,6 @@ export type {
   GetModifierPerformanceInput,
   ModifierPerformanceRow,
   GetModifierGroupHealthInput,
-  ModifierGroupHealthResult,
   GetModifierUpsellImpactInput,
   UpsellImpactRow,
   GetModifierDaypartHeatmapInput,

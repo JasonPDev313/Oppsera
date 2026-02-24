@@ -81,7 +81,7 @@ describe('Apple Pay Button — canMakePayments check', () => {
     };
     (globalThis as Record<string, unknown>).ApplePaySession = mockSession;
 
-    const available = !!globalThis.ApplePaySession?.canMakePayments();
+    const available = !!(globalThis as any).ApplePaySession?.canMakePayments();
     expect(available).toBe(true);
     expect(mockSession.canMakePayments).toHaveBeenCalledOnce();
   });
@@ -92,7 +92,7 @@ describe('Apple Pay Button — canMakePayments check', () => {
     };
     (globalThis as Record<string, unknown>).ApplePaySession = mockSession;
 
-    const available = !!globalThis.ApplePaySession?.canMakePayments();
+    const available = !!(globalThis as any).ApplePaySession?.canMakePayments();
     expect(available).toBe(false);
   });
 
@@ -112,7 +112,7 @@ describe('Apple Pay Button — canMakePayments check', () => {
 
     let available = false;
     try {
-      if (globalThis.ApplePaySession?.canMakePayments()) {
+      if ((globalThis as any).ApplePaySession?.canMakePayments()) {
         available = true;
       }
     } catch {

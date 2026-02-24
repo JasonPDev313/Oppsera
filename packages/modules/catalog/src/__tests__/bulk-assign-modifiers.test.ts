@@ -447,9 +447,9 @@ describe('Bulk Modifier Group Assignment', () => {
 
       expect(capturedValues.length).toBe(1);
       const rows = capturedValues[0] as Array<Record<string, unknown>>;
-      expect(rows[0].overrideRequired).toBe(false);
-      expect(rows[0].overrideMinSelections).toBe(0);
-      expect(rows[0].overrideMaxSelections).toBe(5);
+      expect(rows[0]!.overrideRequired).toBe(false);
+      expect(rows[0]!.overrideMinSelections).toBe(0);
+      expect(rows[0]!.overrideMaxSelections).toBe(5);
     });
 
     // Test 6: Validation rejects > 500 items

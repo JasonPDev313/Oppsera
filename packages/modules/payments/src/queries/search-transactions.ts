@@ -245,6 +245,10 @@ export async function getTransactionDetail(
       createdBy: intent.createdBy,
       providerRef: latestRef,
       errorMessage: intent.errorMessage,
+      achSettlementStatus: intent.achSettlementStatus ?? null,
+      achSecCode: intent.achSecCode ?? null,
+      achReturnCode: intent.achReturnCode ?? null,
+      bankLast4: intent.bankLast4 ?? null,
       createdAt: intent.createdAt.toISOString(),
       updatedAt: intent.updatedAt.toISOString(),
       transactions: txns.map((t) => ({

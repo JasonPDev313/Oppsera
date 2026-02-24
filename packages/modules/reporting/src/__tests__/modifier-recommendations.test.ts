@@ -31,7 +31,7 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ eligibleLineCount: 200, linesWithSelection: 50 })],
         { referenceDate: REF_DATE },
       );
-      expect(result.attachRate).toBe(0.25);
+      expect(result!.attachRate).toBe(0.25);
     });
 
     it('returns attachRate = 0 when eligibleLineCount = 0', () => {
@@ -39,7 +39,7 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ eligibleLineCount: 0, linesWithSelection: 0 })],
         { referenceDate: REF_DATE },
       );
-      expect(result.attachRate).toBe(0);
+      expect(result!.attachRate).toBe(0);
     });
 
     it('computes avgSelectionsPerCheck = totalSelections / linesWithSelection', () => {
@@ -47,7 +47,7 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ totalSelections: 120, linesWithSelection: 40 })],
         { referenceDate: REF_DATE },
       );
-      expect(result.avgSelectionsPerCheck).toBe(3);
+      expect(result!.avgSelectionsPerCheck).toBe(3);
     });
 
     it('returns avgSelectionsPerCheck = 0 when linesWithSelection = 0', () => {
@@ -55,7 +55,7 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ linesWithSelection: 0, totalSelections: 0, eligibleLineCount: 0 })],
         { referenceDate: REF_DATE },
       );
-      expect(result.avgSelectionsPerCheck).toBe(0);
+      expect(result!.avgSelectionsPerCheck).toBe(0);
     });
 
     it('computes voidRate = voidCount / (linesWithSelection || 1)', () => {
@@ -63,7 +63,7 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ voidCount: 10, linesWithSelection: 50 })],
         { referenceDate: REF_DATE },
       );
-      expect(result.voidRate).toBe(0.2);
+      expect(result!.voidRate).toBe(0.2);
     });
 
     it('uses 1 as denominator for voidRate when linesWithSelection = 0', () => {
@@ -72,7 +72,7 @@ describe('computeModifierGroupHealth', () => {
         { referenceDate: REF_DATE },
       );
       // voidRate = 3 / 1 = 3
-      expect(result.voidRate).toBe(3);
+      expect(result!.voidRate).toBe(3);
     });
   });
 
@@ -84,9 +84,9 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ createdAt: '2026-02-15T00:00:00Z' })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('new');
-      expect(result.recommendationLabel).toContain('New');
-      expect(result.recommendationLabel).toContain('Collecting Data');
+      expect(result!.recommendation).toBe('new');
+      expect(result!.recommendationLabel).toContain('New');
+      expect(result!.recommendationLabel).toContain('Collecting Data');
     });
 
     it('does NOT return "new" for group created >= 14 days ago', () => {
@@ -94,7 +94,7 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ createdAt: '2026-02-01T00:00:00Z' })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).not.toBe('new');
+      expect(result!.recommendation).not.toBe('new');
     });
 
     it('returns "investigate" for voidRate > 0.15', () => {
@@ -103,8 +103,8 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ voidCount: 20, linesWithSelection: 60 })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('investigate');
-      expect(result.recommendationLabel).toContain('Investigate');
+      expect(result!.recommendation).toBe('investigate');
+      expect(result!.recommendationLabel).toContain('Investigate');
     });
 
     it('returns "review_prompt" for required group with attachRate < 0.5', () => {
@@ -113,8 +113,8 @@ describe('computeModifierGroupHealth', () => {
         [makeGroup({ isRequired: true, linesWithSelection: 30, totalSelections: 30 })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('review_prompt');
-      expect(result.recommendationLabel).toContain('Review Prompt');
+      expect(result!.recommendation).toBe('review_prompt');
+      expect(result!.recommendationLabel).toContain('Review Prompt');
     });
 
     it('returns "remove" for optional group with attachRate < 0.1 and >= 50 eligible lines', () => {
@@ -129,8 +129,8 @@ describe('computeModifierGroupHealth', () => {
         })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('remove');
-      expect(result.recommendationLabel).toContain('Removing');
+      expect(result!.recommendation).toBe('remove');
+      expect(result!.recommendationLabel).toContain('Removing');
     });
 
     it('does NOT return "remove" for required groups even with low attach rate', () => {
@@ -145,8 +145,8 @@ describe('computeModifierGroupHealth', () => {
         { referenceDate: REF_DATE },
       );
       // Should hit rule 3 (review_prompt) instead of rule 4 (remove)
-      expect(result.recommendation).not.toBe('remove');
-      expect(result.recommendation).toBe('review_prompt');
+      expect(result!.recommendation).not.toBe('remove');
+      expect(result!.recommendation).toBe('review_prompt');
     });
 
     it('returns "keep" for attachRate >= 0.6 with positive revenue', () => {
@@ -159,8 +159,8 @@ describe('computeModifierGroupHealth', () => {
         })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('keep');
-      expect(result.recommendationLabel).toBe('High-Performing');
+      expect(result!.recommendation).toBe('keep');
+      expect(result!.recommendationLabel).toBe('High-Performing');
     });
 
     it('returns "optimize" for mid-range attach rate (0.3 - 0.6)', () => {
@@ -173,8 +173,8 @@ describe('computeModifierGroupHealth', () => {
         })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('optimize');
-      expect(result.recommendationLabel).toContain('Optimize');
+      expect(result!.recommendation).toBe('optimize');
+      expect(result!.recommendationLabel).toContain('Optimize');
     });
   });
 
@@ -193,7 +193,7 @@ describe('computeModifierGroupHealth', () => {
         })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('investigate');
+      expect(result!.recommendation).toBe('investigate');
     });
 
     it('"new" takes priority over everything else', () => {
@@ -207,7 +207,7 @@ describe('computeModifierGroupHealth', () => {
         })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('new');
+      expect(result!.recommendation).toBe('new');
     });
 
     it('"review_prompt" takes priority over "remove" for required groups', () => {
@@ -222,7 +222,7 @@ describe('computeModifierGroupHealth', () => {
         })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('review_prompt');
+      expect(result!.recommendation).toBe('review_prompt');
     });
   });
 
@@ -254,20 +254,20 @@ describe('computeModifierGroupHealth', () => {
       );
 
       expect(results).toHaveLength(2);
-      expect(results[0].modifierGroupId).toBe('grp-a');
-      expect(results[0].recommendation).toBe('keep');
-      expect(results[1].modifierGroupId).toBe('grp-b');
-      expect(results[1].recommendation).toBe('remove');
+      expect(results[0]!.modifierGroupId).toBe('grp-a');
+      expect(results[0]!.recommendation).toBe('keep');
+      expect(results[1]!.modifierGroupId).toBe('grp-b');
+      expect(results[1]!.recommendation).toBe('remove');
     });
 
     it('preserves all original input fields in the result', () => {
       const input = makeGroup({ groupName: 'Extra Cheese', uniqueModifiers: 5 });
       const [result] = computeModifierGroupHealth([input], { referenceDate: REF_DATE });
 
-      expect(result.modifierGroupId).toBe(input.modifierGroupId);
-      expect(result.groupName).toBe('Extra Cheese');
-      expect(result.uniqueModifiers).toBe(5);
-      expect(result.eligibleLineCount).toBe(input.eligibleLineCount);
+      expect(result!.modifierGroupId).toBe(input.modifierGroupId);
+      expect(result!.groupName).toBe('Extra Cheese');
+      expect(result!.uniqueModifiers).toBe(5);
+      expect(result!.eligibleLineCount).toBe(input.eligibleLineCount);
     });
 
     it('defaults to "optimize" when no specific rule matches', () => {
@@ -282,8 +282,8 @@ describe('computeModifierGroupHealth', () => {
         })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).toBe('optimize');
-      expect(result.recommendationLabel).toBe('Needs Attention');
+      expect(result!.recommendation).toBe('optimize');
+      expect(result!.recommendationLabel).toBe('Needs Attention');
     });
 
     it('does not return "remove" when eligible lines < 50 (insufficient data)', () => {
@@ -298,7 +298,7 @@ describe('computeModifierGroupHealth', () => {
         })],
         { referenceDate: REF_DATE },
       );
-      expect(result.recommendation).not.toBe('remove');
+      expect(result!.recommendation).not.toBe('remove');
     });
   });
 });

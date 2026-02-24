@@ -730,7 +730,7 @@ describe('Modifier Group Categories', () => {
         updatedAt: now,
       });
       // Must NOT include tenantId in the mapped output
-      expect((row as Record<string, unknown>).tenantId).toBeUndefined();
+      expect((row as unknown as Record<string, unknown>).tenantId).toBeUndefined();
     });
   });
 });

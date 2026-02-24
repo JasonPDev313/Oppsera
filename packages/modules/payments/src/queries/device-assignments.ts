@@ -56,7 +56,7 @@ export async function listDeviceAssignments(
     return rows.map((r) => ({
       id: r.id,
       terminalId: r.terminalId,
-      terminalName: r.terminalName ?? 'Unknown',
+      terminalName: r.terminalName != null ? String(r.terminalName) : 'Unknown',
       providerId: r.providerId,
       hsn: r.hsn,
       deviceModel: r.deviceModel,
@@ -109,7 +109,7 @@ export async function getDeviceAssignment(
     return {
       id: row.id,
       terminalId: row.terminalId,
-      terminalName: row.terminalName ?? 'Unknown',
+      terminalName: row.terminalName != null ? String(row.terminalName) : 'Unknown',
       providerId: row.providerId,
       hsn: row.hsn,
       deviceModel: row.deviceModel,
@@ -162,7 +162,7 @@ export async function getDeviceByHsn(
     return {
       id: row.id,
       terminalId: row.terminalId,
-      terminalName: row.terminalName ?? 'Unknown',
+      terminalName: row.terminalName != null ? String(row.terminalName) : 'Unknown',
       providerId: row.providerId,
       hsn: row.hsn,
       deviceModel: row.deviceModel,

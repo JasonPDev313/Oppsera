@@ -85,7 +85,7 @@ describe('workflow-engine', () => {
   describe('getWorkflowConfig', () => {
     it('falls back to tier defaults when no explicit row exists', async () => {
       const config = await getWorkflowConfig('tnt_test', 'accounting', 'journal_posting');
-      const expected = TIER_WORKFLOW_DEFAULTS.SMB['accounting.journal_posting'];
+      const expected = TIER_WORKFLOW_DEFAULTS.SMB['accounting.journal_posting']!;
       expect(config.autoMode).toBe(expected.autoMode);
       expect(config.approvalRequired).toBe(expected.approvalRequired);
       expect(config.userVisible).toBe(expected.userVisible);
@@ -144,7 +144,7 @@ describe('workflow-engine', () => {
       });
 
       const config = await getWorkflowConfig('tnt_ent', 'accounting', 'journal_posting');
-      const expected = TIER_WORKFLOW_DEFAULTS.ENTERPRISE['accounting.journal_posting'];
+      const expected = TIER_WORKFLOW_DEFAULTS.ENTERPRISE['accounting.journal_posting']!;
       expect(config.autoMode).toBe(expected.autoMode);
       expect(config.approvalRequired).toBe(expected.approvalRequired);
       expect(config.userVisible).toBe(expected.userVisible);
@@ -196,10 +196,10 @@ describe('workflow-engine', () => {
       invalidateWorkflowCache('tnt_test');
       const configs = await getModuleWorkflowConfigs('tnt_test', 'accounting');
       // The explicit override should take precedence
-      expect(configs['accounting.journal_posting'].autoMode).toBe(false);
-      expect(configs['accounting.journal_posting'].approvalRequired).toBe(true);
+      expect(configs['accounting.journal_posting']!.autoMode).toBe(false);
+      expect(configs['accounting.journal_posting']!.approvalRequired).toBe(true);
       // Other configs should still be tier defaults
-      expect(configs['accounting.depreciation'].autoMode).toBe(true);
+      expect(configs['accounting.depreciation']!.autoMode).toBe(true);
     });
   });
 

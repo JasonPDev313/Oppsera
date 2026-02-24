@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { NextRequest } from 'next/server';
 
 // ── Hoisted mocks ─────────────────────────────────────────────────
 
@@ -139,7 +140,7 @@ describe('ERP API Routes', () => {
       mockGetAllWorkflowConfigs.mockResolvedValue(configs);
 
       const { GET } = await import('../app/api/v1/erp/config/route');
-      const request = new Request('http://localhost/api/v1/erp/config');
+      const request = new Request('http://localhost/api/v1/erp/config') as unknown as NextRequest;
       const response = await GET(request);
       const body = await response.json();
 
@@ -171,7 +172,7 @@ describe('ERP API Routes', () => {
       );
 
       const { GET } = await import('../app/api/v1/erp/config/[moduleKey]/route');
-      const request = new Request('http://localhost/api/v1/erp/config/accounting');
+      const request = new Request('http://localhost/api/v1/erp/config/accounting') as unknown as NextRequest;
       const response = await GET(request);
       const body = await response.json();
 
@@ -214,7 +215,7 @@ describe('ERP API Routes', () => {
       );
 
       const { GET } = await import('../app/api/v1/erp/tier/route');
-      const request = new Request('http://localhost/api/v1/erp/tier');
+      const request = new Request('http://localhost/api/v1/erp/tier') as unknown as NextRequest;
       const response = await GET(request);
       const body = await response.json();
 
@@ -246,7 +247,7 @@ describe('ERP API Routes', () => {
       );
 
       const { GET } = await import('../app/api/v1/erp/tier/route');
-      const request = new Request('http://localhost/api/v1/erp/tier');
+      const request = new Request('http://localhost/api/v1/erp/tier') as unknown as NextRequest;
       const response = await GET(request);
 
       expect(response.status).toBe(404);
@@ -286,7 +287,7 @@ describe('ERP API Routes', () => {
         method: 'POST',
         body: JSON.stringify({ businessDate: '2026-02-24' }),
         headers: { 'Content-Type': 'application/json' },
-      });
+      }) as unknown as NextRequest;
       const response = await POST(request);
 
       expect(response.status).toBe(201);
@@ -319,7 +320,7 @@ describe('ERP API Routes', () => {
       );
 
       const { GET } = await import('../app/api/v1/erp/close-orchestrator/route');
-      const request = new Request('http://localhost/api/v1/erp/close-orchestrator');
+      const request = new Request('http://localhost/api/v1/erp/close-orchestrator') as unknown as NextRequest;
       const response = await GET(request);
       const body = await response.json();
 
@@ -352,7 +353,7 @@ describe('ERP API Routes', () => {
       );
 
       const { GET } = await import('../app/api/v1/erp/close-orchestrator/[id]/route');
-      const request = new Request('http://localhost/api/v1/erp/close-orchestrator/run_001');
+      const request = new Request('http://localhost/api/v1/erp/close-orchestrator/run_001') as unknown as NextRequest;
       const response = await GET(request);
       const body = await response.json();
 
@@ -378,7 +379,7 @@ describe('ERP API Routes', () => {
       );
 
       const { GET } = await import('../app/api/v1/erp/close-orchestrator/[id]/route');
-      const request = new Request('http://localhost/api/v1/erp/close-orchestrator/run_missing');
+      const request = new Request('http://localhost/api/v1/erp/close-orchestrator/run_missing') as unknown as NextRequest;
       const response = await GET(request);
 
       expect(response.status).toBe(404);
@@ -402,7 +403,7 @@ describe('ERP API Routes', () => {
       );
 
       const { GET } = await import('../app/api/v1/erp/verticals/route');
-      const request = new Request('http://localhost/api/v1/erp/verticals');
+      const request = new Request('http://localhost/api/v1/erp/verticals') as unknown as NextRequest;
       const response = await GET(request);
       const body = await response.json();
 
@@ -422,7 +423,7 @@ describe('ERP API Routes', () => {
 
     it('includes available verticals', async () => {
       const { GET } = await import('../app/api/v1/erp/verticals/route');
-      const request = new Request('http://localhost/api/v1/erp/verticals');
+      const request = new Request('http://localhost/api/v1/erp/verticals') as unknown as NextRequest;
       const response = await GET(request);
       const body = await response.json();
 

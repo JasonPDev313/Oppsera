@@ -28,7 +28,7 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
   }
 
   const where = conditions.join(' AND ');
-  const result = await db.execute(
+  const result = await (db.execute as any)(
     sql.raw(
       `SELECT r.id, r.backup_id, r.status, r.safety_backup_id,
               r.requested_by_admin_id, r.approved_by_admin_id,
@@ -44,7 +44,7 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
        ORDER BY r.created_at DESC
        LIMIT ${limit + 1}`,
     ),
-    values as never,
+    values,
   );
 
   const rows = Array.from(result as Iterable<Record<string, unknown>>);

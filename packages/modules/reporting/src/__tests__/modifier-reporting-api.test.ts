@@ -126,7 +126,7 @@ describe('GET /api/v1/reports/modifiers/performance', () => {
     const response = await performanceGET(
       makeRequest(`${BASE}/performance?dateFrom=2026-01-01&dateTo=2026-01-31`),
     );
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual(mockData);
@@ -189,7 +189,7 @@ describe('GET /api/v1/reports/modifiers/group-health', () => {
     const response = await groupHealthGET(
       makeRequest(`${BASE}/group-health?dateFrom=2026-01-01&dateTo=2026-01-31`),
     );
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual(mockData);
@@ -227,7 +227,7 @@ describe('GET /api/v1/reports/modifiers/upsell-impact', () => {
     const response = await upsellImpactGET(
       makeRequest(`${BASE}/upsell-impact?dateFrom=2026-01-01&dateTo=2026-01-31`),
     );
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual(mockData);
@@ -269,7 +269,7 @@ describe('GET /api/v1/reports/modifiers/daypart-heatmap', () => {
     const response = await daypartHeatmapGET(
       makeRequest(`${BASE}/daypart-heatmap?dateFrom=2026-01-01&dateTo=2026-01-31`),
     );
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual(mockData);
@@ -309,7 +309,7 @@ describe('GET /api/v1/reports/modifiers/group-item-heatmap', () => {
     const response = await groupItemHeatmapGET(
       makeRequest(`${BASE}/group-item-heatmap?dateFrom=2026-01-01&dateTo=2026-01-31`),
     );
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual(mockData);
@@ -341,7 +341,7 @@ describe('GET /api/v1/reports/modifiers/location-heatmap', () => {
     const response = await locationHeatmapGET(
       makeRequest(`${BASE}/location-heatmap?dateFrom=2026-01-01&dateTo=2026-01-31`),
     );
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual(mockData);
@@ -388,7 +388,7 @@ describe('GET /api/v1/reports/modifiers/waste-signals', () => {
     const response = await wasteSignalsGET(
       makeRequest(`${BASE}/waste-signals?dateFrom=2026-01-01&dateTo=2026-01-31`),
     );
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual(mockData);
@@ -429,7 +429,7 @@ describe('GET /api/v1/reports/modifiers/complexity', () => {
     const response = await complexityGET(
       makeRequest(`${BASE}/complexity?dateFrom=2026-01-01&dateTo=2026-01-31`),
     );
-    const body = await response.json();
+    const body = await response.json() as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual(mockData);
