@@ -7,7 +7,7 @@ import {
   glClassificationTemplates,
   accountingSettings,
 } from '@oppsera/db';
-import { generateUlid } from '@oppsera/shared';
+import { generateUlid, AppError } from '@oppsera/shared';
 import { resolveNormalBalance } from './resolve-normal-balance';
 import { applyStatePlaceholders } from '../services/state-placeholder';
 
@@ -67,7 +67,6 @@ export async function bootstrapTenantCoa(
     .where(eq(glAccountTemplates.templateKey, templateKey));
 
   if (accountTemplates.length === 0) {
-    const { AppError } = await import('@oppsera/core/errors');
     throw new AppError(
       'VALIDATION_ERROR',
       `No account templates found for key: ${templateKey}. Have all migrations been run? (pnpm db:migrate)`,
