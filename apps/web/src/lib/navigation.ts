@@ -44,6 +44,8 @@ import {
   TrendingUp,
   Star,
   GripVertical,
+  ArrowLeftRight,
+  AlertTriangle,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -53,6 +55,10 @@ export interface SubNavItem {
   icon: typeof LayoutDashboard;
   moduleKey?: string;
   group?: string;
+  /** ERP workflow module key for tier-based visibility filtering */
+  workflowModuleKey?: string;
+  /** ERP workflow key for tier-based visibility filtering */
+  workflowKey?: string;
 }
 
 export interface NavItem {
@@ -63,6 +69,10 @@ export interface NavItem {
   children?: SubNavItem[];
   /** When true, children with `group` fields render as collapsible accordion sections */
   collapsibleGroups?: boolean;
+  /** ERP workflow module key for tier-based visibility filtering */
+  workflowModuleKey?: string;
+  /** ERP workflow key for tier-based visibility filtering */
+  workflowKey?: string;
 }
 
 export const navigation: NavItem[] = [
@@ -99,6 +109,17 @@ export const navigation: NavItem[] = [
   },
   { name: 'Sales History', href: '/orders', icon: ClipboardList, moduleKey: 'pos_retail' },
   {
+    name: 'Payments',
+    href: '/payments/transactions',
+    icon: CreditCard,
+    moduleKey: 'payments',
+    children: [
+      { name: 'Transactions', href: '/payments/transactions', icon: ArrowLeftRight },
+      { name: 'Failed Payments', href: '/payments/failed', icon: AlertTriangle },
+      { name: 'ACH Status', href: '/payments/ach-status', icon: Landmark },
+    ],
+  },
+  {
     name: 'Customers',
     href: '/customers',
     icon: Users,
@@ -118,9 +139,18 @@ export const navigation: NavItem[] = [
     moduleKey: 'reporting',
     children: [
       { name: 'Overview', href: '/reports', icon: BarChart3 },
+      { name: 'Modifiers', href: '/reports/modifiers', icon: Sliders },
       { name: 'Custom Reports', href: '/reports/custom', icon: FileBarChart },
       { name: 'Dashboards', href: '/dashboards', icon: LayoutGrid },
-      { name: 'Golf Analytics', href: '/reports/golf', icon: Flag, moduleKey: 'golf_ops' },
+    ],
+  },
+  {
+    name: 'Golf',
+    href: '/golf/analytics',
+    icon: Flag,
+    moduleKey: 'golf_ops',
+    children: [
+      { name: 'Analytics', href: '/golf/analytics', icon: BarChart3 },
     ],
   },
   {
@@ -172,16 +202,18 @@ export const navigation: NavItem[] = [
     href: '/accounting',
     icon: Landmark,
     moduleKey: 'accounting',
+    workflowModuleKey: 'accounting',
+    workflowKey: 'journal_posting',
     children: [
       { name: 'Dashboard', href: '/accounting', icon: Landmark },
       { name: 'General Ledger', href: '/accounting/gl', icon: BookOpen },
       { name: 'Payables', href: '/accounting/payables', icon: Receipt, moduleKey: 'ap' },
       { name: 'Receivables', href: '/accounting/receivables', icon: Wallet, moduleKey: 'ar' },
-      { name: 'Banking', href: '/accounting/banking', icon: Building2 },
+      { name: 'Banking', href: '/accounting/banking', icon: Building2, workflowModuleKey: 'accounting', workflowKey: 'bank_reconciliation' },
       { name: 'Revenue & Cost', href: '/accounting/revenue', icon: DollarSign },
       { name: 'Tax', href: '/accounting/tax', icon: FileBarChart },
       { name: 'Financials', href: '/accounting/financials', icon: Scale },
-      { name: 'Period Close', href: '/accounting/period-close', icon: Lock },
+      { name: 'Period Close', href: '/accounting/period-close', icon: Lock, workflowModuleKey: 'accounting', workflowKey: 'period_close' },
     ],
   },
   {
@@ -193,6 +225,8 @@ export const navigation: NavItem[] = [
       { name: 'General', href: '/settings', icon: Settings },
       { name: 'Navigation', href: '/settings/navigation', icon: GripVertical },
       { name: 'Profit Centers', href: '/settings/profit-centers', icon: Building2 },
+      { name: 'Merchant Processing', href: '/settings/merchant-processing', icon: CreditCard, moduleKey: 'payments' },
+      { name: 'ERP Configuration', href: '/settings/erp-config', icon: TrendingUp },
       { name: 'Permissions', href: '/settings/permissions', icon: Shield },
       { name: 'Room Layouts', href: '/settings/room-layouts', icon: LayoutDashboard, moduleKey: 'room_layouts' },
       { name: 'Data Imports', href: '/settings/data-imports', icon: Upload },

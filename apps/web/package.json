@@ -4,7 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node -e \"require('fs').mkdirSync('.next/static/development',{recursive:true})\" && next dev --turbopack",
+    "dev": "node scripts/dev-prep.cjs && next dev --turbopack",
+    "dev:webpack": "node scripts/dev-prep.cjs && next dev",
+    "dev:kill": "taskkill /F /IM node.exe /T 2>nul || exit 0",
+    "dev:clean": "node -e \"try{require('fs').rmSync('.next',{recursive:true,force:true})}catch(e){console.warn('Could not remove .next:',e.message)}\"",
+    "dev:fix": "node scripts/dev-fix.cjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src/",

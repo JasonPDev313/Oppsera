@@ -7061,3 +7061,26 @@ void captureEvalTurnBestEffort({
 - Filter by mode (SQL vs metrics) for relevance
 - Limit to 3 examples to control prompt size
 
+---
+
+## Local Server Fix (Windows)
+
+### Problem
+Next.js dev server on Windows crashes with `EPERM: operation not permitted, open '.next/trace'` due to orphaned Node processes holding file locks.
+
+### Fix Procedure
+1. **Kill ALL Node via PowerShell** (bash `taskkill` cannot kill its own parent):
+   ```powershell
+   powershell.exe -NoProfile -Command 'Stop-Process -Name node -Force -ErrorAction SilentlyContinue'
+   ```
+2. **Wait**: `sleep 3`
+3. **Verify zero processes**: `powershell.exe -NoProfile -Command 'Get-Process node -ErrorAction SilentlyContinue | Measure-Object | Select-Object -ExpandProperty Count'`
+4. **Remove .next**: `rm -rf apps/web/.next`
+5. **Restart**: `cd apps/web && NEXT_TELEMETRY_DISABLED=1 npx next dev --turbopack --port 3000`
+
+### Rules to Prevent Recurrence
+- **R1**: Always use `.cjs` extension for CommonJS scripts in packages with `"type": "module"` in `package.json`. Never use `.js` with `require()` in ESM packages.
+- **R2**: Never create sibling dynamic route segments with different slug names (e.g., `[id]` and `[providerId]` under the same parent). Next.js App Router requires a single slug name per path segment level.
+- **R3**: When killing Node processes on Windows, always use PowerShell `Stop-Process -Name node -Force`, never bash `taskkill /F /IM node.exe` (which runs inside Node and can't kill its own process tree).
+- **R4**: After any abnormal dev server shutdown on Windows, always kill all Node processes and delete `.next` before restarting — partial `.next` state causes `middleware-manifest.json` / `routes-manifest.json` ENOENT errors.
+

@@ -58,6 +58,7 @@ interface EditUserForm {
   userName: string;
   phoneNumber: string;
   userRole: string;
+  additionalRoleIds: string[];
   userStatus: 'invited' | 'active' | 'inactive' | 'locked';
   posOverridePin: string;
   uniqueIdentificationPin: string;
@@ -73,6 +74,7 @@ const emptyEditForm: EditUserForm = {
   userName: '',
   phoneNumber: '',
   userRole: '',
+  additionalRoleIds: [],
   userStatus: 'active',
   posOverridePin: '',
   uniqueIdentificationPin: '',
@@ -233,6 +235,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
         userName: u.username ?? '',
         phoneNumber: u.phone ?? '',
         userRole: u.roles[0]?.id ?? '',
+        additionalRoleIds: u.roles.slice(1).map((r) => r.id),
         userStatus: u.status,
         posOverridePin: '',
         uniqueIdentificationPin: '',
@@ -260,6 +263,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
         method: 'PATCH',
         body: JSON.stringify({
           ...editForm,
+          additionalRoleIds: editForm.additionalRoleIds.length > 0 ? editForm.additionalRoleIds : undefined,
           posOverridePin: editForm.posOverridePin || undefined,
           uniqueIdentificationPin: editForm.uniqueIdentificationPin || undefined,
           externalPayrollEmployeeId: editForm.externalPayrollEmployeeId || undefined,
@@ -522,16 +526,44 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
               <input placeholder="Email Address" className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.emailAddress} onChange={(e) => setEditForm((p) => ({ ...p, emailAddress: e.target.value }))} />
               <input placeholder="User Name" className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.userName} onChange={(e) => setEditForm((p) => ({ ...p, userName: e.target.value }))} />
               <input placeholder="Phone Number" className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.phoneNumber} onChange={(e) => setEditForm((p) => ({ ...p, phoneNumber: e.target.value }))} />
-              <select className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.userRole} onChange={(e) => setEditForm((p) => ({ ...p, userRole: e.target.value }))}>
-                <option value="" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Select Role</option>
-                {roles.map((r) => <option key={r.id} value={r.id} style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>{r.name}</option>)}
-              </select>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-500">Primary Role</label>
+                <select className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.userRole} onChange={(e) => setEditForm((p) => ({ ...p, userRole: e.target.value, additionalRoleIds: p.additionalRoleIds.filter((id) => id !== e.target.value) }))}>
+                  <option value="" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Select Role</option>
+                  {roles.map((r) => <option key={r.id} value={r.id} style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>{r.name}</option>)}
+                </select>
+              </div>
               <select className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.userStatus} onChange={(e) => setEditForm((p) => ({ ...p, userStatus: e.target.value as EditUserForm['userStatus'] }))}>
                 <option value="invited" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Invited</option>
                 <option value="active" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Active</option>
                 <option value="inactive" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Inactive</option>
                 <option value="locked" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Locked</option>
               </select>
+              {roles.filter((r) => r.id !== editForm.userRole).length > 0 && (
+                <div className="md:col-span-2">
+                  <label className="mb-1.5 block text-xs font-medium text-gray-500">Additional Roles</label>
+                  <div className="grid grid-cols-2 gap-2 rounded-lg border border-gray-300 bg-gray-100 p-3">
+                    {roles.filter((r) => r.id !== editForm.userRole).map((r) => (
+                      <label key={r.id} className="flex items-center gap-2 text-sm text-gray-900">
+                        <input
+                          type="checkbox"
+                          checked={editForm.additionalRoleIds.includes(r.id)}
+                          onChange={(e) =>
+                            setEditForm((p) => ({
+                              ...p,
+                              additionalRoleIds: e.target.checked
+                                ? [...p.additionalRoleIds, r.id]
+                                : p.additionalRoleIds.filter((id) => id !== r.id),
+                            }))
+                          }
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        {r.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
               <input placeholder="POS Override PIN (leave blank to keep unchanged)" className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.posOverridePin} onChange={(e) => setEditForm((p) => ({ ...p, posOverridePin: e.target.value }))} />
               <input placeholder="Unique ID PIN (leave blank to keep unchanged)" className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.uniqueIdentificationPin} onChange={(e) => setEditForm((p) => ({ ...p, uniqueIdentificationPin: e.target.value }))} />
               <div className="rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm">

@@ -11,6 +11,8 @@ import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gatewa
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents, generateProviderOrderId, extractCardLast4, detectCardBrand } from '../helpers/amount';
 import { CardPointeTimeoutError } from '../providers/cardpointe/client';
+import { interpretResponse } from '../services/response-interpreter';
+import type { ResponseInterpretation } from '../services/response-interpreter';
 
 export async function salePayment(
   ctx: RequestContext,
@@ -42,11 +44,12 @@ export async function salePayment(
       .limit(1);
 
     if (existing) {
-      return { result: mapIntentToResult(existing, null), events: [] };
+      return { result: mapIntentToResult(existing, null, null), events: [] };
     }
 
     // 2. Create payment intent
     const totalCents = input.amountCents + (input.tipCents ?? 0);
+    const isAch = (input.paymentMethodType ?? 'card') === 'ach';
 
     const [intent] = await tx
       .insert(paymentIntents)
@@ -64,8 +67,16 @@ export async function salePayment(
         paymentMethodType: input.paymentMethodType ?? 'card',
         token: input.token ?? null,
         metadata: input.metadata ?? null,
+        surchargeAmountCents: input.surchargeAmountCents ?? 0,
         idempotencyKey: input.clientRequestId,
         createdBy: ctx.user.id,
+        // ACH-specific fields
+        ...(isAch ? {
+          achAccountType: input.achAccountType ?? null,
+          achSecCode: input.achSecCode ?? null,
+          achSettlementStatus: 'pending',
+          bankLast4: input.token ? input.token.slice(-4) : null,
+        } : {}),
       })
       .returning();
 
@@ -88,8 +99,8 @@ export async function salePayment(
         amount: centsToDollars(totalCents),
         currency: input.currency ?? 'USD',
         token: input.token ?? '',
-        expiry: input.expiry,
-        cvv: input.cvv,
+        expiry: isAch ? undefined : input.expiry, // no expiry for ACH
+        cvv: isAch ? undefined : input.cvv,        // no CVV for ACH
         orderId: providerOrderId,
         capture: 'Y',
         ecomind: input.ecomind ?? 'E',
@@ -97,6 +108,11 @@ export async function salePayment(
         address: input.address,
         postal: input.postal,
         receipt: 'Y',
+        // ACH-specific fields
+        ...(isAch ? {
+          achAccountType: input.achAccountType,
+          achSecCode: input.achSecCode,
+        } : {}),
       });
 
       providerRef = saleResponse.providerRef;
@@ -115,7 +131,10 @@ export async function salePayment(
       }
     } catch (err) {
       if (err instanceof CardPointeTimeoutError) {
-        // Timeout recovery: inquire → void 3x → error
+        // Timeout recovery: inquire → void 3x → unknown_at_gateway
+        let recovered = false;
+        let voidSucceeded = false;
+
         try {
           const inquireResult = await provider.inquireByOrderId(providerOrderId, merchantId);
           if (inquireResult) {
@@ -128,19 +147,26 @@ export async function salePayment(
             if (inquireResult.status === 'approved') {
               capturedAmountCents = dollarsToCents(inquireResult.amount);
             }
+            recovered = true;
           }
         } catch {
           // Inquire failed
         }
 
-        if (txnStatus === 'error') {
+        if (!recovered) {
           for (let attempt = 0; attempt < 3; attempt++) {
             try {
               await provider.voidByOrderId({ merchantId, orderId: providerOrderId });
+              voidSucceeded = true;
               break;
             } catch { /* retry */ }
           }
-          responseText = 'Sale timed out and could not be recovered';
+
+          if (voidSucceeded) {
+            responseText = 'Sale timed out — safely voided at gateway';
+          } else {
+            responseText = 'Sale timed out and could not be recovered — status unknown at gateway';
+          }
         }
       } else {
         txnStatus = 'error';
@@ -148,7 +174,17 @@ export async function salePayment(
       }
     }
 
-    // 4. Insert payment transaction
+    // 4. Interpret response
+    const interpretation = interpretResponse({
+      responseCode: responseCode || null,
+      responseText: responseText || null,
+      respstat: (rawResponse as Record<string, unknown>)?.respstat as string ?? null,
+      avsResponse,
+      cvvResponse,
+      rawResponse: rawResponse as Record<string, unknown>,
+    });
+
+    // 5. Insert payment transaction
     await tx.insert(paymentTransactions).values({
       tenantId: ctx.tenantId,
       paymentIntentId: intent!.id,
@@ -162,16 +198,31 @@ export async function salePayment(
       avsResponse,
       cvvResponse,
       providerResponse: rawResponse,
+      clientRequestId: input.clientRequestId,
+      surchargeAmountCents: input.surchargeAmountCents ?? 0,
+      declineCategory: interpretation.declineCategory,
+      userMessage: interpretation.userMessage,
+      suggestedAction: interpretation.suggestedAction,
+      retryable: interpretation.retryable,
+      avsResult: interpretation.avsResult?.pass === true ? 'pass' : interpretation.avsResult?.pass === false ? 'fail' : null,
+      cvvResult: interpretation.cvvResult?.pass === true ? 'pass' : interpretation.cvvResult?.pass === false ? 'fail' : null,
+      visaDeclineCategory: interpretation.visaDeclineCategory,
+      mcAdviceCode: interpretation.mcAdviceCode,
+      processor: interpretation.processor,
     });
 
-    // 5. Update intent
+    // 6. Update intent
     let intentStatus: string;
     let errorMessage: string | null = null;
 
     if (txnStatus === 'approved') {
-      intentStatus = 'captured'; // sale goes directly to captured
+      // ACH "approved" = accepted for origination, NOT funds received
+      intentStatus = isAch ? 'ach_pending' : 'captured';
     } else if (txnStatus === 'declined') {
       intentStatus = 'declined';
+      errorMessage = responseText;
+    } else if (responseText?.includes('status unknown at gateway')) {
+      intentStatus = 'unknown_at_gateway';
       errorMessage = responseText;
     } else {
       intentStatus = 'error';
@@ -180,46 +231,69 @@ export async function salePayment(
 
     assertIntentTransition('created', intentStatus as any);
 
+    const updateFields: Record<string, unknown> = {
+      status: intentStatus,
+      authorizedAmountCents: capturedAmountCents,
+      capturedAmountCents: isAch ? null : capturedAmountCents, // ACH not captured until settled
+      cardLast4: isAch ? null : cardLast4,
+      cardBrand: isAch ? null : cardBrand,
+      errorMessage,
+      updatedAt: new Date(),
+    };
+
+    // For ACH, update settlement status to originated when accepted
+    if (isAch && txnStatus === 'approved') {
+      updateFields.achSettlementStatus = 'originated';
+    }
+
     const [updated] = await tx
       .update(paymentIntents)
-      .set({
-        status: intentStatus,
-        authorizedAmountCents: capturedAmountCents, // sale auth = capture amount
-        capturedAmountCents,
-        cardLast4,
-        cardBrand,
-        errorMessage,
-        updatedAt: new Date(),
-      })
+      .set(updateFields)
       .where(eq(paymentIntents.id, intent!.id))
       .returning();
 
-    // 6. Build event
-    const eventType =
-      txnStatus === 'approved'
-        ? PAYMENT_GATEWAY_EVENTS.CAPTURED
-        : PAYMENT_GATEWAY_EVENTS.DECLINED;
+    // 7. Build event — ACH uses ACH_ORIGINATED instead of CAPTURED
+    let eventType: string;
+    if (txnStatus === 'approved') {
+      eventType = isAch
+        ? PAYMENT_GATEWAY_EVENTS.ACH_ORIGINATED
+        : PAYMENT_GATEWAY_EVENTS.CAPTURED;
+    } else {
+      eventType = PAYMENT_GATEWAY_EVENTS.DECLINED;
+    }
 
-    const event = buildEventFromContext(ctx, eventType, {
+    const eventPayload: Record<string, unknown> = {
       paymentIntentId: intent!.id,
       tenantId: ctx.tenantId,
       locationId: ctx.locationId,
       merchantAccountId,
       amountCents: totalCents,
-      capturedAmountCents: capturedAmountCents ?? 0,
-      authorizedAmountCents: capturedAmountCents ?? 0,
       currency: input.currency ?? 'USD',
-      cardLast4,
-      cardBrand,
       orderId: input.orderId ?? null,
       customerId: input.customerId ?? null,
       providerRef,
       paymentMethodType: input.paymentMethodType ?? 'card',
+      surchargeAmountCents: input.surchargeAmountCents ?? 0,
       responseCode,
       responseText,
-    });
+    };
 
-    return { result: mapIntentToResult(updated!, providerRef), events: [event] };
+    if (isAch) {
+      // ACH-specific event payload
+      eventPayload.achSecCode = input.achSecCode ?? null;
+      eventPayload.achAccountType = input.achAccountType ?? null;
+      eventPayload.bankLast4 = input.token ? input.token.slice(-4) : null;
+    } else {
+      // Card-specific event payload
+      eventPayload.capturedAmountCents = capturedAmountCents ?? 0;
+      eventPayload.authorizedAmountCents = capturedAmountCents ?? 0;
+      eventPayload.cardLast4 = cardLast4;
+      eventPayload.cardBrand = cardBrand;
+    }
+
+    const event = buildEventFromContext(ctx, eventType, eventPayload);
+
+    return { result: mapIntentToResult(updated!, providerRef, interpretation), events: [event] };
   });
 
   await auditLog(ctx, 'payment.sale', 'payment_intent', result.id);
@@ -229,6 +303,7 @@ export async function salePayment(
 function mapIntentToResult(
   intent: Record<string, any>,
   providerRef: string | null,
+  interpretation: ResponseInterpretation | null,
 ): PaymentIntentResult {
   return {
     id: intent.id,
@@ -246,6 +321,12 @@ function mapIntentToResult(
     cardBrand: intent.cardBrand ?? null,
     providerRef: providerRef ?? null,
     errorMessage: intent.errorMessage ?? null,
+    userMessage: interpretation?.userMessage ?? null,
+    suggestedAction: interpretation?.suggestedAction ?? null,
+    declineCategory: interpretation?.declineCategory ?? null,
+    retryable: interpretation?.retryable ?? false,
+    avsResult: interpretation?.avsResult?.pass === true ? 'pass' : interpretation?.avsResult?.pass === false ? 'fail' : null,
+    cvvResult: interpretation?.cvvResult?.pass === true ? 'pass' : interpretation?.cvvResult?.pass === false ? 'fail' : null,
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
   };

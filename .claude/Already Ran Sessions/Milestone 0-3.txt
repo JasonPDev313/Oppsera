@@ -1,0 +1,91 @@
+ive completed the first two milestones. Here is the MD files: OppsEra — Claude Code Prompt Kit
+What's In This Kit
+FilePurpose`PROJECT_BRIEF.md`Context document. Paste at the TOP of every Claude Code session.`CONVENTIONS.md`Engineering standards. Commit to repo root after Milestone 0. Also paste into sessions when relevant.`MILESTONE_0_SESSION_1.md`Task prompt: monorepo scaffolding, Next.js app, all package stubs, Docker Compose`MILESTONE_0_SESSION_2.md`Task prompt: 13 core tables, RLS, seed data, integration tests`OppsEra_ERP_Platform_Spec.md`Full technical spec (2,200 lines). Reference document — don't paste the whole thing. Pull specific sections when building each module.
+How to Use
+Every session follows this pattern:
+
+```
+1. Open new Claude Code session (or /clear)
+2. Paste PROJECT_BRIEF.md
+3. Update the "Current Project State" section at the bottom
+4. Paste the task-specific prompt (e.g., MILESTONE_0_SESSION_1.md)
+5. Let Claude build
+6. Verify the checklist at the bottom of the prompt
+7. Fix any issues
+```
+
+Why the Project Brief matters:
+Claude Code starts every session with zero memory. If you paste "build me a Drizzle schema with these tables," it doesn't know:
+* That you're building a multi-tenant ERP
+* That every table needs tenant_id and ULIDs
+* That RLS is defense-in-depth
+* That events use a transactional outbox
+* That modules can't import from each other
+* What the folder structure looks like
+The Project Brief gives Claude all of this context in ~200 lines. It's the difference between Claude making 50 architecture decisions on its own (many wrong) vs. Claude following YOUR architecture.
+Updating the Project Brief:
+After each milestone, update the "Current Project State" section. For example, after Milestone 0:
+
+```
+## Current Project State
+
+Milestone 0 is complete. The monorepo is scaffolded with:
+- apps/web: Next.js 15, dashboard layout with sidebar, health check API
+- packages/core: Interface stubs for auth, permissions, entitlements, events, audit, config, billing
+- packages/shared: EventEnvelope type, API types, money/date/ULID utils, pagination schema
+- packages/modules: Stubs for catalog, orders, payments, inventory, customers, marketing, kds, golf-ops, reporting
+- packages/db: Drizzle client with withTenant wrapper, 13 core tables, RLS on all tenant-scoped tables
+- Seed data: "Sunset Golf & Grill" tenant with 2 locations, 1 admin user, 5 roles, 7 entitlements
+- All tests pass including RLS isolation tests
+```
+
+For future milestones:
+You'll create task prompts the same way. Always structured as:
+1. Brief context (what exists now, from the Project Brief)
+2. Specific task (what to build in this session)
+3. Exact specifications (schemas, interfaces, event contracts)
+4. Verification checklist (how to know it's done)
+Pull the relevant section from `OppsEra_ERP_Platform_Spec.md` and adapt it into a task prompt. Don't paste the entire 2,200-line spec — Claude works best with focused, scoped instructions.
+Execution Order
+
+```
+Milestone 0 (you are here)
+  └─ Session 1: Monorepo scaffolding
+  └─ Session 2: Core schema + RLS + seed
+  └─ Commit CONVENTIONS.md
+
+Milestone 1: Auth + RBAC + Entitlements
+  └─ Session 3: Supabase Auth integration
+  └─ Session 4: RBAC engine + middleware
+  └─ Session 5: Entitlements middleware
+
+Milestone 2: Event Bus + Audit Logging
+  └─ Session 6: In-memory event bus + outbox worker
+  └─ Session 7: Audit logging service
+
+Milestone 3: Catalog Module
+  └─ Session 8: Schema + commands
+  └─ Session 9: Queries + API routes
+  └─ Session 10: Frontend pages
+
+Milestone 4: Tenant Onboarding
+  └─ Session 11: Signup flow (end-to-end)
+
+Milestone 5: Orders + POS
+  └─ Session 12: Orders module
+  └─ Session 13: POS frontend
+
+Milestone 6: Payments + Inventory
+  └─ Session 14: Tenders module (cash only)
+  └─ Session 15: Inventory module
+
+Milestone 7: Customers + Reporting + Billing
+  └─ Session 16: Customers module
+  └─ Session 17: Reporting module
+  └─ Session 18: Stripe billing
+
+Milestone 8: Polish + Deploy
+  └─ Session 19: Admin console
+  └─ Session 20: Security hardening
+  └─ Session 21: CI/CD + staging deploy
+```

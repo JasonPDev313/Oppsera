@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { CreditCard, Loader2, AlertCircle } from 'lucide-react';
 import { CardPointeIframeTokenizer } from './cardpointe-iframe-tokenizer';
+import type { TokenizeResult } from '@oppsera/shared';
 
 interface OnlinePaymentFormProps {
   /** CardPointe site name */
@@ -50,10 +51,18 @@ export function OnlinePaymentForm({
   const [expiry, setExpiry] = useState<string | undefined>(undefined);
   const [tokenError, setTokenError] = useState<string | null>(null);
 
-  const handleToken = useCallback(
-    (result: { token: string; expiry?: string }) => {
+  const handleTokenize = useCallback(
+    (result: TokenizeResult) => {
       setToken(result.token);
-      setExpiry(result.expiry);
+      // Reconstruct MMYY for backward compat with existing submit handlers
+      if (result.expMonth != null && result.expYear != null) {
+        const mm = String(result.expMonth).padStart(2, '0');
+        const yy = String(result.expYear % 100).padStart(2, '0');
+        setExpiry(`${mm}${yy}`);
+      } else {
+        // Fallback: read raw expiry from metadata
+        setExpiry((result.metadata.rawExpiry as string | undefined) ?? undefined);
+      }
       setTokenError(null);
     },
     [],
@@ -100,7 +109,7 @@ export function OnlinePaymentForm({
             iframeUrl={iframeUrl}
             useExpiry
             useCvv
-            onToken={handleToken}
+            onTokenize={handleTokenize}
             onError={handleTokenError}
             placeholder="Card Number"
           />

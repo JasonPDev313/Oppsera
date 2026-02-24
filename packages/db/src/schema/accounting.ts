@@ -194,8 +194,16 @@ export const accountingSettings = pgTable('accounting_settings', {
   voucherExpiryEnabled: boolean('voucher_expiry_enabled').notNull().default(true),
   // ── Auto-remap toggle (migration 0143) ──
   enableAutoRemap: boolean('enable_auto_remap').notNull().default(false),
+  // ── ACH Receivable GL account (migration 0178) ──
+  defaultAchReceivableAccountId: text('default_ach_receivable_account_id'),
+  // ── Surcharge revenue GL account (migration 0184) ──
+  defaultSurchargeRevenueAccountId: text('default_surcharge_revenue_account_id'),
   // ── Multi-currency provisioning (migration 0121) ──
   supportedCurrencies: text('supported_currencies').array().notNull().default(sql`'{USD}'`),
+  // ── Auto-close orchestrator (migration 0187) ──
+  autoCloseEnabled: boolean('auto_close_enabled').notNull().default(false),
+  autoCloseTime: text('auto_close_time').default('02:00'), // HH:MM in tenant timezone
+  autoCloseSkipHolidays: boolean('auto_close_skip_holidays').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -70,6 +70,10 @@ export const updateAccountingSettingsSchema = z.object({
   voucherExpiryEnabled: z.boolean().optional(),
   // Auto-remap toggle
   enableAutoRemap: z.boolean().optional(),
+  // Auto-close orchestrator settings (ERP dual-mode)
+  autoCloseEnabled: z.boolean().optional(),
+  autoCloseTime: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM').optional(),
+  autoCloseSkipHolidays: z.boolean().optional(),
 });
 
 export type UpdateAccountingSettingsInput = z.input<typeof updateAccountingSettingsSchema>;

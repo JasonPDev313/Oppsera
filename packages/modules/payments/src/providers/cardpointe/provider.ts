@@ -17,6 +17,7 @@ import type {
   CreateProfileResponse,
   ProfileResponse,
   SettlementStatusResponse,
+  FundingStatusResponse,
   VoidByOrderIdRequest,
   ProviderCredentials,
 } from '../interface';
@@ -57,7 +58,7 @@ export class CardPointeProvider implements PaymentProvider {
   }
 
   async authorize(request: AuthorizeRequest): Promise<AuthorizeResponse> {
-    const cpRequest = {
+    const cpRequest: Record<string, unknown> = {
       merchid: request.merchantId,
       account: request.token,
       amount: request.amount,
@@ -72,6 +73,11 @@ export class CardPointeProvider implements PaymentProvider {
       postal: request.postal,
       receipt: request.receipt ?? 'Y',
       userfields: request.userfields,
+      // ACH-specific fields — CardPointe uses these on the same /auth endpoint
+      accttype: request.achAccountType,
+      achEntryCode: request.achSecCode,
+      achDescription: request.achDescription,
+      bankaba: request.bankaba,
     };
 
     // Clean undefined values
@@ -269,6 +275,37 @@ export class CardPointeProvider implements PaymentProvider {
       retref: providerRef,
       signature,
     });
+  }
+
+  async getFundingStatus(date: string, merchantId: string): Promise<FundingStatusResponse> {
+    const resp = await this.client.getFundingStatus(merchantId, date);
+    return {
+      merchantId: resp.merchid,
+      date,
+      fundingTransactions: (resp.fundings || []).map((entry) => {
+        let fundingStatus: 'originated' | 'settled' | 'returned' | 'rejected';
+        if (entry.achreturncode) {
+          fundingStatus = 'returned';
+        } else if (entry.fundingstatus === 'Settled' || entry.fundingstatus === 'Funded') {
+          fundingStatus = 'settled';
+        } else if (entry.fundingstatus === 'Rejected') {
+          fundingStatus = 'rejected';
+        } else {
+          fundingStatus = 'originated';
+        }
+
+        return {
+          providerRef: entry.retref,
+          amount: entry.amount,
+          fundingStatus,
+          achReturnCode: entry.achreturncode ?? null,
+          achReturnDescription: entry.achreturndescription ?? null,
+          fundingDate: date,
+          batchId: entry.batchid ?? null,
+        };
+      }),
+      rawResponse: resp as unknown as Record<string, unknown>,
+    };
   }
 
   async voidByOrderId(request: VoidByOrderIdRequest): Promise<VoidResponse> {

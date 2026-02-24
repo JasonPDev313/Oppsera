@@ -321,9 +321,10 @@ async function seedYear() {
     console.log(`  Order counters: ${JSON.stringify(orderNumberCounters)}`);
 
     // Check existing order count
-    const [{ count: existingOrderCount }] = await db.select({
+    const existingCountResult = await db.select({
       count: sql<number>`count(*)::int`,
     }).from(orders).where(eq(orders.tenantId, tenantId));
+    const existingOrderCount = existingCountResult[0]?.count ?? 0;
     console.log(`  Existing orders: ${existingOrderCount}`);
 
     // ── 3. Generate 366 days of orders ─────────────────────────
@@ -687,9 +688,10 @@ async function seedYear() {
 
     // ── 7. Final verification ──────────────────────────────────
     console.log('\n── Verification ─────────────────────────────');
-    const [{ count: finalOrderCount }] = await db.select({
+    const finalCountResult = await db.select({
       count: sql<number>`count(*)::int`,
     }).from(orders).where(eq(orders.tenantId, tenantId));
+    const finalOrderCount = finalCountResult[0]?.count ?? 0;
     console.log(`  Total orders in DB: ${finalOrderCount}`);
 
     const [minMax] = await db.select({

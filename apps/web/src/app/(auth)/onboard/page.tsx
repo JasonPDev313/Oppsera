@@ -1,17 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   UtensilsCrossed,
   ShoppingBag,
   Flag,
   Building2,
+  ArrowLeft,
+  Search,
+  Sparkles,
+  MoreHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
-import { BUSINESS_TYPES, type BusinessTypeKey } from '@oppsera/shared';
+import {
+  SMB_BUSINESS_TYPES,
+  OTHER_BUSINESS_TYPES,
+  BUSINESS_TYPES,
+  type BusinessTypeKey,
+} from '@oppsera/shared';
 
 const ICON_MAP: Record<string, LucideIcon> = {
   UtensilsCrossed,
@@ -87,6 +96,300 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ─── "Other" industry sub-view ──────────────────────── */
+function OtherBusinessTypesPicker({
+  selected,
+  onSelect,
+  onBack,
+}: {
+  selected: BusinessTypeKey | null;
+  onSelect: (key: BusinessTypeKey) => void;
+  onBack: () => void;
+}) {
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return OTHER_BUSINESS_TYPES;
+    const q = search.toLowerCase();
+    return OTHER_BUSINESS_TYPES.filter(
+      (bt) =>
+        bt.name.toLowerCase().includes(q) ||
+        bt.description.toLowerCase().includes(q),
+    );
+  }, [search]);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onBack}
+        className="mb-4 flex items-center gap-1.5 text-sm font-medium text-indigo-600 transition-colors hover:text-indigo-500"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to categories
+      </button>
+
+      <h2 className="text-lg font-bold text-gray-900">Browse Industries</h2>
+      <p className="mt-1 text-sm text-gray-500">
+        Find the configuration that best fits your business.
+      </p>
+
+      {/* Search */}
+      <div className="relative mt-4">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search industries..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+        />
+      </div>
+
+      {/* Results */}
+      <div className="mt-4 space-y-2">
+        {filtered.map((bt) => {
+          const Icon = ICON_MAP[bt.icon];
+          const isSelected = selected === bt.key;
+
+          return (
+            <button
+              key={bt.key}
+              type="button"
+              onClick={() => onSelect(bt.key)}
+              className={`flex w-full items-center gap-4 rounded-lg border-2 px-4 py-3.5 text-left transition-all ${
+                isSelected
+                  ? 'border-indigo-600 bg-indigo-50 shadow-sm'
+                  : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                  isSelected ? 'bg-indigo-100' : 'bg-gray-100'
+                }`}
+              >
+                {Icon && (
+                  <Icon className={`h-5 w-5 ${isSelected ? 'text-indigo-600' : 'text-gray-500'}`} />
+                )}
+              </div>
+              <div className="min-w-0">
+                <span
+                  className={`text-sm font-semibold ${isSelected ? 'text-indigo-900' : 'text-gray-900'}`}
+                >
+                  {bt.name}
+                </span>
+                <p className="mt-0.5 text-xs text-gray-500">{bt.description}</p>
+              </div>
+              {isSelected && (
+                <div className="ml-auto shrink-0">
+                  <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+            </button>
+          );
+        })}
+
+        {filtered.length === 0 && (
+          <div className="rounded-lg border border-dashed border-gray-300 py-8 text-center">
+            <p className="text-sm text-gray-500">No matching industries found.</p>
+            <p className="mt-1 text-xs text-gray-400">
+              Try a different search, or choose &ldquo;Multi-Purpose Venue&rdquo; for a flexible setup.
+            </p>
+          </div>
+        )}
+
+        {/* More coming soon indicator */}
+        <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-200 px-4 py-3 text-gray-400">
+          <MoreHorizontal className="h-5 w-5" />
+          <span className="text-sm">More industries coming soon</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Step 1: Business Type Selection (redesigned) ──── */
+function BusinessTypeStep({
+  selected,
+  onSelect,
+}: {
+  selected: BusinessTypeKey | null;
+  onSelect: (key: BusinessTypeKey) => void;
+}) {
+  const [showOther, setShowOther] = useState(false);
+
+  // If user had selected an "Other" type and comes back, keep them in Other view
+  const isOtherTypeSelected = OTHER_BUSINESS_TYPES.some((bt) => bt.key === selected);
+
+  if (showOther || (isOtherTypeSelected && showOther !== false)) {
+    return (
+      <OtherBusinessTypesPicker
+        selected={selected}
+        onSelect={(key) => {
+          onSelect(key);
+        }}
+        onBack={() => {
+          setShowOther(false);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-gray-900">What type of business do you run?</h1>
+      <p className="mt-2 text-sm text-gray-600">
+        This helps us configure the best experience for you.
+      </p>
+
+      {/* ─── SMB Section ─── */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center gap-2">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            Small &amp; Medium Business
+          </span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {SMB_BUSINESS_TYPES.map((bt) => {
+            const Icon = ICON_MAP[bt.icon];
+            const isSelected = selected === bt.key;
+
+            return (
+              <button
+                key={bt.key}
+                type="button"
+                onClick={() => onSelect(bt.key)}
+                className={`group relative flex flex-col items-center rounded-xl border-2 p-5 text-center transition-all ${
+                  isSelected
+                    ? 'border-indigo-600 bg-indigo-50 shadow-md shadow-indigo-100'
+                    : 'border-gray-200 bg-surface hover:border-indigo-300 hover:shadow-sm'
+                }`}
+              >
+                {isSelected && (
+                  <div className="absolute right-2.5 top-2.5">
+                    <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-xl transition-colors ${
+                    isSelected
+                      ? 'bg-indigo-100'
+                      : 'bg-gray-100 group-hover:bg-indigo-50'
+                  }`}
+                >
+                  {Icon && (
+                    <Icon
+                      className={`h-6 w-6 transition-colors ${
+                        isSelected ? 'text-indigo-600' : 'text-gray-500 group-hover:text-indigo-500'
+                      }`}
+                    />
+                  )}
+                </div>
+                <span
+                  className={`mt-3 text-sm font-semibold ${
+                    isSelected ? 'text-indigo-900' : 'text-gray-900'
+                  }`}
+                >
+                  {bt.name}
+                </span>
+                <span className="mt-1 text-xs text-gray-500">{bt.description}</span>
+              </button>
+            );
+          })}
+
+          {/* "Other" card */}
+          <button
+            type="button"
+            onClick={() => setShowOther(true)}
+            className={`group relative flex flex-col items-center rounded-xl border-2 p-5 text-center transition-all ${
+              isOtherTypeSelected
+                ? 'border-indigo-600 bg-indigo-50 shadow-md shadow-indigo-100'
+                : 'border-gray-200 bg-surface hover:border-indigo-300 hover:shadow-sm'
+            }`}
+          >
+            {isOtherTypeSelected && (
+              <div className="absolute right-2.5 top-2.5">
+                <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+            <div
+              className={`flex h-12 w-12 items-center justify-center rounded-xl transition-colors ${
+                isOtherTypeSelected
+                  ? 'bg-indigo-100'
+                  : 'bg-gray-100 group-hover:bg-indigo-50'
+              }`}
+            >
+              <Search
+                className={`h-6 w-6 transition-colors ${
+                  isOtherTypeSelected ? 'text-indigo-600' : 'text-gray-500 group-hover:text-indigo-500'
+                }`}
+              />
+            </div>
+            <span
+              className={`mt-3 text-sm font-semibold ${
+                isOtherTypeSelected ? 'text-indigo-900' : 'text-gray-900'
+              }`}
+            >
+              {isOtherTypeSelected
+                ? BUSINESS_TYPES.find((bt) => bt.key === selected)?.name ?? 'Other'
+                : 'Other'}
+            </span>
+            <span className="mt-1 text-xs text-gray-500">
+              {isOtherTypeSelected
+                ? 'Tap to change'
+                : 'Golf, marina, spa & more'}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {/* ─── Enterprise Section ─── */}
+      <div className="mt-6">
+        <div className="mb-3 flex items-center gap-2">
+          <div className="h-px flex-1 bg-gray-200" />
+          <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-400">
+            Enterprise
+          </span>
+          <div className="h-px flex-1 bg-gray-200" />
+        </div>
+
+        <div
+          className="relative overflow-hidden rounded-xl border-2 border-gray-200 bg-linear-to-br from-gray-50 to-gray-100 p-5"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-purple-600">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-900">Enterprise</span>
+                <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                  Coming Soon
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Multi-location chains, franchises &amp; large organizations with advanced accounting, consolidated reporting, and dedicated support.
+              </p>
+            </div>
+          </div>
+
+          {/* Subtle decorative gradient overlay */}
+          <div className="pointer-events-none absolute -right-4 -top-4 h-24 w-24 rounded-full bg-linear-to-br from-indigo-200/30 to-purple-200/30 blur-2xl" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -232,46 +535,10 @@ export default function OnboardPage() {
         <div className="mt-8">
           {/* Step 1: Business Type */}
           {step === 1 && (
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">What type of business do you run?</h1>
-              <p className="mt-2 text-sm text-gray-600">
-                This helps us configure the best experience for you.
-              </p>
-
-              <div className="mt-6 grid grid-cols-2 gap-4">
-                {BUSINESS_TYPES.map((bt) => {
-                  const Icon = ICON_MAP[bt.icon];
-                  const isSelected = businessType === bt.key;
-
-                  return (
-                    <button
-                      key={bt.key}
-                      type="button"
-                      onClick={() => setBusinessType(bt.key)}
-                      className={`flex flex-col items-center rounded-lg border-2 p-6 text-center transition-colors ${
-                        isSelected
-                          ? 'border-indigo-600 bg-indigo-50'
-                          : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {Icon && (
-                        <Icon
-                          className={`h-8 w-8 ${isSelected ? 'text-indigo-600' : 'text-gray-400'}`}
-                        />
-                      )}
-                      <span
-                        className={`mt-3 text-sm font-semibold ${
-                          isSelected ? 'text-indigo-900' : 'text-gray-900'
-                        }`}
-                      >
-                        {bt.name}
-                      </span>
-                      <span className="mt-1 text-xs text-gray-500">{bt.description}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <BusinessTypeStep
+              selected={businessType}
+              onSelect={setBusinessType}
+            />
           )}
 
           {/* Step 2: Company Details */}

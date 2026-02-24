@@ -42,6 +42,7 @@ export const tenders = pgTable(
     employeeId: text('employee_id').notNull(),
     terminalId: text('terminal_id').notNull(),
     paymentIntentId: text('payment_intent_id'), // FK to payment_intents (app-enforced, avoids circular schema import)
+    surchargeAmountCents: integer('surcharge_amount_cents').default(0), // migration 0182
     drawerEventId: text('drawer_event_id'),
     allocationSnapshot: jsonb('allocation_snapshot'),
     metadata: jsonb('metadata'),

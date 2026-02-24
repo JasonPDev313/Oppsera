@@ -29,7 +29,10 @@ export const GET = withMiddleware(async (_request, ctx) => {
   }
 
   const [tenant, tenantLocations] = await Promise.all([
-    db.query.tenants.findFirst({ where: eq(tenants.id, ctx.tenantId) }),
+    db.query.tenants.findFirst({
+      where: eq(tenants.id, ctx.tenantId),
+      columns: { id: true, name: true, slug: true, status: true },
+    }),
     db.query.locations.findMany({
       where: and(eq(locations.tenantId, ctx.tenantId), eq(locations.isActive, true)),
     }),

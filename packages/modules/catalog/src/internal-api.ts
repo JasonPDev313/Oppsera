@@ -161,6 +161,32 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
     });
   }
 
+  async getAssignedModifierGroupIds(
+    tenantId: string,
+    catalogItemIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>();
+    if (catalogItemIds.length === 0) return result;
+
+    return withTenant(tenantId, async (tx) => {
+      const rows = await tx
+        .select({
+          catalogItemId: catalogItemModifierGroups.catalogItemId,
+          modifierGroupId: catalogItemModifierGroups.modifierGroupId,
+        })
+        .from(catalogItemModifierGroups)
+        .where(inArray(catalogItemModifierGroups.catalogItemId, catalogItemIds));
+
+      for (const row of rows) {
+        const existing = result.get(row.catalogItemId) ?? [];
+        existing.push(row.modifierGroupId);
+        result.set(row.catalogItemId, existing);
+      }
+
+      return result;
+    });
+  }
+
   async getItemForPOS(
     tenantId: string,
     locationId: string,

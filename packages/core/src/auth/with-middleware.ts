@@ -103,6 +103,12 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
             ctx.locationId = locationId;
           }
 
+          // Read active role from header (set by frontend when user selects a role)
+          const activeRoleId = request.headers.get('x-role-id') || undefined;
+          if (activeRoleId) {
+            ctx.activeRoleId = activeRoleId;
+          }
+
           if (options?.entitlement) {
             if (options.writeAccess) {
               await requireEntitlementWrite(options.entitlement)(ctx);

@@ -394,6 +394,10 @@ export type {
   ZReportData as ZReportChitData,
 } from './helpers/chit-layout';
 
+// Helpers — Kitchen Modifier Formatting
+export { formatModifierForKitchen } from './helpers/format-modifier-for-kitchen';
+export type { KitchenModifier, ModifierInstruction } from './helpers/format-modifier-for-kitchen';
+
 // Helpers — Printer Routing
 export { resolveRoutedPrinter, isReceiptType, isStationType } from './helpers/printer-routing';
 export type { RoutingRule, PrintRoutingContext } from './helpers/printer-routing';

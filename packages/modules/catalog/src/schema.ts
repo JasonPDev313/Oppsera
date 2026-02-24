@@ -6,6 +6,7 @@ export {
   taxCategories,
   catalogCategories,
   catalogItems,
+  catalogModifierGroupCategories,
   catalogModifierGroups,
   catalogModifiers,
   catalogItemModifierGroups,

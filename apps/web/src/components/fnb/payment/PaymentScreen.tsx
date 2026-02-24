@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import type { TokenizeResult, TokenizerClientConfig } from '@oppsera/shared';
 import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
+import { PaymentMethodCapture } from '@/components/payments/payment-method-capture';
 import { TenderGrid, type TenderType } from './TenderGrid';
 import { CashKeypad } from './CashKeypad';
 import { TipPrompt } from './TipPrompt';
@@ -10,7 +12,7 @@ import { PreAuthCapture } from './PreAuthCapture';
 import { PaymentAdjustments } from './PaymentAdjustments';
 import { GiftCardPanel } from './GiftCardPanel';
 import { HouseAccountPanel } from './HouseAccountPanel';
-import { CheckCircle, AlertTriangle, RotateCcw, ArrowRight, Undo2, XCircle, RefreshCw } from 'lucide-react';
+import { CheckCircle, AlertTriangle, RotateCcw, ArrowRight, Undo2, XCircle, RefreshCw, Keyboard } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -21,6 +23,7 @@ export interface TenderResult {
 
 type PaymentStep =
   | 'tender_select'
+  | 'card_entry'
   | 'cash_keypad'
   | 'tip_prompt'
   | 'gift_card_panel'
@@ -67,6 +70,12 @@ interface PaymentScreenProps {
   onSplitBySeat?: () => void;
   /** Called to initiate an even split */
   onSplitEven?: () => void;
+  /** Tokenizer configuration for manual card entry */
+  tokenizerConfig?: TokenizerClientConfig | null;
+  /** Whether tokenizer config is loading */
+  tokenizerLoading?: boolean;
+  /** Tokenizer config error */
+  tokenizerError?: string | null;
 }
 
 // ── Component ────────────────────────────────────────────────────
@@ -87,6 +96,9 @@ export function PaymentScreen({
   skipConfirm,
   onSplitBySeat,
   onSplitEven,
+  tokenizerConfig,
+  tokenizerLoading,
+  tokenizerError,
 }: PaymentScreenProps) {
   const [step, setStep] = useState<PaymentStep>('tender_select');
   const [selectedTender, setSelectedTender] = useState<TenderType | null>(null);
@@ -96,15 +108,36 @@ export function PaymentScreen({
   const [lastTenderAmount, setLastTenderAmount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [errorRetryable, setErrorRetryable] = useState(true);
+  const [errorSuggestedAction, setErrorSuggestedAction] = useState<string | null>(null);
+  const [manualCardEntry, setManualCardEntry] = useState(false);
+  const [cardToken, setCardToken] = useState<string | null>(null);
 
   const formatMoney = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
-  // ── Step: tender_select → cash_keypad, tip_prompt, or specialty panel
+  // ── Card tokenize handlers ──────────────────────────────────────
+  const handleCardTokenize = useCallback((result: TokenizeResult) => {
+    setCardToken(result.token);
+    setErrorMessage('');
+    // Proceed to tip prompt once card is captured
+    setStep('tip_prompt');
+  }, []);
+
+  const handleCardTokenError = useCallback((msg: string) => {
+    setCardToken(null);
+    setErrorMessage(msg);
+  }, []);
+
+  // ── Step: tender_select → cash_keypad, card_entry, tip_prompt, or specialty panel
   const handleTenderSelect = useCallback((type: TenderType) => {
     setSelectedTender(type);
     setErrorMessage('');
+    setCardToken(null);
+    setManualCardEntry(false);
     if (type === 'cash') {
       setStep('cash_keypad');
+    } else if (type === 'card') {
+      setStep('card_entry');
     } else if (type === 'gift_card') {
       setStep('gift_card_panel');
     } else if (type === 'house_account') {
@@ -129,8 +162,10 @@ export function PaymentScreen({
         setTenders((prev) => [...prev, tender]);
         setLastTenderAmount(amountCents);
         setStep(result.isFullyPaid ? 'receipt' : 'partial_summary');
-      } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : 'Payment failed');
+      } catch (err: any) {
+        setErrorMessage(err?.userMessage ?? (err instanceof Error ? err.message : 'Payment failed'));
+        setErrorRetryable(err?.retryable !== false);
+        setErrorSuggestedAction(err?.suggestedAction ?? null);
         setStep('error');
       } finally {
         setIsProcessing(false);
@@ -184,8 +219,10 @@ export function PaymentScreen({
       } else {
         setStep('partial_summary');
       }
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Payment failed. Please try again.');
+    } catch (err: any) {
+      setErrorMessage(err?.userMessage ?? (err instanceof Error ? err.message : 'Payment failed. Please try again.'));
+      setErrorRetryable(err?.retryable !== false);
+      setErrorSuggestedAction(err?.suggestedAction ?? null);
       setStep('error');
     } finally {
       setIsProcessing(false);
@@ -214,8 +251,10 @@ export function PaymentScreen({
       await onVoidLastTender();
       setTenders((prev) => prev.slice(0, -1));
       setStep('tender_select');
-    } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to void tender');
+    } catch (err: any) {
+      setErrorMessage(err?.userMessage ?? (err instanceof Error ? err.message : 'Failed to void tender'));
+      setErrorRetryable(true);
+      setErrorSuggestedAction(null);
       setStep('error');
     } finally {
       setIsProcessing(false);
@@ -225,11 +264,15 @@ export function PaymentScreen({
   // ── Step: error → retry or cancel ─────────────────────────────
   const handleRetry = useCallback(() => {
     setErrorMessage('');
+    setErrorRetryable(true);
+    setErrorSuggestedAction(null);
     setStep('tender_select');
   }, []);
 
   const handleRetryDifferentCard = useCallback(() => {
     setErrorMessage('');
+    setErrorRetryable(true);
+    setErrorSuggestedAction(null);
     setSelectedTender('card');
     setStep('tip_prompt');
   }, []);
@@ -241,8 +284,10 @@ export function PaymentScreen({
       try {
         await onCapturePreAuth(preauthId, captureAmountCents, tip);
         setStep('receipt');
-      } catch (err) {
-        setErrorMessage(err instanceof Error ? err.message : 'Pre-auth capture failed');
+      } catch (err: any) {
+        setErrorMessage(err?.userMessage ?? (err instanceof Error ? err.message : 'Pre-auth capture failed'));
+        setErrorRetryable(err?.retryable !== false);
+        setErrorSuggestedAction(err?.suggestedAction ?? null);
         setStep('error');
       } finally {
         setIsProcessing(false);
@@ -565,6 +610,123 @@ export function PaymentScreen({
           </div>
         )}
 
+        {/* ── STEP: card_entry ─────────────────────────────────── */}
+        {step === 'card_entry' && (
+          <div className="w-full max-w-md flex flex-col gap-4">
+            <h3
+              className="text-sm font-bold text-center"
+              style={{ color: 'var(--fnb-text-primary)' }}
+            >
+              Card Payment
+            </h3>
+
+            {/* Dual-mode toggle */}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setManualCardEntry(false)}
+                className="flex-1 rounded-lg py-2 text-xs font-bold transition-colors"
+                style={{
+                  backgroundColor: !manualCardEntry ? 'var(--fnb-accent-primary, var(--fnb-info))' : 'var(--fnb-bg-elevated)',
+                  color: !manualCardEntry ? '#fff' : 'var(--fnb-text-secondary)',
+                }}
+              >
+                Card Reader
+              </button>
+              <button
+                type="button"
+                onClick={() => setManualCardEntry(true)}
+                className="flex items-center justify-center gap-1.5 flex-1 rounded-lg py-2 text-xs font-bold transition-colors"
+                style={{
+                  backgroundColor: manualCardEntry ? 'var(--fnb-accent-primary, var(--fnb-info))' : 'var(--fnb-bg-elevated)',
+                  color: manualCardEntry ? '#fff' : 'var(--fnb-text-secondary)',
+                }}
+              >
+                <Keyboard className="h-3.5 w-3.5" />
+                Manual Entry
+              </button>
+            </div>
+
+            {manualCardEntry ? (
+              <PaymentMethodCapture
+                config={tokenizerConfig ?? null}
+                isConfigLoading={tokenizerLoading ?? false}
+                configError={tokenizerError ?? null}
+                onTokenize={handleCardTokenize}
+                onError={handleCardTokenError}
+                showWallets={false}
+              />
+            ) : (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={cardToken ?? ''}
+                  placeholder="Waiting for card swipe/tap..."
+                  onChange={(e) => {
+                    if (e.target.value.trim()) {
+                      setCardToken(e.target.value.trim());
+                    }
+                  }}
+                  className="w-full rounded-lg border px-3 py-3 text-sm text-center"
+                  style={{
+                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                    backgroundColor: 'var(--fnb-bg-elevated)',
+                    color: 'var(--fnb-text-primary)',
+                  }}
+                />
+                <p className="text-center text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+                  Swipe, tap, or insert card on the reader
+                </p>
+              </div>
+            )}
+
+            {errorMessage && (
+              <p
+                className="rounded-lg px-3 py-2 text-xs text-center"
+                style={{ backgroundColor: 'var(--fnb-payment-error-bg)', color: 'var(--fnb-danger)' }}
+              >
+                {errorMessage}
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setCardToken(null);
+                  setManualCardEntry(false);
+                  setStep('tender_select');
+                }}
+                className="flex-1 rounded-lg py-3 text-sm font-bold transition-colors hover:opacity-80"
+                style={{
+                  backgroundColor: 'var(--fnb-bg-elevated)',
+                  color: 'var(--fnb-text-secondary)',
+                }}
+              >
+                Back
+              </button>
+              {!manualCardEntry && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (cardToken) {
+                      setStep('tip_prompt');
+                    } else {
+                      setErrorMessage('Please swipe or tap a card first');
+                    }
+                  }}
+                  disabled={!cardToken || isProcessing}
+                  className="flex-2 rounded-lg py-3 text-sm font-bold text-white transition-colors hover:opacity-90 disabled:opacity-40"
+                  style={{ backgroundColor: 'var(--fnb-action-pay)' }}
+                >
+                  Continue
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── STEP: cash_keypad ────────────────────────────────── */}
         {step === 'cash_keypad' && (
           <div className="w-full max-w-md">
@@ -838,17 +1000,19 @@ export function PaymentScreen({
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={handleRetry}
-              className="flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold text-white transition-colors hover:opacity-90"
-              style={{ backgroundColor: 'var(--fnb-info)' }}
-            >
-              <RefreshCw className="h-4 w-4" />
-              Try Again
-            </button>
+            {errorRetryable && (
+              <button
+                type="button"
+                onClick={handleRetry}
+                className="flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-bold text-white transition-colors hover:opacity-90"
+                style={{ backgroundColor: 'var(--fnb-info)' }}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Try Again
+              </button>
+            )}
 
-            {selectedTender === 'card' && (
+            {(selectedTender === 'card' || errorSuggestedAction === 'try_different_card') && (
               <button
                 type="button"
                 onClick={handleRetryDifferentCard}

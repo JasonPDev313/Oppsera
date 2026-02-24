@@ -80,6 +80,13 @@ export const paymentMerchantAccounts = pgTable(
     isDefault: boolean('is_default').notNull().default(false), // default MID for this location
     isActive: boolean('is_active').notNull().default(true),
     config: jsonb('config'), // MID-specific settings (settlement time, etc.)
+    // ── ACH-specific MID settings (migration 0178) ──
+    achEnabled: boolean('ach_enabled').notNull().default(false),
+    achDefaultSecCode: text('ach_default_sec_code').default('WEB'), // 'CCD' | 'PPD' | 'TEL' | 'WEB'
+    achCompanyName: text('ach_company_name'), // NACHA required — appears on bank statements
+    achCompanyId: text('ach_company_id'), // originator identification
+    achVerificationMode: text('ach_verification_mode').notNull().default('account_validation'),
+    // 'none' | 'account_validation' | 'micro_deposit'
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
@@ -155,6 +162,16 @@ export const paymentIntents = pgTable(
     metadata: jsonb('metadata'), // arbitrary caller context
     idempotencyKey: text('idempotency_key').notNull(),
     errorMessage: text('error_message'),
+    // ── Surcharge (migration 0182) ──
+    surchargeAmountCents: integer('surcharge_amount_cents').default(0),
+    // ── ACH-specific fields (migration 0178) ──
+    achAccountType: text('ach_account_type'), // 'ECHK' (checking) | 'ESAV' (savings)
+    achSecCode: text('ach_sec_code'), // 'CCD' | 'PPD' | 'TEL' | 'WEB'
+    achSettlementStatus: text('ach_settlement_status'), // 'pending' | 'originated' | 'settled' | 'returned'
+    achSettledAt: timestamp('ach_settled_at', { withTimezone: true }),
+    achReturnCode: text('ach_return_code'), // R01, R02, etc.
+    achReturnReason: text('ach_return_reason'),
+    bankLast4: text('bank_last4'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by').notNull(),
@@ -196,6 +213,19 @@ export const paymentTransactions = pgTable(
     avsResponse: text('avs_response'),
     cvvResponse: text('cvv_response'),
     providerResponse: jsonb('provider_response'), // full raw response
+    clientRequestId: text('client_request_id'), // idempotency key per operation (enables void/refund dedup)
+    // ── Surcharge (migration 0182) ──
+    surchargeAmountCents: integer('surcharge_amount_cents').default(0),
+    // ── Response enrichment (migration 0180) ──
+    declineCategory: text('decline_category'), // hard/soft/data_fix/config_error/fraud/network_error
+    userMessage: text('user_message'), // cardholder-safe message
+    suggestedAction: text('suggested_action'), // try_different_card/retry_later/etc.
+    retryable: boolean('retryable'), // whether this failure is retryable
+    avsResult: text('avs_result'), // pass/partial/fail/unavailable (interpreted)
+    cvvResult: text('cvv_result'), // pass/fail/unavailable (interpreted)
+    visaDeclineCategory: integer('visa_decline_category'), // 1=never, 2=retry, 3=fix data
+    mcAdviceCode: text('mc_advice_code'), // Mastercard merchant advice code
+    processor: text('processor'), // respproc value from gateway
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

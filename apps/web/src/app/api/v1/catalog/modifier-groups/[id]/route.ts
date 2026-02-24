@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { eq, and } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { ValidationError, NotFoundError } from '@oppsera/shared';
-import { withTenant, catalogModifierGroups, catalogModifiers } from '@oppsera/db';
-import { updateModifierGroup, updateModifierGroupSchema } from '@oppsera/module-catalog';
+import { ValidationError } from '@oppsera/shared';
+import {
+  getModifierGroup,
+  updateModifierGroup,
+  updateModifierGroupSchema,
+} from '@oppsera/module-catalog';
 
 function extractGroupId(request: NextRequest): string {
   const url = new URL(request.url);
@@ -12,34 +14,18 @@ function extractGroupId(request: NextRequest): string {
   return parts[parts.length - 1]!;
 }
 
-// GET /api/v1/catalog/modifier-groups/:id — modifier group detail
+// GET /api/v1/catalog/modifier-groups/:id — modifier group detail with modifiers + assignment count
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const groupId = extractGroupId(request);
+    const detail = await getModifierGroup(ctx.tenantId, groupId);
 
-    const detail = await withTenant(ctx.tenantId, async (tx) => {
-      const [group] = await tx
-        .select()
-        .from(catalogModifierGroups)
-        .where(
-          and(
-            eq(catalogModifierGroups.id, groupId),
-            eq(catalogModifierGroups.tenantId, ctx.tenantId),
-          ),
-        )
-        .limit(1);
-
-      if (!group) {
-        throw new NotFoundError('Modifier group', groupId);
-      }
-
-      const modifiers = await tx
-        .select()
-        .from(catalogModifiers)
-        .where(eq(catalogModifiers.modifierGroupId, groupId));
-
-      return { ...group, modifiers };
-    });
+    if (!detail) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: `Modifier group ${groupId} not found` } },
+        { status: 404 },
+      );
+    }
 
     return NextResponse.json({ data: detail });
   },
@@ -63,5 +49,5 @@ export const PATCH = withMiddleware(
     const group = await updateModifierGroup(ctx, groupId, parsed.data);
     return NextResponse.json({ data: group });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
+  { entitlement: 'catalog', permission: 'catalog.manage', writeAccess: true },
 );

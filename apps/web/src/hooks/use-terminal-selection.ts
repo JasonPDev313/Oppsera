@@ -20,7 +20,15 @@ interface SelectionItem {
   deviceIdentifier?: string | null;
 }
 
-export function useTerminalSelection() {
+interface UseTerminalSelectionOptions {
+  roleId?: string | null;
+  roleName?: string | null;
+}
+
+export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
+  const roleId = options?.roleId ?? null;
+  const roleName = options?.roleName ?? null;
+
   const [allLocations, setAllLocations] = useState<LocationItem[]>([]);
   const [profitCenters, setProfitCenters] = useState<SelectionItem[]>([]);
   const [terminals, setTerminals] = useState<SelectionItem[]>([]);
@@ -53,12 +61,22 @@ export function useTerminalSelection() {
   // if a venue is selected, use it; otherwise use the site directly (when no venues exist)
   const effectiveLocationId = selectedVenueId ?? (venues.length === 0 ? selectedSiteId : null);
 
-  // Load all locations on mount
+  // Load all locations on mount (or when roleId changes)
   useEffect(() => {
+    // Reset selections when roleId changes
+    setSelectedSiteId(null);
+    setSelectedVenueId(null);
+    setProfitCenters([]);
+    setSelectedProfitCenterId(null);
+    setTerminals([]);
+    setSelectedTerminalId(null);
+    setIsLoading(true);
+
     (async () => {
       try {
+        const roleParam = roleId ? `?roleId=${roleId}` : '';
         const res = await apiFetch<{ data: LocationItem[] }>(
-          '/api/v1/terminal-session/locations',
+          `/api/v1/terminal-session/locations${roleParam}`,
         );
         setAllLocations(res.data);
 
@@ -73,7 +91,7 @@ export function useTerminalSelection() {
           const checks = await Promise.all(
             res.data.map((loc) =>
               apiFetch<{ data: SelectionItem[] }>(
-                `/api/v1/terminal-session/profit-centers?locationId=${loc.id}`,
+                `/api/v1/terminal-session/profit-centers?locationId=${loc.id}${roleId ? `&roleId=${roleId}` : ''}`,
               )
                 .then((r) => r.data.length)
                 .catch(() => 0),
@@ -89,7 +107,7 @@ export function useTerminalSelection() {
       }
       setIsLoading(false);
     })();
-  }, []);
+  }, [roleId]);
 
   // Auto-select venue when site changes
   useEffect(() => {
@@ -129,8 +147,9 @@ export function useTerminalSelection() {
       return;
     }
     (async () => {
+      const roleParam = roleId ? `&roleId=${roleId}` : '';
       const res = await apiFetch<{ data: SelectionItem[] }>(
-        `/api/v1/terminal-session/profit-centers?locationId=${effectiveLocationId}`,
+        `/api/v1/terminal-session/profit-centers?locationId=${effectiveLocationId}${roleParam}`,
       );
       setProfitCenters(res.data);
       setSelectedProfitCenterId(null);
@@ -141,7 +160,7 @@ export function useTerminalSelection() {
         setSelectedProfitCenterId(res.data[0]!.id);
       }
     })();
-  }, [effectiveLocationId]);
+  }, [effectiveLocationId, roleId]);
 
   // Load terminals when profit center changes
   useEffect(() => {
@@ -151,8 +170,9 @@ export function useTerminalSelection() {
       return;
     }
     (async () => {
+      const roleParam = roleId ? `&roleId=${roleId}` : '';
       const res = await apiFetch<{ data: SelectionItem[] }>(
-        `/api/v1/terminal-session/terminals?profitCenterId=${selectedProfitCenterId}`,
+        `/api/v1/terminal-session/terminals?profitCenterId=${selectedProfitCenterId}${roleParam}`,
       );
       setTerminals(res.data);
       setSelectedTerminalId(null);
@@ -161,7 +181,7 @@ export function useTerminalSelection() {
         setSelectedTerminalId(res.data[0]!.id);
       }
     })();
-  }, [selectedProfitCenterId]);
+  }, [selectedProfitCenterId, roleId]);
 
   // Handle venue selection change (reset downstream)
   const handleSetSelectedVenueId = useCallback((id: string | null) => {
@@ -196,6 +216,8 @@ export function useTerminalSelection() {
       terminalId: term.id,
       terminalName: term.name,
       terminalNumber: term.terminalNumber ?? null,
+      roleId,
+      roleName,
     };
   }, [
     canContinue,
@@ -206,6 +228,8 @@ export function useTerminalSelection() {
     terminals,
     selectedProfitCenterId,
     selectedTerminalId,
+    roleId,
+    roleName,
   ]);
 
   return {

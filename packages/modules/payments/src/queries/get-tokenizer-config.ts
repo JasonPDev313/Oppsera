@@ -5,7 +5,9 @@ import {
 } from '@oppsera/db';
 import { eq, and, isNull } from 'drizzle-orm';
 import { decryptCredentials } from '../helpers/credentials';
+import type { TokenizerClientConfig } from '@oppsera/shared';
 
+/** @deprecated Use TokenizerClientConfig from @oppsera/shared instead. */
 export interface TokenizerConfig {
   site: string;
   iframeUrl: string;
@@ -15,7 +17,7 @@ export interface TokenizerConfig {
 
 /**
  * Get the tokenizer configuration for a tenant/location.
- * Returns ONLY non-sensitive data (site name for iframe URL).
+ * Returns ONLY non-sensitive data (site name for iframe URL, wallet flags).
  * Never returns credentials (username, password).
  *
  * Resolution chain for credentials:
@@ -25,7 +27,7 @@ export interface TokenizerConfig {
 export async function getTokenizerConfig(
   tenantId: string,
   locationId?: string,
-): Promise<TokenizerConfig | null> {
+): Promise<TokenizerClientConfig | null> {
   return withTenant(tenantId, async (tx) => {
     // 1. Find active provider
     const [providerRow] = await tx
@@ -41,7 +43,8 @@ export async function getTokenizerConfig(
 
     if (!providerRow) return null;
 
-    // Only CardPointe supports hosted iFrame tokenizer
+    // Only providers with hosted iFrame tokenizers are supported
+    // (currently CardPointe — future: Stripe, Adyen)
     if (providerRow.code !== 'cardpointe') return null;
 
     // 2. Resolve credentials — location-specific → tenant-wide
@@ -93,11 +96,33 @@ export async function getTokenizerConfig(
     const credentials = decryptCredentials(credentialsRow.credentialsEncrypted);
     const site = credentials.site;
 
-    return {
-      site,
-      iframeUrl: `https://${site}.cardconnect.com/itoke/ajax-tokenizer.html`,
+    // 4. Read wallet flags from provider JSONB config
+    const providerConfig = (providerRow.config ?? {}) as Record<string, unknown>;
+    const enableApplePay = providerConfig.enableApplePay === true;
+    const enableGooglePay = providerConfig.enableGooglePay === true;
+
+    const result: TokenizerClientConfig = {
       providerCode: providerRow.code,
       isSandbox: credentialsRow.isSandbox,
+      iframe: {
+        site,
+        iframeUrl: `https://${site}.cardconnect.com/itoke/ajax-tokenizer.html`,
+      },
     };
+
+    if (enableApplePay || enableGooglePay) {
+      result.wallets = {
+        applePay: enableApplePay,
+        googlePay: enableGooglePay,
+        googlePayMerchantId: enableGooglePay
+          ? (providerConfig.googlePayMerchantId as string | undefined)
+          : undefined,
+        googlePayGatewayId: enableGooglePay
+          ? (providerConfig.googlePayGatewayId as string | undefined)
+          : undefined,
+      };
+    }
+
+    return result;
   });
 }

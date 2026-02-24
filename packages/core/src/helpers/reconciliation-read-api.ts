@@ -291,6 +291,29 @@ export interface TenderForGlRepostData {
   lines: TenderForGlRepostLineData[];
 }
 
+// ── ACH Domain Return Types ────────────────────────────────
+
+export interface AchReturnSummaryData {
+  totalReturns: number;
+  totalReturnedCents: number;
+  byCode: Array<{
+    returnCode: string;
+    returnReason: string;
+    count: number;
+  }>;
+}
+
+export interface AchSettlementSummaryData {
+  pendingCount: number;
+  pendingAmountCents: number;
+  originatedCount: number;
+  originatedAmountCents: number;
+  settledCount: number;
+  settledAmountCents: number;
+  returnedCount: number;
+  returnedAmountCents: number;
+}
+
 // ── Interface ───────────────────────────────────────────────
 
 export interface ReconciliationReadApi {
@@ -407,6 +430,19 @@ export interface ReconciliationReadApi {
   getTenderForGlRepost(
     tenantId: string, tenderId: string,
   ): Promise<TenderForGlRepostData | null>;
+
+  // ── ACH Domain (3 methods → payments module) ──────────────
+  getAchPendingCount(
+    tenantId: string,
+  ): Promise<number>;
+
+  getAchReturnSummary(
+    tenantId: string, startDate: string, endDate: string,
+  ): Promise<AchReturnSummaryData>;
+
+  getAchSettlementSummary(
+    tenantId: string, startDate: string, endDate: string,
+  ): Promise<AchSettlementSummaryData>;
 }
 
 // ── Singleton ───────────────────────────────────────────────

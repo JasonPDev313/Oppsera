@@ -23,6 +23,18 @@ export const FLAGS = {
 
   /** Stripe billing integration enabled */
   ENABLE_STRIPE_BILLING: process.env.ENABLE_STRIPE_BILLING === 'true',
+
+  /** Master switch for payment gateway processing (CardPointe, etc.) */
+  PAYMENTS_GATEWAY_ENABLED: process.env.PAYMENTS_GATEWAY_ENABLED === 'true',
+
+  /** Enable online payments / QR pay-at-table through gateway */
+  PAYMENTS_GATEWAY_ONLINE: process.env.PAYMENTS_GATEWAY_ONLINE === 'true',
+
+  /** Enable autopay / recurring billing through gateway */
+  PAYMENTS_GATEWAY_RECURRING: process.env.PAYMENTS_GATEWAY_RECURRING === 'true',
+
+  /** Enable card-present payments via CardPointe Terminal API */
+  PAYMENTS_TERMINAL_ENABLED: process.env.PAYMENTS_TERMINAL_ENABLED === 'true',
 } as const;
 
 export type FeatureFlag = keyof typeof FLAGS;
@@ -37,6 +49,10 @@ export function isEnabled(flag: FeatureFlag): boolean {
     case 'LOG_REQUESTS_TO_DB': return process.env.LOG_REQUESTS_TO_DB === 'true';
     case 'ENABLE_ADMIN_METRICS': return process.env.ENABLE_ADMIN_METRICS !== 'false';
     case 'ENABLE_STRIPE_BILLING': return process.env.ENABLE_STRIPE_BILLING === 'true';
+    case 'PAYMENTS_GATEWAY_ENABLED': return process.env.PAYMENTS_GATEWAY_ENABLED === 'true';
+    case 'PAYMENTS_GATEWAY_ONLINE': return process.env.PAYMENTS_GATEWAY_ONLINE === 'true';
+    case 'PAYMENTS_GATEWAY_RECURRING': return process.env.PAYMENTS_GATEWAY_RECURRING === 'true';
+    case 'PAYMENTS_TERMINAL_ENABLED': return process.env.PAYMENTS_TERMINAL_ENABLED === 'true';
     default: return false;
   }
 }

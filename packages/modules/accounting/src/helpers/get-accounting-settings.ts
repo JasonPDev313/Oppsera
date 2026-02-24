@@ -38,6 +38,10 @@ export interface AccountingSettings {
   voucherExpiryEnabled: boolean;
   // Auto-remap toggle (migration 0143)
   enableAutoRemap: boolean;
+  // Surcharge revenue GL account (migration 0184)
+  defaultSurchargeRevenueAccountId: string | null;
+  // ACH Receivable account (migration 0178)
+  defaultAchReceivableAccountId: string | null;
 }
 
 /**
@@ -93,5 +97,7 @@ export async function getAccountingSettings(
     breakageIncomeAccountId: row.breakageIncomeAccountId ?? null,
     voucherExpiryEnabled: row.voucherExpiryEnabled,
     enableAutoRemap: row.enableAutoRemap,
+    defaultSurchargeRevenueAccountId: row.defaultSurchargeRevenueAccountId ?? null,
+    defaultAchReceivableAccountId: row.defaultAchReceivableAccountId ?? null,
   };
 }

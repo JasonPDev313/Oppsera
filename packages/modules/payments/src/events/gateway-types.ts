@@ -10,6 +10,10 @@ export const PAYMENT_GATEWAY_EVENTS = {
   CARD_UPDATED: 'payment.gateway.card_updated.v1',
   PROFILE_CREATED: 'payment.gateway.profile_created.v1',
   PROFILE_DELETED: 'payment.gateway.profile_deleted.v1',
+  // ── ACH-specific events ──
+  ACH_ORIGINATED: 'payment.gateway.ach_originated.v1',
+  ACH_SETTLED: 'payment.gateway.ach_settled.v1',
+  ACH_RETURNED: 'payment.gateway.ach_returned.v1',
 } as const;
 
 export type PaymentGatewayEventType =
@@ -125,6 +129,50 @@ export interface ProfileDeletedPayload {
   providerProfileId: string;
 }
 
+// ── ACH Event Payloads ──────────────────────────────────────────
+
+export interface AchOriginatedPayload {
+  paymentIntentId: string;
+  tenantId: string;
+  locationId: string;
+  merchantAccountId: string;
+  amountCents: number;
+  currency: string;
+  orderId: string | null;
+  customerId: string | null;
+  providerRef: string | null;
+  achSecCode: string;
+  achAccountType: string;
+  bankLast4: string | null;
+}
+
+export interface AchSettledPayload {
+  paymentIntentId: string;
+  tenantId: string;
+  locationId: string;
+  merchantAccountId: string;
+  amountCents: number;
+  settledAt: string; // ISO 8601
+  fundingDate: string; // YYYY-MM-DD
+  providerRef: string | null;
+}
+
+export interface AchReturnedPayload {
+  paymentIntentId: string;
+  tenantId: string;
+  locationId: string;
+  merchantAccountId: string;
+  amountCents: number;
+  returnCode: string; // R01, R02, etc.
+  returnReason: string;
+  returnDate: string; // YYYY-MM-DD
+  providerRef: string | null;
+  orderId: string | null;
+  customerId: string | null;
+  achReturnId: string; // ID of the ach_returns row
+  isRetryable: boolean;
+}
+
 // ── Payment Intent Status ────────────────────────────────────────
 
 export type PaymentIntentStatus =
@@ -137,7 +185,13 @@ export type PaymentIntentStatus =
   | 'refunded'
   | 'declined'
   | 'error'
-  | 'resolved';
+  | 'unknown_at_gateway'
+  | 'resolved'
+  // ── ACH-specific statuses ──
+  | 'ach_pending'
+  | 'ach_originated'
+  | 'ach_settled'
+  | 'ach_returned';
 
 export const VALID_INTENT_STATUSES: PaymentIntentStatus[] = [
   'created',
@@ -149,12 +203,17 @@ export const VALID_INTENT_STATUSES: PaymentIntentStatus[] = [
   'refunded',
   'declined',
   'error',
+  'unknown_at_gateway',
   'resolved',
+  'ach_pending',
+  'ach_originated',
+  'ach_settled',
+  'ach_returned',
 ];
 
 // Status transitions allowed
 export const INTENT_STATUS_TRANSITIONS: Record<PaymentIntentStatus, PaymentIntentStatus[]> = {
-  created: ['authorized', 'captured', 'declined', 'error'],
+  created: ['authorized', 'captured', 'declined', 'error', 'unknown_at_gateway', 'ach_pending'],
   authorized: ['capture_pending', 'captured', 'voided', 'error'],
   capture_pending: ['captured', 'error'],
   captured: ['voided', 'refund_pending', 'refunded'],
@@ -163,8 +222,18 @@ export const INTENT_STATUS_TRANSITIONS: Record<PaymentIntentStatus, PaymentInten
   refunded: [], // terminal
   declined: ['resolved'], // can be manually resolved
   error: ['resolved', 'authorized', 'captured'], // retry can fix
+  unknown_at_gateway: ['authorized', 'captured', 'voided', 'declined', 'resolved', 'error'], // inquire/reconciliation resolves
   resolved: [], // terminal
+  // ── ACH-specific transitions ──
+  ach_pending: ['ach_originated', 'ach_returned', 'voided', 'error'], // accepted or bank-rejected
+  ach_originated: ['ach_settled', 'ach_returned', 'error'], // funds in flight → settled or returned
+  ach_settled: ['ach_returned'], // returns can arrive 60+ days after settlement
+  ach_returned: ['resolved'], // manual resolution of returned ACH
 };
+
+// ── ACH Settlement Status (mirrors DB ach_settlement_status) ─────
+
+export type AchSettlementStatus = 'pending' | 'originated' | 'settled' | 'returned';
 
 export function assertIntentTransition(
   current: PaymentIntentStatus,

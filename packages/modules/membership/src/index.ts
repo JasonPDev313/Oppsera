@@ -125,8 +125,19 @@ export { computeMinimumProgress, allocateSpend } from './helpers/minimum-engine'
 export type { MinimumComputeInput, MinimumComputeResult, AllocationBucket, AllocationResult } from './helpers/minimum-engine';
 export { generateAmortSchedule, computePayoffQuote, recalculateAfterExtraPrincipal } from './helpers/amortization';
 export type { AmortScheduleEntry } from './helpers/amortization';
-export { computeRetrySchedule, computeLateFee } from './helpers/autopay-retry';
+export { computeRetrySchedule, computeAchRetrySchedule, computeLateFee, shouldSuspendAutopayForReturn } from './helpers/autopay-retry';
 export type { RetrySchedule } from './helpers/autopay-retry';
+export {
+  buildPaymentFailedNotification,
+  buildPaymentSucceededNotification,
+  buildCardExpiringNotification,
+  buildAutopaySuspendedNotification,
+  buildRetryScheduledNotification,
+  buildAchPaymentInitiatedNotification,
+  buildAchPaymentSettledNotification,
+  buildAchPaymentReturnedNotification,
+} from './helpers/autopay-notifications';
+export type { AutopayNotification, AutopayNotificationType } from './helpers/autopay-notifications';
 export { predictChurnRisk, projectShortfall, assessDelinquencyRisk } from './helpers/predictive-insights';
 export type { ChurnRiskInput, ChurnRiskResult, ChurnRiskFactor, ShortfallProjectionInput, ShortfallProjectionResult, DelinquencyRiskInput, DelinquencyRiskResult } from './helpers/predictive-insights';
 

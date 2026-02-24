@@ -35,6 +35,18 @@ export function usePermissions() {
   const [roles, setRoles] = useState<RoleInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Read roleId from terminal session for role-scoped permission fetching
+  const roleId = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = localStorage.getItem('oppsera:terminal-session');
+      if (!stored) return null;
+      return JSON.parse(stored).roleId ?? null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const fetchPermissions = useCallback(async () => {
     if (!isAuthenticated) {
       setPermissions(new Set());
@@ -44,7 +56,8 @@ export function usePermissions() {
     }
 
     try {
-      const response = await apiFetch<PermissionsResponse>('/api/v1/me/permissions');
+      const roleParam = roleId ? `?roleId=${roleId}` : '';
+      const response = await apiFetch<PermissionsResponse>(`/api/v1/me/permissions${roleParam}`);
       setPermissions(new Set(response.data.permissions));
       setRoles(response.data.roles);
     } catch {
@@ -53,7 +66,7 @@ export function usePermissions() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, roleId]);
 
   useEffect(() => {
     fetchPermissions();

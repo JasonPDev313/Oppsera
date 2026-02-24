@@ -188,11 +188,44 @@ export function useItemTaxGroups(itemId: string, locationId?: string) {
 
 // ── Modifier Groups ───────────────────────────────────────────────
 
-export function useModifierGroups() {
+export function useModifierGroups(options?: { categoryId?: string; channel?: string }) {
+  const params = new URLSearchParams();
+  if (options?.categoryId) params.set('categoryId', options.categoryId);
+  if (options?.channel) params.set('channel', options.channel);
+  const qs = params.toString();
+
   const result = useQuery({
-    queryKey: ['modifier-groups'],
+    queryKey: ['modifier-groups', qs],
     queryFn: () =>
-      apiFetch<{ data: ModifierGroupRow[] }>('/api/v1/catalog/modifier-groups').then((r) => r.data),
+      apiFetch<{ data: ModifierGroupRow[] }>(
+        `/api/v1/catalog/modifier-groups${qs ? `?${qs}` : ''}`,
+      ).then((r) => r.data),
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+// ── Modifier Group Categories ────────────────────────────────────
+
+interface ModifierGroupCategoryRow {
+  id: string;
+  name: string;
+  parentId: string | null;
+  sortOrder: number;
+}
+
+export function useModifierGroupCategories() {
+  const result = useQuery({
+    queryKey: ['modifier-group-categories'],
+    queryFn: () =>
+      apiFetch<{ data: ModifierGroupCategoryRow[] }>(
+        '/api/v1/catalog/modifier-group-categories',
+      ).then((r) => r.data),
   });
 
   return {

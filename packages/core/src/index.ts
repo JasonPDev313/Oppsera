@@ -198,3 +198,6 @@ export type {
   ResetPinInput,
   AcceptInviteInput,
 } from './users';
+
+// ── ERP Dual-Mode Architecture ──────────────────────────────────
+export * from './erp';

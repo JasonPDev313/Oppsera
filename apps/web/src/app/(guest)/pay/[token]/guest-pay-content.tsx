@@ -10,6 +10,7 @@ import { MemberAccountBanner } from '@/components/guest-pay/MemberAccountBanner'
 import { MemberAuthForm } from '@/components/guest-pay/MemberAuthForm';
 import { MemberVerifyForm } from '@/components/guest-pay/MemberVerifyForm';
 import { MemberChargeButton } from '@/components/guest-pay/MemberChargeButton';
+import type { TokenizerClientConfig } from '@oppsera/shared';
 
 type PageState =
   | 'loading'
@@ -21,12 +22,6 @@ type PageState =
   | 'confirmed'
   | 'expired'
   | 'error';
-
-interface TokenizerConfigData {
-  site: string;
-  iframeUrl: string;
-  isSandbox: boolean;
-}
 
 interface SessionData {
   restaurantName: string | null;
@@ -75,7 +70,8 @@ export default function GuestPayContent() {
   const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
 
   // Card payment state
-  const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerConfigData | null>(null);
+  const [tokenizerConfig, setTokenizerConfig] = useState<TokenizerClientConfig | null>(null);
+  const [tokenizerLoading, setTokenizerLoading] = useState(false);
   const [isCardProcessing, setIsCardProcessing] = useState(false);
   const [cardError, setCardError] = useState<string | null>(null);
 
@@ -132,16 +128,18 @@ export default function GuestPayContent() {
     if (!token) return;
     if (process.env.NEXT_PUBLIC_GUEST_PAY_LIVE !== 'true') return;
 
+    setTokenizerLoading(true);
     fetch(`/api/v1/guest-pay/${token}/tokenizer-config`)
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (json?.data) {
-          setTokenizerConfig(json.data as TokenizerConfigData);
+          setTokenizerConfig(json.data as TokenizerClientConfig);
         }
       })
       .catch(() => {
         // Silent — tokenizer not available, will show "Coming Soon"
-      });
+      })
+      .finally(() => setTokenizerLoading(false));
   }, [token]);
 
   // Poll for status changes (every 5s)
@@ -533,6 +531,7 @@ export default function GuestPayContent() {
             !session.memberId ? () => setState('member-auth') : undefined
           }
           tokenizerConfig={tokenizerConfig}
+          tokenizerLoading={tokenizerLoading}
           amountCents={grandTotal}
           onCardPay={handleCardPay}
           isCardProcessing={isCardProcessing}

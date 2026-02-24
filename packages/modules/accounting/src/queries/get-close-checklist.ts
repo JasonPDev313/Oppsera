@@ -34,6 +34,13 @@ export async function getCloseChecklist(
       api.getPendingTipCount(input.tenantId, input.postingPeriod),
       api.getDepositStatus(input.tenantId, input.postingPeriod),
       api.getSettlementStatusCounts(input.tenantId, input.postingPeriod),
+      api.getAchPendingCount(input.tenantId),
+      api.getAchReturnSummary(
+        input.tenantId,
+        `${input.postingPeriod}-01`,
+        // Last day of the month
+        new Date(Number(input.postingPeriod.slice(0, 4)), Number(input.postingPeriod.slice(5, 7)), 0).toISOString().slice(0, 10),
+      ),
     ]),
     // Local queries (accounting-owned tables)
     withTenant(input.tenantId, async (tx) => {
@@ -254,7 +261,7 @@ export async function getCloseChecklist(
     }),
   ]);
 
-  const [drawerStatus, retailCloseStatus, fnbCloseStatus, pendingTipCount, depositStatus, settlementCounts] = apiResults;
+  const [drawerStatus, retailCloseStatus, fnbCloseStatus, pendingTipCount, depositStatus, settlementCounts, achPendingCount, achReturnSummary] = apiResults;
   const l = localResults;
   const items: CloseChecklistItem[] = [];
 
@@ -421,7 +428,25 @@ export async function getCloseChecklist(
     });
   }
 
-  // 18. Periodic COGS posted (local — accounting-owned table)
+  // 18. ACH pending settlement
+  if (achPendingCount > 0) {
+    items.push({
+      label: 'ACH payments pending settlement',
+      status: 'warning',
+      detail: `${achPendingCount} ACH payment${achPendingCount !== 1 ? 's' : ''} pending settlement — funds have not been received yet`,
+    });
+  }
+
+  // 19. ACH returns processed
+  if (achReturnSummary.totalReturns > 0) {
+    items.push({
+      label: 'ACH returns processed',
+      status: 'warning',
+      detail: `${achReturnSummary.totalReturns} ACH return${achReturnSummary.totalReturns !== 1 ? 's' : ''} ($${(achReturnSummary.totalReturnedCents / 100).toFixed(2)}) — review return codes and ensure GL reversals are posted`,
+    });
+  }
+
+  // 20. Periodic COGS posted (local — accounting-owned table)
   if (l.cogsCounts) {
     items.push({
       label: 'Periodic COGS posted',

@@ -115,6 +115,12 @@ export async function bootstrapTenantCoa(
     if (at.accountNumber === '49900') {
       controlAccountIds['uncategorized_revenue'] = accountId;
     }
+    if (at.accountNumber === '4510') {
+      controlAccountIds['surcharge_revenue'] = accountId;
+    }
+    if (at.accountNumber === '1150') {
+      controlAccountIds['ach_receivable'] = accountId;
+    }
   }
 
   // 5. Create accounting_settings with sensible defaults
@@ -133,6 +139,8 @@ export async function bootstrapTenantCoa(
   if (controlAccountIds['tips_payable']) extendedDefaults.defaultTipsPayableAccountId = controlAccountIds['tips_payable'];
   if (controlAccountIds['service_charge_revenue']) extendedDefaults.defaultServiceChargeRevenueAccountId = controlAccountIds['service_charge_revenue'];
   if (controlAccountIds['uncategorized_revenue']) extendedDefaults.defaultUncategorizedRevenueAccountId = controlAccountIds['uncategorized_revenue'];
+  if (controlAccountIds['surcharge_revenue']) extendedDefaults.defaultSurchargeRevenueAccountId = controlAccountIds['surcharge_revenue'];
+  if (controlAccountIds['ach_receivable']) extendedDefaults.defaultAchReceivableAccountId = controlAccountIds['ach_receivable'];
 
   if (Object.keys(extendedDefaults).length > 0) {
     try {

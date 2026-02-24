@@ -3,8 +3,9 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, ValidationError } from '@oppsera/shared';
-import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes, catalogCategories } from '@oppsera/db';
+import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes, catalogCategories, catalogModifierGroups } from '@oppsera/db';
 import { eq, inArray } from 'drizzle-orm';
+import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import type { PlaceOrderInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
@@ -90,6 +91,29 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
       for (const c of cats) categoryNameMap.set(c.id, c.name);
     }
 
+    // Resolve modifier group assignments for attach rate denominator (modifier reporting)
+    const catalogItemIds = [...new Set(lines.map((l: any) => l.catalogItemId).filter(Boolean))] as string[];
+    let assignedGroupsMap = new Map<string, string[]>();
+    const modGroupMetaMap = new Map<string, { name: string; isRequired: boolean }>();
+    if (catalogItemIds.length > 0) {
+      try {
+        const catalogApi = getCatalogReadApi();
+        assignedGroupsMap = await catalogApi.getAssignedModifierGroupIds(ctx.tenantId, catalogItemIds);
+        // Resolve modifier group names + isRequired for all assigned groups
+        const allGroupIds = [...new Set(Array.from(assignedGroupsMap.values()).flat())];
+        if (allGroupIds.length > 0) {
+          const groups = await (tx as any).select({
+            id: catalogModifierGroups.id,
+            name: catalogModifierGroups.name,
+            isRequired: catalogModifierGroups.isRequired,
+          }).from(catalogModifierGroups).where(inArray(catalogModifierGroups.id, allGroupIds));
+          for (const g of groups) modGroupMetaMap.set(g.id, { name: g.name, isRequired: g.isRequired });
+        }
+      } catch {
+        // Best-effort — modifier reporting should never block order placement
+      }
+    }
+
     const event = buildEventFromContext(ctx, 'order.placed.v1', {
       orderId,
       orderNumber: order.orderNumber,
@@ -112,6 +136,19 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
         lineTax: l.lineTax ?? 0,
         lineTotal: l.lineTotal ?? 0,
         packageComponents: l.packageComponents ?? null,
+        modifiers: (l.modifiers ?? []).map((m: any) => ({
+          modifierId: m.modifierId,
+          modifierGroupId: m.modifierGroupId ?? null,
+          name: m.name,
+          priceAdjustmentCents: m.priceAdjustment ?? 0,
+          instruction: m.instruction ?? null,
+          isDefault: m.isDefault ?? false,
+        })),
+        assignedModifierGroupIds: (assignedGroupsMap.get(l.catalogItemId) ?? []).map((gId: string) => ({
+          modifierGroupId: gId,
+          groupName: modGroupMetaMap.get(gId)?.name ?? null,
+          isRequired: modGroupMetaMap.get(gId)?.isRequired ?? false,
+        })),
       })),
     });
 

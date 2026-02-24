@@ -41,4 +41,8 @@ export interface TerminalSession {
   terminalId: string;
   terminalName: string;
   terminalNumber: number | null;
+  /** Selected role ID (null = backward compat, union of all roles) */
+  roleId: string | null;
+  /** Selected role name for display */
+  roleName: string | null;
 }

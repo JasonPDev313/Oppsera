@@ -31,11 +31,15 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
+      // Create the account
       await apiFetch('/api/v1/auth/signup', {
         method: 'POST',
         body: JSON.stringify({ email, password, name }),
       });
-      router.push('/login?message=Check your email to confirm your account');
+
+      // Auto-login so the user goes straight to onboarding
+      const { needsOnboarding } = await auth.login(email, password);
+      router.push(needsOnboarding ? '/onboard' : '/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

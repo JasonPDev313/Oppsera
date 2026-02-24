@@ -93,6 +93,21 @@ export const catalogItems = pgTable(
   ],
 );
 
+// ── Modifier Group Categories ───────────────────────────────────
+export const catalogModifierGroupCategories = pgTable(
+  'catalog_modifier_group_categories',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    parentId: text('parent_id'),
+    name: text('name').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index('idx_mod_group_categories_tenant').on(table.tenantId, table.parentId)],
+);
+
 // ── Modifier Groups ─────────────────────────────────────────────
 export const catalogModifierGroups = pgTable(
   'catalog_modifier_groups',
@@ -104,10 +119,18 @@ export const catalogModifierGroups = pgTable(
     isRequired: boolean('is_required').notNull().default(false),
     minSelections: integer('min_selections').notNull().default(0),
     maxSelections: integer('max_selections'),
+    categoryId: text('category_id').references(() => catalogModifierGroupCategories.id),
+    instructionMode: text('instruction_mode').notNull().default('none'),
+    defaultBehavior: text('default_behavior').notNull().default('none'),
+    channelVisibility: jsonb('channel_visibility').$type<string[]>().notNull().default(['pos', 'online', 'qr', 'kiosk']),
+    sortOrder: integer('sort_order').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index('idx_catalog_modifier_groups_tenant').on(table.tenantId)],
+  (table) => [
+    index('idx_catalog_modifier_groups_tenant').on(table.tenantId),
+    index('idx_mod_groups_category').on(table.tenantId, table.categoryId),
+  ],
 );
 
 // ── Modifiers ───────────────────────────────────────────────────
@@ -123,6 +146,13 @@ export const catalogModifiers = pgTable(
     priceAdjustment: numeric('price_adjustment', { precision: 10, scale: 2 })
       .notNull()
       .default('0'),
+    extraPriceDelta: numeric('extra_price_delta', { precision: 10, scale: 2 }),
+    kitchenLabel: text('kitchen_label'),
+    allowNone: boolean('allow_none').notNull().default(true),
+    allowExtra: boolean('allow_extra').notNull().default(true),
+    allowOnSide: boolean('allow_on_side').notNull().default(true),
+    cost: numeric('cost', { precision: 10, scale: 4 }),
+    isDefaultOption: boolean('is_default_option').notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),
     isActive: boolean('is_active').notNull().default(true),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -141,6 +171,11 @@ export const catalogItemModifierGroups = pgTable(
       .notNull()
       .references(() => catalogModifierGroups.id, { onDelete: 'cascade' }),
     isDefault: boolean('is_default').notNull().default(false),
+    overrideRequired: boolean('override_required'),
+    overrideMinSelections: integer('override_min_selections'),
+    overrideMaxSelections: integer('override_max_selections'),
+    overrideInstructionMode: text('override_instruction_mode'),
+    promptOrder: integer('prompt_order').notNull().default(0),
   },
   (table) => [primaryKey({ columns: [table.catalogItemId, table.modifierGroupId] })],
 );

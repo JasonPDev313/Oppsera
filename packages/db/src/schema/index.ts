@@ -70,3 +70,8 @@ export * from './semantic-intelligence';
 export * from './nav-preferences';
 export * from './backup';
 export * from './payment-gateway';
+export * from './terminal-devices';
+export * from './surcharge';
+export * from './ach';
+export * from './modifier-reporting';
+export * from './erp-config';

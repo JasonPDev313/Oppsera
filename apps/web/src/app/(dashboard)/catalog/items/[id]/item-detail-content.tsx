@@ -13,6 +13,7 @@ import { FormField } from '@/components/ui/form-field';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { DataTable } from '@/components/ui/data-table';
 import { useCatalogItem, useTaxGroups, useItemTaxGroups, useModifierGroups, archiveCatalogItem, unarchiveCatalogItem } from '@/hooks/use-catalog';
+import { useItemModifierAssignments, useItemModifierAssignmentMutations } from '@/hooks/use-item-modifier-assignments';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
@@ -275,13 +276,85 @@ export default function ItemDetailPage() {
     }
   };
 
-  // ---------- Modifier groups (for F&B display) ----------
+  // ---------- Modifier groups (for F&B display + assignment management) ----------
 
   const { data: allModifierGroups } = useModifierGroups();
   const modifierGroupMap = useMemo(
     () => new Map((allModifierGroups ?? []).map((g) => [g.id, g])),
     [allModifierGroups],
   );
+
+  // Junction-table-based modifier assignments
+  const {
+    data: modAssignments,
+    isLoading: modAssignmentsLoading,
+    mutate: refetchModAssignments,
+  } = useItemModifierAssignments(itemId);
+  const { updateAssignment, removeAssignment, addAssignment, isLoading: modMutating } =
+    useItemModifierAssignmentMutations(itemId);
+
+  const [showAddModGroup, setShowAddModGroup] = useState(false);
+  const [addModGroupId, setAddModGroupId] = useState('');
+  const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
+  const [editOverrides, setEditOverrides] = useState<{
+    overrideRequired: boolean | null;
+    overrideMinSelections: number | null;
+    overrideMaxSelections: number | null;
+    overrideInstructionMode: string | null;
+    promptOrder: number;
+  }>({ overrideRequired: null, overrideMinSelections: null, overrideMaxSelections: null, overrideInstructionMode: null, promptOrder: 0 });
+
+  // Available groups not yet assigned
+  const unassignedGroups = useMemo(() => {
+    const assignedIds = new Set(modAssignments.map((a) => a.modifierGroupId));
+    return (allModifierGroups ?? []).filter((g) => !assignedIds.has(g.id));
+  }, [allModifierGroups, modAssignments]);
+
+  const handleAddModGroup = async () => {
+    if (!addModGroupId) return;
+    try {
+      await addAssignment(addModGroupId);
+      toast.success('Modifier group assigned');
+      refetchModAssignments();
+      setShowAddModGroup(false);
+      setAddModGroupId('');
+    } catch {
+      toast.error('Failed to assign modifier group');
+    }
+  };
+
+  const handleRemoveModGroup = async (groupId: string) => {
+    try {
+      await removeAssignment(groupId);
+      toast.success('Modifier group removed');
+      refetchModAssignments();
+    } catch {
+      toast.error('Failed to remove modifier group');
+    }
+  };
+
+  const startEditAssignment = (a: typeof modAssignments[number]) => {
+    setEditingAssignment(a.modifierGroupId);
+    setEditOverrides({
+      overrideRequired: a.overrideRequired,
+      overrideMinSelections: a.overrideMinSelections,
+      overrideMaxSelections: a.overrideMaxSelections,
+      overrideInstructionMode: a.overrideInstructionMode,
+      promptOrder: a.promptOrder,
+    });
+  };
+
+  const handleSaveAssignment = async () => {
+    if (!editingAssignment) return;
+    try {
+      await updateAssignment(editingAssignment, editOverrides);
+      toast.success('Assignment overrides updated');
+      refetchModAssignments();
+      setEditingAssignment(null);
+    } catch {
+      toast.error('Failed to update assignment');
+    }
+  };
 
   // ---------- Loading / Error ----------
 
@@ -588,6 +661,107 @@ export default function ItemDetailPage() {
 
       {/* Stock section — per-location inventory data, movements, actions */}
       <StockSection catalogItemId={itemId} isTrackable={item.isTrackable} />
+
+      {/* Modifier Group Assignments section (junction-table-based) */}
+      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-gray-900">Modifier Group Assignments</h2>
+          <button
+            type="button"
+            onClick={() => setShowAddModGroup(true)}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            Add Group
+          </button>
+        </div>
+
+        {modAssignmentsLoading ? (
+          <div className="flex justify-center py-6">
+            <LoadingSpinner size="sm" />
+          </div>
+        ) : modAssignments.length === 0 ? (
+          <p className="py-4 text-center text-sm text-gray-500">
+            No modifier groups assigned. Add groups to enable modifier selection in POS.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {modAssignments
+              .sort((a, b) => a.promptOrder - b.promptOrder)
+              .map((assignment) => (
+                <div key={assignment.modifierGroupId} className="rounded-lg border border-gray-100 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">{assignment.groupName}</span>
+                      <Badge variant={
+                        (assignment.overrideRequired ?? assignment.isRequired) ? 'warning' : 'neutral'
+                      }>
+                        {(assignment.overrideRequired ?? assignment.isRequired) ? 'Required' : 'Optional'}
+                      </Badge>
+                      <Badge variant="info">{assignment.selectionType}</Badge>
+                      {(assignment.overrideInstructionMode ?? assignment.instructionMode) !== 'none' && (
+                        <Badge variant="purple">
+                          {assignment.overrideInstructionMode ?? assignment.instructionMode}
+                        </Badge>
+                      )}
+                      {assignment.promptOrder > 0 && (
+                        <span className="text-xs text-gray-400">#{assignment.promptOrder}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEditAssignment(assignment)}
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                      >
+                        Override
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveModGroup(assignment.modifierGroupId)}
+                        disabled={modMutating}
+                        className="text-xs font-medium text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Selection constraints */}
+                  <p className="mt-1 text-xs text-gray-500">
+                    Selections: {assignment.overrideMinSelections ?? assignment.minSelections}
+                    {(assignment.overrideMaxSelections ?? assignment.maxSelections) > 0
+                      ? ` - ${assignment.overrideMaxSelections ?? assignment.maxSelections}`
+                      : '+'}
+                    {assignment.overrideRequired !== null && (
+                      <span className="ml-2 text-amber-600">(override)</span>
+                    )}
+                  </p>
+
+                  {/* Modifier options */}
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {assignment.modifiers
+                      .sort((a, b) => a.sortOrder - b.sortOrder)
+                      .map((m) => (
+                        <Badge key={m.id} variant={m.isActive ? (m.isDefaultOption ? 'success' : 'neutral') : 'error'}>
+                          {m.kitchenLabel ? `${m.name} [${m.kitchenLabel}]` : m.name}
+                          {Number(m.priceAdjustment) !== 0 && (
+                            <span className="ml-1 text-xs">
+                              (+${Number(m.priceAdjustment).toFixed(2)})
+                            </span>
+                          )}
+                          {m.extraPriceDelta && Number(m.extraPriceDelta) !== 0 && (
+                            <span className="ml-1 text-xs text-amber-600">
+                              extra:+${Number(m.extraPriceDelta).toFixed(2)}
+                            </span>
+                          )}
+                        </Badge>
+                      ))}
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
 
       {/* Tax Groups section */}
       <div className="rounded-lg border border-gray-200 bg-surface p-6">
@@ -900,6 +1074,161 @@ export default function ItemDetailPage() {
         destructive
         isLoading={removingPrice}
       />
+
+      {/* Add Modifier Group dialog */}
+      {showAddModGroup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => { setShowAddModGroup(false); setAddModGroupId(''); }} />
+          <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Add Modifier Group</h3>
+            {unassignedGroups.length === 0 ? (
+              <p className="mt-4 text-sm text-gray-500">All modifier groups are already assigned to this item.</p>
+            ) : (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Modifier Group</label>
+                <select
+                  value={addModGroupId}
+                  onChange={(e) => setAddModGroupId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                >
+                  <option value="">Select a group...</option>
+                  {unassignedGroups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name} ({g.modifiers?.length ?? 0} options)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => { setShowAddModGroup(false); setAddModGroupId(''); }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              {unassignedGroups.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAddModGroup}
+                  disabled={!addModGroupId || modMutating}
+                  className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+                    !addModGroupId || modMutating ? 'cursor-not-allowed opacity-50' : ''
+                  }`}
+                >
+                  {modMutating ? 'Adding...' : 'Add'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Assignment Overrides dialog */}
+      {editingAssignment && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setEditingAssignment(null)} />
+          <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Assignment Overrides</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              These overrides apply only for this item, not the group globally.
+            </p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Required</label>
+                <select
+                  value={editOverrides.overrideRequired === null ? '' : editOverrides.overrideRequired ? 'true' : 'false'}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setEditOverrides((p) => ({ ...p, overrideRequired: v === '' ? null : v === 'true' }));
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                >
+                  <option value="">Use group default</option>
+                  <option value="true">Required</option>
+                  <option value="false">Optional</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Min Selections</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editOverrides.overrideMinSelections ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setEditOverrides((p) => ({ ...p, overrideMinSelections: v === '' ? null : parseInt(v, 10) }));
+                    }}
+                    placeholder="Group default"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Selections</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editOverrides.overrideMaxSelections ?? ''}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setEditOverrides((p) => ({ ...p, overrideMaxSelections: v === '' ? null : parseInt(v, 10) }));
+                    }}
+                    placeholder="Group default"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Instruction Mode</label>
+                <select
+                  value={editOverrides.overrideInstructionMode ?? ''}
+                  onChange={(e) => {
+                    setEditOverrides((p) => ({ ...p, overrideInstructionMode: e.target.value || null }));
+                  }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                >
+                  <option value="">Use group default</option>
+                  <option value="none">Off</option>
+                  <option value="all">All Options</option>
+                  <option value="per_option">Per Option</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prompt Order</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editOverrides.promptOrder}
+                  onChange={(e) => setEditOverrides((p) => ({ ...p, promptOrder: parseInt(e.target.value, 10) || 0 }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-gray-500">Controls display order in POS modifier prompts</p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEditingAssignment(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAssignment}
+                disabled={modMutating}
+                className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+                  modMutating ? 'cursor-not-allowed opacity-50' : ''
+                }`}
+              >
+                {modMutating ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Change History modal */}
       <ItemChangeLogModal

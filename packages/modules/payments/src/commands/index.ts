@@ -21,3 +21,22 @@ export { inquirePaymentIntent } from './inquire';
 export { addPaymentMethod } from './add-payment-method';
 export { removePaymentMethod } from './remove-payment-method';
 export { setDefaultPaymentMethod } from './set-default-payment-method';
+
+// ACH bank account commands
+export { tokenizeBankAccount } from './tokenize-bank-account';
+export type { BankTokenResult } from './tokenize-bank-account';
+export { addBankAccount } from './add-bank-account';
+export type { BankAccountResult } from './add-bank-account';
+export { initiateMicroDeposits } from './initiate-micro-deposits';
+export type { InitiateMicroDepositsResult } from './initiate-micro-deposits';
+export { verifyMicroDeposits } from './verify-micro-deposits';
+export type { VerifyMicroDepositsResult } from './verify-micro-deposits';
+export { processAchReturn } from './process-ach-return';
+export type { ProcessAchReturnInput, ProcessAchReturnResult } from './process-ach-return';
+
+// Terminal (card-present) commands
+export { terminalAuthCard } from './terminal-auth-card';
+export { terminalReadCard } from './terminal-read-card';
+export type { ReadCardResult } from './terminal-read-card';
+export { terminalDisplay } from './terminal-display';
+export { terminalCancel } from './terminal-cancel';

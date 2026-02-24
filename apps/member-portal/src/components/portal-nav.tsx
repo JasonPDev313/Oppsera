@@ -2,12 +2,13 @@
 
 import { usePathname, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, FileText, CreditCard, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, FileText, CreditCard, TrendingUp, Building2 } from 'lucide-react';
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Statements', href: '/statements', icon: FileText },
   { label: 'Account', href: '/account', icon: CreditCard },
+  { label: 'Payment Methods', href: '/account/bank-accounts', icon: Building2 },
   { label: 'Spending', href: '/spending', icon: TrendingUp },
 ];
 
@@ -22,7 +23,7 @@ export function PortalNav() {
         <div className="flex gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const fullHref = `/${tenantSlug}${item.href}`;
-            const isActive = pathname === fullHref;
+            const isActive = pathname === fullHref || pathname.startsWith(fullHref + '/');
             const Icon = item.icon;
 
             return (

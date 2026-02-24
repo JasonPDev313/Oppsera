@@ -19,6 +19,12 @@ export const tenants = pgTable('tenants', {
   slug: text('slug').notNull().unique(),
   status: text('status').notNull().default('active'),
   billingCustomerId: text('billing_customer_id'),
+  // ── ERP dual-mode tier (migration 0187) ──
+  businessTier: text('business_tier').notNull().default('SMB'), // 'SMB' | 'MID_MARKET' | 'ENTERPRISE'
+  businessVertical: text('business_vertical').notNull().default('general'),
+  tierOverride: boolean('tier_override').notNull().default(false),
+  tierOverrideReason: text('tier_override_reason'),
+  tierLastEvaluatedAt: timestamp('tier_last_evaluated_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -228,6 +234,69 @@ export const userLocations = pgTable(
   (table) => [
     uniqueIndex('uq_user_locations_user_location').on(table.userId, table.locationId),
     index('idx_user_locations_tenant_user').on(table.tenantId, table.userId),
+  ],
+);
+
+// ── Role Access Scoping ──────────────────────────────────────────
+// Empty table = unrestricted (role sees everything at that level).
+// Adding rows restricts the role to only those resources.
+
+export const roleLocationAccess = pgTable(
+  'role_location_access',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    roleId: text('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    locationId: text('location_id')
+      .notNull()
+      .references(() => locations.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_role_location_access').on(table.roleId, table.locationId),
+    index('idx_rla_tenant_role').on(table.tenantId, table.roleId),
+  ],
+);
+
+export const roleProfitCenterAccess = pgTable(
+  'role_profit_center_access',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    roleId: text('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    profitCenterId: text('profit_center_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_role_pc_access').on(table.roleId, table.profitCenterId),
+    index('idx_rpca_tenant_role').on(table.tenantId, table.roleId),
+  ],
+);
+
+export const roleTerminalAccess = pgTable(
+  'role_terminal_access',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    roleId: text('role_id')
+      .notNull()
+      .references(() => roles.id, { onDelete: 'cascade' }),
+    terminalId: text('terminal_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_role_terminal_access').on(table.roleId, table.terminalId),
+    index('idx_rta_tenant_role').on(table.tenantId, table.roleId),
   ],
 );
 

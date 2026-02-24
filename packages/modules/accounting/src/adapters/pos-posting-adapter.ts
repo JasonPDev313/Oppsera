@@ -51,6 +51,7 @@ interface TenderRecordedPayload {
     costCents: number | null;
     packageComponents: PackageComponent[] | null;
   }>;
+  surchargeAmountCents?: number; // cents (per-tender surcharge)
   businessDate: string;
 }
 
@@ -75,11 +76,12 @@ interface GlLine {
  * discounts, and service charges. Tips are per-tender (not proportional).
  *
  * GL entry structure (balanced):
- *   DEBIT:  Cash/Deposit/Clearing = tenderAmount + tipAmount
+ *   DEBIT:  Cash/Deposit/Clearing = tenderAmount + tipAmount + surchargeAmount
  *   DEBIT:  Discount (contra-revenue by sub-department)
  *   CREDIT: Revenue = proportional share of line subtotals (by sub-department)
  *   CREDIT: Service Charge Revenue = proportional share of serviceChargeTotal
  *   CREDIT: Tax Payable = proportional share of taxTotal (by tax group)
+ *   CREDIT: Surcharge Revenue = surchargeAmount (per-tender)
  *   CREDIT: Tips Payable = tipAmount
  *   DEBIT:  COGS = proportional share of cost (when enabled)
  *   CREDIT: Inventory = proportional share of cost (when enabled)
@@ -145,8 +147,10 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     missingMappings.push(`payment_type:${paymentMethod}`);
   }
 
+  const surchargeAmount = data.surchargeAmountCents ?? 0;
+
   if (depositAccountId) {
-    const totalDebitCents = data.amount + tipAmount;
+    const totalDebitCents = data.amount + tipAmount + surchargeAmount;
     const tenderDollars = (totalDebitCents / 100).toFixed(2);
     glLines.push({
       accountId: depositAccountId,
@@ -363,7 +367,32 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     }
   }
 
-  // ── 4. CREDIT: Tips payable (per-tender, not proportional) ─────
+  // ── 4. CREDIT: Surcharge revenue (per-tender, not proportional) ──
+  if (surchargeAmount > 0) {
+    const surchargeAccountId = settings.defaultSurchargeRevenueAccountId
+      ?? settings.defaultUncategorizedRevenueAccountId
+      ?? null;
+    if (surchargeAccountId) {
+      glLines.push({
+        accountId: surchargeAccountId,
+        debitAmount: '0',
+        creditAmount: (surchargeAmount / 100).toFixed(2),
+        locationId: data.locationId,
+        terminalId: data.terminalId,
+        channel: 'pos',
+        memo: settings.defaultSurchargeRevenueAccountId
+          ? 'Credit card surcharge revenue'
+          : 'Credit card surcharge revenue (fallback: uncategorized)',
+      });
+      if (!settings.defaultSurchargeRevenueAccountId) {
+        missingMappings.push('surcharge_revenue_account:missing');
+      }
+    } else {
+      missingMappings.push('surcharge_revenue_account:missing');
+    }
+  }
+
+  // ── 5. CREDIT: Tips payable (per-tender, not proportional) ─────
   if (tipAmount > 0) {
     const tipAccountId = settings.defaultTipsPayableAccountId
       ?? settings.defaultUncategorizedRevenueAccountId
@@ -386,7 +415,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     }
   }
 
-  // ── 5. Handle missing mappings — always log for resolution ─────
+  // ── 6. Handle missing mappings — always log for resolution ─────
   if (missingMappings.length > 0) {
     for (const reason of missingMappings) {
       await logUnmappedEvent(db, tenantId, {
@@ -400,14 +429,14 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     }
   }
 
-  // ── 6. Only post if we have valid debit and credit lines ───────
+  // ── 7. Only post if we have valid debit and credit lines ───────
   // With fallback accounts, this should only fail when NO fallback is configured
   if (glLines.length < 2) {
     console.error(`POS GL posting skipped for tender ${data.tenderId}: insufficient GL lines (${glLines.length}) — check fallback account configuration`);
     return;
   }
 
-  // ── 7. Post GL entry via accounting API ────────────────────────
+  // ── 8. Post GL entry via accounting API ────────────────────────
   try {
     await accountingApi.postEntry(ctx, {
       businessDate: data.businessDate,

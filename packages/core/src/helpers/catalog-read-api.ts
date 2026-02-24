@@ -66,6 +66,10 @@ export interface CatalogReadApi {
     tenantId: string,
     itemId: string,
   ): Promise<string | null>;
+  getAssignedModifierGroupIds(
+    tenantId: string,
+    catalogItemIds: string[],
+  ): Promise<Map<string, string[]>>;
 }
 
 // ── Default Implementation ──────────────────────────────────────
@@ -211,6 +215,32 @@ class DrizzleCatalogReadApi implements CatalogReadApi {
       `);
       const arr = Array.from(rows as Iterable<Record<string, unknown>>);
       return arr.length > 0 ? (arr[0]!.sub_department_id as string) : null;
+    });
+  }
+
+  async getAssignedModifierGroupIds(
+    tenantId: string,
+    catalogItemIds: string[],
+  ): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>();
+    if (catalogItemIds.length === 0) return result;
+
+    return withTenant(tenantId, async (tx) => {
+      const rows = await tx
+        .select({
+          catalogItemId: catalogItemModifierGroups.catalogItemId,
+          modifierGroupId: catalogItemModifierGroups.modifierGroupId,
+        })
+        .from(catalogItemModifierGroups)
+        .where(inArray(catalogItemModifierGroups.catalogItemId, catalogItemIds));
+
+      for (const row of rows) {
+        const existing = result.get(row.catalogItemId) ?? [];
+        existing.push(row.modifierGroupId);
+        result.set(row.catalogItemId, existing);
+      }
+
+      return result;
     });
   }
 

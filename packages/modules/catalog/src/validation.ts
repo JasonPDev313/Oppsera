@@ -82,7 +82,39 @@ export const updateItemSchema = z.object({
 });
 export type UpdateItemInput = z.infer<typeof updateItemSchema>;
 
+// === Modifier Group Category ===
+
+export const instructionModeEnum = z.enum(['none', 'all', 'per_option']);
+export const defaultBehaviorEnum = z.enum(['none', 'auto_select_defaults']);
+export const channelEnum = z.enum(['pos', 'online', 'qr', 'kiosk']);
+
+export const createModifierGroupCategorySchema = z.object({
+  name: z.string().min(1).max(200).transform((v) => v.trim()),
+  parentId: z.string().min(1).optional(),
+  sortOrder: z.number().int().min(0).default(0),
+});
+export type CreateModifierGroupCategoryInput = z.input<typeof createModifierGroupCategorySchema>;
+
+export const updateModifierGroupCategorySchema = z.object({
+  name: z.string().min(1).max(200).transform((v) => v.trim()).optional(),
+  parentId: z.string().min(1).nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+export type UpdateModifierGroupCategoryInput = z.input<typeof updateModifierGroupCategorySchema>;
+
 // === Modifier Group ===
+
+const modifierOptionSchema = z.object({
+  name: z.string().min(1).max(200).transform((v) => v.trim()),
+  priceAdjustment: z.number().multipleOf(0.01).default(0),
+  extraPriceDelta: z.number().multipleOf(0.01).nullable().optional(),
+  kitchenLabel: z.string().max(100).transform((v) => v.trim()).nullable().optional(),
+  allowNone: z.boolean().default(true),
+  allowExtra: z.boolean().default(true),
+  allowOnSide: z.boolean().default(true),
+  isDefaultOption: z.boolean().default(false),
+  sortOrder: z.number().int().min(0).default(0),
+});
 
 export const createModifierGroupSchema = z
   .object({
@@ -91,15 +123,12 @@ export const createModifierGroupSchema = z
     isRequired: z.boolean().default(false),
     minSelections: z.number().int().min(0).default(0),
     maxSelections: z.number().int().min(1).nullable().optional(),
-    modifiers: z
-      .array(
-        z.object({
-          name: z.string().min(1).max(200).transform((v) => v.trim()),
-          priceAdjustment: z.number().multipleOf(0.01).default(0),
-          sortOrder: z.number().int().min(0).default(0),
-        }),
-      )
-      .min(1),
+    categoryId: z.string().min(1).nullable().optional(),
+    instructionMode: instructionModeEnum.default('none'),
+    defaultBehavior: defaultBehaviorEnum.default('none'),
+    channelVisibility: z.array(channelEnum).default(['pos', 'online', 'qr', 'kiosk']),
+    sortOrder: z.number().int().min(0).default(0),
+    modifiers: z.array(modifierOptionSchema).min(1),
   })
   .refine(
     (data) => {
@@ -114,7 +143,21 @@ export const createModifierGroupSchema = z
     },
     { message: 'Invalid selection constraints' },
   );
-export type CreateModifierGroupInput = z.infer<typeof createModifierGroupSchema>;
+export type CreateModifierGroupInput = z.input<typeof createModifierGroupSchema>;
+
+const updateModifierOptionSchema = z.object({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1).max(200).transform((v) => v.trim()),
+  priceAdjustment: z.number().multipleOf(0.01).default(0),
+  extraPriceDelta: z.number().multipleOf(0.01).nullable().optional(),
+  kitchenLabel: z.string().max(100).transform((v) => v.trim()).nullable().optional(),
+  allowNone: z.boolean().default(true),
+  allowExtra: z.boolean().default(true),
+  allowOnSide: z.boolean().default(true),
+  isDefaultOption: z.boolean().default(false),
+  sortOrder: z.number().int().min(0).default(0),
+  isActive: z.boolean().default(true),
+});
 
 export const updateModifierGroupSchema = z.object({
   name: z.string().min(1).max(200).transform((v) => v.trim()).optional(),
@@ -122,19 +165,41 @@ export const updateModifierGroupSchema = z.object({
   isRequired: z.boolean().optional(),
   minSelections: z.number().int().min(0).optional(),
   maxSelections: z.number().int().min(1).nullable().optional(),
-  modifiers: z
-    .array(
-      z.object({
-        id: z.string().min(1).optional(),
-        name: z.string().min(1).max(200).transform((v) => v.trim()),
-        priceAdjustment: z.number().multipleOf(0.01).default(0),
-        sortOrder: z.number().int().min(0).default(0),
-        isActive: z.boolean().default(true),
-      }),
-    )
-    .optional(),
+  categoryId: z.string().min(1).nullable().optional(),
+  instructionMode: instructionModeEnum.optional(),
+  defaultBehavior: defaultBehaviorEnum.optional(),
+  channelVisibility: z.array(channelEnum).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  modifiers: z.array(updateModifierOptionSchema).optional(),
 });
-export type UpdateModifierGroupInput = z.infer<typeof updateModifierGroupSchema>;
+export type UpdateModifierGroupInput = z.input<typeof updateModifierGroupSchema>;
+
+// === Bulk Modifier Assignment ===
+
+export const bulkAssignModifierGroupsSchema = z.object({
+  itemIds: z.array(z.string().min(1)).min(1).max(500),
+  modifierGroupIds: z.array(z.string().min(1)).min(1).max(20),
+  overrides: z.object({
+    isDefault: z.boolean().default(false),
+    overrideRequired: z.boolean().nullable().optional(),
+    overrideMinSelections: z.number().int().min(0).nullable().optional(),
+    overrideMaxSelections: z.number().int().min(1).nullable().optional(),
+    overrideInstructionMode: instructionModeEnum.nullable().optional(),
+    promptOrder: z.number().int().min(0).default(0),
+  }).optional(),
+  mode: z.enum(['merge', 'replace']).default('merge'),
+});
+export type BulkAssignModifierGroupsInput = z.input<typeof bulkAssignModifierGroupsSchema>;
+
+export const updateItemModifierAssignmentSchema = z.object({
+  isDefault: z.boolean().optional(),
+  overrideRequired: z.boolean().nullable().optional(),
+  overrideMinSelections: z.number().int().min(0).nullable().optional(),
+  overrideMaxSelections: z.number().int().min(1).nullable().optional(),
+  overrideInstructionMode: instructionModeEnum.nullable().optional(),
+  promptOrder: z.number().int().min(0).optional(),
+});
+export type UpdateItemModifierAssignmentInput = z.input<typeof updateItemModifierAssignmentSchema>;
 
 // === Location Price ===
 

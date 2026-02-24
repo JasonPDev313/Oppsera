@@ -36,6 +36,8 @@ import { ImpersonationBanner } from '@/components/impersonation-banner';
 import type { NavItem } from '@/lib/navigation';
 import { applyNavPreferences } from '@/lib/navigation-order';
 import { useNavPreferences } from '@/hooks/use-nav-preferences';
+import { useErpConfig } from '@/hooks/use-erp-config';
+import { filterNavByTier } from '@/lib/navigation-filter';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
@@ -507,9 +509,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { user, tenant, locations, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
-  const { isModuleEnabled } = useEntitlementsContext();
+  const { isModuleEnabled, isLoading: entitlementsLoading } = useEntitlementsContext();
   const { itemOrder } = useNavPreferences();
   const { guardedClick } = useNavigationGuard();
+  const { configs: workflowConfigs, isLoading: erpConfigLoading } = useErpConfig();
 
   // Preload POS catalog + category hierarchy + POS route chunks on login
   // so they're instant when the user navigates to POS or opens the edit drawer.
@@ -584,14 +587,20 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const tenantName = tenant?.name || 'OppsEra';
   const userName = user?.name || 'User';
   const userEmail = user?.email || '';
-  // During auth loading, show all modules — entitlements filter once loaded
-  const checkModule = isLoading ? () => true : isModuleEnabled;
+  // During auth or entitlements loading, show all modules — filter once both are loaded
+  const checkModule = (isLoading || entitlementsLoading) ? () => true : isModuleEnabled;
 
   // Apply tenant nav preferences (order + visibility) — falls back to default order
   const orderedNav = useMemo(
     () => applyNavPreferences(itemOrder ?? [], checkModule),
-    [itemOrder, isLoading], // checkModule is stable when isLoading settles
+    [itemOrder, isLoading, entitlementsLoading, isModuleEnabled],
   );
+
+  // Second pass: filter by ERP workflow visibility (hides accounting for SMB, etc.)
+  const filteredNav = useMemo(() => {
+    if (erpConfigLoading || Object.keys(workflowConfigs).length === 0) return orderedNav;
+    return filterNavByTier(orderedNav, workflowConfigs);
+  }, [orderedNav, workflowConfigs, erpConfigLoading]);
 
   return (
     <ContextMenuProvider>
@@ -630,7 +639,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           userEmail={userEmail}
           onLogout={handleLogout}
           isModuleEnabled={checkModule}
-          navItems={orderedNav}
+          navItems={filteredNav}
         />
       </div>
 
@@ -654,7 +663,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             userEmail={userEmail}
             onLogout={handleLogout}
             isModuleEnabled={checkModule}
-            navItems={orderedNav}
+            navItems={filteredNav}
             collapsed={collapsed}
             onToggleCollapse={toggleCollapse}
           />

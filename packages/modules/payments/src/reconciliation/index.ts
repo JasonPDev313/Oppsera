@@ -18,6 +18,8 @@ import type {
   LocationCloseStatusData,
   TenderForGlRepostData,
   TenderForGlRepostLineData,
+  AchReturnSummaryData,
+  AchSettlementSummaryData,
 } from '@oppsera/core/helpers/reconciliation-read-api';
 
 // ── 1. getTendersSummary ─────────────────────────────────────
@@ -926,7 +928,136 @@ export async function getLocationCloseStatus(
   });
 }
 
-// ── 18. getTenderForGlRepost ────────────────────────────────
+// ── 18. getAchPendingCount ──────────────────────────────────
+
+export async function getAchPendingCount(
+  tenantId: string,
+): Promise<number> {
+  return withTenant(tenantId, async (tx) => {
+    const rows = await tx.execute(sql`
+      SELECT COUNT(*)::int AS count
+      FROM payment_intents
+      WHERE tenant_id = ${tenantId}
+        AND payment_method_type = 'ach'
+        AND ach_settlement_status IN ('pending', 'originated')
+    `);
+
+    const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+    return Number(arr[0]!.count);
+  });
+}
+
+// ── 19. getAchReturnSummary ────────────────────────────────
+
+export async function getAchReturnSummary(
+  tenantId: string,
+  startDate: string,
+  endDate: string,
+): Promise<AchReturnSummaryData> {
+  return withTenant(tenantId, async (tx) => {
+    // Get total returns count and amount
+    const summaryRows = await tx.execute(sql`
+      SELECT
+        COUNT(*)::int AS total_returns,
+        COALESCE(SUM(original_amount_cents), 0)::int AS total_returned_cents
+      FROM ach_returns
+      WHERE tenant_id = ${tenantId}
+        AND return_date >= ${startDate}
+        AND return_date <= ${endDate}
+    `);
+    const summaryArr = Array.from(summaryRows as Iterable<Record<string, unknown>>);
+    const summary = summaryArr[0]!;
+
+    // Get breakdown by return code
+    const codeRows = await tx.execute(sql`
+      SELECT
+        return_code,
+        return_reason,
+        COUNT(*)::int AS count
+      FROM ach_returns
+      WHERE tenant_id = ${tenantId}
+        AND return_date >= ${startDate}
+        AND return_date <= ${endDate}
+      GROUP BY return_code, return_reason
+      ORDER BY count DESC
+    `);
+    const codeArr = Array.from(codeRows as Iterable<Record<string, unknown>>);
+
+    return {
+      totalReturns: Number(summary.total_returns),
+      totalReturnedCents: Number(summary.total_returned_cents),
+      byCode: codeArr.map((r) => ({
+        returnCode: String(r.return_code),
+        returnReason: String(r.return_reason),
+        count: Number(r.count),
+      })),
+    };
+  });
+}
+
+// ── 20. getAchSettlementSummary ────────────────────────────
+
+export async function getAchSettlementSummary(
+  tenantId: string,
+  startDate: string,
+  endDate: string,
+): Promise<AchSettlementSummaryData> {
+  return withTenant(tenantId, async (tx) => {
+    const rows = await tx.execute(sql`
+      SELECT
+        ach_settlement_status,
+        COUNT(*)::int AS count,
+        COALESCE(SUM(amount_cents), 0)::int AS total_cents
+      FROM payment_intents
+      WHERE tenant_id = ${tenantId}
+        AND payment_method_type = 'ach'
+        AND ach_settlement_status IS NOT NULL
+        AND created_at >= ${startDate}::date
+        AND created_at < (${endDate}::date + interval '1 day')
+      GROUP BY ach_settlement_status
+    `);
+
+    const result: AchSettlementSummaryData = {
+      pendingCount: 0,
+      pendingAmountCents: 0,
+      originatedCount: 0,
+      originatedAmountCents: 0,
+      settledCount: 0,
+      settledAmountCents: 0,
+      returnedCount: 0,
+      returnedAmountCents: 0,
+    };
+
+    for (const row of Array.from(rows as Iterable<Record<string, unknown>>)) {
+      const status = String(row.ach_settlement_status);
+      const count = Number(row.count);
+      const totalCents = Number(row.total_cents);
+
+      switch (status) {
+        case 'pending':
+          result.pendingCount = count;
+          result.pendingAmountCents = totalCents;
+          break;
+        case 'originated':
+          result.originatedCount = count;
+          result.originatedAmountCents = totalCents;
+          break;
+        case 'settled':
+          result.settledCount = count;
+          result.settledAmountCents = totalCents;
+          break;
+        case 'returned':
+          result.returnedCount = count;
+          result.returnedAmountCents = totalCents;
+          break;
+      }
+    }
+
+    return result;
+  });
+}
+
+// ── 21. getTenderForGlRepost ────────────────────────────────
 
 export async function getTenderForGlRepost(
   tenantId: string,

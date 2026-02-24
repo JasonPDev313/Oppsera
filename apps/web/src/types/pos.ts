@@ -312,9 +312,12 @@ export interface AddLineItemInput {
   qty: number;
   modifiers?: Array<{
     modifierId: string;
+    modifierGroupId?: string;
     name: string;
     priceAdjustment: number;
     isDefault: boolean;
+    instruction?: 'none' | 'extra' | 'on_side' | null;
+    kitchenLabel?: string | null;
   }>;
   specialInstructions?: string;
   selectedOptions?: Record<string, string>;

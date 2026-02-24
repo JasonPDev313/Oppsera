@@ -54,6 +54,8 @@ export { mergeGlAccounts } from './commands/merge-gl-accounts';
 export { renumberGlAccount } from './commands/renumber-gl-account';
 export { remapGlForTender, batchRemapGlForTenders } from './commands/remap-gl-for-tender';
 export type { RemapResult } from './commands/remap-gl-for-tender';
+export { runCloseOrchestrator } from './commands/run-close-orchestrator';
+export type { CloseOrchestratorRunResult, StepResult } from './commands/run-close-orchestrator';
 export { createTenantTenderType } from './commands/create-tenant-tender-type';
 export { updateTenantTenderType } from './commands/update-tenant-tender-type';
 export { deactivateTenderType } from './commands/deactivate-tender-type';
@@ -77,6 +79,12 @@ export { handleFnbGlPostingForAccounting } from './adapters/fnb-posting-adapter'
 export { handleVoucherPurchaseForAccounting, handleVoucherRedemptionForAccounting, handleVoucherExpirationForAccounting } from './adapters/voucher-posting-adapter';
 export { handleMembershipBillingForAccounting } from './adapters/membership-posting-adapter';
 export { handleChargebackReceivedForAccounting, handleChargebackResolvedForAccounting } from './adapters/chargeback-posting-adapter';
+export { handleAchReturnForAccounting } from './adapters/ach-return-posting-adapter';
+export {
+  handleAchOriginatedForAccounting,
+  handleAchSettledForAccounting,
+  handleAchReturnGlReversal,
+} from './adapters/ach-posting-adapter';
 export { migrateLegacyJournalEntries } from './adapters/legacy-bridge-adapter';
 
 // Queries
@@ -169,6 +177,8 @@ export { getRemappableTenders } from './queries/get-remappable-tenders';
 export type { RemappableTender, MissingMapping } from './queries/get-remappable-tenders';
 export { getTransactionTypeMappings } from './queries/get-transaction-type-mappings';
 export type { TransactionTypeMappingRow } from './queries/get-transaction-type-mappings';
+export { getCloseOrchestratorRun, listCloseOrchestratorRuns, getLastCloseRun } from './queries/get-close-orchestrator-run';
+export type { CloseOrchestratorRun, CloseOrchestratorRunListItem, ListCloseOrchestratorRunsResult } from './queries/get-close-orchestrator-run';
 
 // Helpers
 export { resolveNormalBalance } from './helpers/resolve-normal-balance';

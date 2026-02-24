@@ -23,9 +23,11 @@ export const addLineItemSchema = z.object({
   qty: z.number().positive(),
   modifiers: z.array(z.object({
     modifierId: z.string().min(1),
+    modifierGroupId: z.string().min(1).optional(),
     name: z.string().min(1),
     priceAdjustment: z.number().int(),
     isDefault: z.boolean().default(false),
+    instruction: z.enum(['none', 'extra', 'on_side']).nullable().optional(),
   })).optional(),
   specialInstructions: z.string().max(500).optional(),
   selectedOptions: z.record(z.string(), z.string()).optional(),

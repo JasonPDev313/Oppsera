@@ -17,6 +17,11 @@ export interface CardPointeAuthRequest {
   receipt?: string; // "Y" for receipt data
   userfields?: Record<string, string>;
   profile?: string; // "Y" to create profile during auth
+  // ── ACH-specific fields ──
+  accttype?: string; // 'ECHK' | 'ESAV' for ACH
+  achEntryCode?: string; // SEC code: 'CCD' | 'PPD' | 'TEL' | 'WEB'
+  achDescription?: string; // ACH description (e.g., "Reversal")
+  bankaba?: string; // ABA routing number for account validation
 }
 
 export interface CardPointeAuthResponse {
@@ -151,4 +156,23 @@ export interface CardPointeSigCapRequest {
   merchid: string;
   retref: string;
   signature: string; // base64 encoded SVG or image
+}
+
+// ── ACH Funding Response ────────────────────────────────────────
+// CardPointe's funding endpoint returns ACH-specific settlement and return data.
+
+export interface CardPointeFundingResponse {
+  merchid: string;
+  fundingdate: string; // MMDD
+  fundings: CardPointeFundingEntry[];
+}
+
+export interface CardPointeFundingEntry {
+  retref: string;
+  amount: string; // dollar string
+  fundingdate: string; // MMDD
+  fundingstatus: string; // settlement status
+  achreturncode?: string; // R01, R02, etc.
+  achreturndescription?: string; // human-readable return reason
+  batchid?: string;
 }

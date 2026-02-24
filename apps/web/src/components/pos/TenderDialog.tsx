@@ -1,12 +1,20 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { CreditCard, DollarSign, FileText, X } from 'lucide-react';
+import { CreditCard, DollarSign, FileText, X, Keyboard } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
+import { PaymentMethodCapture } from '@/components/payments/payment-method-capture';
+import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
+import { useTerminalDevice } from '@/hooks/use-terminal-device';
+import { CardPresentIndicator } from '@/components/pos/CardPresentIndicator';
+import { useSurchargeSettings } from '@/hooks/use-payment-processors';
+import type { TokenizeResult } from '@oppsera/shared';
 import type { POSConfig, Order, TenderSummary, RecordTenderResult } from '@/types/pos';
+
+type CardPresentStatus = 'idle' | 'waiting' | 'processing' | 'approved' | 'declined' | 'timeout' | 'cancelled';
 
 function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -45,8 +53,49 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const [tipAmount, setTipAmount] = useState('');
   const [checkNumber, setCheckNumber] = useState('');
   const [cardToken, setCardToken] = useState('');
+  const [manualEntry, setManualEntry] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<RecordTenderResult | null>(null);
+
+  // Card-present state
+  const [cardPresentStatus, setCardPresentStatus] = useState<CardPresentStatus>('idle');
+  const [cardPresentResult, setCardPresentResult] = useState<{
+    cardBrand?: string | null;
+    cardLast4?: string | null;
+    errorMessage?: string | null;
+  }>({});
+
+  // Check if terminal has a physical payment device assigned
+  const { device, hasDevice, isConnected } = useTerminalDevice(
+    open && tenderType === 'card' ? config.terminalId : null,
+  );
+  const isCardPresent = tenderType === 'card' && hasDevice;
+
+  // Surcharge settings — fetch when card tender opens
+  const { settings: surchargeSettings } = useSurchargeSettings(
+    open && tenderType === 'card' ? undefined : '__disabled__',
+  );
+  // Find the first enabled surcharge config (tenant-wide or location-specific)
+  const activeSurcharge = tenderType === 'card'
+    ? surchargeSettings.find((s) => s.isEnabled)
+    : null;
+  const surchargeRate = activeSurcharge ? parseFloat(activeSurcharge.surchargeRate) : 0;
+  const surchargeMaxRate = activeSurcharge ? parseFloat(activeSurcharge.maxSurchargeRate) : 0;
+  const effectiveSurchargeRate = surchargeRate > 0 ? Math.min(surchargeRate, surchargeMaxRate) : 0;
+
+  // Only fetch tokenizer config when dialog opens for card tenders (card-NOT-present only)
+  const { config: tokenizerConfig, isLoading: tokenizerLoading, error: tokenizerError } = useTokenizerConfig({
+    locationId: order.locationId,
+    enabled: open && tenderType === 'card' && !isCardPresent,
+  });
+
+  const handleCardTokenize = useCallback((result: TokenizeResult) => {
+    setCardToken(result.token);
+  }, []);
+
+  const handleCardTokenError = useCallback((_msg: string) => {
+    setCardToken('');
+  }, []);
 
   // Track whether the order has been placed (for fetchTenders guard).
   // Starts from the order prop, set to true after first successful payment.
@@ -71,7 +120,10 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       setTipAmount('');
       setCheckNumber('');
       setCardToken('');
+      setManualEntry(false);
       setLastResult(null);
+      setCardPresentStatus('idle');
+      setCardPresentResult({});
       return;
     }
     fetchTenders();
@@ -111,6 +163,17 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
 
   const amountCents = Math.round(parseFloat(amountGiven || '0') * 100);
   const tipCents = Math.round(parseFloat(tipAmount || '0') * 100);
+
+  // Surcharge calculation (credit card only, applied to the charge amount)
+  const chargeAmountForSurcharge = amountCents > 0 ? Math.min(amountCents, remaining) : remaining;
+  const surchargeAmountCents = effectiveSurchargeRate > 0
+    ? Math.round(chargeAmountForSurcharge * effectiveSurchargeRate)
+    : 0;
+  const surchargeDisclosure = activeSurcharge?.customerDisclosureText
+    ? activeSurcharge.customerDisclosureText
+        .replace('{rate}', (effectiveSurchargeRate * 100).toFixed(2))
+        .replace('{amount}', (surchargeAmountCents / 100).toFixed(2))
+    : null;
 
   // Quick amount buttons (cash only) — these ADD to the current amount
   const quickAmounts = [100, 500, 1000, 2000, 5000, 10000]; // $1, $5, $10, $20, $50, $100
@@ -165,6 +228,9 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       }
       if (tenderType === 'card') {
         body.token = cardToken.trim();
+        if (surchargeAmountCents > 0) {
+          body.surchargeAmountCents = surchargeAmountCents;
+        }
       }
 
       const res = await apiFetch<{ data: RecordTenderResult }>(
@@ -192,12 +258,10 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         await fetchTenders();
       }
     } catch (err) {
-      if (err instanceof ApiError && err.statusCode === 402) {
-        toast.error('Card declined — please try a different card');
-      } else if (err instanceof ApiError && err.statusCode === 409) {
-        toast.error('Payment conflict — please try again');
-      } else if (err instanceof ApiError && err.statusCode === 502) {
-        toast.error('Card processing error — please try again');
+      if (err instanceof ApiError) {
+        // Prefer structured userMessage from gateway interpreter (cardholder-safe)
+        const displayMessage = err.userMessage ?? err.message;
+        toast.error(displayMessage);
       } else {
         const e = err instanceof Error ? err : new Error('Payment failed');
         toast.error(e.message);
@@ -205,6 +269,134 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // ── Card-present flow ─────────────────────────────────────
+  const handleCardPresentSubmit = async () => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      toast.error('Offline — payments disabled until connection restored');
+      return;
+    }
+    const submitAmountCents = amountCents > 0 ? amountCents : remaining;
+    if (submitAmountCents <= 0) {
+      toast.error('Amount must be greater than zero');
+      return;
+    }
+    if (!order.id) {
+      toast.error('Order is still being created — please wait');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setCardPresentStatus('waiting');
+    setCardPresentResult({});
+
+    try {
+      // Step 1: Send auth-card to the physical terminal
+      setCardPresentStatus('waiting');
+      const authRes = await apiFetch<{ data: { id: string; status: string; cardLast4?: string; cardBrand?: string; errorMessage?: string; userMessage?: string; suggestedAction?: string; retryable?: boolean } }>(
+        '/api/v1/payments/terminal/auth-card',
+        {
+          method: 'POST',
+          headers: { 'X-Location-Id': order.locationId },
+          body: JSON.stringify({
+            clientRequestId: crypto.randomUUID(),
+            terminalId: config.terminalId,
+            amountCents: submitAmountCents,
+            tipCents: tipCents,
+            capture: 'Y',
+            orderId: order.id,
+            ...(surchargeAmountCents > 0 ? { surchargeAmountCents } : {}),
+          }),
+        },
+      );
+
+      const authResult = authRes.data;
+
+      if (authResult.status === 'captured' || authResult.status === 'authorized') {
+        setCardPresentStatus('approved');
+        setCardPresentResult({ cardBrand: authResult.cardBrand, cardLast4: authResult.cardLast4 });
+
+        // Step 2: Record the tender via place-and-pay with the gateway payment intent
+        const body: Record<string, unknown> = {
+          clientRequestId: crypto.randomUUID(),
+          placeClientRequestId: crypto.randomUUID(),
+          orderId: order.id,
+          tenderType: 'card',
+          amountGiven: submitAmountCents,
+          tipAmount: tipCents,
+          terminalId: config.terminalId,
+          employeeId: user?.id ?? '',
+          businessDate: todayBusinessDate(),
+          shiftId: shiftId ?? undefined,
+          posMode: config.posMode,
+          paymentIntentId: authResult.id,
+          entryMode: 'terminal',
+          ...(surchargeAmountCents > 0 ? { surchargeAmountCents } : {}),
+        };
+
+        const tenderRes = await apiFetch<{ data: RecordTenderResult }>(
+          `/api/v1/orders/${order.id}/place-and-pay`,
+          {
+            method: 'POST',
+            headers: { 'X-Location-Id': order.locationId },
+            body: JSON.stringify(body),
+          },
+        );
+
+        const result = tenderRes.data;
+        setLastResult(result);
+        isPlacedRef.current = true;
+
+        if (result.isFullyPaid) {
+          toast.success('Card payment complete!');
+          onPaymentComplete(result);
+        } else {
+          toast.info(`Partial payment recorded. Remaining: ${formatMoney(result.remainingBalance)}`);
+          onPartialPayment?.(result.remainingBalance, 0);
+          setAmountGiven('');
+          setTipAmount('');
+          setCardPresentStatus('idle');
+          setCardPresentResult({});
+          await fetchTenders();
+        }
+      } else if (authResult.status === 'declined') {
+        setCardPresentStatus('declined');
+        setCardPresentResult({ errorMessage: authResult.userMessage ?? authResult.errorMessage ?? 'Card declined' });
+      } else {
+        setCardPresentStatus('declined');
+        setCardPresentResult({ errorMessage: authResult.userMessage ?? authResult.errorMessage ?? 'Payment failed' });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Terminal payment failed';
+      if (message.includes('timed out') || message.includes('Timeout')) {
+        setCardPresentStatus('timeout');
+      } else {
+        setCardPresentStatus('declined');
+      }
+      setCardPresentResult({ errorMessage: message });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancelCardPresent = async () => {
+    try {
+      await apiFetch('/api/v1/payments/terminal/cancel', {
+        method: 'POST',
+        headers: { 'X-Location-Id': order.locationId },
+        body: JSON.stringify({ terminalId: config.terminalId }),
+      });
+    } catch {
+      // Best effort
+    }
+    setCardPresentStatus('cancelled');
+    setIsSubmitting(false);
+  };
+
+  const handleRetryCardPresent = () => {
+    setCardPresentStatus('idle');
+    setCardPresentResult({});
   };
 
   if (!open || typeof document === 'undefined') return null;
@@ -271,66 +463,177 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
             </div>
           </div>
 
+          {/* Surcharge notice (card payments only) */}
+          {tenderType === 'card' && surchargeAmountCents > 0 && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium text-amber-800">Credit Card Surcharge ({(effectiveSurchargeRate * 100).toFixed(2)}%)</span>
+                <span className="font-semibold text-amber-900">{formatMoney(surchargeAmountCents)}</span>
+              </div>
+              {surchargeDisclosure && (
+                <p className="text-xs text-amber-700">{surchargeDisclosure}</p>
+              )}
+              <div className="flex justify-between text-sm font-bold border-t border-amber-200 pt-1">
+                <span className="text-amber-900">Total with Surcharge</span>
+                <span className="text-amber-900">{formatMoney(chargeAmountForSurcharge + surchargeAmountCents)}</span>
+              </div>
+            </div>
+          )}
+
           {/* Card-specific fields */}
           {tenderType === 'card' ? (
-            <>
-              {/* Card Token */}
-              <div>
-                <label htmlFor="cardToken" className="block text-sm font-medium text-gray-700 mb-1">
-                  Card Token
-                </label>
-                <input
-                  id="cardToken"
-                  type="text"
-                  value={cardToken}
-                  onChange={(e) => setCardToken(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 py-3 px-4 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  placeholder="Scan card or enter token"
-                  autoFocus
+            isCardPresent ? (
+              /* ── Card-present mode: physical terminal device ── */
+              <>
+                <CardPresentIndicator
+                  status={cardPresentStatus}
+                  isConnected={isConnected}
+                  deviceModel={device?.deviceModel ?? null}
+                  hsn={device?.hsn ?? null}
+                  cardBrand={cardPresentResult.cardBrand}
+                  cardLast4={cardPresentResult.cardLast4}
+                  errorMessage={cardPresentResult.errorMessage}
+                  onCancel={cardPresentStatus === 'waiting' ? handleCancelCardPresent : undefined}
+                  onRetry={cardPresentStatus === 'declined' || cardPresentStatus === 'timeout' ? handleRetryCardPresent : undefined}
                 />
-                <p className="mt-1 text-xs text-gray-400">Token from card reader or CardSecure hosted field</p>
-              </div>
-              {/* Amount */}
-              <div>
-                <label htmlFor="amountGiven" className="block text-sm font-medium text-gray-700 mb-1">
-                  Charge Amount
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <input
-                    id="amountGiven"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={amountGiven}
-                    onChange={(e) => setAmountGiven(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 py-3 pl-8 pr-4 text-right text-xl font-bold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-              {/* Tip section (card tips) */}
-              {config.tipEnabled && (
+
+                {/* Amount (editable before sending to terminal) */}
+                {(cardPresentStatus === 'idle' || cardPresentStatus === 'cancelled') && (
+                  <div>
+                    <label htmlFor="amountGiven" className="block text-sm font-medium text-gray-700 mb-1">
+                      Charge Amount
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <input
+                        id="amountGiven"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={amountGiven}
+                        onChange={(e) => setAmountGiven(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 py-3 pl-8 pr-4 text-right text-xl font-bold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Tip (card-present tips — optional, before sending) */}
+                {config.tipEnabled && (cardPresentStatus === 'idle' || cardPresentStatus === 'cancelled') && (
+                  <div>
+                    <label htmlFor="tipAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                      Tip
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <input
+                        id="tipAmount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={tipAmount}
+                        onChange={(e) => setTipAmount(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 text-right text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* ── Card-not-present mode: token-based entry ── */
+              <>
+                {/* Dual-mode card entry: Reader (default) / Manual Entry (toggle) */}
                 <div>
-                  <label htmlFor="tipAmount" className="block text-sm font-medium text-gray-700 mb-1">
-                    Tip
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      {manualEntry ? 'Manual Card Entry' : 'Card Reader'}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => { setManualEntry((v) => !v); setCardToken(''); }}
+                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
+                    >
+                      <Keyboard className="h-3.5 w-3.5" />
+                      {manualEntry ? 'Use Card Reader' : 'Manual Entry'}
+                    </button>
+                  </div>
+
+                  {manualEntry ? (
+                    /* Manual entry: hosted iframe tokenizer */
+                    <div>
+                      <PaymentMethodCapture
+                        config={tokenizerConfig}
+                        isConfigLoading={tokenizerLoading}
+                        configError={tokenizerError}
+                        onTokenize={handleCardTokenize}
+                        onError={handleCardTokenError}
+                        showWallets={false}
+                      />
+                      {cardToken && (
+                        <p className="mt-1 text-xs text-green-600">Card tokenized successfully.</p>
+                      )}
+                    </div>
+                  ) : (
+                    /* Reader mode: keyboard wedge input */
+                    <div>
+                      <input
+                        id="cardToken"
+                        type="text"
+                        value={cardToken}
+                        onChange={(e) => setCardToken(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 py-3 px-4 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        placeholder="Waiting for card swipe/tap..."
+                        autoFocus
+                      />
+                      <p className="mt-1 text-xs text-gray-400">Swipe, tap, or insert card on the reader</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label htmlFor="amountGiven" className="block text-sm font-medium text-gray-700 mb-1">
+                    Charge Amount
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                     <input
-                      id="tipAmount"
+                      id="amountGiven"
                       type="number"
                       step="0.01"
                       min="0"
-                      value={tipAmount}
-                      onChange={(e) => setTipAmount(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 text-right text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      value={amountGiven}
+                      onChange={(e) => setAmountGiven(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 py-3 pl-8 pr-4 text-right text-xl font-bold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                       placeholder="0.00"
                     />
                   </div>
                 </div>
-              )}
-            </>
+                {/* Tip section (card tips) */}
+                {config.tipEnabled && (
+                  <div>
+                    <label htmlFor="tipAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                      Tip
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <input
+                        id="tipAmount"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={tipAmount}
+                        onChange={(e) => setTipAmount(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 text-right text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
+            )
           ) : tenderType === 'check' ? (
             <>
               {/* Amount */}
@@ -467,8 +770,14 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
           </button>
           <button
             type="button"
-            onClick={() => handleSubmit()}
-            disabled={isSubmitting || amountCents <= 0 || (tenderType === 'check' && !checkNumber.trim()) || (tenderType === 'card' && !cardToken.trim())}
+            onClick={() => isCardPresent ? handleCardPresentSubmit() : handleSubmit()}
+            disabled={
+              isSubmitting
+              || (cardPresentStatus === 'waiting' || cardPresentStatus === 'processing')
+              || (!isCardPresent && amountCents <= 0)
+              || (tenderType === 'check' && !checkNumber.trim())
+              || (tenderType === 'card' && !isCardPresent && !cardToken.trim())
+            }
             className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               tenderType === 'card'
                 ? 'bg-indigo-600 hover:bg-indigo-700'
@@ -477,7 +786,14 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                   : 'bg-green-600 hover:bg-green-700'
             }`}
           >
-            {isSubmitting ? 'Processing...' : `Pay ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : ''}`}
+            {isSubmitting
+              ? 'Processing...'
+              : isCardPresent
+                ? (cardPresentStatus === 'idle' || cardPresentStatus === 'cancelled')
+                  ? `Charge ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : formatMoney(remaining)}`
+                  : 'Processing...'
+                : `Pay ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : ''}`
+            }
           </button>
         </div>
       </div>

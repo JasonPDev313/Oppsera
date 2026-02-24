@@ -76,9 +76,11 @@ export class SupabaseAuthAdapter implements AuthAdapter {
         };
       }
 
-      // Look up tenant
+      // Look up tenant — select only needed columns to avoid schema mismatch
+      // when new columns exist in Drizzle but migration hasn't run yet
       const tenant = await db.query.tenants.findFirst({
         where: eq(tenants.id, membership.tenantId),
+        columns: { id: true, status: true },
       });
       if (!tenant) return null;
 

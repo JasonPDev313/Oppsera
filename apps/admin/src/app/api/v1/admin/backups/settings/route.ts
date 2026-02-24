@@ -48,58 +48,41 @@ export const PATCH = withAdminAuth(async (req: NextRequest) => {
   }
 
   const updates = parsed.data;
-  const setClauses: string[] = [];
-  const values: unknown[] = [];
-  let paramIdx = 1;
+  const setParts: ReturnType<typeof sql>[] = [];
 
   if (updates.schedulingEnabled !== undefined) {
-    setClauses.push(`scheduling_enabled = $${paramIdx}`);
-    values.push(updates.schedulingEnabled);
-    paramIdx++;
+    setParts.push(sql`scheduling_enabled = ${updates.schedulingEnabled}`);
   }
   if (updates.intervalMinutes !== undefined) {
-    setClauses.push(`interval_minutes = $${paramIdx}`);
-    values.push(updates.intervalMinutes);
-    paramIdx++;
+    setParts.push(sql`interval_minutes = ${updates.intervalMinutes}`);
   }
   if (updates.retentionDailyDays !== undefined) {
-    setClauses.push(`retention_daily_days = $${paramIdx}`);
-    values.push(updates.retentionDailyDays);
-    paramIdx++;
+    setParts.push(sql`retention_daily_days = ${updates.retentionDailyDays}`);
   }
   if (updates.retentionWeeklyWeeks !== undefined) {
-    setClauses.push(`retention_weekly_weeks = $${paramIdx}`);
-    values.push(updates.retentionWeeklyWeeks);
-    paramIdx++;
+    setParts.push(sql`retention_weekly_weeks = ${updates.retentionWeeklyWeeks}`);
   }
   if (updates.retentionMonthlyMonths !== undefined) {
-    setClauses.push(`retention_monthly_months = $${paramIdx}`);
-    values.push(updates.retentionMonthlyMonths);
-    paramIdx++;
+    setParts.push(sql`retention_monthly_months = ${updates.retentionMonthlyMonths}`);
   }
   if (updates.storageDriver !== undefined) {
-    setClauses.push(`storage_driver = $${paramIdx}`);
-    values.push(updates.storageDriver);
-    paramIdx++;
+    setParts.push(sql`storage_driver = ${updates.storageDriver}`);
   }
   if (updates.dualApprovalRequired !== undefined) {
-    setClauses.push(`dual_approval_required = $${paramIdx}`);
-    values.push(updates.dualApprovalRequired);
-    paramIdx++;
+    setParts.push(sql`dual_approval_required = ${updates.dualApprovalRequired}`);
   }
 
-  if (setClauses.length === 0) {
+  if (setParts.length === 0) {
     return NextResponse.json(
       { error: { code: 'VALIDATION_ERROR', message: 'No fields to update' } },
       { status: 400 },
     );
   }
 
-  setClauses.push(`updated_at = NOW()`);
+  setParts.push(sql`updated_at = NOW()`);
 
   await db.execute(
-    sql.raw(`UPDATE platform_backup_settings SET ${setClauses.join(', ')} WHERE id = 'default'`),
-    values as never,
+    sql`UPDATE platform_backup_settings SET ${sql.join(setParts, sql`, `)} WHERE id = 'default'`,
   );
 
   const settings = await getBackupSettingsFromDb();

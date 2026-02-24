@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbTab } from '@/hooks/use-fnb-tab';
 import { usePaymentSession, usePreAuth, useTipActions } from '@/hooks/use-fnb-payments';
+import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
 import { apiFetch } from '@/lib/api-client';
 import { PaymentScreen } from './payment/PaymentScreen';
 import type { CheckSummary } from '@/types/fnb';
@@ -30,6 +31,9 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
   } = usePaymentSession({ tabId: tabId ?? '' });
   const { preauths, capturePreauth, voidPreauth } = usePreAuth({ tabId: tabId ?? undefined });
   const { adjustTip } = useTipActions();
+  const { config: tokenizerConfig, isLoading: tokenizerLoading, error: tokenizerError } = useTokenizerConfig({
+    enabled: !!tabId,
+  });
 
   const [check, setCheck] = useState<CheckSummary | null>(null);
   const [isLoadingCheck, setIsLoadingCheck] = useState(false);
@@ -382,6 +386,9 @@ export function FnbPaymentView({ userId: _userId }: FnbPaymentViewProps) {
           onCancelPayment={handleFailSession}
           onCheckRefresh={refreshCheck}
           disabled={isOffline}
+          tokenizerConfig={tokenizerConfig}
+          tokenizerLoading={tokenizerLoading}
+          tokenizerError={tokenizerError}
         />
       </div>
     </div>

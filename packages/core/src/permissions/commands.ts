@@ -7,8 +7,11 @@ import {
   roleAssignments,
   memberships,
   locations,
+  roleLocationAccess,
+  roleProfitCenterAccess,
+  roleTerminalAccess,
 } from '@oppsera/db';
-import { ValidationError, ConflictError, NotFoundError } from '@oppsera/shared';
+import { ValidationError, ConflictError, NotFoundError, generateUlid } from '@oppsera/shared';
 import { getPermissionEngine } from './engine';
 
 // ── Schemas ──────────────────────────────────────────────────────
@@ -313,5 +316,138 @@ export async function revokeRole(input: z.input<typeof revokeRoleSchema>) {
     // Invalidate permission cache
     const engine = getPermissionEngine();
     await engine.invalidateCache(tenantId, userId);
+  });
+}
+
+// ── Role Access Scoping Commands ─────────────────────────────────
+
+const setRoleLocationAccessSchema = z.object({
+  tenantId: z.string().min(1),
+  roleId: z.string().min(1),
+  locationIds: z.array(z.string().min(1)),
+});
+
+export async function setRoleLocationAccess(input: z.input<typeof setRoleLocationAccessSchema>) {
+  const parsed = setRoleLocationAccessSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError(
+      'Validation failed',
+      parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+    );
+  }
+  const { tenantId, roleId, locationIds } = parsed.data;
+
+  return withTenant(tenantId, async (tx) => {
+    const role = await tx.query.roles.findFirst({
+      where: and(eq(roles.id, roleId), eq(roles.tenantId, tenantId)),
+    });
+    if (!role) {
+      throw new NotFoundError('Role', roleId);
+    }
+
+    // Delete existing access rows for this role
+    await tx.delete(roleLocationAccess).where(
+      and(eq(roleLocationAccess.roleId, roleId), eq(roleLocationAccess.tenantId, tenantId)),
+    );
+
+    // Insert new rows (empty array = unrestricted)
+    if (locationIds.length > 0) {
+      await tx.insert(roleLocationAccess).values(
+        locationIds.map((locationId) => ({
+          id: generateUlid(),
+          tenantId,
+          roleId,
+          locationId,
+        })),
+      );
+    }
+
+    return { roleId, locationCount: locationIds.length };
+  });
+}
+
+const setRoleProfitCenterAccessSchema = z.object({
+  tenantId: z.string().min(1),
+  roleId: z.string().min(1),
+  profitCenterIds: z.array(z.string().min(1)),
+});
+
+export async function setRoleProfitCenterAccess(input: z.input<typeof setRoleProfitCenterAccessSchema>) {
+  const parsed = setRoleProfitCenterAccessSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError(
+      'Validation failed',
+      parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+    );
+  }
+  const { tenantId, roleId, profitCenterIds } = parsed.data;
+
+  return withTenant(tenantId, async (tx) => {
+    const role = await tx.query.roles.findFirst({
+      where: and(eq(roles.id, roleId), eq(roles.tenantId, tenantId)),
+    });
+    if (!role) {
+      throw new NotFoundError('Role', roleId);
+    }
+
+    await tx.delete(roleProfitCenterAccess).where(
+      and(eq(roleProfitCenterAccess.roleId, roleId), eq(roleProfitCenterAccess.tenantId, tenantId)),
+    );
+
+    if (profitCenterIds.length > 0) {
+      await tx.insert(roleProfitCenterAccess).values(
+        profitCenterIds.map((profitCenterId) => ({
+          id: generateUlid(),
+          tenantId,
+          roleId,
+          profitCenterId,
+        })),
+      );
+    }
+
+    return { roleId, profitCenterCount: profitCenterIds.length };
+  });
+}
+
+const setRoleTerminalAccessSchema = z.object({
+  tenantId: z.string().min(1),
+  roleId: z.string().min(1),
+  terminalIds: z.array(z.string().min(1)),
+});
+
+export async function setRoleTerminalAccess(input: z.input<typeof setRoleTerminalAccessSchema>) {
+  const parsed = setRoleTerminalAccessSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new ValidationError(
+      'Validation failed',
+      parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+    );
+  }
+  const { tenantId, roleId, terminalIds } = parsed.data;
+
+  return withTenant(tenantId, async (tx) => {
+    const role = await tx.query.roles.findFirst({
+      where: and(eq(roles.id, roleId), eq(roles.tenantId, tenantId)),
+    });
+    if (!role) {
+      throw new NotFoundError('Role', roleId);
+    }
+
+    await tx.delete(roleTerminalAccess).where(
+      and(eq(roleTerminalAccess.roleId, roleId), eq(roleTerminalAccess.tenantId, tenantId)),
+    );
+
+    if (terminalIds.length > 0) {
+      await tx.insert(roleTerminalAccess).values(
+        terminalIds.map((terminalId) => ({
+          id: generateUlid(),
+          tenantId,
+          roleId,
+          terminalId,
+        })),
+      );
+    }
+
+    return { roleId, terminalCount: terminalIds.length };
   });
 }

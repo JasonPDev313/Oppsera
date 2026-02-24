@@ -26,6 +26,9 @@ import {
   getDepositStatus,
   getLocationCloseStatus,
   getTenderForGlRepost,
+  getAchPendingCount,
+  getAchReturnSummary,
+  getAchSettlementSummary,
 } from '@oppsera/module-payments';
 import {
   getInventoryMovementsSummary,
@@ -41,7 +44,7 @@ import {
  *
  * Implementations are provided by the owning modules:
  *   - Orders domain (5 methods)  → @oppsera/module-orders
- *   - Payments domain (18 methods) → @oppsera/module-payments
+ *   - Payments domain (21 methods) → @oppsera/module-payments
  *   - Inventory domain (2 methods) → @oppsera/module-inventory
  *   - F&B domain (1 method)      → @oppsera/module-fnb
  */
@@ -92,6 +95,11 @@ export async function initializeReconciliationReadApi(): Promise<void> {
 
     // ── GL Remap Domain ───────────────────────────────────────
     getTenderForGlRepost,
+
+    // ── ACH Domain ────────────────────────────────────────────
+    getAchPendingCount,
+    getAchReturnSummary,
+    getAchSettlementSummary,
   };
 
   setReconciliationReadApi(api);

@@ -4,11 +4,13 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { paymentIntents, paymentTransactions } from '@oppsera/db';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import type { VoidPaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
 import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gateway-types';
 import { resolveProvider } from '../helpers/resolve-provider';
+import { interpretResponse } from '../services/response-interpreter';
+import type { ResponseInterpretation } from '../services/response-interpreter';
 
 export async function voidPayment(
   ctx: RequestContext,
@@ -19,7 +21,10 @@ export async function voidPayment(
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
-    // 1. Load payment intent
+    // 1. Load payment intent with FOR UPDATE lock (prevents concurrent void race)
+    await tx.execute(
+      sql`SELECT id FROM payment_intents WHERE id = ${input.paymentIntentId} AND tenant_id = ${ctx.tenantId} FOR UPDATE`,
+    );
     const [intent] = await tx
       .select()
       .from(paymentIntents)
@@ -35,10 +40,15 @@ export async function voidPayment(
       throw new AppError('PAYMENT_INTENT_NOT_FOUND', 'Payment intent not found', 404);
     }
 
-    // 2. Validate status — can void from authorized or captured (pre-settlement only)
+    // 2. Idempotency — if already voided, return existing result (double-click safe)
+    if (intent.status === 'voided') {
+      return { result: mapIntentToResult(intent, null), events: [] };
+    }
+
+    // 3. Validate status — can void from authorized or captured (pre-settlement only)
     assertIntentTransition(intent.status as any, 'voided');
 
-    // 3. Get latest provider ref
+    // 4. Get latest provider ref
     const [latestTxn] = await tx
       .select()
       .from(paymentTransactions)
@@ -55,19 +65,29 @@ export async function voidPayment(
       throw new AppError('NO_PROVIDER_REF', 'No provider reference found for this payment', 422);
     }
 
-    // 4. Resolve provider
+    // 5. Resolve provider
     const { provider, merchantId } = await resolveProvider(
       ctx.tenantId,
       intent.locationId,
     );
 
-    // 5. Call provider void
+    // 6. Call provider void
     const voidResponse = await provider.void({
       merchantId,
       providerRef: latestTxn.providerRef,
     });
 
-    // 6. Insert payment transaction
+    // 7. Interpret response
+    const interpretation = interpretResponse({
+      responseCode: voidResponse.responseCode || null,
+      responseText: voidResponse.responseText || null,
+      respstat: (voidResponse.rawResponse as Record<string, unknown>)?.respstat as string ?? null,
+      avsResponse: null,
+      cvvResponse: null,
+      rawResponse: voidResponse.rawResponse as Record<string, unknown>,
+    });
+
+    // 8. Insert payment transaction
     await tx.insert(paymentTransactions).values({
       tenantId: ctx.tenantId,
       paymentIntentId: intent.id,
@@ -78,9 +98,15 @@ export async function voidPayment(
       responseCode: voidResponse.responseCode || null,
       responseText: voidResponse.responseText || null,
       providerResponse: voidResponse.rawResponse,
+      clientRequestId: input.clientRequestId,
+      declineCategory: interpretation.declineCategory,
+      userMessage: interpretation.userMessage,
+      suggestedAction: interpretation.suggestedAction,
+      retryable: interpretation.retryable,
+      processor: interpretation.processor,
     });
 
-    // 7. Update intent
+    // 9. Update intent
     let newStatus: string;
     let errorMessage: string | null = null;
 
@@ -101,7 +127,7 @@ export async function voidPayment(
       .where(eq(paymentIntents.id, intent.id))
       .returning();
 
-    // 8. Build event
+    // 10. Build event
     if (voidResponse.status === 'approved') {
       const event = buildEventFromContext(ctx, PAYMENT_GATEWAY_EVENTS.VOIDED, {
         paymentIntentId: intent.id,
@@ -112,17 +138,17 @@ export async function voidPayment(
         customerId: intent.customerId,
         providerRef: voidResponse.providerRef,
       });
-      return { result: mapIntentToResult(updated!), events: [event] };
+      return { result: mapIntentToResult(updated!, interpretation), events: [event] };
     }
 
-    return { result: mapIntentToResult(updated!), events: [] };
+    return { result: mapIntentToResult(updated!, interpretation), events: [] };
   });
 
   await auditLog(ctx, 'payment.voided', 'payment_intent', result.id);
   return result;
 }
 
-function mapIntentToResult(intent: Record<string, any>): PaymentIntentResult {
+function mapIntentToResult(intent: Record<string, any>, interpretation?: ResponseInterpretation | null): PaymentIntentResult {
   return {
     id: intent.id,
     tenantId: intent.tenantId,
@@ -139,6 +165,12 @@ function mapIntentToResult(intent: Record<string, any>): PaymentIntentResult {
     cardBrand: intent.cardBrand ?? null,
     providerRef: null,
     errorMessage: intent.errorMessage ?? null,
+    userMessage: interpretation?.userMessage ?? null,
+    suggestedAction: interpretation?.suggestedAction ?? null,
+    declineCategory: interpretation?.declineCategory ?? null,
+    retryable: interpretation?.retryable ?? false,
+    avsResult: null,
+    cvvResult: null,
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
   };

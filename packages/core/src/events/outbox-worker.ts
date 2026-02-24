@@ -8,6 +8,9 @@ export class OutboxWorker {
   private batchSize: number;
   private eventBus: EventBus;
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
+  private consecutiveErrors = 0;
+  private lastErrorMessage = '';
+  private static readonly MAX_BACKOFF_MS = 30_000; // cap at 30s
 
   constructor(options: {
     eventBus: EventBus;
@@ -45,11 +48,26 @@ export class OutboxWorker {
 
     try {
       const published = await this.processBatch();
+      this.consecutiveErrors = 0;
+      this.lastErrorMessage = '';
       const delay = published > 0 ? 0 : this.pollIntervalMs;
       this.pollTimer = setTimeout(() => this.poll(), delay);
     } catch (error) {
-      console.error('Outbox worker error:', error);
-      this.pollTimer = setTimeout(() => this.poll(), this.pollIntervalMs * 10);
+      this.consecutiveErrors++;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      // Only log on first occurrence or when error message changes
+      if (this.consecutiveErrors === 1 || errMsg !== this.lastErrorMessage) {
+        console.error(`Outbox worker error (will retry with backoff): ${errMsg}`);
+      } else if (this.consecutiveErrors === 5) {
+        console.error(`Outbox worker: DB still unreachable after ${this.consecutiveErrors} attempts, suppressing further logs`);
+      }
+      this.lastErrorMessage = errMsg;
+      // Exponential backoff: 1s, 2s, 4s, 8s, 16s, capped at 30s
+      const backoff = Math.min(
+        this.pollIntervalMs * 10 * Math.pow(2, this.consecutiveErrors - 1),
+        OutboxWorker.MAX_BACKOFF_MS,
+      );
+      this.pollTimer = setTimeout(() => this.poll(), backoff);
     }
   }
 

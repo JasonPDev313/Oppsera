@@ -62,6 +62,48 @@ export class DefaultPermissionEngine implements PermissionEngine {
     return permissions;
   }
 
+  async getUserPermissionsForRole(
+    tenantId: string,
+    userId: string,
+    roleId: string,
+    locationId?: string,
+  ): Promise<Set<string>> {
+    const cache = getPermissionCache();
+    const cacheKey = `perms:${tenantId}:${userId}:role:${roleId}:${locationId || 'global'}`;
+
+    const cached = await cache.get(cacheKey);
+    if (cached) return cached;
+
+    // Validate user actually has this role assignment (prevents spoofing)
+    const assignmentCheck = await db.execute<{ cnt: number }>(sql`
+      SELECT count(*)::int AS cnt
+      FROM role_assignments
+      WHERE tenant_id = ${tenantId}
+        AND user_id = ${userId}
+        AND role_id = ${roleId}
+    `) as unknown as { cnt: number }[];
+
+    const hasAssignment = Array.from(assignmentCheck as Iterable<{ cnt: number }>)[0]?.cnt ?? 0;
+    if (hasAssignment === 0) {
+      return new Set<string>();
+    }
+
+    // Return only permissions from the specific role
+    const result = await db.execute<{ permission: string }>(sql`
+      SELECT DISTINCT rp.permission
+      FROM role_permissions rp
+      WHERE rp.role_id = ${roleId}
+    `) as unknown as { permission: string }[];
+
+    const permissions = new Set<string>();
+    for (const row of Array.from(result as Iterable<{ permission: string }>)) {
+      permissions.add(row.permission);
+    }
+
+    await cache.set(cacheKey, permissions, CACHE_TTL);
+    return permissions;
+  }
+
   async hasPermission(
     tenantId: string,
     userId: string,

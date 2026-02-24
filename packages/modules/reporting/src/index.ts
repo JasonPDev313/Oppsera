@@ -11,6 +11,8 @@ export {
   handleOrderVoided,
   handleTenderRecorded,
   handleInventoryMovement,
+  handleOrderPlacedModifiers,
+  handleOrderVoidedModifiers,
 } from './consumers';
 
 // ── Query Services ────────────────────────────────────────────
@@ -26,6 +28,15 @@ export {
   previewReport,
   getDashboard,
   listDashboards,
+  // Modifier reporting queries
+  getModifierPerformance,
+  getModifierGroupHealth,
+  getModifierUpsellImpact,
+  getModifierDaypartHeatmap,
+  getModifierGroupItemHeatmap,
+  getModifierLocationHeatmap,
+  getModifierWasteSignals,
+  getModifierComplexity,
 } from './queries';
 
 export type {
@@ -48,6 +59,23 @@ export type {
   DashboardRow,
   ListDashboardsInput,
   ListDashboardsResult,
+  // Modifier reporting types
+  GetModifierPerformanceInput,
+  ModifierPerformanceRow,
+  GetModifierGroupHealthInput,
+  ModifierGroupHealthResult,
+  GetModifierUpsellImpactInput,
+  UpsellImpactRow,
+  GetModifierDaypartHeatmapInput,
+  DaypartHeatmapRow,
+  GetModifierGroupItemHeatmapInput,
+  GroupItemHeatmapRow,
+  GetModifierLocationHeatmapInput,
+  LocationHeatmapRow,
+  GetModifierWasteSignalsInput,
+  WasteSignalRow,
+  GetModifierComplexityInput,
+  ComplexityRow,
 } from './queries';
 
 // ── Commands ─────────────────────────────────────────────────
@@ -65,6 +93,15 @@ export type {
   CompileReportInput,
   CompiledQuery,
 } from './compiler';
+
+// ── Helpers (Pure Functions) ─────────────────────────────────
+export { computeModifierGroupHealth } from './helpers/modifier-recommendations';
+export type {
+  ModifierRecommendation,
+  ModifierGroupHealthInput,
+  ModifierGroupHealthResult,
+  ComputeModifierGroupHealthOptions,
+} from './helpers/modifier-recommendations';
 
 // ── CSV Export ────────────────────────────────────────────────
 export { toCsv } from './csv-export';

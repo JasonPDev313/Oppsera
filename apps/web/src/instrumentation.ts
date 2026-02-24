@@ -118,6 +118,11 @@ export async function register() {
       bus.subscribe('membership.billing.charged.v1', accounting.handleMembershipBillingForAccounting);
       bus.subscribe('chargeback.received.v1', accounting.handleChargebackReceivedForAccounting);
       bus.subscribe('chargeback.resolved.v1', accounting.handleChargebackResolvedForAccounting);
+      bus.subscribe('payment.gateway.ach_returned.v1', accounting.handleAchReturnForAccounting);
+      // ACH GL lifecycle — origination, settlement, and ACH-sourced return reversals
+      bus.subscribe('payment.gateway.ach_originated.v1', accounting.handleAchOriginatedForAccounting);
+      bus.subscribe('payment.gateway.ach_settled.v1', accounting.handleAchSettledForAccounting);
+      bus.subscribe('payment.gateway.ach_returned.v1', accounting.handleAchReturnGlReversal);
       console.log('Registered accounting event consumers');
     } catch (e) {
       console.error('Failed to initialize accounting:', e);

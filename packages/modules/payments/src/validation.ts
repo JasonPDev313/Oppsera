@@ -12,6 +12,7 @@ export const recordTenderSchema = z.object({
   businessDate: z.string().date(),
   shiftId: z.string().optional(),
   posMode: z.enum(['retail', 'fnb']).optional(),
+  surchargeAmountCents: z.number().int().min(0).default(0),
   version: z.number().int().optional(), // optimistic locking
   metadata: z
     .object({

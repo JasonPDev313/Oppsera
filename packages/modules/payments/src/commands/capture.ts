@@ -4,12 +4,14 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError } from '@oppsera/shared';
 import { paymentIntents, paymentTransactions } from '@oppsera/db';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql } from 'drizzle-orm';
 import type { CapturePaymentInput } from '../gateway-validation';
 import type { PaymentIntentResult } from '../types/gateway-results';
 import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gateway-types';
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents } from '../helpers/amount';
+import { interpretResponse } from '../services/response-interpreter';
+import type { ResponseInterpretation } from '../services/response-interpreter';
 
 export async function capturePayment(
   ctx: RequestContext,
@@ -34,10 +36,13 @@ export async function capturePayment(
 
     // If the idempotency key matches the capture target AND it's already captured, return it
     if (existingIntent && existingIntent.id === input.paymentIntentId && existingIntent.status === 'captured') {
-      return { result: mapIntentToResult(existingIntent), events: [] };
+      return { result: mapIntentToResult(existingIntent, null), events: [] };
     }
 
-    // 2. Load payment intent
+    // 2. Load payment intent with FOR UPDATE lock (prevents concurrent capture race)
+    await tx.execute(
+      sql`SELECT id FROM payment_intents WHERE id = ${input.paymentIntentId} AND tenant_id = ${ctx.tenantId} FOR UPDATE`,
+    );
     const [intent] = await tx
       .select()
       .from(paymentIntents)
@@ -87,7 +92,17 @@ export async function capturePayment(
       amount: centsToDollars(captureAmountCents),
     });
 
-    // 7. Insert payment transaction
+    // 7. Interpret response
+    const interpretation = interpretResponse({
+      responseCode: captureResponse.responseCode || null,
+      responseText: captureResponse.responseText || null,
+      respstat: (captureResponse.rawResponse as Record<string, unknown>)?.respstat as string ?? null,
+      avsResponse: null,
+      cvvResponse: null,
+      rawResponse: captureResponse.rawResponse as Record<string, unknown>,
+    });
+
+    // 8. Insert payment transaction
     await tx.insert(paymentTransactions).values({
       tenantId: ctx.tenantId,
       paymentIntentId: intent.id,
@@ -98,9 +113,15 @@ export async function capturePayment(
       responseCode: captureResponse.responseCode || null,
       responseText: captureResponse.responseText || null,
       providerResponse: captureResponse.rawResponse,
+      clientRequestId: input.clientRequestId,
+      declineCategory: interpretation.declineCategory,
+      userMessage: interpretation.userMessage,
+      suggestedAction: interpretation.suggestedAction,
+      retryable: interpretation.retryable,
+      processor: interpretation.processor,
     });
 
-    // 8. Update intent
+    // 9. Update intent
     let newStatus: string;
     let errorMessage: string | null = null;
 
@@ -122,7 +143,7 @@ export async function capturePayment(
       .where(eq(paymentIntents.id, intent.id))
       .returning();
 
-    // 9. Build event
+    // 10. Build event
     if (captureResponse.status === 'approved') {
       const event = buildEventFromContext(ctx, PAYMENT_GATEWAY_EVENTS.CAPTURED, {
         paymentIntentId: intent.id,
@@ -137,17 +158,17 @@ export async function capturePayment(
         providerRef: captureResponse.providerRef,
         tenderId: intent.tenderId,
       });
-      return { result: mapIntentToResult(updated!), events: [event] };
+      return { result: mapIntentToResult(updated!, interpretation), events: [event] };
     }
 
-    return { result: mapIntentToResult(updated!), events: [] };
+    return { result: mapIntentToResult(updated!, interpretation), events: [] };
   });
 
   await auditLog(ctx, 'payment.captured', 'payment_intent', result.id);
   return result;
 }
 
-function mapIntentToResult(intent: Record<string, any>): PaymentIntentResult {
+function mapIntentToResult(intent: Record<string, any>, interpretation?: ResponseInterpretation | null): PaymentIntentResult {
   return {
     id: intent.id,
     tenantId: intent.tenantId,
@@ -164,6 +185,12 @@ function mapIntentToResult(intent: Record<string, any>): PaymentIntentResult {
     cardBrand: intent.cardBrand ?? null,
     providerRef: null,
     errorMessage: intent.errorMessage ?? null,
+    userMessage: interpretation?.userMessage ?? null,
+    suggestedAction: interpretation?.suggestedAction ?? null,
+    declineCategory: interpretation?.declineCategory ?? null,
+    retryable: interpretation?.retryable ?? false,
+    avsResult: null,
+    cvvResult: null,
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
   };

@@ -418,10 +418,12 @@ export function FnbTabView({ userId: _userId, isActive: _isActive = true }: FnbT
       qty,
       itemType: modifierDrawerItem.itemType,
       seatNumber: activeSeat || 1,
-      modifiers: selectedModifiers.map((m) => ({
+      modifiers: selectedModifiers.map((m: any) => ({
         modifierId: m.optionId,
+        modifierGroupId: m.groupId,
         name: m.name,
         priceAdjustment: m.priceCents,
+        instruction: m.instruction ?? null,
       })),
       specialInstructions: notes || null,
       courseNumber: activeCourse,

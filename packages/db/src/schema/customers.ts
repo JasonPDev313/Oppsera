@@ -1304,6 +1304,13 @@ export const customerPaymentMethods = pgTable(
     providerAccountId: text('provider_account_id'), // CardPointe acctid
     nickname: text('nickname'),
     billingAddress: jsonb('billing_address'),
+    // ── Bank account fields (migration 0178) ──
+    bankRoutingLast4: text('bank_routing_last4'),
+    bankAccountType: text('bank_account_type'), // 'checking' | 'savings'
+    bankName: text('bank_name'),
+    verificationStatus: text('verification_status').notNull().default('not_applicable'),
+    // 'not_applicable' | 'unverified' | 'pending_micro' | 'verified' | 'failed'
+    verificationAttempts: integer('verification_attempts').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },

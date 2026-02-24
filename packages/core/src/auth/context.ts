@@ -6,6 +6,8 @@ export interface RequestContext {
   user: AuthUser;
   tenantId: string;
   locationId?: string;
+  /** When set, permissions are scoped to this single role (not the union of all roles). */
+  activeRoleId?: string;
   requestId: string;
   isPlatformAdmin: boolean;
   impersonation?: ImpersonationInfo;

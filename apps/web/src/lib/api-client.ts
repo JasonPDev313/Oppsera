@@ -82,6 +82,17 @@ async function attemptTokenRefresh(): Promise<boolean> {
   }
 }
 
+function getActiveRoleId(): string | null {
+  try {
+    if (typeof window === 'undefined') return null;
+    const stored = localStorage.getItem('oppsera:terminal-session');
+    if (!stored) return null;
+    return JSON.parse(stored).roleId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
@@ -92,13 +103,24 @@ export async function apiFetch<T = unknown>(
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  // Only set Content-Type for methods that have a body
+  // Only set Content-Type for methods that have a body, but NOT for FormData
+  // (browser must set multipart/form-data with boundary automatically)
   if (method !== 'GET' && method !== 'HEAD' && method !== 'DELETE') {
-    headers['Content-Type'] = 'application/json';
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
   }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // Send active role ID so backend scopes permissions to selected role
+  if (!headers['x-role-id']) {
+    const activeRoleId = getActiveRoleId();
+    if (activeRoleId) {
+      headers['x-role-id'] = activeRoleId;
+    }
   }
 
   let response: Response;
@@ -163,18 +185,30 @@ export async function apiFetch<T = unknown>(
   }
 
   if (!response.ok) {
-    throw new ApiError(
+    const err = new ApiError(
       data.error?.code || 'UNKNOWN_ERROR',
       data.error?.message || 'An error occurred',
       response.status,
       data.error?.details,
     );
+    // Carry through structured payment error fields if present
+    if (data.error?.userMessage) err.userMessage = data.error.userMessage;
+    if (data.error?.suggestedAction) err.suggestedAction = data.error.suggestedAction;
+    if (typeof data.error?.retryable === 'boolean') err.retryable = data.error.retryable;
+    throw err;
   }
 
   return data;
 }
 
 export class ApiError extends Error {
+  /** Cardholder-safe message from gateway response interpreter */
+  userMessage?: string;
+  /** Suggested next action (try_different_card, retry_later, etc.) */
+  suggestedAction?: string;
+  /** Whether the transaction can be retried */
+  retryable?: boolean;
+
   constructor(
     public code: string,
     message: string,

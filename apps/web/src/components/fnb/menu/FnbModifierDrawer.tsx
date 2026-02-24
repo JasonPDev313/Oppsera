@@ -3,12 +3,23 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Minus, Plus, Check, ChevronRight, ChevronLeft, SkipForward } from 'lucide-react';
+import { InstructionButtons } from '@/components/pos/InstructionButtons';
+import type { ModifierInstruction } from '@/components/pos/InstructionButtons';
 
 interface ModifierOption {
   id: string;
   name: string;
   priceCents: number;
   isDefault: boolean;
+  /** Extra price delta in cents (when "Extra" instruction selected) */
+  extraPriceDeltaCents?: number | null;
+  /** Kitchen label override */
+  kitchenLabel?: string | null;
+  /** Per-option instruction flags */
+  allowNone?: boolean;
+  allowExtra?: boolean;
+  allowOnSide?: boolean;
+  isDefaultOption?: boolean;
 }
 
 interface ModifierGroup {
@@ -18,6 +29,19 @@ interface ModifierGroup {
   minSelections: number;
   maxSelections: number;
   options: ModifierOption[];
+  /** Instruction mode for the group: 'none' | 'all' | 'per_option' */
+  instructionMode?: string;
+  /** Default behavior: 'none' | 'auto_select_defaults' */
+  defaultBehavior?: string;
+}
+
+interface SelectedModifierOutput {
+  groupId: string;
+  optionId: string;
+  name: string;
+  priceCents: number;
+  instruction?: ModifierInstruction;
+  kitchenLabel?: string | null;
 }
 
 interface FnbModifierDrawerProps {
@@ -26,15 +50,27 @@ interface FnbModifierDrawerProps {
   itemName: string;
   itemPriceCents: number;
   modifierGroups: ModifierGroup[];
-  onConfirm: (
-    selectedModifiers: { groupId: string; optionId: string; name: string; priceCents: number }[],
-    qty: number,
-    notes: string,
-  ) => void;
+  onConfirm: (selectedModifiers: SelectedModifierOutput[], qty: number, notes: string) => void;
 }
 
 function formatMoney(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
+}
+
+/** Resolve modifier price based on instruction */
+function resolveModPrice(
+  basePriceCents: number,
+  instruction: ModifierInstruction,
+  extraPriceDeltaCents: number | null | undefined,
+): number {
+  switch (instruction) {
+    case 'none':
+      return 0;
+    case 'extra':
+      return extraPriceDeltaCents ?? basePriceCents;
+    default:
+      return basePriceCents;
+  }
 }
 
 // ── Progress Dots ───────────────────────────────────────────────
@@ -80,27 +116,33 @@ function GroupView({
   group,
   selectedOptionIds,
   onToggle,
+  modInstructions,
+  onInstructionChange,
 }: {
   group: ModifierGroup;
   selectedOptionIds: Set<string>;
   onToggle: (optionId: string) => void;
+  modInstructions: Record<string, ModifierInstruction>;
+  onInstructionChange: (optionId: string, instruction: ModifierInstruction) => void;
 }) {
   const isSingleSelect = group.maxSelections === 1;
+  const hasInstructions =
+    group.instructionMode === 'all' || group.instructionMode === 'per_option';
 
   return (
     <div>
       {/* Group header */}
       <div className="flex items-center gap-2 mb-3">
-        <span
-          className="text-sm font-bold"
-          style={{ color: 'var(--fnb-text-primary)' }}
-        >
+        <span className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
           {group.name}
         </span>
         {group.isRequired && (
           <span
             className="rounded px-1.5 py-0.5 text-[10px] font-bold"
-            style={{ backgroundColor: 'rgba(239, 68, 68, 0.15)', color: 'var(--fnb-action-void)' }}
+            style={{
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              color: 'var(--fnb-action-void)',
+            }}
           >
             Required
           </span>
@@ -118,72 +160,105 @@ function GroupView({
       <div className="flex flex-col gap-1.5">
         {group.options.map((opt) => {
           const isSelected = selectedOptionIds.has(opt.id);
+          const instr = modInstructions[opt.id] ?? null;
+          const effectivePrice = resolveModPrice(opt.priceCents, instr, opt.extraPriceDeltaCents);
           const isIncluded = opt.isDefault && opt.priceCents === 0;
 
+          const showInstructions =
+            isSelected &&
+            hasInstructions &&
+            (group.instructionMode === 'all' ||
+              opt.allowNone ||
+              opt.allowExtra ||
+              opt.allowOnSide);
+
           return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => onToggle(opt.id)}
-              className="flex items-center gap-3 rounded-xl text-left transition-all active:scale-[0.98]"
-              style={{
-                padding: '14px 16px', // 48px+ touch target
-                backgroundColor: isSelected
-                  ? 'var(--fnb-status-seated)'
-                  : 'var(--fnb-bg-elevated)',
-                color: isSelected ? '#fff' : 'var(--fnb-text-secondary)',
-              }}
-            >
-              {/* Selection indicator */}
-              <div
-                className="shrink-0 flex items-center justify-center transition-colors"
+            <div key={opt.id}>
+              <button
+                type="button"
+                onClick={() => onToggle(opt.id)}
+                className="w-full flex items-center gap-3 rounded-xl text-left transition-all active:scale-[0.98]"
                 style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: isSingleSelect ? '50%' : 6,
-                  border: isSelected
-                    ? 'none'
-                    : '2px solid rgba(148, 163, 184, 0.3)',
-                  backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'transparent',
+                  padding: '14px 16px',
+                  backgroundColor: isSelected
+                    ? 'var(--fnb-status-seated)'
+                    : 'var(--fnb-bg-elevated)',
+                  color: isSelected ? '#fff' : 'var(--fnb-text-secondary)',
                 }}
               >
-                {isSelected && <Check className="h-3.5 w-3.5" style={{ color: '#fff' }} />}
-              </div>
+                {/* Selection indicator */}
+                <div
+                  className="shrink-0 flex items-center justify-center transition-colors"
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: isSingleSelect ? '50%' : 6,
+                    border: isSelected ? 'none' : '2px solid rgba(148, 163, 184, 0.3)',
+                    backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'transparent',
+                  }}
+                >
+                  {isSelected && <Check className="h-3.5 w-3.5" style={{ color: '#fff' }} />}
+                </div>
 
-              {/* Option name */}
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium block">{opt.name}</span>
-                {isIncluded && !isSelected && (
-                  <span className="text-[10px] font-medium" style={{ color: 'var(--fnb-text-muted)' }}>
+                {/* Option name */}
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium block">{opt.name}</span>
+                  {isIncluded && !isSelected && (
+                    <span
+                      className="text-[10px] font-medium"
+                      style={{ color: 'var(--fnb-text-muted)' }}
+                    >
+                      Included
+                    </span>
+                  )}
+                  {instr === 'none' && isSelected && (
+                    <span className="text-[10px] font-bold" style={{ color: '#fca5a5' }}>
+                      NONE
+                    </span>
+                  )}
+                </div>
+
+                {/* Price badge */}
+                {effectivePrice > 0 && (
+                  <span
+                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold"
+                    style={{
+                      fontFamily: 'var(--fnb-font-mono)',
+                      backgroundColor: isSelected
+                        ? 'rgba(255,255,255,0.2)'
+                        : 'rgba(99, 102, 241, 0.1)',
+                      color: isSelected ? '#fff' : 'var(--fnb-info)',
+                    }}
+                  >
+                    +{formatMoney(effectivePrice)}
+                  </span>
+                )}
+                {effectivePrice === 0 && isSelected && instr !== 'none' && (
+                  <span
+                    className="shrink-0 text-[10px] font-medium"
+                    style={{ color: 'rgba(255,255,255,0.7)' }}
+                  >
                     Included
                   </span>
                 )}
-              </div>
+              </button>
 
-              {/* Price badge */}
-              {opt.priceCents > 0 && (
-                <span
-                  className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold"
-                  style={{
-                    fontFamily: 'var(--fnb-font-mono)',
-                    backgroundColor: isSelected
-                      ? 'rgba(255,255,255,0.2)'
-                      : 'rgba(99, 102, 241, 0.1)',
-                    color: isSelected ? '#fff' : 'var(--fnb-info)',
-                  }}
-                >
-                  +{formatMoney(opt.priceCents)}
-                </span>
+              {/* Instruction buttons below selected option */}
+              {showInstructions && (
+                <div className="ml-10 mt-0.5 mb-1">
+                  <InstructionButtons
+                    allowNone={group.instructionMode === 'all' || !!opt.allowNone}
+                    allowExtra={group.instructionMode === 'all' || !!opt.allowExtra}
+                    allowOnSide={group.instructionMode === 'all' || !!opt.allowOnSide}
+                    value={instr}
+                    onChange={(val) => onInstructionChange(opt.id, val)}
+                    extraPriceDeltaCents={opt.extraPriceDeltaCents}
+                    basePriceCents={opt.priceCents}
+                    variant="fnb"
+                  />
+                </div>
               )}
-              {opt.priceCents === 0 && isSelected && (
-                <span
-                  className="shrink-0 text-[10px] font-medium"
-                  style={{ color: 'rgba(255,255,255,0.7)' }}
-                >
-                  Included
-                </span>
-              )}
-            </button>
+            </div>
           );
         })}
       </div>
@@ -213,20 +288,25 @@ export function FnbModifierDrawer({
 
   // Auto-progression: step through required groups one at a time
   // After all required groups, show optional groups + notes + qty all at once
-  const totalSteps = requiredGroups.length + (optionalGroups.length > 0 ? 1 : 0) + 1; // +1 for qty/notes
+  const totalSteps = requiredGroups.length + (optionalGroups.length > 0 ? 1 : 0) + 1;
   const [activeStep, setActiveStep] = useState(0);
 
-  // Selected modifiers state
+  // Selected modifiers state — auto-select defaults
   const [selected, setSelected] = useState<Map<string, Set<string>>>(() => {
     const m = new Map<string, Set<string>>();
     for (const group of modifierGroups) {
-      const defaults = group.options.filter((o) => o.isDefault).map((o) => o.id);
+      // For auto_select_defaults, use isDefaultOption; otherwise use isDefault
+      const useAutoDefaults = group.defaultBehavior === 'auto_select_defaults';
+      const defaults = group.options
+        .filter((o) => (useAutoDefaults ? o.isDefaultOption : o.isDefault))
+        .map((o) => o.id);
       if (defaults.length > 0) m.set(group.id, new Set(defaults));
     }
     return m;
   });
   const [qty, setQty] = useState(1);
   const [notes, setNotes] = useState('');
+  const [modInstructions, setModInstructions] = useState<Record<string, ModifierInstruction>>({});
 
   if (!open) return null;
 
@@ -236,6 +316,12 @@ export function FnbModifierDrawer({
       const groupSet = new Set(next.get(groupId) ?? []);
       if (groupSet.has(optionId)) {
         groupSet.delete(optionId);
+        // Clear instruction when deselected
+        setModInstructions((p) => {
+          const n = { ...p };
+          delete n[optionId];
+          return n;
+        });
       } else {
         if (maxSel === 1) groupSet.clear();
         groupSet.add(optionId);
@@ -243,6 +329,10 @@ export function FnbModifierDrawer({
       next.set(groupId, groupSet);
       return next;
     });
+  };
+
+  const handleInstructionChange = (optionId: string, instruction: ModifierInstruction) => {
+    setModInstructions((prev) => ({ ...prev, [optionId]: instruction }));
   };
 
   // Current required group (if we're stepping through them)
@@ -274,26 +364,39 @@ export function FnbModifierDrawer({
     return s;
   }, [requiredGroups, selected]);
 
-  // Compute running total
+  // Compute running total (instruction-aware)
   let modTotal = 0;
   for (const [groupId, optionIds] of selected) {
     const group = modifierGroups.find((g) => g.id === groupId);
     if (!group) continue;
     for (const optId of optionIds) {
       const opt = group.options.find((o) => o.id === optId);
-      if (opt) modTotal += opt.priceCents;
+      if (opt) {
+        const instr = modInstructions[optId] ?? null;
+        modTotal += resolveModPrice(opt.priceCents, instr, opt.extraPriceDeltaCents);
+      }
     }
   }
   const lineTotal = (itemPriceCents + modTotal) * qty;
 
   const handleConfirm = () => {
-    const mods: { groupId: string; optionId: string; name: string; priceCents: number }[] = [];
+    const mods: SelectedModifierOutput[] = [];
     for (const [groupId, optionIds] of selected) {
       const group = modifierGroups.find((g) => g.id === groupId);
       if (!group) continue;
       for (const optId of optionIds) {
         const opt = group.options.find((o) => o.id === optId);
-        if (opt) mods.push({ groupId, optionId: opt.id, name: opt.name, priceCents: opt.priceCents });
+        if (opt) {
+          const instr = modInstructions[optId] ?? null;
+          mods.push({
+            groupId,
+            optionId: opt.id,
+            name: opt.name,
+            priceCents: resolveModPrice(opt.priceCents, instr, opt.extraPriceDeltaCents),
+            instruction: instr,
+            kitchenLabel: opt.kitchenLabel,
+          });
+        }
       }
     }
     onConfirm(mods, qty, notes);
@@ -309,13 +412,16 @@ export function FnbModifierDrawer({
   };
 
   // For single-group items or items with only optional groups, skip stepper
-  const useSimpleMode = requiredGroups.length === 0 || (requiredGroups.length === 1 && optionalGroups.length === 0);
+  const useSimpleMode =
+    requiredGroups.length === 0 || (requiredGroups.length === 1 && optionalGroups.length === 0);
 
   return createPortal(
     <div
       className="fixed inset-0 flex flex-col justify-end"
       style={{ zIndex: 'var(--fnb-z-modal)', backgroundColor: 'var(--fnb-bg-overlay)' }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className="rounded-t-2xl shadow-lg flex flex-col"
@@ -339,7 +445,10 @@ export function FnbModifierDrawer({
             <div className="flex items-center gap-2">
               <span
                 className="text-xs"
-                style={{ color: 'var(--fnb-text-secondary)', fontFamily: 'var(--fnb-font-mono)' }}
+                style={{
+                  color: 'var(--fnb-text-secondary)',
+                  fontFamily: 'var(--fnb-font-mono)',
+                }}
               >
                 {formatMoney(itemPriceCents)}
               </span>
@@ -357,7 +466,10 @@ export function FnbModifierDrawer({
             type="button"
             onClick={onClose}
             className="shrink-0 flex items-center justify-center rounded-lg h-9 w-9 transition-opacity hover:opacity-80"
-            style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-muted)' }}
+            style={{
+              backgroundColor: 'var(--fnb-bg-elevated)',
+              color: 'var(--fnb-text-muted)',
+            }}
           >
             <X className="h-4 w-4" />
           </button>
@@ -379,6 +491,8 @@ export function FnbModifierDrawer({
                     group={group}
                     selectedOptionIds={selected.get(group.id) ?? new Set()}
                     onToggle={(optId) => toggleOption(group.id, optId, group.maxSelections)}
+                    modInstructions={modInstructions}
+                    onInstructionChange={handleInstructionChange}
                   />
                 </div>
               ))}
@@ -422,7 +536,12 @@ export function FnbModifierDrawer({
                 </button>
                 <span
                   className="text-2xl font-bold"
-                  style={{ color: 'var(--fnb-text-primary)', fontFamily: 'var(--fnb-font-mono)', minWidth: 40, textAlign: 'center' }}
+                  style={{
+                    color: 'var(--fnb-text-primary)',
+                    fontFamily: 'var(--fnb-font-mono)',
+                    minWidth: 40,
+                    textAlign: 'center',
+                  }}
                 >
                   {qty}
                 </span>
@@ -451,6 +570,8 @@ export function FnbModifierDrawer({
               onToggle={(optId) =>
                 toggleOption(currentRequiredGroup.id, optId, currentRequiredGroup.maxSelections)
               }
+              modInstructions={modInstructions}
+              onInstructionChange={handleInstructionChange}
             />
           )}
 
@@ -463,6 +584,8 @@ export function FnbModifierDrawer({
                     group={group}
                     selectedOptionIds={selected.get(group.id) ?? new Set()}
                     onToggle={(optId) => toggleOption(group.id, optId, group.maxSelections)}
+                    modInstructions={modInstructions}
+                    onInstructionChange={handleInstructionChange}
                   />
                 </div>
               ))}
@@ -483,16 +606,28 @@ export function FnbModifierDrawer({
                 {modifierGroups.map((group) => {
                   const groupSel = selected.get(group.id);
                   if (!groupSel || groupSel.size === 0) return null;
-                  const optNames = group.options
+                  const optEntries = group.options
                     .filter((o) => groupSel.has(o.id))
-                    .map((o) => o.name);
+                    .map((o) => {
+                      const instr = modInstructions[o.id];
+                      if (instr === 'none') return `NO ${o.name}`;
+                      if (instr === 'extra') return `EXTRA ${o.name}`;
+                      if (instr === 'on_side') return `${o.name} ON SIDE`;
+                      return o.name;
+                    });
                   return (
                     <div key={group.id} className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium" style={{ color: 'var(--fnb-text-muted)' }}>
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: 'var(--fnb-text-muted)' }}
+                      >
                         {group.name}:
                       </span>
-                      <span className="text-xs font-semibold" style={{ color: 'var(--fnb-text-primary)' }}>
-                        {optNames.join(', ')}
+                      <span
+                        className="text-xs font-semibold"
+                        style={{ color: 'var(--fnb-text-primary)' }}
+                      >
+                        {optEntries.join(', ')}
                       </span>
                     </div>
                   );
@@ -538,7 +673,12 @@ export function FnbModifierDrawer({
                 </button>
                 <span
                   className="text-2xl font-bold"
-                  style={{ color: 'var(--fnb-text-primary)', fontFamily: 'var(--fnb-font-mono)', minWidth: 40, textAlign: 'center' }}
+                  style={{
+                    color: 'var(--fnb-text-primary)',
+                    fontFamily: 'var(--fnb-font-mono)',
+                    minWidth: 40,
+                    textAlign: 'center',
+                  }}
                 >
                   {qty}
                 </span>
@@ -629,7 +769,10 @@ export function FnbModifierDrawer({
                   type="button"
                   onClick={onClose}
                   className="rounded-xl px-4 py-3.5 text-sm font-semibold transition-opacity hover:opacity-80"
-                  style={{ backgroundColor: 'var(--fnb-bg-elevated)', color: 'var(--fnb-text-secondary)' }}
+                  style={{
+                    backgroundColor: 'var(--fnb-bg-elevated)',
+                    color: 'var(--fnb-text-secondary)',
+                  }}
                 >
                   Cancel
                 </button>

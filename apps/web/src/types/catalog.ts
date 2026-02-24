@@ -90,10 +90,21 @@ export interface ModifierGroupRow {
   isRequired: boolean;
   minSelections: number;
   maxSelections: number;
+  categoryId?: string | null;
+  instructionMode?: string;
+  defaultBehavior?: string;
+  channelVisibility?: string[];
+  sortOrder?: number;
   modifiers?: Array<{
     id: string;
     name: string;
     priceAdjustment: string;
+    extraPriceDelta?: string | null;
+    kitchenLabel?: string | null;
+    allowNone?: boolean;
+    allowExtra?: boolean;
+    allowOnSide?: boolean;
+    isDefaultOption?: boolean;
     sortOrder: number;
     isActive: boolean;
   }>;

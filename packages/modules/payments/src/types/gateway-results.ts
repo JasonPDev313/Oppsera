@@ -17,6 +17,13 @@ export interface PaymentIntentResult {
   cardBrand: string | null;
   providerRef: string | null; // latest provider reference (retref)
   errorMessage: string | null;
+  // ── Response enrichment fields ──
+  userMessage: string | null;
+  suggestedAction: string | null;
+  declineCategory: string | null;
+  retryable: boolean;
+  avsResult: string | null;
+  cvvResult: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

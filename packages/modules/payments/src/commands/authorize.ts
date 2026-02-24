@@ -11,6 +11,8 @@ import { PAYMENT_GATEWAY_EVENTS, assertIntentTransition } from '../events/gatewa
 import { resolveProvider } from '../helpers/resolve-provider';
 import { centsToDollars, dollarsToCents, generateProviderOrderId, extractCardLast4, detectCardBrand } from '../helpers/amount';
 import { CardPointeTimeoutError } from '../providers/cardpointe/client';
+import { interpretResponse } from '../services/response-interpreter';
+import type { ResponseInterpretation } from '../services/response-interpreter';
 
 export async function authorizePayment(
   ctx: RequestContext,
@@ -44,7 +46,7 @@ export async function authorizePayment(
       .limit(1);
 
     if (existing) {
-      return { result: mapIntentToResult(existing, null), events: [] };
+      return { result: mapIntentToResult(existing, null, null), events: [] };
     }
 
     // 2. Create payment intent
@@ -64,6 +66,7 @@ export async function authorizePayment(
         paymentMethodType: input.paymentMethodType ?? 'card',
         token: input.token ?? null,
         metadata: input.metadata ?? null,
+        surchargeAmountCents: input.surchargeAmountCents ?? 0,
         idempotencyKey: input.clientRequestId,
         createdBy: ctx.user.id,
       })
@@ -117,7 +120,7 @@ export async function authorizePayment(
       // Timeout recovery
       if (err instanceof CardPointeTimeoutError) {
         const recovery = await handleAuthTimeout(provider, merchantId, providerOrderId);
-        if (recovery) {
+        if (recovery.outcome === 'recovered') {
           providerRef = recovery.providerRef;
           txnStatus = recovery.status;
           authCode = recovery.authCode;
@@ -127,9 +130,13 @@ export async function authorizePayment(
           if (recovery.status === 'approved') {
             authorizedAmountCents = dollarsToCents(recovery.amount);
           }
-        } else {
+        } else if (recovery.outcome === 'voided') {
           txnStatus = 'error';
-          responseText = 'Authorization timed out and could not be recovered';
+          responseText = 'Authorization timed out — safely voided at gateway';
+        } else {
+          // unknown — gateway may have charged but we cannot confirm
+          txnStatus = 'error'; // will be overridden to unknown_at_gateway below
+          responseText = 'Authorization timed out and could not be recovered — status unknown at gateway';
         }
       } else {
         txnStatus = 'error';
@@ -137,7 +144,17 @@ export async function authorizePayment(
       }
     }
 
-    // 4. Insert payment transaction record
+    // 4. Interpret response
+    const interpretation = interpretResponse({
+      responseCode: responseCode || null,
+      responseText: responseText || null,
+      respstat: (rawResponse as Record<string, unknown>)?.respstat as string ?? null,
+      avsResponse,
+      cvvResponse,
+      rawResponse: rawResponse as Record<string, unknown>,
+    });
+
+    // 5. Insert payment transaction record
     await tx.insert(paymentTransactions).values({
       tenantId: ctx.tenantId,
       paymentIntentId: intent!.id,
@@ -151,9 +168,20 @@ export async function authorizePayment(
       avsResponse,
       cvvResponse,
       providerResponse: rawResponse,
+      clientRequestId: input.clientRequestId,
+      surchargeAmountCents: input.surchargeAmountCents ?? 0,
+      declineCategory: interpretation.declineCategory,
+      userMessage: interpretation.userMessage,
+      suggestedAction: interpretation.suggestedAction,
+      retryable: interpretation.retryable,
+      avsResult: interpretation.avsResult?.pass === true ? 'pass' : interpretation.avsResult?.pass === false ? 'fail' : null,
+      cvvResult: interpretation.cvvResult?.pass === true ? 'pass' : interpretation.cvvResult?.pass === false ? 'fail' : null,
+      visaDeclineCategory: interpretation.visaDeclineCategory,
+      mcAdviceCode: interpretation.mcAdviceCode,
+      processor: interpretation.processor,
     });
 
-    // 5. Update payment intent status
+    // 6. Update payment intent status
     let intentStatus: string;
     let errorMessage: string | null = null;
 
@@ -161,6 +189,9 @@ export async function authorizePayment(
       intentStatus = 'authorized';
     } else if (txnStatus === 'declined') {
       intentStatus = 'declined';
+      errorMessage = responseText;
+    } else if (responseText?.includes('status unknown at gateway')) {
+      intentStatus = 'unknown_at_gateway';
       errorMessage = responseText;
     } else {
       intentStatus = 'error';
@@ -182,7 +213,7 @@ export async function authorizePayment(
       .where(eq(paymentIntents.id, intent!.id))
       .returning();
 
-    // 6. Build event
+    // 7. Build event
     const eventType =
       txnStatus === 'approved'
         ? PAYMENT_GATEWAY_EVENTS.AUTHORIZED
@@ -202,38 +233,46 @@ export async function authorizePayment(
       customerId: input.customerId ?? null,
       providerRef,
       paymentMethodType: input.paymentMethodType ?? 'card',
+      surchargeAmountCents: input.surchargeAmountCents ?? 0,
       responseCode,
       responseText,
     });
 
-    return { result: mapIntentToResult(updated!, providerRef), events: [event] };
+    return { result: mapIntentToResult(updated!, providerRef, interpretation), events: [event] };
   });
 
   await auditLog(ctx, 'payment.authorized', 'payment_intent', result.id);
   return result;
 }
 
+type TimeoutRecoveryResult =
+  | {
+      outcome: 'recovered';
+      providerRef: string;
+      status: 'approved' | 'declined' | 'retry';
+      authCode: string | null;
+      amount: string;
+      responseCode: string;
+      responseText: string;
+      rawResponse: Record<string, unknown>;
+    }
+  | { outcome: 'voided' }
+  | { outcome: 'unknown' };
+
 /**
- * Timeout recovery: inquireByOrderId → if not found, voidByOrderId 3x → error
+ * Timeout recovery: inquireByOrderId → if not found, voidByOrderId 3x → unknown
  */
 async function handleAuthTimeout(
   provider: { inquireByOrderId: (orderId: string, merchantId: string) => Promise<any>; voidByOrderId: (request: { merchantId: string; orderId: string }) => Promise<any> },
   merchantId: string,
   providerOrderId: string,
-): Promise<{
-  providerRef: string;
-  status: 'approved' | 'declined' | 'retry';
-  authCode: string | null;
-  amount: string;
-  responseCode: string;
-  responseText: string;
-  rawResponse: Record<string, unknown>;
-} | null> {
+): Promise<TimeoutRecoveryResult> {
   try {
     // First, inquire to see if the authorization actually went through
     const inquireResult = await provider.inquireByOrderId(providerOrderId, merchantId);
     if (inquireResult) {
       return {
+        outcome: 'recovered',
         providerRef: inquireResult.providerRef,
         status: inquireResult.status,
         authCode: inquireResult.authCode,
@@ -251,18 +290,19 @@ async function handleAuthTimeout(
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       await provider.voidByOrderId({ merchantId, orderId: providerOrderId });
-      return null; // Voided successfully — treat as error (no auth)
+      return { outcome: 'voided' }; // Voided successfully — safe, no charge
     } catch {
       // Retry
     }
   }
 
-  return null; // All void attempts failed — return error state
+  return { outcome: 'unknown' }; // All void attempts failed — gateway state unknown
 }
 
 function mapIntentToResult(
   intent: Record<string, any>,
   providerRef: string | null,
+  interpretation: ResponseInterpretation | null,
 ): PaymentIntentResult {
   return {
     id: intent.id,
@@ -280,6 +320,12 @@ function mapIntentToResult(
     cardBrand: intent.cardBrand ?? null,
     providerRef: providerRef ?? null,
     errorMessage: intent.errorMessage ?? null,
+    userMessage: interpretation?.userMessage ?? null,
+    suggestedAction: interpretation?.suggestedAction ?? null,
+    declineCategory: interpretation?.declineCategory ?? null,
+    retryable: interpretation?.retryable ?? false,
+    avsResult: interpretation?.avsResult?.pass === true ? 'pass' : interpretation?.avsResult?.pass === false ? 'fail' : null,
+    cvvResult: interpretation?.cvvResult?.pass === true ? 'pass' : interpretation?.cvvResult?.pass === false ? 'fail' : null,
     createdAt: intent.createdAt,
     updatedAt: intent.updatedAt,
   };

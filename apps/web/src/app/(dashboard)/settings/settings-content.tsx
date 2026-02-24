@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard, Grid3X3, List } from 'lucide-react';
+import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard, Grid3X3, List, MapPin, Store, Monitor } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { AuditLogViewer } from '@/components/audit-log-viewer';
 import { UserManagementTab } from './user-management-tab';
+import { useRoleAccess } from '@/hooks/use-role-access';
+import { RoleAccessDialog } from '@/components/settings/role-access-dialog';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -129,6 +131,7 @@ function RolesTab({ canManage }: { canManage: boolean }) {
   const [selectedRole, setSelectedRole] = useState<RoleDetail | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showAccessDialog, setShowAccessDialog] = useState(false);
 
   const fetchRoles = useCallback(async () => {
     try {
@@ -320,6 +323,13 @@ function RolesTab({ canManage }: { canManage: boolean }) {
               )}
             </div>
           </div>
+
+          {/* Access Scope */}
+          <RoleAccessSection
+            roleId={selectedRole.id}
+            canManage={canManage}
+            onEditAccess={() => setShowAccessDialog(true)}
+          />
         </div>
       )}
 
@@ -345,6 +355,106 @@ function RolesTab({ canManage }: { canManage: boolean }) {
             handleSelectRole(selectedRole.id);
           }}
         />
+      )}
+
+      {/* Role Access Dialog */}
+      {showAccessDialog && selectedRole && (
+        <RoleAccessDialog
+          roleId={selectedRole.id}
+          roleName={selectedRole.name}
+          onClose={() => setShowAccessDialog(false)}
+          onSaved={() => setShowAccessDialog(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Role Access Section (in side panel) ─────────────────────────
+
+function RoleAccessSection({
+  roleId,
+  canManage,
+  onEditAccess,
+}: {
+  roleId: string;
+  canManage: boolean;
+  onEditAccess: () => void;
+}) {
+  const { access, isLoading } = useRoleAccess(roleId);
+
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-medium text-gray-500 uppercase">
+          Access Scope
+        </h4>
+        {canManage && (
+          <button
+            type="button"
+            onClick={onEditAccess}
+            className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+          >
+            Edit Access
+          </button>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Loading...
+        </div>
+      ) : !access ? (
+        <p className="mt-2 text-xs text-gray-400">Unable to load access config</p>
+      ) : (
+        <div className="mt-2 space-y-2">
+          {/* Locations */}
+          <div className="flex items-center gap-2">
+            <MapPin className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-xs text-gray-700">
+              {access.locationIds.length === 0 ? (
+                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                  All Locations
+                </span>
+              ) : (
+                <span className="text-gray-600">
+                  {access.locationIds.length} location{access.locationIds.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </span>
+          </div>
+          {/* Profit Centers */}
+          <div className="flex items-center gap-2">
+            <Store className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-xs text-gray-700">
+              {access.profitCenterIds.length === 0 ? (
+                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                  All Profit Centers
+                </span>
+              ) : (
+                <span className="text-gray-600">
+                  {access.profitCenterIds.length} profit center{access.profitCenterIds.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </span>
+          </div>
+          {/* Terminals */}
+          <div className="flex items-center gap-2">
+            <Monitor className="h-3.5 w-3.5 text-gray-400" />
+            <span className="text-xs text-gray-700">
+              {access.terminalIds.length === 0 ? (
+                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                  All Terminals
+                </span>
+              ) : (
+                <span className="text-gray-600">
+                  {access.terminalIds.length} terminal{access.terminalIds.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -17,6 +17,11 @@ export interface AuthorizeRequest {
   postal?: string;
   receipt?: 'Y' | 'N';
   userfields?: Record<string, string>;
+  // ── ACH-specific fields ──
+  achAccountType?: 'ECHK' | 'ESAV'; // checking | savings
+  achSecCode?: 'CCD' | 'PPD' | 'TEL' | 'WEB';
+  achDescription?: string; // "Reversal" for ACH refunds, or custom description
+  bankaba?: string; // ABA routing number (only for account validation)
 }
 
 export interface AuthorizeResponse {
@@ -149,6 +154,26 @@ export interface SettlementTransaction {
   batchId: string;
 }
 
+// ── ACH Funding Status ──────────────────────────────────────────
+// CardPointe funding endpoint returns ACH settlement/return data.
+
+export interface FundingStatusResponse {
+  merchantId: string;
+  date: string;
+  fundingTransactions: FundingTransaction[];
+  rawResponse: Record<string, unknown>;
+}
+
+export interface FundingTransaction {
+  providerRef: string; // retref
+  amount: string; // dollar string
+  fundingStatus: 'originated' | 'settled' | 'returned' | 'rejected';
+  achReturnCode: string | null; // R01, R02, etc. (null if not returned)
+  achReturnDescription: string | null;
+  fundingDate: string; // YYYY-MM-DD
+  batchId: string | null;
+}
+
 export interface VoidByOrderIdRequest {
   merchantId: string;
   orderId: string;
@@ -180,6 +205,9 @@ export interface PaymentProvider {
 
   // Settlement
   getSettlementStatus(date: string, merchantId: string): Promise<SettlementStatusResponse>;
+
+  // ACH Funding (optional — only providers with ACH support)
+  getFundingStatus?(date: string, merchantId: string): Promise<FundingStatusResponse>;
 
   // Signature
   captureSignature(providerRef: string, merchantId: string, signature: string): Promise<void>;

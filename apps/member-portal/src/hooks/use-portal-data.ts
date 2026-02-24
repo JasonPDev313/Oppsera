@@ -126,3 +126,109 @@ export function useUpdateAutopay() {
 
   return { updateAutopay, isSubmitting };
 }
+
+// ── Bank Account hooks ───────────────────────────────────────────
+
+export interface PortalBankAccount {
+  id: string;
+  paymentType: 'bank_account';
+  bankRoutingLast4: string | null;
+  accountLast4: string | null;
+  bankAccountType: 'checking' | 'savings' | null;
+  bankName: string | null;
+  nickname: string | null;
+  verificationStatus: 'unverified' | 'pending_micro' | 'verified' | 'failed' | null;
+  verificationAttempts: number;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export function usePortalBankAccounts() {
+  return usePortalQuery<PortalBankAccount[]>('/api/v1/bank-accounts');
+}
+
+export function useTokenizeBankAccount() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const tokenize = useCallback(async (input: {
+    routingNumber: string;
+    accountNumber: string;
+    accountType: 'checking' | 'savings';
+  }) => {
+    setIsSubmitting(true);
+    try {
+      const res = await portalFetch<{ data: { token: string; bankLast4: string } }>(
+        '/api/v1/bank-accounts/tokenize',
+        { method: 'POST', body: JSON.stringify(input) },
+      );
+      return res.data;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  return { tokenize, isSubmitting };
+}
+
+export function useAddBankAccount() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const addBankAccount = useCallback(async (input: {
+    clientRequestId: string;
+    token: string;
+    routingLast4: string;
+    accountLast4: string;
+    accountType: 'checking' | 'savings';
+    bankName?: string;
+    nickname?: string;
+    isDefault?: boolean;
+    skipVerification?: boolean;
+  }) => {
+    setIsSubmitting(true);
+    try {
+      const res = await portalFetch<{ data: any }>('/api/v1/bank-accounts', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      return res.data;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  return { addBankAccount, isSubmitting };
+}
+
+export function useRemoveBankAccount() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const removeBankAccount = useCallback(async (paymentMethodId: string) => {
+    setIsSubmitting(true);
+    try {
+      await portalFetch(`/api/v1/bank-accounts/${paymentMethodId}`, { method: 'DELETE' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  return { removeBankAccount, isSubmitting };
+}
+
+export function useVerifyBankAccount() {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const verify = useCallback(async (paymentMethodId: string, amount1Cents: number, amount2Cents: number) => {
+    setIsSubmitting(true);
+    try {
+      const res = await portalFetch<{ data: { verified: boolean; remainingAttempts: number } }>(
+        `/api/v1/bank-accounts/${paymentMethodId}/verify`,
+        { method: 'POST', body: JSON.stringify({ amount1Cents, amount2Cents }) },
+      );
+      return res.data;
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, []);
+
+  return { verify, isSubmitting };
+}

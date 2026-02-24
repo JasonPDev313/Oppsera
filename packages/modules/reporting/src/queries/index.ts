@@ -20,3 +20,22 @@ export type { ReportRow, ListReportsInput, ListReportsResult } from './get-repor
 export type { RunReportInput, RunReportResult } from './run-report';
 export type { PreviewReportInput, PreviewReportResult } from './preview-report';
 export type { DashboardRow, ListDashboardsInput, ListDashboardsResult } from './get-dashboard';
+
+// ── Modifier Reporting ──────────────────────────────────────────────
+export { getModifierPerformance } from './get-modifier-performance';
+export { getModifierGroupHealth } from './get-modifier-group-health';
+export { getModifierUpsellImpact } from './get-modifier-upsell-impact';
+export { getModifierDaypartHeatmap } from './get-modifier-daypart-heatmap';
+export { getModifierGroupItemHeatmap } from './get-modifier-group-item-heatmap';
+export { getModifierLocationHeatmap } from './get-modifier-location-heatmap';
+export { getModifierWasteSignals } from './get-modifier-waste-signals';
+export { getModifierComplexity } from './get-modifier-complexity';
+
+export type { GetModifierPerformanceInput, ModifierPerformanceRow } from './get-modifier-performance';
+export type { GetModifierGroupHealthInput, ModifierGroupHealthResult } from './get-modifier-group-health';
+export type { GetModifierUpsellImpactInput, UpsellImpactRow } from './get-modifier-upsell-impact';
+export type { GetModifierDaypartHeatmapInput, DaypartHeatmapRow } from './get-modifier-daypart-heatmap';
+export type { GetModifierGroupItemHeatmapInput, GroupItemHeatmapRow } from './get-modifier-group-item-heatmap';
+export type { GetModifierLocationHeatmapInput, LocationHeatmapRow } from './get-modifier-location-heatmap';
+export type { GetModifierWasteSignalsInput, WasteSignalRow } from './get-modifier-waste-signals';
+export type { GetModifierComplexityInput, ComplexityRow } from './get-modifier-complexity';

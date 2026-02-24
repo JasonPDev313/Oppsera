@@ -10,8 +10,12 @@ import {
 
 // GET /api/v1/catalog/modifier-groups — list modifier groups with modifiers
 export const GET = withMiddleware(
-  async (_request: NextRequest, ctx) => {
-    const groups = await listModifierGroups(ctx.tenantId);
+  async (request: NextRequest, ctx) => {
+    const url = new URL(request.url);
+    const categoryId = url.searchParams.get('categoryId') ?? undefined;
+    const channel = url.searchParams.get('channel') ?? undefined;
+
+    const groups = await listModifierGroups(ctx.tenantId, { categoryId, channel });
     return NextResponse.json({ data: groups });
   },
   { entitlement: 'catalog', permission: 'catalog.view', cache: 'private, max-age=300, stale-while-revalidate=600' },
@@ -33,5 +37,5 @@ export const POST = withMiddleware(
     const group = await createModifierGroup(ctx, parsed.data);
     return NextResponse.json({ data: group }, { status: 201 });
   },
-  { entitlement: 'catalog', permission: 'catalog.manage' , writeAccess: true },
+  { entitlement: 'catalog', permission: 'catalog.manage', writeAccess: true },
 );

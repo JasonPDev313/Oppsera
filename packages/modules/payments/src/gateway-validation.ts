@@ -82,7 +82,15 @@ export const authorizePaymentSchema = z.object({
   address: z.string().max(200).optional(),
   postal: z.string().max(20).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-});
+  surchargeAmountCents: z.number().int().min(0).default(0),
+  // ── ACH-specific fields ──
+  achAccountType: z.enum(['ECHK', 'ESAV']).optional(),
+  achSecCode: z.enum(['CCD', 'PPD', 'TEL', 'WEB']).optional(),
+  achDescription: z.string().max(100).optional(),
+}).refine(
+  (data) => data.paymentMethodType !== 'ach' || data.achSecCode != null,
+  { message: 'achSecCode is required for ACH payments', path: ['achSecCode'] },
+);
 export type AuthorizePaymentInput = z.input<typeof authorizePaymentSchema>;
 
 export const capturePaymentSchema = z.object({
@@ -112,7 +120,15 @@ export const salePaymentSchema = z.object({
   address: z.string().max(200).optional(),
   postal: z.string().max(20).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
-});
+  surchargeAmountCents: z.number().int().min(0).default(0),
+  // ── ACH-specific fields ──
+  achAccountType: z.enum(['ECHK', 'ESAV']).optional(),
+  achSecCode: z.enum(['CCD', 'PPD', 'TEL', 'WEB']).optional(),
+  achDescription: z.string().max(100).optional(),
+}).refine(
+  (data) => data.paymentMethodType !== 'ach' || data.achSecCode != null,
+  { message: 'achSecCode is required for ACH payments', path: ['achSecCode'] },
+);
 export type SalePaymentInput = z.input<typeof salePaymentSchema>;
 
 export const voidPaymentSchema = z.object({
@@ -149,13 +165,55 @@ export type CreatePaymentProfileInput = z.input<typeof createPaymentProfileSchem
 
 export const inquirePaymentSchema = z.object({
   paymentIntentId: z.string().min(1),
+  clientRequestId: z.string().min(1).optional(),
 });
 export type InquirePaymentInput = z.input<typeof inquirePaymentSchema>;
+
+// ── ACH Bank Account Operations ─────────────────────────────────
+
+export const tokenizeBankAccountSchema = z.object({
+  routingNumber: z.string().regex(/^\d{9}$/, 'ABA routing number must be exactly 9 digits'),
+  accountNumber: z.string().regex(/^\d{4,17}$/, 'Account number must be 4-17 digits'),
+  accountType: z.enum(['checking', 'savings']),
+});
+export type TokenizeBankAccountInput = z.input<typeof tokenizeBankAccountSchema>;
+
+export const addBankAccountSchema = z.object({
+  clientRequestId: z.string().min(1).max(128),
+  customerId: z.string().min(1),
+  token: z.string().min(1), // CardSecure token from tokenization
+  routingLast4: z.string().length(4),
+  accountLast4: z.string().length(4),
+  accountType: z.enum(['checking', 'savings']),
+  bankName: z.string().max(100).optional(),
+  nickname: z.string().max(50).optional(),
+  isDefault: z.boolean().default(false),
+  skipVerification: z.boolean().default(false), // skip micro-deposit verification
+});
+export type AddBankAccountInput = z.input<typeof addBankAccountSchema>;
+
+export const verifyMicroDepositsSchema = z.object({
+  paymentMethodId: z.string().min(1),
+  amount1Cents: z.number().int().min(1).max(99),
+  amount2Cents: z.number().int().min(1).max(99),
+});
+export type VerifyMicroDepositsInput = z.input<typeof verifyMicroDepositsSchema>;
+
+export const updateMerchantAccountAchSchema = z.object({
+  merchantAccountId: z.string().min(1),
+  achEnabled: z.boolean().optional(),
+  achDefaultSecCode: z.enum(['CCD', 'PPD', 'TEL', 'WEB']).optional(),
+  achCompanyName: z.string().max(100).optional(),
+  achCompanyId: z.string().max(50).optional(),
+  achVerificationMode: z.enum(['none', 'account_validation', 'micro_deposit']).optional(),
+});
+export type UpdateMerchantAccountAchInput = z.input<typeof updateMerchantAccountAchSchema>;
 
 // ── Search / List ────────────────────────────────────────────────
 
 export const searchTransactionsSchema = z.object({
   status: z.string().optional(),
+  paymentMethodType: z.enum(['card', 'ach']).optional(),
   dateFrom: z.string().date().optional(),
   dateTo: z.string().date().optional(),
   amountMinCents: z.number().int().optional(),

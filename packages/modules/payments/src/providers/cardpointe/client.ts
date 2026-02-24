@@ -15,6 +15,7 @@ import type {
   CardPointeProfileGetResponse,
   CardPointeSettlementResponse,
   CardPointeSigCapRequest,
+  CardPointeFundingResponse,
 } from './types';
 
 // Fields that must never be logged
@@ -135,10 +136,99 @@ export class CardPointeClient {
     return this.get<CardPointeSettlementResponse>(`settlestat?merchid=${merchid}&date=${date}`);
   }
 
+  // ── ACH Funding Methods ─────────────────────────────────────
+
+  async getFundingStatus(merchid: string, date: string): Promise<CardPointeFundingResponse> {
+    return this.get<CardPointeFundingResponse>(`funding?merchid=${merchid}&date=${date}`);
+  }
+
   // ── Signature Capture ────────────────────────────────────────
 
   async captureSignature(request: CardPointeSigCapRequest): Promise<void> {
     await this.put('sigcap', request);
+  }
+
+  // ── Apple Pay: Merchant Session Validation ─────────────────
+
+  /**
+   * Validate a merchant session with Apple Pay via CardPointe's proxy.
+   * Called during `onvalidatemerchant` in the Apple Pay JS flow.
+   */
+  async getApplePaySession(
+    validationUrl: string,
+    domainName: string,
+    displayName: string,
+  ): Promise<Record<string, unknown>> {
+    return this.put<Record<string, unknown>>('applepay/validate', {
+      validationurl: validationUrl,
+      domain: domainName,
+      displayname: displayName,
+      merchid: this.config.merchantId,
+    }, this.AUTH_TIMEOUT_MS);
+  }
+
+  // ── Wallet Tokenization (CardSecure) ──────────────────────
+
+  /**
+   * Tokenize wallet payment data (Apple Pay / Google Pay) via CardSecure.
+   * Uses a separate endpoint from the standard CardPointe REST API.
+   *
+   * @param devicedata - Base64-encoded wallet payment data
+   * @param encryptionhandler - 'EC_GOOGLE_PAY' for Google Pay; omit for Apple Pay
+   * @returns Token from CardSecure
+   */
+  async tokenizeWalletData(
+    devicedata: string,
+    encryptionhandler?: string,
+  ): Promise<{ token: string }> {
+    const cardSecureUrl = `https://${this.config.site}.cardconnect.com/cardsecure/api/v1/ccn/tokenize`;
+
+    const body: Record<string, string> = { devicedata };
+    if (encryptionhandler) {
+      body.encryptionhandler = encryptionhandler;
+    }
+
+    console.log('[CardPointe] CardSecure tokenize wallet', { encryptionhandler: encryptionhandler ?? 'apple_pay' });
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.AUTH_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(cardSecureUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new CardPointeNetworkError(
+          `CardSecure tokenize error: ${response.status} ${response.statusText} — ${text}`,
+        );
+      }
+
+      const data = (await response.json()) as { token?: string; errorcode?: string; message?: string };
+
+      if (data.errorcode || !data.token) {
+        throw new CardPointeNetworkError(
+          `CardSecure tokenize failed: ${data.message ?? data.errorcode ?? 'unknown error'}`,
+        );
+      }
+
+      return { token: data.token };
+    } catch (err) {
+      clearTimeout(timer);
+      if (err instanceof CardPointeNetworkError) throw err;
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new CardPointeTimeoutError('CardSecure wallet tokenize request timed out');
+      }
+      throw err;
+    }
   }
 
   // ── HTTP Transport Layer ─────────────────────────────────────

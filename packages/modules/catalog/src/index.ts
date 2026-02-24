@@ -46,8 +46,14 @@ export {
   removeTaxRateFromGroup,
   assignItemTaxGroups,
   importInventory,
+  createModifierGroupCategory,
+  updateModifierGroupCategory,
+  deleteModifierGroupCategory,
+  bulkAssignModifierGroups,
+  updateItemModifierAssignment,
+  removeItemModifierAssignment,
 } from './commands';
-export type { ImportResult } from './commands';
+export type { ImportResult, BulkAssignResult } from './commands';
 
 // Re-export queries
 export {
@@ -60,10 +66,24 @@ export {
   listTaxGroups,
   getItemTaxGroupsAtLocation,
   listCatalogImportLogs,
+  listModifierGroupCategories,
+  getModifierGroup,
+  getItemModifierAssignments,
 } from './queries';
 export type { CatalogImportLogSummary } from './queries/list-catalog-import-logs';
+export type { ModifierGroupCategoryRow } from './queries/list-modifier-group-categories';
+export type { ModifierGroupFullDetail } from './queries/get-modifier-group';
+export type { ItemModifierAssignmentDetail } from './queries/get-item-modifier-assignments';
 export { getCatalogForPOS } from './queries/get-catalog-for-pos';
-export type { POSCatalogItem, POSCategory, POSCatalogResult } from './queries/get-catalog-for-pos';
+export type {
+  POSCatalogItem,
+  POSCategory,
+  POSCatalogResult,
+  POSModifierGroup,
+  POSModifierOption,
+  POSItemModifierAssignment,
+  POSModifierGroupCategory,
+} from './queries/get-catalog-for-pos';
 export { getItemChangeLog } from './queries/get-item-change-log';
 export type { GetItemChangeLogInput, GetItemChangeLogResult } from './queries/get-item-change-log';
 export type { ActionType, ChangeSource, FieldChange, ChangeLogEntry } from './services/item-change-log';
@@ -88,6 +108,13 @@ export {
   updateTaxCategorySchema,
   updateCategorySchema,
   archiveItemSchema,
+  createModifierGroupCategorySchema,
+  updateModifierGroupCategorySchema,
+  bulkAssignModifierGroupsSchema,
+  updateItemModifierAssignmentSchema,
+  instructionModeEnum,
+  defaultBehaviorEnum,
+  channelEnum,
 } from './validation';
 export type {
   CreateTaxCategoryInput,
@@ -101,6 +128,10 @@ export type {
   UpdateTaxCategoryInput,
   UpdateCategoryInput,
   ArchiveItemInput,
+  CreateModifierGroupCategoryInput,
+  UpdateModifierGroupCategoryInput,
+  BulkAssignModifierGroupsInput,
+  UpdateItemModifierAssignmentInput,
 } from './validation';
 
 // Re-export tax validation schemas

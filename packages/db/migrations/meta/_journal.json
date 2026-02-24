@@ -1226,6 +1226,97 @@
       "when": 1708100174000,
       "tag": "0174_payment_profile_extensions",
       "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1708100175000,
+      "tag": "0175_role_access_scoping",
+      "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1708100176000,
+      "tag": "0176_payment_idempotency_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1708100177000,
+      "tag": "0177_terminal_device_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1708100178000,
+      "tag": "0178_ach_payment_support",
+      "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1708100179000,
+      "tag": "0179_payment_wallet_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "7",
+      "when": 1708100180000,
+      "tag": "0180_payment_response_enrichment",
+      "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1708100181000,
+      "tag": "0181_surcharge_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1708100182000,
+      "tag": "0182_payment_surcharge_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1708100183000,
+      "tag": "0183_modifier_groups_enhancement",
+      "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1708100184000,
+      "tag": "0184_payment_gateway_gl_wiring",
+      "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1708100185000,
+      "tag": "0185_ach_receivable_gl_template_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1708100186000,
+      "tag": "0186_modifier_reporting",
+      "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1708100187000,
+      "tag": "0187_erp_dual_mode_infrastructure",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   catalogModifierGroups,
   catalogModifiers,
   catalogItemModifierGroups,
+  catalogModifierGroupCategories,
 } from '../schema';
 
 export interface POSCatalogItem {
@@ -32,6 +33,12 @@ export interface POSModifierOption {
   id: string;
   name: string;
   priceCents: number;
+  extraPriceDeltaCents: number | null;
+  kitchenLabel: string | null;
+  allowNone: boolean;
+  allowExtra: boolean;
+  allowOnSide: boolean;
+  isDefaultOption: boolean;
   sortOrder: number;
   isDefault: boolean;
 }
@@ -43,20 +50,36 @@ export interface POSModifierGroup {
   isRequired: boolean;
   minSelections: number;
   maxSelections: number;
+  instructionMode: string;
+  defaultBehavior: string;
+  channelVisibility: string[];
   options: POSModifierOption[];
 }
 
-/** Maps item ID → array of modifier group IDs */
+/** Maps item ID → array of modifier group IDs with per-assignment overrides */
 export interface POSItemModifierAssignment {
   catalogItemId: string;
   modifierGroupId: string;
   isDefault: boolean;
+  overrideRequired: boolean | null;
+  overrideMinSelections: number | null;
+  overrideMaxSelections: number | null;
+  overrideInstructionMode: string | null;
+  promptOrder: number;
+}
+
+export interface POSModifierGroupCategory {
+  id: string;
+  name: string;
+  parentId: string | null;
+  sortOrder: number;
 }
 
 export interface POSCatalogResult {
   items: POSCatalogItem[];
   categories: POSCategory[];
   modifierGroups: POSModifierGroup[];
+  modifierGroupCategories: POSModifierGroupCategory[];
   itemModifierAssignments: POSItemModifierAssignment[];
 }
 
@@ -68,11 +91,16 @@ export interface POSCatalogResult {
  * - NO COUNT JOIN for item counts (POS doesn't display them)
  * - NO cursor pagination (single query, POS loads all active items)
  * - Selects only the columns POS actually uses
- * - Both queries run in parallel within the same transaction
+ * - All queries run in parallel within the same transaction
+ *
+ * Optional `channel` filter hides modifier groups not visible on the requesting channel.
  */
-export async function getCatalogForPOS(tenantId: string): Promise<POSCatalogResult> {
+export async function getCatalogForPOS(
+  tenantId: string,
+  options?: { channel?: string },
+): Promise<POSCatalogResult> {
   return withTenant(tenantId, async (tx) => {
-    const [items, categories, groups, modifiers, assignments] = await Promise.all([
+    const [items, categories, groups, modifiers, assignments, modGroupCategories] = await Promise.all([
       tx
         .select({
           id: catalogItems.id,
@@ -113,7 +141,7 @@ export async function getCatalogForPOS(tenantId: string): Promise<POSCatalogResu
         .select()
         .from(catalogModifierGroups)
         .where(eq(catalogModifierGroups.tenantId, tenantId))
-        .orderBy(asc(catalogModifierGroups.name)),
+        .orderBy(asc(catalogModifierGroups.sortOrder), asc(catalogModifierGroups.name)),
       // All modifiers (active only)
       tx
         .select()
@@ -125,39 +153,73 @@ export async function getCatalogForPOS(tenantId: string): Promise<POSCatalogResu
           ),
         )
         .orderBy(asc(catalogModifiers.sortOrder)),
-      // Item-to-modifier-group assignments
+      // Item-to-modifier-group assignments with override columns
       tx
         .select({
           catalogItemId: catalogItemModifierGroups.catalogItemId,
           modifierGroupId: catalogItemModifierGroups.modifierGroupId,
           isDefault: catalogItemModifierGroups.isDefault,
+          overrideRequired: catalogItemModifierGroups.overrideRequired,
+          overrideMinSelections: catalogItemModifierGroups.overrideMinSelections,
+          overrideMaxSelections: catalogItemModifierGroups.overrideMaxSelections,
+          overrideInstructionMode: catalogItemModifierGroups.overrideInstructionMode,
+          promptOrder: catalogItemModifierGroups.promptOrder,
         })
         .from(catalogItemModifierGroups),
+      // Modifier group categories
+      tx
+        .select({
+          id: catalogModifierGroupCategories.id,
+          name: catalogModifierGroupCategories.name,
+          parentId: catalogModifierGroupCategories.parentId,
+          sortOrder: catalogModifierGroupCategories.sortOrder,
+        })
+        .from(catalogModifierGroupCategories)
+        .where(eq(catalogModifierGroupCategories.tenantId, tenantId))
+        .orderBy(asc(catalogModifierGroupCategories.sortOrder)),
     ]);
 
-    // Build modifier groups with options
-    const modifierGroups: POSModifierGroup[] = groups.map((g) => ({
-      id: g.id,
-      name: g.name,
-      selectionType: g.selectionType,
-      isRequired: g.isRequired,
-      minSelections: g.minSelections,
-      maxSelections: g.maxSelections ?? 99,
-      options: modifiers
-        .filter((m) => m.modifierGroupId === g.id)
-        .map((m) => ({
-          id: m.id,
-          name: m.name,
-          priceCents: Math.round(parseFloat(m.priceAdjustment || '0') * 100),
-          sortOrder: m.sortOrder,
-          isDefault: false, // default flag is on the junction, not the modifier itself
-        })),
-    }));
+    // Build modifier groups with options, applying channel filter
+    const modifierGroups: POSModifierGroup[] = groups
+      .filter((g) => {
+        if (!options?.channel) return true;
+        const vis = (g.channelVisibility as string[]) ?? [];
+        return vis.includes(options.channel);
+      })
+      .map((g) => ({
+        id: g.id,
+        name: g.name,
+        selectionType: g.selectionType,
+        isRequired: g.isRequired,
+        minSelections: g.minSelections,
+        maxSelections: g.maxSelections ?? 99,
+        instructionMode: g.instructionMode,
+        defaultBehavior: g.defaultBehavior,
+        channelVisibility: (g.channelVisibility as string[]) ?? [],
+        options: modifiers
+          .filter((m) => m.modifierGroupId === g.id)
+          .map((m) => ({
+            id: m.id,
+            name: m.name,
+            priceCents: Math.round(parseFloat(m.priceAdjustment || '0') * 100),
+            extraPriceDeltaCents: m.extraPriceDelta != null
+              ? Math.round(parseFloat(m.extraPriceDelta) * 100)
+              : null,
+            kitchenLabel: m.kitchenLabel,
+            allowNone: m.allowNone,
+            allowExtra: m.allowExtra,
+            allowOnSide: m.allowOnSide,
+            isDefaultOption: m.isDefaultOption,
+            sortOrder: m.sortOrder,
+            isDefault: false, // default flag is on the junction, not the modifier itself
+          })),
+      }));
 
     return {
       items,
       categories,
       modifierGroups,
+      modifierGroupCategories: modGroupCategories,
       itemModifierAssignments: assignments,
     };
   });

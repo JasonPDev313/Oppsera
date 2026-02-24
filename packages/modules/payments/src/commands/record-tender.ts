@@ -136,6 +136,7 @@ export async function recordTender(
         employeeId: input.employeeId,
         terminalId: input.terminalId,
         metadata: input.metadata ?? null,
+        surchargeAmountCents: input.surchargeAmountCents ?? 0,
         createdBy: ctx.user.id,
       })
       .returning();
@@ -274,6 +275,7 @@ export async function recordTender(
       isFullyPaid,
       customerId: order.customerId ?? null,
       billingAccountId: order.billingAccountId ?? null,
+      surchargeAmountCents: input.surchargeAmountCents ?? 0,
       lines: enrichedLines,
     });
 

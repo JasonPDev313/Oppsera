@@ -18,6 +18,7 @@ import { ProfileDocumentsTab } from './ProfileDocumentsTab';
 import { ProfileCommunicationsTab } from './ProfileCommunicationsTab';
 import { ProfileTagsTab } from './ProfileTagsTab';
 import { ProfileComplianceTab } from './ProfileComplianceTab';
+import { ProfilePaymentMethodsTab } from './ProfilePaymentMethodsTab';
 import type { CustomerProfileOverview } from '@/types/customers';
 
 const TABS = [
@@ -25,6 +26,7 @@ const TABS = [
   { key: 'profile', label: 'Profile' },
   { key: 'activity', label: 'Activity' },
   { key: 'financial', label: 'Financial' },
+  { key: 'payments', label: 'Payments' },
   { key: 'membership', label: 'Membership' },
   { key: 'preferences', label: 'Preferences' },
   { key: 'notes', label: 'Notes' },
@@ -317,6 +319,8 @@ export function CustomerProfileDrawer() {
         return <ProfileActivityTab customerId={customerId} />;
       case 'financial':
         return <ProfileFinancialTab customerId={customerId} />;
+      case 'payments':
+        return <ProfilePaymentMethodsTab customerId={customerId} />;
       case 'membership':
         return <ProfileMembershipTab customerId={customerId} />;
       case 'preferences':

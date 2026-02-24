@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useModifierGroups } from '@/hooks/use-catalog';
+import { InstructionButtons } from './InstructionButtons';
+import type { ModifierInstruction } from './InstructionButtons';
 import type { CatalogItemForPOS, AddLineItemInput } from '@/types/pos';
 import type { FnbMetadata } from '@oppsera/shared';
 
@@ -18,6 +20,70 @@ const FRACTION_LABELS: Record<number, string> = {
 
 const QUICK_INSTRUCTIONS = ['No onion', 'Extra sauce', 'Allergy alert'];
 
+// ── POS Modifier Types (from getCatalogForPOS) ───────────────────
+
+interface POSModGroupForDialog {
+  id: string;
+  name: string;
+  selectionType: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  instructionMode: string;
+  defaultBehavior: string;
+  options: Array<{
+    id: string;
+    name: string;
+    priceCents: number;
+    extraPriceDeltaCents: number | null;
+    kitchenLabel: string | null;
+    allowNone: boolean;
+    allowExtra: boolean;
+    allowOnSide: boolean;
+    isDefaultOption: boolean;
+    sortOrder: number;
+    isDefault: boolean;
+  }>;
+}
+
+interface POSItemAssignmentForDialog {
+  catalogItemId: string;
+  modifierGroupId: string;
+  isDefault: boolean;
+  overrideRequired: boolean | null;
+  overrideMinSelections: number | null;
+  overrideMaxSelections: number | null;
+  overrideInstructionMode: string | null;
+  promptOrder: number;
+}
+
+// ── Resolved group (with overrides applied) ──────────────────────
+
+interface ResolvedModifier {
+  id: string;
+  name: string;
+  priceCents: number;
+  extraPriceDeltaCents: number | null;
+  kitchenLabel: string | null;
+  allowNone: boolean;
+  allowExtra: boolean;
+  allowOnSide: boolean;
+  isDefaultOption: boolean;
+  isActive: boolean;
+}
+
+interface ResolvedGroup {
+  id: string;
+  name: string;
+  selectionType: string;
+  isRequired: boolean;
+  minSelections: number;
+  maxSelections: number;
+  instructionMode: string;
+  defaultBehavior: string;
+  modifiers: ResolvedModifier[];
+}
+
 // ── Helpers ───────────────────────────────────────────────────────
 
 function formatPrice(cents: number): string {
@@ -28,6 +94,22 @@ function modifierPriceCents(priceAdjustment: string): number {
   return Math.round(parseFloat(priceAdjustment) * 100);
 }
 
+/** Resolve modifier price based on instruction */
+function resolveModPrice(
+  basePriceCents: number,
+  instruction: ModifierInstruction,
+  extraPriceDeltaCents: number | null,
+): number {
+  switch (instruction) {
+    case 'none':
+      return 0;
+    case 'extra':
+      return extraPriceDeltaCents ?? basePriceCents;
+    default:
+      return basePriceCents;
+  }
+}
+
 // ── Component ─────────────────────────────────────────────────────
 
 interface ModifierDialogProps {
@@ -35,13 +117,24 @@ interface ModifierDialogProps {
   onClose: () => void;
   item: CatalogItemForPOS | null;
   onAdd: (input: AddLineItemInput) => void;
+  /** POS catalog modifier groups (from getCatalogForPOS) */
+  posModifierGroups?: POSModGroupForDialog[];
+  /** Item-specific modifier assignments from junction table */
+  itemAssignments?: POSItemAssignmentForDialog[];
 }
 
-export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogProps) {
-  const { data: allGroups } = useModifierGroups();
+export function ModifierDialog({
+  open,
+  onClose,
+  item,
+  onAdd,
+  posModifierGroups,
+  itemAssignments,
+}: ModifierDialogProps) {
+  const { data: adminGroups } = useModifierGroups();
   const firstFocusRef = useRef<HTMLButtonElement>(null);
 
-  // ── Parse metadata ────────────────────────────────────────────
+  // ── Parse metadata (fallback path) ──────────────────────────
 
   const metadata = useMemo<FnbMetadata>(() => {
     if (!item) return {};
@@ -54,23 +147,89 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
     return fracs;
   }, [metadata]);
 
-  // ── Filter modifier groups that belong to this item ───────────
+  // ── Resolve modifier groups ─────────────────────────────────
+  // Prefer junction table (itemAssignments + posModifierGroups),
+  // fall back to metadata-based resolution via admin API.
 
-  const relevantGroups = useMemo(() => {
-    if (!allGroups || !item) return [];
+  const relevantGroups = useMemo<ResolvedGroup[]>(() => {
+    if (!item) return [];
+
+    // Junction table path
+    if (posModifierGroups && itemAssignments) {
+      const myAssignments = itemAssignments
+        .filter((a) => a.catalogItemId === item.id)
+        .sort((a, b) => a.promptOrder - b.promptOrder);
+
+      if (myAssignments.length > 0) {
+        return myAssignments
+          .map((assignment) => {
+            const group = posModifierGroups.find((g) => g.id === assignment.modifierGroupId);
+            if (!group) return null;
+
+            return {
+              id: group.id,
+              name: group.name,
+              selectionType: group.selectionType,
+              isRequired: assignment.overrideRequired ?? group.isRequired,
+              minSelections: assignment.overrideMinSelections ?? group.minSelections,
+              maxSelections: assignment.overrideMaxSelections ?? group.maxSelections,
+              instructionMode: assignment.overrideInstructionMode ?? group.instructionMode,
+              defaultBehavior: group.defaultBehavior,
+              modifiers: group.options.map((opt) => ({
+                id: opt.id,
+                name: opt.name,
+                priceCents: opt.priceCents,
+                extraPriceDeltaCents: opt.extraPriceDeltaCents,
+                kitchenLabel: opt.kitchenLabel,
+                allowNone: opt.allowNone,
+                allowExtra: opt.allowExtra,
+                allowOnSide: opt.allowOnSide,
+                isDefaultOption: opt.isDefaultOption,
+                isActive: true, // POS catalog only returns active modifiers
+              })),
+            };
+          })
+          .filter(Boolean) as ResolvedGroup[];
+      }
+    }
+
+    // Metadata fallback path
+    if (!adminGroups) return [];
     const defaultIds = new Set(metadata.defaultModifierGroupIds ?? []);
     const optionalIds = new Set(metadata.optionalModifierGroupIds ?? []);
     const allIds = new Set([...defaultIds, ...optionalIds]);
     if (allIds.size === 0) return [];
 
-    return allGroups
+    return adminGroups
       .filter((g) => allIds.has(g.id))
       .sort((a, b) => {
         const aDefault = defaultIds.has(a.id) ? 0 : 1;
         const bDefault = defaultIds.has(b.id) ? 0 : 1;
         return aDefault - bDefault;
-      });
-  }, [allGroups, item, metadata]);
+      })
+      .map((g) => ({
+        id: g.id,
+        name: g.name,
+        selectionType: g.selectionType,
+        isRequired: g.isRequired,
+        minSelections: g.minSelections,
+        maxSelections: g.maxSelections,
+        instructionMode: 'none',
+        defaultBehavior: 'none',
+        modifiers: (g.modifiers ?? []).map((m) => ({
+          id: m.id,
+          name: m.name,
+          priceCents: modifierPriceCents(m.priceAdjustment),
+          extraPriceDeltaCents: null,
+          kitchenLabel: null,
+          allowNone: false,
+          allowExtra: false,
+          allowOnSide: false,
+          isDefaultOption: false,
+          isActive: m.isActive,
+        })),
+      }));
+  }, [item, posModifierGroups, itemAssignments, adminGroups, metadata]);
 
   // ── State ─────────────────────────────────────────────────────
 
@@ -78,16 +237,32 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
   const [singleSelections, setSingleSelections] = useState<Record<string, string>>({});
   const [multiSelections, setMultiSelections] = useState<Record<string, Set<string>>>({});
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [modInstructions, setModInstructions] = useState<Record<string, ModifierInstruction>>({});
 
-  // Reset state when item changes
+  // Reset state when item changes + auto-select defaults
   useEffect(() => {
     if (open && item) {
       setSelectedFraction(1);
-      setSingleSelections({});
-      setMultiSelections({});
       setSpecialInstructions('');
+      setModInstructions({});
+
+      // Auto-select defaults when defaultBehavior === 'auto_select_defaults'
+      const newSingle: Record<string, string> = {};
+      const newMulti: Record<string, Set<string>> = {};
+      for (const group of relevantGroups) {
+        if (group.defaultBehavior !== 'auto_select_defaults') continue;
+        const defaults = group.modifiers.filter((m) => m.isDefaultOption && m.isActive);
+        if (defaults.length === 0) continue;
+        if (group.selectionType === 'single' && defaults[0]) {
+          newSingle[group.id] = defaults[0].id;
+        } else {
+          newMulti[group.id] = new Set(defaults.map((d) => d.id));
+        }
+      }
+      setSingleSelections(newSingle);
+      setMultiSelections(newMulti);
     }
-  }, [open, item]);
+  }, [open, item, relevantGroups]);
 
   // ── Keyboard & focus ──────────────────────────────────────────
 
@@ -106,34 +281,36 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
     }
   }, [open, handleKeyDown]);
 
-  // ── Computed total ────────────────────────────────────────────
+  // ── Computed total (instruction-aware) ──────────────────────
 
   const total = useMemo(() => {
     if (!item) return 0;
     let sum = Math.round(item.price * selectedFraction);
 
-    // Single selections
     for (const groupId of Object.keys(singleSelections)) {
       const modId = singleSelections[groupId];
       const group = relevantGroups.find((g) => g.id === groupId);
-      const mod = group?.modifiers?.find((m) => m.id === modId);
-      if (mod) sum += modifierPriceCents(mod.priceAdjustment);
+      const mod = group?.modifiers.find((m) => m.id === modId);
+      if (mod) {
+        const instr = modInstructions[mod.id] ?? null;
+        sum += resolveModPrice(mod.priceCents, instr, mod.extraPriceDeltaCents);
+      }
     }
 
-    // Multi selections
     for (const groupId of Object.keys(multiSelections)) {
       const selectedSet = multiSelections[groupId] ?? new Set<string>();
       const group = relevantGroups.find((g) => g.id === groupId);
-      if (!group?.modifiers) continue;
+      if (!group) continue;
       for (const mod of group.modifiers) {
         if (selectedSet.has(mod.id)) {
-          sum += modifierPriceCents(mod.priceAdjustment);
+          const instr = modInstructions[mod.id] ?? null;
+          sum += resolveModPrice(mod.priceCents, instr, mod.extraPriceDeltaCents);
         }
       }
     }
 
     return sum;
-  }, [item, selectedFraction, singleSelections, multiSelections, relevantGroups]);
+  }, [item, selectedFraction, singleSelections, multiSelections, relevantGroups, modInstructions]);
 
   // ── Required group validation ────────────────────────────────
 
@@ -141,12 +318,11 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
     const missing: Set<string> = new Set();
     for (const group of relevantGroups) {
       if (!group.isRequired) continue;
-      const isSingle = group.selectionType === 'single';
-      if (isSingle) {
+      if (group.selectionType === 'single') {
         if (!singleSelections[group.id]) missing.add(group.id);
       } else {
         const sel = multiSelections[group.id];
-        if (!sel || sel.size === 0) missing.add(group.id);
+        if (!sel || sel.size < group.minSelections) missing.add(group.id);
       }
     }
     return missing;
@@ -165,6 +341,12 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
       const current = new Set(prev[groupId] ?? []);
       if (current.has(modId)) {
         current.delete(modId);
+        // Clear instruction when deselected
+        setModInstructions((p) => {
+          const next = { ...p };
+          delete next[modId];
+          return next;
+        });
       } else {
         current.add(modId);
       }
@@ -172,11 +354,12 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
     });
   }
 
+  function handleInstructionChange(modId: string, instruction: ModifierInstruction) {
+    setModInstructions((prev) => ({ ...prev, [modId]: instruction }));
+  }
+
   function appendInstruction(text: string) {
-    setSpecialInstructions((prev) => {
-      if (!prev) return text;
-      return `${prev}, ${text}`;
-    });
+    setSpecialInstructions((prev) => (prev ? `${prev}, ${text}` : text));
   }
 
   function handleAdd() {
@@ -187,13 +370,17 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
     for (const groupId of Object.keys(singleSelections)) {
       const modId = singleSelections[groupId];
       const group = relevantGroups.find((g) => g.id === groupId);
-      const mod = group?.modifiers?.find((m) => m.id === modId);
+      const mod = group?.modifiers.find((m) => m.id === modId);
       if (mod) {
+        const instr = modInstructions[mod.id] ?? null;
         modifiers.push({
           modifierId: mod.id,
+          modifierGroupId: groupId,
           name: mod.name,
-          priceAdjustment: modifierPriceCents(mod.priceAdjustment),
-          isDefault: false,
+          priceAdjustment: resolveModPrice(mod.priceCents, instr, mod.extraPriceDeltaCents),
+          isDefault: mod.isDefaultOption,
+          instruction: instr,
+          kitchenLabel: mod.kitchenLabel,
         });
       }
     }
@@ -201,27 +388,29 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
     for (const groupId of Object.keys(multiSelections)) {
       const selectedSet = multiSelections[groupId] ?? new Set<string>();
       const group = relevantGroups.find((g) => g.id === groupId);
-      if (!group?.modifiers) continue;
+      if (!group) continue;
       for (const mod of group.modifiers) {
         if (selectedSet.has(mod.id)) {
+          const instr = modInstructions[mod.id] ?? null;
           modifiers.push({
             modifierId: mod.id,
+            modifierGroupId: groupId,
             name: mod.name,
-            priceAdjustment: modifierPriceCents(mod.priceAdjustment),
-            isDefault: false,
+            priceAdjustment: resolveModPrice(mod.priceCents, instr, mod.extraPriceDeltaCents),
+            isDefault: mod.isDefaultOption,
+            instruction: instr,
+            kitchenLabel: mod.kitchenLabel,
           });
         }
       }
     }
 
-    const input: AddLineItemInput = {
+    onAdd({
       catalogItemId: item.id,
       qty: selectedFraction,
       ...(modifiers.length > 0 && { modifiers }),
       ...(specialInstructions.trim() && { specialInstructions: specialInstructions.trim() }),
-    };
-
-    onAdd(input);
+    });
   }
 
   // ── Render ────────────────────────────────────────────────────
@@ -276,15 +465,19 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
           {/* Modifier groups */}
           {relevantGroups.map((group) => {
             const isSingle = group.selectionType === 'single';
-            const activeModifiers = (group.modifiers ?? []).filter((m) => m.isActive);
+            const activeModifiers = group.modifiers.filter((m) => m.isActive);
             const isMissing = missingRequired.has(group.id);
+            const hasInstructions =
+              group.instructionMode === 'all' || group.instructionMode === 'per_option';
 
             return (
               <div key={group.id}>
                 <h4 className="mb-2 text-sm font-semibold text-gray-700">
                   {group.name}
                   {group.isRequired ? (
-                    <span className={`ml-1 text-xs font-normal ${isMissing ? 'text-red-500' : 'text-green-600'}`}>
+                    <span
+                      className={`ml-1 text-xs font-normal ${isMissing ? 'text-red-500' : 'text-green-600'}`}
+                    >
                       {isMissing ? '(required — select one)' : '(required)'}
                     </span>
                   ) : (
@@ -294,41 +487,74 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
 
                 <div className="space-y-1">
                   {activeModifiers.map((mod) => {
-                    const priceCents = modifierPriceCents(mod.priceAdjustment);
+                    const instr = modInstructions[mod.id] ?? null;
+                    const effectivePrice = resolveModPrice(
+                      mod.priceCents,
+                      instr,
+                      mod.extraPriceDeltaCents,
+                    );
                     const isSelected = isSingle
                       ? singleSelections[group.id] === mod.id
                       : (multiSelections[group.id] ?? new Set()).has(mod.id);
 
+                    const showInstructions =
+                      isSelected &&
+                      hasInstructions &&
+                      (group.instructionMode === 'all' ||
+                        mod.allowNone ||
+                        mod.allowExtra ||
+                        mod.allowOnSide);
+
                     return (
-                      <label
-                        key={mod.id}
-                        className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 transition-colors ${
-                          isSelected
-                            ? 'border-indigo-300 bg-indigo-50'
-                            : 'border-gray-200 hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <input
-                            type={isSingle ? 'radio' : 'checkbox'}
-                            name={`group-${group.id}`}
-                            checked={isSelected}
-                            onChange={() =>
-                              isSingle
-                                ? handleSingleSelect(group.id, mod.id)
-                                : handleMultiToggle(group.id, mod.id)
-                            }
-                            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <span className="text-sm text-gray-900">{mod.name}</span>
-                        </div>
-                        {priceCents !== 0 && (
-                          <span className="text-sm text-gray-500">
-                            {priceCents > 0 ? '+' : ''}
-                            {formatPrice(priceCents)}
-                          </span>
+                      <div key={mod.id}>
+                        <label
+                          className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 transition-colors ${
+                            isSelected
+                              ? 'border-indigo-300 bg-indigo-50'
+                              : 'border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <input
+                              type={isSingle ? 'radio' : 'checkbox'}
+                              name={`group-${group.id}`}
+                              checked={isSelected}
+                              onChange={() =>
+                                isSingle
+                                  ? handleSingleSelect(group.id, mod.id)
+                                  : handleMultiToggle(group.id, mod.id)
+                              }
+                              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-sm text-gray-900">{mod.name}</span>
+                          </div>
+                          {effectivePrice !== 0 && (
+                            <span className="text-sm text-gray-500">
+                              {effectivePrice > 0 ? '+' : ''}
+                              {formatPrice(effectivePrice)}
+                            </span>
+                          )}
+                          {effectivePrice === 0 && instr === 'none' && (
+                            <span className="text-xs font-medium text-red-500">NONE</span>
+                          )}
+                        </label>
+
+                        {/* Instruction buttons (below the selected modifier) */}
+                        {showInstructions && (
+                          <div className="ml-10 mb-1">
+                            <InstructionButtons
+                              allowNone={group.instructionMode === 'all' || mod.allowNone}
+                              allowExtra={group.instructionMode === 'all' || mod.allowExtra}
+                              allowOnSide={group.instructionMode === 'all' || mod.allowOnSide}
+                              value={instr}
+                              onChange={(val) => handleInstructionChange(mod.id, val)}
+                              extraPriceDeltaCents={mod.extraPriceDeltaCents}
+                              basePriceCents={mod.priceCents}
+                              variant="retail"
+                            />
+                          </div>
                         )}
-                      </label>
+                      </div>
                     );
                   })}
                 </div>
@@ -365,9 +591,7 @@ export function ModifierDialog({ open, onClose, item, onAdd }: ModifierDialogPro
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-          <div className="text-lg font-semibold text-gray-900">
-            Total: {formatPrice(total)}
-          </div>
+          <div className="text-lg font-semibold text-gray-900">Total: {formatPrice(total)}</div>
           <div className="flex gap-3">
             <button
               type="button"

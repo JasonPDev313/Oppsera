@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Shield, Clock, Mail, Phone, Key, Ban, Trash2,
-  RotateCcw, AlertTriangle, CheckCircle2, Send,
+  RotateCcw, AlertTriangle, CheckCircle2, Send, Plus, X,
 } from 'lucide-react';
 import { useStaffDetail, useAdminAudit, useAdminRoles } from '@/hooks/use-staff';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
@@ -34,7 +34,7 @@ export default function StaffDetailPage() {
   const { session } = useAdminAuth();
   const { data: staff, isLoading, error, load, update, suspend, unsuspend, deleteStaff, resetPassword, resendInvite } = useStaffDetail(params.id);
   const { data: auditData, load: loadAudit } = useAdminAudit(params.id);
-  const { load: loadRoles } = useAdminRoles();
+  const { data: allRoles, load: loadRoles } = useAdminRoles();
 
   const [tab, setTab] = useState<Tab>('profile');
   const [editName, setEditName] = useState('');
@@ -62,6 +62,37 @@ export default function StaffDetailPage() {
 
   const isSuperAdmin = session?.role === 'super_admin';
   const isSelf = session?.adminId === params.id;
+  // Super admins can manage their own roles; non-super admins cannot
+  const canManageRoles = staff?.status !== 'deleted' && (!isSelf || isSuperAdmin);
+
+  // Role assignment
+  const [selectedRoleId, setSelectedRoleId] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
+
+  const assignableRoles = allRoles.filter(
+    (r) => !staff?.roles.some((sr) => sr.id === r.id),
+  );
+
+  const handleAssignRole = async () => {
+    if (!selectedRoleId || !staff) return;
+    setIsAssigning(true);
+    try {
+      const newRoleIds = [...staff.roles.map((r) => r.id), selectedRoleId];
+      await update({ roleIds: newRoleIds });
+      setSelectedRoleId('');
+    } catch { /* handled by hook */ }
+    setIsAssigning(false);
+  };
+
+  const handleRemoveRole = async (roleId: string) => {
+    if (!staff) return;
+    const newRoleIds = staff.roles.filter((r) => r.id !== roleId).map((r) => r.id);
+    setIsAssigning(true);
+    try {
+      await update({ roleIds: newRoleIds });
+    } catch { /* handled by hook */ }
+    setIsAssigning(false);
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -237,19 +268,65 @@ export default function StaffDetailPage() {
       {/* Access Tab */}
       {tab === 'access' && (
         <div className="space-y-4 p-5 bg-slate-800/50 rounded-xl border border-slate-700">
-          <h3 className="text-sm font-medium text-slate-300">Assigned Roles</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-slate-300">Assigned Roles</h3>
+          </div>
           {staff.roles.length > 0 ? (
             <div className="space-y-2">
               {staff.roles.map((r) => (
-                <div key={r.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-slate-700 bg-slate-800/50">
-                  <Shield size={16} className="text-indigo-400" />
-                  <span className="text-sm text-white font-medium">{r.name}</span>
+                <div key={r.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border border-slate-700 bg-slate-800/50">
+                  <div className="flex items-center gap-3">
+                    <Shield size={16} className="text-indigo-400" />
+                    <span className="text-sm text-white font-medium">{r.name}</span>
+                  </div>
+                  {canManageRoles && (
+                    <button
+                      onClick={() => handleRemoveRole(r.id)}
+                      disabled={isAssigning}
+                      className="flex items-center gap-1 px-2 py-1 text-xs text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                    >
+                      <X size={12} />
+                      Remove
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           ) : (
             <p className="text-sm text-slate-500 italic">No roles assigned.</p>
           )}
+
+          {/* Assign new role */}
+          {canManageRoles && assignableRoles.length > 0 && (
+            <div className="flex items-center gap-3 pt-2 border-t border-slate-700">
+              <select
+                value={selectedRoleId}
+                onChange={(e) => setSelectedRoleId(e.target.value)}
+                className="flex-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">Select a role to assign…</option>
+                {assignableRoles.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={handleAssignRole}
+                disabled={!selectedRoleId || isAssigning}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {isAssigning ? (
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Plus size={14} />
+                )}
+                Assign Role
+              </button>
+            </div>
+          )}
+          {canManageRoles && assignableRoles.length === 0 && allRoles.length > 0 && staff.roles.length > 0 && (
+            <p className="text-xs text-slate-500 pt-2 border-t border-slate-700">All available roles are assigned.</p>
+          )}
+
           <p className="text-xs text-slate-500 mt-4">
             Legacy role: <span className="text-slate-400 capitalize">{staff.legacyRole.replace('_', ' ')}</span>
           </p>

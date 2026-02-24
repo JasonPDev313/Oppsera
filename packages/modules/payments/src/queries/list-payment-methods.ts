@@ -14,6 +14,12 @@ export interface StoredPaymentMethod {
   nickname: string | null;
   providerProfileId: string | null;
   createdAt: Date;
+  // Bank-account-specific fields
+  bankRoutingLast4: string | null;
+  bankAccountType: string | null;
+  bankName: string | null;
+  verificationStatus: string | null;
+  verificationAttempts: number | null;
 }
 
 /**
@@ -39,6 +45,11 @@ export async function listPaymentMethods(
         nickname: customerPaymentMethods.nickname,
         providerProfileId: customerPaymentMethods.providerProfileId,
         createdAt: customerPaymentMethods.createdAt,
+        bankRoutingLast4: customerPaymentMethods.bankRoutingLast4,
+        bankAccountType: customerPaymentMethods.bankAccountType,
+        bankName: customerPaymentMethods.bankName,
+        verificationStatus: customerPaymentMethods.verificationStatus,
+        verificationAttempts: customerPaymentMethods.verificationAttempts,
       })
       .from(customerPaymentMethods)
       .where(
@@ -65,6 +76,11 @@ export async function listPaymentMethods(
       nickname: r.nickname ?? null,
       providerProfileId: r.providerProfileId ?? null,
       createdAt: r.createdAt,
+      bankRoutingLast4: r.bankRoutingLast4 ?? null,
+      bankAccountType: r.bankAccountType ?? null,
+      bankName: r.bankName ?? null,
+      verificationStatus: r.verificationStatus ?? null,
+      verificationAttempts: r.verificationAttempts ?? null,
     }));
   });
 }

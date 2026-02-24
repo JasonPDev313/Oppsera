@@ -60,13 +60,8 @@ export const GET = withMiddleware(
       );
     }
 
-    return NextResponse.json({
-      data: {
-        site: config.site,
-        iframeUrl: config.iframeUrl,
-        isSandbox: config.isSandbox,
-      },
-    });
+    // Return the full client config — frontend decides what to render
+    return NextResponse.json({ data: config });
   },
   { public: true },
 );
