@@ -14,12 +14,16 @@ import {
 export interface ItemDetail {
   id: string;
   sku: string | null;
+  barcode: string | null;
   name: string;
   description: string | null;
   itemType: string;
   defaultPrice: string;
   cost: string | null;
+  categoryId: string | null;
+  priceIncludesTax: boolean;
   isTrackable: boolean;
+  metadata: Record<string, unknown> | null;
   archivedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -87,9 +91,13 @@ export async function getItem(tenantId: string, itemId: string): Promise<ItemDet
       taxCategory = tc ?? null;
     }
 
-    // Fetch modifier groups via junction
+    // Fetch modifier groups via junction — use explicit columns to avoid
+    // referencing columns added in migration 0183 that may not exist in the DB yet
     const junctions = await tx
-      .select()
+      .select({
+        catalogItemId: catalogItemModifierGroups.catalogItemId,
+        modifierGroupId: catalogItemModifierGroups.modifierGroupId,
+      })
       .from(catalogItemModifierGroups)
       .where(eq(catalogItemModifierGroups.catalogItemId, itemId));
 
@@ -97,12 +105,26 @@ export async function getItem(tenantId: string, itemId: string): Promise<ItemDet
     if (junctions.length > 0) {
       const groupIds = junctions.map((j) => j.modifierGroupId);
       const groups = await tx
-        .select()
+        .select({
+          id: catalogModifierGroups.id,
+          name: catalogModifierGroups.name,
+          selectionType: catalogModifierGroups.selectionType,
+          isRequired: catalogModifierGroups.isRequired,
+          minSelections: catalogModifierGroups.minSelections,
+          maxSelections: catalogModifierGroups.maxSelections,
+        })
         .from(catalogModifierGroups)
         .where(inArray(catalogModifierGroups.id, groupIds));
 
       const modifiers = await tx
-        .select()
+        .select({
+          id: catalogModifiers.id,
+          modifierGroupId: catalogModifiers.modifierGroupId,
+          name: catalogModifiers.name,
+          priceAdjustment: catalogModifiers.priceAdjustment,
+          sortOrder: catalogModifiers.sortOrder,
+          isActive: catalogModifiers.isActive,
+        })
         .from(catalogModifiers)
         .where(inArray(catalogModifiers.modifierGroupId, groupIds));
 
@@ -137,12 +159,16 @@ export async function getItem(tenantId: string, itemId: string): Promise<ItemDet
     return {
       id: item.id,
       sku: item.sku,
+      barcode: item.barcode ?? null,
       name: item.name,
       description: item.description,
       itemType: item.itemType,
       defaultPrice: item.defaultPrice,
       cost: item.cost,
+      categoryId: item.categoryId ?? null,
+      priceIncludesTax: item.priceIncludesTax,
       isTrackable: item.isTrackable,
+      metadata: (item.metadata as Record<string, unknown>) ?? null,
       archivedAt: item.archivedAt ?? null,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
