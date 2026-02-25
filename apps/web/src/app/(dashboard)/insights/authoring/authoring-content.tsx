@@ -29,7 +29,7 @@ interface DimensionApiItem {
 
 // ── AuthoringContent ──────────────────────────────────────────────
 
-export default function AuthoringContent() {
+export default function AuthoringContent({ embedded }: { embedded?: boolean }) {
   const [metrics, setMetrics] = useState<MetricDef[]>([]);
   const [dimensions, setDimensions] = useState<DimensionDef[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -170,28 +170,32 @@ export default function AuthoringContent() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto">
-      {/* Back link */}
-      <Link
-        href="/insights"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Chat
-      </Link>
+    <div className={embedded ? '' : 'max-w-5xl mx-auto'}>
+      {!embedded && (
+        <>
+          {/* Back link */}
+          <Link
+            href="/insights"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Chat
+          </Link>
 
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-          <Database className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Semantic Authoring</h1>
-          <p className="text-sm text-muted-foreground">
-            Define custom metrics and dimensions for your AI semantic layer
-          </p>
-        </div>
-      </div>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+              <Database className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">Semantic Authoring</h1>
+              <p className="text-sm text-muted-foreground">
+                Define custom metrics and dimensions for your AI semantic layer
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Loading */}
       {isLoading && (

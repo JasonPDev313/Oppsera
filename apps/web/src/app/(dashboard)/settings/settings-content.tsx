@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard, Grid3X3, List, MapPin, Store, Monitor } from 'lucide-react';
+import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard, Grid3X3, List, MapPin, Store, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
@@ -32,47 +32,121 @@ interface RoleDetail extends Omit<Role, 'userCount'> {
 
 // ── Permission Groups ────────────────────────────────────────────
 
-const PERMISSION_GROUPS: Record<string, string[]> = {
-  'Dashboard & Audit': ['dashboard.view', 'dashboard.configure', 'modules.manage', 'audit.view'],
-  'Inventory Items': ['catalog.view', 'catalog.manage'],
-  Orders: ['orders.view', 'orders.create', 'orders.manage', 'orders.void', 'returns.create', 'price.override', 'discounts.apply', 'charges.manage'],
-  Payments: ['tenders.view', 'tenders.create', 'tenders.adjust', 'tenders.refund'],
-  'Cash Drawer': ['shift.manage', 'cash.drawer', 'cash.drop'],
-  Inventory: ['inventory.view', 'inventory.manage'],
-  Customers: ['customers.view', 'customers.manage', 'billing.view', 'billing.manage'],
-  Reports: ['reports.view', 'reports.export', 'reports.custom.view', 'reports.custom.manage'],
-  Golf: ['golf.analytics.view'],
-  Accounting: ['accounting.view', 'accounting.manage', 'accounting.mappings.manage', 'accounting.period.close', 'accounting.banking.view', 'accounting.banking.reconcile', 'accounting.tax.view', 'accounting.financials.view', 'accounting.revenue.view', 'cogs.manage'],
-  'Accounts Payable': ['ap.view', 'ap.manage'],
-  'Accounts Receivable': ['ar.view', 'ar.manage'],
-  'F&B POS': [
-    'pos_fnb.floor_plan.view', 'pos_fnb.floor_plan.manage',
-    'pos_fnb.tabs.view', 'pos_fnb.tabs.create', 'pos_fnb.tabs.transfer', 'pos_fnb.tabs.void', 'pos_fnb.tabs.manage',
-    'pos_fnb.kds.view', 'pos_fnb.kds.bump', 'pos_fnb.kds.recall',
-    'pos_fnb.payments.create', 'pos_fnb.payments.split', 'pos_fnb.payments.refund', 'pos_fnb.payments.void',
-    'pos_fnb.tips.adjust', 'pos_fnb.tips.finalize', 'pos_fnb.tips.pool_manage', 'pos_fnb.tips.manage',
-    'pos_fnb.menu.manage', 'pos_fnb.menu.comp', 'pos_fnb.menu.discount', 'pos_fnb.menu.price_override',
-    'pos_fnb.close_batch.manage', 'pos_fnb.close_batch.cash_count',
-    'pos_fnb.reports.view', 'pos_fnb.reports.export',
-    'pos_fnb.settings.manage',
-    'pos_fnb.gl.view', 'pos_fnb.gl.manage', 'pos_fnb.gl.post', 'pos_fnb.gl.reverse', 'pos_fnb.gl.mappings',
-  ],
-  'AI Insights': ['semantic.view', 'semantic.query', 'semantic.manage', 'semantic.admin'],
-  'Room Layouts': ['room_layouts.view', 'room_layouts.manage'],
-  'Property Mgmt': [
-    'pms.property.view', 'pms.property.manage',
-    'pms.rooms.view', 'pms.rooms.manage',
-    'pms.reservations.view', 'pms.reservations.create', 'pms.reservations.edit', 'pms.reservations.cancel',
-    'pms.front_desk.check_in', 'pms.front_desk.check_out', 'pms.front_desk.no_show',
-    'pms.calendar.view', 'pms.calendar.move', 'pms.calendar.resize',
-    'pms.housekeeping.view', 'pms.housekeeping.manage',
-    'pms.guests.view', 'pms.guests.manage',
-    'pms.folio.view', 'pms.folio.post_charges', 'pms.folio.post_payments',
-    'pms.rates.view', 'pms.rates.manage',
-  ],
-  Settings: ['settings.view', 'settings.update'],
-  Users: ['users.view', 'users.manage'],
-};
+interface PermissionSubGroup {
+  label: string;
+  permissions: string[];
+}
+
+interface PermissionGroupEntry {
+  label: string;
+  /** Flat list — used for small groups with no sub-sections */
+  permissions?: string[];
+  /** Hierarchical sub-groups — each toggleable independently */
+  subGroups?: PermissionSubGroup[];
+}
+
+/** Get all permissions for a group (flat or sub-grouped) */
+function getAllGroupPerms(group: PermissionGroupEntry): string[] {
+  if (group.permissions) return group.permissions;
+  return group.subGroups?.flatMap((sg) => sg.permissions) ?? [];
+}
+
+const PERMISSION_GROUPS: PermissionGroupEntry[] = [
+  // ── Platform ──────────────────────────────────────────────
+  {
+    label: 'Platform',
+    subGroups: [
+      { label: 'Dashboard', permissions: ['dashboard.view', 'dashboard.configure'] },
+      { label: 'Settings', permissions: ['settings.view', 'settings.update'] },
+      { label: 'Users & Roles', permissions: ['users.view', 'users.manage'] },
+      { label: 'Modules', permissions: ['modules.manage'] },
+      { label: 'Audit Log', permissions: ['audit.view'] },
+    ],
+  },
+  // ── Catalog ───────────────────────────────────────────────
+  { label: 'Inventory Items', permissions: ['catalog.view', 'catalog.manage'] },
+  // ── POS / Orders ──────────────────────────────────────────
+  {
+    label: 'POS / Orders',
+    subGroups: [
+      { label: 'Orders', permissions: ['orders.view', 'orders.create', 'orders.manage', 'orders.void'] },
+      { label: 'Returns & Overrides', permissions: ['returns.create', 'price.override', 'discounts.apply', 'charges.manage'] },
+      { label: 'Cash Drawer', permissions: ['shift.manage', 'cash.drawer', 'cash.drop'] },
+    ],
+  },
+  // ── Payments ──────────────────────────────────────────────
+  { label: 'Payments', permissions: ['tenders.view', 'tenders.create', 'tenders.adjust', 'tenders.refund'] },
+  // ── Inventory ─────────────────────────────────────────────
+  { label: 'Inventory', permissions: ['inventory.view', 'inventory.manage'] },
+  // ── Customers ─────────────────────────────────────────────
+  {
+    label: 'Customers',
+    subGroups: [
+      { label: 'Profiles', permissions: ['customers.view', 'customers.manage'] },
+      { label: 'Billing & AR', permissions: ['billing.view', 'billing.manage'] },
+    ],
+  },
+  // ── Reports ───────────────────────────────────────────────
+  {
+    label: 'Reports',
+    subGroups: [
+      { label: 'Standard Reports', permissions: ['reports.view', 'reports.export'] },
+      { label: 'Custom Reports', permissions: ['reports.custom.view', 'reports.custom.manage'] },
+    ],
+  },
+  // ── Golf ──────────────────────────────────────────────────
+  { label: 'Golf', permissions: ['golf.analytics.view'] },
+  // ── Accounting ────────────────────────────────────────────
+  {
+    label: 'Accounting',
+    subGroups: [
+      { label: 'General Ledger', permissions: ['accounting.view', 'accounting.manage'] },
+      { label: 'GL Mappings', permissions: ['accounting.mappings.manage'] },
+      { label: 'Period Close', permissions: ['accounting.period.close'] },
+      { label: 'Banking', permissions: ['accounting.banking.view', 'accounting.banking.reconcile'] },
+      { label: 'Tax & Financials', permissions: ['accounting.tax.view', 'accounting.financials.view', 'accounting.revenue.view'] },
+      { label: 'COGS', permissions: ['cogs.manage'] },
+    ],
+  },
+  // ── AP / AR ───────────────────────────────────────────────
+  { label: 'Accounts Payable', permissions: ['ap.view', 'ap.manage'] },
+  { label: 'Accounts Receivable', permissions: ['ar.view', 'ar.manage'] },
+  // ── F&B POS ───────────────────────────────────────────────
+  {
+    label: 'F&B POS',
+    subGroups: [
+      { label: 'Floor Plan', permissions: ['pos_fnb.floor_plan.view', 'pos_fnb.floor_plan.manage'] },
+      { label: 'Tabs', permissions: ['pos_fnb.tabs.view', 'pos_fnb.tabs.create', 'pos_fnb.tabs.transfer', 'pos_fnb.tabs.void', 'pos_fnb.tabs.manage'] },
+      { label: 'KDS', permissions: ['pos_fnb.kds.view', 'pos_fnb.kds.bump', 'pos_fnb.kds.recall'] },
+      { label: 'Payments', permissions: ['pos_fnb.payments.create', 'pos_fnb.payments.split', 'pos_fnb.payments.refund', 'pos_fnb.payments.void'] },
+      { label: 'Tips', permissions: ['pos_fnb.tips.adjust', 'pos_fnb.tips.finalize', 'pos_fnb.tips.pool_manage', 'pos_fnb.tips.manage'] },
+      { label: 'Menu', permissions: ['pos_fnb.menu.manage', 'pos_fnb.menu.comp', 'pos_fnb.menu.discount', 'pos_fnb.menu.price_override'] },
+      { label: 'Close Batch', permissions: ['pos_fnb.close_batch.manage', 'pos_fnb.close_batch.cash_count'] },
+      { label: 'Reports', permissions: ['pos_fnb.reports.view', 'pos_fnb.reports.export'] },
+      { label: 'Settings', permissions: ['pos_fnb.settings.manage'] },
+      { label: 'GL Posting', permissions: ['pos_fnb.gl.view', 'pos_fnb.gl.manage', 'pos_fnb.gl.post', 'pos_fnb.gl.reverse', 'pos_fnb.gl.mappings'] },
+    ],
+  },
+  // ── AI Insights ───────────────────────────────────────────
+  { label: 'AI Insights', permissions: ['semantic.view', 'semantic.query', 'semantic.manage', 'semantic.admin'] },
+  // ── Room Layouts ──────────────────────────────────────────
+  { label: 'Room Layouts', permissions: ['room_layouts.view', 'room_layouts.manage'] },
+  // ── PMS ───────────────────────────────────────────────────
+  {
+    label: 'Property Management',
+    subGroups: [
+      { label: 'Property', permissions: ['pms.property.view', 'pms.property.manage'] },
+      { label: 'Rooms', permissions: ['pms.rooms.view', 'pms.rooms.manage'] },
+      { label: 'Reservations', permissions: ['pms.reservations.view', 'pms.reservations.create', 'pms.reservations.edit', 'pms.reservations.cancel'] },
+      { label: 'Front Desk', permissions: ['pms.front_desk.check_in', 'pms.front_desk.check_out', 'pms.front_desk.no_show'] },
+      { label: 'Calendar', permissions: ['pms.calendar.view', 'pms.calendar.move', 'pms.calendar.resize'] },
+      { label: 'Housekeeping', permissions: ['pms.housekeeping.view', 'pms.housekeeping.manage'] },
+      { label: 'Guests', permissions: ['pms.guests.view', 'pms.guests.manage'] },
+      { label: 'Folios', permissions: ['pms.folio.view', 'pms.folio.post_charges', 'pms.folio.post_payments'] },
+      { label: 'Rates', permissions: ['pms.rates.view', 'pms.rates.manage'] },
+    ],
+  },
+];
 
 // ── Settings Page ────────────────────────────────────────────────
 
@@ -303,16 +377,62 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
           )}
 
           <div className="mt-4">
-            <h4 className="text-xs font-medium text-gray-500 uppercase">Permissions</h4>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {selectedRole.permissions.map((perm) => (
-                <span
-                  key={perm}
-                  className="inline-flex rounded bg-gray-100 px-2 py-0.5 text-xs font-mono text-gray-700"
-                >
-                  {perm}
-                </span>
-              ))}
+            <h4 className="text-xs font-medium text-gray-500 uppercase">
+              Permissions ({selectedRole.permissions.length})
+            </h4>
+            <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
+              {PERMISSION_GROUPS.map((group) => {
+                const allPerms = getAllGroupPerms(group);
+                const active = allPerms.filter((p) => selectedRole.permissions.includes(p));
+                if (active.length === 0) return null;
+                const isFullGroup = active.length === allPerms.length;
+                return (
+                  <div key={group.label}>
+                    <div className="flex items-center gap-1.5">
+                      {isFullGroup ? (
+                        <Check className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-400" />
+                      )}
+                      <span className="text-xs font-semibold text-gray-700">{group.label}</span>
+                      <span className="text-xs text-gray-400">{active.length}/{allPerms.length}</span>
+                    </div>
+                    {!isFullGroup && (
+                      <div className="ml-5 mt-0.5 flex flex-wrap gap-1">
+                        {active.map((perm) => (
+                          <span
+                            key={perm}
+                            className="inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-mono text-gray-600"
+                          >
+                            {perm}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {/* Show any permissions not in groups */}
+              {(() => {
+                const allGrouped = new Set(PERMISSION_GROUPS.flatMap(getAllGroupPerms));
+                const ungrouped = selectedRole.permissions.filter((p) => !allGrouped.has(p));
+                if (ungrouped.length === 0) return null;
+                return (
+                  <div>
+                    <span className="text-xs font-semibold text-gray-700">Other</span>
+                    <div className="mt-0.5 flex flex-wrap gap-1">
+                      {ungrouped.map((perm) => (
+                        <span
+                          key={perm}
+                          className="inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-mono text-gray-600"
+                        >
+                          {perm}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -492,6 +612,33 @@ function RoleFormDialog({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
+    // Auto-expand groups that have selected permissions when editing
+    if (!role) return new Set<string>();
+    const expanded = new Set<string>();
+    for (const group of PERMISSION_GROUPS) {
+      if (group.subGroups) {
+        const allPerms = getAllGroupPerms(group);
+        if (allPerms.some((p) => role.permissions.includes(p))) {
+          expanded.add(group.label);
+        }
+      }
+    }
+    return expanded;
+  });
+
+  const toggleExpanded = (label: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
+      return next;
+    });
+  };
+
   const togglePerm = (perm: string) => {
     setSelectedPerms((prev) => {
       const next = new Set(prev);
@@ -607,33 +754,116 @@ function RoleFormDialog({
           {/* Permission checkboxes */}
           <div>
             <label className="block text-sm font-medium text-gray-700">Permissions</label>
-            <div className="mt-2 max-h-64 space-y-3 overflow-y-auto rounded-lg border border-gray-200 p-3">
-              {Object.entries(PERMISSION_GROUPS).map(([group, perms]) => (
-                <div key={group}>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={perms.every((p) => selectedPerms.has(p))}
-                      onChange={() => toggleGroup(perms)}
-                      className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700">{group}</span>
-                  </div>
-                  <div className="ml-6 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                    {perms.map((perm) => (
-                      <label key={perm} className="flex items-center gap-1.5">
+            <div className="mt-2 max-h-80 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-3">
+              {PERMISSION_GROUPS.map((group) => {
+                const allPerms = getAllGroupPerms(group);
+                const allSelected = allPerms.every((p) => selectedPerms.has(p));
+                const someSelected = allPerms.some((p) => selectedPerms.has(p));
+                const isExpanded = expandedGroups.has(group.label);
+
+                if (group.permissions) {
+                  // Flat group — no sub-sections
+                  return (
+                    <div key={group.label} className="rounded-md px-2 py-1.5">
+                      <div className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={selectedPerms.has(perm)}
-                          onChange={() => togglePerm(perm)}
-                          className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          checked={allSelected}
+                          ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                          onChange={() => toggleGroup(group.permissions!)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                         />
-                        <span className="text-xs font-mono text-gray-600">{perm}</span>
-                      </label>
-                    ))}
+                        <span className="text-sm font-medium text-gray-700">{group.label}</span>
+                        <span className="text-xs text-gray-400">
+                          {group.permissions.filter((p) => selectedPerms.has(p)).length}/{group.permissions.length}
+                        </span>
+                      </div>
+                      <div className="ml-6 mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                        {group.permissions.map((perm) => (
+                          <label key={perm} className="flex items-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              checked={selectedPerms.has(perm)}
+                              onChange={() => togglePerm(perm)}
+                              className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-xs font-mono text-gray-600">{perm}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Hierarchical group with sub-sections
+                return (
+                  <div key={group.label} className="rounded-md border border-gray-100">
+                    {/* Group header — click to expand/collapse */}
+                    <div className="flex items-center gap-2 px-2 py-1.5">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
+                        onChange={() => toggleGroup(allPerms)}
+                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(group.label)}
+                        className="flex flex-1 items-center gap-1.5 text-left"
+                      >
+                        {isExpanded
+                          ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+                          : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
+                        <span className="text-sm font-medium text-gray-700">{group.label}</span>
+                        <span className="text-xs text-gray-400">
+                          {allPerms.filter((p) => selectedPerms.has(p)).length}/{allPerms.length}
+                        </span>
+                      </button>
+                    </div>
+
+                    {/* Sub-groups */}
+                    {isExpanded && group.subGroups && (
+                      <div className="space-y-1 border-t border-gray-100 px-2 pb-2 pt-1">
+                        {group.subGroups.map((sg) => {
+                          const sgAllSelected = sg.permissions.every((p) => selectedPerms.has(p));
+                          const sgSomeSelected = sg.permissions.some((p) => selectedPerms.has(p));
+                          return (
+                            <div key={sg.label} className="ml-4">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={sgAllSelected}
+                                  ref={(el) => { if (el) el.indeterminate = sgSomeSelected && !sgAllSelected; }}
+                                  onChange={() => toggleGroup(sg.permissions)}
+                                  className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span className="text-xs font-semibold text-gray-600">{sg.label}</span>
+                                <span className="text-xs text-gray-400">
+                                  {sg.permissions.filter((p) => selectedPerms.has(p)).length}/{sg.permissions.length}
+                                </span>
+                              </div>
+                              <div className="ml-5 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                                {sg.permissions.map((perm) => (
+                                  <label key={perm} className="flex items-center gap-1">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPerms.has(perm)}
+                                      onChange={() => togglePerm(perm)}
+                                      className="h-3 w-3 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-xs font-mono text-gray-500">{perm.split('.').slice(1).join('.')}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

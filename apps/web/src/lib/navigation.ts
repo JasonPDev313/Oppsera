@@ -20,8 +20,6 @@ import {
   Truck,
   Sparkles,
   MessageSquare,
-  Layers,
-  History,
   Landmark,
   BookOpen,
   Building2,
@@ -171,13 +169,7 @@ export const navigation: NavItem[] = [
     requiredPermission: 'semantic.view',
     children: [
       { name: 'Chat', href: '/insights', icon: MessageSquare, requiredPermission: 'semantic.query' },
-      { name: 'Watchlist', href: '/insights/watchlist', icon: BarChart3, requiredPermission: 'semantic.view' },
-      { name: 'Analysis Tools', href: '/insights/tools', icon: Sparkles, requiredPermission: 'semantic.query' },
-      { name: 'Scheduled Reports', href: '/insights/reports', icon: CalendarDays, requiredPermission: 'semantic.manage' },
-      { name: 'Lenses', href: '/insights/lenses', icon: Layers, requiredPermission: 'semantic.view' },
-      { name: 'Embeds', href: '/insights/embeds', icon: Globe, requiredPermission: 'semantic.manage' },
-      { name: 'Authoring', href: '/insights/authoring', icon: Sliders, requiredPermission: 'semantic.manage' },
-      { name: 'History', href: '/insights/history', icon: History, requiredPermission: 'semantic.view' },
+      { name: 'AI Tools', href: '/insights/ai-tools', icon: Wrench, requiredPermission: 'semantic.view' },
     ],
   },
   {

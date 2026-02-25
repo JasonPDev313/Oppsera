@@ -29,7 +29,7 @@ interface SessionDetailResponse {
 
 // ── HistoryContent ─────────────────────────────────────────────────
 
-export default function HistoryContent() {
+export default function HistoryContent({ embedded }: { embedded?: boolean }) {
   const router = useRouter();
   const { sessions, isLoading, isLoadingMore, error, hasMore, loadMore } = useSessionHistory({ limit: 20 });
   const [exportingId, setExportingId] = useState<string | null>(null);
@@ -65,17 +65,21 @@ export default function HistoryContent() {
     text.length > max ? text.slice(0, max) + '\u2026' : text;
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-          <History className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Chat History</h1>
-          <p className="text-sm text-muted-foreground">Past AI Insights conversations</p>
-        </div>
-      </div>
+    <div className={embedded ? '' : 'max-w-4xl mx-auto'}>
+      {!embedded && (
+        <>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+              <History className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">Chat History</h1>
+              <p className="text-sm text-muted-foreground">Past AI Insights conversations</p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Loading */}
       {isLoading && (

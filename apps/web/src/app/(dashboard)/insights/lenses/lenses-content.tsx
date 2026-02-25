@@ -18,7 +18,7 @@ interface Lens {
 
 // ── LensesContent ──────────────────────────────────────────────────
 
-export default function LensesContent() {
+export default function LensesContent({ embedded }: { embedded?: boolean }) {
   const [lenses, setLenses] = useState<Lens[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,17 +32,21 @@ export default function LensesContent() {
   }, []);
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
-          <Layers className="h-5 w-5 text-indigo-600" />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">AI Lenses</h1>
-          <p className="text-sm text-gray-500">Available AI analysis contexts for your queries</p>
-        </div>
-      </div>
+    <div className={embedded ? '' : 'max-w-4xl mx-auto'}>
+      {!embedded && (
+        <>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center">
+              <Layers className="h-5 w-5 text-indigo-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">AI Lenses</h1>
+              <p className="text-sm text-gray-500">Available AI analysis contexts for your queries</p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Content */}
       {isLoading && (

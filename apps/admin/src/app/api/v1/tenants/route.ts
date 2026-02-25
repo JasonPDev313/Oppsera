@@ -27,29 +27,28 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
   const cursor = sp.get('cursor') ?? '';
   const limit = Math.min(Number(sp.get('limit') ?? 50), 100);
 
+  // Full conditions (requires Phase 1A columns from migration 0195)
   const conditions = [sql`1=1`];
-
   if (search) {
     const term = `%${search}%`;
     conditions.push(sql`(t.name ILIKE ${term} OR t.slug ILIKE ${term} OR t.primary_contact_email ILIKE ${term})`);
   }
-  if (status) {
-    conditions.push(sql`t.status = ${status}`);
-  }
-  if (industry) {
-    conditions.push(sql`t.industry = ${industry}`);
-  }
-  if (onboardingStatus) {
-    conditions.push(sql`t.onboarding_status = ${onboardingStatus}`);
-  }
-  if (healthGrade) {
-    conditions.push(sql`t.health_grade = ${healthGrade}`);
-  }
-  if (cursor) {
-    conditions.push(sql`t.created_at < (SELECT created_at FROM tenants WHERE id = ${cursor})`);
-  }
-
+  if (status) conditions.push(sql`t.status = ${status}`);
+  if (industry) conditions.push(sql`t.industry = ${industry}`);
+  if (onboardingStatus) conditions.push(sql`t.onboarding_status = ${onboardingStatus}`);
+  if (healthGrade) conditions.push(sql`t.health_grade = ${healthGrade}`);
+  if (cursor) conditions.push(sql`t.created_at < (SELECT created_at FROM tenants WHERE id = ${cursor})`);
   const whereClause = sql.join(conditions, sql` AND `);
+
+  // Fallback conditions use only base columns (no Phase 1A columns)
+  const fallbackConditions = [sql`1=1`];
+  if (search) {
+    const term = `%${search}%`;
+    fallbackConditions.push(sql`(t.name ILIKE ${term} OR t.slug ILIKE ${term})`);
+  }
+  if (status) fallbackConditions.push(sql`t.status = ${status}`);
+  if (cursor) fallbackConditions.push(sql`t.created_at < (SELECT created_at FROM tenants WHERE id = ${cursor})`);
+  const fallbackWhereClause = sql.join(fallbackConditions, sql` AND `);
 
   // Sort column mapping
   const sortMap: Record<string, ReturnType<typeof sql>> = {
@@ -87,7 +86,7 @@ export const GET = withAdminPermission(async (req: NextRequest) => {
     const rows = await db.execute(sql`
       SELECT t.id, t.name, t.slug, t.status, t.billing_customer_id, t.created_at, t.updated_at
       FROM tenants t
-      WHERE ${whereClause}
+      WHERE ${fallbackWhereClause}
       ORDER BY t.created_at DESC
       LIMIT ${limit + 1}
     `);

@@ -673,6 +673,16 @@ Wildcard: `*` grants all permissions.
 
 Role assignments can be tenant-wide (`locationId = null`) or location-specific. Resolution unions all applicable roles.
 
+### Adding New Permissions
+
+When adding a new permission to the system, **update all three files**:
+
+1. **`packages/shared/src/permissions/permission-matrix.ts`** — add to `PERMISSION_MATRIX` (authoritative source of truth)
+2. **`apps/web/src/app/(dashboard)/settings/settings-content.tsx`** — add to `PERMISSION_GROUPS` so it appears in the role manager UI. Large modules use hierarchical `subGroups` (F&B POS, PMS, Accounting, POS/Orders, Platform). Add a new sub-group if adding a new sub-module.
+3. **`packages/db/src/seed.ts`** — add default role assignments for the 6 system roles
+
+Missing step (2) means the permission exists but is invisible in the role manager — users cannot grant or revoke it.
+
 ### Cache
 
 Permission cache (60s TTL). Invalidate after role changes: `engine.invalidateCache(tenantId, userId)`.

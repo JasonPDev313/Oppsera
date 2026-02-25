@@ -7,7 +7,7 @@ import { ScheduledReportsPanel } from '@/components/insights/ScheduledReportsPan
 
 // ── ReportsContent ────────────────────────────────────────────────
 
-export default function ReportsContent() {
+export default function ReportsContent({ embedded }: { embedded?: boolean }) {
   const {
     reports,
     createReport,
@@ -31,28 +31,32 @@ export default function ReportsContent() {
   }));
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Back link */}
-      <Link
-        href="/insights"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Chat
-      </Link>
+    <div className={embedded ? '' : 'max-w-4xl mx-auto'}>
+      {!embedded && (
+        <>
+          {/* Back link */}
+          <Link
+            href="/insights"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Chat
+          </Link>
 
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-          <CalendarClock className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Scheduled Reports</h1>
-          <p className="text-sm text-muted-foreground">
-            Automated delivery of AI-powered reports and digests
-          </p>
-        </div>
-      </div>
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+              <CalendarClock className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-foreground">Scheduled Reports</h1>
+              <p className="text-sm text-muted-foreground">
+                Automated delivery of AI-powered reports and digests
+              </p>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Loading */}
       {isLoading && (
