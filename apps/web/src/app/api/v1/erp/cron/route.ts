@@ -221,7 +221,7 @@ function isWithinWindow(currentHHMM: string, targetHHMM: string, windowMinutes: 
  * previous day. For times at/after noon, it's the current day.
  */
 function computeBusinessDateForClose(local: TenantLocalTime, closeTime: string): string {
-  const [closeH] = closeTime.split(':').map(Number);
+  const [closeH = 0] = closeTime.split(':').map(Number);
 
   // If close time is in the early morning (before noon), we're closing "yesterday's" business
   if (closeH < 12) {
