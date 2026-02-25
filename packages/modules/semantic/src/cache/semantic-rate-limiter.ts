@@ -24,6 +24,38 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 
 // tenantId → sorted array of request timestamps within the current window
 const _windows = new Map<string, number[]>();
+const MAX_TRACKED_TENANTS = 2_000;
+
+// Periodic cleanup of expired windows every 60s.
+// Prevents unbounded growth from tenants that made one AI query and never returned.
+let _cleanupTimer: ReturnType<typeof setInterval> | null = null;
+function ensureCleanupTimer() {
+  if (_cleanupTimer) return;
+  _cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [k, ts] of _windows) {
+      // If all timestamps are outside any reasonable window (2min), evict
+      if (ts.length === 0 || ts[ts.length - 1]! < now - 120_000) {
+        _windows.delete(k);
+      }
+    }
+  }, 60_000);
+  if (typeof _cleanupTimer === 'object' && 'unref' in _cleanupTimer) {
+    (_cleanupTimer as NodeJS.Timeout).unref();
+  }
+}
+
+function evictIfNeeded() {
+  if (_windows.size <= MAX_TRACKED_TENANTS) return;
+  // Evict tenants with the oldest last-request timestamp
+  const keysIter = _windows.keys();
+  const toEvict = _windows.size - MAX_TRACKED_TENANTS;
+  for (let i = 0; i < toEvict; i++) {
+    const { value, done } = keysIter.next();
+    if (done) break;
+    _windows.delete(value);
+  }
+}
 
 /**
  * Attempt to consume one request slot for the given tenant.
@@ -33,6 +65,7 @@ export function checkSemanticRateLimit(
   tenantId: string,
   config: RateLimitConfig = DEFAULT_CONFIG,
 ): RateLimitResult {
+  ensureCleanupTimer();
   const now = Date.now();
   const windowStart = now - config.windowMs;
 
@@ -60,6 +93,7 @@ export function checkSemanticRateLimit(
   // Consume the slot
   timestamps.push(now);
   _windows.set(tenantId, timestamps);
+  evictIfNeeded();
 
   return {
     allowed: true,

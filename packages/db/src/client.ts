@@ -16,9 +16,16 @@ function getDb(): DrizzleDB {
     if (!connectionString) {
       throw new Error('DATABASE_URL environment variable is required');
     }
+    // Vercel Pro: keep pool small (3) — many concurrent instances share Supabase pooler.
+    // Supabase Pro Medium: 200 pooler connections. At 50+ instances × 3 = 150, safe margin.
+    // Set DB_POOL_MAX=10+ only on self-hosted containers with direct Postgres.
+    // idle_timeout=20s prevents stale connections on pooler.
+    // max_lifetime=300s rotates connections to avoid Supavisor stale-session issues.
     const client = postgres(connectionString, {
-      max: parseInt(process.env.DB_POOL_MAX || '5', 10),
+      max: parseInt(process.env.DB_POOL_MAX || '3', 10),
       prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
+      idle_timeout: 20,
+      max_lifetime: 300,
     });
     globalForDb.__oppsera_db = drizzle(client, { schema });
   }
@@ -57,8 +64,10 @@ export function createAdminClient() {
       throw new Error('DATABASE_URL_ADMIN or DATABASE_URL environment variable is required');
     }
     const adminConn = postgres(adminUrl, {
-      max: parseInt(process.env.DB_ADMIN_POOL_MAX || '3', 10),
+      max: parseInt(process.env.DB_ADMIN_POOL_MAX || '2', 10),
       prepare: process.env.DB_PREPARE_STATEMENTS === 'true',
+      idle_timeout: 20,
+      max_lifetime: 300,
     });
     globalForAdmin.__oppsera_admin_db = drizzle(adminConn, { schema });
   }

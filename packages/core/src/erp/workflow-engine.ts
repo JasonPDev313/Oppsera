@@ -12,9 +12,38 @@ export interface WorkflowConfig {
   customSettings: Record<string, unknown>;
 }
 
-// ── In-memory cache (60s TTL per tenant) ────────────────────────
+// ── In-memory cache (60s TTL per tenant, 1K max with LRU eviction) ──
 const _cache = new Map<string, { configs: Record<string, WorkflowConfig>; tier: BusinessTier; expiresAt: number }>();
 const CACHE_TTL_MS = 60_000;
+const CACHE_MAX_SIZE = 1_000;
+
+// Periodic cleanup of expired entries every 30s.
+// Prevents unbounded growth from one-off tenant accesses that never get revisited.
+let _cleanupTimer: ReturnType<typeof setInterval> | null = null;
+function ensureCleanupTimer() {
+  if (_cleanupTimer) return;
+  _cleanupTimer = setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of _cache) {
+      if (v.expiresAt < now) _cache.delete(k);
+    }
+  }, 30_000);
+  // Unref so timer doesn't block Vercel function shutdown
+  if (typeof _cleanupTimer === 'object' && 'unref' in _cleanupTimer) {
+    (_cleanupTimer as NodeJS.Timeout).unref();
+  }
+}
+
+function evictCacheIfNeeded() {
+  if (_cache.size <= CACHE_MAX_SIZE) return;
+  const keysIter = _cache.keys();
+  const toEvict = _cache.size - CACHE_MAX_SIZE;
+  for (let i = 0; i < toEvict; i++) {
+    const { value, done } = keysIter.next();
+    if (done) break;
+    _cache.delete(value);
+  }
+}
 
 export function invalidateWorkflowCache(tenantId: string): void {
   _cache.delete(tenantId);
@@ -45,13 +74,19 @@ async function loadAllConfigs(tenantId: string): Promise<Record<string, Workflow
 }
 
 async function ensureCache(tenantId: string): Promise<{ configs: Record<string, WorkflowConfig>; tier: BusinessTier }> {
+  ensureCleanupTimer();
   const cached = _cache.get(tenantId);
   if (cached && cached.expiresAt > Date.now()) {
+    // LRU touch: move to end of insertion order
+    _cache.delete(tenantId);
+    _cache.set(tenantId, cached);
     return cached;
   }
   const [configs, tier] = await Promise.all([loadAllConfigs(tenantId), loadTenantTier(tenantId)]);
   const entry = { configs, tier, expiresAt: Date.now() + CACHE_TTL_MS };
+  _cache.delete(tenantId);
   _cache.set(tenantId, entry);
+  evictCacheIfNeeded();
   return entry;
 }
 

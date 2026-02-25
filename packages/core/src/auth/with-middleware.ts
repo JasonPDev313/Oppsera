@@ -29,8 +29,10 @@ interface MiddlewareOptions {
   cache?: string;
 }
 
-// In-memory location validation cache (60s TTL). Locations rarely change during a session.
+// In-memory location validation cache (60s TTL, 2K entries). Locations rarely change during a session.
+// 2K entries × ~50 bytes = ~100KB per instance — negligible memory.
 const LOCATION_CACHE_TTL = 60_000;
+const LOCATION_CACHE_MAX_SIZE = 2_000;
 const locationCache = new Map<string, { isActive: boolean; ts: number }>();
 
 function getCachedLocation(tenantId: string, locationId: string): { isActive: boolean } | null {
@@ -52,9 +54,9 @@ function setCachedLocation(tenantId: string, locationId: string, isActive: boole
   locationCache.delete(key);
   locationCache.set(key, { isActive, ts: Date.now() });
   // Evict oldest entries when over capacity
-  if (locationCache.size > 500) {
+  if (locationCache.size > LOCATION_CACHE_MAX_SIZE) {
     const keysIter = locationCache.keys();
-    const toEvict = locationCache.size - 500;
+    const toEvict = locationCache.size - LOCATION_CACHE_MAX_SIZE;
     for (let i = 0; i < toEvict; i++) {
       const { value, done } = keysIter.next();
       if (done) break;

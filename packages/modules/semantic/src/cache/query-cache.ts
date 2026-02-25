@@ -5,7 +5,7 @@
 // Stage 2+: swap backing store to Redis without changing the interface.
 
 const QUERY_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const QUERY_CACHE_MAX_SIZE = 200;          // max entries per process
+const QUERY_CACHE_MAX_SIZE = 500;          // max entries per process (supports ~50 tenants × 10 unique queries)
 
 // ── Types ─────────────────────────────────────────────────────────
 

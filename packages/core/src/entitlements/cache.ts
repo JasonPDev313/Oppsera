@@ -13,7 +13,9 @@ export interface EntitlementCache {
   delete(key: string): Promise<void>;
 }
 
-const ENTITLEMENT_CACHE_MAX_SIZE = 500;
+// Keyed by tenantId — 2K entries handles up to 2K concurrent tenants per instance.
+// Each entry is ~500 bytes (Map of 5-20 module entitlements).
+const ENTITLEMENT_CACHE_MAX_SIZE = 2_000;
 
 export class InMemoryEntitlementCache implements EntitlementCache {
   private store = new Map<string, { entries: Map<string, EntitlementCacheEntry>; expiresAt: number }>();

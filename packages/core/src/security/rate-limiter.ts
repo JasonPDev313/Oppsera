@@ -36,6 +36,9 @@ class SlidingWindowRateLimiter {
     entry.timestamps = entry.timestamps.filter(t => t > windowStart);
     entry.lastAccess = now;
 
+    // LRU touch: move to end of insertion order so active IPs survive eviction
+    this.store.delete(key);
+
     if (entry.timestamps.length >= config.maxRequests) {
       this.store.set(key, entry);
       const oldestInWindow = entry.timestamps[0]!;
@@ -59,13 +62,15 @@ class SlidingWindowRateLimiter {
   private evictIfNeeded() {
     if (this.store.size <= this.maxStoreSize) return;
 
-    // Evict oldest 20%
-    const entries = Array.from(this.store.entries())
-      .sort((a, b) => a[1].lastAccess - b[1].lastAccess);
-
+    // Evict oldest 20% using Map insertion order (LRU approximation).
+    // Map.keys() iterates in insertion order — oldest entries first.
+    // This is O(evictCount) instead of O(n log n) from the previous sort.
     const evictCount = Math.floor(this.store.size * 0.2);
+    const keysIter = this.store.keys();
     for (let i = 0; i < evictCount; i++) {
-      this.store.delete(entries[i]![0]);
+      const { value, done } = keysIter.next();
+      if (done) break;
+      this.store.delete(value);
     }
   }
 }
