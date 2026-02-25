@@ -11,6 +11,10 @@ import {
   Search,
   Sparkles,
   MoreHorizontal,
+  Info,
+  ShieldCheck,
+  FileCheck,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
@@ -27,6 +31,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   ShoppingBag,
   Flag,
   Building2,
+  Sparkles,
 };
 
 const AVAILABLE_MODULES = [
@@ -37,6 +42,7 @@ const AVAILABLE_MODULES = [
   { key: 'inventory', name: 'Inventory', description: 'Stock tracking, receiving' },
   { key: 'customers', name: 'Customers', description: 'Customer profiles, history' },
   { key: 'reporting', name: 'Reports', description: 'Sales reports, analytics' },
+  { key: 'accounting', name: 'Accounting', description: 'GL, chart of accounts, financial statements' },
 ];
 
 const TIMEZONES = [
@@ -366,8 +372,14 @@ function BusinessTypeStep({
           <div className="h-px flex-1 bg-gray-200" />
         </div>
 
-        <div
-          className="relative overflow-hidden rounded-xl border-2 border-gray-200 bg-linear-to-br from-gray-50 to-gray-100 p-5"
+        <button
+          type="button"
+          onClick={() => onSelect('enterprise' as BusinessTypeKey)}
+          className={`relative w-full overflow-hidden rounded-xl border-2 p-5 text-left transition-all ${
+            selected === 'enterprise'
+              ? 'border-indigo-600 bg-indigo-50 shadow-md shadow-indigo-100'
+              : 'border-gray-200 bg-linear-to-br from-gray-50 to-gray-100 hover:border-indigo-300 hover:shadow-sm'
+          }`}
         >
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-indigo-500 to-purple-600">
@@ -375,20 +387,82 @@ function BusinessTypeStep({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-gray-900">Enterprise</span>
-                <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                  Coming Soon
+                <span className={`text-sm font-semibold ${selected === 'enterprise' ? 'text-indigo-900' : 'text-gray-900'}`}>
+                  Enterprise
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-gray-500">
                 Multi-location chains, franchises &amp; large organizations with advanced accounting, consolidated reporting, and dedicated support.
               </p>
             </div>
+            {selected === 'enterprise' && (
+              <div className="shrink-0">
+                <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
           </div>
 
           {/* Subtle decorative gradient overlay */}
           <div className="pointer-events-none absolute -right-4 -top-4 h-24 w-24 rounded-full bg-linear-to-br from-indigo-200/30 to-purple-200/30 blur-2xl" />
-        </div>
+        </button>
+
+        {/* ─── Enterprise Info Box ─── */}
+        {selected === 'enterprise' && (
+          <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-5">
+            <div className="flex items-start gap-3">
+              <Info className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
+              <div>
+                <h3 className="text-sm font-semibold text-indigo-900">
+                  How Enterprise mode works
+                </h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-gray-600">
+                  Enterprise accounts are configured with accounting best practices for
+                  larger organizations. Key differences from standard accounts:
+                </p>
+
+                <div className="mt-3 space-y-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <FileCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+                    <div>
+                      <span className="text-xs font-medium text-gray-900">
+                        Draft-first GL posting
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Journal entries start as drafts for review before posting, instead of auto-posting immediately.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+                    <div>
+                      <span className="text-xs font-medium text-gray-900">
+                        Approval workflows
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        AP payments, refunds, and period closes require approval before execution.
+                        Revenue recognition and breakage income are manually controlled.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <Settings className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
+                    <div>
+                      <span className="text-xs font-medium text-gray-900">
+                        Fully customizable
+                      </span>
+                      <p className="text-xs text-gray-500">
+                        Every setting can be switched back to automatic after setup.
+                        Your team keeps full control over which workflows run automatically and which require review.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

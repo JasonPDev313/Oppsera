@@ -128,6 +128,9 @@ export function useAuth() {
   }, [fetchMe]);
 
   const login = useCallback(async (email: string, password: string): Promise<{ needsOnboarding: boolean }> => {
+    // Clear stale terminal session so the user goes through role/terminal selection
+    localStorage.removeItem('oppsera:terminal-session');
+
     const response = await apiFetch<LoginResponse>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
@@ -181,6 +184,8 @@ export function useAuth() {
     }
     clearTokens();
     sessionStorage.removeItem(IMPERSONATION_STORAGE_KEY);
+    // Clear terminal session so next login forces role/terminal selection
+    localStorage.removeItem('oppsera:terminal-session');
     setUser(null);
     setTenant(null);
     setLocations([]);
@@ -195,6 +200,7 @@ export function useAuth() {
     }
     clearTokens();
     sessionStorage.removeItem(IMPERSONATION_STORAGE_KEY);
+    localStorage.removeItem('oppsera:terminal-session');
     setUser(null);
     setTenant(null);
     setLocations([]);

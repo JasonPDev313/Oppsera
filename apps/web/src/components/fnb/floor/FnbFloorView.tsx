@@ -14,7 +14,6 @@ import { ContextSidebar } from './ContextSidebar';
 import { SeatGuestsModal } from './SeatGuestsModal';
 import { TableActionMenu } from './TableActionMenu';
 import { TableGridView } from './TableGridView';
-import { FloorBackgroundObjects } from './FloorBackgroundObjects';
 import { MySectionDialog } from './MySectionDialog';
 import { useMySection } from '@/hooks/use-my-section';
 
@@ -117,17 +116,15 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const [viewScale, setViewScale] = useState(1);
+  const [vpSize, setVpSize] = useState({ w: 0, h: 0 });
 
   const room = floorPlan?.room ?? null;
   const scalePxPerFt = room?.scalePxPerFt ?? 20;
-  const roomWidthPx = room ? room.widthFt * scalePxPerFt : 0;
-  const roomHeightPx = room ? room.heightFt * scalePxPerFt : 0;
 
   const [userZoom, setUserZoom] = useState(1);
 
-  // Compute bounding box of ONLY tables (not background objects like bar/dance floor).
-  // Background objects can make the bounding box enormous, causing the auto-fit to
-  // shrink tables to an unusable size. Tables are the interactive elements — fit to them.
+  // Compute bounding box of tables — this defines the visible canvas area.
+  // Background objects are not rendered, so only tables matter for sizing.
   const tableBounds = useMemo(() => {
     if (tables.length === 0) return null;
     if (!scalePxPerFt) return null;
@@ -154,62 +151,46 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
     };
   }, [tables, scalePxPerFt]);
 
-  // Auto-fit: zoom to fit table bounding box into the viewport.
-  // Enforces a minimum scale so tables stay large enough for touch interaction.
-  // When the min-scale makes the room larger than the viewport, scrolling handles it.
-  const MIN_TABLE_RENDER_PX = 44; // Minimum touch target size (px)
+  // Content dimensions: table cluster when available, full room as fallback
+  const contentW = tableBounds?.width ?? (room ? room.widthFt * scalePxPerFt : 0);
+  const contentH = tableBounds?.height ?? (room ? room.heightFt * scalePxPerFt : 0);
 
+  // Auto-fit: scale the table cluster to fill the viewport.
+  // No minimum scale clamp — the fit IS the natural scale that maximizes screen usage.
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
-
-    const contentW = tableBounds?.width ?? roomWidthPx;
-    const contentH = tableBounds?.height ?? roomHeightPx;
     if (!contentW || !contentH) return;
 
     const updateScale = () => {
       const { clientWidth, clientHeight } = el;
-      const padding = 32;
-      const availW = clientWidth - padding;
-      const availH = clientHeight - padding;
-      if (availW <= 0 || availH <= 0) return;
+      if (clientWidth <= 0 || clientHeight <= 0) return;
 
-      // Scale to fit the table cluster into the viewport
-      const fitScale = Math.min(availW / contentW, availH / contentH);
+      setVpSize({ w: clientWidth, h: clientHeight });
 
-      // Ensure tables are at least MIN_TABLE_RENDER_PX on screen.
-      // MIN_TABLE_SIZE (60) is the smallest table in editor pixels.
-      const minScale = MIN_TABLE_RENDER_PX / MIN_TABLE_SIZE;
-      setViewScale(Math.max(fitScale, minScale));
+      // Fit the table cluster to the viewport
+      const fitScale = Math.min(clientWidth / contentW, clientHeight / contentH);
+      setViewScale(fitScale);
     };
 
     updateScale();
     const observer = new ResizeObserver(updateScale);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [tableBounds, roomWidthPx, roomHeightPx]);
+  }, [contentW, contentH]);
 
   const effectiveScale = viewScale * userZoom;
 
-  // Auto-scroll to center the table cluster when content overflows the viewport.
-  // Runs once after scale is computed (or room changes).
-  const hasAutoScrolled = useRef(false);
-  useEffect(() => {
-    hasAutoScrolled.current = false;
-  }, [activeRoomId]);
+  // Canvas dimensions and offset for table positioning.
+  // Canvas = table cluster size (not full room), offset shifts tables to canvas origin.
+  const canvasW = contentW * effectiveScale;
+  const canvasH = contentH * effectiveScale;
+  const tableOffsetX = tableBounds ? -tableBounds.minX * effectiveScale : 0;
+  const tableOffsetY = tableBounds ? -tableBounds.minY * effectiveScale : 0;
 
-  useEffect(() => {
-    if (hasAutoScrolled.current) return;
-    if (!tableBounds || !viewportRef.current) return;
-    const el = viewportRef.current;
-    // Center the table cluster in the scrollable viewport
-    const centerX = (tableBounds.minX + tableBounds.width / 2) * effectiveScale;
-    const centerY = (tableBounds.minY + tableBounds.height / 2) * effectiveScale;
-    const scrollLeft = Math.max(0, centerX - el.clientWidth / 2);
-    const scrollTop = Math.max(0, centerY - el.clientHeight / 2);
-    el.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'instant' });
-    hasAutoScrolled.current = true;
-  }, [tableBounds, effectiveScale]);
+  // Center the canvas in the viewport when it's smaller than the viewport
+  const padX = Math.max(0, (vpSize.w - canvasW) / 2);
+  const padY = Math.max(0, (vpSize.h - canvasH) / 2);
 
   // Reset userZoom on room change
   useEffect(() => { setUserZoom(1); }, [activeRoomId]);
@@ -589,9 +570,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               filteredTableIds={store.mySectionOnly && mySection.hasSelection ? mySection.myTableIds : undefined}
             />
           ) : (
-            <div className="p-4 relative">
-              {/* Zoom controls — sticky so they stay visible when scrolling */}
-              <div className="sticky top-2 float-right z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md bg-surface border border-gray-200">
+            <>
+              {/* Zoom controls — absolutely positioned in viewport corner */}
+              <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md bg-surface border border-gray-200">
                 <button
                   type="button"
                   onClick={() => setUserZoom((z) => Math.min(3, z * 1.2))}
@@ -621,44 +602,41 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                 </button>
               </div>
 
+              {/* Canvas: sized to table cluster, centered in viewport */}
               <div
                 className="relative"
                 style={{
-                  width: roomWidthPx * effectiveScale,
-                  height: roomHeightPx * effectiveScale,
+                  width: canvasW,
+                  height: canvasH,
+                  marginLeft: padX,
+                  marginTop: padY,
                 }}
               >
-                  {/* Background layer: non-table objects from room layout snapshot */}
-                  {floorPlan?.version?.snapshotJson && Object.keys(floorPlan.version.snapshotJson).length > 0 && (
-                    <FloorBackgroundObjects
-                      snapshotJson={floorPlan.version.snapshotJson}
-                      scalePxPerFt={scalePxPerFt}
-                      viewScale={effectiveScale}
-                    />
-                  )}
-                  {/* Interactive table layer (above background) */}
-                  {tables.map((table) => {
-                    const isDimmed = store.mySectionOnly && mySection.hasSelection && !mySection.myTableIds.has(table.tableId);
-                    return (
-                      <FnbTableNode
-                        key={table.tableId}
-                        table={table}
-                        isSelected={table.tableId === selectedTableId}
-                        onTap={handleTableTap}
-                        onLongPress={handleTableLongPress}
-                        onAddTab={handleAddTab}
-                        onContextMenu={handleTableContextMenu}
-                        scalePxPerFt={scalePxPerFt}
-                        viewScale={effectiveScale}
-                        guestPayActive={table.guestPayActive}
-                        displayMode={store.floorDisplayMode}
-                        predictedTurnMinutes={predictTurnMinutes(table)}
-                        dimmed={isDimmed}
-                      />
-                    );
-                  })}
+                  {/* Table layer — offset so cluster starts at canvas origin */}
+                  <div style={{ position: 'absolute', left: tableOffsetX, top: tableOffsetY }}>
+                    {tables.map((table) => {
+                      const isDimmed = store.mySectionOnly && mySection.hasSelection && !mySection.myTableIds.has(table.tableId);
+                      return (
+                        <FnbTableNode
+                          key={table.tableId}
+                          table={table}
+                          isSelected={table.tableId === selectedTableId}
+                          onTap={handleTableTap}
+                          onLongPress={handleTableLongPress}
+                          onAddTab={handleAddTab}
+                          onContextMenu={handleTableContextMenu}
+                          scalePxPerFt={scalePxPerFt}
+                          viewScale={effectiveScale}
+                          guestPayActive={table.guestPayActive}
+                          displayMode={store.floorDisplayMode}
+                          predictedTurnMinutes={predictTurnMinutes(table)}
+                          dimmed={isDimmed}
+                        />
+                      );
+                    })}
+                  </div>
               </div>
-            </div>
+            </>
           )}
         </div>
 

@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed, Moon, Sun } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
+import { useTheme } from '@/components/theme-provider';
 import { refreshTokenIfNeeded } from '@/lib/api-client';
 import { warmCustomerCache } from '@/lib/customer-cache';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -147,21 +148,8 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   // ── POS display size ───────────────────────────────────────────
   const { displaySize, setDisplaySize, fontScale } = usePOSDisplaySize();
 
-  // ── POS dark mode ──────────────────────────────────────────────
-  const [posDark, setPosDark] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('pos_dark_mode') === 'true';
-    }
-    return false;
-  });
-
-  const toggleDarkMode = useCallback(() => {
-    setPosDark((prev) => {
-      const next = !prev;
-      localStorage.setItem('pos_dark_mode', String(next));
-      return next;
-    });
-  }, []);
+  // ── Theme (follows system-wide dark/light mode) ────────────────
+  const { theme, toggleTheme } = useTheme();
 
   // ── Mode state ─────────────────────────────────────────────────
   // React state drives the CSS toggle for instant switching.
@@ -231,7 +219,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className={`flex h-full flex-col ${posDark ? 'pos-dark' : ''}`}
+      className="flex h-full flex-col"
       style={{
         backgroundColor: 'var(--pos-bg-primary)',
         ['--pos-font-scale' as string]: fontScale,
@@ -332,16 +320,16 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
               </button>
             ))}
           </div>
-          {/* Dark mode toggle */}
+          {/* Dark mode toggle — wired to system theme */}
           <button
             type="button"
-            onClick={toggleDarkMode}
+            onClick={toggleTheme}
             className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
             style={{ color: 'var(--pos-text-muted)' }}
-            title={posDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             aria-label="Toggle dark mode"
           >
-            {posDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
           {/* Exit POS */}
           <button

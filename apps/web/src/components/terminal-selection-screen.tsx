@@ -20,8 +20,9 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
   const roleReady = roleSelection.selectedRoleId !== null;
   const showRolePhase = roleSelection.hasMultipleRoles && phase === 'role';
 
-  // Once roles load and there's only 1, go straight to terminal phase
-  if (!roleSelection.isLoading && !roleSelection.hasMultipleRoles && phase === 'role') {
+  // Once roles load and there's only 1 (auto-selected), go straight to terminal phase.
+  // Do NOT auto-skip if roles are empty due to an API error — show the error instead.
+  if (!roleSelection.isLoading && !roleSelection.error && !roleSelection.hasMultipleRoles && phase === 'role') {
     // Auto-selected — move to terminal phase
     if (roleSelection.selectedRoleId || roleSelection.roles.length === 0) {
       setPhase('terminal');
@@ -56,6 +57,39 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+      </div>
+    );
+  }
+
+  // ── Error: Role fetch failed ─────────────────────────────────────
+  if (roleSelection.error && phase === 'role') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+        <div className="w-full max-w-md rounded-xl border border-gray-200 bg-surface p-8 shadow-lg">
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
+              <Shield className="h-6 w-6 text-red-600" />
+            </div>
+            <h1 className="text-xl font-bold text-gray-900">Unable to Load Roles</h1>
+            <p className="mt-2 text-sm text-gray-500">{roleSelection.error}</p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              onClick={() => setPhase('terminal')}
+              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+            >
+              Skip
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

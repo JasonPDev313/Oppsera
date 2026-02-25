@@ -167,46 +167,67 @@ export default function EditItemPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href={`/catalog/items/${itemId}`} className="rounded-lg p-1 text-gray-400 hover:text-gray-600">
-          <ArrowLeft className="h-5 w-5" />
-        </Link>
-        <h1 className="text-xl font-semibold text-gray-900">Edit {item.name}</h1>
-        {typeBadge && <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>}
+    <div className="mx-auto w-full max-w-[40vw] min-w-[640px] space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link href={`/catalog/items/${itemId}`} className="rounded-lg p-1 text-gray-400 hover:text-gray-600">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-xl font-semibold text-gray-900">Edit {item.name}</h1>
+          {typeBadge && <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>}
+        </div>
+        <div className="flex gap-3">
+          <Link
+            href={`/catalog/items/${itemId}`}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          >
+            Cancel
+          </Link>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={saving}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-surface p-6 shadow-sm">
-        <div className="space-y-4">
-          <FormField label="Name" required error={errors.name}>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => { setName(e.target.value); setErrors((p) => ({ ...p, name: '' })); }}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
-          </FormField>
-
-          <FormField label="SKU">
-            <input
-              type="text"
-              value={sku}
-              onChange={(e) => setSku(e.target.value)}
-              onBlur={() => setSku(sku.toUpperCase())}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            />
-          </FormField>
+      <div className="rounded-lg border border-gray-200 bg-surface p-5 shadow-sm">
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2">
+              <FormField label="Name" required error={errors.name}>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); setErrors((p) => ({ ...p, name: '' })); }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </FormField>
+            </div>
+            <FormField label="SKU">
+              <input
+                type="text"
+                value={sku}
+                onChange={(e) => setSku(e.target.value)}
+                onBlur={() => setSku(sku.toUpperCase())}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              />
+            </FormField>
+          </div>
 
           <FormField label="Description">
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={3}
+              rows={2}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-3 gap-3">
             <FormField label="Department">
               <Select
                 options={[{ value: '', label: 'None' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
@@ -230,7 +251,7 @@ export default function EditItemPage() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <FormField label="Default Price" required error={errors.defaultPrice}>
               <CurrencyInput value={defaultPrice} onChange={setDefaultPrice} />
             </FormField>
@@ -243,22 +264,23 @@ export default function EditItemPage() {
 
       {/* Type-specific fields */}
       {typeGroup === 'fnb' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-medium text-gray-900">F&B Options</h3>
-          <div className="space-y-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={allowSpecialInstructions}
-                onChange={(e) => setAllowSpecialInstructions(e.target.checked)}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              Allow Special Instructions
-            </label>
-            <FormField label="Allowed Fractions" helpText="Which portion sizes can be sold">
-              <div className="flex gap-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">F&B Options</h3>
+          <div className="space-y-3">
+            <div className="flex items-center gap-6">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={allowSpecialInstructions}
+                  onChange={(e) => setAllowSpecialInstructions(e.target.checked)}
+                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Allow Special Instructions
+              </label>
+              <div className="flex items-center gap-1 text-sm text-gray-600">
+                <span className="mr-1 font-medium">Portions:</span>
                 {[1.0, 0.5, 0.25].map((f) => (
-                  <label key={f} className="flex items-center gap-2 text-sm">
+                  <label key={f} className="flex items-center gap-1 rounded border border-gray-200 px-2 py-0.5 text-xs">
                     <input
                       type="checkbox"
                       checked={allowedFractions.includes(f)}
@@ -275,33 +297,35 @@ export default function EditItemPage() {
                   </label>
                 ))}
               </div>
-            </FormField>
-            <FormField label="Default Modifier Groups" helpText="Pre-selected when item is added to order">
-              <Select
-                options={modGroupOptions}
-                value={defaultModifierGroupIds}
-                onChange={(v) => setDefaultModifierGroupIds(v as string[])}
-                multiple
-                placeholder="Select modifier groups..."
-              />
-            </FormField>
-            <FormField label="Optional Modifier Groups" helpText="Customer can choose to add these">
-              <Select
-                options={modGroupOptions}
-                value={optionalModifierGroupIds}
-                onChange={(v) => setOptionalModifierGroupIds(v as string[])}
-                multiple
-                placeholder="Select modifier groups..."
-              />
-            </FormField>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Default Modifier Groups" helpText="Pre-selected when added to order">
+                <Select
+                  options={modGroupOptions}
+                  value={defaultModifierGroupIds}
+                  onChange={(v) => setDefaultModifierGroupIds(v as string[])}
+                  multiple
+                  placeholder="Select modifier groups..."
+                />
+              </FormField>
+              <FormField label="Optional Modifier Groups" helpText="Customer can choose to add">
+                <Select
+                  options={modGroupOptions}
+                  value={optionalModifierGroupIds}
+                  onChange={(v) => setOptionalModifierGroupIds(v as string[])}
+                  multiple
+                  placeholder="Select modifier groups..."
+                />
+              </FormField>
+            </div>
           </div>
         </div>
       )}
 
       {typeGroup === 'retail' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-medium text-gray-900">Retail Options</h3>
-          <div className="space-y-4">
+        <div className="rounded-lg border border-gray-200 bg-surface p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">Retail Options</h3>
+          <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -311,45 +335,48 @@ export default function EditItemPage() {
               />
               Track Inventory
             </label>
-            <div>
-              <p className="mb-2 text-sm font-medium text-gray-700">Option Sets</p>
-              {/* TODO: Backend retail_option_groups table not yet available — storing in metadata.optionSets */}
-              {optionSets.map((os, idx) => (
-                <div key={idx} className="mb-2 flex items-center justify-between rounded-lg border border-gray-200 p-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-900">{os.name}</span>
-                    {os.required && <span className="ml-2 text-xs text-gray-500">(required)</span>}
-                    <p className="text-xs text-gray-500">{os.options.join(' · ')}</p>
+            {optionSets.length > 0 && (
+              <div>
+                <p className="mb-1 text-sm font-medium text-gray-700">Option Sets</p>
+                {optionSets.map((os, idx) => (
+                  <div key={idx} className="mb-1 flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">{os.name}</span>
+                      {os.required && <span className="text-xs text-gray-500">(required)</span>}
+                      <span className="text-xs text-gray-400">{os.options.join(' · ')}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setOptionSets(optionSets.filter((_, i) => i !== idx))}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      ×
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setOptionSets(optionSets.filter((_, i) => i !== idx))}
-                    className="text-gray-400 hover:text-red-500"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
             <p className="text-xs text-gray-500">Retail items are sold as 1 unit per line item</p>
           </div>
         </div>
       )}
 
       {typeGroup === 'service' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-6 shadow-sm">
-          <h3 className="mb-4 text-lg font-medium text-gray-900">Service Details</h3>
-          <div className="space-y-4">
-            <FormField label="Duration (minutes)" helpText="Length of the service">
-              <input
-                type="number"
-                value={durationMinutes ?? ''}
-                onChange={(e) => setDurationMinutes(e.target.value ? Number(e.target.value) : undefined)}
-                min={0}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-            </FormField>
-            <label className="flex items-center gap-2 text-sm">
+        <div className="rounded-lg border border-gray-200 bg-surface p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-gray-900">Service Details</h3>
+          <div className="flex items-end gap-4">
+            <div className="w-48">
+              <FormField label="Duration (minutes)">
+                <input
+                  type="number"
+                  value={durationMinutes ?? ''}
+                  onChange={(e) => setDurationMinutes(e.target.value ? Number(e.target.value) : undefined)}
+                  min={0}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                />
+              </FormField>
+            </div>
+            <label className="flex items-center gap-2 pb-2 text-sm">
               <input
                 type="checkbox"
                 checked={requiresBooking}
@@ -361,24 +388,6 @@ export default function EditItemPage() {
           </div>
         </div>
       )}
-
-      {/* Actions */}
-      <div className="flex justify-end gap-3">
-        <Link
-          href={`/catalog/items/${itemId}`}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-        >
-          Cancel
-        </Link>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={saving}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
     </div>
   );
 }

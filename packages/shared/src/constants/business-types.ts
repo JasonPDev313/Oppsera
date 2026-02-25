@@ -113,8 +113,38 @@ export const OTHER_BUSINESS_TYPES = [
   },
 ] as const;
 
+/** Enterprise business type — manual accounting workflows, approval gates */
+export const ENTERPRISE_BUSINESS_TYPE = {
+  key: 'enterprise',
+  name: 'Enterprise',
+  icon: 'Sparkles',
+  description: 'Multi-location chains, franchises & large organizations',
+  recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_fnb', 'payments', 'inventory', 'customers', 'reporting', 'room_layouts', 'accounting'],
+  starterHierarchy: [
+    {
+      department: 'Retail',
+      subDepartments: [
+        { name: 'General', categories: ['Featured', 'New Arrivals'] },
+      ],
+    },
+    {
+      department: 'Food & Beverage',
+      subDepartments: [
+        { name: 'Food', categories: ['Entrees', 'Appetizers', 'Desserts'] },
+        { name: 'Beverage', categories: ['Non-Alcoholic', 'Alcoholic'] },
+      ],
+    },
+    {
+      department: 'Services',
+      subDepartments: [
+        { name: 'General', categories: ['Services'] },
+      ],
+    },
+  ],
+} as const;
+
 /** All business types combined — backward compatible export */
-export const BUSINESS_TYPES = [...SMB_BUSINESS_TYPES, ...OTHER_BUSINESS_TYPES] as const;
+export const BUSINESS_TYPES = [...SMB_BUSINESS_TYPES, ...OTHER_BUSINESS_TYPES, ENTERPRISE_BUSINESS_TYPE] as const;
 
 export type BusinessTypeKey = (typeof BUSINESS_TYPES)[number]['key'];
 

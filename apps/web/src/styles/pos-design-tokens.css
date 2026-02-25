@@ -1,15 +1,80 @@
 /* ═══════════════════════════════════════════════════════════════════
    Retail POS Design Tokens
-   Default: light theme. Dark mode via `.pos-dark` class on container.
+   Default: dark theme (matches system default). Light mode via `.light`
+   class on <html>, set by the system ThemeProvider.
    ═══════════════════════════════════════════════════════════════════ */
 
 :root {
+  /* ── Background Tiers (dark theme default) ─────────────────────── */
+  --pos-bg-primary: #0f1729;             /* deep navy */
+  --pos-bg-surface: #1a2238;             /* card surface */
+  --pos-bg-elevated: #243049;            /* footer, header, elevated panels */
+  --pos-bg-input: #1e2a42;              /* input fields */
+  --pos-bg-overlay: rgba(0, 0, 0, 0.6);  /* modal backdrop */
+
+  /* ── Text Hierarchy ────────────────────────────────────────────── */
+  --pos-text-primary: #e8ecf4;
+  --pos-text-secondary: #a8b5cc;
+  --pos-text-muted: #6b7a94;
+  --pos-text-disabled: #3d4d66;
+  --pos-text-inverse: #0f1729;
+
+  /* ── Accent / Brand (brighter for dark bg) ─────────────────────── */
+  --pos-accent: #818cf8;                 /* indigo-400 */
+  --pos-accent-hover: #6366f1;           /* indigo-500 */
+  --pos-accent-light: rgba(129, 140, 248, 0.15);
+  --pos-accent-text: #a5b4fc;           /* indigo-300 */
+
+  /* ── Borders ───────────────────────────────────────────────────── */
+  --pos-border: #2d3a52;
+  --pos-border-strong: #3d4d66;
+  --pos-border-subtle: #1e2a42;
+
+  /* ── Status Colors (boosted for dark bg) ────────────────────────── */
+  --pos-success: #34d399;
+  --pos-success-light: rgba(52, 211, 153, 0.12);
+  --pos-success-text: #6ee7b7;
+  --pos-warning: #fbbf24;
+  --pos-warning-light: rgba(251, 191, 36, 0.12);
+  --pos-warning-text: #fde68a;
+  --pos-danger: #f87171;
+  --pos-danger-light: rgba(248, 113, 113, 0.12);
+  --pos-danger-text: #fca5a5;
+
+  /* ── Shadows (deeper for dark bg) ──────────────────────────────── */
+  --pos-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --pos-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --pos-shadow-header: 0 1px 4px rgba(0, 0, 0, 0.5);
+
+  /* ── Touch Targets ─────────────────────────────────────────────── */
+  --pos-touch-min: 44px;
+  --pos-touch-primary: 48px;
+  --pos-touch-numpad: 56px;
+
+  /* ── Radius ────────────────────────────────────────────────────── */
+  --pos-radius-sm: 6px;
+  --pos-radius-md: 8px;
+  --pos-radius-lg: 12px;
+
+  /* ── Font Scale ────────────────────────────────────────────────── */
+  --pos-font-scale: 1;
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   Light Mode Overrides
+   Applied via `.light` class on <html>, set by the system ThemeProvider.
+   Only backgrounds, text, borders, shadows, and accent change.
+   Touch targets, radius, and font scale stay the same.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.light {
   /* ── Background Tiers (light theme) ────────────────────────────── */
   --pos-bg-primary: #f8fafc;             /* app background */
   --pos-bg-surface: #ffffff;             /* card / panel surface */
   --pos-bg-elevated: #f1f5f9;            /* elevated sections (footer, header) */
   --pos-bg-input: #ffffff;               /* input fields */
-  --pos-bg-overlay: rgba(0, 0, 0, 0.3);  /* modal backdrop */
+  --pos-bg-overlay: rgba(0, 0, 0, 0.3);
 
   /* ── Text Hierarchy ────────────────────────────────────────────── */
   --pos-text-primary: #0f172a;           /* headings, prices */
@@ -40,70 +105,8 @@
   --pos-danger-light: #fee2e2;
   --pos-danger-text: #991b1b;
 
-  /* ── Shadows ───────────────────────────────────────────────────── */
+  /* ── Shadows (softer for light bg) ─────────────────────────────── */
   --pos-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --pos-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
   --pos-shadow-header: 0 1px 3px rgba(0, 0, 0, 0.1);
-
-  /* ── Touch Targets ─────────────────────────────────────────────── */
-  --pos-touch-min: 44px;
-  --pos-touch-primary: 48px;
-  --pos-touch-numpad: 56px;
-
-  /* ── Radius ────────────────────────────────────────────────────── */
-  --pos-radius-sm: 6px;
-  --pos-radius-md: 8px;
-  --pos-radius-lg: 12px;
-
-  /* ── Font Scale ────────────────────────────────────────────────── */
-  --pos-font-scale: 1;
-}
-
-
-/* ═══════════════════════════════════════════════════════════════════
-   Dark Mode — Navy Theme
-   Applied via `.pos-dark` class on the POS layout root div.
-   ═══════════════════════════════════════════════════════════════════ */
-
-.pos-dark {
-  /* ── Background Tiers ──────────────────────────────────────────── */
-  --pos-bg-primary: #0f1729;             /* deep navy */
-  --pos-bg-surface: #1a2238;             /* card surface */
-  --pos-bg-elevated: #243049;            /* footer, header, elevated panels */
-  --pos-bg-input: #1e2a42;              /* input fields */
-  --pos-bg-overlay: rgba(0, 0, 0, 0.6);
-
-  /* ── Text Hierarchy ────────────────────────────────────────────── */
-  --pos-text-primary: #e8ecf4;
-  --pos-text-secondary: #a8b5cc;
-  --pos-text-muted: #6b7a94;
-  --pos-text-disabled: #3d4d66;
-  --pos-text-inverse: #0f1729;
-
-  /* ── Accent (brighter for dark bg) ─────────────────────────────── */
-  --pos-accent: #818cf8;                 /* indigo-400 */
-  --pos-accent-hover: #6366f1;           /* indigo-500 */
-  --pos-accent-light: rgba(129, 140, 248, 0.15);
-  --pos-accent-text: #a5b4fc;           /* indigo-300 */
-
-  /* ── Borders ───────────────────────────────────────────────────── */
-  --pos-border: #2d3a52;
-  --pos-border-strong: #3d4d66;
-  --pos-border-subtle: #1e2a42;
-
-  /* ── Status Colors (boosted for dark bg) ────────────────────────── */
-  --pos-success: #34d399;
-  --pos-success-light: rgba(52, 211, 153, 0.12);
-  --pos-success-text: #6ee7b7;
-  --pos-warning: #fbbf24;
-  --pos-warning-light: rgba(251, 191, 36, 0.12);
-  --pos-warning-text: #fde68a;
-  --pos-danger: #f87171;
-  --pos-danger-light: rgba(248, 113, 113, 0.12);
-  --pos-danger-text: #fca5a5;
-
-  /* ── Shadows (deeper for dark bg) ──────────────────────────────── */
-  --pos-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --pos-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
-  --pos-shadow-header: 0 1px 4px rgba(0, 0, 0, 0.5);
 }

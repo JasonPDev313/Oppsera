@@ -26,12 +26,16 @@ import {
   taxGroups,
   taxGroupRates,
   tags,
+  erpWorkflowConfigs,
+  erpWorkflowConfigChangeLog,
+  accountingSettings,
 } from '@oppsera/db';
 import type { Database } from '@oppsera/db';
 import { bootstrapTenantCoa } from '@oppsera/module-accounting';
+import { TIER_WORKFLOW_DEFAULTS, getAllWorkflowKeys } from '@oppsera/shared';
 
 const onboardSchema = z.object({
-  businessType: z.enum(['restaurant', 'retail', 'golf', 'hybrid']),
+  businessType: z.enum(['restaurant', 'retail', 'golf', 'hybrid', 'enterprise']),
   companyName: z.string().min(1).max(100),
   locationName: z.string().min(1).max(100),
   timezone: z.string().min(1),
@@ -179,11 +183,14 @@ export const POST = withMiddleware(
 
       // 3. Create tenant
       const tenantId = generateUlid();
+      const isEnterprise = businessType === 'enterprise';
       await tx.insert(tenants).values({
         id: tenantId,
         name: companyName,
         slug,
         status: 'active',
+        businessTier: isEnterprise ? 'ENTERPRISE' : 'SMB',
+        businessVertical: isEnterprise ? 'general' : businessType,
       }).returning();
 
       // 4. Create location
@@ -262,7 +269,9 @@ export const POST = withMiddleware(
       // Wrapped in try/catch — accounting bootstrap must NEVER block onboarding
       if (moduleSet.has('accounting')) {
         try {
-          await bootstrapTenantCoa(txDb, tenantId, `${businessType}_default`);
+          // Enterprise uses hybrid_default COA template (no enterprise-specific template)
+          const coaTemplateKey = businessType === 'enterprise' ? 'hybrid_default' : `${businessType}_default`;
+          await bootstrapTenantCoa(txDb, tenantId, coaTemplateKey);
         } catch (err) {
           console.error('[onboard] Accounting bootstrap failed (non-blocking):', err);
         }
@@ -389,6 +398,68 @@ export const POST = withMiddleware(
         metadata: { businessType, locationId, modules },
         createdAt: new Date(),
       }).returning();
+
+      // 14. Apply enterprise workflow defaults + accounting overrides
+      if (isEnterprise) {
+        try {
+          // Insert explicit workflow config rows for all enterprise defaults
+          const enterpriseDefaults = TIER_WORKFLOW_DEFAULTS.ENTERPRISE;
+          const allWorkflows = getAllWorkflowKeys();
+
+          for (const { moduleKey, workflowKey } of allWorkflows) {
+            const compositeKey = `${moduleKey}.${workflowKey}`;
+            const d = enterpriseDefaults[compositeKey];
+            if (!d) continue;
+
+            await tx.insert(erpWorkflowConfigs).values({
+              id: generateUlid(),
+              tenantId,
+              moduleKey,
+              workflowKey,
+              autoMode: d.autoMode,
+              approvalRequired: d.approvalRequired,
+              userVisible: d.userVisible,
+            }).returning();
+          }
+
+          // Log the tier assignment
+          await tx.insert(erpWorkflowConfigChangeLog).values({
+            id: generateUlid(),
+            tenantId,
+            moduleKey: '_tier',
+            workflowKey: '_tier',
+            changedBy: ctx.user.id,
+            changeType: 'tier_change',
+            oldConfig: { tier: 'SMB' } as Record<string, unknown>,
+            newConfig: { tier: 'ENTERPRISE' } as Record<string, unknown>,
+            reason: 'Enterprise tier selected during onboarding',
+          });
+
+          // Override accounting settings for enterprise: draft-only GL, periodic COGS,
+          // manual breakage recognition, no auto-remap, no legacy GL
+          if (moduleSet.has('accounting')) {
+            try {
+              await tx
+                .update(accountingSettings)
+                .set({
+                  autoPostMode: 'draft_only',
+                  cogsPostingMode: 'periodic',
+                  recognizeBreakageAutomatically: false,
+                  breakageRecognitionMethod: 'manual_only',
+                  enableAutoRemap: false,
+                  enableLegacyGlPosting: false,
+                  enableUndepositedFundsWorkflow: true,
+                  updatedAt: new Date(),
+                })
+                .where(eq(accountingSettings.tenantId, tenantId));
+            } catch (err) {
+              console.error('[onboard] Enterprise accounting settings override failed (non-blocking):', err);
+            }
+          }
+        } catch (err) {
+          console.error('[onboard] Enterprise workflow provisioning failed (non-blocking):', err);
+        }
+      }
 
       return { tenantId, slug, locationId };
     });
