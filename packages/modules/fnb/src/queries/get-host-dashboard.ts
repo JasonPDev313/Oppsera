@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import type { GetHostDashboardInput } from '../validation';
-import { mapReservationRow } from '../commands/create-reservation';
 
 export interface WaitlistEntry {
   id: string;

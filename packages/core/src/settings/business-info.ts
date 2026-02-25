@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { tenantBusinessInfo, tenantContentBlocks } from '@oppsera/db';
 import { auditLog } from '../audit';
