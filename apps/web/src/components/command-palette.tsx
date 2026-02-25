@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Search, CornerDownLeft } from 'lucide-react';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
+import { usePermissionsContext } from '@/components/permissions-provider';
 import { navigation, flattenNavigation, type SearchableNavEntry } from '@/lib/navigation';
 
 function useCommandPaletteShortcut(onOpen: () => void) {
@@ -44,6 +45,7 @@ export function CommandPalette() {
   const listRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { isModuleEnabled } = useEntitlementsContext();
+  const { can } = usePermissionsContext();
 
   const allEntries = useMemo(() => flattenNavigation(navigation), []);
 
@@ -66,10 +68,15 @@ export function CommandPalette() {
       });
   }, [query, allEntries]);
 
-  // Filter by module entitlements
+  // Filter by module entitlements and permissions
   const visibleEntries = useMemo(
-    () => filteredEntries.filter((e) => e.moduleKeys.every((key) => isModuleEnabled(key))),
-    [filteredEntries, isModuleEnabled],
+    () =>
+      filteredEntries.filter(
+        (e) =>
+          e.moduleKeys.every((key) => isModuleEnabled(key)) &&
+          (!e.requiredPermission || can(e.requiredPermission)),
+      ),
+    [filteredEntries, isModuleEnabled, can],
   );
 
   const handleOpen = useCallback(() => {

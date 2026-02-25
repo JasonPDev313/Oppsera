@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { PermissionGate } from '@/components/permission-gate';
 
 const CloseBatchContent = dynamic(() => import('./close-batch-content'), {
   ssr: false,
@@ -12,5 +13,9 @@ const CloseBatchContent = dynamic(() => import('./close-batch-content'), {
 });
 
 export default function CloseBatchPage() {
-  return <CloseBatchContent />;
+  return (
+    <PermissionGate permission="pos_fnb.close_batch.manage">
+      <CloseBatchContent />
+    </PermissionGate>
+  );
 }

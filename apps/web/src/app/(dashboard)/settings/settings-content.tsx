@@ -33,39 +33,42 @@ interface RoleDetail extends Omit<Role, 'userCount'> {
 // ── Permission Groups ────────────────────────────────────────────
 
 const PERMISSION_GROUPS: Record<string, string[]> = {
-  'Inventory Items': ['catalog.view', 'catalog.create', 'catalog.update', 'catalog.delete'],
-  Orders: ['orders.view', 'orders.create', 'orders.void'],
-  Payments: ['tenders.view', 'tenders.create'],
-  Inventory: ['inventory.view', 'inventory.receive', 'inventory.adjust', 'inventory.transfer'],
-  Customers: ['customers.view', 'customers.create', 'customers.update', 'customers.merge'],
-  Reports: ['reports.view', 'reports.export'],
-  Accounting: ['accounting.view', 'accounting.manage'],
+  'Dashboard & Audit': ['dashboard.view', 'dashboard.configure', 'modules.manage', 'audit.view'],
+  'Inventory Items': ['catalog.view', 'catalog.manage'],
+  Orders: ['orders.view', 'orders.create', 'orders.manage', 'orders.void', 'returns.create', 'price.override', 'discounts.apply', 'charges.manage'],
+  Payments: ['tenders.view', 'tenders.create', 'tenders.adjust', 'tenders.refund'],
+  'Cash Drawer': ['shift.manage', 'cash.drawer', 'cash.drop'],
+  Inventory: ['inventory.view', 'inventory.manage'],
+  Customers: ['customers.view', 'customers.manage', 'billing.view', 'billing.manage'],
+  Reports: ['reports.view', 'reports.export', 'reports.custom.view', 'reports.custom.manage'],
+  Golf: ['golf.analytics.view'],
+  Accounting: ['accounting.view', 'accounting.manage', 'accounting.mappings.manage', 'accounting.period.close', 'accounting.banking.view', 'accounting.banking.reconcile', 'accounting.tax.view', 'accounting.financials.view', 'accounting.revenue.view', 'cogs.manage'],
   'Accounts Payable': ['ap.view', 'ap.manage'],
   'Accounts Receivable': ['ar.view', 'ar.manage'],
+  'F&B POS': [
+    'pos_fnb.floor_plan.view', 'pos_fnb.floor_plan.manage',
+    'pos_fnb.tabs.view', 'pos_fnb.tabs.create', 'pos_fnb.tabs.transfer', 'pos_fnb.tabs.void', 'pos_fnb.tabs.manage',
+    'pos_fnb.kds.view', 'pos_fnb.kds.bump', 'pos_fnb.kds.recall',
+    'pos_fnb.payments.create', 'pos_fnb.payments.split', 'pos_fnb.payments.refund', 'pos_fnb.payments.void',
+    'pos_fnb.tips.adjust', 'pos_fnb.tips.finalize', 'pos_fnb.tips.pool_manage', 'pos_fnb.tips.manage',
+    'pos_fnb.menu.manage', 'pos_fnb.menu.comp', 'pos_fnb.menu.discount', 'pos_fnb.menu.price_override',
+    'pos_fnb.close_batch.manage', 'pos_fnb.close_batch.cash_count',
+    'pos_fnb.reports.view', 'pos_fnb.reports.export',
+    'pos_fnb.settings.manage',
+    'pos_fnb.gl.view', 'pos_fnb.gl.manage', 'pos_fnb.gl.post', 'pos_fnb.gl.reverse', 'pos_fnb.gl.mappings',
+  ],
+  'AI Insights': ['semantic.view', 'semantic.query', 'semantic.manage', 'semantic.admin'],
+  'Room Layouts': ['room_layouts.view', 'room_layouts.manage'],
   'Property Mgmt': [
-    'pms.property.view',
-    'pms.property.manage',
-    'pms.rooms.view',
-    'pms.rooms.manage',
-    'pms.reservations.view',
-    'pms.reservations.create',
-    'pms.reservations.edit',
-    'pms.reservations.cancel',
-    'pms.front_desk.check_in',
-    'pms.front_desk.check_out',
-    'pms.front_desk.no_show',
-    'pms.calendar.view',
-    'pms.calendar.move',
-    'pms.calendar.resize',
-    'pms.housekeeping.view',
-    'pms.housekeeping.manage',
-    'pms.guests.view',
-    'pms.guests.manage',
-    'pms.folio.view',
-    'pms.folio.post_charges',
-    'pms.folio.post_payments',
-    'pms.rates.view',
-    'pms.rates.manage',
+    'pms.property.view', 'pms.property.manage',
+    'pms.rooms.view', 'pms.rooms.manage',
+    'pms.reservations.view', 'pms.reservations.create', 'pms.reservations.edit', 'pms.reservations.cancel',
+    'pms.front_desk.check_in', 'pms.front_desk.check_out', 'pms.front_desk.no_show',
+    'pms.calendar.view', 'pms.calendar.move', 'pms.calendar.resize',
+    'pms.housekeeping.view', 'pms.housekeeping.manage',
+    'pms.guests.view', 'pms.guests.manage',
+    'pms.folio.view', 'pms.folio.post_charges', 'pms.folio.post_payments',
+    'pms.rates.view', 'pms.rates.manage',
   ],
   Settings: ['settings.view', 'settings.update'],
   Users: ['users.view', 'users.manage'],
@@ -77,13 +80,22 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'audit' | 'dashboard'>('users');
   const { can } = usePermissions();
 
-  const tabs = [
-    { id: 'users' as const, label: 'Users', icon: Users },
-    { id: 'roles' as const, label: 'Roles', icon: Shield },
-    { id: 'modules' as const, label: 'Modules', icon: Blocks },
-    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'audit' as const, label: 'Audit Log', icon: ScrollText },
+  const allTabs = [
+    { id: 'users' as const, label: 'Users', icon: Users, requiredPermission: 'users.view' },
+    { id: 'roles' as const, label: 'Roles', icon: Shield, requiredPermission: 'users.manage' },
+    { id: 'modules' as const, label: 'Modules', icon: Blocks, requiredPermission: 'modules.manage' },
+    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard.configure' },
+    { id: 'audit' as const, label: 'Audit Log', icon: ScrollText, requiredPermission: 'audit.view' },
   ];
+
+  const tabs = allTabs.filter((tab) => can(tab.requiredPermission));
+
+  // Auto-select first visible tab when current tab is not visible
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t) => t.id === activeTab)) {
+      setActiveTab(tabs[0]!.id);
+    }
+  }, [tabs.length]);
 
   return (
     <div>

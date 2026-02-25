@@ -4,12 +4,14 @@ import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
+import { usePermissionsContext } from '@/components/permissions-provider';
 
 export interface SectionTab {
   id: string;
   label: string;
   icon: LucideIcon;
   moduleKey?: string;
+  requiredPermission?: string;
 }
 
 interface AccountingSectionLayoutProps {
@@ -30,9 +32,12 @@ export function AccountingSectionLayout({
   children,
 }: AccountingSectionLayoutProps) {
   const { isModuleEnabled } = useEntitlementsContext();
+  const { can } = usePermissionsContext();
 
   const visibleTabs = tabs.filter(
-    (tab) => !tab.moduleKey || isModuleEnabled(tab.moduleKey),
+    (tab) =>
+      (!tab.moduleKey || isModuleEnabled(tab.moduleKey)) &&
+      (!tab.requiredPermission || can(tab.requiredPermission)),
   );
 
   return (

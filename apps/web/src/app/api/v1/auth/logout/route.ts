@@ -4,6 +4,9 @@ import { getAuthAdapter } from '@oppsera/core/auth/get-adapter';
 import { RATE_LIMITS, checkRateLimit, getRateLimitKey, rateLimitHeaders } from '@oppsera/core/security';
 import { auditLogSystem } from '@oppsera/core/audit/helpers';
 
+// Logout is public — the token may already be expired or the user may not have
+// a tenant (pre-onboarding). We extract the token manually for best-effort
+// Supabase signOut but never require authentication.
 export const POST = withMiddleware(async (request) => {
   const rlKey = getRateLimitKey(request, 'auth:logout');
   const rl = checkRateLimit(rlKey, RATE_LIMITS.auth);
@@ -24,4 +27,4 @@ export const POST = withMiddleware(async (request) => {
   } catch { /* best-effort */ }
 
   return new NextResponse(null, { status: 204 });
-});
+}, { public: true });

@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { PermissionGate } from '@/components/permission-gate';
 
 const ManagerContent = dynamic(() => import('./manager-content'), {
   ssr: false,
@@ -12,5 +13,9 @@ const ManagerContent = dynamic(() => import('./manager-content'), {
 });
 
 export default function FnbManagerPage() {
-  return <ManagerContent />;
+  return (
+    <PermissionGate permission="pos_fnb.reports.view">
+      <ManagerContent />
+    </PermissionGate>
+  );
 }

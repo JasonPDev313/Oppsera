@@ -17,8 +17,8 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // If arriving with ?fresh=1, clear any stale session so the user can
-  // create a new account (e.g., stuck incomplete onboarding from another account).
+  // Legacy ?fresh=1 support — the auth layout now auto-clears stale
+  // sessions when visiting /signup, so this is kept for backward compat only.
   useEffect(() => {
     if (searchParams.get('fresh') === '1') {
       auth.logout();

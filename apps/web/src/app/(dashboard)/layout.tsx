@@ -20,6 +20,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/components/auth-provider';
 import { EntitlementsProvider, useEntitlementsContext } from '@/components/entitlements-provider';
+import { PermissionsProvider, usePermissionsContext } from '@/components/permissions-provider';
 import { QueryProvider } from '@/components/query-provider';
 import { useTheme } from '@/components/theme-provider';
 import { ContextMenuProvider } from '@/components/context-menu-provider';
@@ -142,6 +143,7 @@ function SidebarContent({
   userEmail,
   onLogout,
   isModuleEnabled,
+  can,
   navItems,
   collapsed,
   onToggleCollapse,
@@ -152,6 +154,7 @@ function SidebarContent({
   userEmail: string;
   onLogout: () => void;
   isModuleEnabled: (key: string) => boolean;
+  can: (permission: string) => boolean;
   navItems: NavItem[];
   collapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -263,7 +266,8 @@ function SidebarContent({
       {/* Navigation */}
       <nav className={`sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
         {navItems.map((item) => {
-          const enabled = !item.moduleKey || isModuleEnabled(item.moduleKey);
+          const entitlementEnabled = !item.moduleKey || isModuleEnabled(item.moduleKey);
+          const permissionGranted = !item.requiredPermission || can(item.requiredPermission);
           const isParentActive =
             item.href === '/dashboard'
               ? pathname === '/dashboard'
@@ -271,7 +275,7 @@ function SidebarContent({
                 (item.children?.some((child) => pathname.startsWith(child.href)) ?? false);
           const isExpanded = expandedSections.has(item.name);
 
-          if (!enabled) {
+          if (!entitlementEnabled || !permissionGranted) {
             return null;
           }
 
@@ -312,7 +316,10 @@ function SidebarContent({
                     {item.collapsibleGroups ? (
                       // Collapsible accordion groups (e.g., Property Mgmt categories)
                       (() => {
-                        const filtered = item.children!.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey));
+                        const filtered = item.children!.filter((child) =>
+                          (!child.moduleKey || isModuleEnabled(child.moduleKey)) &&
+                          (!child.requiredPermission || can(child.requiredPermission))
+                        );
                         const groups: Array<{ name: string; items: typeof filtered }> = [];
                         const seen = new Map<string, typeof filtered>();
                         for (const child of filtered) {
@@ -368,7 +375,10 @@ function SidebarContent({
                     ) : (
                       // Flat children with optional static group headers
                       (() => {
-                        const filtered = item.children!.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey));
+                        const filtered = item.children!.filter((child) =>
+                          (!child.moduleKey || isModuleEnabled(child.moduleKey)) &&
+                          (!child.requiredPermission || can(child.requiredPermission))
+                        );
                         let lastGroup: string | undefined;
                         return filtered.map((child) => {
                           const isChildActive =
@@ -407,7 +417,10 @@ function SidebarContent({
                     <div className="min-w-44 rounded-lg border border-gray-200 bg-surface py-1.5 shadow-lg">
                       <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase">{item.name}</p>
                       {(() => {
-                        const filtered = item.children!.filter((child) => !child.moduleKey || isModuleEnabled(child.moduleKey));
+                        const filtered = item.children!.filter((child) =>
+                          (!child.moduleKey || isModuleEnabled(child.moduleKey)) &&
+                          (!child.requiredPermission || can(child.requiredPermission))
+                        );
                         let lastGroup: string | undefined;
                         return filtered.map((child) => {
                           const isChildActive =
@@ -510,6 +523,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
   const { user, tenant, locations, isLoading, isAuthenticated, needsOnboarding, logout } = useAuthContext();
   const { isModuleEnabled, isLoading: entitlementsLoading } = useEntitlementsContext();
+  const { can, isLoading: permissionsLoading } = usePermissionsContext();
   const { itemOrder } = useNavPreferences();
   const { guardedClick } = useNavigationGuard();
   const { configs: workflowConfigs, isLoading: erpConfigLoading } = useErpConfig();
@@ -574,7 +588,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/login');
+    // Use window.location for a hard navigation — avoids race with the
+    // useEffect redirect and ensures all React state + query cache is torn
+    // down cleanly (no stale cached data from the previous session).
+    window.location.href = '/login';
   };
 
   // Not loading but not authenticated → redirect handled by effect above
@@ -589,6 +606,8 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const userEmail = user?.email || '';
   // During auth or entitlements loading, show all modules — filter once both are loaded
   const checkModule = (isLoading || entitlementsLoading) ? () => true : isModuleEnabled;
+  // During loading, grant all permissions — filter once loaded
+  const checkPermission = (isLoading || permissionsLoading) ? () => true : can;
 
   // Apply tenant nav preferences (order + visibility) — falls back to default order
   const orderedNav = useMemo(
@@ -639,6 +658,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           userEmail={userEmail}
           onLogout={handleLogout}
           isModuleEnabled={checkModule}
+          can={checkPermission}
           navItems={filteredNav}
         />
       </div>
@@ -663,6 +683,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             userEmail={userEmail}
             onLogout={handleLogout}
             isModuleEnabled={checkModule}
+            can={checkPermission}
             navItems={filteredNav}
             collapsed={collapsed}
             onToggleCollapse={toggleCollapse}
@@ -753,13 +774,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <QueryProvider>
       <EntitlementsProvider>
-        <NavigationGuardProvider>
-          <TerminalSessionProvider>
-            <TerminalSessionGate>
-              <DashboardLayoutInner>{children}</DashboardLayoutInner>
-            </TerminalSessionGate>
-          </TerminalSessionProvider>
-        </NavigationGuardProvider>
+        <PermissionsProvider>
+          <NavigationGuardProvider>
+            <TerminalSessionProvider>
+              <TerminalSessionGate>
+                <DashboardLayoutInner>{children}</DashboardLayoutInner>
+              </TerminalSessionGate>
+            </TerminalSessionProvider>
+          </NavigationGuardProvider>
+        </PermissionsProvider>
       </EntitlementsProvider>
     </QueryProvider>
   );

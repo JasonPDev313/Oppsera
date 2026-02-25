@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { EventEnvelope } from '@oppsera/shared';
 
 // ── Hoisted mocks ─────────────────────────────────────────────
 const { mockExecute, mockWithTenant } = vi.hoisted(() => {
@@ -152,7 +153,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
 
     // idempotency + timezone + demand + hourly + lead time + fact = 6 execute calls
     expect(mockExecute).toHaveBeenCalledTimes(6);
@@ -174,7 +175,7 @@ describe('handleTeeTimeBooked', () => {
 
     mockIdempotencyDuplicate();
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
 
     // Only the idempotency check
     expect(mockExecute).toHaveBeenCalledTimes(1);
@@ -202,7 +203,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
 
     // Business date should derive from startAt (June 20), not occurredAt (June 14)
     // We verify by checking the call count — all 5 execute calls happened
@@ -229,7 +230,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
 
     // Still processes with fallback timezone
     expect(mockExecute).toHaveBeenCalledTimes(6);
@@ -255,7 +256,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
 
     // All 5 calls executed including online_slots_booked increment
     expect(mockExecute).toHaveBeenCalledTimes(6);
@@ -281,7 +282,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
 
     // All 5 calls - online_slots_booked gets 0 increment
     expect(mockExecute).toHaveBeenCalledTimes(6);
@@ -307,7 +308,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
 
     // Verify SQL was called — players=4 is passed to SQL template
     expect(mockExecute).toHaveBeenCalledTimes(6);
@@ -335,7 +336,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time — same_day bucket
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
     expect(mockExecute).toHaveBeenCalledTimes(6);
   });
 
@@ -361,7 +362,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time — one_day bucket
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
     expect(mockExecute).toHaveBeenCalledTimes(6);
   });
 
@@ -387,7 +388,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time — two_to_seven bucket
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
     expect(mockExecute).toHaveBeenCalledTimes(6);
   });
 
@@ -413,7 +414,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time — eight_plus bucket
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
     expect(mockExecute).toHaveBeenCalledTimes(6);
   });
 
@@ -437,7 +438,7 @@ describe('handleTeeTimeBooked', () => {
     mockUpsert(); // lead time
     mockUpsert(); // fact table
 
-    await handleTeeTimeBooked(event as any);
+    await handleTeeTimeBooked(event as unknown as EventEnvelope);
 
     // All 5 calls executed — SQL template receives 75 (cents/100)
     expect(mockExecute).toHaveBeenCalledTimes(6);
@@ -473,7 +474,7 @@ describe('handleTeeTimeCancelled', () => {
     mockUpsert(); // hourly — slots_booked - 4
     mockUpsert(); // fact status update
 
-    await handleTeeTimeCancelled(event as any);
+    await handleTeeTimeCancelled(event as unknown as EventEnvelope);
 
     // idempotency + timezone + demand + hourly + fact = 5 execute calls
     expect(mockExecute).toHaveBeenCalledTimes(5);
@@ -497,7 +498,7 @@ describe('handleTeeTimeCancelled', () => {
     mockUpsert(); // hourly
     mockUpsert(); // fact status update
 
-    await handleTeeTimeCancelled(event as any);
+    await handleTeeTimeCancelled(event as unknown as EventEnvelope);
 
     // Both demand and hourly upserts happen
     expect(mockExecute).toHaveBeenCalledTimes(5);
@@ -521,7 +522,7 @@ describe('handleTeeTimeCancelled', () => {
     mockUpsert(); // hourly
     mockUpsert(); // fact status update
 
-    await handleTeeTimeCancelled(event as any);
+    await handleTeeTimeCancelled(event as unknown as EventEnvelope);
 
     // Only 4 calls: idempotency + timezone + demand + hourly (no lead time)
     expect(mockExecute).toHaveBeenCalledTimes(5);
@@ -541,7 +542,7 @@ describe('handleTeeTimeCancelled', () => {
 
     mockIdempotencyDuplicate();
 
-    await handleTeeTimeCancelled(event as any);
+    await handleTeeTimeCancelled(event as unknown as EventEnvelope);
 
     expect(mockExecute).toHaveBeenCalledTimes(1);
   });
@@ -564,7 +565,7 @@ describe('handleTeeTimeCancelled', () => {
     mockUpsert(); // hourly
     mockUpsert(); // fact status update
 
-    await handleTeeTimeCancelled(event as any);
+    await handleTeeTimeCancelled(event as unknown as EventEnvelope);
 
     expect(mockExecute).toHaveBeenCalledTimes(5);
   });
@@ -588,7 +589,7 @@ describe('handleTeeTimeCancelled', () => {
     mockUpsert();
     mockUpsert();
     mockUpsert(); // fact status update
-    await handleTeeTimeCancelled(event1 as any);
+    await handleTeeTimeCancelled(event1 as unknown as EventEnvelope);
 
     vi.clearAllMocks();
     mockExecute.mockReset();
@@ -611,7 +612,7 @@ describe('handleTeeTimeCancelled', () => {
     mockUpsert();
     mockUpsert();
     mockUpsert(); // fact status update
-    await handleTeeTimeCancelled(event2 as any);
+    await handleTeeTimeCancelled(event2 as unknown as EventEnvelope);
 
     // Both processed — SQL ON CONFLICT handles accumulation
     expect(mockExecute).toHaveBeenCalledTimes(5);
@@ -645,7 +646,7 @@ describe('handleTeeTimeNoShow', () => {
     mockUpsert(); // demand — no_shows only
     mockUpsert(); // fact status update
 
-    await handleTeeTimeNoShow(event as any);
+    await handleTeeTimeNoShow(event as unknown as EventEnvelope);
 
     // idempotency + timezone + demand + fact = 4 execute calls
     expect(mockExecute).toHaveBeenCalledTimes(4);
@@ -668,7 +669,7 @@ describe('handleTeeTimeNoShow', () => {
     mockUpsert(); // demand only
     mockUpsert(); // fact status update
 
-    await handleTeeTimeNoShow(event as any);
+    await handleTeeTimeNoShow(event as unknown as EventEnvelope);
 
     // Only 3 calls — no hourly, no lead time touches
     expect(mockExecute).toHaveBeenCalledTimes(4);
@@ -691,7 +692,7 @@ describe('handleTeeTimeNoShow', () => {
     mockUpsert();
     mockUpsert(); // fact status update
 
-    await handleTeeTimeNoShow(event as any);
+    await handleTeeTimeNoShow(event as unknown as EventEnvelope);
 
     // 3 calls: idempotency + timezone + demand (no hourly, no lead time)
     expect(mockExecute).toHaveBeenCalledTimes(4);
@@ -714,7 +715,7 @@ describe('handleTeeTimeNoShow', () => {
     mockUpsert();
     mockUpsert(); // fact status update
 
-    await handleTeeTimeNoShow(event as any);
+    await handleTeeTimeNoShow(event as unknown as EventEnvelope);
 
     expect(mockExecute).toHaveBeenCalledTimes(4);
   });
@@ -733,7 +734,7 @@ describe('handleTeeTimeNoShow', () => {
 
     mockIdempotencyDuplicate();
 
-    await handleTeeTimeNoShow(event as any);
+    await handleTeeTimeNoShow(event as unknown as EventEnvelope);
 
     expect(mockExecute).toHaveBeenCalledTimes(1);
   });
@@ -755,7 +756,7 @@ describe('handleTeeTimeNoShow', () => {
     mockUpsert();
     mockUpsert(); // fact status update
 
-    await handleTeeTimeNoShow(event as any);
+    await handleTeeTimeNoShow(event as unknown as EventEnvelope);
 
     expect(mockExecute).toHaveBeenCalledTimes(4);
   });

@@ -25,10 +25,14 @@ export interface PermissionDefinition {
 
 export const PERMISSION_MATRIX: PermissionDefinition[] = [
   // ── Platform Core ───────────────────────────────────────────
+  { key: 'dashboard.view', module: 'platform', description: 'View the main dashboard', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'dashboard.configure', module: 'platform', description: 'Configure dashboard widgets and layout', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
   { key: 'settings.view', module: 'platform', description: 'View system settings', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
   { key: 'settings.update', module: 'platform', description: 'Modify system settings', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
   { key: 'users.view', module: 'platform', description: 'View user list and profiles', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
   { key: 'users.manage', module: 'platform', description: 'Create, edit, and manage users and role assignments', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'modules.manage', module: 'platform', description: 'Enable and disable modules', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'audit.view', module: 'platform', description: 'View the audit log', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: false },
 
   // ── Catalog ─────────────────────────────────────────────────
   { key: 'catalog.view', module: 'catalog', description: 'View items, categories, taxes, and pricing', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server', 'staff'], requiresManagerPin: false, requiresAudit: false },
@@ -76,6 +80,11 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'accounting.manage', module: 'accounting', description: 'Post journal entries, manage accounts, configure settings', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
   { key: 'accounting.mappings.manage', module: 'accounting', description: 'Configure GL account mappings (sub-department, payment type, tax group, F&B)', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
   { key: 'accounting.period.close', module: 'accounting', description: 'Close an accounting period (irreversible)', defaultRoles: ['owner'], requiresManagerPin: true, requiresAudit: true },
+  { key: 'accounting.banking.view', module: 'accounting', description: 'View bank accounts, deposits, and settlements', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'accounting.banking.reconcile', module: 'accounting', description: 'Perform bank reconciliation', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'accounting.tax.view', module: 'accounting', description: 'View tax remittance and reports', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'accounting.financials.view', module: 'accounting', description: 'View financial reports and statements', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'accounting.revenue.view', module: 'accounting', description: 'View COGS and tip payouts', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: false },
   { key: 'cogs.manage', module: 'accounting', description: 'Calculate and post periodic COGS entries', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
 
   // ── Accounts Payable ────────────────────────────────────────
@@ -129,6 +138,9 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'pos_fnb.gl.post', module: 'pos_fnb', description: 'Post F&B batches to GL', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
   { key: 'pos_fnb.gl.reverse', module: 'pos_fnb', description: 'Reverse F&B GL postings', defaultRoles: ['owner', 'manager'], requiresManagerPin: true, requiresAudit: true },
   { key: 'pos_fnb.gl.mappings', module: 'pos_fnb', description: 'Configure F&B GL account mappings', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+
+  // ── Golf ───────────────────────────────────────────────────
+  { key: 'golf.analytics.view', module: 'golf', description: 'View golf analytics and reports', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
 
   // ── PMS (Property Management) ───────────────────────────────
   { key: 'pms.property.view', module: 'pms', description: 'View property information', defaultRoles: ['owner', 'manager', 'supervisor', 'staff'], requiresManagerPin: false, requiresAudit: false },

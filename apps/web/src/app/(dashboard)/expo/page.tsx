@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { PermissionGate } from '@/components/permission-gate';
 
 const ExpoContent = dynamic(() => import('./expo-content'), {
   ssr: false,
@@ -13,5 +14,9 @@ const ExpoContent = dynamic(() => import('./expo-content'), {
 });
 
 export default function ExpoPage() {
-  return <ExpoContent />;
+  return (
+    <PermissionGate permission="pos_fnb.kds.view">
+      <ExpoContent />
+    </PermissionGate>
+  );
 }

@@ -42,7 +42,11 @@
     "lint": {},
     "type-check": {},
     "db:migrate": {
-      "cache": false
+      "cache": false,
+      "passThroughEnv": [
+        "DATABASE_URL",
+        "DATABASE_URL_ADMIN"
+      ]
     },
     "db:seed": {
       "dependsOn": [

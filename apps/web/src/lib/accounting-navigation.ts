@@ -27,6 +27,8 @@ export interface AccountingSectionTab {
   label: string;
   icon: LucideIcon;
   moduleKey?: string;
+  /** Permission key required to see this tab */
+  requiredPermission?: string;
 }
 
 export interface AccountingSection {
@@ -43,10 +45,10 @@ export const accountingSections: AccountingSection[] = [
     label: 'General Ledger',
     href: '/accounting/gl',
     tabs: [
-      { id: 'chart-of-accounts', label: 'Chart of Accounts', icon: BookOpen },
-      { id: 'journal-entries', label: 'Journal Entries', icon: FileSpreadsheet },
-      { id: 'gl-mappings', label: 'GL Mappings', icon: ArrowRightLeft },
-      { id: 'recurring', label: 'Recurring Templates', icon: Repeat },
+      { id: 'chart-of-accounts', label: 'Chart of Accounts', icon: BookOpen, requiredPermission: 'accounting.view' },
+      { id: 'journal-entries', label: 'Journal Entries', icon: FileSpreadsheet, requiredPermission: 'accounting.view' },
+      { id: 'gl-mappings', label: 'GL Mappings', icon: ArrowRightLeft, requiredPermission: 'accounting.mappings.manage' },
+      { id: 'recurring', label: 'Recurring Templates', icon: Repeat, requiredPermission: 'accounting.manage' },
     ],
   },
   {
@@ -55,10 +57,10 @@ export const accountingSections: AccountingSection[] = [
     href: '/accounting/payables',
     moduleKey: 'ap',
     tabs: [
-      { id: 'bills', label: 'Bills', icon: Receipt },
-      { id: 'payments', label: 'Payments', icon: DollarSign },
-      { id: 'vendors', label: 'Vendors', icon: Truck },
-      { id: 'aging', label: 'AP Aging', icon: Clock },
+      { id: 'bills', label: 'Bills', icon: Receipt, requiredPermission: 'ap.view' },
+      { id: 'payments', label: 'Payments', icon: DollarSign, requiredPermission: 'ap.manage' },
+      { id: 'vendors', label: 'Vendors', icon: Truck, requiredPermission: 'ap.view' },
+      { id: 'aging', label: 'AP Aging', icon: Clock, requiredPermission: 'ap.view' },
     ],
   },
   {
@@ -67,10 +69,10 @@ export const accountingSections: AccountingSection[] = [
     href: '/accounting/receivables',
     moduleKey: 'ar',
     tabs: [
-      { id: 'invoices', label: 'Invoices', icon: Wallet },
-      { id: 'receipts', label: 'Receipts', icon: CreditCard },
-      { id: 'customers', label: 'Customers', icon: Users },
-      { id: 'aging', label: 'AR Aging', icon: Clock },
+      { id: 'invoices', label: 'Invoices', icon: Wallet, requiredPermission: 'ar.view' },
+      { id: 'receipts', label: 'Receipts', icon: CreditCard, requiredPermission: 'ar.manage' },
+      { id: 'customers', label: 'Customers', icon: Users, requiredPermission: 'ar.view' },
+      { id: 'aging', label: 'AR Aging', icon: Clock, requiredPermission: 'ar.view' },
     ],
   },
   {
@@ -78,11 +80,11 @@ export const accountingSections: AccountingSection[] = [
     label: 'Banking',
     href: '/accounting/banking',
     tabs: [
-      { id: 'bank-accounts', label: 'Bank Accounts', icon: Building2 },
-      { id: 'deposits', label: 'Deposits', icon: Banknote },
-      { id: 'reconciliation', label: 'Reconciliation', icon: ArrowRightLeft },
-      { id: 'bank-rec', label: 'Bank Rec', icon: CheckSquare },
-      { id: 'settlements', label: 'Settlements', icon: CreditCard },
+      { id: 'bank-accounts', label: 'Bank Accounts', icon: Building2, requiredPermission: 'accounting.banking.view' },
+      { id: 'deposits', label: 'Deposits', icon: Banknote, requiredPermission: 'accounting.banking.view' },
+      { id: 'reconciliation', label: 'Reconciliation', icon: ArrowRightLeft, requiredPermission: 'accounting.banking.view' },
+      { id: 'bank-rec', label: 'Bank Rec', icon: CheckSquare, requiredPermission: 'accounting.banking.reconcile' },
+      { id: 'settlements', label: 'Settlements', icon: CreditCard, requiredPermission: 'accounting.banking.view' },
     ],
   },
   {
@@ -90,8 +92,8 @@ export const accountingSections: AccountingSection[] = [
     label: 'Revenue & Cost',
     href: '/accounting/revenue',
     tabs: [
-      { id: 'cogs', label: 'COGS', icon: PackageCheck },
-      { id: 'tip-payouts', label: 'Tip Payouts', icon: Banknote },
+      { id: 'cogs', label: 'COGS', icon: PackageCheck, requiredPermission: 'cogs.manage' },
+      { id: 'tip-payouts', label: 'Tip Payouts', icon: Banknote, requiredPermission: 'accounting.revenue.view' },
     ],
   },
   {
@@ -99,8 +101,8 @@ export const accountingSections: AccountingSection[] = [
     label: 'Tax',
     href: '/accounting/tax',
     tabs: [
-      { id: 'remittance', label: 'Tax Remittance', icon: FileBarChart },
-      { id: 'reports', label: 'Tax Reports', icon: BarChart3 },
+      { id: 'remittance', label: 'Tax Remittance', icon: FileBarChart, requiredPermission: 'accounting.tax.view' },
+      { id: 'reports', label: 'Tax Reports', icon: BarChart3, requiredPermission: 'accounting.tax.view' },
     ],
   },
   {
@@ -108,8 +110,8 @@ export const accountingSections: AccountingSection[] = [
     label: 'Financials',
     href: '/accounting/financials',
     tabs: [
-      { id: 'reports', label: 'Reports', icon: BarChart3 },
-      { id: 'statements', label: 'Statements', icon: Scale },
+      { id: 'reports', label: 'Reports', icon: BarChart3, requiredPermission: 'accounting.financials.view' },
+      { id: 'statements', label: 'Statements', icon: Scale, requiredPermission: 'accounting.financials.view' },
     ],
   },
   {
@@ -117,9 +119,9 @@ export const accountingSections: AccountingSection[] = [
     label: 'Period Close',
     href: '/accounting/period-close',
     tabs: [
-      { id: 'operations', label: 'Operations', icon: Monitor },
-      { id: 'close-dashboard', label: 'Close Dashboard', icon: Clock },
-      { id: 'period-close', label: 'Period Locks', icon: Lock },
+      { id: 'operations', label: 'Operations', icon: Monitor, requiredPermission: 'accounting.view' },
+      { id: 'close-dashboard', label: 'Close Dashboard', icon: Clock, requiredPermission: 'accounting.period.close' },
+      { id: 'period-close', label: 'Period Locks', icon: Lock, requiredPermission: 'accounting.period.close' },
     ],
   },
 ];

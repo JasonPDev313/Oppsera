@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { PermissionGate } from '@/components/permission-gate';
 
 const HostContent = dynamic(() => import('./host-content'), {
   ssr: false,
@@ -12,5 +13,9 @@ const HostContent = dynamic(() => import('./host-content'), {
 });
 
 export default function HostPage() {
-  return <HostContent />;
+  return (
+    <PermissionGate permission="pos_fnb.floor_plan.view">
+      <HostContent />
+    </PermissionGate>
+  );
 }

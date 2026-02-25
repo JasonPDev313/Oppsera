@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { PermissionGate } from '@/components/permission-gate';
 
 const KdsContent = dynamic(() => import('./kds-content'), {
   ssr: false,
@@ -13,5 +14,9 @@ const KdsContent = dynamic(() => import('./kds-content'), {
 });
 
 export default function KdsStationPage() {
-  return <KdsContent />;
+  return (
+    <PermissionGate permission="pos_fnb.kds.view">
+      <KdsContent />
+    </PermissionGate>
+  );
 }

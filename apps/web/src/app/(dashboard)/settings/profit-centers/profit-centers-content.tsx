@@ -56,6 +56,8 @@ export default function ProfitCentersContent() {
     profitCenterId: string | null;
   }>({ open: false, editId: null, profitCenterId: null });
 
+  const [locationsError, setLocationsError] = useState<string | null>(null);
+
   // Fetch locations once
   useEffect(() => {
     (async () => {
@@ -64,8 +66,11 @@ export default function ProfitCentersContent() {
           '/api/v1/terminal-session/locations',
         );
         setAllLocations(res.data);
-      } catch {
-        // fall back to empty
+        setLocationsError(null);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('[ProfitCenters] Failed to load locations:', msg);
+        setLocationsError(msg);
       }
     })();
   }, []);
