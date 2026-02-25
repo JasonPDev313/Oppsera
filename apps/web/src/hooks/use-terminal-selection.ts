@@ -152,7 +152,7 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
     if (profitCenters.length === 1) {
       setSelectedProfitCenterId(profitCenters[0]!.id);
     }
-  }, [effectiveLocationId, profitCenters.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveLocationId, profitCenters.length]);
 
   // Auto-select single terminal when PC changes
   useEffect(() => {
@@ -165,7 +165,7 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
     if (terminals.length === 1) {
       setSelectedTerminalId(terminals[0]!.id);
     }
-  }, [selectedProfitCenterId, terminals.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedProfitCenterId, terminals.length]);
 
   // Handle venue selection change (reset downstream)
   const handleSetSelectedVenueId = useCallback((id: string | null) => {
