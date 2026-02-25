@@ -36,7 +36,7 @@ export type { TableStatusHistoryItem } from './queries/list-table-status-history
 export { extractTablesFromSnapshot } from './helpers/extract-tables-from-snapshot';
 export { generateLookupCode } from './helpers/lookup-code';
 export { buildReceiptHtml } from './helpers/receipt-html';
-export type { ReceiptData, ReceiptLineItem } from './helpers/receipt-html';
+export type { ReceiptData as GuestReceiptData, ReceiptLineItem } from './helpers/receipt-html';
 export type { FloorPlanTableEntry } from './helpers/extract-tables-from-snapshot';
 
 // ═══════════════════════════════════════════════════════════════════
