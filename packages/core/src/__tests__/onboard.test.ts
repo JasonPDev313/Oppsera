@@ -3,8 +3,8 @@ import { BUSINESS_TYPES, generateSlug } from '@oppsera/shared';
 
 describe('Onboarding', () => {
   describe('BUSINESS_TYPES', () => {
-    it('has 5 business types', () => {
-      expect(BUSINESS_TYPES).toHaveLength(5);
+    it('has 6 business types', () => {
+      expect(BUSINESS_TYPES).toHaveLength(6);
     });
 
     it('each type has required fields', () => {

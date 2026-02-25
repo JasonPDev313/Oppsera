@@ -32,32 +32,54 @@ const {
   mockFindFirstTenants,
   mockInsert,
   mockExecute,
-} = vi.hoisted(() => ({
-  mockFindFirstUsers: vi.fn(),
-  mockFindFirstMemberships: vi.fn(),
-  mockFindFirstTenants: vi.fn(),
-  mockInsert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
-  mockExecute: vi.fn().mockResolvedValue(undefined),
-}));
+  mockSelectResult,
+} = vi.hoisted(() => {
+  const mockSelectResult = vi.fn();
+  return {
+    mockFindFirstUsers: vi.fn(),
+    mockFindFirstMemberships: vi.fn(),
+    mockFindFirstTenants: vi.fn(),
+    mockInsert: vi.fn().mockReturnValue({ values: vi.fn().mockResolvedValue(undefined) }),
+    mockExecute: vi.fn().mockResolvedValue(undefined),
+    mockSelectResult,
+  };
+});
 
-vi.mock('@oppsera/db', () => ({
-  db: {
-    query: {
-      users: { findFirst: mockFindFirstUsers },
-      memberships: { findFirst: mockFindFirstMemberships },
-      tenants: { findFirst: mockFindFirstTenants },
+vi.mock('@oppsera/db', () => {
+  // Build a fluent chain mock for db.select().from().innerJoin().where().orderBy().limit()
+  const fluentChain = () => {
+    const chain: Record<string, any> = {};
+    const methods = ['from', 'innerJoin', 'where', 'orderBy', 'limit'];
+    for (const m of methods) {
+      chain[m] = vi.fn().mockReturnValue(chain);
+    }
+    // The final call in the chain is .limit() which is awaited — make it thenable
+    chain.then = (resolve: (v: any) => void, reject: (e: any) => void) => {
+      return mockSelectResult().then(resolve, reject);
+    };
+    return chain;
+  };
+
+  return {
+    db: {
+      query: {
+        users: { findFirst: mockFindFirstUsers },
+        memberships: { findFirst: mockFindFirstMemberships },
+        tenants: { findFirst: mockFindFirstTenants },
+      },
+      select: vi.fn().mockImplementation(() => fluentChain()),
+      insert: mockInsert,
+      execute: mockExecute,
+      transaction: vi.fn(),
     },
-    insert: mockInsert,
-    execute: mockExecute,
-    transaction: vi.fn(),
-  },
-  sql: vi.fn(),
-  users: { id: 'users.id', email: 'users.email', authProviderId: 'users.authProviderId' },
-  memberships: { id: 'memberships.id', userId: 'memberships.userId', tenantId: 'memberships.tenantId', status: 'memberships.status' },
-  tenants: { id: 'tenants.id' },
-  locations: { tenantId: 'locations.tenantId', isActive: 'locations.isActive' },
-  schema: {},
-}));
+    sql: vi.fn(),
+    users: { id: 'users.id', email: 'users.email', authProviderId: 'users.authProviderId' },
+    memberships: { id: 'memberships.id', userId: 'memberships.userId', tenantId: 'memberships.tenantId', status: 'memberships.status', createdAt: 'memberships.createdAt' },
+    tenants: { id: 'tenants.id', status: 'tenants.status' },
+    locations: { tenantId: 'locations.tenantId', isActive: 'locations.isActive' },
+    schema: {},
+  };
+});
 
 vi.mock('../auth/supabase-client', () => ({
   createSupabaseAdmin: vi.fn().mockReturnValue({
@@ -162,8 +184,12 @@ describe('authenticate middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFindFirstUsers.mockResolvedValue(mockUser);
-    mockFindFirstMemberships.mockResolvedValue(mockMembership);
-    mockFindFirstTenants.mockResolvedValue(mockTenant);
+    // Combined membership+tenant select query returns array
+    mockSelectResult.mockResolvedValue([{
+      membershipStatus: mockMembership.status,
+      tenantId: mockMembership.tenantId,
+      tenantStatus: mockTenant.status,
+    }]);
   });
 
   it('rejects request with no Authorization header', async () => {
