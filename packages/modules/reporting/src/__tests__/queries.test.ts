@@ -15,14 +15,16 @@ const { mockSelect, mockWithTenant } = vi.hoisted(() => {
 
   const mockSelect = vi.fn(() => makeSelectChain());
 
+  const mockExecute = vi.fn(async () => []);
+
   const mockWithTenant = vi.fn(
     async (_tid: string, fn: (tx: unknown) => Promise<unknown>) => {
-      const tx = { select: mockSelect };
+      const tx = { select: mockSelect, execute: mockExecute };
       return fn(tx);
     },
   );
 
-  return { mockSelect, mockWithTenant, makeSelectChain };
+  return { mockSelect, mockExecute, mockWithTenant, makeSelectChain };
 });
 
 function makeSelectChain(result: unknown[]) {

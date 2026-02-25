@@ -303,7 +303,7 @@ describe('Voucher GL Posting Adapters', () => {
 
     it('should post balanced GL entry: Dr Liability, Cr Breakage Income', async () => {
       const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
-      (getAccountingSettings as any).mockResolvedValueOnce({});
+      (getAccountingSettings as any).mockResolvedValueOnce({ recognizeBreakageAutomatically: true });
 
       await handleVoucherExpirationForAccounting(baseExpireEvent as any);
 
@@ -337,7 +337,7 @@ describe('Voucher GL Posting Adapters', () => {
 
     it('should convert cents to dollars correctly', async () => {
       const { getAccountingSettings } = await import('../helpers/get-accounting-settings');
-      (getAccountingSettings as any).mockResolvedValueOnce({});
+      (getAccountingSettings as any).mockResolvedValueOnce({ recognizeBreakageAutomatically: true });
 
       const event = {
         ...baseExpireEvent,
