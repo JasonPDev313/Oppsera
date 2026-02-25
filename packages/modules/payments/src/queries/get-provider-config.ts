@@ -5,7 +5,7 @@ import {
   paymentMerchantAccounts,
   terminalMerchantAssignments,
 } from '@oppsera/db';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, sql, count } from 'drizzle-orm';
 
 // ── Types ──────────────────────────────────────────────────────────
 
