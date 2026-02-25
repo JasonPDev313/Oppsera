@@ -86,10 +86,10 @@ function PayLandingInner() {
           value={code}
           onChange={handleInputChange}
           placeholder="A3F7K2"
-          className="w-full text-center text-2xl tracking-[0.3em] font-mono
-                     border border-gray-300 rounded-lg px-4 py-3
+          className="w-full text-center text-2xl tracking-[0.3em] font-mono text-gray-900
+                     border border-gray-300 rounded-lg px-4 py-3 bg-white
                      focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500
-                     placeholder:text-gray-300 placeholder:tracking-[0.3em]"
+                     placeholder:text-gray-400 placeholder:tracking-[0.3em]"
           disabled={isLoading}
         />
 

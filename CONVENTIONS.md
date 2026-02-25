@@ -7454,3 +7454,155 @@ vi.mock('@oppsera/module-payments', () => ({
 
 Use `mockReset()` instead of `clearAllMocks()` to clear `mockReturnValueOnce` queues between tests (gotcha #58).
 
+---
+
+## 131. Year Seed Script (`packages/db/src/seed-year.ts`)
+
+### Purpose
+
+Generates 366 days (~1 full year) of realistic transaction data for demo, reporting, and AI insights. Targets ~$800K–$1.2M total revenue with seasonal variation, tournament spikes, void rates, and cash/card mix.
+
+### Usage
+
+```bash
+# Against local DB (.env.local):
+pnpm tsx packages/db/src/seed-year.ts
+
+# Against remote/production DB (.env.remote):
+pnpm tsx packages/db/src/seed-year.ts --remote
+```
+
+### Key Characteristics
+
+| Property | Value |
+|---|---|
+| Days | 366 (trailing from today) |
+| Void rate | 8% |
+| Cash ratio | 33% |
+| Customer assignment | 40% of orders |
+| Seasonal base | Summer $4K/day, Shoulder $2.8K/day, Winter $1.7K/day |
+| Weekend multiplier | 1.4x |
+| Tournament days | 5 scattered days at 3.5–5x revenue |
+| Target avg order | ~$98–$120 (from weighted template combos) |
+| Daily order range | 5–200 per day |
+| Location split | 70% main venue / 30% secondary venue |
+| Tips | Card orders get 15–22% tip; cash gets $0 |
+
+### Deterministic PRNG
+
+Uses `mulberry32(20260224)` seeded PRNG — same seed always produces same data. This means:
+- Running twice produces **duplicate** orders (additive — no dedup)
+- Safe for demo but should only be run once per clean DB
+- Output is predictable for testing
+
+### What It Creates
+
+1. **Orders** (`orders` table) — with status `paid` or `voided`, business dates, terminal IDs
+2. **Order lines** (`order_lines` table) — from weighted template combos (golf+cart+food, retail, etc.)
+3. **Order line taxes** (`order_line_taxes` table) — Retail 7.5%, Food/Bev 8.25%
+4. **Tenders** (`tenders` table) — cash or card, with tips on card payments
+5. **Read models** (`rm_daily_sales`, `rm_item_sales`) — pre-aggregated via ON CONFLICT upsert
+6. **Order counters** — safely incremented from MAX(existing) to avoid conflicts
+
+### Additive-Only Safety
+
+- **NEVER deletes, truncates, or drops** any existing data
+- Reads existing tenant, locations, users, terminals, customers, catalog items
+- Requires `pnpm db:seed` to have been run first (needs tenant + catalog data)
+- Safe on production when used with `--remote` flag (adds data, doesn't modify existing)
+
+### Order Templates (Weighted)
+
+Templates are built dynamically from available catalog items:
+
+| Template | Approx Value | Weight |
+|---|---|---|
+| Golf + cart + food + drinks | ~$131 | 5 (most common) |
+| Golf + cart | ~$100 | 4 |
+| Golf + food | ~$90 | 3 |
+| 2x golf + 2x cart + 4 drinks | ~$232 | 3 |
+| Big day (golf+retail+food) | ~$150+ | 2 |
+| Retail combos | ~$40–80 | 1–2 |
+| Food combos | ~$30–50 | 1–2 |
+
+### Read Model Population
+
+The script populates CQRS read models directly (bypassing event consumers):
+- `rm_daily_sales`: daily aggregated sales per location (dollars, NUMERIC(19,4))
+- `rm_item_sales`: per-item daily sales per location (dollars)
+- Uses `ON CONFLICT ... DO UPDATE` for idempotent upserts
+
+### Prerequisites
+
+- Run `pnpm db:seed` first (creates tenant, locations, users, terminals, customers, catalog items)
+- At least 2 locations (venues preferred) must exist
+- At least 1 user and catalog items must exist
+- `DATABASE_URL_ADMIN` or `DATABASE_URL` env var must be set
+
+---
+
+## 132. Portal Auth Scripts
+
+### `tools/scripts/seed-portal-auth.ts`
+
+Bulk-creates portal auth accounts for all customers with email addresses. Uses a shared bcrypt hash for password `member123`. Additive-only — skips customers that already have portal auth.
+
+```bash
+pnpm tsx tools/scripts/seed-portal-auth.ts           # local
+pnpm tsx tools/scripts/seed-portal-auth.ts --remote   # production
+```
+
+### `tools/scripts/add-portal-member.ts`
+
+One-off script to add a specific member with portal auth to the `sunset-golf` tenant. Creates customer record if needed, upserts portal auth with bcrypt password hash.
+
+```bash
+pnpm tsx tools/scripts/add-portal-member.ts --remote
+```
+
+---
+
+## 133. Tenant Business Info & Content Blocks
+
+### Schema
+
+Two new tables (migration 0193):
+
+- **`tenant_business_info`**: One row per tenant. Stores core identity (name, address, phone, email, logo), operations profile (access type, services/products offered, F&B level, rentals), online presence (website, booking, portal URLs, social links), and advanced metadata (industry type, business hours, year established, encrypted tax ID, photo gallery, promo video).
+- **`tenant_content_blocks`**: Multiple rows per tenant, keyed by `block_key` (about, services_events, promotions, team). Stores rich text/HTML content for marketing pages.
+
+### Backend
+
+- **Queries**: `getBusinessInfo(tenantId)`, `getContentBlocks(tenantId)` — in `packages/core/src/settings/business-info.ts`
+- **Commands**: `updateBusinessInfo(ctx, input)` (upsert pattern), `updateContentBlock(ctx, blockKey, content)` (upsert pattern)
+- **Validation**: Zod schemas in `packages/shared/src/schemas/business-info.ts` — enums for access types, rental types, F&B levels, industry types, social platforms. Business hours with day/period structure. Photo gallery with sort order.
+- **Tax ID**: stored encrypted (`taxIdEncrypted`), returned masked (`taxIdMasked` with bullet characters + last 4)
+- **API routes**: `GET/PATCH /api/v1/settings/business-info`, `GET/PATCH /api/v1/settings/content-blocks`
+
+### Frontend
+
+- **Settings page**: `/settings/general` — code-split (thin `page.tsx` + `general-info-content.tsx`)
+- **5 collapsible sections**: Business Information, Operations, Online Presence, Content Blocks, Advanced
+- **Sub-components**: `BusinessHoursEditor` (7-day schedule with periods), `RichTextEditor` (contentEditable with bold/italic/link toolbar), `SocialLinksEditor` (platform icons + URL inputs), `TagInput` (token-based input for services/products)
+- **Hook**: `useBusinessInfo()` — loads both business info + content blocks, provides `saveInfo()` and `saveBlock()` mutations with optimistic updates
+- **Auto-save with dirty tracking**: section-level save buttons, success toasts
+
+### Merchant Services Settings
+
+New tabbed UI under `/settings/merchant-services` (was `/settings/payment-processors`):
+
+- **ProvidersTab**: payment provider CRUD with credential management
+- **MerchantAccountsTab**: merchant account CRUD with terminal assignment
+- **DevicesTab**: physical terminal device management (HSN mapping)
+- **TerminalsTab**: POS terminal assignment to merchant accounts
+- **WalletsTab**: Apple Pay / Google Pay configuration
+
+### Bug Fixes in This Commit
+
+- **Modifiers page**: fixed category filter to use `g.categoryId` instead of `g.category_id` (Drizzle column name mismatch)
+- **Inventory ItemEditDrawer**: fixed item type display using `getItemTypeGroup()` for correct grouping
+- **Inventory ActivitySection**: fixed movements display to use `Number()` conversion on numeric fields and proper date formatting
+- **F&B module index**: fixed duplicate `ReceiptData` export (renamed to `FnbReceiptData`)
+- **Catalog import-inventory**: added `createdItemIds` to validation failure path to fix `publishWithOutbox` inference
+- **PMS occupancy projector**: added type annotation for empty events array
+

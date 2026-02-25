@@ -1,5 +1,6 @@
 import { pgTable, text, boolean, timestamp, jsonb, uniqueIndex, index, integer } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
+import { tenants } from './core.js';
 
 // ── Platform Admins ──────────────────────────────────────────────
 // NOT tenant-scoped — these are OppsEra internal operators.
@@ -152,5 +153,80 @@ export const adminImpersonationSessions = pgTable(
   (table) => [
     index('idx_imp_sessions_admin').on(table.adminId, table.createdAt),
     index('idx_imp_sessions_tenant').on(table.tenantId, table.createdAt),
+  ],
+);
+
+// ── Tenant Onboarding Checklists (migration 0195) ──────────────
+// Per-tenant onboarding steps derived from industry templates.
+
+export const tenantOnboardingChecklists = pgTable(
+  'tenant_onboarding_checklists',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    stepKey: text('step_key').notNull(),
+    stepLabel: text('step_label').notNull(),
+    stepGroup: text('step_group').notNull().default('general'),
+    status: text('status').notNull().default('pending'),
+    // status: 'pending' | 'in_progress' | 'completed' | 'skipped' | 'blocked'
+    sortOrder: integer('sort_order').notNull().default(0),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    completedBy: text('completed_by'),
+    blockerNotes: text('blocker_notes'),
+    metadata: jsonb('metadata').notNull().default('{}'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_onboarding_tenant_step').on(table.tenantId, table.stepKey),
+    index('idx_tenant_onboarding_tenant').on(table.tenantId),
+  ],
+);
+
+// ── SuperAdmin Support Notes (migration 0195) ──────────────────
+// Internal notes by platform admins about a tenant.
+
+export const superadminSupportNotes = pgTable(
+  'superadmin_support_notes',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    authorAdminId: text('author_admin_id')
+      .notNull()
+      .references(() => platformAdmins.id),
+    content: text('content').notNull(),
+    noteType: text('note_type').notNull().default('general'),
+    // noteType: 'general' | 'support_ticket' | 'escalation' | 'implementation' | 'financial'
+    isPinned: boolean('is_pinned').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_support_notes_tenant').on(table.tenantId, table.createdAt),
+    index('idx_support_notes_author').on(table.authorAdminId),
+  ],
+);
+
+// ── Onboarding Step Templates (migration 0195) ─────────────────
+// Industry-specific onboarding checklist templates.
+
+export const onboardingStepTemplates = pgTable(
+  'onboarding_step_templates',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    industry: text('industry').notNull(),
+    stepKey: text('step_key').notNull(),
+    stepLabel: text('step_label').notNull(),
+    stepGroup: text('step_group').notNull().default('general'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    autoCheckQuery: text('auto_check_query'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_onboarding_templates_industry_step').on(table.industry, table.stepKey),
   ],
 );

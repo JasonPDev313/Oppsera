@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { FnbTableWithStatus, FnbTableStatus } from '@/types/fnb';
 import { FNB_TABLE_STATUS_COLORS, FNB_TABLE_STATUS_LABELS } from '@/types/fnb';
 import { Users, Clock, ChevronRight } from 'lucide-react';
+import { WaitlistSidebarContent } from './WaitlistSidebarContent';
 
 type SidebarMode = 'my-tables' | 'stats' | 'waitlist';
 
@@ -165,9 +166,7 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
         )}
 
         {mode === 'waitlist' && (
-          <p className="text-xs p-3 text-center text-gray-400">
-            Waitlist coming soon
-          </p>
+          <WaitlistSidebarContent />
         )}
       </div>
     </div>

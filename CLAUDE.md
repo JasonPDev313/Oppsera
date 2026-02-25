@@ -919,6 +919,43 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - `0190_guest_pay_lookup_code.sql`: lookup_code on guest_pay_sessions
   - `0191_member_portal_passwords.sql`: password_hash on customer_auth_accounts
   - `0192_guest_pay_receipt_emailed.sql`: receipt_emailed_at on guest_pay_sessions
+  - `0193_tenant_business_info.sql`: tenant_business_info + tenant_content_blocks tables with RLS
+- **Tenant Business Info & Content Blocks** (Session 2026-02-24):
+  - **2 new tables**: `tenant_business_info` (one row per tenant — identity, operations, online presence, advanced metadata), `tenant_content_blocks` (keyed content blocks: about, services_events, promotions, team)
+  - **Schema**: `packages/db/src/schema/business-info.ts`, Migration: `0193_tenant_business_info.sql`
+  - **Shared schemas**: `packages/shared/src/schemas/business-info.ts` — Zod schemas for business hours (day/period structure), social links (13 platforms), photo gallery, industry types, access types, F&B levels, rental types
+  - **Commands**: `updateBusinessInfo(ctx, input)` (upsert), `updateContentBlock(ctx, blockKey, content)` (upsert) — in `packages/core/src/settings/business-info.ts`
+  - **Queries**: `getBusinessInfo(tenantId)`, `getContentBlocks(tenantId)`
+  - **API routes**: `GET/PATCH /api/v1/settings/business-info`, `GET/PATCH /api/v1/settings/content-blocks`
+  - **Frontend**: `/settings/general` page (code-split), 5 collapsible sections (Business Info, Operations, Online Presence, Content Blocks, Advanced)
+  - **Sub-components**: `BusinessHoursEditor`, `RichTextEditor` (contentEditable with toolbar), `SocialLinksEditor`, `TagInput`
+  - **Hook**: `useBusinessInfo()` — loads both data sources, provides `saveInfo()` and `saveBlock()` mutations
+  - **Tax ID masking**: stored encrypted, returned with bullet characters + last 4
+- **Merchant Services Settings UI** (Session 2026-02-24):
+  - **5-tab layout** under `/settings/merchant-services`: ProvidersTab, MerchantAccountsTab, DevicesTab, TerminalsTab, WalletsTab
+  - **ProvidersTab**: payment provider CRUD with credential management
+  - **MerchantAccountsTab**: merchant account CRUD with terminal assignment
+  - **DevicesTab**: physical terminal device management (HSN mapping to CardPointe terminals)
+  - **TerminalsTab**: POS terminal assignment to merchant accounts
+  - **WalletsTab**: Apple Pay / Google Pay configuration
+  - **Shared**: `DialogOverlay` component in `_shared.tsx`
+- **Year Seed Script** (`packages/db/src/seed-year.ts`):
+  - Generates 366 days of realistic transactions (~$800K–$1.2M revenue) with seasonal variation, tournament spikes, void rates (8%), cash/card mix (33%/67%)
+  - Deterministic PRNG (`mulberry32(20260224)`) — same data every run
+  - Additive-only (never deletes/truncates), requires `pnpm db:seed` first
+  - Populates `rm_daily_sales` and `rm_item_sales` read models via ON CONFLICT upsert
+  - Usage: `pnpm tsx packages/db/src/seed-year.ts` (local) or `--remote` flag for production
+- **Portal Auth Scripts** (Session 2026-02-24):
+  - `tools/scripts/seed-portal-auth.ts`: bulk-creates portal auth for all customers (password: `member123`)
+  - `tools/scripts/add-portal-member.ts`: one-off script for specific member with custom password
+  - Both support `--remote` flag for production DB
+- **Bug Fixes** (Session 2026-02-24):
+  - Modifiers page: fixed category filter to use `g.categoryId` instead of `g.category_id` (Drizzle column name)
+  - Inventory ItemEditDrawer: fixed item type display using `getItemTypeGroup()`
+  - Inventory ActivitySection: fixed movements display with `Number()` conversion on numeric fields + date formatting
+  - F&B module index: fixed duplicate `ReceiptData` export (renamed to `FnbReceiptData`)
+  - Catalog import-inventory: added `createdItemIds` to validation failure path for `publishWithOutbox` inference
+  - PMS occupancy projector: type-annotated empty events array for Vercel build
 
 ### Test Coverage
 3330+ tests: 134 core + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 621 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
@@ -1222,7 +1259,12 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~POS UX (visibility resume, connection indicator, customer cache, display size, error boundary)~~ ✓ DONE
 - ~~Member portal payment methods (bank accounts, card tokenization, one-time payments)~~ ✓ DONE
 - ~~Guest pay enhancements (lookup codes, email receipts, card charges)~~ ✓ DONE
-- Run migrations 0134-0192 on dev DB
+- ~~Tenant business info + content blocks (Settings → General)~~ ✓ DONE
+- ~~Merchant services settings UI (5-tab layout: providers, accounts, devices, terminals, wallets)~~ ✓ DONE
+- ~~Year seed script (366 days of realistic transactions)~~ ✓ DONE
+- ~~Portal auth scripts (seed-portal-auth, add-portal-member)~~ ✓ DONE
+- ~~Bug fixes: modifiers category filter, inventory display, F&B export, catalog import, PMS projector~~ ✓ DONE
+- Run migrations 0134-0193 on dev DB
 - Run `tools/scripts/seed-admin-roles.ts` after migration 0097
 - Run `tools/scripts/backfill-accounting-accounts.ts` after migration 0100 (creates Tips Payable + Service Charge Revenue for existing tenants)
 - Toggle `enableLegacyGlPosting = false` per tenant after validating GL reconciliation
@@ -1613,6 +1655,10 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 362. **SuperAdmin alert cooldown is per-rule, not per-tenant** — when a DLQ depth alert fires for Tenant A, the cooldown prevents the same rule from firing for ANY tenant during the cooldown window. This prevents alert floods but means simultaneous issues across tenants may only generate one notification.
 363. **Intelligence services read from `rm_*` tables only** — all semantic intelligence services (anomaly detection, correlation, forecasting, etc.) read from CQRS read models, never operational tables. If a new metric needs analysis, ensure it's being populated into the appropriate read model first. Anomaly detection writes only to its own `semanticAlertNotifications` table.
 364. **Agentic orchestrator has strict guardrails** — max 5 Think/Act/Observe steps, SELECT-only SQL validation, tenant isolation, total timeout. Each step is a separate LLM call — a complex question can consume 5x the tokens of a simple query. Monitor via existing semantic observability metrics.
+365. **`tenant_business_info` is one-row-per-tenant upsert** — uses `ON CONFLICT (tenant_id) DO UPDATE` pattern. `updateBusinessInfo` only sets fields that were actually passed (`!== undefined`). Tax ID is stored encrypted and returned masked (bullet chars + last 4). Content blocks use `ON CONFLICT (tenant_id, block_key)` for per-block upsert.
+366. **Year seed script is additive-only and deterministic** — `packages/db/src/seed-year.ts` uses `mulberry32(20260224)` PRNG. Running twice creates duplicate orders (no dedup). Always run on a clean DB after `pnpm db:seed`. Populates `rm_daily_sales` and `rm_item_sales` directly via ON CONFLICT upsert (bypasses event consumers). Supports `--remote` flag for production.
+367. **Portal auth default password is `member123`** — `seed-portal-auth.ts` uses a pre-computed bcrypt hash. For production members, use `add-portal-member.ts` with a custom password. Portal auth accounts use provider `'portal'` with unique constraint on `(tenant_id, customer_id, provider)`.
+368. **Settings navigation renamed** — sidebar nav for Settings → General now points to `/settings/general` (was undefined). Merchant services moved from `/settings/payment-processors` to `/settings/merchant-services`.
 
 ## Migration Rules (IMPORTANT — Multi-Agent Safety)
 
@@ -1640,6 +1686,10 @@ pnpm type-check           # TypeScript check all packages
 pnpm db:migrate           # Run DB migrations (LOCAL)
 pnpm db:migrate:remote    # Run DB migrations (PRODUCTION)
 pnpm db:seed              # Seed development data
+pnpm tsx packages/db/src/seed-year.ts          # Seed 366 days of transactions (LOCAL)
+pnpm tsx packages/db/src/seed-year.ts --remote # Seed 366 days of transactions (PRODUCTION)
+pnpm tsx tools/scripts/seed-portal-auth.ts     # Create portal auth for all customers (LOCAL)
+pnpm tsx tools/scripts/seed-portal-auth.ts --remote  # Portal auth (PRODUCTION)
 ```
 
 ### Troubleshooting: CSS Not Loading (Windows)

@@ -6,6 +6,7 @@ import type { FloorDisplayMode } from './FnbTableNode';
 import { useFnbPosStore } from '@/stores/fnb-pos-store';
 import { useFnbFloor, useFnbRooms, useTableActions } from '@/hooks/use-fnb-floor';
 import { openTabApi } from '@/hooks/use-fnb-tab';
+import { useAuthContext } from '@/components/auth-provider';
 import type { FnbTableWithStatus } from '@/types/fnb';
 import { FnbTableNode } from './FnbTableNode';
 import { RoomTabs } from './RoomTabs';
@@ -54,6 +55,7 @@ interface FnbFloorViewProps {
 
 export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const store = useFnbPosStore();
+  const { locations } = useAuthContext();
   const { rooms, isLoading: roomsLoading } = useFnbRooms();
 
   // Select first room if none active, or if stored room was archived (no longer in active list).
@@ -78,7 +80,15 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   const actions = useTableActions(refresh);
 
   // ── My Section ────────────────────────────────────────────
-  const mySection = useMySection({ roomId: activeRoomId, userId });
+  // Derive the location timezone for the 4 AM business-date cutoff
+  const activeRoom = rooms.find((r) => r.id === activeRoomId);
+  const locationTimezone = useMemo(() => {
+    const locId = activeRoom?.locationId;
+    if (!locId) return undefined;
+    return locations.find((l) => l.id === locId)?.timezone;
+  }, [activeRoom?.locationId, locations]);
+
+  const mySection = useMySection({ roomId: activeRoomId, userId, timezone: locationTimezone });
 
   // ── Local UI State ──────────────────────────────────────────
 
@@ -102,7 +112,6 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   }, [isActive, store]);
 
   // Derive locationId from the active room (needed for API calls)
-  const activeRoom = rooms.find((r) => r.id === activeRoomId);
   const locationId = activeRoom?.locationId ?? null;
 
   const selectedTable = useMemo(
@@ -123,15 +132,22 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   const [userZoom, setUserZoom] = useState(1);
 
-  // Compute bounding box of tables — this defines the visible canvas area.
-  // Background objects are not rendered, so only tables matter for sizing.
+  // Tables visible in layout view — when My Section is active, only show selected tables
+  const visibleTables = useMemo(
+    () => store.mySectionOnly && mySection.hasSelection
+      ? tables.filter((t) => mySection.myTableIds.has(t.tableId))
+      : tables,
+    [tables, store.mySectionOnly, mySection.hasSelection, mySection.myTableIds],
+  );
+
+  // Compute bounding box of visible tables — auto-fits viewport to section when active.
   const tableBounds = useMemo(() => {
-    if (tables.length === 0) return null;
+    if (visibleTables.length === 0) return null;
     if (!scalePxPerFt) return null;
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-    for (const t of tables) {
+    for (const t of visibleTables) {
       const x = t.positionX * scalePxPerFt;
       const y = t.positionY * scalePxPerFt;
       const w = Math.max(t.width || MIN_TABLE_SIZE, MIN_TABLE_SIZE);
@@ -149,7 +165,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       width: maxX - minX + pad * 2,
       height: maxY - minY + pad * 2,
     };
-  }, [tables, scalePxPerFt]);
+  }, [visibleTables, scalePxPerFt]);
 
   // Content dimensions: table cluster when available, full room as fallback
   const contentW = tableBounds?.width ?? (room ? room.widthFt * scalePxPerFt : 0);
@@ -614,9 +630,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               >
                   {/* Table layer — offset so cluster starts at canvas origin */}
                   <div style={{ position: 'absolute', left: tableOffsetX, top: tableOffsetY }}>
-                    {tables.map((table) => {
-                      const isDimmed = store.mySectionOnly && mySection.hasSelection && !mySection.myTableIds.has(table.tableId);
-                      return (
+                    {visibleTables.map((table) => (
                         <FnbTableNode
                           key={table.tableId}
                           table={table}
@@ -630,10 +644,8 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                           guestPayActive={table.guestPayActive}
                           displayMode={store.floorDisplayMode}
                           predictedTurnMinutes={predictTurnMinutes(table)}
-                          dimmed={isDimmed}
                         />
-                      );
-                    })}
+                    ))}
                   </div>
               </div>
             </>

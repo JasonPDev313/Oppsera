@@ -133,7 +133,7 @@ export function TipSelector({ tipSettings, baseCents, selectedTipCents, onTipCha
               placeholder="0.00"
               value={customValue}
               onChange={(e) => setCustomValue(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 py-3 pl-7 pr-3 text-base focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+              className="w-full rounded-xl border border-gray-300 py-3 pl-7 pr-3 text-base text-gray-900 bg-white focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
               autoFocus
             />
           </div>

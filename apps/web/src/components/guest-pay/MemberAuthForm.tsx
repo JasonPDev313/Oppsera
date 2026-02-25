@@ -72,7 +72,7 @@ export function MemberAuthForm({ token, onSuccess, onBack }: MemberAuthFormProps
             value={memberNumber}
             onChange={(e) => setMemberNumber(e.target.value)}
             placeholder="e.g. M12345"
-            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 bg-white focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
             autoComplete="off"
             disabled={loading}
           />
@@ -89,7 +89,7 @@ export function MemberAuthForm({ token, onSuccess, onBack }: MemberAuthFormProps
             value={phoneLast4}
             onChange={(e) => setPhoneLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
             placeholder="1234"
-            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base tracking-[0.3em] text-center focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 bg-white tracking-[0.3em] text-center focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
             autoComplete="off"
             disabled={loading}
           />

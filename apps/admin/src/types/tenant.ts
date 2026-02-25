@@ -4,18 +4,67 @@ export interface TenantListItem {
   name: string;
   slug: string;
   status: string;
+  industry: string | null;
+  onboardingStatus: string;
+  healthGrade: string;
+  primaryContactEmail: string | null;
+  primaryContactName: string | null;
   siteCount: number;
   venueCount: number;
   profitCenterCount: number;
   terminalCount: number;
   userCount: number;
+  lastActivityAt: string | null;
   createdAt: string;
 }
 
 // ── Tenant Detail ───────────────────────────────────────────────
 export interface TenantDetail extends TenantListItem {
   billingCustomerId: string | null;
+  primaryContactPhone: string | null;
+  internalNotes: string | null;
+  activatedAt: string | null;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
+  metadata: Record<string, unknown>;
+  totalLocations: number;
+  totalUsers: number;
   entitlementCount: number;
+  updatedAt: string;
+}
+
+// ── Onboarding ─────────────────────────────────────────────────
+export type OnboardingStepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped' | 'blocked';
+
+export interface OnboardingStep {
+  id: string;
+  tenantId: string;
+  stepKey: string;
+  stepLabel: string;
+  stepGroup: string;
+  status: OnboardingStepStatus;
+  sortOrder: number;
+  completedAt: string | null;
+  completedBy: string | null;
+  blockerNotes: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Support Notes ──────────────────────────────────────────────
+export type NoteType = 'general' | 'support_ticket' | 'escalation' | 'implementation' | 'financial';
+
+export interface SupportNote {
+  id: string;
+  tenantId: string;
+  authorAdminId: string;
+  authorName: string;
+  authorEmail: string;
+  content: string;
+  noteType: NoteType;
+  isPinned: boolean;
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -154,4 +203,8 @@ export interface CreateTenantInput {
   status?: string;
   timezone?: string;
   siteName?: string;
+  industry?: string;
+  primaryContactEmail?: string;
+  primaryContactName?: string;
+  primaryContactPhone?: string;
 }

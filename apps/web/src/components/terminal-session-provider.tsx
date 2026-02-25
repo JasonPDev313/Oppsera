@@ -20,6 +20,8 @@ interface TerminalSessionContextValue {
 const TerminalSessionContext = createContext<TerminalSessionContextValue | null>(null);
 
 const STORAGE_KEY = 'oppsera:terminal-session';
+/** Also used by TerminalSessionGate in layout.tsx — keep in sync */
+export const TERMINAL_SKIP_KEY = 'oppsera:terminal-session-skipped';
 
 export function TerminalSessionProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<TerminalSession | null>(null);
@@ -41,6 +43,8 @@ export function TerminalSessionProvider({ children }: { children: ReactNode }) {
   const setSession = useCallback((s: TerminalSession) => {
     setSessionState(s);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    // Clear the skip flag — user has a real session now
+    localStorage.removeItem(TERMINAL_SKIP_KEY);
   }, []);
 
   const clearSession = useCallback(() => {

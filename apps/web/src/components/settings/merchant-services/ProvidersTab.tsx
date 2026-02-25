@@ -31,9 +31,9 @@ const PROVIDER_OPTIONS = [
 ] as const;
 
 export default function ProvidersTab({
-  onSelectProvider,
+  onNavigateToMids,
 }: {
-  onSelectProvider: (p: ProviderSummary) => void;
+  onNavigateToMids?: () => void;
 }) {
   const { providers, isLoading } = usePaymentProviders();
   const mutations = usePaymentProcessorMutations();
@@ -47,9 +47,9 @@ export default function ProvidersTab({
   const handleSelect = useCallback(
     (p: ProviderSummary) => {
       setSelectedProviderId(p.id);
-      onSelectProvider(p);
+      onNavigateToMids?.();
     },
-    [onSelectProvider],
+    [onNavigateToMids],
   );
 
   if (isLoading) {

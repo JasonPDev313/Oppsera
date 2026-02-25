@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   jsonb,
   date,
+  time,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
@@ -2019,5 +2020,181 @@ export const fnbSplitItemFractions = pgTable(
   },
   (table) => [
     index('idx_fnb_split_fractions_check').on(table.tenantId, table.splitCheckId),
+  ],
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// HOST STAND — Waitlist, Reservations & Settings
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Waitlist Entries ────────────────────────────────────────────────
+export const fnbWaitlistEntries = pgTable(
+  'fnb_waitlist_entries',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    businessDate: date('business_date').notNull(),
+    guestName: text('guest_name').notNull(),
+    guestPhone: text('guest_phone'),
+    guestEmail: text('guest_email'),
+    partySize: integer('party_size').notNull().default(2),
+    quotedWaitMinutes: integer('quoted_wait_minutes'),
+    status: text('status').notNull().default('waiting'),
+    priority: integer('priority').notNull().default(0),
+    position: integer('position').notNull().default(0),
+    seatingPreference: text('seating_preference'),
+    specialRequests: text('special_requests'),
+    isVip: boolean('is_vip').notNull().default(false),
+    vipNote: text('vip_note'),
+    customerId: text('customer_id'),
+    customerVisitCount: integer('customer_visit_count').default(0),
+    addedAt: timestamp('added_at', { withTimezone: true }).notNull().defaultNow(),
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
+    seatedAt: timestamp('seated_at', { withTimezone: true }),
+    canceledAt: timestamp('canceled_at', { withTimezone: true }),
+    noShowAt: timestamp('no_show_at', { withTimezone: true }),
+    actualWaitMinutes: integer('actual_wait_minutes'),
+    seatedTableId: text('seated_table_id'),
+    seatedServerUserId: text('seated_server_user_id'),
+    tabId: text('tab_id'),
+    source: text('source').notNull().default('host_stand'),
+    notes: text('notes'),
+    notificationCount: integer('notification_count').notNull().default(0),
+    lastNotificationMethod: text('last_notification_method'),
+    confirmationStatus: text('confirmation_status'),
+    estimatedArrivalAt: timestamp('estimated_arrival_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_waitlist_tenant_location_date_status').on(
+      table.tenantId, table.locationId, table.businessDate, table.status,
+    ),
+    index('idx_fnb_waitlist_tenant_status_position').on(
+      table.tenantId, table.locationId, table.status, table.position,
+    ),
+    index('idx_fnb_waitlist_customer').on(table.tenantId, table.customerId),
+  ],
+);
+
+// ── Reservations ──────────────────────────────────────────────────
+export const fnbReservations = pgTable(
+  'fnb_reservations',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    guestName: text('guest_name').notNull(),
+    guestPhone: text('guest_phone'),
+    guestEmail: text('guest_email'),
+    partySize: integer('party_size').notNull().default(2),
+    reservationDate: date('reservation_date').notNull(),
+    reservationTime: time('reservation_time').notNull(),
+    durationMinutes: integer('duration_minutes').notNull().default(90),
+    endTime: time('end_time'),
+    status: text('status').notNull().default('confirmed'),
+    seatingPreference: text('seating_preference'),
+    specialRequests: text('special_requests'),
+    occasion: text('occasion'),
+    isVip: boolean('is_vip').notNull().default(false),
+    vipNote: text('vip_note'),
+    customerId: text('customer_id'),
+    customerVisitCount: integer('customer_visit_count').default(0),
+    assignedTableId: text('assigned_table_id'),
+    assignedServerUserId: text('assigned_server_user_id'),
+    seatedAt: timestamp('seated_at', { withTimezone: true }),
+    tabId: text('tab_id'),
+    waitlistEntryId: text('waitlist_entry_id'),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    canceledAt: timestamp('canceled_at', { withTimezone: true }),
+    cancelReason: text('cancel_reason'),
+    noShowAt: timestamp('no_show_at', { withTimezone: true }),
+    source: text('source').notNull().default('host_stand'),
+    externalBookingId: text('external_booking_id'),
+    channel: text('channel'),
+    confirmationSentAt: timestamp('confirmation_sent_at', { withTimezone: true }),
+    reminderSentAt: timestamp('reminder_sent_at', { withTimezone: true }),
+    reminderCount: integer('reminder_count').notNull().default(0),
+    depositAmountCents: integer('deposit_amount_cents'),
+    depositStatus: text('deposit_status'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: text('created_by'),
+  },
+  (table) => [
+    index('idx_fnb_reservations_tenant_date_status').on(
+      table.tenantId, table.locationId, table.reservationDate, table.status,
+    ),
+    index('idx_fnb_reservations_tenant_date_time').on(
+      table.tenantId, table.locationId, table.reservationDate, table.reservationTime,
+    ),
+    index('idx_fnb_reservations_customer').on(table.tenantId, table.customerId),
+  ],
+);
+
+// ── Host Stand Settings ─────────────────────────────────────────────
+export const fnbHostSettings = pgTable(
+  'fnb_host_settings',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    defaultTurnTimeMinutes: integer('default_turn_time_minutes').notNull().default(60),
+    waitTimeMethod: text('wait_time_method').notNull().default('historical'),
+    waitTimeBufferMinutes: integer('wait_time_buffer_minutes').notNull().default(5),
+    autoAssignServer: boolean('auto_assign_server').notNull().default(true),
+    rotationMode: text('rotation_mode').notNull().default('round_robin'),
+    maxWaitMinutes: integer('max_wait_minutes').notNull().default(120),
+    autoNoShowMinutes: integer('auto_no_show_minutes').notNull().default(15),
+    reservationSlotIntervalMinutes: integer('reservation_slot_interval_minutes').notNull().default(15),
+    maxPartySize: integer('max_party_size').notNull().default(20),
+    minAdvanceHours: integer('min_advance_hours').notNull().default(1),
+    maxAdvanceDays: integer('max_advance_days').notNull().default(60),
+    defaultReservationDurationMinutes: integer('default_reservation_duration_minutes').notNull().default(90),
+    allowOnlineReservations: boolean('allow_online_reservations').notNull().default(false),
+    allowOnlineWaitlist: boolean('allow_online_waitlist').notNull().default(false),
+    requirePhoneForWaitlist: boolean('require_phone_for_waitlist').notNull().default(false),
+    requirePhoneForReservation: boolean('require_phone_for_reservation').notNull().default(true),
+    overbookingPercentage: integer('overbooking_percentage').notNull().default(0),
+    pacingMaxCoversPerSlot: integer('pacing_max_covers_per_slot'),
+    smsWaitlistAddedTemplate: text('sms_waitlist_added_template'),
+    smsTableReadyTemplate: text('sms_table_ready_template'),
+    smsReservationConfirmationTemplate: text('sms_reservation_confirmation_template'),
+    smsReservationReminderTemplate: text('sms_reservation_reminder_template'),
+    showWaitTimesToGuests: boolean('show_wait_times_to_guests').notNull().default(true),
+    showQueuePosition: boolean('show_queue_position').notNull().default(false),
+    floorPlanDefaultView: text('floor_plan_default_view').notNull().default('layout'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_fnb_host_settings_tenant_location').on(table.tenantId, table.locationId),
+  ],
+);
+
+// ── Wait Time History ─────────────────────────────────────────────
+export const fnbWaitTimeHistory = pgTable(
+  'fnb_wait_time_history',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    businessDate: date('business_date').notNull(),
+    partySize: integer('party_size').notNull(),
+    quotedWaitMinutes: integer('quoted_wait_minutes'),
+    actualWaitMinutes: integer('actual_wait_minutes').notNull(),
+    seatingPreference: text('seating_preference'),
+    dayOfWeek: integer('day_of_week').notNull(),
+    hourOfDay: integer('hour_of_day').notNull(),
+    wasReservation: boolean('was_reservation').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_wait_time_history_estimation').on(
+      table.tenantId, table.locationId, table.dayOfWeek, table.hourOfDay, table.partySize,
+    ),
+    index('idx_fnb_wait_time_history_date').on(table.tenantId, table.locationId, table.businessDate),
   ],
 );

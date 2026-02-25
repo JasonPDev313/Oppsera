@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { MapPin, Building2, Store, Monitor, Shield, ChevronLeft } from 'lucide-react';
+import Link from 'next/link';
+import { MapPin, Building2, Store, Monitor, Shield, ChevronLeft, Settings, Plus } from 'lucide-react';
 import { useTerminalSelection } from '@/hooks/use-terminal-selection';
 import { useRoleSelection } from '@/hooks/use-role-selection';
 import { useTerminalSession } from '@/components/terminal-session-provider';
@@ -226,22 +227,31 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
           </button>
         )}
 
-        {/* No profit centers — allow skip */}
+        {/* No profit centers — offer setup or skip */}
         {noProfitCentersExist && (
           <div className="mb-6 rounded-lg border border-amber-300/50 bg-amber-50 p-4 text-center">
             <p className="text-sm font-medium text-amber-800">
-              No profit centers have been configured yet.
+              No profit centers or terminals have been configured yet.
             </p>
             <p className="mt-1 text-xs text-amber-600">
-              You can set them up later in Settings &rarr; Profit Centers.
+              Set up your locations and terminals to get started, or skip for now.
             </p>
-            <button
-              type="button"
-              onClick={onSkip}
-              className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
-            >
-              Continue to Dashboard
-            </button>
+            <div className="mt-3 flex gap-2 justify-center">
+              <Link
+                href="/settings/profit-centers"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Set Up Now
+              </Link>
+              <button
+                type="button"
+                onClick={onSkip}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                Skip for Now
+              </button>
+            </div>
           </div>
         )}
 
@@ -320,6 +330,21 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
               </option>
             ))}
           </select>
+          {effectiveLocationId && profitCenters.length === 0 && !noProfitCentersExist && (
+            <div className="mt-2 flex items-center gap-2">
+              <Link
+                href="/settings/profit-centers"
+                className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+              >
+                <Plus className="h-3 w-3" />
+                Add a profit center
+              </Link>
+              <span className="text-xs text-gray-400">or</span>
+              <button type="button" onClick={onSkip} className="text-xs font-medium text-gray-500 hover:text-gray-700">
+                skip for now
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Terminal */}
@@ -348,6 +373,21 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
               </option>
             ))}
           </select>
+          {selectedProfitCenterId && terminals.length === 0 && (
+            <div className="mt-2 flex items-center gap-2">
+              <Link
+                href="/settings/profit-centers"
+                className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+              >
+                <Plus className="h-3 w-3" />
+                Add a terminal
+              </Link>
+              <span className="text-xs text-gray-400">or</span>
+              <button type="button" onClick={onSkip} className="text-xs font-medium text-gray-500 hover:text-gray-700">
+                skip for now
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Continue */}

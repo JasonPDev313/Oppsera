@@ -99,7 +99,7 @@ export default function DevicesTab() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => {
-                              deviceMutations.removeDevice.mutate({ assignmentId: d.id });
+                              deviceMutations.removeDevice.mutate(d.id);
                               setConfirmRemove(null);
                             }}
                             className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
@@ -149,7 +149,7 @@ export default function DevicesTab() {
           onClose={() => setEditing(null)}
           onSubmit={(input) =>
             deviceMutations.updateDevice.mutate(
-              { assignmentId: editing.id, ...input },
+              { id: editing.id, ...input },
               { onSuccess: () => setEditing(null) },
             )
           }

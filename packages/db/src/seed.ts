@@ -94,6 +94,7 @@ async function seed() {
     name: 'Sunset Golf & Grill',
     slug: 'sunset-golf',
     status: 'active',
+    businessTier: 'MID_MARKET',
   });
   console.log(`Tenant: ${tenantId} (Sunset Golf & Grill)`);
 

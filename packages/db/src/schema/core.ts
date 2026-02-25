@@ -25,6 +25,23 @@ export const tenants = pgTable('tenants', {
   tierOverride: boolean('tier_override').notNull().default(false),
   tierOverrideReason: text('tier_override_reason'),
   tierLastEvaluatedAt: timestamp('tier_last_evaluated_at', { withTimezone: true }),
+  // ── SuperAdmin Phase 1A (migration 0195) ──
+  industry: text('industry'), // 'golf' | 'restaurant' | 'hotel' | 'retail' | 'marina' | 'general'
+  onboardingStatus: text('onboarding_status').notNull().default('pending'),
+  // onboardingStatus: 'pending' | 'in_progress' | 'completed' | 'stalled'
+  primaryContactEmail: text('primary_contact_email'),
+  primaryContactName: text('primary_contact_name'),
+  primaryContactPhone: text('primary_contact_phone'),
+  internalNotes: text('internal_notes'),
+  activatedAt: timestamp('activated_at', { withTimezone: true }),
+  suspendedAt: timestamp('suspended_at', { withTimezone: true }),
+  suspendedReason: text('suspended_reason'),
+  metadata: jsonb('metadata').notNull().default('{}'),
+  healthGrade: text('health_grade').notNull().default('A'),
+  // healthGrade: 'A' | 'B' | 'C' | 'D' | 'F'
+  totalLocations: integer('total_locations').notNull().default(0),
+  totalUsers: integer('total_users').notNull().default(0),
+  lastActivityAt: timestamp('last_activity_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

@@ -617,6 +617,14 @@ export {
   guestPayMemberAuthSchema, guestPayMemberVerifySchema, chargeMemberAccountSchema,
   // My Section
   saveMySectionSchema, getMySectionFilterSchema, getRoomSectionAssignmentsFilterSchema,
+  // Host Stand
+  WAITLIST_STATUSES, SEATING_PREFERENCES, WAITLIST_SOURCES, OCCASIONS,
+  RESERVATION_STATUSES, RESERVATION_SOURCES,
+  addToWaitlistSchema, updateWaitlistEntrySchema, seatFromWaitlistSchema,
+  notifyWaitlistGuestSchema, createReservationSchema, updateReservationSchema,
+  checkInReservationSchema, updateHostSettingsSchema,
+  getWaitlistFilterSchema, getReservationsFilterSchema, getHostDashboardSchema,
+  getWaitTimeEstimateSchema, getTableAvailabilitySchema,
 } from './validation';
 
 export type {
@@ -716,6 +724,14 @@ export type {
   GuestPayMemberAuthInput, GuestPayMemberVerifyInput, ChargeMemberAccountInput,
   // My Section
   SaveMySectionInput, GetMySectionFilterInput, GetRoomSectionAssignmentsFilterInput,
+  // Host Stand
+  WaitlistStatus, SeatingPreference, WaitlistSource, Occasion,
+  ReservationStatus, ReservationSource,
+  AddToWaitlistInput, UpdateWaitlistEntryInput, SeatFromWaitlistInput,
+  NotifyWaitlistGuestInput, CreateReservationInput, UpdateReservationInput,
+  CheckInReservationInput, UpdateHostSettingsInput,
+  GetWaitlistFilterInput, GetReservationsFilterInput, GetHostDashboardInput,
+  GetWaitTimeEstimateInput, GetTableAvailabilityInput,
 } from './validation';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -863,6 +879,41 @@ export {
   NoPrinterRoutedError,
   PrintJobAlreadyCompletedError,
 } from './errors';
+
+// ═══════════════════════════════════════════════════════════════════
+// Host Stand — Waitlist, Reservations & Seating Intelligence
+// ═══════════════════════════════════════════════════════════════════
+
+// Commands
+export { addToWaitlist } from './commands/add-to-waitlist';
+export { updateWaitlistEntry } from './commands/update-waitlist-entry';
+export { seatFromWaitlist } from './commands/seat-from-waitlist';
+export { removeFromWaitlist } from './commands/remove-from-waitlist';
+export { notifyWaitlistGuest } from './commands/notify-waitlist-guest';
+export { createReservation, mapReservationRow } from './commands/create-reservation';
+export { updateReservation } from './commands/update-reservation';
+export { cancelReservation, noShowReservation } from './commands/cancel-reservation';
+export { checkInReservation } from './commands/check-in-reservation';
+export { updateHostSettings } from './commands/update-host-settings';
+
+// Queries
+export { getHostDashboard } from './queries/get-host-dashboard';
+export type {
+  HostDashboard, WaitlistEntry, ReservationEntry,
+  TableSummary, ServerSummary,
+} from './queries/get-host-dashboard';
+export { getWaitTimeEstimate } from './queries/get-wait-time-estimate';
+export type { WaitTimeEstimate } from './queries/get-wait-time-estimate';
+export { getTableAvailability } from './queries/get-table-availability';
+export type {
+  TableAvailabilityResult, AvailableTableForSeating,
+} from './queries/get-table-availability';
+export { getHostSettings } from './queries/get-host-settings';
+export type { HostSettings } from './queries/get-host-settings';
+export { getWaitlist } from './queries/get-waitlist';
+export type { WaitlistItem, WaitlistResult } from './queries/get-waitlist';
+export { getReservations } from './queries/get-reservations';
+export type { ReservationItem, ReservationsResult } from './queries/get-reservations';
 
 // Re-export reconciliation methods (used by ReconciliationReadApi)
 export { getFnbCloseStatus } from './reconciliation';

@@ -14,6 +14,8 @@
     "db:seed:remote": "tsx src/seed.ts --remote",
     "seed:year": "tsx src/seed-year.ts",
     "seed:year:remote": "tsx src/seed-year.ts --remote",
+    "seed:comprehensive": "tsx src/seed-comprehensive.ts",
+    "seed:comprehensive:remote": "tsx src/seed-comprehensive.ts --remote",
     "db:create-partitions": "tsx scripts/create-partitions.ts",
     "generate": "drizzle-kit generate",
     "studio": "drizzle-kit studio",

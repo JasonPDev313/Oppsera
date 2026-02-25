@@ -5,18 +5,33 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 
 // ── Business Date Helper ─────────────────────────────────────────
-// Before 4AM, consider it the previous day's business date.
-// This handles overnight shifts: a server working past midnight
-// keeps their section until 4AM when the new day starts.
+// Before 4AM in the tenant's timezone, consider it the previous day's
+// business date. This handles overnight shifts: a server working past
+// midnight keeps their section until 4AM when the new day starts.
 
-export function getBusinessDate(): string {
-  const now = new Date();
-  if (now.getHours() < 4) {
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    return yesterday.toISOString().slice(0, 10);
+export function getBusinessDate(timezone?: string): string {
+  const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: 'numeric',
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const year = parts.find((p) => p.type === 'year')!.value;
+  const month = parts.find((p) => p.type === 'month')!.value;
+  const day = parts.find((p) => p.type === 'day')!.value;
+  const hour = Number(parts.find((p) => p.type === 'hour')!.value);
+
+  if (hour < 4) {
+    // Before 4 AM in tenant timezone → previous business day
+    const d = new Date(`${year}-${month}-${day}T12:00:00`);
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
   }
-  return now.toISOString().slice(0, 10);
+  return `${year}-${month}-${day}`;
 }
 
 // ── Types ────────────────────────────────────────────────────────
@@ -30,6 +45,8 @@ interface RoomAssignment {
 interface UseMySectionOptions {
   roomId: string | null;
   userId: string;
+  /** IANA timezone (e.g. 'America/Chicago') for the 4 AM business-date cutoff */
+  timezone?: string;
 }
 
 export interface UseMySectionReturn {
@@ -58,9 +75,9 @@ export interface UseMySectionReturn {
 
 // ── Hook ─────────────────────────────────────────────────────────
 
-export function useMySection({ roomId, userId }: UseMySectionOptions): UseMySectionReturn {
+export function useMySection({ roomId, userId, timezone }: UseMySectionOptions): UseMySectionReturn {
   const queryClient = useQueryClient();
-  const businessDate = getBusinessDate();
+  const businessDate = getBusinessDate(timezone);
 
   // Local selection state (optimistic UI)
   const [localIds, setLocalIds] = useState<Set<string>>(new Set());

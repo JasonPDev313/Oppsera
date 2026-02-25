@@ -6,8 +6,8 @@ export const metadata = {
 
 export default function GuestLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-[480px] min-h-screen bg-white shadow-sm">
+    <div className="light min-h-screen bg-gray-100">
+      <div className="mx-auto max-w-[480px] min-h-screen bg-white shadow-lg">
         {children}
       </div>
     </div>

@@ -30,7 +30,7 @@ import { ItemEditDrawer } from '@/components/inventory/ItemEditDrawer';
 import { NavigationGuardProvider, useNavigationGuard } from '@/hooks/use-navigation-guard';
 import { preloadPOSCatalog } from '@/hooks/use-catalog-for-pos';
 import { apiFetch } from '@/lib/api-client';
-import { TerminalSessionProvider, useTerminalSession } from '@/components/terminal-session-provider';
+import { TerminalSessionProvider, useTerminalSession, TERMINAL_SKIP_KEY } from '@/components/terminal-session-provider';
 import { TerminalSelectionScreen } from '@/components/terminal-selection-screen';
 import { CommandPalette } from '@/components/command-palette';
 import { ImpersonationBanner } from '@/components/impersonation-banner';
@@ -771,7 +771,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 function TerminalSessionGate({ children }: { children: React.ReactNode }) {
   const { session, isLoading } = useTerminalSession();
   const { needsOnboarding, isLoading: authLoading, isAuthenticated } = useAuthContext();
-  const [skipped, setSkipped] = useState(false);
+  const [skipped, setSkipped] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem(TERMINAL_SKIP_KEY) === 'true'; } catch { return false; }
+  });
+
+  const handleSkip = useCallback(() => {
+    setSkipped(true);
+    try { localStorage.setItem(TERMINAL_SKIP_KEY, 'true'); } catch { /* ignore */ }
+  }, []);
 
   // Bypass the terminal gate when auth is unresolved, user isn't logged in,
   // or tenant hasn't been provisioned yet — let DashboardLayoutInner handle
@@ -779,7 +787,7 @@ function TerminalSessionGate({ children }: { children: React.ReactNode }) {
   if (authLoading || !isAuthenticated || needsOnboarding) return <>{children}</>;
 
   if (isLoading) return null;
-  if (!session && !skipped) return <TerminalSelectionScreen onSkip={() => setSkipped(true)} />;
+  if (!session && !skipped) return <TerminalSelectionScreen onSkip={handleSkip} />;
   return <>{children}</>;
 }
 

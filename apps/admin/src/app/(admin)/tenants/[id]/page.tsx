@@ -21,8 +21,9 @@ import { OrgHierarchyBuilder } from '@/components/tenants/OrgHierarchyBuilder';
 import { ModuleManager } from '@/components/tenants/ModuleManager';
 import { TenantRolesTab } from '@/components/tenants/TenantRolesTab';
 import { TenantUsersTab } from '@/components/tenants/TenantUsersTab';
+import { SubscriptionTab } from '@/components/tenants/SubscriptionTab';
 
-type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users';
+type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users' | 'subscription';
 
 export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -99,8 +100,8 @@ export default function TenantDetailPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-slate-700 pb-px">
-        {(['overview', 'organization', 'modules', 'roles', 'users'] as Tab[]).map((t) => {
-          const labels: Record<Tab, string> = { overview: 'Overview', organization: 'Organization', modules: 'Modules', roles: 'Roles', users: 'Users' };
+        {(['overview', 'organization', 'modules', 'subscription', 'roles', 'users'] as Tab[]).map((t) => {
+          const labels: Record<Tab, string> = { overview: 'Overview', organization: 'Organization', modules: 'Modules', subscription: 'Subscription', roles: 'Roles', users: 'Users' };
           return (
             <button
               key={t}
@@ -121,6 +122,7 @@ export default function TenantDetailPage() {
       {tab === 'overview' && <OverviewTab tenant={tenant} />}
       {tab === 'organization' && <OrgHierarchyBuilder tenantId={id} />}
       {tab === 'modules' && <ModuleManager tenantId={id} />}
+      {tab === 'subscription' && <SubscriptionTab tenantId={id} />}
       {tab === 'roles' && <TenantRolesTab tenantId={id} />}
       {tab === 'users' && <TenantUsersTab tenantId={id} />}
     </div>

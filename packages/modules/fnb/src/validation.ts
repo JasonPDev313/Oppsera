@@ -2190,3 +2190,192 @@ export const getRoomSectionAssignmentsFilterSchema = z.object({
 });
 
 export type GetRoomSectionAssignmentsFilterInput = z.input<typeof getRoomSectionAssignmentsFilterSchema>;
+
+// ── Host Stand: Waitlist ──────────────────────────────────────────
+
+export const WAITLIST_STATUSES = [
+  'waiting', 'notified', 'seated', 'no_show', 'canceled',
+] as const;
+export type WaitlistStatus = (typeof WAITLIST_STATUSES)[number];
+
+export const SEATING_PREFERENCES = [
+  'any', 'indoor', 'outdoor', 'bar', 'patio', 'window', 'booth', 'quiet', 'high_top',
+] as const;
+export type SeatingPreference = (typeof SEATING_PREFERENCES)[number];
+
+export const WAITLIST_SOURCES = [
+  'host_stand', 'online', 'phone', 'reservation_walkin',
+] as const;
+
+export const OCCASIONS = [
+  'birthday', 'anniversary', 'business', 'date_night', 'celebration', 'other',
+] as const;
+
+export const addToWaitlistSchema = z.object({
+  ...idempotencyMixin,
+  guestName: z.string().min(1).max(100),
+  guestPhone: z.string().max(20).optional(),
+  guestEmail: z.string().email().optional(),
+  partySize: z.number().int().min(1).max(100),
+  seatingPreference: z.enum(SEATING_PREFERENCES).optional(),
+  specialRequests: z.string().max(500).optional(),
+  isVip: z.boolean().optional(),
+  vipNote: z.string().max(200).optional(),
+  customerId: z.string().optional(),
+  source: z.enum(WAITLIST_SOURCES).optional(),
+  notes: z.string().max(500).optional(),
+  quotedWaitMinutes: z.number().int().min(0).optional(),
+  estimatedArrivalAt: z.string().datetime().optional(),
+});
+export type AddToWaitlistInput = z.input<typeof addToWaitlistSchema>;
+
+export const updateWaitlistEntrySchema = z.object({
+  guestName: z.string().min(1).max(100).optional(),
+  guestPhone: z.string().max(20).nullable().optional(),
+  guestEmail: z.string().email().nullable().optional(),
+  partySize: z.number().int().min(1).max(100).optional(),
+  seatingPreference: z.enum(SEATING_PREFERENCES).nullable().optional(),
+  specialRequests: z.string().max(500).nullable().optional(),
+  isVip: z.boolean().optional(),
+  vipNote: z.string().max(200).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+  priority: z.number().int().min(0).max(2).optional(),
+});
+export type UpdateWaitlistEntryInput = z.input<typeof updateWaitlistEntrySchema>;
+
+export const seatFromWaitlistSchema = z.object({
+  ...idempotencyMixin,
+  tableId: z.string().min(1),
+  serverUserId: z.string().optional(),
+});
+export type SeatFromWaitlistInput = z.input<typeof seatFromWaitlistSchema>;
+
+export const notifyWaitlistGuestSchema = z.object({
+  method: z.enum(['sms', 'manual']).default('manual'),
+});
+export type NotifyWaitlistGuestInput = z.input<typeof notifyWaitlistGuestSchema>;
+
+// ── Host Stand: Reservations ────────────────────────────────────
+
+export const RESERVATION_STATUSES = [
+  'confirmed', 'checked_in', 'seated', 'completed', 'no_show', 'canceled',
+] as const;
+export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
+
+export const RESERVATION_SOURCES = [
+  'host_stand', 'online', 'phone', 'google', 'third_party',
+] as const;
+
+export const createReservationSchema = z.object({
+  ...idempotencyMixin,
+  guestName: z.string().min(1).max(100),
+  guestPhone: z.string().max(20).optional(),
+  guestEmail: z.string().email().optional(),
+  partySize: z.number().int().min(1).max(100),
+  reservationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  reservationTime: z.string().regex(/^\d{2}:\d{2}$/),
+  durationMinutes: z.number().int().min(15).max(480).optional(),
+  seatingPreference: z.enum(SEATING_PREFERENCES).optional(),
+  specialRequests: z.string().max(500).optional(),
+  occasion: z.enum(OCCASIONS).optional(),
+  isVip: z.boolean().optional(),
+  vipNote: z.string().max(200).optional(),
+  customerId: z.string().optional(),
+  assignedTableId: z.string().optional(),
+  source: z.enum(RESERVATION_SOURCES).optional(),
+  notes: z.string().max(500).optional(),
+});
+export type CreateReservationInput = z.input<typeof createReservationSchema>;
+
+export const updateReservationSchema = z.object({
+  guestName: z.string().min(1).max(100).optional(),
+  guestPhone: z.string().max(20).nullable().optional(),
+  guestEmail: z.string().email().nullable().optional(),
+  partySize: z.number().int().min(1).max(100).optional(),
+  reservationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  reservationTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  durationMinutes: z.number().int().min(15).max(480).optional(),
+  seatingPreference: z.enum(SEATING_PREFERENCES).nullable().optional(),
+  specialRequests: z.string().max(500).nullable().optional(),
+  occasion: z.enum(OCCASIONS).nullable().optional(),
+  isVip: z.boolean().optional(),
+  vipNote: z.string().max(200).nullable().optional(),
+  assignedTableId: z.string().nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
+export type UpdateReservationInput = z.input<typeof updateReservationSchema>;
+
+export const checkInReservationSchema = z.object({
+  ...idempotencyMixin,
+  tableId: z.string().optional(),
+  serverUserId: z.string().optional(),
+});
+export type CheckInReservationInput = z.input<typeof checkInReservationSchema>;
+
+// ── Host Stand: Settings ────────────────────────────────────────
+
+export const updateHostSettingsSchema = z.object({
+  defaultTurnTimeMinutes: z.number().int().min(15).max(300).optional(),
+  waitTimeMethod: z.enum(['historical', 'manual', 'hybrid']).optional(),
+  waitTimeBufferMinutes: z.number().int().min(0).max(30).optional(),
+  autoAssignServer: z.boolean().optional(),
+  rotationMode: z.enum(['round_robin', 'cover_balance', 'manual']).optional(),
+  maxWaitMinutes: z.number().int().min(30).max(300).optional(),
+  autoNoShowMinutes: z.number().int().min(5).max(60).optional(),
+  reservationSlotIntervalMinutes: z.enum(['15', '30', '60']).transform(Number).optional(),
+  maxPartySize: z.number().int().min(1).max(100).optional(),
+  minAdvanceHours: z.number().int().min(0).max(72).optional(),
+  maxAdvanceDays: z.number().int().min(1).max(365).optional(),
+  defaultReservationDurationMinutes: z.number().int().min(15).max(480).optional(),
+  requirePhoneForWaitlist: z.boolean().optional(),
+  requirePhoneForReservation: z.boolean().optional(),
+  overbookingPercentage: z.number().int().min(0).max(50).optional(),
+  pacingMaxCoversPerSlot: z.number().int().min(1).nullable().optional(),
+  showWaitTimesToGuests: z.boolean().optional(),
+  showQueuePosition: z.boolean().optional(),
+  floorPlanDefaultView: z.enum(['layout', 'grid', 'list']).optional(),
+});
+export type UpdateHostSettingsInput = z.input<typeof updateHostSettingsSchema>;
+
+// ── Host Stand: Queries ─────────────────────────────────────────
+
+export const getWaitlistFilterSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  status: z.enum(WAITLIST_STATUSES).optional(),
+});
+export type GetWaitlistFilterInput = z.input<typeof getWaitlistFilterSchema>;
+
+export const getReservationsFilterSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  status: z.enum(RESERVATION_STATUSES).optional(),
+});
+export type GetReservationsFilterInput = z.input<typeof getReservationsFilterSchema>;
+
+export const getHostDashboardSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+});
+export type GetHostDashboardInput = z.input<typeof getHostDashboardSchema>;
+
+export const getWaitTimeEstimateSchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  partySize: z.number().int().min(1),
+  seatingPreference: z.enum(SEATING_PREFERENCES).optional(),
+});
+export type GetWaitTimeEstimateInput = z.input<typeof getWaitTimeEstimateSchema>;
+
+export const getTableAvailabilitySchema = z.object({
+  tenantId: z.string().min(1),
+  locationId: z.string().min(1),
+  partySize: z.number().int().min(1),
+  reservationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  reservationTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+});
+export type GetTableAvailabilityInput = z.input<typeof getTableAvailabilitySchema>;

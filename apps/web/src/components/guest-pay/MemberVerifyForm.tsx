@@ -139,7 +139,7 @@ export function MemberVerifyForm({
             onChange={(e) => handleDigitChange(i, e.target.value)}
             onKeyDown={(e) => handleKeyDown(i, e)}
             disabled={loading}
-            className="w-12 h-14 rounded-xl border-2 border-gray-300 text-center text-xl font-bold focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50"
+            className="w-12 h-14 rounded-xl border-2 border-gray-300 text-center text-xl font-bold text-gray-900 bg-white focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 disabled:opacity-50"
             autoComplete="one-time-code"
           />
         ))}
