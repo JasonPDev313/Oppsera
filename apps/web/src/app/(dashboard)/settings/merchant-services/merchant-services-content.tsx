@@ -45,7 +45,7 @@ import {
 
 type Tab = 'providers' | 'mids' | 'terminals' | 'devices' | 'wallets' | 'surcharging' | 'ach';
 
-export default function MerchantProcessingContent() {
+export default function MerchantServicesContent() {
   const [tab, setTab] = useState<Tab>('providers');
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
 
@@ -81,7 +81,7 @@ export default function MerchantProcessingContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Merchant Processing</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Merchant Services</h1>
           <p className="mt-1 text-sm text-gray-500">
             Configure payment providers, merchant IDs, and terminal assignments.
           </p>

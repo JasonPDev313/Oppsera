@@ -299,6 +299,7 @@ export default function ProfitCentersContent() {
           selectedVenueId={selectedVenueId}
           onSelectSite={handleSelectSite}
           onSelectVenue={handleSelectVenue}
+          error={locationsError}
         />
 
         {mode === 'advanced' && (

@@ -62,57 +62,69 @@ export interface TerminalAssignmentInfo {
  */
 export async function listPaymentProviders(tenantId: string): Promise<ProviderSummary[]> {
   return withTenant(tenantId, async (tx) => {
-    const providers = await tx
-      .select()
+    // Single query with subqueries — eliminates N+1
+    const credentialSubquery = tx
+      .select({
+        providerId: paymentProviderCredentials.providerId,
+        isSandbox: sql<boolean>`bool_or(${paymentProviderCredentials.isSandbox})`.as('is_sandbox'),
+        hasCredentials: sql<boolean>`true`.as('has_creds'),
+      })
+      .from(paymentProviderCredentials)
+      .where(
+        and(
+          eq(paymentProviderCredentials.tenantId, tenantId),
+          eq(paymentProviderCredentials.isActive, true),
+        ),
+      )
+      .groupBy(paymentProviderCredentials.providerId)
+      .as('creds');
+
+    const midCountSubquery = tx
+      .select({
+        providerId: paymentMerchantAccounts.providerId,
+        midCount: count(paymentMerchantAccounts.id).as('mid_count'),
+      })
+      .from(paymentMerchantAccounts)
+      .where(
+        and(
+          eq(paymentMerchantAccounts.tenantId, tenantId),
+          eq(paymentMerchantAccounts.isActive, true),
+        ),
+      )
+      .groupBy(paymentMerchantAccounts.providerId)
+      .as('mids');
+
+    const rows = await tx
+      .select({
+        id: paymentProviders.id,
+        code: paymentProviders.code,
+        displayName: paymentProviders.displayName,
+        providerType: paymentProviders.providerType,
+        isActive: paymentProviders.isActive,
+        config: paymentProviders.config,
+        createdAt: paymentProviders.createdAt,
+        hasCredentials: credentialSubquery.hasCredentials,
+        isSandbox: credentialSubquery.isSandbox,
+        merchantAccountCount: midCountSubquery.midCount,
+      })
       .from(paymentProviders)
+      .leftJoin(credentialSubquery, eq(paymentProviders.id, credentialSubquery.providerId))
+      .leftJoin(midCountSubquery, eq(paymentProviders.id, midCountSubquery.providerId))
       .where(eq(paymentProviders.tenantId, tenantId))
       .orderBy(desc(paymentProviders.createdAt));
 
-    const results: ProviderSummary[] = [];
-
-    for (const p of providers) {
-      // Check if credentials exist
-      const [cred] = await tx
-        .select({
-          isSandbox: paymentProviderCredentials.isSandbox,
-        })
-        .from(paymentProviderCredentials)
-        .where(
-          and(
-            eq(paymentProviderCredentials.tenantId, tenantId),
-            eq(paymentProviderCredentials.providerId, p.id),
-            eq(paymentProviderCredentials.isActive, true),
-          ),
-        )
-        .limit(1);
-
-      // Count merchant accounts
-      const midRows = await tx
-        .select({ id: paymentMerchantAccounts.id })
-        .from(paymentMerchantAccounts)
-        .where(
-          and(
-            eq(paymentMerchantAccounts.tenantId, tenantId),
-            eq(paymentMerchantAccounts.providerId, p.id),
-            eq(paymentMerchantAccounts.isActive, true),
-          ),
-        );
-
-      results.push({
-        id: p.id,
-        code: p.code,
-        displayName: p.displayName,
-        providerType: p.providerType,
-        isActive: p.isActive,
-        config: p.config as Record<string, unknown> | null,
-        hasCredentials: !!cred,
-        isSandbox: cred?.isSandbox ?? false,
-        merchantAccountCount: midRows.length,
-        createdAt: p.createdAt.toISOString(),
-      });
-    }
-
-    return results;
+    return rows.map((r) => ({
+      id: r.id,
+      code: r.code,
+      displayName: r.displayName,
+      providerType: r.providerType,
+      isActive: r.isActive,
+      config: r.config as Record<string, unknown> | null,
+      hasCredentials: !!r.hasCredentials,
+      isSandbox: r.isSandbox ?? false,
+      merchantAccountCount: Number(r.merchantAccountCount ?? 0),
+      createdAt: r.createdAt.toISOString(),
+    }));
   });
 }
 

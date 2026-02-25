@@ -2,17 +2,34 @@ import { withTenant, sql } from '@oppsera/db';
 
 export async function getLocationsForSelection(tenantId: string) {
   return withTenant(tenantId, async (tx) => {
-    const rows = await tx.execute(sql`
-      SELECT id, name, location_type, parent_location_id
-      FROM locations
-      WHERE tenant_id = ${tenantId} AND is_active = true
-      ORDER BY location_type, name
-    `);
-    return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => ({
+    // Try with hierarchy columns first (migration 0095); fall back to basic query
+    let rows: Iterable<Record<string, unknown>>;
+    let hasHierarchy = true;
+    try {
+      rows = await tx.execute(sql`
+        SELECT id, name, location_type, parent_location_id
+        FROM locations
+        WHERE tenant_id = ${tenantId} AND is_active = true
+        ORDER BY location_type, name
+      `) as Iterable<Record<string, unknown>>;
+    } catch {
+      hasHierarchy = false;
+      rows = await tx.execute(sql`
+        SELECT id, name
+        FROM locations
+        WHERE tenant_id = ${tenantId} AND is_active = true
+        ORDER BY name
+      `) as Iterable<Record<string, unknown>>;
+    }
+    return Array.from(rows).map((r) => ({
       id: String(r.id),
       name: String(r.name),
-      locationType: String(r.location_type) as 'site' | 'venue',
-      parentLocationId: r.parent_location_id ? String(r.parent_location_id) : null,
+      locationType: hasHierarchy
+        ? (r.location_type ? String(r.location_type) as 'site' | 'venue' : 'site')
+        : 'site' as const,
+      parentLocationId: hasHierarchy && r.parent_location_id
+        ? String(r.parent_location_id)
+        : null,
     }));
   });
 }

@@ -16,6 +16,7 @@ interface Props {
   selectedVenueId: string | null;
   onSelectSite: (siteId: string) => void;
   onSelectVenue: (venueId: string) => void;
+  error?: string | null;
 }
 
 export function LocationsPane({
@@ -24,6 +25,7 @@ export function LocationsPane({
   selectedVenueId,
   onSelectSite,
   onSelectVenue,
+  error,
 }: Props) {
   const sites = locations.filter(
     (l) => l.locationType === 'site' || !l.locationType,
@@ -119,9 +121,15 @@ export function LocationsPane({
           );
         })}
         {sites.length === 0 && (
-          <p className="px-4 py-6 text-center text-xs text-gray-400">
-            No locations found
-          </p>
+          <div className="px-4 py-6 text-center text-xs">
+            {error ? (
+              <p className="text-red-500">
+                Failed to load locations: {error}
+              </p>
+            ) : (
+              <p className="text-gray-400">No locations found</p>
+            )}
+          </div>
         )}
       </div>
       <div className="border-t border-gray-200 px-4 py-3">
