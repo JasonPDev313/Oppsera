@@ -5,117 +5,118 @@
  * - Starts the event system (outbox worker)
  * - Registers all module event consumers with the in-memory event bus
  *
+ * Performance: Critical-path modules (reporting, inventory, customers, payments,
+ * accounting core) are loaded in parallel. Non-critical modules (golf, PMS, F&B
+ * reporting) are deferred until after the first request to reduce cold start time.
+ *
  * NOTE: Sentry integration is available but requires installing @sentry/nextjs.
  * Once installed, uncomment the sentry.server.config / sentry.edge.config imports below.
  */
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+async function importSafe(label: string, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+    console.log(`[instrumentation] ${label}`);
+  } catch (e) {
+    console.error(`[instrumentation] Failed: ${label}`, e);
+  }
+}
+
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     // TODO: Uncomment when @sentry/nextjs is installed:
     // await import('../sentry.server.config');
+
     const { initializeEventSystem, getEventBus } = await import('@oppsera/core');
     await initializeEventSystem();
-
-    // ── Register cross-module read API singletons ────────────────
-    try {
-      const { registerCatalogReadApi } = await import('@oppsera/module-catalog');
-      registerCatalogReadApi();
-    } catch {
-      // module-catalog may not be available in all builds
-    }
-
-    // ── Register orders write API (for PMS and other cross-module order creation) ──
-    try {
-      const { initializeOrdersWriteApi } = await import('./lib/orders-bootstrap');
-      await initializeOrdersWriteApi();
-      console.log('Initialized OrdersWriteApi singleton');
-    } catch (e) {
-      console.error('Failed to initialize OrdersWriteApi:', e);
-    }
-
-    // ── Register customer write API (for PMS guest→customer auto-linking) ──
-    try {
-      const { initializeCustomerWriteApi } = await import('./lib/customer-bootstrap');
-      await initializeCustomerWriteApi();
-      console.log('Initialized CustomerWriteApi singleton');
-    } catch (e) {
-      console.error('Failed to initialize CustomerWriteApi:', e);
-    }
-
-    // ── Register module event consumers ──────────────────────────
     const bus = getEventBus();
 
-    // Reporting consumers
-    try {
-      const reporting = await import('@oppsera/module-reporting');
-      bus.subscribe('order.placed.v1', reporting.handleOrderPlaced);
-      bus.subscribe('order.voided.v1', reporting.handleOrderVoided);
-      bus.subscribe('tender.recorded.v1', reporting.handleTenderRecorded);
-      bus.subscribe('inventory.movement.created.v1', reporting.handleInventoryMovement);
-      console.log('Registered reporting event consumers');
-    } catch (e) {
-      console.error('Failed to register reporting consumers:', e);
-    }
+    // ── CRITICAL PATH: Singletons + core consumers in parallel ──────
+    // These handle POS, orders, payments, and reporting — must be ready
+    // before the first request.
+    await Promise.all([
+      // Singletons
+      importSafe('CatalogReadApi', async () => {
+        const { registerCatalogReadApi } = await import('@oppsera/module-catalog');
+        registerCatalogReadApi();
+      }),
+      importSafe('OrdersWriteApi', async () => {
+        const { initializeOrdersWriteApi } = await import('./lib/orders-bootstrap');
+        await initializeOrdersWriteApi();
+      }),
+      importSafe('PaymentsGatewayApi', async () => {
+        const { initializePaymentsGatewayApi } = await import('./lib/payments-bootstrap');
+        await initializePaymentsGatewayApi();
+      }),
+      importSafe('ReconciliationReadApi', async () => {
+        const { initializeReconciliationReadApi } = await import('./lib/reconciliation-bootstrap');
+        await initializeReconciliationReadApi();
+      }),
+      importSafe('AccountingPostingApi + core GL consumers', async () => {
+        const { initializeAccountingPostingApi } = await import('./lib/accounting-bootstrap');
+        await initializeAccountingPostingApi();
 
-    // Inventory consumers
-    try {
-      const inventory = await import('@oppsera/module-inventory');
-      bus.subscribe('order.placed.v1', inventory.handleOrderPlaced);
-      bus.subscribe('order.voided.v1', inventory.handleOrderVoided);
-      bus.subscribe('order.returned.v1', inventory.handleOrderReturned);
-      bus.subscribe('catalog.item.created.v1', inventory.handleCatalogItemCreated);
-      console.log('Registered inventory event consumers');
-    } catch (e) {
-      console.error('Failed to register inventory consumers:', e);
-    }
+        const accounting = await import('@oppsera/module-accounting');
+        bus.subscribe('tender.recorded.v1', accounting.handleTenderForAccounting);
+        bus.subscribe('order.voided.v1', accounting.handleOrderVoidForAccounting);
+        bus.subscribe('order.returned.v1', accounting.handleOrderReturnForAccounting);
+      }),
 
-    // Customer consumers
-    try {
-      const customers = await import('@oppsera/module-customers');
-      bus.subscribe('order.placed.v1', customers.handleOrderPlaced);
-      bus.subscribe('order.voided.v1', customers.handleOrderVoided);
-      bus.subscribe('tender.recorded.v1', customers.handleTenderRecorded);
-      console.log('Registered customer event consumers');
-    } catch (e) {
-      console.error('Failed to register customer consumers:', e);
-    }
+      // Core event consumers (run on every order/tender/inventory event)
+      importSafe('Reporting consumers', async () => {
+        const reporting = await import('@oppsera/module-reporting');
+        bus.subscribe('order.placed.v1', reporting.handleOrderPlaced);
+        bus.subscribe('order.voided.v1', reporting.handleOrderVoided);
+        bus.subscribe('tender.recorded.v1', reporting.handleTenderRecorded);
+        bus.subscribe('inventory.movement.created.v1', reporting.handleInventoryMovement);
+      }),
+      importSafe('Inventory consumers', async () => {
+        const inventory = await import('@oppsera/module-inventory');
+        bus.subscribe('order.placed.v1', inventory.handleOrderPlaced);
+        bus.subscribe('order.voided.v1', inventory.handleOrderVoided);
+        bus.subscribe('order.returned.v1', inventory.handleOrderReturned);
+        bus.subscribe('catalog.item.created.v1', inventory.handleCatalogItemCreated);
+      }),
+      importSafe('Customer consumers', async () => {
+        const customers = await import('@oppsera/module-customers');
+        bus.subscribe('order.placed.v1', customers.handleOrderPlaced);
+        bus.subscribe('order.voided.v1', customers.handleOrderVoided);
+        bus.subscribe('tender.recorded.v1', customers.handleTenderRecorded);
+      }),
+      importSafe('Payment consumers', async () => {
+        const payments = await import('@oppsera/module-payments');
+        bus.subscribe('order.voided.v1', payments.handleOrderVoided);
+      }),
+    ]);
 
-    // ── Register payments gateway API (cross-module card processing) ──
-    try {
-      const { initializePaymentsGatewayApi } = await import('./lib/payments-bootstrap');
-      await initializePaymentsGatewayApi();
-      console.log('Initialized PaymentsGatewayApi singleton');
-    } catch (e) {
-      console.error('Failed to initialize PaymentsGatewayApi:', e);
-    }
+    // ── DEFERRED PATH: Non-critical modules loaded after critical path ──
+    // Golf, PMS, F&B reporting, and advanced accounting consumers are loaded
+    // in the background. They handle module-specific events that don't affect
+    // the core POS/order flow. If events arrive before these are registered,
+    // the outbox will retry them (3x with exponential backoff).
+    registerDeferredConsumers(bus).catch((e) =>
+      console.error('[instrumentation] Deferred consumer registration failed:', e),
+    );
+  }
+  // TODO: Uncomment when @sentry/nextjs is installed:
+  // if (process.env.NEXT_RUNTIME === 'edge') {
+  //   await import('../sentry.edge.config');
+  // }
+}
 
-    // Payment consumers (tender reversal on void)
-    try {
-      const payments = await import('@oppsera/module-payments');
-      bus.subscribe('order.voided.v1', payments.handleOrderVoided);
-      console.log('Registered payment event consumers');
-    } catch (e) {
-      console.error('Failed to register payment consumers:', e);
-    }
+async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('@oppsera/core')>['getEventBus']>) {
+  await Promise.all([
+    // CustomerWriteApi — only used by PMS guest creation
+    importSafe('CustomerWriteApi', async () => {
+      const { initializeCustomerWriteApi } = await import('./lib/customer-bootstrap');
+      await initializeCustomerWriteApi();
+    }),
 
-    // ── Register reconciliation read API (cross-module accounting queries) ──
-    try {
-      const { initializeReconciliationReadApi } = await import('./lib/reconciliation-bootstrap');
-      await initializeReconciliationReadApi();
-      console.log('Initialized ReconciliationReadApi singleton');
-    } catch (e) {
-      console.error('Failed to initialize ReconciliationReadApi:', e);
-    }
-
-    // Accounting bootstrap + POS GL adapter
-    try {
-      const { initializeAccountingPostingApi } = await import('./lib/accounting-bootstrap');
-      await initializeAccountingPostingApi();
-      console.log('Initialized AccountingPostingApi singleton');
-
+    // Advanced accounting consumers (PMS, F&B, vouchers, chargebacks, ACH)
+    importSafe('Accounting: module-specific GL consumers', async () => {
       const accounting = await import('@oppsera/module-accounting');
-      bus.subscribe('tender.recorded.v1', accounting.handleTenderForAccounting);
-      bus.subscribe('order.voided.v1', accounting.handleOrderVoidForAccounting);
-      bus.subscribe('order.returned.v1', accounting.handleOrderReturnForAccounting);
       bus.subscribe('pms.folio.charge_posted.v1', accounting.handleFolioChargeForAccounting);
       bus.subscribe('pms.loyalty.points_redeemed.v1', accounting.handleLoyaltyRedemptionForAccounting);
       bus.subscribe('pms.payment.authorized.v1', accounting.handleDepositAuthorizedForAccounting);
@@ -128,33 +129,25 @@ export async function register() {
       bus.subscribe('chargeback.received.v1', accounting.handleChargebackReceivedForAccounting);
       bus.subscribe('chargeback.resolved.v1', accounting.handleChargebackResolvedForAccounting);
       bus.subscribe('payment.gateway.ach_returned.v1', accounting.handleAchReturnForAccounting);
-      // ACH GL lifecycle — origination, settlement, and ACH-sourced return reversals
       bus.subscribe('payment.gateway.ach_originated.v1', accounting.handleAchOriginatedForAccounting);
       bus.subscribe('payment.gateway.ach_settled.v1', accounting.handleAchSettledForAccounting);
       bus.subscribe('payment.gateway.ach_returned.v1', accounting.handleAchReturnGlReversal);
-      console.log('Registered accounting event consumers');
-    } catch (e) {
-      console.error('Failed to initialize accounting:', e);
-    }
+    }),
 
     // F&B Reporting consumers
-    // NOTE: F&B consumers use (tenantId, data) signature — wrap to match EventHandler(event)
-    try {
+    importSafe('F&B reporting consumers', async () => {
       const fnb = await import('@oppsera/module-fnb');
-      bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleFnbTabClosed(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbTabClosed>[1]));
-      bus.subscribe('fnb.kds.ticket_bumped.v1', (event) => fnb.handleFnbTicketBumped(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbTicketBumped>[1]));
-      bus.subscribe('fnb.kds.item_bumped.v1', (event) => fnb.handleFnbItemBumped(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbItemBumped>[1]));
-      bus.subscribe('fnb.ticket_item.status_changed.v1', (event) => fnb.handleFnbItemVoided(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbItemVoided>[1]));
-      bus.subscribe('fnb.payment.check_comped.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbDiscountComp>[1]));
-      bus.subscribe('fnb.payment.check_discounted.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbDiscountComp>[1]));
-      bus.subscribe('fnb.payment.check_voided.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as unknown as Parameters<typeof fnb.handleFnbDiscountComp>[1]));
-      console.log('[events] F&B reporting consumers registered');
-    } catch (e) {
-      console.error('[events] Failed to register F&B reporting consumers:', e);
-    }
+      bus.subscribe('fnb.tab.closed.v1', (event) => fnb.handleFnbTabClosed(event.tenantId, event.data as any));
+      bus.subscribe('fnb.kds.ticket_bumped.v1', (event) => fnb.handleFnbTicketBumped(event.tenantId, event.data as any));
+      bus.subscribe('fnb.kds.item_bumped.v1', (event) => fnb.handleFnbItemBumped(event.tenantId, event.data as any));
+      bus.subscribe('fnb.ticket_item.status_changed.v1', (event) => fnb.handleFnbItemVoided(event.tenantId, event.data as any));
+      bus.subscribe('fnb.payment.check_comped.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
+      bus.subscribe('fnb.payment.check_discounted.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
+      bus.subscribe('fnb.payment.check_voided.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
+    }),
 
     // Golf Reporting consumers
-    try {
+    importSafe('Golf reporting consumers', async () => {
       const golfReporting = await import('@oppsera/module-golf-reporting');
       bus.subscribe('tee_time.booked.v1', golfReporting.handleTeeTimeBooked);
       bus.subscribe('tee_time.cancelled.v1', golfReporting.handleTeeTimeCancelled);
@@ -166,13 +159,10 @@ export async function register() {
       bus.subscribe('folio.posted.v1', golfReporting.handleFolioPosted);
       bus.subscribe('channel.daily.booked.v1', golfReporting.handleChannelDailyBooked);
       bus.subscribe('channel.daily.cancelled.v1', golfReporting.handleChannelDailyCancelled);
-      console.log('Registered golf-reporting event consumers');
-    } catch (e) {
-      console.error('Failed to register golf-reporting consumers:', e);
-    }
+    }),
 
     // PMS consumers (calendar + occupancy projectors)
-    try {
+    importSafe('PMS event consumers', async () => {
       const pms = await import('@oppsera/module-pms');
       bus.subscribe('pms.reservation.created.v1', pms.handleCalendarProjection);
       bus.subscribe('pms.reservation.moved.v1', pms.handleCalendarProjection);
@@ -187,22 +177,12 @@ export async function register() {
       bus.subscribe('pms.reservation.checked_in.v1', pms.handleOccupancyProjection);
       bus.subscribe('pms.reservation.checked_out.v1', pms.handleOccupancyProjection);
       bus.subscribe('pms.reservation.no_show.v1', pms.handleOccupancyProjection);
-      console.log('Registered PMS event consumers');
-    } catch (e) {
-      console.error('Failed to register PMS consumers:', e);
-    }
+    }),
 
     // PMS → Customer sync (cross-module guest-to-customer linking + Hotel Guest tag)
-    try {
+    importSafe('PMS→Customer sync consumer', async () => {
       const { handlePmsGuestCreated } = await import('./lib/pms-customer-sync');
       bus.subscribe('pms.guest.created.v1', handlePmsGuestCreated);
-      console.log('Registered PMS→Customer sync consumer');
-    } catch (e) {
-      console.error('Failed to register PMS→Customer sync consumer:', e);
-    }
-  }
-  // TODO: Uncomment when @sentry/nextjs is installed:
-  // if (process.env.NEXT_RUNTIME === 'edge') {
-  //   await import('../sentry.edge.config');
-  // }
+    }),
+  ]);
 }
