@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { withAdminAuth } from '@/lib/with-admin-auth';
+import { withAdminPermission } from '@/lib/with-admin-permission';
 import { db, sql } from '@oppsera/db';
 import { tenants } from '@oppsera/db';
 import { eq } from 'drizzle-orm';
 import { logAdminAudit, getClientIp, sanitizeSnapshot } from '@/lib/admin-audit';
 
-export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
+export const GET = withAdminPermission(async (req: NextRequest, _session, params) => {
   const id = params?.id;
   if (!id) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
@@ -67,9 +67,9 @@ export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
       updatedAt: ts(r.updated_at) ?? '',
     },
   });
-});
+}, { permission: 'tenants.read' });
 
-export const PATCH = withAdminAuth(async (req: NextRequest, session, params) => {
+export const PATCH = withAdminPermission(async (req: NextRequest, session, params) => {
   const id = params?.id;
   if (!id) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
@@ -138,4 +138,4 @@ export const PATCH = withAdminAuth(async (req: NextRequest, session, params) => 
       industry: updated.industry ?? null,
     },
   });
-}, 'admin');
+}, { permission: 'tenants.write' });

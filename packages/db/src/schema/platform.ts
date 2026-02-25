@@ -138,6 +138,9 @@ export const adminImpersonationSessions = pgTable(
     adminName: text('admin_name').notNull(),
     tenantId: text('tenant_id').notNull(),
     tenantName: text('tenant_name').notNull(),
+    targetUserId: text('target_user_id'),
+    reason: text('reason'),
+    maxDurationMinutes: integer('max_duration_minutes').notNull().default(60),
     status: text('status').notNull().default('pending'),
     // status: 'pending' | 'active' | 'ended' | 'expired'
     startedAt: timestamp('started_at', { withTimezone: true }),

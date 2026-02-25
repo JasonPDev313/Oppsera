@@ -30,6 +30,8 @@ import {
   HardDrive,
   RotateCcw,
   Settings,
+  CreditCard,
+  MessageSquareText,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
@@ -57,6 +59,14 @@ const MODULES: NavModule[] = [
       { href: '/users/staff', label: 'Staff', icon: UserCog },
       { href: '/users/customers', label: 'Customers', icon: Users },
       { href: '/users/roles', label: 'Roles & Permissions', icon: Shield },
+    ],
+  },
+  {
+    label: 'Pricing',
+    icon: CreditCard,
+    prefix: '/pricing',
+    children: [
+      { href: '/pricing', label: 'Plans & Pricing', icon: DollarSign },
     ],
   },
   {
@@ -94,6 +104,7 @@ const MODULES: NavModule[] = [
       { href: '/train-ai/cost', label: 'Cost Analytics', icon: DollarSign },
       { href: '/train-ai/safety', label: 'Safety Rules', icon: ShieldAlert },
       { href: '/train-ai/patterns', label: 'Patterns', icon: AlertTriangle },
+      { href: '/train-ai/narrative', label: 'Narrative Prompt', icon: MessageSquareText },
       { href: '/train-ai/lenses', label: 'System Lenses', icon: Layers },
     ],
   },

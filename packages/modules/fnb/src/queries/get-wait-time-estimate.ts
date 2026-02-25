@@ -23,6 +23,7 @@ export async function getWaitTimeEstimate(
   return withTenant(input.tenantId, async (tx) => {
     const partySize = input.partySize;
     const now = new Date();
+    const businessDate = now.toISOString().slice(0, 10);
     const dayOfWeek = now.getDay(); // 0=Sun
     const hourOfDay = now.getHours();
 
@@ -57,7 +58,7 @@ export async function getWaitTimeEstimate(
         FROM fnb_waitlist_entries
         WHERE tenant_id = ${input.tenantId}
           AND location_id = ${input.locationId}
-          AND business_date = ${input.businessDate}
+          AND business_date = ${businessDate}
           AND status IN ('waiting', 'notified', 'seated')
       `),
 

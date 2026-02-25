@@ -122,21 +122,21 @@ export async function executeRestore(restoreOpId: string): Promise<void> {
     // 4. Get dependency order
     const orderedNames = await getTableDependencyOrder(backupTableNames);
 
-    // 5. Atomic restore in a single transaction
+    // 5. Atomic restore in a single transaction with RLS bypass
     let tablesRestored = 0;
     let rowsRestored = 0;
 
-    // Use raw SQL transaction for full control
-    await db.execute(sql`BEGIN`);
+    await db.transaction(async (tx) => {
+      // Bypass RLS for this transaction
+      await tx.execute(sql`SET LOCAL role = 'postgres'`);
 
-    try {
       // Defer all FK constraints
-      await db.execute(sql`SET CONSTRAINTS ALL DEFERRED`);
+      await tx.execute(sql`SET CONSTRAINTS ALL DEFERRED`);
 
       // Truncate in reverse dependency order (children first)
       const reverseOrder = [...orderedNames].reverse();
       for (const tableName of reverseOrder) {
-        await db.execute(sql.raw(`TRUNCATE "${tableName}" CASCADE`));
+        await tx.execute(sql.raw(`TRUNCATE "${tableName}" CASCADE`));
       }
 
       // Insert in dependency order (parents first)
@@ -154,18 +154,13 @@ export async function executeRestore(restoreOpId: string): Promise<void> {
         // Batch insert
         for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {
           const batch = rows.slice(i, i + INSERT_BATCH_SIZE);
-          await insertBatch(tableName, columns, batch as Record<string, unknown>[]);
+          await insertBatch(tx, tableName, columns, batch as Record<string, unknown>[]);
         }
 
         tablesRestored++;
         rowsRestored += rows.length;
       }
-
-      await db.execute(sql`COMMIT`);
-    } catch (err) {
-      await db.execute(sql`ROLLBACK`);
-      throw err;
-    }
+    });
 
     // 6. Update restore operation as completed
     await db
@@ -194,9 +189,10 @@ export async function executeRestore(restoreOpId: string): Promise<void> {
 }
 
 /**
- * Insert a batch of rows into a table using parameterized SQL.
+ * Insert a batch of rows into a table using properly parameterized SQL.
  */
 async function insertBatch(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   tableName: string,
   columns: string[],
   rows: Record<string, unknown>[],
@@ -205,34 +201,17 @@ async function insertBatch(
 
   const colList = columns.map((c) => `"${c}"`).join(', ');
 
-  // Build parameterized values
-  const valuePlaceholders: string[] = [];
-  const params: unknown[] = [];
-  let paramIdx = 1;
-
-  for (const row of rows) {
-    const rowPlaceholders: string[] = [];
-    for (const col of columns) {
+  // Build parameterized values using Drizzle sql template
+  const valueRows = rows.map((row) => {
+    const vals = columns.map((col) => {
       const val = row[col];
-      if (val === null || val === undefined) {
-        rowPlaceholders.push('NULL');
-      } else if (typeof val === 'object') {
-        // JSONB values
-        rowPlaceholders.push(`$${paramIdx}::jsonb`);
-        params.push(JSON.stringify(val));
-        paramIdx++;
-      } else {
-        rowPlaceholders.push(`$${paramIdx}`);
-        params.push(val);
-        paramIdx++;
-      }
-    }
-    valuePlaceholders.push(`(${rowPlaceholders.join(', ')})`);
-  }
+      if (val === null || val === undefined) return sql`NULL`;
+      if (typeof val === 'object') return sql`${JSON.stringify(val)}::jsonb`;
+      return sql`${val}`;
+    });
+    return sql`(${sql.join(vals, sql`, `)})`;
+  });
 
-  const query = `INSERT INTO "${tableName}" (${colList}) VALUES ${valuePlaceholders.join(', ')}`;
-
-  // Use sql.raw with params — build a tagged template dynamically
-  // Since we've built the query string with numbered $N placeholders, execute with params
-  await (db.execute as any)(sql.raw(query), params);
+  const query = sql`INSERT INTO ${sql.raw(`"${tableName}"`)} (${sql.raw(colList)}) VALUES ${sql.join(valueRows, sql`, `)}`;
+  await tx.execute(query);
 }

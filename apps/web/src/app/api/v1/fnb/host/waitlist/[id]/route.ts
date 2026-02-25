@@ -8,23 +8,24 @@ import {
   removeFromWaitlist,
 } from '@oppsera/module-fnb';
 
+function extractId(request: NextRequest): string {
+  const parts = new URL(request.url).pathname.split('/');
+  return parts[parts.length - 1]!;
+}
+
 export const PATCH = withMiddleware(
-  async (
-    req: NextRequest,
-    ctx: any,
-    { params }: { params: Promise<{ id: string }> },
-  ) => {
-    const { id } = await params;
+  async (req: NextRequest, ctx) => {
+    const id = extractId(req);
     const body = await req.json();
-    const parsed = updateWaitlistEntrySchema.safeParse({ ...body, id });
+    const parsed = updateWaitlistEntrySchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Invalid waitlist update',
-        parsed.error.issues,
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
       );
     }
 
-    const result = await updateWaitlistEntry(ctx, parsed.data);
+    const result = await updateWaitlistEntry(ctx, id, parsed.data);
 
     return NextResponse.json({ data: result });
   },
@@ -36,21 +37,17 @@ export const PATCH = withMiddleware(
 );
 
 export const DELETE = withMiddleware(
-  async (
-    req: NextRequest,
-    ctx: any,
-    { params }: { params: Promise<{ id: string }> },
-  ) => {
-    const { id } = await params;
-    let reason: string | undefined;
+  async (req: NextRequest, ctx) => {
+    const id = extractId(req);
+    let reason: 'canceled' | 'no_show' = 'canceled';
     try {
       const body = await req.json();
-      reason = body.reason;
+      if (body.reason === 'no_show') reason = 'no_show';
     } catch {
-      // No body is fine — reason is optional
+      // No body is fine — defaults to 'canceled'
     }
 
-    await removeFromWaitlist(ctx, { id, reason });
+    await removeFromWaitlist(ctx, id, reason);
 
     return NextResponse.json({ data: { success: true } });
   },

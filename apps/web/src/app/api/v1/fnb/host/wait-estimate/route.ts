@@ -4,20 +4,19 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getWaitTimeEstimate } from '@oppsera/module-fnb';
 
 export const GET = withMiddleware(
-  async (req: NextRequest, ctx: any) => {
+  async (req: NextRequest, ctx) => {
     const url = new URL(req.url);
-    const locationId = url.searchParams.get('locationId') || ctx.locationId;
-    const businessDate =
-      url.searchParams.get('businessDate') ||
-      new Date().toISOString().slice(0, 10);
+    const locationId = url.searchParams.get('locationId') || ctx.locationId || '';
     const partySizeParam = url.searchParams.get('partySize');
-    const partySize = partySizeParam ? parseInt(partySizeParam, 10) : undefined;
+    const partySize = partySizeParam ? parseInt(partySizeParam, 10) : 2;
+    const seatingPreference =
+      url.searchParams.get('seatingPreference') || undefined;
 
     const data = await getWaitTimeEstimate({
       tenantId: ctx.tenantId,
       locationId,
-      businessDate,
       partySize,
+      seatingPreference: seatingPreference as any,
     });
 
     return NextResponse.json({ data });

@@ -9,22 +9,19 @@ import {
 } from '@oppsera/module-fnb';
 
 export const GET = withMiddleware(
-  async (req: NextRequest, ctx: any) => {
+  async (req: NextRequest, ctx) => {
     const url = new URL(req.url);
-    const locationId = url.searchParams.get('locationId') || ctx.locationId;
+    const locationId = url.searchParams.get('locationId') || ctx.locationId || '';
     const businessDate =
       url.searchParams.get('businessDate') ||
       new Date().toISOString().slice(0, 10);
-    const status = url.searchParams.get('status') || undefined;
-    const statusesParam = url.searchParams.get('statuses') || undefined;
-    const statuses = statusesParam ? statusesParam.split(',') : undefined;
+    const status = (url.searchParams.get('status') || undefined) as any;
 
     const result = await getWaitlist({
       tenantId: ctx.tenantId,
       locationId,
       businessDate,
       status,
-      statuses,
     });
 
     return NextResponse.json({
@@ -36,13 +33,13 @@ export const GET = withMiddleware(
 );
 
 export const POST = withMiddleware(
-  async (req: NextRequest, ctx: any) => {
+  async (req: NextRequest, ctx) => {
     const body = await req.json();
     const parsed = addToWaitlistSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Invalid waitlist entry',
-        parsed.error.issues,
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
       );
     }
 

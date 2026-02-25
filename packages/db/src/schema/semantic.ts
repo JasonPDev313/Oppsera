@@ -166,6 +166,17 @@ export const semanticLenses = pgTable('semantic_lenses', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// ── Narrative Config ──────────────────────────────────────────────
+// Platform-wide config for THE OPPS ERA LENS system prompt template.
+// Single-row table — when a row exists, it overrides the hardcoded default.
+
+export const semanticNarrativeConfig = pgTable('semantic_narrative_config', {
+  id: text('id').primaryKey().default('global'),
+  promptTemplate: text('prompt_template').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: text('updated_by'),
+});
+
 // ── Type helpers ─────────────────────────────────────────────────
 
 export interface JoinDescriptor {

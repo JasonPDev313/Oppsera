@@ -59,9 +59,25 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
 
+  // Map rows to match ConversationListResponse shape expected by frontend
+  const conversations = items.map((row) => ({
+    sessionId: row.sessionId ?? row.id,
+    tenantId: row.tenantId,
+    userId: row.userId,
+    userRole: (row.metadata as Record<string, unknown>)?.userRole as string ?? 'unknown',
+    messageCount: row.messageCount ?? row.turnCount,
+    avgQualityScore: row.avgQuality ? Number(row.avgQuality) : null,
+    avgUserRating: row.avgRating ? Number(row.avgRating) : (row.avgUserRating ? Number(row.avgUserRating) : null),
+    clarificationCount: row.clarificationCount,
+    errorCount: row.errorCount,
+    totalCostUsd: row.totalCost ? Number(row.totalCost) : null,
+    startedAt: row.startedAt ?? row.createdAt,
+    endedAt: row.endedAt,
+  }));
+
   return NextResponse.json({
-    data: items,
-    meta: {
+    data: {
+      conversations,
       cursor: hasMore ? items[items.length - 1]!.id : null,
       hasMore,
     },

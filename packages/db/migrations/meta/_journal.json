@@ -1380,6 +1380,20 @@
       "when": 1708100196000,
       "tag": "0196_pricing_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 197,
+      "version": "7",
+      "when": 1708100197000,
+      "tag": "0197_semantic_narrative_config",
+      "breakpoints": true
+    },
+    {
+      "idx": 198,
+      "version": "7",
+      "when": 1708100198000,
+      "tag": "0198_impersonation_phase1a",
+      "breakpoints": true
     }
   ]
 }

@@ -4,9 +4,9 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getHostDashboard } from '@oppsera/module-fnb';
 
 export const GET = withMiddleware(
-  async (req: NextRequest, ctx: any) => {
+  async (req: NextRequest, ctx) => {
     const url = new URL(req.url);
-    const locationId = url.searchParams.get('locationId') || ctx.locationId;
+    const locationId = url.searchParams.get('locationId') || ctx.locationId || '';
     const businessDate =
       url.searchParams.get('businessDate') ||
       new Date().toISOString().slice(0, 10);

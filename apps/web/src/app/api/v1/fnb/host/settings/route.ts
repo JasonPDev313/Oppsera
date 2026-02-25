@@ -9,14 +9,11 @@ import {
 } from '@oppsera/module-fnb';
 
 export const GET = withMiddleware(
-  async (req: NextRequest, ctx: any) => {
+  async (req: NextRequest, ctx) => {
     const url = new URL(req.url);
-    const locationId = url.searchParams.get('locationId') || ctx.locationId;
+    const locationId = url.searchParams.get('locationId') || ctx.locationId || '';
 
-    const data = await getHostSettings({
-      tenantId: ctx.tenantId,
-      locationId,
-    });
+    const data = await getHostSettings(ctx.tenantId, locationId);
 
     return NextResponse.json({ data });
   },
@@ -24,17 +21,17 @@ export const GET = withMiddleware(
 );
 
 export const PATCH = withMiddleware(
-  async (req: NextRequest, ctx: any) => {
+  async (req: NextRequest, ctx) => {
     const body = await req.json();
     const parsed = updateHostSettingsSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Invalid host settings',
-        parsed.error.issues,
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
       );
     }
 
-    const result = await updateHostSettings(ctx, parsed.data);
+    const result = await updateHostSettings(ctx, parsed.data as any);
 
     return NextResponse.json({ data: result });
   },

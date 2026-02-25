@@ -69,7 +69,7 @@ function makeRequest(url: string, options: RequestInit = {}): NextRequest {
     ...options,
   });
   // Add nextUrl to mimic NextRequest (plain Request doesn't have it)
-  (req as Record<string, unknown>).nextUrl = new URL(req.url);
+  (req as unknown as Record<string, unknown>).nextUrl = new URL(req.url);
   return req as unknown as NextRequest;
 }
 

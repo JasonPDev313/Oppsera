@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { withAdminAuth } from '@/lib/with-admin-auth';
+import { withAdminPermission } from '@/lib/with-admin-permission';
 import { db, sql } from '@oppsera/db';
 import { generateSlug, generateUlid } from '@oppsera/shared';
 import { tenants, roles, rolePermissions, tenantOnboardingChecklists, onboardingStepTemplates } from '@oppsera/db';
@@ -16,7 +16,7 @@ const SYSTEM_ROLES = [
   { name: 'Staff', description: 'View catalog and orders', permissions: ['catalog.view', 'orders.view'] },
 ] as const;
 
-export const GET = withAdminAuth(async (req: NextRequest) => {
+export const GET = withAdminPermission(async (req: NextRequest) => {
   const sp = new URL(req.url).searchParams;
   const search = sp.get('search') ?? '';
   const status = sp.get('status') ?? '';
@@ -125,9 +125,9 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
       hasMore,
     },
   });
-});
+}, { permission: 'tenants.read' });
 
-export const POST = withAdminAuth(async (req: NextRequest, session) => {
+export const POST = withAdminPermission(async (req: NextRequest, session) => {
   const body = await req.json();
   const name = (body.name ?? '').trim();
   if (!name) {
@@ -235,4 +235,4 @@ export const POST = withAdminAuth(async (req: NextRequest, session) => {
     { data: { id: tenantId, name, slug, status, industry } },
     { status: 201 },
   );
-}, 'admin');
+}, { permission: 'tenants.create' });

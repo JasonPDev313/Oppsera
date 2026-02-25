@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { db } from '@oppsera/db';
+import { platformBackups } from '@oppsera/db/schema';
+import { desc, eq, and, lt, type SQL } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { withAdminAuth } from '@/lib/with-admin-auth';
 import { createBackup } from '@/lib/backup/backup-service';
@@ -15,41 +17,49 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
   const cursor = params.get('cursor');
   const limit = Math.min(Number(params.get('limit') ?? 50), 100);
 
-  const conditions: string[] = ['1=1'];
-  const values: unknown[] = [];
-  let paramIdx = 1;
+  const conditions: SQL[] = [];
 
   if (status) {
-    conditions.push(`status = $${paramIdx}`);
-    values.push(status);
-    paramIdx++;
+    conditions.push(eq(platformBackups.status, status));
   }
   if (type) {
-    conditions.push(`type = $${paramIdx}`);
-    values.push(type);
-    paramIdx++;
+    conditions.push(eq(platformBackups.type, type));
   }
   if (cursor) {
-    conditions.push(`created_at < (SELECT created_at FROM platform_backups WHERE id = $${paramIdx})`);
-    values.push(cursor);
-    paramIdx++;
+    conditions.push(
+      lt(
+        platformBackups.createdAt,
+        sql`(SELECT created_at FROM platform_backups WHERE id = ${cursor})`,
+      ),
+    );
   }
 
-  const where = conditions.join(' AND ');
-  const result = await (db.execute as any)(
-    sql.raw(
-      `SELECT id, type, status, label, table_count, row_count, size_bytes,
-              retention_tag, expires_at, storage_driver, initiated_by_admin_id,
-              started_at, completed_at, created_at, updated_at, error_message
-       FROM platform_backups
-       WHERE ${where}
-       ORDER BY created_at DESC
-       LIMIT ${limit + 1}`,
-    ),
-    values,
-  );
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const rows = Array.from(result as Iterable<Record<string, unknown>>);
+  const rows = await db
+    .select({
+      id: platformBackups.id,
+      type: platformBackups.type,
+      status: platformBackups.status,
+      label: platformBackups.label,
+      tableCount: platformBackups.tableCount,
+      rowCount: platformBackups.rowCount,
+      sizeBytes: platformBackups.sizeBytes,
+      retentionTag: platformBackups.retentionTag,
+      expiresAt: platformBackups.expiresAt,
+      storageDriver: platformBackups.storageDriver,
+      initiatedByAdminId: platformBackups.initiatedByAdminId,
+      errorMessage: platformBackups.errorMessage,
+      startedAt: platformBackups.startedAt,
+      completedAt: platformBackups.completedAt,
+      createdAt: platformBackups.createdAt,
+      updatedAt: platformBackups.updatedAt,
+    })
+    .from(platformBackups)
+    .where(where)
+    .orderBy(desc(platformBackups.createdAt))
+    .limit(limit + 1);
+
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
 
@@ -95,17 +105,17 @@ function mapBackupRow(row: Record<string, unknown>) {
     type: row.type,
     status: row.status,
     label: row.label,
-    tableCount: row.table_count ?? null,
-    rowCount: row.row_count ?? null,
-    sizeBytes: row.size_bytes ?? null,
-    retentionTag: row.retention_tag ?? null,
-    expiresAt: row.expires_at ?? null,
-    storageDriver: row.storage_driver,
-    initiatedByAdminId: row.initiated_by_admin_id ?? null,
-    errorMessage: row.error_message ?? null,
-    startedAt: row.started_at ?? null,
-    completedAt: row.completed_at ?? null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    tableCount: row.tableCount ?? null,
+    rowCount: row.rowCount ?? null,
+    sizeBytes: row.sizeBytes ?? null,
+    retentionTag: row.retentionTag ?? null,
+    expiresAt: row.expiresAt ?? null,
+    storageDriver: row.storageDriver,
+    initiatedByAdminId: row.initiatedByAdminId ?? null,
+    errorMessage: row.errorMessage ?? null,
+    startedAt: row.startedAt ?? null,
+    completedAt: row.completedAt ?? null,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }

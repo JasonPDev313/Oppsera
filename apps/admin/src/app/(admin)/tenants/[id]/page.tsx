@@ -6,8 +6,6 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   Building,
-  ExternalLink,
-  Loader2,
   MapPin,
   Monitor,
   Users,
@@ -28,8 +26,10 @@ import { TenantUsersTab } from '@/components/tenants/TenantUsersTab';
 import { SubscriptionTab } from '@/components/tenants/SubscriptionTab';
 import { OnboardingTab } from '@/components/tenants/OnboardingTab';
 import { NotesTab } from '@/components/tenants/NotesTab';
+import { ImpersonateDialog } from '@/components/tenants/ImpersonateDialog';
+import { ImpersonationHistoryTab } from '@/components/tenants/ImpersonationHistoryTab';
 
-type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users' | 'subscription' | 'onboarding' | 'notes';
+type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users' | 'subscription' | 'onboarding' | 'notes' | 'impersonation';
 
 const HEALTH_GRADE_COLORS: Record<string, string> = {
   A: 'text-emerald-400 bg-emerald-500/10',
@@ -50,22 +50,7 @@ export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { tenant, isLoading, error, load, update } = useTenantDetail(id);
   const [tab, setTab] = useState<Tab>('overview');
-  const [isImpersonating, setIsImpersonating] = useState(false);
-
-  async function handleImpersonate() {
-    setIsImpersonating(true);
-    try {
-      const res = await adminFetch<{ data: { url: string } }>(`/api/v1/tenants/${id}/impersonate`, {
-        method: 'POST',
-      });
-      window.open(res.data.url, '_blank');
-    } catch (err) {
-      console.error('Failed to start impersonation:', err);
-      alert('Failed to start impersonation session');
-    } finally {
-      setIsImpersonating(false);
-    }
-  }
+  const [showImpersonateDialog, setShowImpersonateDialog] = useState(false);
 
   async function handleStatusAction(action: 'activate' | 'suspend' | 'reactivate') {
     try {
@@ -108,6 +93,7 @@ export default function TenantDetailPage() {
     { key: 'roles', label: 'Roles' },
     { key: 'users', label: 'Users' },
     { key: 'notes', label: 'Notes' },
+    { key: 'impersonation', label: 'Impersonation' },
   ];
 
   return (
@@ -178,16 +164,11 @@ export default function TenantDetailPage() {
             </button>
           )}
           <button
-            onClick={handleImpersonate}
-            disabled={isImpersonating}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors disabled:opacity-50"
+            onClick={() => setShowImpersonateDialog(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20 transition-colors"
           >
-            {isImpersonating ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <ExternalLink size={14} />
-            )}
-            Login as Tenant
+            <Shield size={14} />
+            Impersonate
           </button>
         </div>
       </div>
@@ -218,6 +199,15 @@ export default function TenantDetailPage() {
       {tab === 'roles' && <TenantRolesTab tenantId={id} />}
       {tab === 'users' && <TenantUsersTab tenantId={id} />}
       {tab === 'notes' && <NotesTab tenantId={id} />}
+      {tab === 'impersonation' && <ImpersonationHistoryTab tenantId={id} />}
+
+      {/* Impersonation Dialog */}
+      <ImpersonateDialog
+        tenantId={id}
+        tenantName={tenant.name}
+        open={showImpersonateDialog}
+        onClose={() => setShowImpersonateDialog(false)}
+      />
     </div>
   );
 }

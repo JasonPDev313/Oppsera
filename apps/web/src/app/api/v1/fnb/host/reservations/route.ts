@@ -9,24 +9,19 @@ import {
 } from '@oppsera/module-fnb';
 
 export const GET = withMiddleware(
-  async (req: NextRequest, ctx: any) => {
+  async (req: NextRequest, ctx) => {
     const url = new URL(req.url);
-    const locationId = url.searchParams.get('locationId') || ctx.locationId;
-    const reservationDate = url.searchParams.get('reservationDate') || undefined;
-    const status = url.searchParams.get('status') || undefined;
-    const statusesParam = url.searchParams.get('statuses') || undefined;
-    const statuses = statusesParam ? statusesParam.split(',') : undefined;
-    const startDate = url.searchParams.get('startDate') || undefined;
-    const endDate = url.searchParams.get('endDate') || undefined;
+    const locationId = url.searchParams.get('locationId') || ctx.locationId || '';
+    const dateFrom = url.searchParams.get('dateFrom') || url.searchParams.get('reservationDate') || new Date().toISOString().slice(0, 10);
+    const dateTo = url.searchParams.get('dateTo') || url.searchParams.get('endDate') || undefined;
+    const status = (url.searchParams.get('status') || undefined) as any;
 
     const result = await getReservations({
       tenantId: ctx.tenantId,
       locationId,
-      reservationDate,
+      dateFrom,
+      dateTo,
       status,
-      statuses,
-      startDate,
-      endDate,
     });
 
     return NextResponse.json({
@@ -38,13 +33,13 @@ export const GET = withMiddleware(
 );
 
 export const POST = withMiddleware(
-  async (req: NextRequest, ctx: any) => {
+  async (req: NextRequest, ctx) => {
     const body = await req.json();
     const parsed = createReservationSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Invalid reservation input',
-        parsed.error.issues,
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
       );
     }
 

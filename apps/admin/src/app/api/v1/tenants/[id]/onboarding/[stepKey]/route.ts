@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { withAdminAuth } from '@/lib/with-admin-auth';
+import { withAdminPermission } from '@/lib/with-admin-permission';
 import { db, sql } from '@oppsera/db';
 import { tenants, tenantOnboardingChecklists } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
@@ -8,7 +8,7 @@ import { logAdminAudit, getClientIp } from '@/lib/admin-audit';
 
 const VALID_STATUSES = ['pending', 'in_progress', 'completed', 'skipped', 'blocked'] as const;
 
-export const PATCH = withAdminAuth(async (req: NextRequest, session, params) => {
+export const PATCH = withAdminPermission(async (req: NextRequest, session, params) => {
   const tenantId = params?.id;
   const stepKey = params?.stepKey;
   if (!tenantId || !stepKey) {
@@ -105,4 +105,4 @@ export const PATCH = withAdminAuth(async (req: NextRequest, session, params) => 
       onboardingStatus: derivedStatus,
     },
   });
-}, 'admin');
+}, { permission: 'tenants.write' });

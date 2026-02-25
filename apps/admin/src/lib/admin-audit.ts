@@ -14,7 +14,7 @@ interface AdminAuditInput {
   beforeSnapshot?: Record<string, unknown>;
   afterSnapshot?: Record<string, unknown>;
   reason?: string;
-  ipAddress?: string;
+  ipAddress?: string | null;
   metadata?: Record<string, unknown>;
 }
 

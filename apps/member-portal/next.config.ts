@@ -35,7 +35,6 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   transpilePackages: [
     '@oppsera/core',
-    '@oppsera/db',
     '@oppsera/shared',
     '@oppsera/module-membership',
     '@oppsera/module-customers',

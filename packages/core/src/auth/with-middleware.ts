@@ -10,6 +10,7 @@ import { requirePermission } from '../permissions/middleware';
 import { requireEntitlement, requireEntitlementWrite } from '../entitlements/middleware';
 import { getPermissionEngine } from '../permissions/engine';
 import { incrementImpersonationActionCount } from './impersonation';
+import { assertImpersonationCanDelete } from './impersonation-safety';
 
 type RouteHandler = (
   request: NextRequest,
@@ -119,6 +120,11 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
 
           if (options?.permission) {
             await requirePermission(options.permission)(ctx);
+          }
+
+          // Impersonation safety: block all DELETE requests during impersonation
+          if (ctx.impersonation && request.method === 'DELETE') {
+            assertImpersonationCanDelete(ctx);
           }
 
           response = await requestContext.run(ctx, () => handler(request, ctx));

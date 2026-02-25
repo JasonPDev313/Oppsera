@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { withAdminAuth } from '@/lib/with-admin-auth';
+import { withAdminPermission } from '@/lib/with-admin-permission';
 import { db, sql } from '@oppsera/db';
 import { tenants, superadminSupportNotes, platformAdmins } from '@oppsera/db';
 import { eq, and, desc } from 'drizzle-orm';
@@ -8,7 +8,7 @@ import { logAdminAudit, getClientIp } from '@/lib/admin-audit';
 
 const VALID_NOTE_TYPES = ['general', 'support_ticket', 'escalation', 'implementation', 'financial'] as const;
 
-export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
+export const GET = withAdminPermission(async (req: NextRequest, _session, params) => {
   const tenantId = params?.id;
   if (!tenantId) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
@@ -47,9 +47,9 @@ export const GET = withAdminAuth(async (req: NextRequest, _session, params) => {
   }));
 
   return NextResponse.json({ data: notes });
-});
+}, { permission: 'tenants.read' });
 
-export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
+export const POST = withAdminPermission(async (req: NextRequest, session, params) => {
   const tenantId = params?.id;
   if (!tenantId) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
@@ -109,4 +109,4 @@ export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
     },
     { status: 201 },
   );
-}, 'admin');
+}, { permission: 'tenants.write' });

@@ -56,7 +56,7 @@ import {
 
 // ── CONFIG ───────────────────────────────────────────────────
 const DAYS_BACK = 366;
-const TARGET_REVENUE_CENTS = 100_000_000; // ~$1M target
+const _TARGET_REVENUE_CENTS = 100_000_000; // ~$1M target
 const VOID_RATE = 0.07;
 const CASH_RATIO = 0.30;
 const CUSTOMER_ASSIGN_RATE = 0.55;
@@ -454,7 +454,7 @@ async function seedComprehensive() {
     for (const rp of existingRPRows) ratePlanIdByCode[rp.code] = rp.id;
 
     // Get existing billing accounts
-    const existingBillingRows = await db.execute(sql`
+    const _existingBillingRows = await db.execute(sql`
       SELECT id, primary_customer_id FROM billing_accounts WHERE tenant_id = ${tenantId}
     `) as Array<{ id: string; primary_customer_id: string }>;
 
@@ -1362,13 +1362,13 @@ async function seedComprehensive() {
 
       const allRPIds = Object.values(ratePlanIdByCode);
       const allRoomNumbers = Object.keys(roomByNumber);
-      const allRoomTypeIds = Object.values(roomTypeByCode);
+      const _allRoomTypeIds = Object.values(roomTypeByCode);
 
       const resInserts: Array<Record<string, unknown>> = [];
       const folioInserts: Array<Record<string, unknown>> = [];
       const folioEntryInserts: Array<Record<string, unknown>> = [];
 
-      const statuses = ['CONFIRMED','CONFIRMED','CONFIRMED','CONFIRMED','CHECKED_IN','CHECKED_OUT','CANCELLED','NO_SHOW'];
+      const _statuses = ['CONFIRMED','CONFIRMED','CONFIRMED','CONFIRMED','CHECKED_IN','CHECKED_OUT','CANCELLED','NO_SHOW'];
       const sources = ['DIRECT','DIRECT','DIRECT','OTA','OTA','AGENT','CORPORATE'];
 
       // Spread reservations: -90 days to +270 days

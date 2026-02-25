@@ -28,3 +28,6 @@ export * from './intelligence';
 
 // ── RAG training store ───────────────────────────────────────
 export * from './rag';
+
+// ── Narrative config ─────────────────────────────────────────
+export * from './config';

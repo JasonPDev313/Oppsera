@@ -91,37 +91,35 @@ ALTER TABLE tenant_content_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_content_blocks FORCE ROW LEVEL SECURITY;
 
 -- Business Info RLS
-CREATE POLICY IF NOT EXISTS tenant_business_info_select
-  ON tenant_business_info FOR SELECT
-  USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
-
-CREATE POLICY IF NOT EXISTS tenant_business_info_insert
-  ON tenant_business_info FOR INSERT
-  WITH CHECK (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
-
-CREATE POLICY IF NOT EXISTS tenant_business_info_update
-  ON tenant_business_info FOR UPDATE
-  USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)))
-  WITH CHECK (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
-
-CREATE POLICY IF NOT EXISTS tenant_business_info_delete
-  ON tenant_business_info FOR DELETE
-  USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+DO $$ BEGIN
+  DROP POLICY IF EXISTS tenant_business_info_select ON tenant_business_info;
+  CREATE POLICY tenant_business_info_select ON tenant_business_info
+    FOR SELECT USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+  DROP POLICY IF EXISTS tenant_business_info_insert ON tenant_business_info;
+  CREATE POLICY tenant_business_info_insert ON tenant_business_info
+    FOR INSERT WITH CHECK (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+  DROP POLICY IF EXISTS tenant_business_info_update ON tenant_business_info;
+  CREATE POLICY tenant_business_info_update ON tenant_business_info
+    FOR UPDATE USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)))
+    WITH CHECK (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+  DROP POLICY IF EXISTS tenant_business_info_delete ON tenant_business_info;
+  CREATE POLICY tenant_business_info_delete ON tenant_business_info
+    FOR DELETE USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+END $$;
 
 -- Content Blocks RLS
-CREATE POLICY IF NOT EXISTS tenant_content_blocks_select
-  ON tenant_content_blocks FOR SELECT
-  USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
-
-CREATE POLICY IF NOT EXISTS tenant_content_blocks_insert
-  ON tenant_content_blocks FOR INSERT
-  WITH CHECK (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
-
-CREATE POLICY IF NOT EXISTS tenant_content_blocks_update
-  ON tenant_content_blocks FOR UPDATE
-  USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)))
-  WITH CHECK (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
-
-CREATE POLICY IF NOT EXISTS tenant_content_blocks_delete
-  ON tenant_content_blocks FOR DELETE
-  USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+DO $$ BEGIN
+  DROP POLICY IF EXISTS tenant_content_blocks_select ON tenant_content_blocks;
+  CREATE POLICY tenant_content_blocks_select ON tenant_content_blocks
+    FOR SELECT USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+  DROP POLICY IF EXISTS tenant_content_blocks_insert ON tenant_content_blocks;
+  CREATE POLICY tenant_content_blocks_insert ON tenant_content_blocks
+    FOR INSERT WITH CHECK (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+  DROP POLICY IF EXISTS tenant_content_blocks_update ON tenant_content_blocks;
+  CREATE POLICY tenant_content_blocks_update ON tenant_content_blocks
+    FOR UPDATE USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)))
+    WITH CHECK (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+  DROP POLICY IF EXISTS tenant_content_blocks_delete ON tenant_content_blocks;
+  CREATE POLICY tenant_content_blocks_delete ON tenant_content_blocks
+    FOR DELETE USING (tenant_id = (SELECT current_setting('app.current_tenant_id', true)));
+END $$;

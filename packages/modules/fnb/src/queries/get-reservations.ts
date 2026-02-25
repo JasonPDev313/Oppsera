@@ -49,18 +49,14 @@ export async function getReservations(
       sql`r.location_id = ${input.locationId}`,
     ];
 
-    if (input.reservationDate) {
-      conditions.push(sql`r.reservation_date = ${input.reservationDate}`);
+    if (input.dateFrom) {
+      conditions.push(sql`r.reservation_date >= ${input.dateFrom}`);
+    }
+    if (input.dateTo) {
+      conditions.push(sql`r.reservation_date <= ${input.dateTo}`);
     }
     if (input.status) {
       conditions.push(sql`r.status = ${input.status}`);
-    }
-    if (input.statuses && input.statuses.length > 0) {
-      conditions.push(sql`r.status = ANY(${input.statuses})`);
-    }
-    if (input.startDate && input.endDate) {
-      conditions.push(sql`r.reservation_date >= ${input.startDate}`);
-      conditions.push(sql`r.reservation_date <= ${input.endDate}`);
     }
 
     const whereClause = sql.join(conditions, sql` AND `);

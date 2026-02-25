@@ -7,23 +7,24 @@ import {
   updateReservationSchema,
 } from '@oppsera/module-fnb';
 
+function extractId(request: NextRequest): string {
+  const parts = new URL(request.url).pathname.split('/');
+  return parts[parts.length - 1]!;
+}
+
 export const PATCH = withMiddleware(
-  async (
-    req: NextRequest,
-    ctx: any,
-    { params }: { params: Promise<{ id: string }> },
-  ) => {
-    const { id } = await params;
+  async (req: NextRequest, ctx) => {
+    const id = extractId(req);
     const body = await req.json();
-    const parsed = updateReservationSchema.safeParse({ ...body, id });
+    const parsed = updateReservationSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Invalid reservation update',
-        parsed.error.issues,
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
       );
     }
 
-    const result = await updateReservation(ctx, parsed.data);
+    const result = await updateReservation(ctx, id, parsed.data);
 
     return NextResponse.json({ data: result });
   },

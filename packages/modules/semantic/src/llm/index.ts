@@ -1,7 +1,7 @@
 export { runPipeline, getLLMAdapter, setLLMAdapter } from './pipeline';
 export { resolveIntent } from './intent-resolver';
 export { executeCompiledQuery } from './executor';
-export { generateNarrative, buildEmptyResultNarrative } from './narrative';
+export { generateNarrative, buildEmptyResultNarrative, getDefaultPromptTemplate } from './narrative';
 export { generateSql } from './sql-generator';
 export { validateGeneratedSql } from './sql-validator';
 export { executeSqlQuery } from './sql-executor';

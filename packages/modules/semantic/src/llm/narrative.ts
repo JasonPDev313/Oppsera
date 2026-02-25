@@ -2,6 +2,7 @@ import type { LLMAdapter, LLMMessage, IntentContext, NarrativeResponse, Narrativ
 import type { ResolvedIntent } from './types';
 import type { MetricDef, DimensionDef } from '../registry/types';
 import { getLLMAdapter } from './adapters/anthropic';
+import { getNarrativeConfig } from '../config/narrative-config';
 
 // ── Industry translation ─────────────────────────────────────────
 
@@ -35,23 +36,17 @@ function buildMetricContext(metricDefs: MetricDef[]): string {
   return `## Metrics in This Query\n${lines.join('\n')}`;
 }
 
-// ── System prompt builder ────────────────────────────────────────
+// ── Default prompt template ──────────────────────────────────────
+// This is the hardcoded default. Admins can override it via the
+// semantic_narrative_config table. The template uses {{PLACEHOLDER}}
+// tokens that are replaced at runtime with dynamic content.
+//
+// Available placeholders:
+//   {{INDUSTRY_HINT}}   — industry-specific translation guidance
+//   {{LENS_SECTION}}    — active lens prompt fragment (if any)
+//   {{METRIC_SECTION}}  — metric definitions for the current query
 
-interface NarrativePromptContext {
-  lensSlug?: string | null;
-  lensPromptFragment?: string | null;
-  metricDefs?: MetricDef[];
-  dimensionDefs?: DimensionDef[];
-}
-
-function buildNarrativeSystemPrompt(promptCtx: NarrativePromptContext): string {
-  const metricSection = buildMetricContext(promptCtx.metricDefs ?? []);
-  const industryHint = getIndustryHint(promptCtx.lensSlug);
-  const lensSection = promptCtx.lensPromptFragment
-    ? `## Active Lens\n${promptCtx.lensPromptFragment}\n`
-    : '';
-
-  return `You are operating under THE OPPS ERA LENS.
+const DEFAULT_PROMPT_TEMPLATE = `You are operating under THE OPPS ERA LENS.
 
 You are a practical, data-driven SMB operator and advisor helping businesses increase revenue, improve efficiency, and simplify operations.
 
@@ -61,7 +56,7 @@ You understand that every SMB operates with: limited staff, imperfect data, time
 
 Tone: Friendly, optimistic, practical, slightly quirky — like a smart operator helping another owner win. Use first person plural ("we", "our").
 
-${industryHint}
+{{INDUSTRY_HINT}}
 
 ## DATA-FIRST DECISION RULE
 
@@ -145,7 +140,40 @@ If user asks for fast improvements or urgent help, label: **Quick Wins — THE O
 7. **Options are optional.** For simple data questions (e.g., "what were sales yesterday?"), skip Options/Recommendation and just answer + quick wins + what to track.
 8. **Industry translation.** Translate recommendations into the user's industry language automatically.
 
-${lensSection}${metricSection}`.trim();
+{{LENS_SECTION}}{{METRIC_SECTION}}`;
+
+/**
+ * Returns the hardcoded default prompt template (for admin UI display / reset).
+ */
+export function getDefaultPromptTemplate(): string {
+  return DEFAULT_PROMPT_TEMPLATE;
+}
+
+// ── System prompt builder ────────────────────────────────────────
+
+interface NarrativePromptContext {
+  lensSlug?: string | null;
+  lensPromptFragment?: string | null;
+  metricDefs?: MetricDef[];
+  dimensionDefs?: DimensionDef[];
+}
+
+async function buildNarrativeSystemPrompt(promptCtx: NarrativePromptContext): Promise<string> {
+  const metricSection = buildMetricContext(promptCtx.metricDefs ?? []);
+  const industryHint = getIndustryHint(promptCtx.lensSlug);
+  const lensSection = promptCtx.lensPromptFragment
+    ? `## Active Lens\n${promptCtx.lensPromptFragment}\n`
+    : '';
+
+  // Load custom template from DB (cached), fall back to hardcoded default
+  const customTemplate = await getNarrativeConfig();
+  const template = customTemplate ?? DEFAULT_PROMPT_TEMPLATE;
+
+  return template
+    .replace('{{INDUSTRY_HINT}}', industryHint)
+    .replace('{{LENS_SECTION}}', lensSection)
+    .replace('{{METRIC_SECTION}}', metricSection)
+    .trim();
 }
 
 // ── Data summary builder ──────────────────────────────────────────
@@ -339,7 +367,7 @@ export async function generateNarrative(
 ): Promise<NarrativeResponse> {
   const llm = opts.adapter ?? getLLMAdapter();
 
-  const systemPrompt = buildNarrativeSystemPrompt({
+  const systemPrompt = await buildNarrativeSystemPrompt({
     lensSlug: opts.lensSlug,
     lensPromptFragment: opts.lensPromptFragment,
     metricDefs: opts.metricDefs,
@@ -517,3 +545,4 @@ function formatCellValue(value: unknown): string {
 
 export { parseMarkdownNarrative as _parseMarkdownNarrative };
 export { buildNarrativeSystemPrompt as _buildNarrativeSystemPrompt };
+export { DEFAULT_PROMPT_TEMPLATE as _DEFAULT_PROMPT_TEMPLATE };

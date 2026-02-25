@@ -38,8 +38,15 @@ export interface ImpersonationSession {
   adminName: string;
   tenantId: string;
   tenantName: string;
+  targetUserId: string | null;
+  reason: string | null;
+  maxDurationMinutes: number;
   status: string;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  actionCount: number;
   expiresAt: Date;
+  createdAt: Date;
 }
 
 // ── Secrets ──────────────────────────────────────────────────────
@@ -140,18 +147,27 @@ export async function createImpersonationSession(input: {
   adminEmail: string;
   adminName: string;
   tenantId: string;
+  targetUserId?: string;
+  reason?: string;
+  maxDurationMinutes?: number;
   ipAddress?: string;
   userAgent?: string;
 }): Promise<ImpersonationSession> {
-  // Look up tenant name
+  const maxMinutes = input.maxDurationMinutes ?? 60;
+
+  // Look up tenant name and status
   const [tenant] = await db
-    .select({ id: tenants.id, name: tenants.name })
+    .select({ id: tenants.id, name: tenants.name, status: tenants.status })
     .from(tenants)
     .where(eq(tenants.id, input.tenantId))
     .limit(1);
 
   if (!tenant) {
     throw new AppError('NOT_FOUND', 'Tenant not found', 404);
+  }
+
+  if (tenant.status === 'suspended') {
+    throw new AppError('VALIDATION_ERROR', 'Cannot impersonate a suspended tenant', 400);
   }
 
   // End any existing active/pending sessions for this admin
@@ -170,7 +186,8 @@ export async function createImpersonationSession(input: {
     );
 
   const id = generateUlid();
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + maxMinutes * 60 * 1000);
 
   await db.insert(adminImpersonationSessions).values({
     id,
@@ -179,6 +196,9 @@ export async function createImpersonationSession(input: {
     adminName: input.adminName,
     tenantId: input.tenantId,
     tenantName: tenant.name,
+    targetUserId: input.targetUserId ?? null,
+    reason: input.reason ?? null,
+    maxDurationMinutes: maxMinutes,
     status: 'pending',
     expiresAt,
     ipAddress: input.ipAddress ?? null,
@@ -192,8 +212,15 @@ export async function createImpersonationSession(input: {
     adminName: input.adminName,
     tenantId: input.tenantId,
     tenantName: tenant.name,
+    targetUserId: input.targetUserId ?? null,
+    reason: input.reason ?? null,
+    maxDurationMinutes: maxMinutes,
     status: 'pending',
+    startedAt: null,
+    endedAt: null,
+    actionCount: 0,
     expiresAt,
+    createdAt: now,
   };
 }
 
@@ -217,6 +244,10 @@ export async function getActiveImpersonationSession(
   if (session.status !== 'active' && session.status !== 'pending') return null;
   if (new Date(session.expiresAt) < new Date()) return null;
 
+  return mapSession(session);
+}
+
+function mapSession(session: typeof adminImpersonationSessions.$inferSelect): ImpersonationSession {
   return {
     id: session.id,
     adminId: session.adminId,
@@ -224,8 +255,15 @@ export async function getActiveImpersonationSession(
     adminName: session.adminName,
     tenantId: session.tenantId,
     tenantName: session.tenantName,
+    targetUserId: session.targetUserId ?? null,
+    reason: session.reason ?? null,
+    maxDurationMinutes: session.maxDurationMinutes,
     status: session.status,
+    startedAt: session.startedAt ? new Date(session.startedAt) : null,
+    endedAt: session.endedAt ? new Date(session.endedAt) : null,
+    actionCount: session.actionCount,
     expiresAt: new Date(session.expiresAt),
+    createdAt: new Date(session.createdAt),
   };
 }
 
@@ -249,4 +287,96 @@ export async function incrementImpersonationActionCount(sessionId: string): Prom
         SET action_count = action_count + 1
         WHERE id = ${sessionId}`,
   );
+}
+
+// ── Admin-scoped queries ─────────────────────────────────────────
+
+/** Get the currently active impersonation session for a given admin */
+export async function getActiveSessionForAdmin(
+  adminId: string,
+): Promise<ImpersonationSession | null> {
+  const [session] = await db
+    .select()
+    .from(adminImpersonationSessions)
+    .where(
+      and(
+        eq(adminImpersonationSessions.adminId, adminId),
+        sql`${adminImpersonationSessions.status} IN ('pending', 'active')`,
+        sql`${adminImpersonationSessions.expiresAt} > now()`,
+      ),
+    )
+    .limit(1);
+
+  if (!session) return null;
+  return mapSession(session);
+}
+
+/** List impersonation session history with optional filters and cursor pagination */
+export async function listImpersonationHistory(filters: {
+  adminId?: string;
+  tenantId?: string;
+  status?: string;
+  cursor?: string;
+  limit?: number;
+}): Promise<{ items: ImpersonationSession[]; cursor: string | null; hasMore: boolean }> {
+  const limit = Math.min(filters.limit ?? 25, 100);
+  const conditions = [];
+
+  if (filters.adminId) {
+    conditions.push(eq(adminImpersonationSessions.adminId, filters.adminId));
+  }
+  if (filters.tenantId) {
+    conditions.push(eq(adminImpersonationSessions.tenantId, filters.tenantId));
+  }
+  if (filters.status) {
+    conditions.push(eq(adminImpersonationSessions.status, filters.status));
+  }
+  if (filters.cursor) {
+    conditions.push(sql`${adminImpersonationSessions.id} < ${filters.cursor}`);
+  }
+
+  const rows = await db
+    .select()
+    .from(adminImpersonationSessions)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(sql`${adminImpersonationSessions.createdAt} DESC`)
+    .limit(limit + 1);
+
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+
+  return {
+    items: items.map(mapSession),
+    cursor: hasMore ? items[items.length - 1]!.id : null,
+    hasMore,
+  };
+}
+
+/** Expire all overdue active sessions. Returns the number of sessions expired. */
+export async function expireOverdueSessions(): Promise<ImpersonationSession[]> {
+  const rows = await db.execute(
+    sql`UPDATE admin_impersonation_sessions
+        SET status = 'expired', ended_at = now(), end_reason = 'expired'
+        WHERE status IN ('pending', 'active') AND expires_at < now()
+        RETURNING *`,
+  );
+
+  const results = Array.from(rows as Iterable<Record<string, unknown>>);
+  return results.map((r) => ({
+    id: r.id as string,
+    adminId: r.admin_id as string,
+    adminEmail: r.admin_email as string,
+    adminName: r.admin_name as string,
+    tenantId: r.tenant_id as string,
+    tenantName: r.tenant_name as string,
+    targetUserId: (r.target_user_id as string) ?? null,
+    reason: (r.reason as string) ?? null,
+    maxDurationMinutes: (r.max_duration_minutes as number) ?? 60,
+    status: 'expired',
+    startedAt: r.started_at ? new Date(r.started_at as string) : null,
+    endedAt: new Date(),
+    actionCount: (r.action_count as number) ?? 0,
+    expiresAt: new Date(r.expires_at as string),
+    createdAt: new Date(r.created_at as string),
+  }));
 }

@@ -41,6 +41,8 @@ export async function getTableAvailability(
   input: GetTableAvailabilityInput,
 ): Promise<TableAvailabilityResult> {
   return withTenant(input.tenantId, async (tx) => {
+    const businessDate = input.reservationDate ?? new Date().toISOString().slice(0, 10);
+
     const [tableRows, rotationRows] = await Promise.all([
       tx.execute(sql`
         SELECT
@@ -63,7 +65,7 @@ export async function getTableAvailability(
         LEFT JOIN fnb_sections sec ON sec.tenant_id = t.tenant_id AND sec.location_id = t.location_id
         LEFT JOIN fnb_server_assignments sa ON sa.section_id = sec.id
           AND sa.tenant_id = t.tenant_id
-          AND sa.business_date = ${input.businessDate}
+          AND sa.business_date = ${businessDate}
           AND sa.status = 'active'
         LEFT JOIN fnb_sections s ON s.id = sa.section_id
         LEFT JOIN users u ON u.id = sa.server_user_id
@@ -79,7 +81,7 @@ export async function getTableAvailability(
         FROM fnb_rotation_tracker
         WHERE tenant_id = ${input.tenantId}
           AND location_id = ${input.locationId}
-          AND business_date = ${input.businessDate}
+          AND business_date = ${businessDate}
         LIMIT 1
       `),
     ]);

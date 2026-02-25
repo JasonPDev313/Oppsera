@@ -6,7 +6,7 @@ import {
   semanticEvalSessions,
   semanticEvalTurns,
 } from '@oppsera/db';
-import { eq, asc } from 'drizzle-orm';
+import { eq, asc, or } from 'drizzle-orm';
 
 // ── GET: get session detail with all turns + quality trend ──────────────
 
@@ -17,22 +17,22 @@ export const GET = withAdminAuth(
       return NextResponse.json({ error: { message: 'Missing id' } }, { status: 400 });
     }
 
-    // Fetch the session
+    // Fetch the session — try by primary key first, then by sessionId
     const [evalSession] = await db
       .select()
       .from(semanticEvalSessions)
-      .where(eq(semanticEvalSessions.id, id))
+      .where(or(eq(semanticEvalSessions.id, id), eq(semanticEvalSessions.sessionId, id)))
       .limit(1);
 
     if (!evalSession) {
       return NextResponse.json({ error: { message: 'Not found' } }, { status: 404 });
     }
 
-    // Fetch all turns ordered by turnNumber
+    // Fetch all turns using the session's primary key
     const turns = await db
       .select()
       .from(semanticEvalTurns)
-      .where(eq(semanticEvalTurns.sessionId, id))
+      .where(eq(semanticEvalTurns.sessionId, evalSession.id))
       .orderBy(asc(semanticEvalTurns.turnNumber));
 
     // Compute quality trend from turns

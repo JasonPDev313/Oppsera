@@ -10,6 +10,8 @@ import type {
   TerminalItem,
   EntitlementItem,
   CreateTenantInput,
+  OnboardingStep,
+  SupportNote,
 } from '@/types/tenant';
 
 // ── Tenant List ──────────────────────────────────────────────────
@@ -223,4 +225,97 @@ export function useTenantEntitlements(tenantId: string) {
   }, [tenantId, load]);
 
   return { entitlements, isLoading, error, load, toggle };
+}
+
+// ── Onboarding ──────────────────────────────────────────────────
+
+interface OnboardingData {
+  tenantId: string;
+  onboardingStatus: string;
+  industry: string | null;
+  summary: { total: number; completed: number; blocked: number; skipped: number; progress: number };
+  steps: OnboardingStep[];
+}
+
+export function useTenantOnboarding(tenantId: string) {
+  const [data, setData] = useState<OnboardingData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await adminFetch<{ data: OnboardingData }>(`/api/v1/tenants/${tenantId}/onboarding`);
+      setData(res.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load onboarding');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tenantId]);
+
+  const updateStep = useCallback(async (stepKey: string, status: string, blockerNotes?: string) => {
+    await adminFetch(`/api/v1/tenants/${tenantId}/onboarding/${stepKey}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, blockerNotes }),
+    });
+    await load();
+  }, [tenantId, load]);
+
+  const initialize = useCallback(async (industry?: string) => {
+    await adminFetch(`/api/v1/tenants/${tenantId}/onboarding/initialize`, {
+      method: 'POST',
+      body: JSON.stringify({ industry }),
+    });
+    await load();
+  }, [tenantId, load]);
+
+  return { data, isLoading, error, load, updateStep, initialize };
+}
+
+// ── Support Notes ───────────────────────────────────────────────
+
+export function useTenantNotes(tenantId: string) {
+  const [notes, setNotes] = useState<SupportNote[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await adminFetch<{ data: SupportNote[] }>(`/api/v1/tenants/${tenantId}/notes`);
+      setNotes(res.data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load notes');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [tenantId]);
+
+  const create = useCallback(async (content: string, noteType: string = 'general', isPinned = false) => {
+    await adminFetch(`/api/v1/tenants/${tenantId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ content, noteType, isPinned }),
+    });
+    await load();
+  }, [tenantId, load]);
+
+  const update = useCallback(async (noteId: string, body: Record<string, unknown>) => {
+    await adminFetch(`/api/v1/tenants/${tenantId}/notes/${noteId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    await load();
+  }, [tenantId, load]);
+
+  const remove = useCallback(async (noteId: string) => {
+    await adminFetch(`/api/v1/tenants/${tenantId}/notes/${noteId}`, {
+      method: 'DELETE',
+    });
+    await load();
+  }, [tenantId, load]);
+
+  return { notes, isLoading, error, load, create, update, remove };
 }

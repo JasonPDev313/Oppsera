@@ -2206,10 +2206,12 @@ export type SeatingPreference = (typeof SEATING_PREFERENCES)[number];
 export const WAITLIST_SOURCES = [
   'host_stand', 'online', 'phone', 'reservation_walkin',
 ] as const;
+export type WaitlistSource = (typeof WAITLIST_SOURCES)[number];
 
 export const OCCASIONS = [
   'birthday', 'anniversary', 'business', 'date_night', 'celebration', 'other',
 ] as const;
+export type Occasion = (typeof OCCASIONS)[number];
 
 export const addToWaitlistSchema = z.object({
   ...idempotencyMixin,
@@ -2265,6 +2267,7 @@ export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 export const RESERVATION_SOURCES = [
   'host_stand', 'online', 'phone', 'google', 'third_party',
 ] as const;
+export type ReservationSource = (typeof RESERVATION_SOURCES)[number];
 
 export const createReservationSchema = z.object({
   ...idempotencyMixin,
@@ -2377,5 +2380,6 @@ export const getTableAvailabilitySchema = z.object({
   partySize: z.number().int().min(1),
   reservationDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   reservationTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  seatingPreference: z.enum(SEATING_PREFERENCES).optional(),
 });
 export type GetTableAvailabilityInput = z.input<typeof getTableAvailabilitySchema>;

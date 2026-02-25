@@ -1,7 +1,7 @@
-import { db, withTenant } from '@oppsera/db';
-import { tenants, erpWorkflowConfigs, erpWorkflowConfigChangeLog } from '@oppsera/db';
+import { db, withTenant, sql } from '@oppsera/db';
+import { tenants, erpWorkflowConfigs, erpWorkflowConfigChangeLog, tenantSubscriptions, pricingPlans, subscriptionChangeLog } from '@oppsera/db';
 import { eq } from 'drizzle-orm';
-import { generateUlid, TIER_WORKFLOW_DEFAULTS, getAllWorkflowKeys } from '@oppsera/shared';
+import { generateUlid, TIER_WORKFLOW_DEFAULTS, getAllWorkflowKeys, TIER_SEAT_LIMITS, computeMonthlyTotal, classifyTierChange } from '@oppsera/shared';
 import type { BusinessTier } from '@oppsera/shared';
 import type { RequestContext } from '../auth';
 import { invalidateWorkflowCache } from './workflow-engine';
@@ -65,7 +65,71 @@ export async function applyTierChange(
       appliedDefaults++;
     }
 
-    // 4. Log the tier change
+    // 4. Sync subscription to new tier (if subscription exists)
+    const [existingSub] = await tx
+      .select({ id: tenantSubscriptions.id, pricingPlanId: tenantSubscriptions.pricingPlanId, seatCount: tenantSubscriptions.seatCount })
+      .from(tenantSubscriptions)
+      .where(eq(tenantSubscriptions.tenantId, tenantId))
+      .limit(1);
+
+    if (existingSub) {
+      // Find the pricing plan that matches the new tier
+      const [matchingPlan] = await tx
+        .select()
+        .from(pricingPlans)
+        .where(eq(pricingPlans.tier, newTier))
+        .limit(1);
+
+      if (matchingPlan && matchingPlan.id !== existingSub.pricingPlanId) {
+        const newMonthly = computeMonthlyTotal(
+          existingSub.seatCount,
+          matchingPlan.pricePerSeatCents,
+          matchingPlan.baseFeeCents,
+          0,
+        );
+
+        await tx
+          .update(tenantSubscriptions)
+          .set({
+            pricingPlanId: matchingPlan.id,
+            monthlyTotalCents: newMonthly,
+            updatedAt: new Date(),
+          })
+          .where(eq(tenantSubscriptions.tenantId, tenantId));
+
+        // Log subscription change
+        await tx.insert(subscriptionChangeLog).values({
+          id: generateUlid(),
+          tenantId,
+          changedBy: ctx.user?.id ?? 'system',
+          changeType: classifyTierChange(previousTier, newTier) === 'upgrade' ? 'tier_upgrade' : 'tier_downgrade',
+          previousState: { planId: existingSub.pricingPlanId, tier: previousTier } as Record<string, unknown>,
+          newState: { planId: matchingPlan.id, tier: newTier, monthlyTotalCents: newMonthly } as Record<string, unknown>,
+          reason,
+        });
+      }
+    }
+
+    // 5. Update entitlements.limits.max_seats
+    const maxSeats = TIER_SEAT_LIMITS[newTier];
+    if (maxSeats) {
+      await tx.execute(sql`
+        UPDATE entitlements
+        SET limits = jsonb_set(COALESCE(limits, '{}'::jsonb), '{max_seats}', ${String(maxSeats)}::jsonb),
+            updated_at = now()
+        WHERE tenant_id = ${tenantId} AND module_key = 'platform_core'
+      `);
+    } else {
+      // Unlimited — remove the max_seats key
+      await tx.execute(sql`
+        UPDATE entitlements
+        SET limits = COALESCE(limits, '{}'::jsonb) - 'max_seats',
+            updated_at = now()
+        WHERE tenant_id = ${tenantId} AND module_key = 'platform_core'
+      `);
+    }
+
+    // 6. Log the tier change
     await tx.insert(erpWorkflowConfigChangeLog).values({
       id: generateUlid(),
       tenantId,

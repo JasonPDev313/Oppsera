@@ -46,9 +46,6 @@ export async function getWaitlist(
     if (input.status) {
       conditions.push(sql`w.status = ${input.status}`);
     }
-    if (input.statuses && input.statuses.length > 0) {
-      conditions.push(sql`w.status = ANY(${input.statuses})`);
-    }
 
     const whereClause = sql.join(conditions, sql` AND `);
 

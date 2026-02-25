@@ -1,5 +1,5 @@
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { publishWithOutbox } from '@oppsera/core/events/outbox';
+import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
 import { sql } from 'drizzle-orm';
@@ -15,7 +15,7 @@ export async function checkInReservation(
   reservationId: string,
   input: CheckInReservationInput,
 ) {
-  const result = await publishWithOutbox(ctx, async (tx) => {
+  const result = await publishWithOutbox(ctx, async (tx): Promise<{ result: { id: string; status: string; seated: boolean; tableId?: string }; events: ReturnType<typeof buildEventFromContext>[] }> => {
     const resRows = await tx.execute(sql`
       SELECT * FROM fnb_reservations
       WHERE id = ${reservationId} AND tenant_id = ${ctx.tenantId}

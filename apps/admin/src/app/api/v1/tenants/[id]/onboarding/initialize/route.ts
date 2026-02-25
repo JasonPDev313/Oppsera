@@ -1,12 +1,12 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { withAdminAuth } from '@/lib/with-admin-auth';
+import { withAdminPermission } from '@/lib/with-admin-permission';
 import { db, sql } from '@oppsera/db';
 import { tenants, tenantOnboardingChecklists, onboardingStepTemplates } from '@oppsera/db';
 import { eq } from 'drizzle-orm';
 import { logAdminAudit, getClientIp } from '@/lib/admin-audit';
 
-export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
+export const POST = withAdminPermission(async (req: NextRequest, session, params) => {
   const tenantId = params?.id;
   if (!tenantId) return NextResponse.json({ error: { message: 'Missing tenant ID' } }, { status: 400 });
 
@@ -99,4 +99,4 @@ export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
     { data: { tenantId, industry, stepsCreated: created.length, steps: created } },
     { status: 201 },
   );
-}, 'admin');
+}, { permission: 'tenants.write' });

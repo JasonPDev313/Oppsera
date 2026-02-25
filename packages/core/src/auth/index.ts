@@ -23,6 +23,16 @@ export { authenticate, resolveTenant } from './middleware';
 export { withMiddleware } from './with-middleware';
 export type { ImpersonationInfo, ImpersonationClaims, ImpersonationTokenPayload, ImpersonationSession } from './impersonation';
 export {
+  ImpersonationRestrictionError,
+  isImpersonating,
+  assertImpersonationCanVoid,
+  assertImpersonationCanRefund,
+  assertImpersonationCanModifyAccounting,
+  assertImpersonationCanDelete,
+  assertImpersonationCanModifyPermissions,
+  assertNotImpersonating,
+} from './impersonation-safety';
+export {
   verifyImpersonationToken,
   createImpersonationAccessToken,
   createImpersonationRefreshToken,
@@ -33,4 +43,7 @@ export {
   getActiveImpersonationSession,
   endImpersonationSession,
   incrementImpersonationActionCount,
+  getActiveSessionForAdmin,
+  listImpersonationHistory,
+  expireOverdueSessions,
 } from './impersonation';

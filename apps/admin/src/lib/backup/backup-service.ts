@@ -28,6 +28,7 @@ const BATCH_SIZE = 5000;
 /**
  * Create a full database backup.
  * Exports all public schema tables as compressed JSON.
+ * Uses a transaction with RLS bypass to read all tenant data.
  */
 export async function createBackup(input: CreateBackupInput): Promise<CreateBackupResult> {
   const backupId = generateUlid();
@@ -54,22 +55,30 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
     // 2. Get dependency order
     const orderedNames = await getTableDependencyOrder(tableNames);
 
-    // 3. Export data
+    // 3. Export data inside a transaction with RLS bypassed
+    //    Tables with FORCE ROW LEVEL SECURITY filter on app.current_tenant_id,
+    //    which is empty outside withTenant(). We bypass by temporarily becoming
+    //    the postgres superuser role which is exempt from RLS.
     const data: Record<string, unknown[]> = {};
     const manifestTables: TableManifestEntry[] = [];
     let totalRows = 0;
 
-    for (const tableName of orderedNames) {
-      const rows = await exportTable(tableName);
-      const columns = await getTableColumns(tableName);
-      data[tableName] = rows;
-      manifestTables.push({
-        name: tableName,
-        rowCount: rows.length,
-        columns,
-      });
-      totalRows += rows.length;
-    }
+    await db.transaction(async (tx) => {
+      // Bypass RLS for this transaction — SET LOCAL scopes to this transaction only
+      await tx.execute(sql`SET LOCAL role = 'postgres'`);
+
+      for (const tableName of orderedNames) {
+        const rows = await exportTableInTx(tx, tableName);
+        const columns = await getTableColumnsInTx(tx, tableName);
+        data[tableName] = rows;
+        manifestTables.push({
+          name: tableName,
+          rowCount: rows.length,
+          columns,
+        });
+        totalRows += rows.length;
+      }
+    });
 
     // 4. Build manifest
     const pgVersion = await getPgVersion();
@@ -142,16 +151,15 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
 }
 
 /**
- * Export all rows from a single table using batched SELECT.
+ * Export all rows from a single table using batched SELECT (inside a transaction).
  */
-async function exportTable(tableName: string): Promise<unknown[]> {
+async function exportTableInTx(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], tableName: string): Promise<unknown[]> {
   const allRows: unknown[] = [];
   let offset = 0;
 
   while (true) {
-    // Use raw SQL with parameterized LIMIT/OFFSET
     // Table name is from information_schema (safe), not user input
-    const result = await db.execute(
+    const result = await tx.execute(
       sql.raw(`SELECT * FROM "${tableName}" ORDER BY ctid LIMIT ${BATCH_SIZE} OFFSET ${offset}`),
     );
 
@@ -165,6 +173,21 @@ async function exportTable(tableName: string): Promise<unknown[]> {
   }
 
   return allRows;
+}
+
+/**
+ * Get column names for a table (inside a transaction).
+ */
+async function getTableColumnsInTx(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], tableName: string): Promise<string[]> {
+  const result = await tx.execute(sql`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = ${tableName}
+    ORDER BY ordinal_position
+  `);
+  return Array.from(result as Iterable<{ column_name: string }>)
+    .map((r) => r.column_name);
 }
 
 /**

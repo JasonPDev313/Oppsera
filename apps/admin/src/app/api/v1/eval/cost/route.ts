@@ -10,8 +10,21 @@ import { and, eq, gte, lte, desc } from 'drizzle-orm';
 export const GET = withAdminAuth(async (req: NextRequest) => {
   const searchParams = new URL(req.url).searchParams;
   const tenantId = searchParams.get('tenantId');
-  const start = searchParams.get('start');
-  const end = searchParams.get('end');
+
+  // Support multiple param naming conventions from frontend
+  const startParam = searchParams.get('start') ?? searchParams.get('startDate');
+  const endParam = searchParams.get('end') ?? searchParams.get('endDate');
+  const daysParam = searchParams.get('days');
+
+  // Compute date range from `days` param if explicit start/end not provided
+  let start = startParam;
+  let end = endParam;
+  if (!start && daysParam) {
+    const days = parseInt(daysParam, 10) || 30;
+    const now = new Date();
+    end = now.toISOString().slice(0, 10);
+    start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
 
   const conditions = [];
   if (tenantId) conditions.push(eq(semanticEvalCostDaily.tenantId, tenantId));
@@ -37,19 +50,30 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
     totalCostUsd += Number(row.totalCostUsd);
   }
 
+  // Map daily data to match CostDaily frontend type
+  const dailyData = rows.map((row) => ({
+    id: row.id,
+    tenantId: row.tenantId,
+    businessDate: row.businessDate,
+    totalTurns: row.totalTurns,
+    totalTokensInput: row.totalTokensInput,
+    totalTokensOutput: row.totalTokensOutput,
+    totalCostUsd: Number(row.totalCostUsd),
+    avgCostPerQuery: row.totalTurns > 0 ? Number(row.totalCostUsd) / row.totalTurns : null,
+    modelBreakdown: row.modelBreakdown as Record<string, unknown> | null,
+    lensBreakdown: row.lensBreakdown as Record<string, unknown> | null,
+    createdAt: row.createdAt,
+  }));
+
+  // Flatten response to match CostSummary frontend type
   return NextResponse.json({
     data: {
-      summary: {
-        totalTurns,
-        totalTokensInput,
-        totalTokensOutput,
-        totalCostUsd: totalCostUsd.toFixed(4),
-        avgCostPerQuery: totalTurns > 0
-          ? (totalCostUsd / totalTurns).toFixed(6)
-          : '0.000000',
-        days: rows.length,
-      },
-      dailyData: rows,
+      totalTurns,
+      totalTokensInput,
+      totalTokensOutput,
+      totalCostUsd,
+      avgCostPerQuery: totalTurns > 0 ? totalCostUsd / totalTurns : 0,
+      dailyData,
     },
   });
 });

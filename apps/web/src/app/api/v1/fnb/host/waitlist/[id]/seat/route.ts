@@ -7,23 +7,25 @@ import {
   seatFromWaitlistSchema,
 } from '@oppsera/module-fnb';
 
+function extractId(request: NextRequest): string {
+  const parts = new URL(request.url).pathname.split('/');
+  // URL: /api/v1/fnb/host/waitlist/:id/seat
+  return parts[parts.length - 2]!;
+}
+
 export const POST = withMiddleware(
-  async (
-    req: NextRequest,
-    ctx: any,
-    { params }: { params: Promise<{ id: string }> },
-  ) => {
-    const { id } = await params;
+  async (req: NextRequest, ctx) => {
+    const id = extractId(req);
     const body = await req.json();
-    const parsed = seatFromWaitlistSchema.safeParse({ ...body, id });
+    const parsed = seatFromWaitlistSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Invalid seat from waitlist input',
-        parsed.error.issues,
+        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
       );
     }
 
-    const result = await seatFromWaitlist(ctx, parsed.data);
+    const result = await seatFromWaitlist(ctx, id, parsed.data);
 
     return NextResponse.json({ data: result });
   },
