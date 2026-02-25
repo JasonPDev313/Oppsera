@@ -17,7 +17,6 @@ import {
   EyeOff,
   Save,
   ShieldCheck,
-  Info,
   X,
   FlaskConical,
   ChevronDown,
@@ -44,6 +43,17 @@ const SANDBOX_DEFAULTS = {
   site: 'fts-uat',
   merchantId: '496160873888',
   displayName: 'Sandbox Test Account',
+} as const;
+
+const SANDBOX_TEST_CREDENTIALS = {
+  site: 'fts-uat',
+  username: 'testing',
+  password: 'testing123',
+  authorizationKey: '',
+  achUsername: '',
+  achPassword: '',
+  fundingUsername: '',
+  fundingPassword: '',
 } as const;
 
 const SANDBOX_TEST_CARDS = [
@@ -503,92 +513,130 @@ function MerchantAccountSetupPanel({
         </div>
       </div>
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-        <div className="flex items-start gap-3">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-          <div className="text-sm text-blue-800">
-            <p className="font-medium">Primary Merchant Credentials</p>
-            <p className="mt-1">
-              This section stores the primary credentials used by your organization for CardConnect
-              transactions. Credential fields that show masked values (****) already have saved values &mdash;
-              leave them blank to keep existing credentials, or enter new values to replace them.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Sandbox UAT Auto-Fill */}
-      <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <FlaskConical className="h-5 w-5 text-amber-600" />
-            <div>
-              <p className="text-sm font-medium text-amber-900">Sandbox / UAT Testing</p>
-              <p className="text-xs text-amber-700">
-                Auto-fill with CardPointe sandbox test values for development and testing.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowTestData(!showTestData)}
-              className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-200"
-            >
-              <CreditCard className="h-3.5 w-3.5" />
-              Test Data
-              {showTestData ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCredSite(SANDBOX_DEFAULTS.site);
-                setDisplayName(SANDBOX_DEFAULTS.displayName);
-                setIsProduction(false);
-                setShowPasswords(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
-            >
-              <FlaskConical className="h-3.5 w-3.5" />
-              Use Sandbox UAT Credentials
-            </button>
-          </div>
-        </div>
-
-        {showTestData && <SandboxTestDataPanel />}
-      </div>
-
       {/* Credentials Section */}
       <fieldset className="rounded-lg border border-gray-200 p-5">
         <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-gray-900">
           <Shield className="h-4 w-4 text-indigo-600" />
-          API Credentials
+          CardPointe Credentials
         </legend>
         <div className="mt-3 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">CardPointe Site</label>
-            <select value={credSite} onChange={(e) => setCredSite(e.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">Select site...</option>
-              <option value="fts-uat">fts-uat (Sandbox / UAT)</option>
-              <option value="fts">fts (Production)</option>
-            </select>
-            <p className="mt-1 text-xs text-gray-400">The CardPointe site determines your API endpoint.</p>
+          {/* ── Testing / Production Mode Toggle ── */}
+          <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-700">Environment Mode</p>
+              <div className="inline-flex rounded-lg border border-gray-300 bg-surface p-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProduction(false);
+                    setCredSite(SANDBOX_TEST_CREDENTIALS.site);
+                    setCredUsername(SANDBOX_TEST_CREDENTIALS.username);
+                    setCredPassword(SANDBOX_TEST_CREDENTIALS.password);
+                    setCredAuthKey(SANDBOX_TEST_CREDENTIALS.authorizationKey);
+                    setCredAchUsername(SANDBOX_TEST_CREDENTIALS.achUsername);
+                    setCredAchPassword(SANDBOX_TEST_CREDENTIALS.achPassword);
+                    setCredFundingUsername(SANDBOX_TEST_CREDENTIALS.fundingUsername);
+                    setCredFundingPassword(SANDBOX_TEST_CREDENTIALS.fundingPassword);
+                    setDisplayName(SANDBOX_DEFAULTS.displayName);
+                    setShowPasswords(true);
+                    setShowTestData(true);
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                    !isProduction
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <FlaskConical className="h-4 w-4" />
+                  Testing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProduction(true);
+                    setCredSite('fts');
+                    // Clear test credentials so user enters their own
+                    if (credUsername === SANDBOX_TEST_CREDENTIALS.username) setCredUsername('');
+                    if (credPassword === SANDBOX_TEST_CREDENTIALS.password) setCredPassword('');
+                    setShowTestData(false);
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                    isProduction
+                      ? 'bg-green-600 text-white shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <Shield className="h-4 w-4" />
+                  Production
+                </button>
+              </div>
+            </div>
+            {!isProduction ? (
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
+                <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div className="text-xs text-amber-800">
+                  <p className="font-medium">Sandbox / UAT Mode</p>
+                  <p className="mt-0.5">
+                    Test credentials have been auto-filled. Transactions will be processed against the
+                    CardPointe UAT environment &mdash; no real charges will occur.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                <div className="text-xs text-red-800">
+                  <p className="font-medium">Production Mode</p>
+                  <p className="mt-0.5">
+                    This account will process <strong>real credit card transactions with real money</strong>.
+                    Enter your production credentials provided by CardPointe.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Test Data (visible in Testing mode) */}
+          {!isProduction && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+              <button
+                type="button"
+                onClick={() => setShowTestData(!showTestData)}
+                className="flex w-full items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-900">Test Cards &amp; Reference Data</span>
+                </div>
+                {showTestData ? <ChevronUp className="h-4 w-4 text-amber-600" /> : <ChevronDown className="h-4 w-4 text-amber-600" />}
+              </button>
+              {showTestData && <SandboxTestDataPanel />}
+            </div>
+          )}
+
+          {/* Site + Status Row */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">
-              {hasSavedCreds ? (
-                <span className="inline-flex items-center gap-1 text-green-600">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Credentials saved{setup.isSandbox && ' (Sandbox)'}
-                </span>
-              ) : (
-                <span className="text-amber-600">No credentials saved yet</span>
-              )}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-500">
+                Site: <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono">{credSite || 'not set'}</code>
+              </span>
+              <span className="text-xs text-gray-500">
+                {hasSavedCreds ? (
+                  <span className="inline-flex items-center gap-1 text-green-600">
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Credentials saved{setup.isSandbox && ' (Sandbox)'}
+                  </span>
+                ) : (
+                  <span className="text-amber-600">No credentials saved yet</span>
+                )}
+              </span>
+            </div>
             <button type="button" onClick={() => setShowPasswords(!showPasswords)} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
               {showPasswords ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               {showPasswords ? 'Hide' : 'Show'} values
             </button>
           </div>
+
+          {/* Primary Credentials */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-gray-700">CardPointe Username <span className="text-red-500">*</span></label>
@@ -603,6 +651,8 @@ function MerchantAccountSetupPanel({
             <label className="block text-sm font-medium text-gray-700">Authorization Key <span className="text-gray-400">(optional)</span></label>
             <input type={showPasswords ? 'text' : 'password'} value={credAuthKey} onChange={(e) => setCredAuthKey(e.target.value)} placeholder={maskedCreds.authorizationKey || 'YOUR_AUTH_KEY'} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
+
+          {/* ACH Credentials */}
           <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
             <p className="mb-3 text-sm font-medium text-gray-700">ACH Credentials <span className="text-gray-400">(if ACH is enabled)</span></p>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -616,6 +666,8 @@ function MerchantAccountSetupPanel({
               </div>
             </div>
           </div>
+
+          {/* Funding Credentials */}
           <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
             <p className="mb-3 text-sm font-medium text-gray-700">Funding Credentials <span className="text-gray-400">(optional)</span></p>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -665,15 +717,6 @@ function MerchantAccountSetupPanel({
         <div className="mt-3 space-y-5">
           <ToggleRow label="Use For Card Swipe" description="Enable CardConnect for in-person payments (swiped, dipped, or tapped cards)." checked={useForCardSwipe} onChange={setUseForCardSwipe} />
           <ToggleRow label="Reader Beep Sound" description="When enabled, the card reader will beep to confirm a successful tap or dip." checked={readerBeep} onChange={setReaderBeep} />
-          <div>
-            <ToggleRow label="Production Mode" description="When enabled, this account processes real transactions with real money." checked={isProduction} onChange={setIsProduction} />
-            {isProduction && (
-              <div className="mt-2 ml-11 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <p className="text-xs text-amber-800"><strong>Warning:</strong> Production mode processes real credit card transactions.</p>
-              </div>
-            )}
-          </div>
           <ToggleRow label="Allow Manual Entry from POS" description="Permit cashiers to manually type in card numbers at the POS terminal." checked={allowManualEntry} onChange={setAllowManualEntry} />
           <ToggleRow label="Tip on Device" description="Show a tip prompt on the payment terminal so the customer can add a tip." checked={tipOnDevice} onChange={setTipOnDevice} />
         </div>

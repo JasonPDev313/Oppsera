@@ -1,5 +1,5 @@
 import { pgTable, text, boolean, timestamp, jsonb, uniqueIndex, index } from 'drizzle-orm/pg-core';
-import { tenants } from './core.js';
+import { tenants } from './core';
 
 // ── Feature Flag Definitions (system-wide) ──────────────────
 
