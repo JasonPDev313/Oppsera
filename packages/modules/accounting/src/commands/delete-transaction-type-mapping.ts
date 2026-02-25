@@ -4,8 +4,8 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glTransactionTypeMappings } from '@oppsera/db';
-import { getSystemTransactionType } from '@oppsera/shared/src/constants/transaction-types';
-import type { DebitKind } from '@oppsera/shared/src/constants/transaction-types';
+import { getSystemTransactionType } from '@oppsera/shared';
+import type { DebitKind } from '@oppsera/shared';
 import type { DeleteTransactionTypeMappingInput } from '../validation';
 
 /**

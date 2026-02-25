@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { getMappedStatusRule } from '@oppsera/shared/src/constants/transaction-types';
-import type { TransactionTypeCategory } from '@oppsera/shared/src/constants/transaction-types';
+import { getMappedStatusRule } from '@oppsera/shared';
+import type { TransactionTypeCategory } from '@oppsera/shared';
 
 export interface TransactionTypeMappingRow {
   id: string;

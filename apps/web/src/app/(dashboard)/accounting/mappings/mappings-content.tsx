@@ -36,16 +36,21 @@ import { useRemappableTenders } from '@/hooks/use-gl-remap';
 import { RemapPreviewDialog } from '@/components/accounting/remap-preview-dialog';
 import { CreateTenderTypeDialog } from '@/components/accounting/create-tender-type-dialog';
 import { Select } from '@/components/ui/select';
-import { FNB_CATEGORY_CONFIG, TRANSACTION_TYPE_CATEGORY_LABELS, TRANSACTION_TYPE_CATEGORY_ORDER } from '@oppsera/shared';
-import type { FnbBatchCategoryKey } from '@oppsera/shared';
-import type { TransactionTypeCategory } from '@oppsera/shared';
 import {
+  FNB_CATEGORY_CONFIG,
+  TRANSACTION_TYPE_CATEGORY_LABELS,
+  TRANSACTION_TYPE_CATEGORY_ORDER,
   getSystemTransactionType,
   DEBIT_KIND_ACCOUNT_FILTER,
   CREDIT_KIND_ACCOUNT_FILTER,
   getMappedStatusRule,
-} from '@oppsera/shared/src/constants/transaction-types';
-import type { DebitKind, CreditKind } from '@oppsera/shared/src/constants/transaction-types';
+} from '@oppsera/shared';
+import type {
+  FnbBatchCategoryKey,
+  TransactionTypeCategory,
+  DebitKind,
+  CreditKind,
+} from '@oppsera/shared';
 import type { SubDepartmentMapping, AccountType, TransactionTypeMapping } from '@/types/accounting';
 
 type TabKey = 'departments' | 'payments' | 'taxes' | 'fnb' | 'unmapped';

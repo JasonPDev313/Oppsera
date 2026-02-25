@@ -8,8 +8,8 @@ import { NotFoundError, AppError, generateUlid } from '@oppsera/shared';
 import {
   getSystemTransactionType,
   DEBIT_KIND_VALID_ACCOUNT_TYPES,
-} from '@oppsera/shared/src/constants/transaction-types';
-import type { DebitKind } from '@oppsera/shared/src/constants/transaction-types';
+} from '@oppsera/shared';
+import type { DebitKind } from '@oppsera/shared';
 import type { SaveTransactionTypeMappingInput } from '../validation';
 
 /**
