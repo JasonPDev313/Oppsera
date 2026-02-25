@@ -1,7 +1,6 @@
 'use client';
 
 import { Lock, Clock } from 'lucide-react';
-import { COMING_SOON_WORKFLOWS } from '@oppsera/shared';
 
 export interface WorkflowConfigRowProps {
   moduleKey: string;

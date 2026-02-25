@@ -48,9 +48,7 @@ import type {
   TerminalAssignmentInfo,
   DeviceAssignmentInfo,
   SurchargeSettingsInfo,
-  MerchantAccountSetupData,
   VerifyCredentialRow,
-  VerifyCredentialsResult,
 } from '@/hooks/use-payment-processors';
 import {
   CARDPOINTE_DEVICE_MODELS,
@@ -2881,7 +2879,7 @@ function VerifyCredentialsReport({
   useEffect(() => {
     verify();
     return () => reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, []);
 
   const statusColor = (status: VerifyCredentialRow['status']) => {
