@@ -114,7 +114,7 @@ export default function CapabilityMatrixPage() {
                   </td>
                   {MODULE_KEYS.map((key) => {
                     const mode = row.modules[key] ?? 'off';
-                    const style = MODE_STYLES[mode] ?? MODE_STYLES.off;
+                    const style = (MODE_STYLES[mode] ?? MODE_STYLES.off)!;
                     return (
                       <td key={key} className="text-center px-2 py-2.5">
                         <Link
