@@ -41,6 +41,7 @@ export default function ProvidersTab({
   const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
   const [showAddProvider, setShowAddProvider] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
+  const [testResult, setTestResult] = useState<{ providerId: string; success: boolean; message: string } | null>(null);
 
   const selectedProvider = providers.find((p) => p.id === selectedProviderId) ?? null;
 
@@ -153,7 +154,14 @@ export default function ProvidersTab({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    mutations.testConnection.mutate({ providerId: p.id });
+                    setTestResult(null);
+                    mutations.testConnection.mutate(
+                      { providerId: p.id },
+                      {
+                        onSuccess: (data) => setTestResult({ providerId: p.id, success: data.success, message: data.message }),
+                        onError: (err) => setTestResult({ providerId: p.id, success: false, message: err instanceof Error ? err.message : 'Connection test failed' }),
+                      },
+                    );
                   }}
                   disabled={mutations.testConnection.isPending || !p.hasCredentials}
                   className="rounded border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
@@ -175,6 +183,30 @@ export default function ProvidersTab({
                   {p.isActive ? 'Deactivate' : 'Activate'}
                 </button>
               </div>
+
+              {/* Inline test result */}
+              {testResult && testResult.providerId === p.id && (
+                <div
+                  className={`mt-2 flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium ${
+                    testResult.success
+                      ? 'bg-green-50 text-green-700'
+                      : 'bg-red-50 text-red-700'
+                  }`}
+                >
+                  {testResult.success ? (
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  ) : (
+                    <XCircle className="h-3.5 w-3.5 shrink-0" />
+                  )}
+                  {testResult.message}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setTestResult(null); }}
+                    className="ml-auto shrink-0 text-current opacity-60 hover:opacity-100"
+                  >
+                    &times;
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

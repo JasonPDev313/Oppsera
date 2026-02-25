@@ -6,18 +6,21 @@ vi.mock('@oppsera/db', () => ({
   sql: vi.fn((...args: any[]) => args),
 }));
 
-// Default empty results for the UXOPS-12 new checklist queries (#11-#18)
-const UXOPS12_DEFAULTS = [
-  [{ total: 0, open_count: 0 }],        // #11 drawer sessions
-  [{ total: 0, unposted: 0 }],          // #12 retail close batches
-  [{ total: 0, unposted: 0 }],          // #13 F&B close batches
-  [{ paid_out: 0 }],                     // #14a tip payouts sum
-  [{ count: 0 }],                        // #14b pending tip payouts
-  [{ total: 0, unreconciled: 0 }],       // #15 deposit slips
-  [{ count: 0 }],                        // #16 dead letter events
-  [{ total: 0, unposted: 0 }],          // #17 card settlements
-  [{ cogs_posting_mode: 'disabled' }],   // #18 COGS settings
-];
+// Mock ReconciliationReadApi
+const mockApi = {
+  getDrawerSessionStatus: vi.fn().mockResolvedValue({ total: 0, openCount: 0 }),
+  getRetailCloseStatus: vi.fn().mockResolvedValue({ total: 0, unposted: 0 }),
+  getFnbCloseStatus: vi.fn().mockResolvedValue({ total: 0, unposted: 0 }),
+  getPendingTipCount: vi.fn().mockResolvedValue(0),
+  getDepositStatus: vi.fn().mockResolvedValue({ total: 0, unreconciled: 0 }),
+  getSettlementStatusCounts: vi.fn().mockResolvedValue({ total: 0, unposted: 0 }),
+  getAchPendingCount: vi.fn().mockResolvedValue(0),
+  getAchReturnSummary: vi.fn().mockResolvedValue({ totalReturns: 0, totalReturnedCents: 0 }),
+};
+
+vi.mock('@oppsera/core/helpers/reconciliation-read-api', () => ({
+  getReconciliationReadApi: () => mockApi,
+}));
 
 // Builds a mockTx whose execute() returns different results in sequence
 function buildMockTx(results: any[]) {
@@ -28,36 +31,85 @@ function buildMockTx(results: any[]) {
   return { execute };
 }
 
+// Default local query results (accounting-owned tables)
+// Order: period status, draft count, unmapped count, trial balance, AP settings,
+//        settings (legacy/tips/svc/cogs), discount mapping, [legacy GL queries if enabled],
+//        dead letter count, [COGS if periodic], recurring entries, bank reconciliation
+function defaultLocalResults(overrides: Record<string, any> = {}) {
+  const results: any[] = [
+    // 1. period status
+    overrides.periodStatus ?? [{ status: 'open' }],
+    // 2. draft count
+    overrides.draftCount ?? [{ count: 0 }],
+    // 3. unmapped count
+    overrides.unmappedCount ?? [{ count: 0 }],
+    // 4. trial balance
+    overrides.trialBalance ?? [{ total_debits: '100.00', total_credits: '100.00' }],
+    // 5. AP settings
+    overrides.apSettings ?? [{ default_ap_control_account_id: null }],
+    // 6. settings (legacy, tips, svc, cogs)
+    overrides.settings ?? [{
+      enable_legacy_gl_posting: false,
+      default_tips_payable_account_id: 'acct-tips',
+      default_service_charge_revenue_account_id: 'acct-svc',
+      cogs_posting_mode: 'disabled',
+    }],
+    // 7. discount mapping completeness
+    overrides.discountMapping ?? [{ total_mapped: 3, missing_discount: 0 }],
+  ];
+
+  // Conditional: legacy GL reconciliation (2 queries)
+  if (overrides.legacyGl) {
+    results.push(overrides.legacyGl[0]); // legacy total
+    results.push(overrides.legacyGl[1]); // proper total
+  }
+
+  // Dead letter events
+  results.push(overrides.deadLetters ?? [{ count: 0 }]);
+
+  // Conditional: COGS (if periodic)
+  if (overrides.cogsCounts) {
+    results.push(overrides.cogsCounts);
+  }
+
+  // Recurring entries
+  results.push(overrides.recurring ?? [{ total: 0, overdue: 0 }]);
+  // Bank reconciliation
+  results.push(overrides.bankRec ?? [{ total_bank_accounts: 0, unreconciled: 0 }]);
+
+  return results;
+}
+
 describe('getCloseChecklist', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset API mocks to defaults
+    mockApi.getDrawerSessionStatus.mockResolvedValue({ total: 0, openCount: 0 });
+    mockApi.getRetailCloseStatus.mockResolvedValue({ total: 0, unposted: 0 });
+    mockApi.getFnbCloseStatus.mockResolvedValue({ total: 0, unposted: 0 });
+    mockApi.getPendingTipCount.mockResolvedValue(0);
+    mockApi.getDepositStatus.mockResolvedValue({ total: 0, unreconciled: 0 });
+    mockApi.getSettlementStatusCounts.mockResolvedValue({ total: 0, unposted: 0 });
+    mockApi.getAchPendingCount.mockResolvedValue(0);
+    mockApi.getAchReturnSummary.mockResolvedValue({ totalReturns: 0, totalReturnedCents: 0 });
   });
 
   it('should return legacy GL warning when enableLegacyGlPosting is true', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
-      const mockTx = buildMockTx([
-        // 1. period status
-        [{ status: 'open' }],
-        // 2. draft count
-        [{ count: 0 }],
-        // 3. unmapped count
-        [{ count: 0 }],
-        // 4. trial balance
-        [{ total_debits: '100.00', total_credits: '100.00' }],
-        // 5. AP settings (no AP control account)
-        [{ default_ap_control_account_id: null }],
-        // 6. new settings query (legacy, tips, svc)
-        [{ enable_legacy_gl_posting: true, default_tips_payable_account_id: null, default_service_charge_revenue_account_id: null }],
-        // 7. discount mapping completeness
-        [{ total_mapped: 3, missing_discount: 2 }],
-        // 8. legacy GL total (pos_legacy reconciliation)
-        [{ legacy_total: '1000.00' }],
-        // 9. proper GL total
-        [{ proper_total: '950.00' }],
-        // UXOPS-12 new items
-        ...UXOPS12_DEFAULTS,
-      ]);
+      const mockTx = buildMockTx(defaultLocalResults({
+        settings: [{
+          enable_legacy_gl_posting: true,
+          default_tips_payable_account_id: null,
+          default_service_charge_revenue_account_id: null,
+          cogs_posting_mode: 'disabled',
+        }],
+        discountMapping: [{ total_mapped: 3, missing_discount: 2 }],
+        legacyGl: [
+          [{ legacy_total: '1000.00' }],
+          [{ proper_total: '950.00' }],
+        ],
+      }));
       return fn(mockTx);
     });
 
@@ -72,19 +124,7 @@ describe('getCloseChecklist', () => {
   it('should pass legacy GL check when enableLegacyGlPosting is false', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
-      const mockTx = buildMockTx([
-        [{ status: 'open' }],
-        [{ count: 0 }],
-        [{ count: 0 }],
-        [{ total_debits: '100.00', total_credits: '100.00' }],
-        [{ default_ap_control_account_id: null }],
-        // legacy disabled, tips + svc set
-        [{ enable_legacy_gl_posting: false, default_tips_payable_account_id: 'acct-tips', default_service_charge_revenue_account_id: 'acct-svc' }],
-        [{ total_mapped: 3, missing_discount: 0 }],
-        // No legacy reconciliation query since legacy is disabled
-        // UXOPS-12 new items
-        ...UXOPS12_DEFAULTS,
-      ]);
+      const mockTx = buildMockTx(defaultLocalResults());
       return fn(mockTx);
     });
 
@@ -102,16 +142,16 @@ describe('getCloseChecklist', () => {
   it('should warn when tips payable account is not configured', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
-      const mockTx = buildMockTx([
-        [{ status: 'open' }],
-        [{ count: 0 }],
-        [{ count: 0 }],
-        [{ total_debits: '0', total_credits: '0' }],
-        [{ default_ap_control_account_id: null }],
-        [{ enable_legacy_gl_posting: false, default_tips_payable_account_id: null, default_service_charge_revenue_account_id: 'acct-svc' }],
-        [{ total_mapped: 0, missing_discount: 0 }],
-        ...UXOPS12_DEFAULTS,
-      ]);
+      const mockTx = buildMockTx(defaultLocalResults({
+        trialBalance: [{ total_debits: '0', total_credits: '0' }],
+        settings: [{
+          enable_legacy_gl_posting: false,
+          default_tips_payable_account_id: null,
+          default_service_charge_revenue_account_id: 'acct-svc',
+          cogs_posting_mode: 'disabled',
+        }],
+        discountMapping: [{ total_mapped: 0, missing_discount: 0 }],
+      }));
       return fn(mockTx);
     });
 
@@ -126,16 +166,10 @@ describe('getCloseChecklist', () => {
   it('should pass when tips payable account is configured', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
-      const mockTx = buildMockTx([
-        [{ status: 'open' }],
-        [{ count: 0 }],
-        [{ count: 0 }],
-        [{ total_debits: '0', total_credits: '0' }],
-        [{ default_ap_control_account_id: null }],
-        [{ enable_legacy_gl_posting: false, default_tips_payable_account_id: 'acct-tips', default_service_charge_revenue_account_id: 'acct-svc' }],
-        [{ total_mapped: 0, missing_discount: 0 }],
-        ...UXOPS12_DEFAULTS,
-      ]);
+      const mockTx = buildMockTx(defaultLocalResults({
+        trialBalance: [{ total_debits: '0', total_credits: '0' }],
+        discountMapping: [{ total_mapped: 0, missing_discount: 0 }],
+      }));
       return fn(mockTx);
     });
 
@@ -148,16 +182,16 @@ describe('getCloseChecklist', () => {
   it('should warn when service charge revenue account is not configured', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
-      const mockTx = buildMockTx([
-        [{ status: 'open' }],
-        [{ count: 0 }],
-        [{ count: 0 }],
-        [{ total_debits: '0', total_credits: '0' }],
-        [{ default_ap_control_account_id: null }],
-        [{ enable_legacy_gl_posting: false, default_tips_payable_account_id: 'acct-tips', default_service_charge_revenue_account_id: null }],
-        [{ total_mapped: 0, missing_discount: 0 }],
-        ...UXOPS12_DEFAULTS,
-      ]);
+      const mockTx = buildMockTx(defaultLocalResults({
+        trialBalance: [{ total_debits: '0', total_credits: '0' }],
+        settings: [{
+          enable_legacy_gl_posting: false,
+          default_tips_payable_account_id: 'acct-tips',
+          default_service_charge_revenue_account_id: null,
+          cogs_posting_mode: 'disabled',
+        }],
+        discountMapping: [{ total_mapped: 0, missing_discount: 0 }],
+      }));
       return fn(mockTx);
     });
 
@@ -172,16 +206,10 @@ describe('getCloseChecklist', () => {
   it('should warn when sub-departments are missing discount account mappings', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
-      const mockTx = buildMockTx([
-        [{ status: 'open' }],
-        [{ count: 0 }],
-        [{ count: 0 }],
-        [{ total_debits: '0', total_credits: '0' }],
-        [{ default_ap_control_account_id: null }],
-        [{ enable_legacy_gl_posting: false, default_tips_payable_account_id: 'acct-tips', default_service_charge_revenue_account_id: 'acct-svc' }],
-        [{ total_mapped: 5, missing_discount: 3 }],
-        ...UXOPS12_DEFAULTS,
-      ]);
+      const mockTx = buildMockTx(defaultLocalResults({
+        trialBalance: [{ total_debits: '0', total_credits: '0' }],
+        discountMapping: [{ total_mapped: 5, missing_discount: 3 }],
+      }));
       return fn(mockTx);
     });
 
@@ -196,16 +224,10 @@ describe('getCloseChecklist', () => {
   it('should pass discount check when all sub-departments have discount mappings', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
-      const mockTx = buildMockTx([
-        [{ status: 'open' }],
-        [{ count: 0 }],
-        [{ count: 0 }],
-        [{ total_debits: '0', total_credits: '0' }],
-        [{ default_ap_control_account_id: null }],
-        [{ enable_legacy_gl_posting: false, default_tips_payable_account_id: 'acct-tips', default_service_charge_revenue_account_id: 'acct-svc' }],
-        [{ total_mapped: 5, missing_discount: 0 }],
-        ...UXOPS12_DEFAULTS,
-      ]);
+      const mockTx = buildMockTx(defaultLocalResults({
+        trialBalance: [{ total_debits: '0', total_credits: '0' }],
+        discountMapping: [{ total_mapped: 5, missing_discount: 0 }],
+      }));
       return fn(mockTx);
     });
 
@@ -219,20 +241,20 @@ describe('getCloseChecklist', () => {
   it('should show POS legacy reconciliation with difference when totals mismatch', async () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
-      const mockTx = buildMockTx([
-        [{ status: 'open' }],
-        [{ count: 0 }],
-        [{ count: 0 }],
-        [{ total_debits: '0', total_credits: '0' }],
-        [{ default_ap_control_account_id: null }],
-        [{ enable_legacy_gl_posting: true, default_tips_payable_account_id: 'acct-tips', default_service_charge_revenue_account_id: 'acct-svc' }],
-        [{ total_mapped: 2, missing_discount: 0 }],
-        // Legacy vs proper GL totals differ
-        [{ legacy_total: '1500.00' }],
-        [{ proper_total: '1200.00' }],
-        // UXOPS-12 new items
-        ...UXOPS12_DEFAULTS,
-      ]);
+      const mockTx = buildMockTx(defaultLocalResults({
+        trialBalance: [{ total_debits: '0', total_credits: '0' }],
+        settings: [{
+          enable_legacy_gl_posting: true,
+          default_tips_payable_account_id: 'acct-tips',
+          default_service_charge_revenue_account_id: 'acct-svc',
+          cogs_posting_mode: 'disabled',
+        }],
+        discountMapping: [{ total_mapped: 2, missing_discount: 0 }],
+        legacyGl: [
+          [{ legacy_total: '1500.00' }],
+          [{ proper_total: '1200.00' }],
+        ],
+      }));
       return fn(mockTx);
     });
 

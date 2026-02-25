@@ -13,6 +13,11 @@ import {
   ImagePlus,
   X,
   CircleAlert,
+  Users,
+  Shield,
+  Blocks,
+  ScrollText,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useBusinessInfo, useUpdateBusinessInfo, useContentBlocks, useUpdateContentBlock } from '@/hooks/use-business-info';
 import { usePermissions } from '@/hooks/use-permissions';
@@ -20,6 +25,8 @@ import { TagInput } from '@/components/settings/general/tag-input';
 import { BusinessHoursEditor } from '@/components/settings/general/business-hours-editor';
 import { SocialLinksEditor } from '@/components/settings/general/social-links-editor';
 import { RichTextEditor } from '@/components/settings/general/rich-text-editor';
+import { UserManagementTab } from '../user-management-tab';
+import { RolesTab, ModulesTab, DashboardSettingsTab, AuditLogTab } from '../settings-content';
 import type {
   UpdateBusinessInfoInput,
   ContentBlockKey,
@@ -163,9 +170,74 @@ function Field({
 const INPUT = 'w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60';
 const SELECT = 'w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60';
 
-// ── Main Page ────────────────────────────────────────────────────
+// ── Main Page (Tabbed) ────────────────────────────────────────────
+
+type GeneralTab = 'business-info' | 'users' | 'roles' | 'modules' | 'dashboard' | 'audit';
 
 export default function GeneralInfoContent() {
+  const [activeTab, setActiveTab] = useState<GeneralTab>('business-info');
+  const { can } = usePermissions();
+
+  const allTabs: { id: GeneralTab; label: string; icon: typeof Building2; requiredPermission: string }[] = [
+    { id: 'business-info', label: 'Business Info', icon: Building2, requiredPermission: 'settings.view' },
+    { id: 'users', label: 'Users', icon: Users, requiredPermission: 'users.view' },
+    { id: 'roles', label: 'Roles', icon: Shield, requiredPermission: 'users.manage' },
+    { id: 'modules', label: 'Modules', icon: Blocks, requiredPermission: 'modules.manage' },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard.configure' },
+    { id: 'audit', label: 'Audit Log', icon: ScrollText, requiredPermission: 'audit.view' },
+  ];
+
+  const tabs = allTabs.filter((tab) => can(tab.requiredPermission));
+
+  // Auto-select first visible tab if current tab is hidden
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.some((t) => t.id === activeTab)) {
+      setActiveTab(tabs[0]!.id);
+    }
+  }, [tabs.length]);
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-gray-900">General Settings</h1>
+      <p className="mt-1 text-sm text-gray-500">Manage your business info, team, permissions, and modules</p>
+
+      {/* Tab navigation */}
+      <div className="mt-6 border-b border-gray-200">
+        <nav className="-mb-px flex gap-6 overflow-x-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab content */}
+      <div className="mt-6">
+        {activeTab === 'business-info' && <BusinessInfoTab />}
+        {activeTab === 'users' && <UserManagementTab canManage={can('users.manage')} />}
+        {activeTab === 'roles' && <RolesTab canManage={can('users.manage')} />}
+        {activeTab === 'modules' && <ModulesTab />}
+        {activeTab === 'dashboard' && <DashboardSettingsTab />}
+        {activeTab === 'audit' && <AuditLogTab />}
+      </div>
+    </div>
+  );
+}
+
+// ── Business Info Tab ────────────────────────────────────────────
+
+function BusinessInfoTab() {
   const { data: info, isLoading: loadingInfo } = useBusinessInfo();
   const { data: blocks, isLoading: loadingBlocks } = useContentBlocks();
   const updateInfo = useUpdateBusinessInfo();
@@ -345,12 +417,6 @@ export default function GeneralInfoContent() {
 
   return (
     <div className="mx-auto max-w-[720px] space-y-6 pb-24">
-      {/* Header */}
-      <div>
-        <h1 className="text-lg font-semibold text-gray-900">General Business Info</h1>
-        <p className="text-sm text-gray-500">Manage your business identity, operations, and public profile</p>
-      </div>
-
       {/* Completeness bar */}
       <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
         <div className="mb-2 flex items-center justify-between">

@@ -27,8 +27,8 @@ import { formatReportMoney, buildExportUrl } from '../hooks/use-reports';
 // ═══════════════════════════════════════════════════════════════
 
 describe('formatReportMoney', () => {
-  it('formats cents to dollars correctly', () => {
-    expect(formatReportMoney(12345)).toBe('$123.45');
+  it('formats dollars correctly', () => {
+    expect(formatReportMoney(123.45)).toBe('$123.45');
   });
 
   it('handles zero', () => {
@@ -36,16 +36,16 @@ describe('formatReportMoney', () => {
   });
 
   it('handles negative values', () => {
-    expect(formatReportMoney(-5000)).toBe('-$50.00');
+    expect(formatReportMoney(-50)).toBe('-$50.00');
   });
 
   it('handles large values', () => {
-    const result = formatReportMoney(1234567);
+    const result = formatReportMoney(12345.67);
     expect(result).toBe('$12,345.67');
   });
 
   it('handles single cent', () => {
-    expect(formatReportMoney(1)).toBe('$0.01');
+    expect(formatReportMoney(0.01)).toBe('$0.01');
   });
 });
 

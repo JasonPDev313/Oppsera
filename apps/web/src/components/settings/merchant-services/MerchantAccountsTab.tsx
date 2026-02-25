@@ -19,6 +19,12 @@ import {
   ShieldCheck,
   Info,
   X,
+  FlaskConical,
+  ChevronDown,
+  ChevronUp,
+  CreditCard,
+  Landmark,
+  Copy,
 } from 'lucide-react';
 import {
   usePaymentProviders,
@@ -32,6 +38,31 @@ import type {
   VerifyCredentialRow,
 } from '@/hooks/use-payment-processors';
 import { DialogOverlay, ToggleRow } from './_shared';
+
+// ── CardPointe Sandbox / UAT Test Data ──────────────────────
+const SANDBOX_DEFAULTS = {
+  site: 'fts-uat',
+  merchantId: '496160873888',
+  displayName: 'Sandbox Test Account',
+} as const;
+
+const SANDBOX_TEST_CARDS = [
+  { brand: 'Visa', number: '4111 1111 1111 1111', use: 'Standard approval' },
+  { brand: 'Visa', number: '4444 3333 2222 1111', use: 'Standard approval (alt)' },
+  { brand: 'Visa', number: '4387 7501 0101 0101', use: 'Partial authorization ($6+)' },
+  { brand: 'Visa', number: '4999 0062 0062 0062', use: 'Timeout (respcode 62)' },
+  { brand: 'Visa', number: '4000 0654 3342 1984', use: 'Amount-driven response codes' },
+  { brand: 'Mastercard', number: '5111 1111 1111 1111', use: 'Standard approval' },
+  { brand: 'Mastercard', number: '5111 0062 0062 0062', use: 'Timeout (respcode 62)' },
+  { brand: 'Amex', number: '3411 115992 42008', use: 'Association response codes' },
+  { brand: 'Discover', number: '6011 0009 9550 0000', use: 'Standard approval' },
+  { brand: 'Discover', number: '6465 0062 0062 0062', use: 'Timeout (respcode 62)' },
+] as const;
+
+const SANDBOX_ACH_DATA = {
+  routingNumbers: ['036001808', '011401533'],
+  note: 'Any account number accepted in UAT. Format: routing/account (e.g. 036001808/1234567890)',
+} as const;
 
 export default function MerchantAccountsTab() {
   const { providers } = usePaymentProviders();
@@ -244,6 +275,18 @@ function AddMidDialog({
     <DialogOverlay onClose={onClose}>
       <h3 className="text-lg font-semibold text-gray-900">Add Merchant Account</h3>
       <div className="mt-4 space-y-3">
+        {/* Sandbox quick-fill */}
+        <button
+          type="button"
+          onClick={() => {
+            setMerchantId(SANDBOX_DEFAULTS.merchantId);
+            setDisplayName(SANDBOX_DEFAULTS.displayName);
+          }}
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+        >
+          <FlaskConical className="h-4 w-4" />
+          Use Sandbox UAT Test MID
+        </button>
         <div>
           <label className="block text-sm font-medium text-gray-700">Merchant ID (MID)</label>
           <input
@@ -369,6 +412,7 @@ function MerchantAccountSetupPanel({
 
   const [showPasswords, setShowPasswords] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showTestData, setShowTestData] = useState(false);
 
   useEffect(() => {
     if (!setup) return;
@@ -471,6 +515,47 @@ function MerchantAccountSetupPanel({
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Sandbox UAT Auto-Fill */}
+      <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FlaskConical className="h-5 w-5 text-amber-600" />
+            <div>
+              <p className="text-sm font-medium text-amber-900">Sandbox / UAT Testing</p>
+              <p className="text-xs text-amber-700">
+                Auto-fill with CardPointe sandbox test values for development and testing.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowTestData(!showTestData)}
+              className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-200"
+            >
+              <CreditCard className="h-3.5 w-3.5" />
+              Test Data
+              {showTestData ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setCredSite(SANDBOX_DEFAULTS.site);
+                setDisplayName(SANDBOX_DEFAULTS.displayName);
+                setIsProduction(false);
+                setShowPasswords(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700"
+            >
+              <FlaskConical className="h-3.5 w-3.5" />
+              Use Sandbox UAT Credentials
+            </button>
+          </div>
+        </div>
+
+        {showTestData && <SandboxTestDataPanel />}
       </div>
 
       {/* Credentials Section */}
@@ -610,6 +695,131 @@ function MerchantAccountSetupPanel({
       {showVerify && (
         <VerifyCredentialsReport providerId={providerId} onClose={() => setShowVerify(false)} />
       )}
+    </div>
+  );
+}
+
+// ── Sandbox Test Data Panel ──────────────────────────────────
+function SandboxTestDataPanel() {
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text.replace(/\s/g, ''));
+  };
+
+  return (
+    <div className="mt-4 space-y-4 border-t border-amber-200 pt-4">
+      {/* Test MID */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Sandbox Merchant ID</p>
+        <div className="mt-1 flex items-center gap-2">
+          <code className="rounded bg-amber-100 px-2 py-1 text-sm font-mono text-amber-900">{SANDBOX_DEFAULTS.merchantId}</code>
+          <button
+            type="button"
+            onClick={() => copyToClipboard(SANDBOX_DEFAULTS.merchantId)}
+            className="rounded p-1 text-amber-600 hover:bg-amber-200"
+            title="Copy MID"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </button>
+          <span className="text-xs text-amber-600">Use this MID when adding a new merchant account for testing.</span>
+        </div>
+      </div>
+
+      {/* Test Cards */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+          <CreditCard className="mr-1 inline h-3.5 w-3.5" />
+          Test Card Numbers
+        </p>
+        <p className="mt-0.5 text-xs text-amber-600">CVV: any 3-4 digits &middot; Expiry: any future date (e.g. 1228)</p>
+        <div className="mt-2 overflow-hidden rounded-md border border-amber-200">
+          <table className="min-w-full text-xs">
+            <thead className="bg-amber-100/70">
+              <tr>
+                <th className="px-3 py-1.5 text-left font-medium text-amber-800">Brand</th>
+                <th className="px-3 py-1.5 text-left font-medium text-amber-800">Card Number</th>
+                <th className="px-3 py-1.5 text-left font-medium text-amber-800">Use Case</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-amber-100">
+              {SANDBOX_TEST_CARDS.map((card) => (
+                <tr key={card.number} className="hover:bg-amber-50">
+                  <td className="px-3 py-1.5 font-medium text-amber-900">{card.brand}</td>
+                  <td className="px-3 py-1.5 font-mono text-amber-900">{card.number}</td>
+                  <td className="px-3 py-1.5 text-amber-700">{card.use}</td>
+                  <td className="px-1.5 py-1.5">
+                    <button
+                      type="button"
+                      onClick={() => copyToClipboard(card.number)}
+                      className="rounded p-1 text-amber-500 hover:bg-amber-200 hover:text-amber-700"
+                      title="Copy card number"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Amount-Driven Response Codes */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Amount-Driven Response Codes</p>
+        <p className="mt-0.5 text-xs text-amber-700">
+          Use card <code className="rounded bg-amber-100 px-1 font-mono">4000065433421984</code> with amounts in the
+          <strong> $1,000-$1,999</strong> range. The last 3 digits of the dollar amount = the response code.
+        </p>
+        <p className="mt-1 text-xs text-amber-600">
+          Example: <code className="font-mono">$1332.00</code> → respcode 332 (&ldquo;Account locked&rdquo;) &middot;
+          <code className="font-mono"> $1695.00</code> → respcode 695
+        </p>
+      </div>
+
+      {/* ACH Test Data */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+          <Landmark className="mr-1 inline h-3.5 w-3.5" />
+          ACH Test Data
+        </p>
+        <div className="mt-1 space-y-1">
+          {SANDBOX_ACH_DATA.routingNumbers.map((rn) => (
+            <div key={rn} className="flex items-center gap-2">
+              <span className="text-xs text-amber-700">Routing:</span>
+              <code className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-mono text-amber-900">{rn}</code>
+              <button
+                type="button"
+                onClick={() => copyToClipboard(rn)}
+                className="rounded p-0.5 text-amber-500 hover:bg-amber-200"
+                title="Copy routing number"
+              >
+                <Copy className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+          <p className="text-xs text-amber-600">{SANDBOX_ACH_DATA.note}</p>
+        </div>
+      </div>
+
+      {/* AVS Testing */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">AVS Test Zip Codes</p>
+        <p className="mt-0.5 text-xs text-amber-700">
+          The last 3 digits of the postal code control the AVS response (e.g. zip <code className="font-mono">55112</code>).
+          You can also include a 3-digit code in the address field (e.g. <code className="font-mono">&ldquo;112 Main Street&rdquo;</code>).
+        </p>
+      </div>
+
+      {/* Rate Limits */}
+      <div className="rounded-md border border-amber-200 bg-amber-100/50 p-2.5">
+        <p className="text-xs text-amber-800">
+          <strong>UAT Rate Limit:</strong> 20 TPM per IP for <code className="font-mono">funding</code>,{' '}
+          <code className="font-mono">inquire</code>, <code className="font-mono">profile</code>,{' '}
+          <code className="font-mono">settlestat</code> endpoints.
+          Contact <strong>integrationdelivery@fiserv.com</strong> for your UAT API credentials if you haven&apos;t received them yet.
+        </p>
+      </div>
     </div>
   );
 }

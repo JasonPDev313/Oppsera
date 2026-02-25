@@ -3,20 +3,19 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { useProfitCenters, useProfitCenterMutations } from '@/hooks/use-profit-centers';
-import { useTerminals, useTerminalsByLocation } from '@/hooks/use-terminals';
+import {
+  useProfitCenterSettings,
+  useVenuesBySite,
+  filterProfitCenters,
+  filterTerminalsByLocation,
+  filterTerminalsByPC,
+} from '@/hooks/use-profit-center-settings';
+import { useProfitCenterMutations } from '@/hooks/use-profit-centers';
 import { LocationsPane } from '@/components/settings/LocationsPane';
 import { ProfitCenterPane } from '@/components/settings/ProfitCenterPane';
 import { TerminalPane } from '@/components/settings/TerminalPane';
 import { ProfitCenterFormModal } from '@/components/settings/ProfitCenterFormModal';
 import { TerminalFormModal } from '@/components/settings/TerminalFormModal';
-
-interface LocationWithHierarchy {
-  id: string;
-  name: string;
-  locationType?: 'site' | 'venue';
-  parentLocationId?: string | null;
-}
 
 type Mode = 'simple' | 'advanced';
 
@@ -39,8 +38,14 @@ function usePersistentMode(): [Mode, (m: Mode) => void] {
 export default function ProfitCentersContent() {
   const [mode, setMode] = usePersistentMode();
 
-  // Location state
-  const [allLocations, setAllLocations] = useState<LocationWithHierarchy[]>([]);
+  // Single API call fetches everything
+  const { data: settingsData, isLoading, error: locationsError, refetch } = useProfitCenterSettings();
+
+  const allLocations = settingsData?.locations ?? [];
+  const allProfitCenters = settingsData?.profitCenters ?? undefined;
+  const allTerminals = settingsData?.terminals ?? undefined;
+
+  // Selection state
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [selectedProfitCenterId, setSelectedProfitCenterId] = useState<string | null>(null);
@@ -56,37 +61,8 @@ export default function ProfitCentersContent() {
     profitCenterId: string | null;
   }>({ open: false, editId: null, profitCenterId: null });
 
-  const [locationsError, setLocationsError] = useState<string | null>(null);
-
-  // Fetch locations once
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await apiFetch<{ data: LocationWithHierarchy[] }>(
-          '/api/v1/terminal-session/locations',
-        );
-        setAllLocations(res.data);
-        setLocationsError(null);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error('[ProfitCenters] Failed to load locations:', msg);
-        setLocationsError(msg);
-      }
-    })();
-  }, []);
-
   // Derived state
-  const venuesBySite = useMemo(() => {
-    const map = new Map<string, LocationWithHierarchy[]>();
-    for (const loc of allLocations) {
-      if (loc.locationType === 'venue' && loc.parentLocationId) {
-        const list = map.get(loc.parentLocationId) ?? [];
-        list.push(loc);
-        map.set(loc.parentLocationId, list);
-      }
-    }
-    return map;
-  }, [allLocations]);
+  const venuesBySite = useVenuesBySite(allLocations);
 
   const selectedSiteHasVenues = selectedSiteId
     ? (venuesBySite.get(selectedSiteId)?.length ?? 0) > 0
@@ -97,6 +73,19 @@ export default function ProfitCentersContent() {
 
   const showSiteLevelWarning =
     !!selectedSiteId && !selectedVenueId && selectedSiteHasVenues;
+
+  // Client-side filtering (instant, no API calls)
+  const profitCenters = useMemo(
+    () => filterProfitCenters(allProfitCenters, effectiveLocationId),
+    [allProfitCenters, effectiveLocationId],
+  );
+
+  const terminals = useMemo(() => {
+    if (mode === 'simple') {
+      return filterTerminalsByLocation(allTerminals, allProfitCenters, effectiveLocationId);
+    }
+    return filterTerminalsByPC(allTerminals, selectedProfitCenterId);
+  }, [mode, allTerminals, allProfitCenters, effectiveLocationId, selectedProfitCenterId]);
 
   // Selection cascade
   const handleSelectSite = useCallback((siteId: string) => {
@@ -115,39 +104,12 @@ export default function ProfitCentersContent() {
     [allLocations],
   );
 
-  // Data hooks
-  const {
-    data: profitCenters,
-    isLoading: pcLoading,
-    refetch: refetchPCs,
-  } = useProfitCenters({ locationId: effectiveLocationId ?? undefined });
-
-  // Advanced mode: terminals for selected PC
-  const {
-    data: pcTerminals,
-    isLoading: pcTermLoading,
-    refetch: refetchPCTerminals,
-  } = useTerminals(mode === 'advanced' ? (selectedProfitCenterId ?? '') : '');
-
-  // Simple mode: terminals for selected location
-  const {
-    data: locTerminals,
-    isLoading: locTermLoading,
-    refetch: refetchLocTerminals,
-  } = useTerminalsByLocation(
-    mode === 'simple' ? (effectiveLocationId ?? undefined) : undefined,
-  );
-
-  const { deactivate: deactivatePC } = useProfitCenterMutations();
-
-  // Which terminal data to show
-  const terminals = mode === 'simple' ? locTerminals : pcTerminals;
-  const terminalsLoading = mode === 'simple' ? locTermLoading : pcTermLoading;
-
   // Reset profit center selection when mode switches
   useEffect(() => {
     setSelectedProfitCenterId(null);
   }, [mode]);
+
+  const { deactivate: deactivatePC } = useProfitCenterMutations();
 
   // Handlers — Profit Centers
   const handleAddPC = useCallback(() => {
@@ -163,12 +125,12 @@ export default function ProfitCentersContent() {
       try {
         await deactivatePC(id);
         if (selectedProfitCenterId === id) setSelectedProfitCenterId(null);
-        refetchPCs();
+        refetch();
       } catch {
         // silently fail — future: toast
       }
     },
-    [deactivatePC, refetchPCs, selectedProfitCenterId],
+    [deactivatePC, refetch, selectedProfitCenterId],
   );
 
   // Handlers — Terminals
@@ -211,27 +173,23 @@ export default function ProfitCentersContent() {
     async (id: string) => {
       try {
         await apiFetch(`/api/v1/terminals/${id}`, { method: 'DELETE' });
-        if (mode === 'simple') refetchLocTerminals();
-        else refetchPCTerminals();
-        refetchPCs();
+        refetch();
       } catch {
         // silently fail — future: toast
       }
     },
-    [mode, refetchLocTerminals, refetchPCTerminals, refetchPCs],
+    [refetch],
   );
 
   const handleTerminalSaved = useCallback(() => {
     setTermModal({ open: false, editId: null, profitCenterId: null });
-    if (mode === 'simple') refetchLocTerminals();
-    else refetchPCTerminals();
-    refetchPCs();
-  }, [mode, refetchLocTerminals, refetchPCTerminals, refetchPCs]);
+    refetch();
+  }, [refetch]);
 
   const handlePCSaved = useCallback(() => {
     setPcModal({ open: false, editId: null });
-    refetchPCs();
-  }, [refetchPCs]);
+    refetch();
+  }, [refetch]);
 
   // Terminal pane state
   const terminalDisabled =
@@ -305,7 +263,7 @@ export default function ProfitCentersContent() {
         {mode === 'advanced' && (
           <ProfitCenterPane
             profitCenters={profitCenters}
-            isLoading={pcLoading}
+            isLoading={isLoading}
             selectedId={selectedProfitCenterId}
             onSelect={setSelectedProfitCenterId}
             onAdd={handleAddPC}
@@ -317,7 +275,7 @@ export default function ProfitCentersContent() {
 
         <TerminalPane
           terminals={terminals}
-          isLoading={terminalsLoading}
+          isLoading={isLoading}
           onAdd={handleAddTerminal}
           onEdit={handleEditTerminal}
           onDeactivate={handleDeactivateTerminal}

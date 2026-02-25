@@ -34,7 +34,7 @@ const { mockInsert, mockPublishWithOutbox, mockAuditLog, mockBuildEvent } = vi.h
   });
 
   const mockPublishWithOutbox = vi.fn(async (_ctx: unknown, fn: (tx: unknown) => Promise<unknown>) => {
-    const tx = { insert: mockInsert, select: mockSelect, update: mockUpdate };
+    const tx = { insert: mockInsert, select: mockSelect, update: mockUpdate, execute: vi.fn().mockResolvedValue(undefined) };
     const outcome = await fn(tx);
     // Real publishWithOutbox returns result.result (unwrapped)
     return (outcome as any).result;
@@ -68,10 +68,11 @@ vi.mock('@oppsera/db', () => ({
   customerActivityLog: { id: 'id' },
 }));
 
-// drizzle-orm `eq` and `and` — the tx is fully mocked so these just need to exist
+// drizzle-orm `eq`, `and`, and `sql` — the tx is fully mocked so these just need to exist
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((...args: unknown[]) => args),
   and: vi.fn((...args: unknown[]) => args),
+  sql: { raw: vi.fn((s: string) => s) },
 }));
 
 // Mock display name helper

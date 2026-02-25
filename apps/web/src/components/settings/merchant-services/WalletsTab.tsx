@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Smartphone, Info, Loader2 } from 'lucide-react';
 import {
   usePaymentProviders,
+  useMerchantAccounts,
   usePaymentProcessorMutations,
 } from '@/hooks/use-payment-processors';
 
@@ -14,6 +15,9 @@ export default function WalletsTab() {
   const [selectedProviderId, setSelectedProviderId] = useState(activeProviders[0]?.id ?? '');
   const selectedProvider = activeProviders.find((p) => p.id === selectedProviderId) ?? null;
 
+  const { accounts } = useMerchantAccounts(selectedProviderId || null);
+  const defaultMid = (accounts.find((a) => a.isDefault) ?? accounts[0])?.merchantId ?? '';
+
   const existingConfig = selectedProvider?.config ?? {};
   const [enableApplePay, setEnableApplePay] = useState(!!existingConfig.enableApplePay);
   const [enableGooglePay, setEnableGooglePay] = useState(!!existingConfig.enableGooglePay);
@@ -23,6 +27,13 @@ export default function WalletsTab() {
   const [googlePayGatewayId, setGooglePayGatewayId] = useState(
     (existingConfig.googlePayGatewayId as string) ?? '',
   );
+
+  // Auto-fill Gateway Merchant ID from the provider's default merchant account
+  useEffect(() => {
+    if (enableGooglePay && !googlePayGatewayId && defaultMid) {
+      setGooglePayGatewayId(defaultMid);
+    }
+  }, [enableGooglePay, googlePayGatewayId, defaultMid]);
 
   const handleProviderChange = useCallback((providerId: string) => {
     setSelectedProviderId(providerId);
@@ -199,8 +210,8 @@ export default function WalletsTab() {
                 placeholder="Your CardPointe merchant ID"
               />
               <p className="mt-1 text-xs text-gray-500">
-                The merchant ID passed to the CardConnect gateway for Google Pay transactions.
-                This is typically your CardPointe MID.
+                Your CardPointe MID passed to the CardConnect gateway for Google Pay transactions.
+                {defaultMid ? ' Auto-filled from your default merchant account.' : ''}
               </p>
             </div>
           </div>

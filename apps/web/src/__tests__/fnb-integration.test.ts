@@ -187,6 +187,7 @@ describe('Flow 1: Dine-In Lifecycle', () => {
     expect(mockGetFloorPlanWithLiveStatus).toHaveBeenCalledWith({
       tenantId: 'tenant_001',
       roomId: 'room_01',
+      lite: false,
     });
   });
 

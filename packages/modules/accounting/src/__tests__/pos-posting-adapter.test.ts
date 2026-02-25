@@ -75,6 +75,7 @@ const defaultSettings = {
   enableUndepositedFundsWorkflow: false,
   defaultTipsPayableAccountId: null,
   defaultServiceChargeRevenueAccountId: null,
+  defaultUncategorizedRevenueAccountId: 'acct-uncat',
 };
 
 const defaultSubDeptMapping = {
@@ -303,12 +304,21 @@ describe('handleTenderForAccounting', () => {
 
     await handleTenderForAccounting(createEvent({ lines: undefined }));
 
+    // Unmapped event still logged for missing line detail
     expect(mocks.logUnmappedEvent).toHaveBeenCalledWith(
       expect.anything(),
       'tenant-1',
       expect.objectContaining({ reason: expect.stringContaining('no_line_detail') }),
     );
-    expect(mocks.postEntry).not.toHaveBeenCalled();
+    // With fallback uncategorized revenue account, GL still posts (debit + fallback credit)
+    expect(mocks.postEntry).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        lines: expect.arrayContaining([
+          expect.objectContaining({ memo: 'Revenue - no line detail (fallback: uncategorized)' }),
+        ]),
+      }),
+    );
   });
 
   it('should never throw (POS adapter must not block tenders)', async () => {

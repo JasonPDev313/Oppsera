@@ -108,7 +108,9 @@ vi.mock('@oppsera/db', () => ({
     select: mockDbSelect,
     update: mockDbUpdate,
   },
-  withTenant: vi.fn((_id: string, fn: (tx: any) => any) => fn({})),
+  withTenant: vi.fn((_id: string, fn: (tx: any) => any) => fn({
+    execute: vi.fn().mockResolvedValue([{ count: 0 }]),
+  })),
   tenants: {
     id: 'id',
     businessTier: 'businessTier',

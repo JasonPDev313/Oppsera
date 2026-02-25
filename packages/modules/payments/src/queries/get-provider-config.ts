@@ -4,6 +4,7 @@ import {
   paymentProviderCredentials,
   paymentMerchantAccounts,
   terminalMerchantAssignments,
+  terminals,
 } from '@oppsera/db';
 import { eq, and, desc, sql, count } from 'drizzle-orm';
 
@@ -62,6 +63,7 @@ export interface MerchantAccountInfo {
 export interface TerminalAssignmentInfo {
   id: string;
   terminalId: string;
+  terminalName: string | null;
   merchantAccountId: string;
   merchantId: string;
   merchantDisplayName: string;
@@ -235,6 +237,7 @@ export async function listTerminalAssignments(tenantId: string): Promise<Termina
       .select({
         id: terminalMerchantAssignments.id,
         terminalId: terminalMerchantAssignments.terminalId,
+        terminalName: terminals.title,
         merchantAccountId: terminalMerchantAssignments.merchantAccountId,
         isActive: terminalMerchantAssignments.isActive,
         merchantId: paymentMerchantAccounts.merchantId,
@@ -245,11 +248,16 @@ export async function listTerminalAssignments(tenantId: string): Promise<Termina
         paymentMerchantAccounts,
         eq(terminalMerchantAssignments.merchantAccountId, paymentMerchantAccounts.id),
       )
+      .leftJoin(
+        terminals,
+        eq(terminalMerchantAssignments.terminalId, terminals.id),
+      )
       .where(eq(terminalMerchantAssignments.tenantId, tenantId));
 
     return rows.map((r) => ({
       id: r.id,
       terminalId: r.terminalId,
+      terminalName: r.terminalName ?? null,
       merchantAccountId: r.merchantAccountId,
       merchantId: r.merchantId,
       merchantDisplayName: r.merchantDisplayName,

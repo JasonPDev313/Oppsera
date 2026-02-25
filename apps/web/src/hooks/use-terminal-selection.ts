@@ -11,13 +11,26 @@ interface LocationItem {
   parentLocationId: string | null;
 }
 
-interface SelectionItem {
+interface PCItem {
   id: string;
   name: string;
-  code?: string | null;
-  icon?: string | null;
-  terminalNumber?: number | null;
-  deviceIdentifier?: string | null;
+  locationId: string;
+  code: string | null;
+  icon: string | null;
+}
+
+interface TermItem {
+  id: string;
+  name: string;
+  profitCenterId: string;
+  terminalNumber: number | null;
+  deviceIdentifier: string | null;
+}
+
+interface AllData {
+  locations: LocationItem[];
+  profitCenters: PCItem[];
+  terminals: TermItem[];
 }
 
 interface UseTerminalSelectionOptions {
@@ -29,78 +42,34 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
   const roleId = options?.roleId ?? null;
   const roleName = options?.roleName ?? null;
 
-  const [allLocations, setAllLocations] = useState<LocationItem[]>([]);
-  const [profitCenters, setProfitCenters] = useState<SelectionItem[]>([]);
-  const [terminals, setTerminals] = useState<SelectionItem[]>([]);
+  const [allData, setAllData] = useState<AllData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [selectedProfitCenterId, setSelectedProfitCenterId] = useState<string | null>(null);
   const [selectedTerminalId, setSelectedTerminalId] = useState<string | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [noProfitCentersExist, setNoProfitCentersExist] = useState(false);
-
-  // Derived lists
-  const sites = useMemo(
-    () => allLocations.filter((l) => l.locationType === 'site'),
-    [allLocations],
-  );
-
-  const venues = useMemo(
-    () =>
-      selectedSiteId
-        ? allLocations.filter(
-            (l) => l.locationType === 'venue' && l.parentLocationId === selectedSiteId,
-          )
-        : [],
-    [allLocations, selectedSiteId],
-  );
-
-  // The effective locationId for fetching profit centers:
-  // if a venue is selected, use it; otherwise use the site directly (when no venues exist)
-  const effectiveLocationId = selectedVenueId ?? (venues.length === 0 ? selectedSiteId : null);
-
-  // Load all locations on mount (or when roleId changes)
+  // Single fetch on mount (or when roleId changes)
   useEffect(() => {
-    // Reset selections when roleId changes
     setSelectedSiteId(null);
     setSelectedVenueId(null);
-    setProfitCenters([]);
     setSelectedProfitCenterId(null);
-    setTerminals([]);
     setSelectedTerminalId(null);
     setIsLoading(true);
 
     (async () => {
       try {
         const roleParam = roleId ? `?roleId=${roleId}` : '';
-        const res = await apiFetch<{ data: LocationItem[] }>(
-          `/api/v1/terminal-session/locations${roleParam}`,
+        const res = await apiFetch<{ data: AllData }>(
+          `/api/v1/terminal-session/all${roleParam}`,
         );
-        setAllLocations(res.data);
+        setAllData(res.data);
 
-        const siteList = res.data.filter((l) => l.locationType === 'site');
-        // Auto-select if only 1 site
+        // Auto-select single site
+        const siteList = res.data.locations.filter((l) => l.locationType === 'site');
         if (siteList.length === 1) {
           setSelectedSiteId(siteList[0]!.id);
-        }
-
-        // Check if any profit centers exist across all locations
-        if (res.data.length > 0) {
-          const checks = await Promise.all(
-            res.data.map((loc) =>
-              apiFetch<{ data: SelectionItem[] }>(
-                `/api/v1/terminal-session/profit-centers?locationId=${loc.id}${roleId ? `&roleId=${roleId}` : ''}`,
-              )
-                .then((r) => r.data.length)
-                .catch(() => 0),
-            ),
-          );
-          const totalProfitCenters = checks.reduce((sum, n) => sum + n, 0);
-          if (totalProfitCenters === 0) {
-            setNoProfitCentersExist(true);
-          }
         }
       } catch {
         /* handle error */
@@ -109,101 +78,112 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
     })();
   }, [roleId]);
 
-  // Auto-select venue when site changes
+  // Derived: sites
+  const sites = useMemo(
+    () => (allData?.locations ?? []).filter((l) => l.locationType === 'site'),
+    [allData],
+  );
+
+  // Derived: venues for selected site
+  const venues = useMemo(
+    () =>
+      selectedSiteId
+        ? (allData?.locations ?? []).filter(
+            (l) => l.locationType === 'venue' && l.parentLocationId === selectedSiteId,
+          )
+        : [],
+    [allData, selectedSiteId],
+  );
+
+  const effectiveLocationId = selectedVenueId ?? (venues.length === 0 ? selectedSiteId : null);
+
+  // Derived: profit centers for effective location (instant, no API call)
+  const profitCenters = useMemo(
+    () =>
+      effectiveLocationId
+        ? (allData?.profitCenters ?? []).filter((pc) => pc.locationId === effectiveLocationId)
+        : [],
+    [allData, effectiveLocationId],
+  );
+
+  // Derived: terminals for selected profit center (instant, no API call)
+  const terminals = useMemo(
+    () =>
+      selectedProfitCenterId
+        ? (allData?.terminals ?? []).filter((t) => t.profitCenterId === selectedProfitCenterId)
+        : [],
+    [allData, selectedProfitCenterId],
+  );
+
+  // No PCs exist across entire tenant
+  const noProfitCentersExist = !isLoading && (allData?.profitCenters ?? []).length === 0;
+
+  // Auto-select single venue when site changes
   useEffect(() => {
     if (!selectedSiteId) {
       setSelectedVenueId(null);
-      setProfitCenters([]);
       setSelectedProfitCenterId(null);
-      setTerminals([]);
       setSelectedTerminalId(null);
       return;
     }
-
-    const childVenues = allLocations.filter(
-      (l) => l.locationType === 'venue' && l.parentLocationId === selectedSiteId,
-    );
-
     // Reset downstream
     setSelectedVenueId(null);
-    setProfitCenters([]);
     setSelectedProfitCenterId(null);
-    setTerminals([]);
     setSelectedTerminalId(null);
 
-    // Auto-select if only 1 venue
+    const childVenues = (allData?.locations ?? []).filter(
+      (l) => l.locationType === 'venue' && l.parentLocationId === selectedSiteId,
+    );
     if (childVenues.length === 1) {
       setSelectedVenueId(childVenues[0]!.id);
     }
-  }, [selectedSiteId, allLocations]);
+  }, [selectedSiteId, allData]);
 
-  // Load profit centers when effective location changes
+  // Auto-select single PC when location changes
   useEffect(() => {
     if (!effectiveLocationId) {
-      setProfitCenters([]);
       setSelectedProfitCenterId(null);
-      setTerminals([]);
       setSelectedTerminalId(null);
       return;
     }
-    (async () => {
-      const roleParam = roleId ? `&roleId=${roleId}` : '';
-      const res = await apiFetch<{ data: SelectionItem[] }>(
-        `/api/v1/terminal-session/profit-centers?locationId=${effectiveLocationId}${roleParam}`,
-      );
-      setProfitCenters(res.data);
-      setSelectedProfitCenterId(null);
-      setTerminals([]);
-      setSelectedTerminalId(null);
-      // Auto-select if only 1
-      if (res.data.length === 1) {
-        setSelectedProfitCenterId(res.data[0]!.id);
-      }
-    })();
-  }, [effectiveLocationId, roleId]);
+    setSelectedProfitCenterId(null);
+    setSelectedTerminalId(null);
 
-  // Load terminals when profit center changes
+    if (profitCenters.length === 1) {
+      setSelectedProfitCenterId(profitCenters[0]!.id);
+    }
+  }, [effectiveLocationId, profitCenters.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-select single terminal when PC changes
   useEffect(() => {
     if (!selectedProfitCenterId) {
-      setTerminals([]);
       setSelectedTerminalId(null);
       return;
     }
-    (async () => {
-      const roleParam = roleId ? `&roleId=${roleId}` : '';
-      const res = await apiFetch<{ data: SelectionItem[] }>(
-        `/api/v1/terminal-session/terminals?profitCenterId=${selectedProfitCenterId}${roleParam}`,
-      );
-      setTerminals(res.data);
-      setSelectedTerminalId(null);
-      // Auto-select if only 1
-      if (res.data.length === 1) {
-        setSelectedTerminalId(res.data[0]!.id);
-      }
-    })();
-  }, [selectedProfitCenterId, roleId]);
+    setSelectedTerminalId(null);
+
+    if (terminals.length === 1) {
+      setSelectedTerminalId(terminals[0]!.id);
+    }
+  }, [selectedProfitCenterId, terminals.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle venue selection change (reset downstream)
   const handleSetSelectedVenueId = useCallback((id: string | null) => {
     setSelectedVenueId(id);
-    setProfitCenters([]);
     setSelectedProfitCenterId(null);
-    setTerminals([]);
     setSelectedTerminalId(null);
   }, []);
 
   const canContinue = !!(effectiveLocationId && selectedProfitCenterId && selectedTerminalId);
 
   const buildSession = useCallback((): TerminalSession | null => {
-    if (!canContinue || !effectiveLocationId) return null;
+    if (!canContinue || !effectiveLocationId || !allData) return null;
 
-    const loc = allLocations.find((l) => l.id === effectiveLocationId)!;
-    const site = selectedSiteId ? allLocations.find((l) => l.id === selectedSiteId) : null;
+    const loc = allData.locations.find((l) => l.id === effectiveLocationId)!;
+    const site = selectedSiteId ? allData.locations.find((l) => l.id === selectedSiteId) : null;
     const pc = profitCenters.find((p) => p.id === selectedProfitCenterId)!;
     const term = terminals.find((t) => t.id === selectedTerminalId)!;
 
-    // If the effective location IS a site, siteLocationId is null (no parent)
-    // If the effective location is a venue, siteLocationId is the parent site
     const isVenue = loc.locationType === 'venue';
 
     return {
@@ -222,7 +202,7 @@ export function useTerminalSelection(options?: UseTerminalSelectionOptions) {
   }, [
     canContinue,
     effectiveLocationId,
-    allLocations,
+    allData,
     selectedSiteId,
     profitCenters,
     terminals,

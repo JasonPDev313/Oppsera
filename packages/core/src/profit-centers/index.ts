@@ -18,6 +18,9 @@ export {
   getProfitCentersForSelection,
   getTerminalsForSelection,
 } from './queries/get-terminal-selection-data';
+export { getSettingsData } from './queries/get-settings-data';
+export { getTerminalSelectionAll } from './queries/get-terminal-selection-all';
+export type { TerminalSelectionAllData } from './queries/get-terminal-selection-all';
 
 // Validation
 export * from './validation';

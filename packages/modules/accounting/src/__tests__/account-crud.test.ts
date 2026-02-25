@@ -12,6 +12,7 @@ vi.mock('@oppsera/db', () => ({
   glJournalLines: { journalEntryId: 'journal_entry_id', accountId: 'account_id' },
   glClassifications: {},
   accountingSettings: {},
+  glAccountChangeLogs: { id: 'id', tenantId: 'tenant_id', accountId: 'account_id' },
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({
@@ -150,7 +151,8 @@ describe('createGlAccount', () => {
         limit: vi.fn().mockResolvedValueOnce([]),
         insert: vi.fn().mockReturnThis(),
         values: vi.fn(function(this: any, vals: any) {
-          insertedValues = vals;
+          // Only capture the first insert (account), not subsequent inserts (change log)
+          if (insertedValues === null) insertedValues = vals;
           return this;
         }),
         returning: vi.fn().mockResolvedValueOnce([{
@@ -184,7 +186,7 @@ describe('createGlAccount', () => {
         limit: vi.fn().mockResolvedValueOnce([]),
         insert: vi.fn().mockReturnThis(),
         values: vi.fn(function(this: any, vals: any) {
-          insertedValues = vals;
+          if (insertedValues === null) insertedValues = vals;
           return this;
         }),
         returning: vi.fn().mockResolvedValueOnce([{
@@ -238,6 +240,8 @@ describe('updateGlAccount', () => {
           accountType: 'asset',
           normalBalance: 'debit',
         }]),
+        insert: vi.fn().mockReturnThis(),
+        values: vi.fn().mockReturnThis(),
         execute: vi.fn(),
       };
       const { result } = await fn(mockTx);

@@ -137,7 +137,7 @@ export default function SettingsPage() {
 
 // ── Roles Tab ────────────────────────────────────────────────────
 
-function RolesTab({ canManage }: { canManage: boolean }) {
+export function RolesTab({ canManage }: { canManage: boolean }) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<RoleDetail | null>(null);
@@ -783,7 +783,7 @@ function ModuleActions({
   return null;
 }
 
-function ModulesTab() {
+export function ModulesTab() {
   const [enablingModule, setEnablingModule] = useState<string | null>(null);
   const [togglingModule, setTogglingModule] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -1015,7 +1015,7 @@ const DEFAULT_DASHBOARD_PREFS: DashboardPrefs = {
   showRecentOrders: true,
 };
 
-function DashboardSettingsTab() {
+export function DashboardSettingsTab() {
   const [prefs, setPrefs] = useState<DashboardPrefs>(DEFAULT_DASHBOARD_PREFS);
   const [notes, setNotes] = useState('');
   const [saved, setSaved] = useState(false);
@@ -1110,7 +1110,7 @@ function DashboardSettingsTab() {
 
 // ── Audit Log Tab ─────────────────────────────────────────────────
 
-function AuditLogTab() {
+export function AuditLogTab() {
   return (
     <div>
       <h2 className="text-lg font-semibold text-gray-900">Audit Log</h2>

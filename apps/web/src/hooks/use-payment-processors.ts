@@ -57,6 +57,7 @@ export interface MerchantAccountInfo {
 export interface TerminalAssignmentInfo {
   id: string;
   terminalId: string;
+  terminalName: string | null;
   merchantAccountId: string;
   merchantId: string;
   merchantDisplayName: string;
