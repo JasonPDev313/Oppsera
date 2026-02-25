@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Building2,
   Settings2,
@@ -21,7 +21,6 @@ import { BusinessHoursEditor } from '@/components/settings/general/business-hour
 import { SocialLinksEditor } from '@/components/settings/general/social-links-editor';
 import { RichTextEditor } from '@/components/settings/general/rich-text-editor';
 import type {
-  BusinessInfoData,
   UpdateBusinessInfoInput,
   ContentBlockKey,
   BusinessHours,
