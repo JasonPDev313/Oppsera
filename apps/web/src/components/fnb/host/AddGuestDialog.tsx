@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Minus, Plus, Star, Clock, Info } from 'lucide-react';
+import { X, Minus, Plus, Star, Clock } from 'lucide-react';
 
 interface AddGuestDialogProps {
   open: boolean;

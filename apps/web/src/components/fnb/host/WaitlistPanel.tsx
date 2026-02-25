@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { Plus, Star, Users, Clock, ArrowRight, Bell, X, UserPlus } from 'lucide-react';
 
 interface WaitlistEntry {

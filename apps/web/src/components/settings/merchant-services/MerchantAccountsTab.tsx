@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Plus,
@@ -18,7 +18,6 @@ import {
   Save,
   ShieldCheck,
   Info,
-  Landmark,
   X,
 } from 'lucide-react';
 import {
@@ -29,7 +28,6 @@ import {
   useVerifyCredentials,
 } from '@/hooks/use-payment-processors';
 import type {
-  ProviderSummary,
   MerchantAccountInfo,
   VerifyCredentialRow,
 } from '@/hooks/use-payment-processors';

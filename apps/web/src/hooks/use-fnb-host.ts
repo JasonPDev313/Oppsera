@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 
@@ -314,7 +314,7 @@ export function useHostSettings(locationId: string | null) {
 
 // ── Waitlist Mutations ───────────────────────────────────────────
 
-export function useWaitlistMutations(locationId: string | null) {
+export function useWaitlistMutations(_locationId: string | null) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
@@ -399,7 +399,7 @@ export function useWaitlistMutations(locationId: string | null) {
 
 // ── Reservation Mutations ────────────────────────────────────────
 
-export function useReservationMutations(locationId: string | null) {
+export function useReservationMutations(_locationId: string | null) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 

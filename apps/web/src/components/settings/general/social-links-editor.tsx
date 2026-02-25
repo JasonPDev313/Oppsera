@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
 import type { SocialLinks, SocialPlatform } from '@oppsera/shared';
-import { SOCIAL_PLATFORMS } from '@oppsera/shared';
 
 interface PlatformConfig {
   key: SocialPlatform;
