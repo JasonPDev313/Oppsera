@@ -35,7 +35,7 @@ const STATUS_COLORS: Record<string, string> = {
   revoked: 'text-red-400 bg-red-500/10 border-red-500/30',
 };
 
-function formatDuration(startedAt: string | null, endedAt: string | null, expiresAt: string): string {
+function formatDuration(startedAt: string | null, endedAt: string | null, _expiresAt: string): string {
   if (!startedAt) return '—';
   const start = new Date(startedAt);
   const end = endedAt ? new Date(endedAt) : new Date();
@@ -89,7 +89,7 @@ export function ImpersonationHistoryTab({ tenantId, adminId }: ImpersonationHist
 
   useEffect(() => {
     load();
-  }, [tenantId, adminId, statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tenantId, adminId, statusFilter]);
 
   return (
     <div className="space-y-4">

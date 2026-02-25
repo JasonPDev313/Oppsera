@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { assertImpersonationCanModifyPermissions } from '@oppsera/core/auth/impersonation-safety';
 import { ValidationError } from '@oppsera/shared';
 import { assignRole } from '@oppsera/core/permissions';
 import { auditLog } from '@oppsera/core/audit';
@@ -13,6 +14,9 @@ const assignRoleBody = z.object({
 
 export const POST = withMiddleware(
   async (request, ctx) => {
+    // Impersonation safety: block permission changes
+    assertImpersonationCanModifyPermissions(ctx);
+
     const body = await request.json();
     const parsed = assignRoleBody.safeParse(body);
 

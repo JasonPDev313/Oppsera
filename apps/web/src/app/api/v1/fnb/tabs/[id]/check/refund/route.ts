@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { assertImpersonationCanRefund } from '@oppsera/core/auth/impersonation-safety';
 import { ValidationError } from '@oppsera/shared';
 import { refundCheck, refundCheckSchema } from '@oppsera/module-fnb';
 
@@ -15,6 +16,9 @@ export const POST = withMiddleware(
         parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
       );
     }
+
+    // Impersonation safety: block refunds over $500
+    assertImpersonationCanRefund(ctx, parsed.data.amountCents);
 
     const orderId = body.orderId as string;
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { assertImpersonationCanRefund } from '@oppsera/core/auth/impersonation-safety';
 import {
   refundPaymentSchema,
   refundPayment,
@@ -22,6 +23,12 @@ export const POST = withMiddleware(
         message: i.message,
       })));
     }
+
+    // Impersonation safety: block refunds over $500
+    if (parsed.data.amountCents !== undefined) {
+      assertImpersonationCanRefund(ctx, parsed.data.amountCents);
+    }
+
     const result = await refundPayment(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },

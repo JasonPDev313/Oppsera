@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { assertImpersonationCanModifyPermissions } from '@oppsera/core/auth/impersonation-safety';
 import { ValidationError } from '@oppsera/shared';
 import { getRoleDetail, updateRole, deleteRole } from '@oppsera/core/permissions';
 import { auditLog } from '@oppsera/core/audit';
@@ -31,6 +32,9 @@ export const GET = withMiddleware(
 
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx: RequestContext) => {
+    // Impersonation safety: block permission changes
+    assertImpersonationCanModifyPermissions(ctx);
+
     const roleId = extractRoleId(request);
     const body = await request.json();
     const parsed = updateRoleBody.safeParse(body);

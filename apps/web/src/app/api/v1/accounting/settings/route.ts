@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { assertImpersonationCanModifyAccounting } from '@oppsera/core/auth/impersonation-safety';
 import { ValidationError } from '@oppsera/shared';
 import { withTenant } from '@oppsera/db';
 import {
@@ -24,6 +25,9 @@ export const GET = withMiddleware(
 // PATCH /api/v1/accounting/settings — update accounting settings
 export const PATCH = withMiddleware(
   async (request: NextRequest, ctx) => {
+    // Impersonation safety: block accounting settings changes
+    assertImpersonationCanModifyAccounting(ctx);
+
     const body = await request.json();
     const parsed = updateAccountingSettingsSchema.safeParse(body);
 

@@ -6,8 +6,8 @@
 let schedulerInterval: ReturnType<typeof setInterval> | null = null;
 
 export async function register() {
-  // Only run on the server (not during build or in edge runtime)
-  if (typeof window !== 'undefined') return;
+  // Only run on the Node.js runtime (not edge or during build)
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return;
 
   // Avoid double-start in dev (HMR)
   if (schedulerInterval) return;
@@ -29,7 +29,7 @@ export async function register() {
 
 async function runSchedulerCheck() {
   try {
-    const { maybeRunScheduledBackup } = await import('@/lib/backup/scheduler');
+    const { maybeRunScheduledBackup } = await import(/* webpackIgnore: true */ '@/lib/backup/scheduler');
     const didRun = await maybeRunScheduledBackup();
     if (didRun) {
       console.log('[admin] Scheduled backup completed');

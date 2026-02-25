@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { assertImpersonationCanModifyPermissions } from '@oppsera/core/auth/impersonation-safety';
 import { auditLog } from '@oppsera/core/audit';
 import { ValidationError } from '@oppsera/shared';
 import { inviteUser } from '@oppsera/core';
@@ -14,6 +15,9 @@ const inviteBody = z.object({
 
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
+    // Impersonation safety: block user invitations
+    assertImpersonationCanModifyPermissions(ctx);
+
     const body = await request.json();
     const parsed = inviteBody.safeParse(body);
     if (!parsed.success) {

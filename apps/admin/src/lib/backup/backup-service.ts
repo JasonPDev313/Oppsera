@@ -1,6 +1,6 @@
-import { gzip } from 'node:zlib';
-import { promisify } from 'node:util';
-import { createHash } from 'node:crypto';
+import { gzip } from 'zlib';
+import { promisify } from 'util';
+import { createHash } from 'crypto';
 import { db } from '@oppsera/db';
 import { platformBackups } from '@oppsera/db/schema';
 import { generateUlid } from '@oppsera/shared';
@@ -8,7 +8,6 @@ import { sql, eq } from 'drizzle-orm';
 import {
   discoverTables,
   getTableDependencyOrder,
-  getTableColumns,
   getPgVersion,
   getSchemaVersion,
 } from './table-discovery';
@@ -194,8 +193,8 @@ async function getTableColumnsInTx(tx: Parameters<Parameters<typeof db.transacti
  * Load a backup payload from storage (decompress + parse).
  */
 export async function loadBackupPayload(backupId: string): Promise<BackupPayload> {
-  const { gunzip } = await import('node:zlib');
-  const { promisify: promisifyGunzip } = await import('node:util');
+  const { gunzip } = await import('zlib');
+  const { promisify: promisifyGunzip } = await import('util');
   const gunzipAsync = promisifyGunzip(gunzip);
 
   // Get backup record

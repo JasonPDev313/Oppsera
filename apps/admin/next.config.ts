@@ -37,6 +37,7 @@ const nextConfig: NextConfig = {
     '@oppsera/shared',
     '@oppsera/module-semantic',
   ],
+  serverExternalPackages: ['postgres'],
   poweredByHeader: false,
   // Prevent VSCode file watcher from racing with webpack cache writes on Windows
   webpack: (config) => {

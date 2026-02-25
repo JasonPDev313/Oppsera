@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { assertImpersonationCanVoid } from '@oppsera/core/auth/impersonation-safety';
 import { ValidationError } from '@oppsera/shared';
 import { voidOrder, voidOrderSchema } from '@oppsera/module-orders';
 import { getTendersByOrder } from '@oppsera/module-payments';
@@ -27,19 +28,24 @@ export const POST = withMiddleware(
       );
     }
 
+    // Fetch order total (needed for impersonation check + gateway void)
+    const orderRow = await withTenant(ctx.tenantId, async (tx) => {
+      const [row] = await tx.select({ total: orders.total }).from(orders)
+        .where(and(eq(orders.tenantId, ctx.tenantId), eq(orders.id, orderId)));
+      return row;
+    });
+
+    // Impersonation safety: block voids over $500
+    if (orderRow) {
+      assertImpersonationCanVoid(ctx, orderRow.total);
+    }
+
     // Best-effort: void card payments on the gateway before voiding the order locally.
     // Gateway void failures do NOT block the local void (gotcha #249: adapters never throw).
     if (hasPaymentsGateway()) {
       try {
-        // Fetch order total for tender lookup
-        const order = await withTenant(ctx.tenantId, async (tx) => {
-          const [row] = await tx.select({ total: orders.total }).from(orders)
-            .where(and(eq(orders.tenantId, ctx.tenantId), eq(orders.id, orderId)));
-          return row;
-        });
-
-        if (order) {
-          const tenders = await getTendersByOrder(ctx.tenantId, orderId, order.total);
+        if (orderRow) {
+          const tenders = await getTendersByOrder(ctx.tenantId, orderId, orderRow.total);
 
           // Find card tenders that have a linked payment intent
           for (const tender of tenders.tenders) {

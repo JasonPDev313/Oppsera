@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile, unlink, stat } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { mkdir, readFile, writeFile, unlink, stat } from 'fs/promises';
+import { dirname, join } from 'path';
 import type { BackupStorage } from './types';
 
 /**
