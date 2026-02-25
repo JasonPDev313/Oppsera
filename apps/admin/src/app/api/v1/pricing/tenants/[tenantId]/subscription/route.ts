@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { db, sql, tenants, tenantSubscriptions, subscriptionChangeLog, pricingPlans, entitlements } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { db, sql, tenants, tenantSubscriptions, subscriptionChangeLog, pricingPlans } from '@oppsera/db';
+import { eq } from 'drizzle-orm';
 import { generateUlid, computeMonthlyTotal, classifyTierChange } from '@oppsera/shared';
 import type { BusinessTier } from '@oppsera/shared';
 import { withAdminAuth } from '@/lib/with-admin-auth';
@@ -31,14 +31,6 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
   const subItems = Array.from(subRows as Iterable<Record<string, unknown>>);
 
   // Count active seats (users with active memberships)
-  const [seatResult] = await db.execute(sql`
-    SELECT COUNT(*)::int AS cnt
-    FROM memberships
-    WHERE tenant_id = ${tenantId} AND status = 'active'
-  `) as Iterable<Record<string, unknown>> & { [0]?: Record<string, unknown> };
-  const activeSeatCount = (Array.from(seatResult ? [seatResult] : [])[0] as Record<string, unknown> | undefined)?.cnt as number ?? 0;
-
-  // Actually let me do this more carefully
   const seatRows = await db.execute(sql`
     SELECT COUNT(*)::int AS cnt
     FROM memberships

@@ -2,8 +2,8 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminPermission } from '@/lib/with-admin-permission';
 import { db, sql } from '@oppsera/db';
-import { tenants, superadminSupportNotes, platformAdmins } from '@oppsera/db';
-import { eq, and, desc } from 'drizzle-orm';
+import { tenants, superadminSupportNotes } from '@oppsera/db';
+import { eq } from 'drizzle-orm';
 import { logAdminAudit, getClientIp } from '@/lib/admin-audit';
 
 const VALID_NOTE_TYPES = ['general', 'support_ticket', 'escalation', 'implementation', 'financial'] as const;

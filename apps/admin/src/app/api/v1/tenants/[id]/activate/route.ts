@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminPermission } from '@/lib/with-admin-permission';
-import { db, sql } from '@oppsera/db';
+import { db } from '@oppsera/db';
 import { tenants } from '@oppsera/db';
 import { eq } from 'drizzle-orm';
 import { logAdminAudit, getClientIp } from '@/lib/admin-audit';

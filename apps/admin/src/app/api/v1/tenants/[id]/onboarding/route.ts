@@ -1,9 +1,9 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { withAdminPermission } from '@/lib/with-admin-permission';
-import { db, sql } from '@oppsera/db';
+import { db } from '@oppsera/db';
 import { tenants, tenantOnboardingChecklists } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 export const GET = withAdminPermission(async (req: NextRequest, _session, params) => {
   const id = params?.id;

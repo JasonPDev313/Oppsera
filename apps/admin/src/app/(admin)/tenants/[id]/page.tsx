@@ -48,7 +48,7 @@ const ONBOARDING_STATUS_COLORS: Record<string, string> = {
 
 export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { tenant, isLoading, error, load, update } = useTenantDetail(id);
+  const { tenant, isLoading, error, load, update: _update } = useTenantDetail(id);
   const [tab, setTab] = useState<Tab>('overview');
   const [showImpersonateDialog, setShowImpersonateDialog] = useState(false);
 
