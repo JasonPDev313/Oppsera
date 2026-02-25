@@ -651,6 +651,7 @@ describe('Bulk Modifier Group Assignment', () => {
         'catalog.modifier_groups.bulk_assigned',
         'catalog_item_modifier_groups',
         'bulk',
+        undefined,
         { assignedCount: 1, skippedCount: 0 },
       );
     });
