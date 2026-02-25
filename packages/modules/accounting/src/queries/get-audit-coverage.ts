@@ -30,93 +30,90 @@ export async function getAuditCoverage(
     api.getOrderAuditCount(tenantId, dateRange.from, dateRange.to),
     api.getTenderAuditCount(tenantId, dateRange.from, dateRange.to),
     withTenant(tenantId, async (tx) => {
-      // GL journal entries posted in date range
-      const [glResult] = await tx.execute(sql`
-        SELECT COUNT(*)::int AS count
-        FROM gl_journal_entries
-        WHERE tenant_id = ${tenantId}
-          AND status = 'posted'
-          AND created_at >= ${dateRange.from}::timestamptz
-          AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
-      `) as any[];
-      const glCount = glResult?.count ?? 0;
+      // All 8 COUNT queries are independent — run in parallel (pipelined over same connection)
+      const [glRows, glAuditRows, tenderAuditRows, apRows, apAuditRows, arRows, arAuditRows, orderAuditRows] = await Promise.all([
+        // GL journal entries posted in date range
+        tx.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM gl_journal_entries
+          WHERE tenant_id = ${tenantId}
+            AND status = 'posted'
+            AND created_at >= ${dateRange.from}::timestamptz
+            AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+        `),
+        // Audit entries for accounting actions
+        tx.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM audit_log
+          WHERE tenant_id = ${tenantId}
+            AND action LIKE 'accounting.%'
+            AND created_at >= ${dateRange.from}::timestamptz
+            AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+        `),
+        // Audit entries for payment actions
+        tx.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM audit_log
+          WHERE tenant_id = ${tenantId}
+            AND action LIKE 'payment.%'
+            AND created_at >= ${dateRange.from}::timestamptz
+            AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+        `),
+        // AP bills posted
+        tx.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM ap_bills
+          WHERE tenant_id = ${tenantId}
+            AND status IN ('posted', 'partial', 'paid')
+            AND posted_at >= ${dateRange.from}::timestamptz
+            AND posted_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+        `),
+        // Audit entries for AP actions
+        tx.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM audit_log
+          WHERE tenant_id = ${tenantId}
+            AND action LIKE 'ap.%'
+            AND created_at >= ${dateRange.from}::timestamptz
+            AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+        `),
+        // AR invoices posted
+        tx.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM ar_invoices
+          WHERE tenant_id = ${tenantId}
+            AND status IN ('posted', 'partial', 'paid')
+            AND created_at >= ${dateRange.from}::timestamptz
+            AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+        `),
+        // Audit entries for AR actions
+        tx.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM audit_log
+          WHERE tenant_id = ${tenantId}
+            AND action LIKE 'ar.%'
+            AND created_at >= ${dateRange.from}::timestamptz
+            AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+        `),
+        // Audit entries for order actions
+        tx.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM audit_log
+          WHERE tenant_id = ${tenantId}
+            AND action LIKE 'order.%'
+            AND created_at >= ${dateRange.from}::timestamptz
+            AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
+        `),
+      ]);
 
-      // Audit entries for accounting actions
-      const [glAuditResult] = await tx.execute(sql`
-        SELECT COUNT(*)::int AS count
-        FROM audit_log
-        WHERE tenant_id = ${tenantId}
-          AND action LIKE 'accounting.%'
-          AND created_at >= ${dateRange.from}::timestamptz
-          AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
-      `) as any[];
-      const glAuditCount = glAuditResult?.count ?? 0;
-
-      // Audit entries for payment actions
-      const [tenderAuditResult] = await tx.execute(sql`
-        SELECT COUNT(*)::int AS count
-        FROM audit_log
-        WHERE tenant_id = ${tenantId}
-          AND action LIKE 'payment.%'
-          AND created_at >= ${dateRange.from}::timestamptz
-          AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
-      `) as any[];
-      const tenderAuditCount = tenderAuditResult?.count ?? 0;
-
-      // AP bills posted
-      const [apResult] = await tx.execute(sql`
-        SELECT COUNT(*)::int AS count
-        FROM ap_bills
-        WHERE tenant_id = ${tenantId}
-          AND status IN ('posted', 'partial', 'paid')
-          AND posted_at >= ${dateRange.from}::timestamptz
-          AND posted_at < (${dateRange.to}::date + interval '1 day')::timestamptz
-      `) as any[];
-      const apCount = apResult?.count ?? 0;
-
-      // Audit entries for AP actions
-      const [apAuditResult] = await tx.execute(sql`
-        SELECT COUNT(*)::int AS count
-        FROM audit_log
-        WHERE tenant_id = ${tenantId}
-          AND action LIKE 'ap.%'
-          AND created_at >= ${dateRange.from}::timestamptz
-          AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
-      `) as any[];
-      const apAuditCount = apAuditResult?.count ?? 0;
-
-      // AR invoices posted
-      const [arResult] = await tx.execute(sql`
-        SELECT COUNT(*)::int AS count
-        FROM ar_invoices
-        WHERE tenant_id = ${tenantId}
-          AND status IN ('posted', 'partial', 'paid')
-          AND created_at >= ${dateRange.from}::timestamptz
-          AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
-      `) as any[];
-      const arCount = arResult?.count ?? 0;
-
-      // Audit entries for AR actions
-      const [arAuditResult] = await tx.execute(sql`
-        SELECT COUNT(*)::int AS count
-        FROM audit_log
-        WHERE tenant_id = ${tenantId}
-          AND action LIKE 'ar.%'
-          AND created_at >= ${dateRange.from}::timestamptz
-          AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
-      `) as any[];
-      const arAuditCount = arAuditResult?.count ?? 0;
-
-      // Audit entries for order actions
-      const [orderAuditResult] = await tx.execute(sql`
-        SELECT COUNT(*)::int AS count
-        FROM audit_log
-        WHERE tenant_id = ${tenantId}
-          AND action LIKE 'order.%'
-          AND created_at >= ${dateRange.from}::timestamptz
-          AND created_at < (${dateRange.to}::date + interval '1 day')::timestamptz
-      `) as any[];
-      const orderAuditCount = orderAuditResult?.count ?? 0;
+      const glCount = (glRows as any[])[0]?.count ?? 0;
+      const glAuditCount = (glAuditRows as any[])[0]?.count ?? 0;
+      const tenderAuditCount = (tenderAuditRows as any[])[0]?.count ?? 0;
+      const apCount = (apRows as any[])[0]?.count ?? 0;
+      const apAuditCount = (apAuditRows as any[])[0]?.count ?? 0;
+      const arCount = (arRows as any[])[0]?.count ?? 0;
+      const arAuditCount = (arAuditRows as any[])[0]?.count ?? 0;
+      const orderAuditCount = (orderAuditRows as any[])[0]?.count ?? 0;
 
       return {
         glCount, glAuditCount, tenderAuditCount,

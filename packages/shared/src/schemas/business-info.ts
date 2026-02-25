@@ -53,10 +53,17 @@ export const socialLinksSchema = z.record(
 
 export type SocialLinks = z.infer<typeof socialLinksSchema>;
 
+// ── Image URL Schema (accepts both http(s) URLs and data: URLs) ──
+
+const imageUrlSchema = z.string().refine(
+  (v) => /^(https?:\/\/|data:image\/)/.test(v),
+  'Must be a valid URL or uploaded image',
+);
+
 // ── Photo Gallery Item Schema ────────────────────────────────────
 
 export const photoGalleryItemSchema = z.object({
-  url: z.string().url(),
+  url: imageUrlSchema,
   caption: z.string().max(200).optional(),
   sortOrder: z.number().int().min(0),
 });
@@ -75,7 +82,7 @@ export const updateBusinessInfoSchema = z.object({
   country: z.string().length(2).optional(),
   primaryPhone: z.string().max(30).optional().nullable(),
   primaryEmail: z.string().email().max(254).optional().nullable(),
-  logoUrl: z.string().url().max(500).optional().nullable(),
+  logoUrl: imageUrlSchema.optional().nullable(),
 
   // Section 2: Operations
   accessType: z.enum(ACCESS_TYPES).optional().nullable(),

@@ -32,7 +32,7 @@ export function useOrders(filters: OrderFilters) {
 
   const result = useInfiniteQuery({
     queryKey: ['orders', filters] as const,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       const params = new URLSearchParams();
       if (filters.locationId) params.set('locationId', filters.locationId);
       if (filters.status) params.set('status', filters.status);
@@ -53,7 +53,7 @@ export function useOrders(filters: OrderFilters) {
         meta: { cursor: string | null; hasMore: boolean };
       }>(
         `/api/v1/orders?${params.toString()}`,
-        locationHeaders ? { headers: locationHeaders } : undefined,
+        { headers: locationHeaders ?? undefined, signal },
       );
     },
     initialPageParam: undefined as string | undefined,

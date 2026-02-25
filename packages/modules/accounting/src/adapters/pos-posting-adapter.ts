@@ -1,9 +1,9 @@
 import { db } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared';
 import {
-  resolveSubDepartmentAccounts,
   resolvePaymentTypeAccounts,
-  resolveTaxGroupAccount,
+  batchResolveSubDepartmentAccounts,
+  batchResolveTaxGroupAccounts,
   logUnmappedEvent,
 } from '../helpers/resolve-mapping';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
@@ -168,6 +168,12 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
 
   // ── 2. CREDIT: Revenue + Tax + COGS + Discounts + Svc Charges ──
   if (data.lines && data.lines.length > 0) {
+    // Batch-fetch all GL mappings upfront (1 query each instead of N per loop)
+    const [subDeptMap, taxGroupMap] = await Promise.all([
+      batchResolveSubDepartmentAccounts(db, tenantId),
+      batchResolveTaxGroupAccounts(db, tenantId),
+    ]);
+
     // Group revenue by subDepartmentId (applying proportional ratio)
     const revenueBySubDept = new Map<string, number>();
     const cogsLines: Array<{ subDeptId: string; costCents: number }> = [];
@@ -214,11 +220,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
 
     for (const [subDeptId, amountCents] of revenueBySubDept) {
       let revenueAccountId: string | null = null;
-      let subDeptMapping: Awaited<ReturnType<typeof resolveSubDepartmentAccounts>> = null;
-
-      if (subDeptId !== 'unmapped') {
-        subDeptMapping = await resolveSubDepartmentAccounts(db, tenantId, subDeptId);
-      }
+      const subDeptMapping = subDeptId !== 'unmapped' ? (subDeptMap.get(subDeptId) ?? null) : null;
 
       if (subDeptMapping) {
         revenueAccountId = subDeptMapping.revenueAccountId;
@@ -274,7 +276,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
       }
 
       for (const [subDeptId, costCents] of cogsBySubDept) {
-        const subDeptMapping = await resolveSubDepartmentAccounts(db, tenantId, subDeptId);
+        const subDeptMapping = subDeptMap.get(subDeptId);
         if (!subDeptMapping || !subDeptMapping.cogsAccountId || !subDeptMapping.inventoryAccountId) continue;
 
         if (costCents > 0) {
@@ -305,7 +307,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
 
     // Tax credits — proportional share (with fallback to default tax payable)
     for (const [taxGroupId, taxCents] of taxByGroup) {
-      let taxAccountId = await resolveTaxGroupAccount(db, tenantId, taxGroupId);
+      let taxAccountId = taxGroupMap.get(taxGroupId) ?? null;
 
       if (!taxAccountId) {
         // Fallback: use tenant-level default sales tax payable

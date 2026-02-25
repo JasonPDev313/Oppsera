@@ -387,8 +387,8 @@ describe('Limit checking helpers', () => {
 });
 
 describe('MODULE_REGISTRY', () => {
-  it('contains 20 module definitions', () => {
-    expect(MODULE_REGISTRY).toHaveLength(20);
+  it('contains 22 module definitions', () => {
+    expect(MODULE_REGISTRY).toHaveLength(22);
   });
 
   it('contains all expected V1 modules', () => {

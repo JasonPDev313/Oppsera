@@ -70,12 +70,15 @@ export function useFnbRealtime({
   const [status, setStatus] = useState<ConnectionStatus>('connected');
   const timersRef = useRef<Map<ChannelName, ReturnType<typeof setInterval>>>(new Map());
 
-  const startPolling = useCallback(() => {
-    // Clear existing timers
+  const stopPolling = useCallback(() => {
     for (const timer of timersRef.current.values()) {
       clearInterval(timer);
     }
     timersRef.current.clear();
+  }, []);
+
+  const startPolling = useCallback(() => {
+    stopPolling();
 
     if (!enabled) return;
 
@@ -86,17 +89,28 @@ export function useFnbRealtime({
       }, interval);
       timersRef.current.set(channel, timer);
     }
-  }, [channels, intervals, enabled]);
+  }, [channels, intervals, enabled, stopPolling]);
 
   useEffect(() => {
     startPolling();
-    return () => {
-      for (const timer of timersRef.current.values()) {
-        clearInterval(timer);
+    return stopPolling;
+  }, [startPolling, stopPolling]);
+
+  // Pause polling when tab is hidden, resume when visible
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else if (enabled) {
+        // 500ms delay: React Query fires a throttled refetch on visibilitychange.
+        // Starting our polling immediately can cause duplicate requests. The delay
+        // lets RQ's own handler settle first, preventing double-fetches.
+        setTimeout(startPolling, 500);
       }
-      timersRef.current.clear();
     };
-  }, [startPolling]);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [startPolling, stopPolling, enabled]);
 
   // Online/offline detection
   useEffect(() => {

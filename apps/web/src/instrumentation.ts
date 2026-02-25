@@ -71,6 +71,36 @@ export async function register() {
         bus.subscribe('order.voided.v1', reporting.handleOrderVoided);
         bus.subscribe('tender.recorded.v1', reporting.handleTenderRecorded);
         bus.subscribe('inventory.movement.created.v1', reporting.handleInventoryMovement);
+        // Modifier analytics read models (rm_modifier_item_sales, rm_modifier_daypart, rm_modifier_group_attach)
+        bus.subscribe('order.placed.v1', (event) =>
+          reporting.handleOrderPlacedModifiers({
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            occurredAt: event.occurredAt,
+            locationId: event.locationId ?? '',
+            lines: (event.data as Record<string, unknown>).lines as Array<{
+              catalogItemId: string;
+              catalogItemName: string;
+              qty: number;
+              modifiers: Array<{ modifierId: string; modifierGroupId: string | null; name: string; priceAdjustmentCents: number; instruction: 'none' | 'extra' | 'on_side' | null; isDefault: boolean }>;
+              assignedModifierGroupIds: Array<{ modifierGroupId: string; groupName: string | null; isRequired: boolean }>;
+            }>,
+          }),
+        );
+        bus.subscribe('order.voided.v1', (event) =>
+          reporting.handleOrderVoidedModifiers({
+            eventId: event.eventId,
+            tenantId: event.tenantId,
+            occurredAt: event.occurredAt,
+            locationId: event.locationId ?? '',
+            lines: (event.data as Record<string, unknown>).lines as Array<{
+              catalogItemId: string;
+              catalogItemName: string;
+              qty: number;
+              modifiers: Array<{ modifierId: string; modifierGroupId: string | null; name: string; priceAdjustmentCents: number }>;
+            }>,
+          }),
+        );
       }),
       importSafe('Inventory consumers', async () => {
         const inventory = await import('@oppsera/module-inventory');

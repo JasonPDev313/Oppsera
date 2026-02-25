@@ -94,16 +94,16 @@ describe('bootstrapTenantCoa', () => {
           return buildSelectChain([]);
         } else if (selectCallCount === 2) {
           if (opts.existingSettings) {
-            // Second select when already bootstrapped: count classifications
-            const items = Array.from({ length: opts.existingClassificationCount ?? 2 }, (_, i) => ({ id: `c-${i}` }));
+            // Second select when already bootstrapped: count accounts (glAccounts)
+            const items = Array.from({ length: opts.existingAccountCount ?? 6 }, (_, i) => ({ id: `a-${i}` }));
             return buildSelectChain(items);
           }
           // Second select: classification templates
           return buildSelectChain(opts.classificationTemplates);
         } else if (selectCallCount === 3) {
           if (opts.existingSettings) {
-            // Third select when already bootstrapped: count accounts
-            const items = Array.from({ length: opts.existingAccountCount ?? 6 }, (_, i) => ({ id: `a-${i}` }));
+            // Third select when already bootstrapped: count classifications (glClassifications)
+            const items = Array.from({ length: opts.existingClassificationCount ?? 2 }, (_, i) => ({ id: `c-${i}` }));
             return buildSelectChain(items);
           }
           // Third select: account templates

@@ -32,10 +32,34 @@ function buildMockTx(results: any[]) {
 }
 
 // Default local query results (accounting-owned tables)
-// Order: period status, draft count, unmapped count, trial balance, AP settings,
-//        settings (legacy/tips/svc/cogs), discount mapping, [legacy GL queries if enabled],
-//        dead letter count, [COGS if periodic], recurring entries, bank reconciliation
+// Wave 1 (all 9 queries in parallel via Promise.all):
+//   1. period status
+//   2. draft count
+//   3. unmapped count
+//   4. trial balance
+//   5. combined settings (legacy/tips/svc/cogs/ap_control)
+//   6. discount mapping completeness
+//   7. dead letter count
+//   8. recurring entries
+//   9. bank reconciliation
+// Wave 2 (conditional, depends on Wave 1 settings):
+//   - AP reconciliation (3 queries if ap_control_account_id is set)
+//   - Legacy GL reconciliation (2 queries if legacy enabled)
+//   - COGS (1 query if periodic)
 function defaultLocalResults(overrides: Record<string, any> = {}) {
+  // Build combined settings from the separate overrides for backward compat
+  const settingsOverride = overrides.settings?.[0] ?? {
+    enable_legacy_gl_posting: false,
+    default_tips_payable_account_id: 'acct-tips',
+    default_service_charge_revenue_account_id: 'acct-svc',
+    cogs_posting_mode: 'disabled',
+  };
+  const apControlId = overrides.apSettings?.[0]?.default_ap_control_account_id ?? null;
+  const combinedSettings = [{
+    ...settingsOverride,
+    default_ap_control_account_id: apControlId,
+  }];
+
   const results: any[] = [
     // 1. period status
     overrides.periodStatus ?? [{ status: 'open' }],
@@ -45,37 +69,29 @@ function defaultLocalResults(overrides: Record<string, any> = {}) {
     overrides.unmappedCount ?? [{ count: 0 }],
     // 4. trial balance
     overrides.trialBalance ?? [{ total_debits: '100.00', total_credits: '100.00' }],
-    // 5. AP settings
-    overrides.apSettings ?? [{ default_ap_control_account_id: null }],
-    // 6. settings (legacy, tips, svc, cogs)
-    overrides.settings ?? [{
-      enable_legacy_gl_posting: false,
-      default_tips_payable_account_id: 'acct-tips',
-      default_service_charge_revenue_account_id: 'acct-svc',
-      cogs_posting_mode: 'disabled',
-    }],
-    // 7. discount mapping completeness
+    // 5. combined settings (legacy, tips, svc, cogs, ap_control)
+    combinedSettings,
+    // 6. discount mapping completeness
     overrides.discountMapping ?? [{ total_mapped: 3, missing_discount: 0 }],
+    // 7. dead letter count
+    overrides.deadLetters ?? [{ count: 0 }],
+    // 8. recurring entries
+    overrides.recurring ?? [{ total: 0, overdue: 0 }],
+    // 9. bank reconciliation
+    overrides.bankRec ?? [{ total_bank_accounts: 0, unreconciled: 0 }],
   ];
 
-  // Conditional: legacy GL reconciliation (2 queries)
+  // Wave 2 conditional queries:
+  // Legacy GL reconciliation (2 queries if legacy enabled)
   if (overrides.legacyGl) {
     results.push(overrides.legacyGl[0]); // legacy total
     results.push(overrides.legacyGl[1]); // proper total
   }
 
-  // Dead letter events
-  results.push(overrides.deadLetters ?? [{ count: 0 }]);
-
-  // Conditional: COGS (if periodic)
+  // COGS (if periodic)
   if (overrides.cogsCounts) {
     results.push(overrides.cogsCounts);
   }
-
-  // Recurring entries
-  results.push(overrides.recurring ?? [{ total: 0, overdue: 0 }]);
-  // Bank reconciliation
-  results.push(overrides.bankRec ?? [{ total_bank_accounts: 0, unreconciled: 0 }]);
 
   return results;
 }

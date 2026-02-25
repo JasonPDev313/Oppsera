@@ -164,11 +164,11 @@ describe('bootstrap — idempotency', () => {
         };
       }
       if (callCount === 2) {
-        // Second where() returns classifications
-        return Promise.resolve([{ id: 'c1' }, { id: 'c2' }]);
+        // Second where() returns accounts (glAccounts — checked before classifications)
+        return Promise.resolve([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }]);
       }
-      // Third where() returns accounts
-      return Promise.resolve([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }]);
+      // Third where() returns classifications (glClassifications)
+      return Promise.resolve([{ id: 'c1' }, { id: 'c2' }]);
     });
 
     const { bootstrapTenantCoa } = await import('../helpers/bootstrap-tenant-coa');

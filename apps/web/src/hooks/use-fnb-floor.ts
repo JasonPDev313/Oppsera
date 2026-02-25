@@ -71,7 +71,7 @@ export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloo
     gcTime: 30 * 60_000,
     // Floor plan layout is essentially static during a shift.
     refetchInterval: pollIntervalMs,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
     // When switching rooms, keep showing the previous room's tables
     // while the new room loads (prevents full-screen spinner).
     placeholderData: keepPreviousData,

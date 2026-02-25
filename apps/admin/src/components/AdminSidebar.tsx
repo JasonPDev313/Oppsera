@@ -24,6 +24,8 @@ import {
   DollarSign,
   ClipboardList,
   BarChart3,
+  Activity,
+  Lightbulb,
   MessageSquare,
   ShieldAlert,
   Play,
@@ -69,6 +71,15 @@ const MODULES: NavModule[] = [
     prefix: '/pricing',
     children: [
       { href: '/pricing', label: 'Plans & Pricing', icon: DollarSign },
+    ],
+  },
+  {
+    label: 'Analytics',
+    icon: BarChart3,
+    prefix: '/analytics',
+    children: [
+      { href: '/analytics', label: 'Usage Dashboard', icon: Activity },
+      { href: '/analytics/actions', label: 'Action Items', icon: Lightbulb },
     ],
   },
   {

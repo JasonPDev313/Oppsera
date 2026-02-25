@@ -8,17 +8,12 @@ import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { AuditLogViewer } from '@/components/audit-log-viewer';
 import { useRoleAccess } from '@/hooks/use-role-access';
 import { RoleAccessDialog } from '@/components/settings/role-access-dialog';
+import { useRoles as useRolesQuery, useInvalidateSettingsData } from '@/hooks/use-settings-data';
+import type { RoleListItem } from '@/hooks/use-settings-data';
 
 // ── Types ────────────────────────────────────────────────────────
 
-interface Role {
-  id: string;
-  name: string;
-  description: string | null;
-  isSystem: boolean;
-  permissions: string[];
-  userCount: number;
-}
+type Role = RoleListItem;
 
 interface RoleDetail extends Omit<Role, 'userCount'> {
   assignedUsers: Array<{
@@ -150,27 +145,12 @@ const PERMISSION_GROUPS: PermissionGroupEntry[] = [
 // ── Roles Tab ────────────────────────────────────────────────────
 
 export function RolesTab({ canManage }: { canManage: boolean }) {
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: roles = [], isLoading } = useRolesQuery();
+  const { invalidateRoles } = useInvalidateSettingsData();
   const [selectedRole, setSelectedRole] = useState<RoleDetail | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAccessDialog, setShowAccessDialog] = useState(false);
-
-  const fetchRoles = useCallback(async () => {
-    try {
-      const response = await apiFetch<{ data: Role[] }>('/api/v1/roles');
-      setRoles(response.data);
-    } catch {
-      // Ignore
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchRoles();
-  }, [fetchRoles]);
 
   const handleSelectRole = useCallback(async (roleId: string) => {
     try {
@@ -187,14 +167,14 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
       try {
         await apiFetch(`/api/v1/roles/${roleId}`, { method: 'DELETE' });
         setSelectedRole(null);
-        fetchRoles();
+        invalidateRoles();
       } catch (err) {
         if (err instanceof ApiError) {
           alert(err.message);
         }
       }
     },
-    [fetchRoles],
+    [invalidateRoles],
   );
 
   if (isLoading) {
@@ -409,7 +389,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
           onClose={() => setShowCreateDialog(false)}
           onSaved={() => {
             setShowCreateDialog(false);
-            fetchRoles();
+            invalidateRoles();
           }}
         />
       )}
@@ -421,7 +401,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
           onClose={() => setShowEditDialog(false)}
           onSaved={() => {
             setShowEditDialog(false);
-            fetchRoles();
+            invalidateRoles();
             handleSelectRole(selectedRole.id);
           }}
         />
@@ -1050,7 +1030,7 @@ export function ModulesTab() {
                 <p className={`mt-1.5 text-xs ${enabled ? 'text-gray-500' : 'text-gray-400'}`}>
                   {mod.description}
                 </p>
-                {ent && enabled && Object.keys(ent.limits).length > 0 && (
+                {ent && enabled && ent.limits && Object.keys(ent.limits).length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {Object.entries(ent.limits).map(([key, value]) => (
                       <span
@@ -1123,7 +1103,7 @@ export function ModulesTab() {
                       )}
                     </td>
                     <td className="hidden px-4 py-3 md:table-cell">
-                      {ent && enabled && Object.keys(ent.limits).length > 0 ? (
+                      {ent && enabled && ent.limits && Object.keys(ent.limits).length > 0 ? (
                         <div className="flex flex-wrap gap-1.5">
                           {Object.entries(ent.limits).map(([key, value]) => (
                             <span

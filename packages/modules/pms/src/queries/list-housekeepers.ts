@@ -1,19 +1,22 @@
 /**
- * List housekeepers for a property.
+ * List housekeepers for a property, enriched with linked user data.
  */
 import { and, eq, desc } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { pmsHousekeepers } from '@oppsera/db';
+import { pmsHousekeepers, users } from '@oppsera/db';
 
 export interface HousekeeperItem {
   id: string;
   propertyId: string;
   name: string;
   phone: string | null;
-  userId: string | null;
+  userId: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  userEmail: string;
+  userDisplayName: string | null;
+  userStatus: string;
 }
 
 export async function listHousekeepers(
@@ -22,8 +25,21 @@ export async function listHousekeepers(
 ): Promise<HousekeeperItem[]> {
   return withTenant(tenantId, async (tx) => {
     const rows = await tx
-      .select()
+      .select({
+        id: pmsHousekeepers.id,
+        propertyId: pmsHousekeepers.propertyId,
+        name: pmsHousekeepers.name,
+        phone: pmsHousekeepers.phone,
+        userId: pmsHousekeepers.userId,
+        isActive: pmsHousekeepers.isActive,
+        createdAt: pmsHousekeepers.createdAt,
+        updatedAt: pmsHousekeepers.updatedAt,
+        userEmail: users.email,
+        userDisplayName: users.displayName,
+        userStatus: users.status,
+      })
       .from(pmsHousekeepers)
+      .leftJoin(users, eq(pmsHousekeepers.userId, users.id))
       .where(
         and(
           eq(pmsHousekeepers.tenantId, tenantId),
@@ -41,6 +57,9 @@ export async function listHousekeepers(
       isActive: r.isActive,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
+      userEmail: r.userEmail ?? '',
+      userDisplayName: r.userDisplayName ?? null,
+      userStatus: r.userStatus ?? 'active',
     }));
   });
 }

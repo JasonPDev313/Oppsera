@@ -198,7 +198,7 @@ vi.mock('@oppsera/shared', () => ({
 // ── Helpers ───────────────────────────────────────────────────
 
 function makeGetRequest(url: string) {
-  return { url, method: 'GET' } as any;
+  return { url, method: 'GET', nextUrl: { pathname: new URL(url, 'http://localhost').pathname } } as any;
 }
 
 function makePostRequest(url: string, body: unknown) {
@@ -206,6 +206,7 @@ function makePostRequest(url: string, body: unknown) {
     url,
     method: 'POST',
     json: vi.fn().mockResolvedValue(body),
+    nextUrl: { pathname: new URL(url, 'http://localhost').pathname },
   } as any;
 }
 
@@ -214,6 +215,7 @@ function makePatchRequest(url: string, body: unknown) {
     url,
     method: 'PATCH',
     json: vi.fn().mockResolvedValue(body),
+    nextUrl: { pathname: new URL(url, 'http://localhost').pathname },
   } as any;
 }
 
@@ -225,8 +227,7 @@ import { GET as accountsGET, POST as accountsPOST } from '../app/api/v1/accounti
 import { GET as accountDetailGET, PATCH as accountPATCH } from '../app/api/v1/accounting/accounts/[id]/route';
 import { GET as journalsGET, POST as journalsPOST } from '../app/api/v1/accounting/journals/route';
 import { GET as journalDetailGET } from '../app/api/v1/accounting/journals/[id]/route';
-import { POST as journalPostPOST } from '../app/api/v1/accounting/journals/[id]/post/route';
-import { POST as journalVoidPOST } from '../app/api/v1/accounting/journals/[id]/void/route';
+import { POST as journalActionPOST } from '../app/api/v1/accounting/journals/[id]/[action]/route';
 import { GET as trialBalanceGET } from '../app/api/v1/accounting/reports/trial-balance/route';
 import { GET as glSummaryGET } from '../app/api/v1/accounting/reports/summary/route';
 import { GET as profitLossGET } from '../app/api/v1/accounting/statements/profit-loss/route';
@@ -476,7 +477,7 @@ describe('POST /api/v1/accounting/journals/:id/post', () => {
     mockPostDraftEntry.mockResolvedValue(posted);
 
     const req = makePostRequest(`${BASE}/journals/je_001/post`, {});
-    const res = await journalPostPOST(req);
+    const res = await journalActionPOST(req);
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -496,7 +497,7 @@ describe('POST /api/v1/accounting/journals/:id/void', () => {
     mockVoidJournalEntry.mockResolvedValue(voided);
 
     const req = makePostRequest(`${BASE}/journals/je_001/void`, { reason: 'Duplicate entry' });
-    const res = await journalVoidPOST(req);
+    const res = await journalActionPOST(req);
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -505,7 +506,7 @@ describe('POST /api/v1/accounting/journals/:id/void', () => {
 
   it('returns 400 when reason is missing', async () => {
     const req = makePostRequest(`${BASE}/journals/je_001/void`, {});
-    const res = await journalVoidPOST(req);
+    const res = await journalActionPOST(req);
     const body = await res.json();
 
     expect(res.status).toBe(400);
@@ -648,6 +649,6 @@ describe('accounting route exports', () => {
   });
 
   it('exports POST for /journals/:id/void', () => {
-    expect(typeof journalVoidPOST).toBe('function');
+    expect(typeof journalActionPOST).toBe('function');
   });
 });

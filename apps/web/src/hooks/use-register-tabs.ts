@@ -349,10 +349,10 @@ export function useRegisterTabs({
               if (!cancelled) clearTabOrder(tab);
             }
           });
-          Promise.allSettled(fetches);
+          await Promise.allSettled(fetches);
         }
 
-        // Unblock sync-back after all fetches have been dispatched
+        // Unblock sync-back after all fetches have settled
         requestAnimationFrame(() => {
           isSwitching.current = false;
         });

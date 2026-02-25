@@ -47,19 +47,41 @@ export function useConnectionStatus(): ConnectionState {
       setState({ status: 'offline', latencyMs: null });
     };
 
+    const startPing = () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(checkConnection, PING_INTERVAL_MS);
+    };
+
+    const stopPing = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = undefined;
+      }
+    };
+
+    // Pause health pings when tab is hidden, resume when visible
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopPing();
+      } else {
+        checkConnection(); // one immediate check on resume
+        startPing();
+      }
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibility);
 
-    // Initial check
+    // Initial check + start periodic pings
     checkConnection();
-
-    // Periodic health ping
-    intervalRef.current = setInterval(checkConnection, PING_INTERVAL_MS);
+    startPing();
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      stopPing();
     };
   }, [checkConnection]);
 

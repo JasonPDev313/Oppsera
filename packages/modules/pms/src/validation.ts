@@ -460,7 +460,7 @@ export type LogCommunicationInput = z.input<typeof logCommunicationSchema>;
 // ── Housekeepers ────────────────────────────────────────────────
 export const createHousekeeperSchema = z.object({
   propertyId: z.string().min(1),
-  userId: z.string().optional().nullable(),
+  userId: z.string().min(1),
   name: z.string().min(1).max(200),
   phone: z.string().max(50).optional().nullable(),
 });

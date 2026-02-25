@@ -110,26 +110,30 @@ vi.mock('@oppsera/module-fnb', () => ({
   postCloseBatch: mockPostCloseBatch,
 }));
 
-vi.mock('@oppsera/shared', () => ({
-  AppError: class AppError extends Error {
-    code: string;
-    statusCode: number;
-    constructor(code: string, message: string, statusCode: number) {
-      super(message);
-      this.code = code;
-      this.statusCode = statusCode;
-    }
-  },
-  ValidationError: class ValidationError extends Error {
-    code = 'VALIDATION_ERROR';
-    statusCode = 400;
-    details: unknown[];
-    constructor(message: string, details: unknown[]) {
-      super(message);
-      this.details = details;
-    }
-  },
-}));
+vi.mock('@oppsera/shared', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return {
+    ...actual,
+    AppError: class AppError extends Error {
+      code: string;
+      statusCode: number;
+      constructor(code: string, message: string, statusCode: number) {
+        super(message);
+        this.code = code;
+        this.statusCode = statusCode;
+      }
+    },
+    ValidationError: class ValidationError extends Error {
+      code = 'VALIDATION_ERROR';
+      statusCode = 400;
+      details: unknown[];
+      constructor(message: string, details: unknown[]) {
+        super(message);
+        this.details = details;
+      }
+    },
+  };
+});
 
 // ── Helpers ───────────────────────────────────────────────────
 const BASE = 'http://localhost/api/v1/fnb';
@@ -195,7 +199,7 @@ describe('Flow 1: Dine-In Lifecycle', () => {
     const seated = { id: 'tbl_01', status: 'occupied', partySize: 4 };
     mockSeatTable.mockResolvedValue(seated);
 
-    const { POST } = await import('../app/api/v1/fnb/tables/[id]/seat/route');
+    const { POST } = await import('../app/api/v1/fnb/tables/[id]/[action]/route');
     const res = await POST(makePost('/tables/tbl_01/seat', { partySize: 4, serverUserId: 'user_001' }));
     const json = await res.json();
 
@@ -346,7 +350,7 @@ describe('Flow 2: Split Check & Payment', () => {
     mockCompletePaymentSession.mockResolvedValue(completed);
 
     const { POST } = await import(
-      '../app/api/v1/fnb/payments/sessions/[id]/complete/route'
+      '../app/api/v1/fnb/payments/sessions/[id]/[action]/route'
     );
     const res = await POST(
       makePost('/payments/sessions/ps_01/complete', {
@@ -370,7 +374,7 @@ describe('Flow 2: Split Check & Payment', () => {
     const closed = { id: 'tab_01', status: 'closed', closedAt: '2026-02-21T20:00:00Z' };
     mockCloseTab.mockResolvedValue(closed);
 
-    const { POST } = await import('../app/api/v1/fnb/tabs/[id]/close/route');
+    const { POST } = await import('../app/api/v1/fnb/tabs/[id]/[action]/route');
     const res = await POST(
       makePost('/tabs/tab_01/close', { reason: 'all_paid' }),
     );
@@ -481,7 +485,7 @@ describe('Flow 4: Close Batch & Z-Report', () => {
     const posted = { id: 'batch_01', status: 'posted', journalEntryId: 'je_01' };
     mockPostCloseBatch.mockResolvedValue(posted);
 
-    const { POST } = await import('../app/api/v1/fnb/close-batch/[id]/post/route');
+    const { POST } = await import('../app/api/v1/fnb/close-batch/[id]/[action]/route');
     const res = await POST(
       makePost('/close-batch/batch_01/post', { closeBatchId: 'batch_01' }),
     );

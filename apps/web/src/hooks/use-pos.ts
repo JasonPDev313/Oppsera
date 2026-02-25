@@ -464,7 +464,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       setCurrentOrder((prev) => prev ? { ...prev, customerId, customerName: customerName ?? prev.customerName } : prev);
 
       try {
-        await apiFetch(`/api/v1/orders/${order.id}`, {
+        const res = await apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
           method: 'PATCH',
           headers: locationHeaders,
           body: JSON.stringify({
@@ -472,15 +472,15 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
             clientRequestId: clientRequestId(),
           }),
         });
-        const refreshed = await fetchOrder(order.id);
-        setCurrentOrder(refreshed);
+        // Use the PATCH response directly — no need for a second fetchOrder round-trip
+        setCurrentOrder(res.data);
       } catch (err) {
         // Revert optimistic update on failure
         setCurrentOrder((prev) => prev ? { ...prev, customerId: null, customerName: null } : prev);
         await handleMutationError(err);
       }
     },
-    [openOrder, fetchOrder, handleMutationError],
+    [openOrder, handleMutationError],
   );
 
   const detachCustomer = useCallback(async (): Promise<void> => {
@@ -493,7 +493,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     setCurrentOrder((prev) => prev ? { ...prev, customerId: null, customerName: null } : prev);
 
     try {
-      await apiFetch(`/api/v1/orders/${order.id}`, {
+      const res = await apiFetch<{ data: Order }>(`/api/v1/orders/${order.id}`, {
         method: 'PATCH',
         headers: locationHeaders,
         body: JSON.stringify({
@@ -501,14 +501,14 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
           clientRequestId: clientRequestId(),
         }),
       });
-      const refreshed = await fetchOrder(order.id);
-      setCurrentOrder(refreshed);
+      // Use the PATCH response directly — no need for a second fetchOrder round-trip
+      setCurrentOrder(res.data);
     } catch (err) {
       // Revert optimistic update on failure
       setCurrentOrder((prev) => prev ? { ...prev, customerId: prevCustomerId, customerName: prevCustomerName } : prev);
       await handleMutationError(err);
     }
-  }, [fetchOrder, handleMutationError]);
+  }, [handleMutationError]);
 
   // ── Place Order ────────────────────────────────────────────────
 

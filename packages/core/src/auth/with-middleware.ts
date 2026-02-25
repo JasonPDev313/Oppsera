@@ -106,6 +106,9 @@ async function resolveLocation(
 
 export function withMiddleware(handler: RouteHandler, options?: MiddlewareOptions) {
   return async (request: NextRequest) => {
+    const startTime = Date.now();
+    let _trackTenantId = '';
+    let _trackUserId = '';
     try {
       let response: NextResponse;
 
@@ -128,6 +131,8 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
             requestId: generateUlid(),
             isPlatformAdmin: false,
           };
+          _trackTenantId = ctx.tenantId;
+          _trackUserId = user.id;
           response = await requestContext.run(ctx, () => handler(request, ctx));
         } else {
           const ctx = await resolveTenant(user);
@@ -160,6 +165,9 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
             assertImpersonationCanDelete(ctx);
           }
 
+          _trackTenantId = ctx.tenantId;
+          _trackUserId = ctx.user.id;
+
           response = await requestContext.run(ctx, () => handler(request, ctx));
 
           // Track impersonation action count (fire-and-forget)
@@ -172,6 +180,33 @@ export function withMiddleware(handler: RouteHandler, options?: MiddlewareOption
       // Apply Cache-Control header to GET responses when configured
       if (options?.cache && request.method === 'GET') {
         response.headers.set('Cache-Control', options.cache);
+      }
+
+      // Usage tracking — truly fire-and-forget (no await, never delays response)
+      if (_trackTenantId) {
+        const _tId = _trackTenantId;
+        const _uId = _trackUserId || 'unknown';
+        const _method = request.method;
+        const _status = response.status;
+        const _duration = Date.now() - startTime;
+        const _ts = Date.now();
+        const _ent = options?.entitlement;
+        const _perm = options?.permission;
+        void Promise.all([
+          import('../usage/tracker'),
+          import('../usage/workflow-registry'),
+        ]).then(([{ recordUsage }, { resolveModuleKey }]) => {
+          recordUsage({
+            tenantId: _tId,
+            userId: _uId,
+            moduleKey: resolveModuleKey(_ent, _perm),
+            workflowKey: _perm || '',
+            method: _method,
+            statusCode: _status,
+            durationMs: _duration,
+            timestamp: _ts,
+          });
+        }).catch(() => { /* never fail the request */ });
       }
 
       return response;

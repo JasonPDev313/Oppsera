@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => {
   const resolveSubDepartmentAccounts = vi.fn();
   const resolvePaymentTypeAccounts = vi.fn();
   const resolveTaxGroupAccount = vi.fn();
+  const batchResolveSubDepartmentAccounts = vi.fn();
+  const batchResolveTaxGroupAccounts = vi.fn();
   const logUnmappedEvent = vi.fn();
   const getAccountingSettings = vi.fn();
   const postEntry = vi.fn();
@@ -14,6 +16,8 @@ const mocks = vi.hoisted(() => {
     resolveSubDepartmentAccounts,
     resolvePaymentTypeAccounts,
     resolveTaxGroupAccount,
+    batchResolveSubDepartmentAccounts,
+    batchResolveTaxGroupAccounts,
     logUnmappedEvent,
     getAccountingSettings,
     postEntry,
@@ -33,6 +37,8 @@ vi.mock('../helpers/resolve-mapping', () => ({
   resolveSubDepartmentAccounts: mocks.resolveSubDepartmentAccounts,
   resolvePaymentTypeAccounts: mocks.resolvePaymentTypeAccounts,
   resolveTaxGroupAccount: mocks.resolveTaxGroupAccount,
+  batchResolveSubDepartmentAccounts: mocks.batchResolveSubDepartmentAccounts,
+  batchResolveTaxGroupAccounts: mocks.batchResolveTaxGroupAccounts,
   logUnmappedEvent: mocks.logUnmappedEvent,
 }));
 
@@ -114,6 +120,8 @@ describe('handleTenderForAccounting', () => {
     vi.clearAllMocks();
     mocks.getAccountingPostingApi.mockReturnValue({ postEntry: mocks.postEntry });
     mocks.getAccountingSettings.mockResolvedValue(defaultSettings);
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValue(new Map([['subdept-1', defaultSubDeptMapping]]));
+    mocks.batchResolveTaxGroupAccounts.mockResolvedValue(new Map());
     mocks.logUnmappedEvent.mockResolvedValue(undefined);
     mocks.postEntry.mockResolvedValue(undefined);
   });
@@ -178,10 +186,9 @@ describe('handleTenderForAccounting', () => {
 
   it('should post GL entry for single item with subdepartment mapping', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      revenueAccountId: 'acct-rev-100',
-    });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-1', { ...defaultSubDeptMapping, revenueAccountId: 'acct-rev-100' }],
+    ]));
 
     await handleTenderForAccounting(createEvent({
       lines: [singleLine()],
@@ -202,17 +209,10 @@ describe('handleTenderForAccounting', () => {
 
   it('should split package revenue across component subdepartments', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts
-      .mockResolvedValueOnce({
-        ...defaultSubDeptMapping,
-        subDepartmentId: 'subdept-food',
-        revenueAccountId: 'acct-rev-food',
-      })
-      .mockResolvedValueOnce({
-        ...defaultSubDeptMapping,
-        subDepartmentId: 'subdept-bev',
-        revenueAccountId: 'acct-rev-bev',
-      });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-food', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-food', revenueAccountId: 'acct-rev-food' }],
+      ['subdept-bev', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-bev', revenueAccountId: 'acct-rev-bev' }],
+    ]));
 
     await handleTenderForAccounting(createEvent({
       amount: 3000,
@@ -246,7 +246,7 @@ describe('handleTenderForAccounting', () => {
 
   it('should log unmapped event for missing subdepartment mapping without blocking', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(null);
+    // beforeEach batch mock returns Map without 'subdept-unmapped' key — simulates missing mapping
 
     await handleTenderForAccounting(createEvent({
       lines: [singleLine({ subDepartmentId: 'subdept-unmapped' })],
@@ -281,8 +281,10 @@ describe('handleTenderForAccounting', () => {
 
   it('should handle tax group resolution', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
-    mocks.resolveTaxGroupAccount.mockResolvedValueOnce('acct-tax-payable');
+    // subdept-1 already in beforeEach batch mock
+    mocks.batchResolveTaxGroupAccounts.mockResolvedValueOnce(new Map([
+      ['tax-grp-1', 'acct-tax-payable'],
+    ]));
 
     await handleTenderForAccounting(createEvent({
       amount: 2200,
@@ -323,7 +325,7 @@ describe('handleTenderForAccounting', () => {
 
   it('should never throw (POS adapter must not block tenders)', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
     mocks.postEntry.mockRejectedValueOnce(new Error('DB connection lost'));
 
     await expect(handleTenderForAccounting(createEvent({
@@ -341,8 +343,8 @@ describe('handleTenderForAccounting', () => {
 
   it('should post proportional share for non-final tender in a split', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
-    mocks.resolveTaxGroupAccount.mockResolvedValueOnce('acct-tax');
+    // subdept-1 already in beforeEach batch mock
+    mocks.batchResolveTaxGroupAccounts.mockResolvedValueOnce(new Map([['tax-1', 'acct-tax']]));
 
     // Order total is 10000 cents ($100), this tender is 5000 cents ($50) — ratio = 0.5
     await handleTenderForAccounting(createEvent({
@@ -372,8 +374,8 @@ describe('handleTenderForAccounting', () => {
       paymentTypeId: 'card',
       depositAccountId: 'acct-card',
     });
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
-    mocks.resolveTaxGroupAccount.mockResolvedValueOnce('acct-tax');
+    // subdept-1 already in beforeEach batch mock
+    mocks.batchResolveTaxGroupAccounts.mockResolvedValueOnce(new Map([['tax-1', 'acct-tax']]));
 
     await handleTenderForAccounting(createEvent({
       amount: 5000,
@@ -399,7 +401,7 @@ describe('handleTenderForAccounting', () => {
 
   it('should handle single tender as full ratio (1.0)', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       amount: 2000,
@@ -423,8 +425,8 @@ describe('handleTenderForAccounting', () => {
 
   it('should handle 3-way split with proportional allocation', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
-    mocks.resolveTaxGroupAccount.mockResolvedValueOnce('acct-tax');
+    // subdept-1 already in beforeEach batch mock
+    mocks.batchResolveTaxGroupAccounts.mockResolvedValueOnce(new Map([['tax-1', 'acct-tax']]));
 
     // Order: $99 (9900 cents) — 3-way split: $33 each
     await handleTenderForAccounting(createEvent({
@@ -455,17 +457,9 @@ describe('handleTenderForAccounting', () => {
       enableCogsPosting: true,
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts
-      .mockResolvedValueOnce({
-        ...defaultSubDeptMapping,
-        cogsAccountId: 'acct-cogs',
-        inventoryAccountId: 'acct-inv',
-      })
-      .mockResolvedValueOnce({
-        ...defaultSubDeptMapping,
-        cogsAccountId: 'acct-cogs',
-        inventoryAccountId: 'acct-inv',
-      });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-1', { ...defaultSubDeptMapping, cogsAccountId: 'acct-cogs', inventoryAccountId: 'acct-inv' }],
+    ]));
 
     // 50% split
     await handleTenderForAccounting(createEvent({
@@ -490,17 +484,10 @@ describe('handleTenderForAccounting', () => {
 
   it('should apply proportional ratio to package component revenue', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts
-      .mockResolvedValueOnce({
-        ...defaultSubDeptMapping,
-        subDepartmentId: 'subdept-food',
-        revenueAccountId: 'acct-rev-food',
-      })
-      .mockResolvedValueOnce({
-        ...defaultSubDeptMapping,
-        subDepartmentId: 'subdept-bev',
-        revenueAccountId: 'acct-rev-bev',
-      });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-food', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-food', revenueAccountId: 'acct-rev-food' }],
+      ['subdept-bev', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-bev', revenueAccountId: 'acct-rev-bev' }],
+    ]));
 
     // 50% split of a package order
     await handleTenderForAccounting(createEvent({
@@ -549,7 +536,7 @@ describe('handleTenderForAccounting', () => {
 
   it('should fall back to amount as orderTotal when orderTotal is missing (legacy events)', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       amount: 3000,
@@ -579,7 +566,7 @@ describe('handleTenderForAccounting', () => {
       clearingAccountId: 'acct-card-clearing',
       feeExpenseAccountId: null,
     });
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       tenderType: 'card',
@@ -600,10 +587,11 @@ describe('handleTenderForAccounting', () => {
 
   it('should handle mixed package with components in different subdepartments', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts
-      .mockResolvedValueOnce({ ...defaultSubDeptMapping, subDepartmentId: 'subdept-food', revenueAccountId: 'acct-rev-food' })
-      .mockResolvedValueOnce({ ...defaultSubDeptMapping, subDepartmentId: 'subdept-bev', revenueAccountId: 'acct-rev-bev' })
-      .mockResolvedValueOnce({ ...defaultSubDeptMapping, subDepartmentId: 'subdept-retail', revenueAccountId: 'acct-rev-retail' });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-food', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-food', revenueAccountId: 'acct-rev-food' }],
+      ['subdept-bev', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-bev', revenueAccountId: 'acct-rev-bev' }],
+      ['subdept-retail', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-retail', revenueAccountId: 'acct-rev-retail' }],
+    ]));
 
     await handleTenderForAccounting(createEvent({
       amount: 5000,
@@ -657,7 +645,7 @@ describe('handleTenderForAccounting', () => {
       defaultTipsPayableAccountId: 'acct-tips-payable',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       amount: 2000,
@@ -687,7 +675,7 @@ describe('handleTenderForAccounting', () => {
       defaultTipsPayableAccountId: 'acct-tips-payable',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       amount: 2000,
@@ -713,7 +701,7 @@ describe('handleTenderForAccounting', () => {
       defaultTipsPayableAccountId: null,
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       amount: 2000,
@@ -738,7 +726,7 @@ describe('handleTenderForAccounting', () => {
       defaultTipsPayableAccountId: null,
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       amount: 2000,
@@ -762,7 +750,7 @@ describe('handleTenderForAccounting', () => {
       defaultServiceChargeRevenueAccountId: 'acct-svc-rev',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     // Order: $20 subtotal + $2 svc charge + $0 tax = $22 total
     await handleTenderForAccounting(createEvent({
@@ -786,7 +774,7 @@ describe('handleTenderForAccounting', () => {
       defaultServiceChargeRevenueAccountId: 'acct-svc-rev',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     // 50% split: order total = $44, svc charge = $4, this tender = $22
     await handleTenderForAccounting(createEvent({
@@ -809,7 +797,7 @@ describe('handleTenderForAccounting', () => {
       defaultServiceChargeRevenueAccountId: 'acct-svc-rev',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       amount: 2000,
@@ -830,7 +818,7 @@ describe('handleTenderForAccounting', () => {
       defaultServiceChargeRevenueAccountId: null,
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       amount: 2200,
@@ -853,10 +841,9 @@ describe('handleTenderForAccounting', () => {
 
   it('should post discount debit (contra-revenue) distributed by sub-department', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      discountAccountId: 'acct-discount',
-    });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-1', { ...defaultSubDeptMapping, discountAccountId: 'acct-discount' }],
+    ]));
 
     // Order: $20 subtotal, $5 discount, total = $15
     await handleTenderForAccounting(createEvent({
@@ -883,20 +870,12 @@ describe('handleTenderForAccounting', () => {
 
   it('should distribute discount proportionally across multiple sub-departments', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    // Sub-dept A: $60 of $100 revenue (60% share)
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      subDepartmentId: 'subdept-a',
-      revenueAccountId: 'acct-rev-a',
-      discountAccountId: 'acct-discount-a',
-    });
-    // Sub-dept B: $40 of $100 revenue (40% share)
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      subDepartmentId: 'subdept-b',
-      revenueAccountId: 'acct-rev-b',
-      discountAccountId: 'acct-discount-b',
-    });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      // Sub-dept A: $60 of $100 revenue (60% share)
+      ['subdept-a', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-a', revenueAccountId: 'acct-rev-a', discountAccountId: 'acct-discount-a' }],
+      // Sub-dept B: $40 of $100 revenue (40% share)
+      ['subdept-b', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-b', revenueAccountId: 'acct-rev-b', discountAccountId: 'acct-discount-b' }],
+    ]));
 
     // Order: $100 subtotal, $10 discount, total = $90
     await handleTenderForAccounting(createEvent({
@@ -922,10 +901,9 @@ describe('handleTenderForAccounting', () => {
 
   it('should not post discount when discountTotal is 0', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      discountAccountId: 'acct-discount',
-    });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-1', { ...defaultSubDeptMapping, discountAccountId: 'acct-discount' }],
+    ]));
 
     await handleTenderForAccounting(createEvent({
       amount: 2000,
@@ -942,10 +920,7 @@ describe('handleTenderForAccounting', () => {
 
   it('should log unmapped event when discount exists but no discount account configured', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      discountAccountId: null, // no discount account
-    });
+    // beforeEach batch mock already has subdept-1 with discountAccountId: null
 
     await handleTenderForAccounting(createEvent({
       amount: 1500,
@@ -966,10 +941,9 @@ describe('handleTenderForAccounting', () => {
 
   it('should apply proportional ratio to discount for split tender', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      discountAccountId: 'acct-discount',
-    });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-1', { ...defaultSubDeptMapping, discountAccountId: 'acct-discount' }],
+    ]));
 
     // 50% split: order = $30, discount = $10, this tender = $15
     await handleTenderForAccounting(createEvent({
@@ -995,12 +969,10 @@ describe('handleTenderForAccounting', () => {
       defaultServiceChargeRevenueAccountId: 'acct-svc-rev',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      revenueAccountId: 'acct-rev',
-      discountAccountId: 'acct-discount',
-    });
-    mocks.resolveTaxGroupAccount.mockResolvedValueOnce('acct-tax');
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-1', { ...defaultSubDeptMapping, revenueAccountId: 'acct-rev', discountAccountId: 'acct-discount' }],
+    ]));
+    mocks.batchResolveTaxGroupAccounts.mockResolvedValueOnce(new Map([['tax-1', 'acct-tax']]));
 
     // Order:
     //   subtotal (extendedPrice) = $100 (10000 cents)
@@ -1053,11 +1025,10 @@ describe('handleTenderForAccounting', () => {
       defaultServiceChargeRevenueAccountId: 'acct-svc-rev',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      discountAccountId: 'acct-discount',
-    });
-    mocks.resolveTaxGroupAccount.mockResolvedValueOnce('acct-tax');
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-1', { ...defaultSubDeptMapping, discountAccountId: 'acct-discount' }],
+    ]));
+    mocks.batchResolveTaxGroupAccounts.mockResolvedValueOnce(new Map([['tax-1', 'acct-tax']]));
 
     await handleTenderForAccounting(createEvent({
       amount: 10400,
@@ -1076,7 +1047,7 @@ describe('handleTenderForAccounting', () => {
 
   it('should populate terminalId from event on all GL lines', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       terminalId: 'terminal-42',
@@ -1091,11 +1062,9 @@ describe('handleTenderForAccounting', () => {
 
   it('should set subDepartmentId on revenue lines', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      subDepartmentId: 'subdept-food',
-      revenueAccountId: 'acct-rev-food',
-    });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-food', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-food', revenueAccountId: 'acct-rev-food' }],
+    ]));
 
     await handleTenderForAccounting(createEvent({
       lines: [singleLine({ subDepartmentId: 'subdept-food' })],
@@ -1109,12 +1078,9 @@ describe('handleTenderForAccounting', () => {
 
   it('should set subDepartmentId on discount lines', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      subDepartmentId: 'subdept-food',
-      revenueAccountId: 'acct-rev-food',
-      discountAccountId: 'acct-discount',
-    });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-food', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-food', revenueAccountId: 'acct-rev-food', discountAccountId: 'acct-discount' }],
+    ]));
 
     await handleTenderForAccounting(createEvent({
       amount: 1500,
@@ -1135,21 +1101,9 @@ describe('handleTenderForAccounting', () => {
       enableCogsPosting: true,
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts
-      .mockResolvedValueOnce({
-        ...defaultSubDeptMapping,
-        subDepartmentId: 'subdept-food',
-        revenueAccountId: 'acct-rev',
-        cogsAccountId: 'acct-cogs',
-        inventoryAccountId: 'acct-inv',
-      })
-      .mockResolvedValueOnce({
-        ...defaultSubDeptMapping,
-        subDepartmentId: 'subdept-food',
-        revenueAccountId: 'acct-rev',
-        cogsAccountId: 'acct-cogs',
-        inventoryAccountId: 'acct-inv',
-      });
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-food', { ...defaultSubDeptMapping, subDepartmentId: 'subdept-food', revenueAccountId: 'acct-rev', cogsAccountId: 'acct-cogs', inventoryAccountId: 'acct-inv' }],
+    ]));
 
     await handleTenderForAccounting(createEvent({
       amount: 2000,
@@ -1166,7 +1120,7 @@ describe('handleTenderForAccounting', () => {
 
   it('should handle missing terminalId gracefully (undefined)', async () => {
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce(defaultSubDeptMapping);
+    // subdept-1 already in beforeEach batch mock
 
     await handleTenderForAccounting(createEvent({
       terminalId: undefined,
@@ -1187,12 +1141,10 @@ describe('handleTenderForAccounting', () => {
       defaultServiceChargeRevenueAccountId: 'acct-svc-rev',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
-    mocks.resolveSubDepartmentAccounts.mockResolvedValueOnce({
-      ...defaultSubDeptMapping,
-      revenueAccountId: 'acct-rev',
-      discountAccountId: 'acct-discount',
-    });
-    mocks.resolveTaxGroupAccount.mockResolvedValueOnce('acct-tax');
+    mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
+      ['subdept-1', { ...defaultSubDeptMapping, revenueAccountId: 'acct-rev', discountAccountId: 'acct-discount' }],
+    ]));
+    mocks.batchResolveTaxGroupAccounts.mockResolvedValueOnce(new Map([['tax-1', 'acct-tax']]));
 
     // 50% split: order = $104, this tender = $52, tip = $3 on this tender
     await handleTenderForAccounting(createEvent({

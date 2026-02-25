@@ -1,31 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Edit3, Loader2, Plus, RefreshCw, Shield, UserPlus, X } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import { Edit3, Loader2, Plus, RefreshCw, Shield, UserPlus, X, Brush } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
-
-interface RoleOption {
-  id: string;
-  name: string;
-}
-
-interface LocationOption {
-  id: string;
-  name: string;
-}
-
-interface ManagedUser {
-  id: string;
-  email: string;
-  username: string | null;
-  firstName: string | null;
-  lastName: string | null;
-  displayName: string | null;
-  status: 'invited' | 'active' | 'inactive' | 'locked';
-  lastLoginAt: string | null;
-  roles: Array<{ id: string; name: string }>;
-  locations: Array<{ id: string; name: string }>;
-}
+import { useUsers, useRoles, useMyLocations, useInvalidateSettingsData } from '@/hooks/use-settings-data';
+import type { ManagedUser, RoleOption } from '@/hooks/use-settings-data';
+import type { PMSProperty } from '@/hooks/use-pms';
 
 interface AddUserForm {
   firstName: string;
@@ -102,13 +82,21 @@ const emptyAddForm: AddUserForm = {
 };
 
 export function UserManagementTab({ canManage }: { canManage: boolean }) {
-  const [users, setUsers] = useState<ManagedUser[]>([]);
-  const [roles, setRoles] = useState<RoleOption[]>([]);
-  const [locations, setLocations] = useState<LocationOption[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { data: rolesData = [], isLoading: rolesLoading } = useRoles();
+  const { data: locations = [], isLoading: locsLoading } = useMyLocations();
+  const { invalidateUsers, invalidateAll } = useInvalidateSettingsData();
+
+  const roles: RoleOption[] = useMemo(() => rolesData.map((r) => ({ id: r.id, name: r.name })), [rolesData]);
+  const isLoading = usersLoading || rolesLoading || locsLoading;
+
   const [isSaving, setIsSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [hkUserId, setHkUserId] = useState<string | null>(null);
+  const [hkPropertyId, setHkPropertyId] = useState('');
+  const [hkProperties, setHkProperties] = useState<PMSProperty[]>([]);
+  const [hkSaving, setHkSaving] = useState(false);
   const [addForm, setAddForm] = useState<AddUserForm>(emptyAddForm);
   const [showPasswords, setShowPasswords] = useState(false);
   const [inviteForm, setInviteForm] = useState({
@@ -116,26 +104,6 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
     roleId: '',
     locationIds: [] as string[],
   });
-
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const [usersResp, rolesResp, meResp] = await Promise.all([
-        apiFetch<{ data: ManagedUser[] }>('/api/v1/users'),
-        apiFetch<{ data: RoleOption[] }>('/api/v1/roles'),
-        apiFetch<{ data: { locations: Array<{ id: string; name: string }> } }>('/api/v1/me'),
-      ]);
-      setUsers(usersResp.data);
-      setRoles(rolesResp.data.map((r) => ({ id: r.id, name: r.name })));
-      setLocations(meResp.data.locations.map((l) => ({ id: l.id, name: l.name })));
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   const canSubmitAdd = useMemo(() => {
     if (!addForm.firstName || !addForm.lastName || !addForm.emailAddress || !addForm.userName || !addForm.userRole) {
@@ -163,13 +131,13 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
       });
       setShowAddModal(false);
       setAddForm(emptyAddForm);
-      await loadData();
+      invalidateUsers();
     } catch (error) {
       if (error instanceof ApiError) alert(error.message);
     } finally {
       setIsSaving(false);
     }
-  }, [addForm, canSubmitAdd, loadData]);
+  }, [addForm, canSubmitAdd, invalidateUsers]);
 
   const submitInvite = useCallback(async () => {
     if (!inviteForm.emailAddress || !inviteForm.roleId) return;
@@ -181,21 +149,21 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
       });
       setShowInviteModal(false);
       setInviteForm({ emailAddress: '', roleId: '', locationIds: [] });
-      await loadData();
+      invalidateUsers();
     } catch (error) {
       if (error instanceof ApiError) alert(error.message);
     } finally {
       setIsSaving(false);
     }
-  }, [inviteForm, loadData]);
+  }, [inviteForm, invalidateUsers]);
 
   const deactivateUser = useCallback(async (userId: string) => {
     await apiFetch(`/api/v1/users/${userId}`, {
       method: 'PATCH',
       body: JSON.stringify({ userStatus: 'inactive' }),
     });
-    await loadData();
-  }, [loadData]);
+    invalidateUsers();
+  }, [invalidateUsers]);
 
   const resendInvite = useCallback(async (user: ManagedUser) => {
     const fallbackRoleId = user.roles[0]?.id;
@@ -255,6 +223,38 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
     return !!(editForm.firstName && editForm.lastName && editForm.emailAddress && editForm.userName && editForm.userRole);
   }, [editForm]);
 
+  const openMakeHousekeeper = useCallback(async (userId: string) => {
+    setHkUserId(userId);
+    setHkPropertyId('');
+    try {
+      const res = await apiFetch<{ data: PMSProperty[] }>('/api/v1/pms/properties');
+      setHkProperties(res.data);
+      if (res.data.length === 1) setHkPropertyId(res.data[0]!.id);
+    } catch {
+      setHkProperties([]);
+    }
+  }, []);
+
+  const submitMakeHousekeeper = useCallback(async () => {
+    if (!hkUserId || !hkPropertyId) return;
+    setHkSaving(true);
+    try {
+      await apiFetch('/api/v1/pms/housekeepers/from-user', {
+        method: 'POST',
+        body: JSON.stringify({ userId: hkUserId, propertyId: hkPropertyId }),
+      });
+      const user = users.find((u) => u.id === hkUserId);
+      const prop = hkProperties.find((p) => p.id === hkPropertyId);
+      alert(`${user?.displayName ?? 'User'} is now a housekeeper at ${prop?.name ?? 'the property'}`);
+      setHkUserId(null);
+      invalidateUsers();
+    } catch (error) {
+      if (error instanceof ApiError) alert(error.message);
+    } finally {
+      setHkSaving(false);
+    }
+  }, [hkUserId, hkPropertyId, hkProperties, users, invalidateUsers]);
+
   const submitEditUser = useCallback(async () => {
     if (!canSubmitEdit || !editUserId) return;
     setIsSaving(true);
@@ -272,13 +272,13 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
       setShowEditModal(false);
       setEditUserId(null);
       setEditForm(emptyEditForm);
-      await loadData();
+      invalidateAll();
     } catch (error) {
       if (error instanceof ApiError) alert(error.message);
     } finally {
       setIsSaving(false);
     }
-  }, [editForm, canSubmitEdit, editUserId, loadData]);
+  }, [editForm, canSubmitEdit, editUserId, invalidateAll]);
 
   if (isLoading) {
     return (
@@ -371,6 +371,12 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
                       <button type="button" onClick={() => openEditModal(user.id)} disabled={editLoading} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
                         <Edit3 className="h-3 w-3" />
                         Edit
+                      </button>
+                    )}
+                    {canManage && user.status === 'active' && (
+                      <button type="button" onClick={() => openMakeHousekeeper(user.id)} className="inline-flex items-center gap-1 text-xs text-amber-600 hover:underline">
+                        <Brush className="h-3 w-3" />
+                        Make Housekeeper
                       </button>
                     )}
                   </div>
@@ -505,6 +511,54 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
               <button type="button" disabled={!inviteForm.emailAddress || !inviteForm.roleId || isSaving} onClick={submitInvite} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
                 {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                 Send Invite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {hkUserId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-gray-300 bg-surface p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Make Housekeeper</h3>
+              <button type="button" onClick={() => setHkUserId(null)} className="rounded-lg p-1 text-gray-500 hover:bg-gray-200/50">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-gray-600">
+              Select the property where{' '}
+              <span className="font-medium text-gray-900">
+                {users.find((u) => u.id === hkUserId)?.displayName ?? 'this user'}
+              </span>{' '}
+              will be a housekeeper.
+            </p>
+            {hkProperties.length === 0 ? (
+              <p className="text-sm text-gray-500">No PMS properties found. Configure properties in PMS first.</p>
+            ) : (
+              <select
+                value={hkPropertyId}
+                onChange={(e) => setHkPropertyId(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+              >
+                <option value="" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Select Property</option>
+                {hkProperties.map((p) => (
+                  <option key={p.id} value={p.id} style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>{p.name}</option>
+                ))}
+              </select>
+            )}
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" onClick={() => setHkUserId(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50">
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!hkPropertyId || hkSaving}
+                onClick={submitMakeHousekeeper}
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {hkSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Assign as Housekeeper
               </button>
             </div>
           </div>

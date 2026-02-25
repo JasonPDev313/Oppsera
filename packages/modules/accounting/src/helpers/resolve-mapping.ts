@@ -151,6 +151,66 @@ export async function resolveFolioEntryTypeAccount(
 }
 
 /**
+ * Batch-fetch all sub-department GL mappings for a tenant.
+ * Returns a Map keyed by subDepartmentId for O(1) lookups.
+ * Replaces N sequential resolveSubDepartmentAccounts calls with 1 query.
+ */
+export async function batchResolveSubDepartmentAccounts(
+  tx: Database,
+  tenantId: string,
+): Promise<Map<string, SubDeptGL>> {
+  const rows = await tx.execute(sql`
+    SELECT
+      sub_department_id,
+      revenue_account_id,
+      cogs_account_id,
+      inventory_asset_account_id,
+      discount_account_id,
+      returns_account_id
+    FROM sub_department_gl_defaults
+    WHERE tenant_id = ${tenantId}
+  `);
+
+  const map = new Map<string, SubDeptGL>();
+  for (const row of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    const id = String(row.sub_department_id);
+    map.set(id, {
+      subDepartmentId: id,
+      revenueAccountId: String(row.revenue_account_id),
+      cogsAccountId: row.cogs_account_id ? String(row.cogs_account_id) : null,
+      inventoryAccountId: row.inventory_asset_account_id ? String(row.inventory_asset_account_id) : null,
+      discountAccountId: row.discount_account_id ? String(row.discount_account_id) : null,
+      returnsAccountId: row.returns_account_id ? String(row.returns_account_id) : null,
+    });
+  }
+  return map;
+}
+
+/**
+ * Batch-fetch all tax group GL mappings for a tenant.
+ * Returns a Map keyed by taxGroupId for O(1) lookups.
+ * Replaces N sequential resolveTaxGroupAccount calls with 1 query.
+ */
+export async function batchResolveTaxGroupAccounts(
+  tx: Database,
+  tenantId: string,
+): Promise<Map<string, string>> {
+  const rows = await tx.execute(sql`
+    SELECT tax_group_id, tax_payable_account_id
+    FROM tax_group_gl_defaults
+    WHERE tenant_id = ${tenantId}
+  `);
+
+  const map = new Map<string, string>();
+  for (const row of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    if (row.tax_payable_account_id) {
+      map.set(String(row.tax_group_id), String(row.tax_payable_account_id));
+    }
+  }
+  return map;
+}
+
+/**
  * Log an unmapped event for later resolution.
  * Called when a GL mapping is missing during automated posting.
  */

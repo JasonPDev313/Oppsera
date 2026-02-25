@@ -45,10 +45,14 @@ vi.mock('../helpers/get-accounting-settings', () => ({
 const mockLogUnmappedEvent = vi.fn();
 const mockResolveSubDeptAccounts = vi.fn();
 const mockResolvePaymentTypeAccounts = vi.fn();
+const mockBatchResolveSubDepartmentAccounts = vi.fn();
+const mockBatchResolveTaxGroupAccounts = vi.fn();
 vi.mock('../helpers/resolve-mapping', () => ({
   resolveSubDepartmentAccounts: (...args: any[]) => mockResolveSubDeptAccounts(...args),
   resolvePaymentTypeAccounts: (...args: any[]) => mockResolvePaymentTypeAccounts(...args),
   resolveTaxGroupAccount: vi.fn().mockResolvedValue('acct-tax-payable'),
+  batchResolveSubDepartmentAccounts: (...args: any[]) => mockBatchResolveSubDepartmentAccounts(...args),
+  batchResolveTaxGroupAccounts: (...args: any[]) => mockBatchResolveTaxGroupAccounts(...args),
   logUnmappedEvent: (...args: any[]) => mockLogUnmappedEvent(...args),
 }));
 
@@ -150,6 +154,9 @@ describe('GL Posting Matrix — Balance Validation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     allPostedEntries.length = 0;
+    // Default batch resolve mocks for POS adapter tests
+    mockBatchResolveSubDepartmentAccounts.mockResolvedValue(new Map([['subdept-1', fullSubDeptMapping]]));
+    mockBatchResolveTaxGroupAccounts.mockResolvedValue(new Map());
   });
 
   // ─── Voucher Adapters ─────────────────────────────────────
@@ -554,6 +561,7 @@ describe('GL Posting Matrix — Balance Validation', () => {
       (getAccountingSettings as any).mockResolvedValueOnce(fullSettings);
       mockResolvePaymentTypeAccounts.mockResolvedValueOnce(fullPaymentMapping);
       mockResolveSubDeptAccounts.mockResolvedValueOnce(null); // no mapping!
+      mockBatchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map()); // empty batch map
 
       const { handleTenderForAccounting } = await import('../adapters/pos-posting-adapter');
       await handleTenderForAccounting(baseTenderEvent as any);
@@ -573,6 +581,7 @@ describe('GL Posting Matrix — Balance Validation', () => {
       (getAccountingSettings as any).mockResolvedValueOnce(fullSettings);
       mockResolvePaymentTypeAccounts.mockResolvedValueOnce(null);
       mockResolveSubDeptAccounts.mockResolvedValueOnce(null);
+      mockBatchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map());
 
       // orderTotal = subtotal(10000) + tax(800) + svcCharge(500) = 11300
       const eventWithTax = {
@@ -642,6 +651,7 @@ describe('GL Posting Matrix — Balance Validation', () => {
       (getAccountingSettings as any).mockResolvedValueOnce(settingsWithNoFallbacks);
       mockResolvePaymentTypeAccounts.mockResolvedValueOnce(null);
       mockResolveSubDeptAccounts.mockResolvedValueOnce(null);
+      mockBatchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map());
 
       const { handleTenderForAccounting } = await import('../adapters/pos-posting-adapter');
       await handleTenderForAccounting(baseTenderEvent as any);

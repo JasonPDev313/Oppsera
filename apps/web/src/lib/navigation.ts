@@ -197,6 +197,7 @@ export const navigation: NavItem[] = [
       // Property Setup
       { name: 'Room Types', href: '/pms/room-types', icon: LayoutGrid, group: 'Property Setup', requiredPermission: 'pms.rooms.view' },
       { name: 'Rooms', href: '/pms/rooms', icon: DoorOpen, group: 'Property Setup', requiredPermission: 'pms.rooms.view' },
+      { name: 'Housekeeping Staff', href: '/pms/housekeeping-staff', icon: Users, group: 'Property Setup', requiredPermission: 'pms.housekeepers.manage' },
       // Reporting
       { name: 'Reports', href: '/pms/reports', icon: BarChart3, group: 'Reporting', requiredPermission: 'pms.property.view' },
     ],

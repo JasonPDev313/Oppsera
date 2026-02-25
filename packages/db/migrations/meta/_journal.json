@@ -1408,6 +1408,27 @@
       "when": 1708100200000,
       "tag": "0200_pms_guest_customer_index",
       "breakpoints": true
+    },
+    {
+      "idx": 201,
+      "version": "7",
+      "when": 1708100201000,
+      "tag": "0201_performance_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 202,
+      "version": "7",
+      "when": 1708100202000,
+      "tag": "0202_housekeeper_management",
+      "breakpoints": true
+    },
+    {
+      "idx": 203,
+      "version": "7",
+      "when": 1708100203000,
+      "tag": "0203_usage_tracking",
+      "breakpoints": true
     }
   ]
 }

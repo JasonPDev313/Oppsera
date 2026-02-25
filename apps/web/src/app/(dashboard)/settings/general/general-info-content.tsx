@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   Building2,
   Settings2,
@@ -266,6 +266,9 @@ function BusinessInfoTab() {
   const [dirty, setDirty] = useState(false);
   const [contentDirty, setContentDirty] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [logoDragOver, setLogoDragOver] = useState(false);
+  const [galleryDragOver, setGalleryDragOver] = useState(false);
   const [activeContentTab, setActiveContentTab] = useState<ContentBlockKey>('about');
 
   // Initialize form from loaded data
@@ -332,6 +335,84 @@ function BusinessInfoTab() {
     const vertical = form.industryType ?? info?.industryType ?? 'general';
     return VERTICAL_SUGGESTIONS[vertical] ?? VERTICAL_SUGGESTIONS.general!;
   }, [form.industryType, info?.industryType]);
+
+  // ── Image upload refs & helpers ────────────────────────────────
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const readAndResizeImage = useCallback(
+    (file: File, maxDim: number, quality = 0.85): Promise<string> =>
+      new Promise((resolve, reject) => {
+        if (file.type === 'image/svg+xml') {
+          // SVG: read directly (preserves vectors)
+          const r = new FileReader();
+          r.onload = () => resolve(r.result as string);
+          r.onerror = reject;
+          r.readAsDataURL(file);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let { width, height } = img;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round(height * (maxDim / width));
+                width = maxDim;
+              } else {
+                width = Math.round(width * (maxDim / height));
+                height = maxDim;
+              }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img, 0, 0, width, height);
+            const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+            resolve(canvas.toDataURL(mime, quality));
+          };
+          img.onerror = reject;
+          img.src = reader.result as string;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      }),
+    [],
+  );
+
+  const ACCEPTED_IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/svg+xml';
+  const MAX_LOGO_SIZE = 2 * 1024 * 1024; // 2MB
+  const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB
+
+  async function handleLogoFile(file: File) {
+    setFileError(null);
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > MAX_LOGO_SIZE) {
+      setFileError('Logo must be under 2MB');
+      return;
+    }
+    const dataUrl = await readAndResizeImage(file, 512);
+    updateField('logoUrl', dataUrl);
+  }
+
+  async function handleGalleryFile(file: File) {
+    setFileError(null);
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > MAX_PHOTO_SIZE) {
+      setFileError('Photo must be under 5MB');
+      return;
+    }
+    const dataUrl = await readAndResizeImage(file, 1200, 0.8);
+    const gallery = [...(form.photoGallery ?? [])];
+    if (gallery.length >= 20) {
+      setFileError('Maximum 20 photos allowed');
+      return;
+    }
+    gallery.push({ url: dataUrl, sortOrder: gallery.length });
+    updateField('photoGallery', gallery);
+  }
 
   // ── Completeness calculation ──────────────────────────────────
   const completeness = useMemo(() => {
@@ -588,6 +669,18 @@ function BusinessInfoTab() {
 
           {/* Logo Upload */}
           <Field label="Business Logo" helper="Recommended: 512x512px PNG or SVG. Max 2MB.">
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept={ACCEPTED_IMAGE_TYPES}
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleLogoFile(file).catch(() => setFileError('Failed to process logo'));
+                e.target.value = '';
+              }}
+            />
+            {fileError && <p className="mb-2 text-sm text-red-500">{fileError}</p>}
             {form.logoUrl ? (
               <div className="flex items-center gap-4">
                 <img
@@ -598,6 +691,7 @@ function BusinessInfoTab() {
                 <div className="flex gap-2">
                   <button
                     type="button"
+                    onClick={() => logoInputRef.current?.click()}
                     disabled={disabled}
                     className="text-sm text-indigo-600 hover:text-indigo-800"
                   >
@@ -614,12 +708,25 @@ function BusinessInfoTab() {
                 </div>
               </div>
             ) : (
-              <div className="flex h-24 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50 hover:border-gray-400">
+              <button
+                type="button"
+                onClick={() => logoInputRef.current?.click()}
+                disabled={disabled}
+                onDragOver={(e) => { e.preventDefault(); setLogoDragOver(true); }}
+                onDragLeave={() => setLogoDragOver(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setLogoDragOver(false);
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleLogoFile(file).catch(() => setFileError('Failed to process logo'));
+                }}
+                className={`flex h-24 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-gray-50/50 transition-colors hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60 ${logoDragOver ? 'border-indigo-400' : 'border-gray-300'}`}
+              >
                 <div className="flex flex-col items-center gap-1 text-gray-400">
                   <ImagePlus className="h-6 w-6" />
                   <span className="text-xs">Drag & drop or click to upload</span>
                 </div>
-              </div>
+              </button>
             )}
           </Field>
         </div>
@@ -880,7 +987,18 @@ function BusinessInfoTab() {
           <div className="space-y-4 border-t border-gray-100 pt-4">
             <h4 className="text-sm font-medium text-gray-700">Media</h4>
 
-            <Field label="Photo Gallery" helper="Up to 20 photos. Used in portal and booking pages.">
+            <Field label="Photo Gallery" helper="Up to 20 photos. Used in portal and booking pages. Max 5MB each.">
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept={ACCEPTED_IMAGE_TYPES}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleGalleryFile(file).catch(() => setFileError('Failed to process photo'));
+                  e.target.value = '';
+                }}
+              />
               {(form.photoGallery?.length ?? 0) > 0 ? (
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                   {form.photoGallery?.map((photo, idx) => (
@@ -892,7 +1010,7 @@ function BusinessInfoTab() {
                           onClick={() => {
                             const next = [...(form.photoGallery ?? [])];
                             next.splice(idx, 1);
-                            updateField('photoGallery', next);
+                            updateField('photoGallery', next.map((p, i) => ({ ...p, sortOrder: i })));
                           }}
                           className="absolute right-1 top-1 hidden rounded-full bg-black/50 p-1 text-white group-hover:block"
                         >
@@ -902,16 +1020,41 @@ function BusinessInfoTab() {
                     </div>
                   ))}
                   {(form.photoGallery?.length ?? 0) < 20 && !disabled && (
-                    <div className="flex aspect-square items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-500">
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setGalleryDragOver(true); }}
+                      onDragLeave={() => setGalleryDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setGalleryDragOver(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleGalleryFile(file).catch(() => setFileError('Failed to process photo'));
+                      }}
+                      className={`flex aspect-square cursor-pointer items-center justify-center rounded-lg border-2 border-dashed text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-500 ${galleryDragOver ? 'border-indigo-400' : 'border-gray-300'}`}
+                    >
                       <ImagePlus className="h-6 w-6" />
-                    </div>
+                    </button>
                   )}
                 </div>
               ) : (
-                <div className="flex h-20 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50/50 text-sm text-gray-400">
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={disabled}
+                  onDragOver={(e) => { e.preventDefault(); setGalleryDragOver(true); }}
+                  onDragLeave={() => setGalleryDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setGalleryDragOver(false);
+                    const file = e.dataTransfer.files[0];
+                    if (file) handleGalleryFile(file).catch(() => setFileError('Failed to process photo'));
+                  }}
+                  className={`flex h-20 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-gray-50/50 text-sm text-gray-400 transition-colors hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60 ${galleryDragOver ? 'border-indigo-400' : 'border-gray-300'}`}
+                >
                   <ImagePlus className="mr-2 h-5 w-5" />
                   Add your first photo
-                </div>
+                </button>
               )}
             </Field>
 

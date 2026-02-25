@@ -2749,12 +2749,26 @@ export interface PMSHousekeeper {
   id: string;
   tenantId: string;
   propertyId: string;
-  userId: string | null;
+  userId: string;
   name: string;
   phone: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  userEmail: string;
+  userDisplayName: string | null;
+  userStatus: string;
+}
+
+export interface AvailableUserForHousekeeping {
+  id: string;
+  displayName: string | null;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  status: string;
+  roles: Array<{ id: string; name: string }>;
 }
 
 export interface PMSHousekeepingAssignment {
@@ -2849,6 +2863,71 @@ export function useHousekeepers(propertyId: string | null) {
     isLoading: result.isLoading,
     error: result.error,
     mutate: result.refetch,
+  };
+}
+
+// ── useAvailableUsersForHousekeeping ─────────────────────────────
+
+export function useAvailableUsersForHousekeeping(propertyId: string | null) {
+  const result = useQuery({
+    queryKey: ['pms-available-users', propertyId],
+    queryFn: () => {
+      const qs = buildQueryString({ propertyId });
+      return apiFetch<{ data: AvailableUserForHousekeeping[] }>(
+        `/api/v1/pms/housekeepers/available-users${qs}`,
+      ).then((r) => r.data);
+    },
+    enabled: !!propertyId,
+    staleTime: 15_000,
+  });
+
+  return {
+    data: result.data ?? [],
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+// ── useHousekeeperMutations ─────────────────────────────────────
+
+export function useHousekeeperMutations() {
+  const queryClient = useQueryClient();
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['pms-housekeepers'] });
+    queryClient.invalidateQueries({ queryKey: ['pms-available-users'] });
+  };
+
+  const linkUserAsHousekeeper = useMutation({
+    mutationFn: (input: { userId: string; propertyId: string }) =>
+      apiFetch<{ data: unknown }>('/api/v1/pms/housekeepers/from-user', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }).then((r) => r.data),
+    onSuccess: () => invalidate(),
+  });
+
+  const createHousekeeperWithUser = useMutation({
+    mutationFn: (input: {
+      propertyId: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      username: string;
+      password?: string;
+      phone?: string;
+    }) =>
+      apiFetch<{ data: { user: unknown; housekeeper: unknown } }>('/api/v1/pms/housekeepers/create-with-user', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }).then((r) => r.data),
+    onSuccess: () => invalidate(),
+  });
+
+  return {
+    linkUserAsHousekeeper,
+    createHousekeeperWithUser,
   };
 }
 

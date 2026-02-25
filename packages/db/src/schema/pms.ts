@@ -13,7 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
-import { tenants } from './core';
+import { tenants, users } from './core';
 
 // ── PMS Properties ──────────────────────────────────────────────
 export const pmsProperties = pgTable(
@@ -887,7 +887,9 @@ export const pmsHousekeepers = pgTable(
     propertyId: text('property_id')
       .notNull()
       .references(() => pmsProperties.id),
-    userId: text('user_id'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
     name: text('name').notNull(),
     phone: text('phone'),
     isActive: boolean('is_active').notNull().default(true),
@@ -896,6 +898,7 @@ export const pmsHousekeepers = pgTable(
   },
   (table) => [
     index('idx_pms_housekeepers_tenant_property').on(table.tenantId, table.propertyId),
+    uniqueIndex('uq_pms_housekeepers_tenant_property_user').on(table.tenantId, table.propertyId, table.userId),
   ],
 );
 

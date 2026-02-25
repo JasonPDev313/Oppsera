@@ -258,25 +258,40 @@ export function useCatalogForPOS(locationId: string, isActive = true) {
 
   // ── Periodic refresh to keep catalog current during long shifts ──
   // Only the active POS mode refreshes — the inactive one is CSS-hidden
-  // and doesn't need to poll. This halves background API calls.
+  // and doesn't need to poll. Pauses when tab is hidden to avoid wasted
+  // background requests. Resumes + fires immediate refresh on tab return.
 
   useEffect(() => {
     if (!isActive) return;
-    const interval = setInterval(() => {
-      fetchCatalog(false);
-    }, REFRESH_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [fetchCatalog, isActive]);
 
-  // ── Refresh catalog when tab resumes from idle ──────────────────
-  // Listens for the 'pos-visibility-resume' event dispatched by the
-  // POS layout's visibilitychange handler. Only the active mode responds.
+    let intervalId: ReturnType<typeof setInterval> | undefined;
 
-  useEffect(() => {
-    if (!isActive) return;
-    const handleResume = () => fetchCatalog(false);
-    window.addEventListener('pos-visibility-resume', handleResume);
-    return () => window.removeEventListener('pos-visibility-resume', handleResume);
+    const start = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = setInterval(() => fetchCatalog(false), REFRESH_INTERVAL_MS);
+    };
+
+    const stop = () => {
+      if (intervalId) { clearInterval(intervalId); intervalId = undefined; }
+    };
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        // Refresh on resume (replaces the old pos-visibility-resume listener)
+        fetchCatalog(false);
+        start();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    start();
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      stop();
+    };
   }, [fetchCatalog, isActive]);
 
   // ── Category hierarchy maps ────────────────────────────────────

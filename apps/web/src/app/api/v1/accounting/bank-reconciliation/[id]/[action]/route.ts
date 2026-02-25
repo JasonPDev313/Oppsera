@@ -74,6 +74,12 @@ export const POST = withMiddleware(
         return NextResponse.json({ data: result });
       }
     }
+
+    // Unreachable — all actions handled above, unknown actions caught by guard
+    return NextResponse.json(
+      { error: { code: 'NOT_FOUND', message: `Unknown action` } },
+      { status: 404 },
+    );
   },
   { entitlement: 'accounting', permission: 'accounting.manage', writeAccess: true },
 );

@@ -18,7 +18,7 @@ export function useInventory(options: UseInventoryOptions = {}) {
 
   const result = useInfiniteQuery({
     queryKey: ['inventory', options] as const,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       const params = new URLSearchParams();
       if (options.locationId) params.set('locationId', options.locationId);
       if (options.status) params.set('status', options.status);
@@ -28,7 +28,8 @@ export function useInventory(options: UseInventoryOptions = {}) {
       if (pageParam) params.set('cursor', pageParam);
 
       return apiFetch<{ data: InventoryItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
-        `/api/v1/inventory?${params.toString()}`
+        `/api/v1/inventory?${params.toString()}`,
+        { signal },
       );
     },
     initialPageParam: undefined as string | undefined,
@@ -72,12 +73,13 @@ export function useMovements(itemId: string | null) {
 
   const result = useInfiniteQuery({
     queryKey: ['movements', itemId] as const,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       const params = new URLSearchParams();
       if (pageParam) params.set('cursor', pageParam);
 
       return apiFetch<{ data: InventoryMovement[]; meta: { cursor: string | null; hasMore: boolean } }>(
-        `/api/v1/inventory/${itemId}/movements?${params.toString()}`
+        `/api/v1/inventory/${itemId}/movements?${params.toString()}`,
+        { signal },
       );
     },
     initialPageParam: undefined as string | undefined,
