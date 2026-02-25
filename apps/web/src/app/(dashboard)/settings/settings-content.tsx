@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Users, Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissionsContext } from '@/components/permissions-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
