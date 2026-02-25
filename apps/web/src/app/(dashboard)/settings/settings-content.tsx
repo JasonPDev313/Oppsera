@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard, Grid3X3, List, MapPin, Store, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
-import { usePermissions } from '@/hooks/use-permissions';
+import { usePermissionsContext } from '@/components/permissions-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { AuditLogViewer } from '@/components/audit-log-viewer';
 import { UserManagementTab } from './user-management-tab';
@@ -152,7 +152,7 @@ const PERMISSION_GROUPS: PermissionGroupEntry[] = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'audit' | 'dashboard'>('users');
-  const { can } = usePermissions();
+  const { can } = usePermissionsContext();
 
   const allTabs = [
     { id: 'users' as const, label: 'Users', icon: Users, requiredPermission: 'users.view' },
@@ -1018,7 +1018,7 @@ export function ModulesTab() {
   const [togglingModule, setTogglingModule] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { entitlements, isModuleEnabled, refetch: refetchEntitlements } = useEntitlementsContext();
-  const { can } = usePermissions();
+  const { can } = usePermissionsContext();
 
   const handleEnableModule = useCallback(async (moduleKey: string) => {
     setEnablingModule(moduleKey);

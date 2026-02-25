@@ -20,13 +20,28 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 import { useBusinessInfo, useUpdateBusinessInfo, useContentBlocks, useUpdateContentBlock } from '@/hooks/use-business-info';
-import { usePermissions } from '@/hooks/use-permissions';
+import dynamic from 'next/dynamic';
+import { usePermissionsContext } from '@/components/permissions-provider';
 import { TagInput } from '@/components/settings/general/tag-input';
 import { BusinessHoursEditor } from '@/components/settings/general/business-hours-editor';
 import { SocialLinksEditor } from '@/components/settings/general/social-links-editor';
 import { RichTextEditor } from '@/components/settings/general/rich-text-editor';
-import { UserManagementTab } from '../user-management-tab';
-import { RolesTab, ModulesTab, DashboardSettingsTab, AuditLogTab } from '../settings-content';
+
+// ── Lazy-loaded tabs (avoid pulling in the entire 1,355-line settings-content bundle) ──
+const UserManagementTab = dynamic(() => import('../user-management-tab').then(m => ({ default: m.UserManagementTab })), { ssr: false, loading: () => <TabSkeleton /> });
+const RolesTab = dynamic(() => import('../settings-content').then(m => ({ default: m.RolesTab })), { ssr: false, loading: () => <TabSkeleton /> });
+const ModulesTab = dynamic(() => import('../settings-content').then(m => ({ default: m.ModulesTab })), { ssr: false, loading: () => <TabSkeleton /> });
+const DashboardSettingsTab = dynamic(() => import('../settings-content').then(m => ({ default: m.DashboardSettingsTab })), { ssr: false, loading: () => <TabSkeleton /> });
+const AuditLogTab = dynamic(() => import('../settings-content').then(m => ({ default: m.AuditLogTab })), { ssr: false, loading: () => <TabSkeleton /> });
+
+function TabSkeleton() {
+  return (
+    <div className="space-y-4 py-4">
+      <div className="h-5 w-48 animate-pulse rounded bg-gray-200" />
+      <div className="h-32 animate-pulse rounded-lg bg-gray-100" />
+    </div>
+  );
+}
 import type {
   UpdateBusinessInfoInput,
   ContentBlockKey,
@@ -176,7 +191,7 @@ type GeneralTab = 'business-info' | 'users' | 'roles' | 'modules' | 'dashboard' 
 
 export default function GeneralInfoContent() {
   const [activeTab, setActiveTab] = useState<GeneralTab>('business-info');
-  const { can } = usePermissions();
+  const { can } = usePermissionsContext();
 
   const allTabs: { id: GeneralTab; label: string; icon: typeof Building2; requiredPermission: string }[] = [
     { id: 'business-info', label: 'Business Info', icon: Building2, requiredPermission: 'settings.view' },
@@ -242,7 +257,7 @@ function BusinessInfoTab() {
   const { data: blocks, isLoading: loadingBlocks } = useContentBlocks();
   const updateInfo = useUpdateBusinessInfo();
   const updateBlock = useUpdateContentBlock();
-  const { can } = usePermissions();
+  const { can } = usePermissionsContext();
   const canEdit = can('settings.update');
 
   // ── Form state ─────────────────────────────────────────────────

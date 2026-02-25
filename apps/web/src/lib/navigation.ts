@@ -222,7 +222,7 @@ export const navigation: NavItem[] = [
   },
   {
     name: 'Settings',
-    href: '/settings',
+    href: '/settings/general',
     icon: Settings,
     requiredPermission: 'settings.view',
     children: [
