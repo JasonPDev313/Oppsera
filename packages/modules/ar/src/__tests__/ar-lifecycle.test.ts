@@ -52,7 +52,7 @@ vi.mock('@oppsera/core/audit/helpers', () => ({
 }));
 
 vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
-  getAccountingPostingApi: vi.fn(() => ({
+  getAccountingPostingApi: () => ({
     postEntry: vi.fn().mockResolvedValue({ id: 'je-1', journalNumber: 1, status: 'posted' }),
     getSettings: vi.fn().mockResolvedValue({
       defaultAPControlAccountId: null,
@@ -60,7 +60,7 @@ vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
       baseCurrency: 'USD',
     }),
     getAccountBalance: vi.fn().mockResolvedValue(0),
-  })),
+  }),
 }));
 
 vi.mock('@oppsera/shared', () => ({

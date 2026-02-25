@@ -68,11 +68,11 @@ vi.mock('@oppsera/core/audit/helpers', () => ({
 }));
 
 vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
-  getAccountingPostingApi: vi.fn(() => ({
+  getAccountingPostingApi: () => ({
     postEntry: mockPostEntry,
     getSettings: mockGetSettings,
     getAccountBalance: vi.fn().mockResolvedValue(0),
-  })),
+  }),
 }));
 
 vi.mock('@oppsera/shared', () => ({
