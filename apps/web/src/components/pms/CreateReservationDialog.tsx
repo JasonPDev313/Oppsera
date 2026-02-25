@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, Search, UserPlus, UserCheck, Plus } from 'lucide-react';
+import { X, Loader2, Search, UserPlus, UserCheck } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
 import { Select } from '@/components/ui/select';
