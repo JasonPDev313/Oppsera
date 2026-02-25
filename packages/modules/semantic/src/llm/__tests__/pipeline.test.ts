@@ -840,6 +840,8 @@ describe('runPipeline — Mode A to Mode B fallback', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // mockReset clears mockResolvedValueOnce queues (clearAllMocks does not — gotcha #58)
+    mockLLMComplete.mockReset();
     setupHappyPathMocks();
     // Override schema catalog to return a valid schema (enables SQL fallback)
     mockBuildSchemaCatalog.mockResolvedValue(mockSchemaCatalog);
@@ -851,15 +853,9 @@ describe('runPipeline — Mode A to Mode B fallback', () => {
       provider: 'mock',
       model: 'mock-model',
       // Call 1: intent resolution → returns metrics plan
-      // Call 2: SQL generation (fallback) → returns SQL JSON
-      // Call 3: narrative generation → returns narrative
+      // Call 2: narrative generation in SQL mode (SQL gen uses mockGenerateSql, not LLM adapter)
       complete: mockLLMComplete
         .mockResolvedValueOnce(makeLLMResponse(VALID_PLAN_JSON))
-        .mockResolvedValueOnce(makeLLMResponse(JSON.stringify({
-          sql: "SELECT count(*) as total_orders, SUM(subtotal_cents) / 100.0 as revenue FROM orders WHERE tenant_id = $1 AND status IN ('placed','paid')",
-          explanation: 'Count orders and sum revenue',
-          confidence: 0.95,
-        })))
         .mockResolvedValueOnce(makeLLMResponse(SQL_NARRATIVE)),
     };
     setLLMAdapter(adapter);
@@ -918,9 +914,10 @@ describe('runPipeline — Mode A to Mode B fallback', () => {
     const adapter: LLMAdapter = {
       provider: 'mock',
       model: 'mock-model',
+      // Call 1: intent resolution → metrics plan
+      // Call 2: narrative in SQL mode (SQL gen uses mockGenerateSql)
       complete: mockLLMComplete
         .mockResolvedValueOnce(makeLLMResponse(VALID_PLAN_JSON))
-        .mockResolvedValueOnce(makeLLMResponse(ADVISOR_NARRATIVE))
         .mockResolvedValueOnce(makeLLMResponse(ADVISOR_NARRATIVE)),
     };
     setLLMAdapter(adapter);
@@ -974,19 +971,20 @@ describe('runPipeline — Mode A to Mode B fallback', () => {
     const adapter: LLMAdapter = {
       provider: 'mock',
       model: 'mock-model',
+      // Call 1: intent resolution → metrics plan
+      // Call 2: advisor narrative in runSqlMode catch (generateSql threw)
+      // Call 3: narrative in retry runMetricsMode (deferred narrative regeneration)
       complete: mockLLMComplete
         .mockResolvedValueOnce(makeLLMResponse(VALID_PLAN_JSON))
+        .mockResolvedValueOnce(makeLLMResponse(ADVISOR_NARRATIVE))
         .mockResolvedValueOnce(makeLLMResponse(ADVISOR_NARRATIVE)),
     };
     setLLMAdapter(adapter);
 
-    // Metrics mode returns 0 rows
-    mockExecuteCompiledQuery.mockResolvedValueOnce({
-      rows: [],
-      rowCount: 0,
-      executionTimeMs: 5,
-      truncated: false,
-    });
+    // Metrics mode returns 0 rows (both first run and retry)
+    mockExecuteCompiledQuery
+      .mockResolvedValueOnce({ rows: [], rowCount: 0, executionTimeMs: 5, truncated: false })
+      .mockResolvedValueOnce({ rows: [], rowCount: 0, executionTimeMs: 5, truncated: false });
 
     // SQL generation fails
     mockGenerateSql.mockRejectedValueOnce(new Error('LLM timeout'));
