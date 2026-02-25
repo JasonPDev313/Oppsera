@@ -28,7 +28,7 @@ function fmtMs(ms: number): string {
 }
 
 function fmtPct(n: number): string {
-  return `${(n * 100).toFixed(1)}%`;
+  return `${n.toFixed(1)}%`;
 }
 
 // ── Page ─────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ export default function ModuleAnalyticsPage() {
               { label: 'Unique Tenants', value: fmt(data.kpis.uniqueTenants), icon: Building2, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
               { label: 'Unique Users', value: fmt(data.kpis.uniqueUsers), icon: Users, color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
               { label: 'Avg Latency', value: fmtMs(data.kpis.avgLatencyMs), icon: Clock, color: data.kpis.avgLatencyMs > 500 ? 'text-amber-400' : 'text-blue-400', bg: data.kpis.avgLatencyMs > 500 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-blue-500/10 border-blue-500/20' },
-              { label: 'Error Rate', value: fmtPct(data.kpis.errorRate), icon: AlertTriangle, color: data.kpis.errorRate > 0.05 ? 'text-red-400' : 'text-emerald-400', bg: data.kpis.errorRate > 0.05 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20' },
+              { label: 'Error Rate', value: fmtPct(data.kpis.errorRate), icon: AlertTriangle, color: data.kpis.errorRate > 5 ? 'text-red-400' : 'text-emerald-400', bg: data.kpis.errorRate > 5 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20' },
             ].map((c) => (
               <div key={c.label} className={`${c.bg} rounded-lg border p-4`}>
                 <div className="flex items-center justify-between mb-2">
@@ -118,7 +118,7 @@ export default function ModuleAnalyticsPage() {
                   const pct = (d.requestCount / maxReq) * 100;
                   const hasErrors = d.errorCount > 0;
                   return (
-                    <div key={d.date} className="flex-1 flex flex-col justify-end h-full">
+                    <div key={d.usageDate} className="flex-1 flex flex-col justify-end h-full">
                       {hasErrors && (
                         <div
                           className="bg-red-500 rounded-t-sm opacity-70"
@@ -128,15 +128,15 @@ export default function ModuleAnalyticsPage() {
                       <div
                         className="bg-indigo-500 rounded-t-sm opacity-70 hover:opacity-100 transition-opacity"
                         style={{ height: `${Math.max(pct - (hasErrors ? (d.errorCount / Math.max(...data.dailyUsage.map((x) => x.requestCount), 1)) * 100 : 0), 2)}%` }}
-                        title={`${d.date}: ${d.requestCount} req, ${d.errorCount} errors`}
+                        title={`${d.usageDate}: ${d.requestCount} req, ${d.errorCount} errors`}
                       />
                     </div>
                   );
                 })}
               </div>
               <div className="flex justify-between mt-1">
-                <span className="text-[10px] text-slate-500">{data.dailyUsage[0]?.date}</span>
-                <span className="text-[10px] text-slate-500">{data.dailyUsage[data.dailyUsage.length - 1]?.date}</span>
+                <span className="text-[10px] text-slate-500">{data.dailyUsage[0]?.usageDate}</span>
+                <span className="text-[10px] text-slate-500">{data.dailyUsage[data.dailyUsage.length - 1]?.usageDate}</span>
               </div>
             </div>
           )}

@@ -14,28 +14,27 @@ interface PlatformKpis {
 
 interface ModuleRanking {
   moduleKey: string;
-  totalRequests: number;
-  errorRate: number;
-  avgLatencyMs: number;
+  requestCount: number;
+  errorCount: number;
   uniqueTenants: number;
 }
 
 interface TenantRanking {
   tenantId: string;
   tenantName: string;
-  totalRequests: number;
-  uniqueModules: number;
+  requestCount: number;
+  lastActiveAt: string;
 }
 
 interface AdoptionRate {
   moduleKey: string;
   activeTenants: number;
   totalTenants: number;
-  rate: number;
+  adoptionPct: number;
 }
 
 interface ErrorTrendPoint {
-  date: string;
+  usageDate: string;
   errorRate: number;
   requestCount: number;
 }
@@ -63,7 +62,7 @@ interface ModuleKpis {
 }
 
 interface DailyUsagePoint {
-  date: string;
+  usageDate: string;
   requestCount: number;
   errorCount: number;
 }
@@ -92,26 +91,26 @@ export interface ModuleAnalyticsData {
 interface TenantModuleBreakdown {
   moduleKey: string;
   requestCount: number;
+  errorCount: number;
   pct: number;
 }
 
 interface TenantDailyActivity {
-  date: string;
+  usageDate: string;
   requestCount: number;
 }
 
 interface FeatureAdoption {
   moduleKey: string;
-  isEnabled: boolean;
-  isActive: boolean;
+  firstUsedAt: string | null;
   lastUsedAt: string | null;
   totalRequests: number;
-  activeDays: number;
+  isActive: boolean;
 }
 
 interface TenantWorkflow {
   workflowKey: string;
-  workflowName: string;
+  moduleKey: string;
   requestCount: number;
 }
 

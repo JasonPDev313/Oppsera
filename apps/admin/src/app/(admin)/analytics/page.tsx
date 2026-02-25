@@ -28,7 +28,7 @@ function fmtMs(ms: number): string {
 }
 
 function fmtPct(n: number): string {
-  return `${(n * 100).toFixed(1)}%`;
+  return `${n.toFixed(1)}%`;
 }
 
 // ── KPI Cards ────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ function KpiCards({ kpis }: { kpis: PlatformDashboardData['kpis'] }) {
   const cards = [
     { label: 'Total Requests', value: fmt(kpis.totalRequests), icon: Activity, color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/20' },
     { label: 'Active Tenants', value: fmt(kpis.activeTenants), icon: Building2, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-    { label: 'Error Rate', value: fmtPct(kpis.errorRate), icon: AlertTriangle, color: kpis.errorRate > 0.05 ? 'text-red-400' : 'text-emerald-400', bg: kpis.errorRate > 0.05 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20' },
+    { label: 'Error Rate', value: fmtPct(kpis.errorRate), icon: AlertTriangle, color: kpis.errorRate > 5 ? 'text-red-400' : 'text-emerald-400', bg: kpis.errorRate > 5 ? 'bg-red-500/10 border-red-500/20' : 'bg-emerald-500/10 border-emerald-500/20' },
     { label: 'Avg Latency', value: fmtMs(kpis.avgLatencyMs), icon: Clock, color: kpis.avgLatencyMs > 500 ? 'text-amber-400' : 'text-blue-400', bg: kpis.avgLatencyMs > 500 ? 'bg-amber-500/10 border-amber-500/20' : 'bg-blue-500/10 border-blue-500/20' },
   ];
   return (
@@ -66,20 +66,20 @@ function ErrorTrend({ data }: { data: PlatformDashboardData['errorTrend'] }) {
       <div className="flex items-end gap-0.5 h-20">
         {data.map((d) => {
           const pct = (d.errorRate / maxRate) * 100;
-          const color = d.errorRate > 0.05 ? 'bg-red-500' : d.errorRate > 0.02 ? 'bg-amber-500' : 'bg-emerald-500';
+          const color = d.errorRate > 5 ? 'bg-red-500' : d.errorRate > 2 ? 'bg-amber-500' : 'bg-emerald-500';
           return (
             <div
-              key={d.date}
+              key={d.usageDate}
               className={`flex-1 ${color} rounded-t-sm opacity-70 hover:opacity-100 transition-opacity`}
               style={{ height: `${Math.max(pct, 2)}%` }}
-              title={`${d.date}: ${fmtPct(d.errorRate)} (${d.requestCount} req)`}
+              title={`${d.usageDate}: ${fmtPct(d.errorRate)} (${d.requestCount} req)`}
             />
           );
         })}
       </div>
       <div className="flex justify-between mt-1">
-        <span className="text-[10px] text-slate-500">{data[0]?.date}</span>
-        <span className="text-[10px] text-slate-500">{data[data.length - 1]?.date}</span>
+        <span className="text-[10px] text-slate-500">{data[0]?.usageDate}</span>
+        <span className="text-[10px] text-slate-500">{data[data.length - 1]?.usageDate}</span>
       </div>
     </div>
   );
@@ -119,7 +119,7 @@ function HourlyTraffic({ data }: { data: PlatformDashboardData['hourlyTraffic'] 
 
 function ModuleRanking({ data }: { data: PlatformDashboardData['moduleRanking'] }) {
   if (data.length === 0) return <EmptyState message="No module data yet" />;
-  const maxReq = data[0]?.totalRequests ?? 1;
+  const maxReq = data[0]?.requestCount ?? 1;
   return (
     <div className="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
@@ -132,8 +132,7 @@ function ModuleRanking({ data }: { data: PlatformDashboardData['moduleRanking'] 
             <th className="text-left px-4 py-2 font-medium text-slate-400">#</th>
             <th className="text-left px-4 py-2 font-medium text-slate-400">Module</th>
             <th className="text-right px-4 py-2 font-medium text-slate-400">Requests</th>
-            <th className="text-right px-4 py-2 font-medium text-slate-400">Err %</th>
-            <th className="text-right px-4 py-2 font-medium text-slate-400">Latency</th>
+            <th className="text-right px-4 py-2 font-medium text-slate-400">Errors</th>
             <th className="text-right px-4 py-2 font-medium text-slate-400">Tenants</th>
             <th className="px-4 py-2 w-16" />
           </tr>
@@ -154,19 +153,18 @@ function ModuleRanking({ data }: { data: PlatformDashboardData['moduleRanking'] 
                     <div className="mt-1 h-1.5 rounded-full bg-slate-700 overflow-hidden">
                       <div
                         className="h-full bg-indigo-500 rounded-full"
-                        style={{ width: `${(m.totalRequests / maxReq) * 100}%` }}
+                        style={{ width: `${(m.requestCount / maxReq) * 100}%` }}
                       />
                     </div>
                   </div>
                 </div>
               </td>
-              <td className="px-4 py-2.5 text-right text-slate-300 text-xs font-mono">{fmt(m.totalRequests)}</td>
+              <td className="px-4 py-2.5 text-right text-slate-300 text-xs font-mono">{fmt(m.requestCount)}</td>
               <td className="px-4 py-2.5 text-right">
-                <span className={`text-xs font-mono ${m.errorRate > 0.05 ? 'text-red-400' : 'text-slate-400'}`}>
-                  {fmtPct(m.errorRate)}
+                <span className={`text-xs font-mono ${m.errorCount > 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                  {fmt(m.errorCount)}
                 </span>
               </td>
-              <td className="px-4 py-2.5 text-right text-slate-400 text-xs font-mono">{fmtMs(m.avgLatencyMs)}</td>
               <td className="px-4 py-2.5 text-right text-slate-400 text-xs">{m.uniqueTenants}</td>
               <td className="px-4 py-2.5 text-right">
                 <Link href={`/analytics/modules/${m.moduleKey}`} className="text-slate-500 hover:text-slate-300">
@@ -196,7 +194,7 @@ function TenantRanking({ data }: { data: PlatformDashboardData['tenantRanking'] 
             <th className="text-left px-4 py-2 font-medium text-slate-400">#</th>
             <th className="text-left px-4 py-2 font-medium text-slate-400">Tenant</th>
             <th className="text-right px-4 py-2 font-medium text-slate-400">Requests</th>
-            <th className="text-right px-4 py-2 font-medium text-slate-400">Modules</th>
+            <th className="text-right px-4 py-2 font-medium text-slate-400">Last Active</th>
             <th className="px-4 py-2 w-16" />
           </tr>
         </thead>
@@ -212,8 +210,8 @@ function TenantRanking({ data }: { data: PlatformDashboardData['tenantRanking'] 
                   {t.tenantName || t.tenantId.slice(0, 8)}
                 </Link>
               </td>
-              <td className="px-4 py-2.5 text-right text-slate-300 text-xs font-mono">{fmt(t.totalRequests)}</td>
-              <td className="px-4 py-2.5 text-right text-slate-400 text-xs">{t.uniqueModules}</td>
+              <td className="px-4 py-2.5 text-right text-slate-300 text-xs font-mono">{fmt(t.requestCount)}</td>
+              <td className="px-4 py-2.5 text-right text-slate-400 text-xs">{t.lastActiveAt}</td>
               <td className="px-4 py-2.5 text-right">
                 <Link href={`/tenants/${t.tenantId}`} className="text-slate-500 hover:text-slate-300">
                   <ArrowRight size={14} />
@@ -240,13 +238,13 @@ function AdoptionRates({ data }: { data: PlatformDashboardData['adoptionRates'] 
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-slate-400">{a.moduleKey}</span>
               <span className="text-xs text-slate-300 font-medium">
-                {fmtPct(a.rate)} ({a.activeTenants}/{a.totalTenants})
+                {fmtPct(a.adoptionPct)} ({a.activeTenants}/{a.totalTenants})
               </span>
             </div>
             <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full ${a.rate > 0.5 ? 'bg-emerald-500' : a.rate > 0.25 ? 'bg-amber-500' : 'bg-slate-500'}`}
-                style={{ width: `${a.rate * 100}%` }}
+                className={`h-full rounded-full ${a.adoptionPct > 50 ? 'bg-emerald-500' : a.adoptionPct > 25 ? 'bg-amber-500' : 'bg-slate-500'}`}
+                style={{ width: `${a.adoptionPct}%` }}
               />
             </div>
           </div>
