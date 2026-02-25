@@ -46,7 +46,7 @@ export function MappingDropdown({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
-      className={`rounded-md border border-gray-300 bg-surface ${sizeClasses} focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`rounded-md border border-gray-300 bg-surface text-gray-900 dark:text-gray-100 ${sizeClasses} focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     >
       <option value="">{placeholder}</option>
       {ungrouped.map((opt) => (

@@ -136,6 +136,22 @@ function SidebarActions({
   );
 }
 
+/** Pick the child whose href is the best (longest) prefix-match for the current pathname. */
+function getBestMatchHref(
+  children: ReadonlyArray<{ href: string }>,
+  pathname: string,
+): string | null {
+  let best: string | null = null;
+  for (const child of children) {
+    if (pathname === child.href || pathname.startsWith(child.href + '/')) {
+      if (!best || child.href.length > best.length) {
+        best = child.href;
+      }
+    }
+  }
+  return best;
+}
+
 function SidebarContent({
   pathname,
   onLinkClick,
@@ -290,7 +306,7 @@ function SidebarContent({
                     collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
                   } ${
                     isParentActive
-                      ? 'bg-indigo-50 text-indigo-600'
+                      ? 'bg-indigo-600/10 text-indigo-600'
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   }`}
                 >
@@ -320,6 +336,7 @@ function SidebarContent({
                           (!child.moduleKey || isModuleEnabled(child.moduleKey)) &&
                           (!child.requiredPermission || can(child.requiredPermission))
                         );
+                        const bestMatch = getBestMatchHref(filtered, pathname);
                         const groups: Array<{ name: string; items: typeof filtered }> = [];
                         const seen = new Map<string, typeof filtered>();
                         for (const child of filtered) {
@@ -350,7 +367,7 @@ function SidebarContent({
                                 {isGrpExpanded && (
                                   <div className="mt-0.5 space-y-0.5">
                                     {group.items.map((child) => {
-                                      const isChildActive = pathname.startsWith(child.href);
+                                      const isChildActive = child.href === bestMatch;
                                       return (
                                         <Link
                                           key={child.href}
@@ -379,12 +396,10 @@ function SidebarContent({
                           (!child.moduleKey || isModuleEnabled(child.moduleKey)) &&
                           (!child.requiredPermission || can(child.requiredPermission))
                         );
+                        const bestMatch = getBestMatchHref(filtered, pathname);
                         let lastGroup: string | undefined;
                         return filtered.map((child) => {
-                          const isChildActive =
-                            child.href === '/catalog'
-                              ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
-                              : pathname.startsWith(child.href);
+                          const isChildActive = child.href === bestMatch;
                           const showGroupHeader = child.group && child.group !== lastGroup;
                           lastGroup = child.group;
                           return (
@@ -421,12 +436,10 @@ function SidebarContent({
                           (!child.moduleKey || isModuleEnabled(child.moduleKey)) &&
                           (!child.requiredPermission || can(child.requiredPermission))
                         );
+                        const bestMatch = getBestMatchHref(filtered, pathname);
                         let lastGroup: string | undefined;
                         return filtered.map((child) => {
-                          const isChildActive =
-                            child.href === '/catalog'
-                              ? pathname === '/catalog' || pathname.startsWith('/catalog/items')
-                              : pathname.startsWith(child.href);
+                          const isChildActive = child.href === bestMatch;
                           const showGroupHeader = child.group && child.group !== lastGroup;
                           lastGroup = child.group;
                           return (
@@ -439,7 +452,7 @@ function SidebarContent({
                                 onClick={onLinkClick}
                                 className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
                                   isChildActive
-                                    ? 'bg-indigo-50 text-indigo-600'
+                                    ? 'bg-indigo-600/10 text-indigo-600'
                                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                                 }`}
                               >
@@ -467,7 +480,7 @@ function SidebarContent({
                 collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
               } ${
                 isParentActive
-                  ? 'bg-indigo-50 text-indigo-600'
+                  ? 'bg-indigo-600/10 text-indigo-600'
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >

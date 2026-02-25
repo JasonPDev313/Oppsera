@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CreditCard,
   Plus,
@@ -19,6 +20,14 @@ import {
   Smartphone,
   Info,
   Landmark,
+  Settings2,
+  ArrowLeft,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Save,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import {
   usePaymentProviders,
@@ -30,6 +39,8 @@ import {
   useDeviceAssignmentMutations,
   useSurchargeSettings,
   useSurchargeMutations,
+  useMerchantAccountSetup,
+  useVerifyCredentials,
 } from '@/hooks/use-payment-processors';
 import type {
   ProviderSummary,
@@ -37,6 +48,9 @@ import type {
   TerminalAssignmentInfo,
   DeviceAssignmentInfo,
   SurchargeSettingsInfo,
+  MerchantAccountSetupData,
+  VerifyCredentialRow,
+  VerifyCredentialsResult,
 } from '@/hooks/use-payment-processors';
 import {
   CARDPOINTE_DEVICE_MODELS,
@@ -57,14 +71,16 @@ export default function MerchantServicesContent() {
   const [editingMid, setEditingMid] = useState<MerchantAccountInfo | null>(null);
   const [showAssignDevice, setShowAssignDevice] = useState(false);
   const [editingDevice, setEditingDevice] = useState<DeviceAssignmentInfo | null>(null);
+  const [setupAccountId, setSetupAccountId] = useState<string | null>(null);
+  const [showVerifyReport, setShowVerifyReport] = useState(false);
 
-  // Data
+  // Data — only fetch for active tab to avoid unnecessary API calls on mount
   const { providers, isLoading: providersLoading } = usePaymentProviders();
   const { credentials, isLoading: credsLoading } = useProviderCredentials(selectedProviderId);
   const { accounts, isLoading: midsLoading } = useMerchantAccounts(selectedProviderId);
-  const { assignments, isLoading: assignmentsLoading } = useTerminalAssignments();
-  const { devices, isLoading: devicesLoading } = useDeviceAssignments();
-  const { settings: surchargeSettings, isLoading: surchargeLoading } = useSurchargeSettings();
+  const { assignments, isLoading: assignmentsLoading } = useTerminalAssignments(tab === 'terminals');
+  const { devices, isLoading: devicesLoading } = useDeviceAssignments(undefined, tab === 'devices');
+  const { settings: surchargeSettings, isLoading: surchargeLoading } = useSurchargeSettings(undefined, tab === 'surcharging');
   const mutations = usePaymentProcessorMutations();
   const deviceMutations = useDeviceAssignmentMutations();
   const surchargeMutations = useSurchargeMutations();
@@ -136,28 +152,38 @@ export default function MerchantServicesContent() {
       )}
 
       {tab === 'mids' && (
-        <MidsTab
-          providers={providers}
-          selectedProviderId={selectedProviderId}
-          onSelectProvider={setSelectedProviderId}
-          accounts={accounts}
-          isLoading={midsLoading}
-          onAdd={() => setShowAddMid(true)}
-          onEdit={setEditingMid}
-          onDelete={(a) =>
-            mutations.deleteMerchantAccount.mutate({
-              providerId: a.providerId,
-              accountId: a.id,
-            })
-          }
-          onSetDefault={(a) =>
-            mutations.updateMerchantAccount.mutate({
-              providerId: a.providerId,
-              accountId: a.id,
-              isDefault: true,
-            })
-          }
-        />
+        setupAccountId ? (
+          <MerchantAccountSetupPanel
+            providerId={selectedProviderId!}
+            accountId={setupAccountId}
+            onBack={() => setSetupAccountId(null)}
+          />
+        ) : (
+          <MidsTab
+            providers={providers}
+            selectedProviderId={selectedProviderId}
+            onSelectProvider={setSelectedProviderId}
+            accounts={accounts}
+            isLoading={midsLoading}
+            onAdd={() => setShowAddMid(true)}
+            onEdit={setEditingMid}
+            onSetup={(a) => setSetupAccountId(a.id)}
+            onVerify={() => setShowVerifyReport(true)}
+            onDelete={(a) =>
+              mutations.deleteMerchantAccount.mutate({
+                providerId: a.providerId,
+                accountId: a.id,
+              })
+            }
+            onSetDefault={(a) =>
+              mutations.updateMerchantAccount.mutate({
+                providerId: a.providerId,
+                accountId: a.id,
+                isDefault: true,
+              })
+            }
+          />
+        )
       )}
 
       {tab === 'terminals' && (
@@ -220,6 +246,7 @@ export default function MerchantServicesContent() {
             });
           }}
           isLoading={mutations.createProvider.isPending}
+          existingCodes={providers.map((p) => p.code)}
         />
       )}
 
@@ -323,6 +350,14 @@ export default function MerchantServicesContent() {
             );
           }}
           isLoading={deviceMutations.updateDevice.isPending}
+        />
+      )}
+
+      {/* Verify Credentials Report */}
+      {showVerifyReport && selectedProviderId && (
+        <VerifyCredentialsReport
+          providerId={selectedProviderId}
+          onClose={() => setShowVerifyReport(false)}
         />
       )}
     </div>
@@ -495,6 +530,8 @@ function MidsTab({
   isLoading,
   onAdd,
   onEdit,
+  onSetup,
+  onVerify,
   onDelete,
   onSetDefault,
 }: {
@@ -505,6 +542,8 @@ function MidsTab({
   isLoading: boolean;
   onAdd: () => void;
   onEdit: (a: MerchantAccountInfo) => void;
+  onSetup: (a: MerchantAccountInfo) => void;
+  onVerify: () => void;
   onDelete: (a: MerchantAccountInfo) => void;
   onSetDefault: (a: MerchantAccountInfo) => void;
 }) {
@@ -528,13 +567,22 @@ function MidsTab({
             </select>
           )}
         </div>
-        <button
-          onClick={onAdd}
-          disabled={!selectedProviderId}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
-          <Plus className="h-4 w-4" /> Add MID
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onVerify}
+            disabled={!selectedProviderId || accounts.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+          >
+            <ShieldCheck className="h-4 w-4" /> Verify Credentials
+          </button>
+          <button
+            onClick={onAdd}
+            disabled={!selectedProviderId}
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          >
+            <Plus className="h-4 w-4" /> Add MID
+          </button>
+        </div>
       </div>
 
       {!selectedProviderId ? (
@@ -597,6 +645,12 @@ function MidsTab({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => onSetup(a)}
+                        className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                      >
+                        <Settings2 className="h-3 w-3" /> Setup
+                      </button>
                       {!a.isDefault && a.isActive && (
                         <button
                           onClick={() => onSetDefault(a)}
@@ -1582,65 +1636,99 @@ function DialogOverlay({
   children: React.ReactNode;
   onClose: () => void;
 }) {
-  return (
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
+
+const PROVIDER_OPTIONS = [
+  { code: 'cardconnect', displayName: 'CardConnect', providerType: 'both' as const, available: true, recommended: true },
+  { code: 'clover', displayName: 'Clover', providerType: 'both' as const, available: true, recommended: true },
+  { code: 'adyen', displayName: 'Adyen', providerType: 'gateway' as const, available: false, recommended: false },
+  { code: 'square', displayName: 'Square', providerType: 'both' as const, available: false, recommended: false },
+  { code: 'worldpay', displayName: 'Worldpay', providerType: 'gateway' as const, available: false, recommended: false },
+] as const;
 
 function AddProviderDialog({
   onClose,
   onSubmit,
   isLoading,
+  existingCodes,
 }: {
   onClose: () => void;
   onSubmit: (input: { code: string; displayName: string; providerType: string }) => void;
   isLoading: boolean;
+  existingCodes: string[];
 }) {
-  const [code, setCode] = useState('cardpointe');
-  const [displayName, setDisplayName] = useState('CardPointe');
-  const [providerType, setProviderType] = useState('both');
+  const [selected, setSelected] = useState<string | null>(null);
+  const selectedOption = PROVIDER_OPTIONS.find((o) => o.code === selected);
+  const isAlreadyAdded = selected ? existingCodes.includes(selected) : false;
 
   return (
     <DialogOverlay onClose={onClose}>
       <h3 className="text-lg font-semibold text-gray-900">Add Payment Provider</h3>
-      <div className="mt-4 space-y-3">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Provider Code</label>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
-            placeholder="cardpointe"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Display Name</label>
-          <input
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
-            placeholder="CardPointe"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Provider Type</label>
-          <select
-            value={providerType}
-            onChange={(e) => setProviderType(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
-          >
-            <option value="gateway">Gateway (online only)</option>
-            <option value="terminal">Terminal (in-person only)</option>
-            <option value="both">Both</option>
-          </select>
-        </div>
+      <p className="mt-1 text-sm text-gray-500">Select a payment processor to integrate with your business.</p>
+      <div className="mt-4 space-y-2">
+        {PROVIDER_OPTIONS.map((option) => {
+          const alreadyAdded = existingCodes.includes(option.code);
+          return (
+            <button
+              key={option.code}
+              onClick={() => option.available && !alreadyAdded && setSelected(option.code)}
+              disabled={!option.available || alreadyAdded}
+              className={`flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors ${
+                selected === option.code
+                  ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500'
+                  : option.available && !alreadyAdded
+                    ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    : 'border-gray-100 bg-gray-50 opacity-60'
+              }`}
+            >
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-900">{option.displayName}</span>
+                  {option.recommended && (
+                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      Recommended
+                    </span>
+                  )}
+                  {alreadyAdded && (
+                    <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                      Already added
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-500">
+                  {option.providerType === 'both'
+                    ? 'Online + In-person'
+                    : option.providerType === 'gateway'
+                      ? 'Online only'
+                      : 'In-person only'}
+                </span>
+              </div>
+              {!option.available && (
+                <span className="rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                  Coming Soon
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
       <div className="mt-6 flex justify-end gap-3">
         <button
@@ -1650,12 +1738,20 @@ function AddProviderDialog({
           Cancel
         </button>
         <button
-          onClick={() => onSubmit({ code, displayName, providerType })}
-          disabled={isLoading || !code || !displayName}
+          onClick={() => {
+            if (selectedOption && selectedOption.available) {
+              onSubmit({
+                code: selectedOption.code,
+                displayName: selectedOption.displayName,
+                providerType: selectedOption.providerType,
+              });
+            }
+          }}
+          disabled={isLoading || !selectedOption || !selectedOption.available || isAlreadyAdded}
           className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
         >
           {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-          Create Provider
+          Add Provider
         </button>
       </div>
     </DialogOverlay>
@@ -2243,6 +2339,763 @@ function EditDeviceDialog({
         </button>
       </div>
     </DialogOverlay>
+  );
+}
+
+// ── Merchant Account Setup Panel ──────────────────────────────────
+
+function MerchantAccountSetupPanel({
+  providerId,
+  accountId,
+  onBack,
+}: {
+  providerId: string;
+  accountId: string;
+  onBack: () => void;
+}) {
+  const { setup, isLoading, save, isSaving, saveError, refetch } =
+    useMerchantAccountSetup(providerId, accountId);
+  const [showVerify, setShowVerify] = useState(false);
+
+  // ── Form state ──
+  const [displayName, setDisplayName] = useState('');
+  const [hsn, setHsn] = useState('');
+  const [achMerchantId, setAchMerchantId] = useState('');
+  const [fundingMerchantId, setFundingMerchantId] = useState('');
+  const [useForCardSwipe, setUseForCardSwipe] = useState(true);
+  const [readerBeep, setReaderBeep] = useState(true);
+  const [isProduction, setIsProduction] = useState(false);
+  const [allowManualEntry, setAllowManualEntry] = useState(false);
+  const [tipOnDevice, setTipOnDevice] = useState(false);
+
+  // ── Credential fields (empty = unchanged) ──
+  const [credSite, setCredSite] = useState('');
+  const [credUsername, setCredUsername] = useState('');
+  const [credPassword, setCredPassword] = useState('');
+  const [credAuthKey, setCredAuthKey] = useState('');
+  const [credAchUsername, setCredAchUsername] = useState('');
+  const [credAchPassword, setCredAchPassword] = useState('');
+  const [credFundingUsername, setCredFundingUsername] = useState('');
+  const [credFundingPassword, setCredFundingPassword] = useState('');
+
+  // ── Visibility toggles ──
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Populate form when data loads
+  useEffect(() => {
+    if (!setup) return;
+    const a = setup.account;
+    setDisplayName(a.displayName);
+    setHsn(a.hsn ?? '');
+    setAchMerchantId(a.achMerchantId ?? '');
+    setFundingMerchantId(a.fundingMerchantId ?? '');
+    setUseForCardSwipe(a.useForCardSwipe);
+    setReaderBeep(a.readerBeep);
+    setIsProduction(a.isProduction);
+    setAllowManualEntry(a.allowManualEntry);
+    setTipOnDevice(a.tipOnDevice);
+    // Pre-fill site dropdown if credentials exist
+    if (setup.credentials.site) {
+      setCredSite(setup.credentials.site);
+    }
+  }, [setup]);
+
+  const handleSave = () => {
+    const body: Record<string, unknown> = {
+      displayName,
+      hsn: hsn || null,
+      achMerchantId: achMerchantId || null,
+      fundingMerchantId: fundingMerchantId || null,
+      useForCardSwipe,
+      readerBeep,
+      isProduction,
+      allowManualEntry,
+      tipOnDevice,
+    };
+
+    // Only send credentials if the user provided new values
+    if (credUsername && credPassword) {
+      body.credentials = {
+        site: credSite || 'fts-uat',
+        username: credUsername,
+        password: credPassword,
+        authorizationKey: credAuthKey || undefined,
+        achUsername: credAchUsername || undefined,
+        achPassword: credAchPassword || undefined,
+        fundingUsername: credFundingUsername || undefined,
+        fundingPassword: credFundingPassword || undefined,
+      };
+    }
+
+    save(body, {
+      onSuccess: () => {
+        setSaved(true);
+        refetch();
+        setTimeout(() => setSaved(false), 3000);
+      },
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="py-12 text-center text-gray-400">
+        <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+        <p className="mt-2">Loading merchant account setup...</p>
+      </div>
+    );
+  }
+
+  if (!setup) {
+    return (
+      <div className="py-12 text-center">
+        <p className="text-sm text-red-600">Merchant account not found.</p>
+        <button onClick={onBack} className="mt-4 text-sm text-indigo-600 hover:text-indigo-700">
+          &larr; Back to Merchant Accounts
+        </button>
+      </div>
+    );
+  }
+
+  const maskedCreds = setup.credentials;
+  const hasSavedCreds = !!setup.credentialId;
+
+  return (
+    <div className="space-y-6">
+      {/* Header / Back */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Merchant Account Setup
+          </h2>
+          <p className="text-sm text-gray-500">
+            {setup.account.displayName} &mdash; MID: <code className="text-xs">{setup.account.merchantId}</code>
+          </p>
+        </div>
+      </div>
+
+      {/* Explanation */}
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <div className="flex items-start gap-3">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium">Primary Merchant Credentials</p>
+            <p className="mt-1">
+              This section stores the primary credentials used by your organization for CardConnect
+              transactions. These values are typically provided by CardConnect or your payment processor.
+              Credential fields that show masked values (****) already have saved values &mdash;
+              leave them blank to keep existing credentials, or enter new values to replace them.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Credentials Section ── */}
+      <fieldset className="rounded-lg border border-gray-200 p-5">
+        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-gray-900">
+          <Shield className="h-4 w-4 text-indigo-600" />
+          API Credentials
+        </legend>
+
+        <div className="mt-3 space-y-4">
+          {/* Site / Environment */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              CardPointe Site
+            </label>
+            <select
+              value={credSite}
+              onChange={(e) => setCredSite(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">Select site...</option>
+              <option value="fts-uat">fts-uat (Sandbox / UAT)</option>
+              <option value="fts">fts (Production)</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-400">
+              The CardPointe site determines your API endpoint. Use &quot;fts-uat&quot; for testing,
+              &quot;fts&quot; for live transactions.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500">
+              {hasSavedCreds ? (
+                <span className="inline-flex items-center gap-1 text-green-600">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Credentials saved
+                  {setup.isSandbox && ' (Sandbox)'}
+                </span>
+              ) : (
+                <span className="text-amber-600">No credentials saved yet</span>
+              )}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowPasswords(!showPasswords)}
+              className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+            >
+              {showPasswords ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {showPasswords ? 'Hide' : 'Show'} values
+            </button>
+          </div>
+
+          {/* Username & Password */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                CardPointe Username <span className="text-red-500">*</span>
+              </label>
+              <input
+                type={showPasswords ? 'text' : 'password'}
+                value={credUsername}
+                onChange={(e) => setCredUsername(e.target.value)}
+                placeholder={maskedCreds.username ? maskedCreds.username : 'YOUR_CARDPOINTE_USERNAME'}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                CardPointe Password <span className="text-red-500">*</span>
+              </label>
+              <input
+                type={showPasswords ? 'text' : 'password'}
+                value={credPassword}
+                onChange={(e) => setCredPassword(e.target.value)}
+                placeholder={maskedCreds.password ? maskedCreds.password : 'YOUR_CARDPOINTE_PASSWORD'}
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* Authorization Key */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Authorization Key <span className="text-gray-400">(optional)</span>
+            </label>
+            <input
+              type={showPasswords ? 'text' : 'password'}
+              value={credAuthKey}
+              onChange={(e) => setCredAuthKey(e.target.value)}
+              placeholder={maskedCreds.authorizationKey ? maskedCreds.authorizationKey : 'YOUR_AUTH_KEY'}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Used for API gateway authorization if required by your processor configuration.
+            </p>
+          </div>
+
+          {/* ACH Credentials */}
+          <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
+            <p className="mb-3 text-sm font-medium text-gray-700">
+              ACH Credentials <span className="text-gray-400">(if ACH is enabled)</span>
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">ACH Username</label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={credAchUsername}
+                  onChange={(e) => setCredAchUsername(e.target.value)}
+                  placeholder={maskedCreds.achUsername ? maskedCreds.achUsername : 'YOUR_ACH_USERNAME'}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">ACH Password</label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={credAchPassword}
+                  onChange={(e) => setCredAchPassword(e.target.value)}
+                  placeholder={maskedCreds.achPassword ? maskedCreds.achPassword : 'YOUR_ACH_PASSWORD'}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Funding Credentials */}
+          <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
+            <p className="mb-3 text-sm font-medium text-gray-700">
+              Funding Credentials <span className="text-gray-400">(optional &mdash; only if processor requires separate funding)</span>
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Funding Username</label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={credFundingUsername}
+                  onChange={(e) => setCredFundingUsername(e.target.value)}
+                  placeholder={maskedCreds.fundingUsername ? maskedCreds.fundingUsername : 'FUNDING_USERNAME'}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Funding Password</label>
+                <input
+                  type={showPasswords ? 'text' : 'password'}
+                  value={credFundingPassword}
+                  onChange={(e) => setCredFundingPassword(e.target.value)}
+                  placeholder={maskedCreds.fundingPassword ? maskedCreds.fundingPassword : 'FUNDING_PASSWORD'}
+                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      {/* ── Account Settings Section ── */}
+      <fieldset className="rounded-lg border border-gray-200 p-5">
+        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-gray-900">
+          <Settings2 className="h-4 w-4 text-indigo-600" />
+          Account Settings
+        </legend>
+
+        <div className="mt-3 space-y-4">
+          {/* Display Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Merchant Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="YOUR_MERCHANT_NAME"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              A friendly name for this merchant account (e.g., &quot;Pro Shop MID&quot;, &quot;Restaurant MID&quot;).
+            </p>
+          </div>
+
+          {/* HSN */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              HSN (Hardware Serial Number) <span className="text-gray-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={hsn}
+              onChange={(e) => setHsn(e.target.value)}
+              placeholder="OPTIONAL_HSN"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              The hardware serial number of the primary card reader for this account. Leave blank if no
+              dedicated reader is assigned, or if readers are assigned at the device level.
+            </p>
+          </div>
+
+          {/* ACH Merchant ID */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              ACH Merchant ID <span className="text-gray-400">(if ACH is enabled)</span>
+            </label>
+            <input
+              type="text"
+              value={achMerchantId}
+              onChange={(e) => setAchMerchantId(e.target.value)}
+              placeholder="YOUR_ACH_MID"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              A separate merchant ID used for ACH (eCheck) transactions, if different from the card MID.
+            </p>
+          </div>
+
+          {/* Funding Merchant ID */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Funding Merchant ID <span className="text-gray-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={fundingMerchantId}
+              onChange={(e) => setFundingMerchantId(e.target.value)}
+              placeholder="FUNDING_MID"
+              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              A separate funding merchant ID, only required if your processor uses a different MID for settlement/funding.
+            </p>
+          </div>
+        </div>
+      </fieldset>
+
+      {/* ── Toggles Section ── */}
+      <fieldset className="rounded-lg border border-gray-200 p-5">
+        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-gray-900">
+          <Cpu className="h-4 w-4 text-indigo-600" />
+          Terminal &amp; Processing Options
+        </legend>
+
+        <div className="mt-3 space-y-5">
+          {/* Use For Card Swipe */}
+          <ToggleRow
+            label="Use For Card Swipe"
+            description="Enable CardConnect for in-person payments (swiped, dipped, or tapped cards). Turn this off only if this MID is used exclusively for e-commerce or keyed transactions."
+            checked={useForCardSwipe}
+            onChange={setUseForCardSwipe}
+          />
+
+          {/* Reader Beep */}
+          <ToggleRow
+            label="Reader Beep Sound"
+            description="When enabled, the card reader will beep to confirm a successful tap or dip. Disable for a quieter checkout experience."
+            checked={readerBeep}
+            onChange={setReaderBeep}
+          />
+
+          {/* Is Production */}
+          <div>
+            <ToggleRow
+              label="Production Mode"
+              description="When enabled, this account processes real transactions with real money. Keep this OFF during testing."
+              checked={isProduction}
+              onChange={setIsProduction}
+            />
+            {isProduction && (
+              <div className="mt-2 ml-11 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <p className="text-xs text-amber-800">
+                  <strong>Warning:</strong> Production mode processes real credit card transactions and charges real money.
+                  Make sure all credentials are correct before enabling this setting.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Allow Manual Entry */}
+          <ToggleRow
+            label="Allow Manual Entry from POS"
+            description={'Permit cashiers to manually type in card numbers at the POS terminal. This is sometimes called "keyed entry." Disabling this requires all cards to be swiped, dipped, or tapped.'}
+            checked={allowManualEntry}
+            onChange={setAllowManualEntry}
+          />
+
+          {/* Tip on Device */}
+          <ToggleRow
+            label="Tip on Device"
+            description="Show a tip prompt on the payment terminal so the customer can add a tip before completing the transaction. Common in restaurant and service environments."
+            checked={tipOnDevice}
+            onChange={setTipOnDevice}
+          />
+        </div>
+      </fieldset>
+
+      {/* ── Save Bar ── */}
+      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <button
+          onClick={handleSave}
+          disabled={isSaving || !displayName}
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save
+        </button>
+        <button
+          onClick={() => setShowVerify(true)}
+          disabled={!hasSavedCreds}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+          title={hasSavedCreds ? 'Test all credential types for this provider' : 'Save credentials first'}
+        >
+          <ShieldCheck className="h-4 w-4" /> Verify Credentials
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1 text-sm font-medium text-green-600">
+            <CheckCircle2 className="h-4 w-4" /> Saved successfully
+          </span>
+        )}
+        {saveError && (
+          <span className="text-sm text-red-600">
+            {saveError instanceof Error ? saveError.message : 'Failed to save'}
+          </span>
+        )}
+        <span className="ml-auto text-xs text-gray-400">
+          Click Save to apply all changes to this merchant account.
+        </span>
+      </div>
+
+      {/* Verify Credentials Report (portal) */}
+      {showVerify && (
+        <VerifyCredentialsReport
+          providerId={providerId}
+          onClose={() => setShowVerify(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Reusable toggle row with label + description */
+function ToggleRow({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (val: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-3">
+      <div className="relative mt-0.5 inline-flex h-5 w-9 shrink-0 items-center">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          className="peer sr-only"
+        />
+        <div className="h-5 w-9 rounded-full bg-gray-300 peer-checked:bg-indigo-600 transition-colors" />
+        <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
+      </div>
+      <div>
+        <span className="text-sm font-medium text-gray-900">{label}</span>
+        <p className="text-xs text-gray-500">{description}</p>
+      </div>
+    </label>
+  );
+}
+
+// ── Verify Credentials Report ────────────────────────────────
+
+function VerifyCredentialsReport({
+  providerId,
+  onClose,
+}: {
+  providerId: string;
+  onClose: () => void;
+}) {
+  const { verify, isVerifying, result, error, reset } = useVerifyCredentials(providerId);
+
+  // Auto-run verify on mount
+  useEffect(() => {
+    verify();
+    return () => reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const statusColor = (status: VerifyCredentialRow['status']) => {
+    switch (status) {
+      case 'OK':
+        return 'text-green-700 bg-green-50';
+      case 'Unauthorized':
+        return 'text-red-700 bg-red-50';
+      case 'Blank Credentials':
+        return 'text-amber-700 bg-amber-50';
+      case 'Timeout':
+        return 'text-orange-700 bg-orange-50';
+      case 'Error':
+        return 'text-red-700 bg-red-50';
+      default:
+        return 'text-gray-700 bg-gray-50';
+    }
+  };
+
+  const statusIcon = (status: VerifyCredentialRow['status']) => {
+    switch (status) {
+      case 'OK':
+        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case 'Unauthorized':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      case 'Blank Credentials':
+        return <AlertTriangle className="h-4 w-4 text-amber-600" />;
+      default:
+        return <XCircle className="h-4 w-4 text-red-600" />;
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="mx-4 w-full max-w-4xl rounded-xl bg-surface shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <ShieldCheck className="h-5 w-5 text-indigo-600" />
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Verify Credentials</h2>
+              <p className="text-sm text-gray-500">
+                Testing connectivity for all credential types across merchant accounts
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-4">
+          {isVerifying ? (
+            <div className="py-16 text-center">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-600" />
+              <p className="mt-3 text-sm font-medium text-gray-700">Testing credentials...</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Verifying Ecom, ACH, and Funding credentials for each merchant account
+              </p>
+            </div>
+          ) : error ? (
+            <div className="py-12 text-center">
+              <XCircle className="mx-auto h-10 w-10 text-red-400" />
+              <p className="mt-3 text-sm font-medium text-red-700">
+                {error instanceof Error ? error.message : 'Failed to verify credentials'}
+              </p>
+              <button
+                onClick={() => verify()}
+                className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Retry
+              </button>
+            </div>
+          ) : result ? (
+            <div className="space-y-3">
+              {/* Summary Banner */}
+              {(() => {
+                const okCount = result.rows.filter((r) => r.status === 'OK').length;
+                const total = result.rows.length;
+                const allOk = okCount === total;
+                return (
+                  <div
+                    className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium ${
+                      allOk
+                        ? 'border-green-200 bg-green-50 text-green-800'
+                        : 'border-amber-200 bg-amber-50 text-amber-800'
+                    }`}
+                  >
+                    {allOk ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      <AlertTriangle className="h-4 w-4" />
+                    )}
+                    {okCount} of {total} credential{total !== 1 ? 's' : ''} verified successfully
+                    <span className="ml-auto text-xs font-normal text-gray-500">
+                      {new Date(result.testedAt).toLocaleString()}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              {/* Results Table */}
+              <div className="overflow-hidden rounded-lg border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                        Merchant Account
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                        Account Type
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                        MID
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                        User Name
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                        Password
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 bg-surface">
+                    {result.rows.map((row, idx) => (
+                      <tr key={`${row.merchantAccountId}-${row.accountType}`} className="hover:bg-gray-50/50">
+                        {/* Only show the merchant account name for the first row of each group */}
+                        <td className="px-4 py-2.5 text-sm text-gray-900">
+                          {idx === 0 || result.rows[idx - 1]!.merchantAccountId !== row.merchantAccountId
+                            ? (
+                              <div>
+                                <span className="font-medium">{row.displayName}</span>
+                                <span className="ml-2 font-mono text-xs text-gray-400">{row.merchantId}</span>
+                              </div>
+                            )
+                            : null}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm">
+                          <span
+                            className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
+                              row.accountType === 'Ecom'
+                                ? 'bg-blue-50 text-blue-700'
+                                : row.accountType === 'ACH'
+                                  ? 'bg-purple-50 text-purple-700'
+                                  : 'bg-teal-50 text-teal-700'
+                            }`}
+                          >
+                            {row.accountType}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-sm text-gray-700">
+                          {row.mid}
+                        </td>
+                        <td className="px-4 py-2.5 text-sm text-gray-700">
+                          {row.username || (
+                            <span className="italic text-gray-400">blank</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5 font-mono text-sm text-gray-700">
+                          {row.password || (
+                            <span className="italic text-gray-400">blank</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusColor(row.status)}`}
+                            title={row.error}
+                          >
+                            {statusIcon(row.status)}
+                            {row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-3">
+          <p className="text-xs text-gray-400">
+            Tests each credential type by calling the CardPointe inquire endpoint.
+          </p>
+          <div className="flex items-center gap-2">
+            {result && (
+              <button
+                onClick={() => verify()}
+                disabled={isVerifying}
+                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                <ShieldCheck className="h-4 w-4" /> Re-test
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="rounded-md bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

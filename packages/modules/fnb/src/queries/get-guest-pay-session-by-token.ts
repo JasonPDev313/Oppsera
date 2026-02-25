@@ -32,6 +32,8 @@ export async function getGuestPaySessionByToken(token: string) {
     );
     return {
       id: s.id as string,
+      tenantId: s.tenant_id as string,
+      orderId: (s.order_id as string) ?? null,
       status: 'expired' as const,
       restaurantName: (s.restaurant_name as string) ?? null,
       tableLabel: s.table_number ? `Table ${s.table_number}` : null,
@@ -52,6 +54,8 @@ export async function getGuestPaySessionByToken(token: string) {
 
   return {
     id: s.id as string,
+    tenantId: s.tenant_id as string,
+    orderId: (s.order_id as string) ?? null,
     status: s.status as string,
     restaurantName: (s.restaurant_name as string) ?? null,
     tableLabel: s.table_number ? `Table ${s.table_number}` : null,

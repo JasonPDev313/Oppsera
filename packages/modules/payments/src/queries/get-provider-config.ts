@@ -42,6 +42,20 @@ export interface MerchantAccountInfo {
   isDefault: boolean;
   isActive: boolean;
   config: Record<string, unknown> | null;
+  // ── Settings (migration 0188) ──
+  hsn: string | null;
+  achMerchantId: string | null;
+  fundingMerchantId: string | null;
+  useForCardSwipe: boolean;
+  readerBeep: boolean;
+  isProduction: boolean;
+  allowManualEntry: boolean;
+  tipOnDevice: boolean;
+  // ── ACH settings ──
+  achEnabled: boolean;
+  achDefaultSecCode: string;
+  achCompanyName: string | null;
+  achCompanyId: string | null;
   createdAt: string;
 }
 
@@ -195,6 +209,18 @@ export async function listMerchantAccounts(
       isDefault: r.isDefault,
       isActive: r.isActive,
       config: r.config as Record<string, unknown> | null,
+      hsn: r.hsn ?? null,
+      achMerchantId: r.achMerchantId ?? null,
+      fundingMerchantId: r.fundingMerchantId ?? null,
+      useForCardSwipe: r.useForCardSwipe,
+      readerBeep: r.readerBeep,
+      isProduction: r.isProduction,
+      allowManualEntry: r.allowManualEntry,
+      tipOnDevice: r.tipOnDevice,
+      achEnabled: r.achEnabled,
+      achDefaultSecCode: r.achDefaultSecCode ?? 'WEB',
+      achCompanyName: r.achCompanyName ?? null,
+      achCompanyId: r.achCompanyId ?? null,
       createdAt: r.createdAt.toISOString(),
     }));
   });

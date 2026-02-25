@@ -27,6 +27,11 @@ export const saveCredentialsSchema = z.object({
     site: z.string().min(1).max(100),
     username: z.string().min(1).max(100),
     password: z.string().min(1).max(200),
+    authorizationKey: z.string().max(200).optional(),
+    achUsername: z.string().max(100).optional(),
+    achPassword: z.string().max(200).optional(),
+    fundingUsername: z.string().max(100).optional(),
+    fundingPassword: z.string().max(200).optional(),
   }),
   isSandbox: z.boolean().default(false),
 });
@@ -41,6 +46,15 @@ export const createMerchantAccountSchema = z.object({
   displayName: z.string().min(1).max(100),
   isDefault: z.boolean().default(false),
   config: z.record(z.string(), z.unknown()).optional(),
+  // ── Merchant Account Settings (migration 0188) ──
+  hsn: z.string().max(50).optional(),
+  achMerchantId: z.string().max(50).optional(),
+  fundingMerchantId: z.string().max(50).optional(),
+  useForCardSwipe: z.boolean().default(true),
+  readerBeep: z.boolean().default(true),
+  isProduction: z.boolean().default(false),
+  allowManualEntry: z.boolean().default(false),
+  tipOnDevice: z.boolean().default(false),
 });
 export type CreateMerchantAccountInput = z.input<typeof createMerchantAccountSchema>;
 
@@ -50,6 +64,15 @@ export const updateMerchantAccountSchema = z.object({
   isDefault: z.boolean().optional(),
   isActive: z.boolean().optional(),
   config: z.record(z.string(), z.unknown()).optional(),
+  // ── Merchant Account Settings (migration 0188) ──
+  hsn: z.string().max(50).nullable().optional(),
+  achMerchantId: z.string().max(50).nullable().optional(),
+  fundingMerchantId: z.string().max(50).nullable().optional(),
+  useForCardSwipe: z.boolean().optional(),
+  readerBeep: z.boolean().optional(),
+  isProduction: z.boolean().optional(),
+  allowManualEntry: z.boolean().optional(),
+  tipOnDevice: z.boolean().optional(),
 });
 export type UpdateMerchantAccountInput = z.input<typeof updateMerchantAccountSchema>;
 

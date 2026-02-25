@@ -6,8 +6,8 @@ import {
 } from '../smb-protection';
 
 describe('SMB_PROTECTED_WORKFLOWS', () => {
-  it('contains exactly 4 protected workflows', () => {
-    expect(SMB_PROTECTED_WORKFLOWS).toHaveLength(4);
+  it('contains exactly 5 protected workflows', () => {
+    expect(SMB_PROTECTED_WORKFLOWS).toHaveLength(5);
   });
 
   it('includes accounting.journal_posting', () => {
@@ -24,6 +24,10 @@ describe('SMB_PROTECTED_WORKFLOWS', () => {
 
   it('includes payments.settlement_matching', () => {
     expect(SMB_PROTECTED_WORKFLOWS).toContain('payments.settlement_matching');
+  });
+
+  it('includes ar.credit_hold', () => {
+    expect(SMB_PROTECTED_WORKFLOWS).toContain('ar.credit_hold');
   });
 });
 
@@ -42,6 +46,10 @@ describe('isProtectedWorkflow', () => {
 
   it('returns true for payments.settlement_matching', () => {
     expect(isProtectedWorkflow('payments', 'settlement_matching')).toBe(true);
+  });
+
+  it('returns true for ar.credit_hold', () => {
+    expect(isProtectedWorkflow('ar', 'credit_hold')).toBe(true);
   });
 
   it('returns false for non-protected workflow', () => {
@@ -71,6 +79,13 @@ describe('validateWorkflowOverride', () => {
 
     it('rejects disabling auto mode on inventory.costing', () => {
       const result = validateWorkflowOverride('SMB', 'inventory', 'costing', {
+        autoMode: false,
+      });
+      expect(result.valid).toBe(false);
+    });
+
+    it('rejects disabling auto mode on ar.credit_hold', () => {
+      const result = validateWorkflowOverride('SMB', 'ar', 'credit_hold', {
         autoMode: false,
       });
       expect(result.valid).toBe(false);

@@ -39,6 +39,7 @@ export interface ImportResult {
   updatedRows: number;
   categoriesCreated: number;
   errors: Array<{ row?: number; message: string }>;
+  createdItemIds?: string[];
 }
 
 // ── Main Command ────────────────────────────────────────────────────
@@ -238,15 +239,26 @@ export async function importInventory(
       }
     }
 
-    // 5. Insert items
+    // 5. Insert items — each row wrapped in a savepoint so one DB error
+    //    does not abort the entire transaction.
     let successRows = 0;
     let skippedRows = 0;
     let updatedRows = 0;
     const itemErrors: Array<{ row?: number; message: string }> = [];
     const events: Array<ReturnType<typeof buildEventFromContext>> = [];
+    const createdItemIds: string[] = [];
 
     for (const item of validation.parsedItems) {
+      // Check for duplicate SKU — skip doesn't need a savepoint
+      if (item.sku && existingSkus.has(item.sku) && input.duplicateSkuMode === 'skip') {
+        skippedRows++;
+        continue;
+      }
+
+      const sp = `sp_item_${item.rowNumber}`;
       try {
+        await tx.execute(sql.raw(`SAVEPOINT ${sp}`));
+
         // Resolve categoryId from hierarchy
         const categoryId = resolveCategoryId(item, catByName, catByNameAndParent);
 
@@ -255,14 +267,8 @@ export async function importInventory(
           ? taxCatByName.get(item.taxCategoryName.toLowerCase()) ?? null
           : null;
 
-        // Check for duplicate SKU
+        // Check for duplicate SKU — update mode
         if (item.sku && existingSkus.has(item.sku)) {
-          if (input.duplicateSkuMode === 'skip') {
-            skippedRows++;
-            continue;
-          }
-
-          // Update mode
           const existingItemId = skuToItemId.get(item.sku);
           if (existingItemId) {
             // Fetch current state for change log
@@ -306,6 +312,7 @@ export async function importInventory(
             });
 
             updatedRows++;
+            await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
             continue;
           }
         }
@@ -329,6 +336,8 @@ export async function importInventory(
             createdBy: ctx.user.id,
           })
           .returning();
+
+        createdItemIds.push(created!.id);
 
         // Log creation
         await logItemChange(tx, {
@@ -362,10 +371,14 @@ export async function importInventory(
         );
 
         successRows++;
+        await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
       } catch (err) {
+        // Roll back to the savepoint so subsequent rows can still execute
+        try { await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${sp}`)); } catch { /* ignore */ }
+        const msg = err instanceof Error ? err.message : 'Unknown error';
         itemErrors.push({
           row: item.rowNumber,
-          message: err instanceof Error ? err.message : 'Unknown error',
+          message: formatImportDbError(msg),
         });
       }
     }
@@ -395,6 +408,7 @@ export async function importInventory(
         updatedRows,
         categoriesCreated,
         errors: itemErrors,
+        createdItemIds,
       } satisfies ImportResult,
       events,
     };
@@ -403,6 +417,27 @@ export async function importInventory(
   await auditLog(ctx, 'catalog.import.completed', 'catalog_import_log', result.importLogId);
 
   return result;
+}
+
+// ── User-friendly DB error messages ──────────────────────────────────
+
+function formatImportDbError(raw: string): string {
+  if (raw.includes('duplicate key') && raw.includes('sku')) {
+    return 'An item with this SKU already exists';
+  }
+  if (raw.includes('duplicate key') && raw.includes('barcode')) {
+    return 'An item with this barcode already exists';
+  }
+  if (raw.includes('duplicate key')) {
+    return 'Duplicate record — this item may already exist';
+  }
+  if (raw.includes('violates foreign key')) {
+    return 'Invalid reference (category or tax category does not exist)';
+  }
+  if (raw.includes('violates not-null')) {
+    return 'A required field is missing';
+  }
+  return raw;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

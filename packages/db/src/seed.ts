@@ -10,6 +10,7 @@ dotenv.config({ path: '../../.env' });
 
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
+import { createCipheriv, randomBytes } from 'crypto';
 import { generateUlid } from '@oppsera/shared';
 import {
   tenants,
@@ -41,8 +42,12 @@ import {
   billingAccountMembers,
   customerContacts,
   customerPreferences,
+  customerAuthAccounts,
   terminalLocations,
   terminals,
+  paymentProviders,
+  paymentProviderCredentials,
+  paymentMerchantAccounts,
   pmsProperties,
   pmsRoomTypes,
   pmsRooms,
@@ -311,6 +316,78 @@ async function seed() {
     })),
   );
   console.log(`Entitlements: ${moduleKeys.length} modules enabled`);
+
+  // ── Payment Provider + Merchant Accounts (CardPointe UAT) ─────
+  // Uses the CardPointe Gateway Developer Guide test credentials:
+  //   Site: fts-uat  |  MID: 496160873888  |  Username: testing  |  Password: testing123
+  // See: https://developer.cardpointe.com/cardconnect-api
+  const providerId = generateUlid();
+  await db.insert(paymentProviders).values({
+    id: providerId,
+    tenantId,
+    code: 'cardpointe',
+    displayName: 'CardPointe',
+    providerType: 'gateway',
+    isActive: true,
+    config: { site: 'fts-uat', sandbox: true },
+  });
+
+  // Encrypt credentials (inline — avoids cross-package dep on @oppsera/module-payments)
+  const encKey = process.env.PAYMENT_ENCRYPTION_KEY;
+  if (encKey) {
+    const credPayload = JSON.stringify({
+      site: 'fts-uat',
+      username: 'testing',
+      password: 'testing123',
+      authorizationKey: '',
+      achUsername: '',
+      achPassword: '',
+      fundingUsername: '',
+      fundingPassword: '',
+    });
+    const keyBuf = encKey.length === 64 ? Buffer.from(encKey, 'hex') : Buffer.from(encKey, 'base64');
+    const iv = randomBytes(16);
+    const cipher = createCipheriv('aes-256-gcm', keyBuf, iv);
+    const encrypted = Buffer.concat([cipher.update(credPayload, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    const blob = Buffer.concat([iv, authTag, encrypted]).toString('base64');
+
+    const credId = generateUlid();
+    await db.insert(paymentProviderCredentials).values({
+      id: credId,
+      tenantId,
+      providerId,
+      locationId: null,
+      credentialsEncrypted: blob,
+      isSandbox: true,
+      isActive: true,
+    });
+    console.log('Payment Credentials: encrypted and stored (CardPointe UAT)');
+  } else {
+    console.log('Payment Credentials: SKIPPED (PAYMENT_ENCRYPTION_KEY not set)');
+  }
+
+  // Merchant Account — primary Ecom MID from CardPointe developer docs
+  const ecomAccountId = generateUlid();
+  await db.insert(paymentMerchantAccounts).values({
+    id: ecomAccountId,
+    tenantId,
+    providerId,
+    locationId: null,
+    merchantId: '496160873888',
+    displayName: 'Sunset Golf — Ecom',
+    isDefault: true,
+    isActive: true,
+    hsn: null,
+    achMerchantId: null,
+    fundingMerchantId: null,
+    useForCardSwipe: true,
+    readerBeep: true,
+    isProduction: false,
+    allowManualEntry: true,
+    tipOnDevice: false,
+  });
+  console.log('Merchant Account: 496160873888 (Sunset Golf — Ecom)');
 
   // ── Catalog: Tax Categories ───────────────────────────────────
   const taxCatIds = {
@@ -731,6 +808,17 @@ async function seed() {
     { tenantId, customerId: custIds.smith, category: 'dietary', key: 'allergy', value: 'Gluten-free', source: 'manual', updatedBy: userId },
   ]);
   console.log('Customer Preferences: 3 created');
+
+  // ── Customer Portal Auth Accounts ──────────────────────────────
+  // Password: member123 (bcrypt cost 12)
+  const portalPasswordHash = '$2a$12$Y8t.gvYUXTSSakAeeeDG2ujzHJms6Kp.JyG/BGlQzWNnpNCNk7ei2';
+  await db.insert(customerAuthAccounts).values([
+    { tenantId, customerId: custIds.johnson, provider: 'portal', passwordHash: portalPasswordHash, isActive: true },
+    { tenantId, customerId: custIds.smith, provider: 'portal', passwordHash: portalPasswordHash, isActive: true },
+    { tenantId, customerId: custIds.williams, provider: 'portal', passwordHash: portalPasswordHash, isActive: true },
+    { tenantId, customerId: custIds.acme, provider: 'portal', passwordHash: portalPasswordHash, isActive: true },
+  ]);
+  console.log('Customer Auth Accounts: 4 created (password: member123)');
 
   // ── Customer Activity Log ──────────────────────────────────────
   await db.insert(customerActivityLog).values([
@@ -1888,6 +1976,7 @@ async function seed() {
   console.log('Billing:        2 house accounts, 2 members');
   console.log('Locations:      1 site, 2 venues (Main Clubhouse, South Course Pro Shop)');
   console.log('Terminals:      2 profit centers, 2 terminals (1 per venue)');
+  console.log('Payments:       1 provider (CardPointe), 1 MID (496160873888 UAT)');
   console.log('── Sales ──');
   console.log(`Orders:         ${allOrderInserts.length} (14 days of history, mix of paid + voided)`);
   console.log(`Order Lines:    ${allLineInserts.length}`);

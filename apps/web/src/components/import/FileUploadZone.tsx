@@ -118,7 +118,7 @@ export function FileUploadZone({
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-indigo-600" />
             <div>
-              <p className="text-sm font-medium">{selectedFile.name}</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedFile.name}</p>
               <p className="text-xs text-gray-500">{formatSize(selectedFile.sizeBytes)}</p>
             </div>
             <button
@@ -135,9 +135,9 @@ export function FileUploadZone({
         ) : (
           <>
             <Upload className="mb-2 h-8 w-8 text-gray-400" />
-            <p className="text-sm font-medium">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {instruction ?? defaultInstruction}{' '}
-              <span className="text-indigo-600">browse</span>
+              <span className="text-indigo-600 dark:text-indigo-400">browse</span>
             </p>
             <p className="mt-1 text-xs text-gray-500">
               {subtitle ?? defaultSubtitle}

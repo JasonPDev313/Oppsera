@@ -34,6 +34,9 @@ export type { TableStatusHistoryItem } from './queries/list-table-status-history
 
 // Helpers
 export { extractTablesFromSnapshot } from './helpers/extract-tables-from-snapshot';
+export { generateLookupCode } from './helpers/lookup-code';
+export { buildReceiptHtml } from './helpers/receipt-html';
+export type { ReceiptData, ReceiptLineItem } from './helpers/receipt-html';
 export type { FloorPlanTableEntry } from './helpers/extract-tables-from-snapshot';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -417,6 +420,7 @@ export { chargeMemberAccount } from './commands/charge-member-account';
 
 // Queries
 export { getGuestPaySessionByToken } from './queries/get-guest-pay-session-by-token';
+export { getGuestPaySessionByLookupCode } from './queries/get-guest-pay-session-by-lookup-code';
 export { getGuestPaySession } from './queries/get-guest-pay-session';
 export { listGuestPaySessionsForTab } from './queries/list-guest-pay-sessions-for-tab';
 export { getGuestPayTipSettings } from './queries/get-guest-pay-tip-settings';

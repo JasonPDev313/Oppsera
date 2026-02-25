@@ -62,6 +62,7 @@ export interface ImportResult {
   updatedRows: number;
   categoriesCreated: number;
   errors: Array<{ row?: number; message: string }>;
+  createdItemIds?: string[];
 }
 
 interface AnalyzeResponse {
@@ -118,6 +119,7 @@ export function useInventoryImport() {
 
   // Loading states
   const [isLoading, setIsLoading] = useState(false);
+  const [isRollingBack, setIsRollingBack] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // ── File Select ──
@@ -230,6 +232,35 @@ export function useInventoryImport() {
     }
   }, [csvContent, mappings, duplicateSkuMode, defaultItemType, fileName, toast]);
 
+  // ── Go Back from Results (keep validation data) ──
+  const goBackFromResults = useCallback(() => {
+    setImportResult(null);
+    setStep('preview');
+  }, []);
+
+  // ── Roll Back Import ──
+  const rollbackImport = useCallback(async () => {
+    if (!importResult?.importLogId) return;
+    setIsRollingBack(true);
+    try {
+      await apiFetch('/api/v1/catalog/import/rollback', {
+        method: 'POST',
+        body: JSON.stringify({
+          importLogId: importResult.importLogId,
+          createdItemIds: importResult.createdItemIds ?? [],
+        }),
+      });
+      toast.success('Import rolled back successfully');
+      setImportResult(null);
+      setStep('preview');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Rollback failed';
+      toast.error(msg);
+    } finally {
+      setIsRollingBack(false);
+    }
+  }, [importResult, toast]);
+
   // ── Navigation ──
   const goBack = useCallback(() => {
     if (step === 'mapping') setStep('upload');
@@ -271,6 +302,7 @@ export function useInventoryImport() {
     stats,
     importResult,
     isLoading,
+    isRollingBack,
     error,
     // Actions
     handleFileSelect,
@@ -278,6 +310,8 @@ export function useInventoryImport() {
     confirmMappings,
     handleImport,
     goBack,
+    goBackFromResults,
+    rollbackImport,
     reset,
     setDefaultItemType,
     setDuplicateSkuMode,

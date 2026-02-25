@@ -226,6 +226,14 @@ export async function createMerchantAccount(ctx: RequestContext, input: CreateMe
       isDefault: input.isDefault ?? false,
       isActive: true,
       config: input.config ?? null,
+      hsn: input.hsn ?? null,
+      achMerchantId: input.achMerchantId ?? null,
+      fundingMerchantId: input.fundingMerchantId ?? null,
+      useForCardSwipe: input.useForCardSwipe ?? true,
+      readerBeep: input.readerBeep ?? true,
+      isProduction: input.isProduction ?? false,
+      allowManualEntry: input.allowManualEntry ?? false,
+      tipOnDevice: input.tipOnDevice ?? false,
     });
 
     const event = buildEventFromContext(ctx, 'payment.merchant_account.created.v1', {
@@ -279,6 +287,15 @@ export async function updateMerchantAccount(ctx: RequestContext, input: UpdateMe
     if (input.isDefault !== undefined) updates.isDefault = input.isDefault;
     if (input.isActive !== undefined) updates.isActive = input.isActive;
     if (input.config !== undefined) updates.config = input.config;
+    // ── Merchant Account Settings (migration 0188) ──
+    if (input.hsn !== undefined) updates.hsn = input.hsn;
+    if (input.achMerchantId !== undefined) updates.achMerchantId = input.achMerchantId;
+    if (input.fundingMerchantId !== undefined) updates.fundingMerchantId = input.fundingMerchantId;
+    if (input.useForCardSwipe !== undefined) updates.useForCardSwipe = input.useForCardSwipe;
+    if (input.readerBeep !== undefined) updates.readerBeep = input.readerBeep;
+    if (input.isProduction !== undefined) updates.isProduction = input.isProduction;
+    if (input.allowManualEntry !== undefined) updates.allowManualEntry = input.allowManualEntry;
+    if (input.tipOnDevice !== undefined) updates.tipOnDevice = input.tipOnDevice;
 
     await tx
       .update(paymentMerchantAccounts)

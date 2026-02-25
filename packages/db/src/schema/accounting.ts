@@ -202,6 +202,9 @@ export const accountingSettings = pgTable('accounting_settings', {
   autoCloseEnabled: boolean('auto_close_enabled').notNull().default(false),
   autoCloseTime: text('auto_close_time').default('02:00'), // HH:MM in tenant timezone
   autoCloseSkipHolidays: boolean('auto_close_skip_holidays').notNull().default(false),
+  // ── Day-end close (migration 0189) ──
+  dayEndCloseEnabled: boolean('day_end_close_enabled').notNull().default(false),
+  dayEndCloseTime: text('day_end_close_time').default('23:00'), // HH:MM in tenant timezone
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

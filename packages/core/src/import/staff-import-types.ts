@@ -157,4 +157,6 @@ export interface StaffImportResult {
   skippedCount: number;
   errorCount: number;
   errors: Array<{ rowNumber: number; message: string }>;
+  /** IDs of users that were created (not updated) during this import — used for rollback */
+  createdUserIds?: string[];
 }

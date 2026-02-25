@@ -47,7 +47,7 @@ export const POST = withMiddleware(
     if (!hasPaymentsGateway()) {
       throw new AppError(
         'GATEWAY_NOT_CONFIGURED',
-        'Payment gateway is not configured. Set up a merchant account in Merchant Processing settings.',
+        'Payment gateway is not configured. Set up a merchant account in Merchant Services settings.',
         503,
       );
     }

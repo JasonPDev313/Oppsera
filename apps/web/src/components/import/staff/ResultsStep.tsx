@@ -10,14 +10,19 @@ import {
   RotateCcw,
   Download,
   AlertTriangle,
+  ArrowLeft,
+  Loader2,
 } from 'lucide-react';
 
 interface ResultsStepProps {
   result: StaffImportResult;
   onReset: () => void;
+  onGoBack?: () => void;
+  onRollback?: () => void;
+  isRollingBack?: boolean;
 }
 
-export function ResultsStep({ result, onReset }: ResultsStepProps) {
+export function ResultsStep({ result, onReset, onGoBack, onRollback, isRollingBack }: ResultsStepProps) {
   const total = result.createdCount + result.updatedCount + result.skippedCount + result.errorCount;
   const successCount = result.createdCount + result.updatedCount;
   const hasErrors = result.errorCount > 0;
@@ -113,6 +118,52 @@ export function ResultsStep({ result, onReset }: ResultsStepProps) {
       <p className="text-xs text-gray-400 dark:text-gray-500">
         Import Job ID: <span className="font-mono">{result.jobId}</span>
       </p>
+
+      {/* Next steps — inline options when there are errors */}
+      {hasErrors && (onGoBack || onRollback) && (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            What would you like to do?
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {onGoBack && (
+              <button
+                onClick={onGoBack}
+                className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-left transition-colors"
+              >
+                <ArrowLeft className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Go Back & Fix</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Return to preview, fix the errors, and re-import only the failed rows
+                  </p>
+                </div>
+              </button>
+            )}
+            {onRollback && (
+              <button
+                onClick={onRollback}
+                disabled={isRollingBack}
+                className="flex items-center gap-3 p-3 rounded-lg border border-red-300 dark:border-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-left transition-colors disabled:opacity-50"
+              >
+                {isRollingBack ? (
+                  <Loader2 className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
+                )}
+                <div>
+                  <p className="text-sm font-medium text-red-700 dark:text-red-300">
+                    {isRollingBack ? 'Rolling back...' : 'Roll Back Import'}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Undo all {successCount} imported user{successCount === 1 ? '' : 's'} and start over
+                  </p>
+                </div>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">

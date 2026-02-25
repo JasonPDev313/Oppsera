@@ -74,6 +74,9 @@ export const updateAccountingSettingsSchema = z.object({
   autoCloseEnabled: z.boolean().optional(),
   autoCloseTime: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM').optional(),
   autoCloseSkipHolidays: z.boolean().optional(),
+  // Day-end close settings (migration 0189)
+  dayEndCloseEnabled: z.boolean().optional(),
+  dayEndCloseTime: z.string().regex(/^\d{2}:\d{2}$/, 'Must be HH:MM').optional(),
 });
 
 export type UpdateAccountingSettingsInput = z.input<typeof updateAccountingSettingsSchema>;

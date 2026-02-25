@@ -1,7 +1,7 @@
 'use client';
 
 import { usePortalAccount, usePortalAutopay, useUpdateAutopay } from '@/hooks/use-portal-data';
-import { CreditCard, Settings, ArrowLeft, Building2, ChevronRight } from 'lucide-react';
+import { CreditCard, Settings, ArrowLeft, Wallet, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 
@@ -102,16 +102,16 @@ export default function AccountPage() {
 
       {/* Payment Methods */}
       <Link
-        href={`/${tenantSlug}/account/bank-accounts`}
+        href={`/${tenantSlug}/account/payment-methods`}
         className="block bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4 hover:border-[var(--portal-primary)] transition-colors"
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Building2 className="h-5 w-5 text-gray-400" />
+            <Wallet className="h-5 w-5 text-gray-400" />
             <div>
               <p className="font-semibold text-sm">Payment Methods</p>
               <p className="text-sm text-[var(--portal-text-muted)]">
-                Manage bank accounts for autopay and payments
+                Manage cards and bank accounts for autopay and payments
               </p>
             </div>
           </div>

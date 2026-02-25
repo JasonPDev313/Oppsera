@@ -124,7 +124,7 @@ Or add to the seed script for new tenants.
 
 ## Step 6: Add Credential Form Fields
 
-In the admin UI (`apps/web/src/app/(dashboard)/settings/merchant-processing/`):
+In the admin UI (`apps/web/src/app/(dashboard)/settings/merchant-services/`):
 
 1. Update the provider configuration form to show fields specific to your provider
 2. The credential shape is flexible — `payment_provider_credentials.credentials` is an encrypted JSON blob

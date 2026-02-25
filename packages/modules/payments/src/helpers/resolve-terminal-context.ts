@@ -43,7 +43,7 @@ export async function resolveTerminalContext(
   if (!device) {
     throw new AppError(
       'NO_DEVICE_ASSIGNED',
-      'No payment device is assigned to this terminal. Assign one in Merchant Processing settings.',
+      'No payment device is assigned to this terminal. Assign one in Merchant Services settings.',
       422,
     );
   }

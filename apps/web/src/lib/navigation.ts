@@ -239,7 +239,7 @@ export const navigation: NavItem[] = [
       { name: 'General', href: '/settings', icon: Settings, requiredPermission: 'settings.view' },
       { name: 'Navigation', href: '/settings/navigation', icon: GripVertical, requiredPermission: 'settings.update' },
       { name: 'Profit Centers', href: '/settings/profit-centers', icon: Building2, requiredPermission: 'settings.update' },
-      { name: 'Merchant Processing', href: '/settings/merchant-processing', icon: CreditCard, moduleKey: 'payments', requiredPermission: 'settings.update' },
+      { name: 'Merchant Services', href: '/settings/merchant-services', icon: CreditCard, moduleKey: 'payments', requiredPermission: 'settings.update' },
       { name: 'ERP Configuration', href: '/settings/erp-config', icon: TrendingUp, requiredPermission: 'settings.update' },
       { name: 'Permissions', href: '/settings/permissions', icon: Shield, requiredPermission: 'users.manage' },
       { name: 'Room Layouts', href: '/settings/room-layouts', icon: LayoutDashboard, moduleKey: 'room_layouts', requiredPermission: 'room_layouts.view' },

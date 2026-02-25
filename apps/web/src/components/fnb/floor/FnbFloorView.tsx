@@ -18,6 +18,9 @@ import { FloorBackgroundObjects } from './FloorBackgroundObjects';
 import { MySectionDialog } from './MySectionDialog';
 import { useMySection } from '@/hooks/use-my-section';
 
+/** Minimum table size in editor pixels (matches FnbTableNode MIN_TABLE_SIZE) */
+const MIN_TABLE_SIZE = 60;
+
 // ── Turn Time Prediction ────────────────────────────────────────
 // V1: Simple heuristic based on party size and elapsed time.
 // Base turn = 45 min for 2, +8 min per additional guest, +15 min per additional course.
@@ -122,33 +125,20 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
 
   const [userZoom, setUserZoom] = useState(1);
 
-  // Compute bounding box of all visible objects (tables + background) in raw pixels
+  // Compute bounding box of ONLY tables (not background objects like bar/dance floor).
+  // Background objects can make the bounding box enormous, causing the auto-fit to
+  // shrink tables to an unusable size. Tables are the interactive elements — fit to them.
   const tableBounds = useMemo(() => {
-    const snapshotObjects = (floorPlan?.version?.snapshotJson as { objects?: Array<{ type: string; x: number; y: number; width: number; height: number; visible: boolean }> })?.objects;
-    const bgObjects = snapshotObjects?.filter((o) => o.visible && o.type !== 'table') ?? [];
-
-    if (tables.length === 0 && bgObjects.length === 0) return null;
+    if (tables.length === 0) return null;
     if (!scalePxPerFt) return null;
 
-    const MIN_SIZE = 60;
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
     for (const t of tables) {
       const x = t.positionX * scalePxPerFt;
       const y = t.positionY * scalePxPerFt;
-      const w = Math.max(t.width || MIN_SIZE, MIN_SIZE);
-      const h = Math.max(t.height || MIN_SIZE, MIN_SIZE);
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x + w > maxX) maxX = x + w;
-      if (y + h > maxY) maxY = y + h;
-    }
-
-    for (const o of bgObjects) {
-      const x = o.x * scalePxPerFt;
-      const y = o.y * scalePxPerFt;
-      const w = o.width || MIN_SIZE;
-      const h = o.height || MIN_SIZE;
+      const w = Math.max(t.width || MIN_TABLE_SIZE, MIN_TABLE_SIZE);
+      const h = Math.max(t.height || MIN_TABLE_SIZE, MIN_TABLE_SIZE);
       if (x < minX) minX = x;
       if (y < minY) minY = y;
       if (x + w > maxX) maxX = x + w;
@@ -162,9 +152,13 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       width: maxX - minX + pad * 2,
       height: maxY - minY + pad * 2,
     };
-  }, [tables, scalePxPerFt, floorPlan?.version?.snapshotJson]);
+  }, [tables, scalePxPerFt]);
 
-  // Auto-fit: zoom to fit table bounding box (not the whole room)
+  // Auto-fit: zoom to fit table bounding box into the viewport.
+  // Enforces a minimum scale so tables stay large enough for touch interaction.
+  // When the min-scale makes the room larger than the viewport, scrolling handles it.
+  const MIN_TABLE_RENDER_PX = 44; // Minimum touch target size (px)
+
   useEffect(() => {
     const el = viewportRef.current;
     if (!el) return;
@@ -179,8 +173,14 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       const availW = clientWidth - padding;
       const availH = clientHeight - padding;
       if (availW <= 0 || availH <= 0) return;
-      // No cap at 1.0 — zoom in when tables occupy a small portion of the room
-      setViewScale(Math.min(availW / contentW, availH / contentH));
+
+      // Scale to fit the table cluster into the viewport
+      const fitScale = Math.min(availW / contentW, availH / contentH);
+
+      // Ensure tables are at least MIN_TABLE_RENDER_PX on screen.
+      // MIN_TABLE_SIZE (60) is the smallest table in editor pixels.
+      const minScale = MIN_TABLE_RENDER_PX / MIN_TABLE_SIZE;
+      setViewScale(Math.max(fitScale, minScale));
     };
 
     updateScale();
@@ -190,6 +190,26 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
   }, [tableBounds, roomWidthPx, roomHeightPx]);
 
   const effectiveScale = viewScale * userZoom;
+
+  // Auto-scroll to center the table cluster when content overflows the viewport.
+  // Runs once after scale is computed (or room changes).
+  const hasAutoScrolled = useRef(false);
+  useEffect(() => {
+    hasAutoScrolled.current = false;
+  }, [activeRoomId]);
+
+  useEffect(() => {
+    if (hasAutoScrolled.current) return;
+    if (!tableBounds || !viewportRef.current) return;
+    const el = viewportRef.current;
+    // Center the table cluster in the scrollable viewport
+    const centerX = (tableBounds.minX + tableBounds.width / 2) * effectiveScale;
+    const centerY = (tableBounds.minY + tableBounds.height / 2) * effectiveScale;
+    const scrollLeft = Math.max(0, centerX - el.clientWidth / 2);
+    const scrollTop = Math.max(0, centerY - el.clientHeight / 2);
+    el.scrollTo({ left: scrollLeft, top: scrollTop, behavior: 'instant' });
+    hasAutoScrolled.current = true;
+  }, [tableBounds, effectiveScale]);
 
   // Reset userZoom on room change
   useEffect(() => { setUserZoom(1); }, [activeRoomId]);
@@ -569,9 +589,9 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               filteredTableIds={store.mySectionOnly && mySection.hasSelection ? mySection.myTableIds : undefined}
             />
           ) : (
-            <div className="p-4 relative h-full">
-              {/* Zoom controls */}
-              <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md bg-surface border border-gray-200">
+            <div className="p-4 relative">
+              {/* Zoom controls — sticky so they stay visible when scrolling */}
+              <div className="sticky top-2 float-right z-10 flex flex-col gap-1 rounded-lg p-1 shadow-md bg-surface border border-gray-200">
                 <button
                   type="button"
                   onClick={() => setUserZoom((z) => Math.min(3, z * 1.2))}
@@ -602,21 +622,12 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
               </div>
 
               <div
-                className="relative mx-auto overflow-hidden"
+                className="relative"
                 style={{
-                  width: (tableBounds?.width ?? roomWidthPx) * effectiveScale,
-                  height: (tableBounds?.height ?? roomHeightPx) * effectiveScale,
+                  width: roomWidthPx * effectiveScale,
+                  height: roomHeightPx * effectiveScale,
                 }}
               >
-                <div
-                  style={{
-                    position: 'absolute',
-                    left: -(tableBounds?.minX ?? 0) * effectiveScale,
-                    top: -(tableBounds?.minY ?? 0) * effectiveScale,
-                    width: roomWidthPx * effectiveScale,
-                    height: roomHeightPx * effectiveScale,
-                  }}
-                >
                   {/* Background layer: non-table objects from room layout snapshot */}
                   {floorPlan?.version?.snapshotJson && Object.keys(floorPlan.version.snapshotJson).length > 0 && (
                     <FloorBackgroundObjects
@@ -646,7 +657,6 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                       />
                     );
                   })}
-                </div>
               </div>
             </div>
           )}

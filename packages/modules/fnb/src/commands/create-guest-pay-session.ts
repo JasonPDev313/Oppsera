@@ -6,6 +6,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid } from '@oppsera/shared';
+import { generateLookupCode } from '../helpers/lookup-code';
 import { FNB_EVENTS } from '../events/types';
 import type { GuestPaySessionCreatedPayload, GuestPaySessionSupersededPayload } from '../events/types';
 import { TabNotFoundError, TabStatusConflictError } from '../errors';
@@ -137,6 +138,22 @@ export async function createGuestPaySession(
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + sessionExpiryMinutes * 60 * 1000);
 
+    // Generate human-readable lookup code (retry on collision with active sessions)
+    let lookupCode: string | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateLookupCode();
+      const conflict = await tx.execute(
+        sql`SELECT 1 FROM guest_pay_sessions
+            WHERE UPPER(lookup_code) = ${candidate} AND status = 'active'
+            LIMIT 1`,
+      );
+      const conflictRows = Array.from(conflict as Iterable<Record<string, unknown>>);
+      if (conflictRows.length === 0) {
+        lookupCode = candidate;
+        break;
+      }
+    }
+
     // Fetch restaurant name from location
     const locRows = await tx.execute(
       sql`SELECT name FROM locations WHERE id = ${locationId} AND tenant_id = ${ctx.tenantId}`,
@@ -173,7 +190,7 @@ export async function createGuestPaySession(
     await tx.execute(
       sql`INSERT INTO guest_pay_sessions (
             id, tenant_id, location_id, tab_id, order_id, server_user_id,
-            token, status,
+            token, lookup_code, status,
             subtotal_cents, tax_cents, service_charge_cents, discount_cents, total_cents,
             tip_settings_snapshot,
             table_number, party_size, restaurant_name,
@@ -182,7 +199,7 @@ export async function createGuestPaySession(
           ) VALUES (
             ${sessionId}, ${ctx.tenantId}, ${locationId}, ${input.tabId}, ${input.orderId},
             ${(tab.server_user_id as string) ?? null},
-            ${token}, 'active',
+            ${token}, ${lookupCode}, 'active',
             ${subtotalCents}, ${taxCents}, ${serviceChargeCents}, ${discountCents}, ${totalCents},
             ${JSON.stringify(tipSettingsSnapshot)}::jsonb,
             ${String(tab.tab_number ?? '')}, ${(tab.party_size as number) ?? null}, ${restaurantName},
@@ -225,12 +242,13 @@ export async function createGuestPaySession(
       await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createGuestPaySession', {
         sessionId,
         token,
+        lookupCode,
         expiresAt: expiresAt.toISOString(),
       });
     }
 
     return {
-      result: { sessionId, token, expiresAt: expiresAt.toISOString() },
+      result: { sessionId, token, lookupCode, expiresAt: expiresAt.toISOString() },
       events,
     };
   });

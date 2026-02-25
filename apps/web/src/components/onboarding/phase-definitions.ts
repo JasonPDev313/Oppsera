@@ -37,6 +37,7 @@ import {
   Sparkles,
   CheckCircle,
   ShoppingCart,
+  Smartphone,
   Upload,
   type LucideIcon,
 } from 'lucide-react';
@@ -471,7 +472,53 @@ export const ONBOARDING_PHASES: OnboardingPhaseDef[] = [
     ],
   },
 
-  // ── Phase 10: Go Live Checklist ──
+  // ── Phase 10: Merchant Services ──
+  {
+    key: 'merchant_services',
+    label: 'Merchant Services',
+    description: 'Connect your payment processor and configure card acceptance',
+    icon: CreditCard,
+    moduleKey: 'payments',
+    steps: [
+      {
+        key: 'add_provider',
+        label: 'Add Payment Provider',
+        description: 'Register your payment processor (e.g., CardPointe). Enter your API credentials and test the connection.',
+        icon: CreditCard,
+        href: '/settings/merchant-services',
+      },
+      {
+        key: 'create_mid',
+        label: 'Create Merchant Account (MID)',
+        description: 'Add your processor-assigned merchant ID. You can create multiple MIDs for different locations or profit centers.',
+        icon: Landmark,
+        href: '/settings/merchant-services',
+      },
+      {
+        key: 'assign_terminals',
+        label: 'Assign Terminals to MIDs',
+        description: 'Map each POS terminal to a merchant account so it knows which MID to use for card transactions.',
+        icon: Monitor,
+        href: '/settings/merchant-services',
+      },
+      {
+        key: 'assign_devices',
+        label: 'Register Payment Devices',
+        description: 'Register your physical card readers by Hardware Serial Number (HSN) and assign them to POS terminals.',
+        icon: Smartphone,
+        href: '/settings/merchant-services',
+      },
+      {
+        key: 'test_transaction',
+        label: 'Run a Test Transaction',
+        description: 'Process a test card payment to verify the full payment flow from terminal to processor.',
+        icon: CheckCircle,
+        href: '/pos/retail',
+      },
+    ],
+  },
+
+  // ── Phase 11: Go Live Checklist ──
   {
     key: 'go_live',
     label: 'Go Live Checklist',

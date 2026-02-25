@@ -96,8 +96,9 @@ async function handler(req: NextRequest, ctx: RequestContext) {
       });
 
       // Update job with results
+      const status = importResult.errorCount > 0 ? 'complete_with_errors' : 'complete';
       await tx.update(staffImportJobs).set({
-        status: 'complete',
+        status,
         createdCount: importResult.createdCount,
         updatedCount: importResult.updatedCount,
         skippedCount: importResult.skippedCount,

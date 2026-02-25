@@ -35,7 +35,7 @@ This key encrypts all stored API credentials at rest using AES-256-GCM.
 
 ## Step 3: Configure in Oppsera Admin
 
-1. Navigate to **Settings > Merchant Processing**
+1. Navigate to **Settings > Merchant Services**
 2. Click **Add Provider**
 3. Select **CardPointe** from the provider dropdown
 4. Enter your site, username, and password
@@ -44,7 +44,7 @@ This key encrypts all stored API credentials at rest using AES-256-GCM.
 
 ## Step 4: Create Merchant Account (MID)
 
-1. On the Merchant Processing page, click **Add Merchant Account**
+1. On the Merchant Services page, click **Add Merchant Account**
 2. Enter:
    - **Label**: e.g., "Main Processing" or "Restaurant MID"
    - **Merchant ID**: Your CardPointe MID
@@ -56,7 +56,7 @@ This key encrypts all stored API credentials at rest using AES-256-GCM.
 
 If you have multiple MIDs (e.g., separate MIDs for bar vs restaurant):
 
-1. Go to **Settings > Merchant Processing > Terminal Assignments**
+1. Go to **Settings > Merchant Services > Terminal Assignments**
 2. Select a terminal
 3. Choose which MID to use for that terminal
 4. Click **Save**
@@ -101,7 +101,7 @@ Before going live:
 
 ## Step 9: Switch to Production
 
-1. Go to **Settings > Merchant Processing**
+1. Go to **Settings > Merchant Services**
 2. Edit the provider credentials
 3. Change site from `fts-uat` to your production site (e.g., `fts`)
 4. Update username and password to production credentials

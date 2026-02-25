@@ -49,7 +49,20 @@ export function PreviewStep({
   onBack,
 }: PreviewStepProps) {
   const [filter, setFilter] = useState<string>('all');
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
   const { summary, rows } = validation;
+
+  const skippedTotal = summary.errorRows + summary.skipCount;
+
+  const handleImportClick = () => {
+    if (skippedTotal > 0) {
+      setShowConfirm(true);
+      setAcknowledged(false);
+    } else {
+      onExecute();
+    }
+  };
 
   const filteredRows = filter === 'all' ? rows : rows.filter((r) => r.action === filter);
   const displayRows = filteredRows.slice(0, 100);
@@ -80,6 +93,20 @@ export function PreviewStep({
         attentionCount={summary.errorRows}
         totalCount={summary.totalRows}
       />
+
+      {/* Persistent skip/error notice */}
+      {skippedTotal > 0 && (
+        <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 shrink-0 mt-0.5" />
+          <div className="text-sm text-yellow-700 dark:text-yellow-400">
+            <strong>{skippedTotal} row{skippedTotal === 1 ? '' : 's'}</strong> will be skipped
+            {summary.errorRows > 0 && ` (${summary.errorRows} with errors)`}
+            {summary.skipCount > 0 && ` (${summary.skipCount} duplicates/skipped)`}
+            . Only <strong>{summary.createCount + summary.updateCount}</strong> user{summary.createCount + summary.updateCount === 1 ? '' : 's'} will actually be imported.
+            Go back to fix mappings, or proceed and these rows will be ignored.
+          </div>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -205,6 +232,49 @@ export function PreviewStep({
         )}
       </div>
 
+      {/* Confirmation prompt */}
+      {showConfirm && skippedTotal > 0 && (
+        <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-4 space-y-3">
+          <p className="text-sm font-medium text-yellow-700 dark:text-yellow-300 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            {skippedTotal} row{skippedTotal === 1 ? '' : 's'} will not be imported
+          </p>
+          <p className="text-sm text-yellow-700 dark:text-yellow-400 ml-6">
+            {summary.errorRows > 0 && (
+              <>{summary.errorRows} row{summary.errorRows === 1 ? ' has' : 's have'} errors. </>
+            )}
+            {summary.skipCount > 0 && (
+              <>{summary.skipCount} row{summary.skipCount === 1 ? ' is' : 's are'} marked to skip. </>
+            )}
+            These rows will be ignored and only <strong>{summary.createCount + summary.updateCount}</strong> user{summary.createCount + summary.updateCount === 1 ? '' : 's'} will be imported.
+          </p>
+          <label className="flex items-center gap-2 ml-6 text-sm text-yellow-700 dark:text-yellow-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acknowledged}
+              onChange={(e) => setAcknowledged(e.target.checked)}
+              className="rounded border-yellow-400 text-yellow-600"
+            />
+            I understand that {skippedTotal} row{skippedTotal === 1 ? '' : 's'} will be skipped
+          </label>
+          <div className="flex gap-3 ml-6">
+            <button
+              onClick={() => { setShowConfirm(false); setAcknowledged(false); }}
+              className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { setShowConfirm(false); onExecute(); }}
+              disabled={!acknowledged}
+              className="px-4 py-1.5 bg-yellow-600 text-white rounded-lg text-sm font-medium hover:bg-yellow-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Proceed with Import
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
         <button
@@ -224,7 +294,7 @@ export function PreviewStep({
             Test (Dry Run)
           </button>
           <button
-            onClick={onExecute}
+            onClick={handleImportClick}
             disabled={isLoading || summary.createCount + summary.updateCount === 0}
             className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
           >

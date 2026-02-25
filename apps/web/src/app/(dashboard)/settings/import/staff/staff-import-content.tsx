@@ -127,6 +127,9 @@ export default function StaffImportContent() {
           <ResultsStep
             result={wizard.result}
             onReset={wizard.reset}
+            onGoBack={wizard.result.errorCount > 0 ? wizard.goBackFromResults : undefined}
+            onRollback={wizard.result.createdCount + wizard.result.updatedCount > 0 ? wizard.rollbackImport : undefined}
+            isRollingBack={wizard.isLoading}
           />
         )}
       </div>

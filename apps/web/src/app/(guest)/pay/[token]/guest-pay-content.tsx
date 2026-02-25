@@ -309,6 +309,7 @@ export default function GuestPayContent() {
         restaurantName={session.restaurantName}
         memberName={memberInfo?.displayName}
         paymentMethod={paymentMethod ?? undefined}
+        token={token}
       />
     );
   }

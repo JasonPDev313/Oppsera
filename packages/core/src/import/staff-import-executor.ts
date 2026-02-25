@@ -52,6 +52,7 @@ export async function executeStaffImport(
   let skippedCount = 0;
   let errorCount = 0;
   const errors: Array<{ rowNumber: number; message: string }> = [];
+  const createdUserIds: string[] = [];
 
   for (const row of rows) {
     if (row.action === 'skip') {
@@ -63,22 +64,35 @@ export async function executeStaffImport(
       continue;
     }
 
+    // Use a savepoint per row so a single DB error (e.g. unique constraint
+    // violation) does not abort the entire transaction. On failure we
+    // ROLLBACK TO the savepoint, record the error, and continue.
+    const sp = `sp_row_${row.rowNumber}`;
     try {
+      await tx.execute(sql.raw(`SAVEPOINT ${sp}`));
+
       if (row.action === 'create') {
-        await createUser(tx, tenantId, importedByUserId, row);
+        const userId = await createUser(tx, tenantId, importedByUserId, row);
+        createdUserIds.push(userId);
         createdCount++;
       } else if (row.action === 'update' && row.matchedUserId) {
         await updateUser(tx, tenantId, importedByUserId, row);
         updatedCount++;
       }
+
+      await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
     } catch (err: unknown) {
+      // Roll back to the savepoint so subsequent rows can still execute
+      try { await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${sp}`)); } catch { /* ignore */ }
       errorCount++;
       const msg = err instanceof Error ? err.message : String(err);
-      errors.push({ rowNumber: row.rowNumber, message: msg });
+      // Clean up the error message for user-friendly display
+      const userMsg = formatDbError(msg);
+      errors.push({ rowNumber: row.rowNumber, message: userMsg });
     }
   }
 
-  return { jobId, createdCount, updatedCount, skippedCount, errorCount, errors };
+  return { jobId, createdCount, updatedCount, skippedCount, errorCount, errors, createdUserIds };
 }
 
 // ── Create User ──────────────────────────────────────────────────────
@@ -88,7 +102,7 @@ async function createUser(
   tenantId: string,
   importedByUserId: string,
   row: ValidatedStaffRow,
-) {
+): Promise<string> {
   const userId = generateUlid();
   const name = [row.firstName, row.lastName].filter(Boolean).join(' ') || 'Unnamed';
 
@@ -155,6 +169,8 @@ async function createUser(
       locationId: locId,
     });
   }
+
+  return userId;
 }
 
 // ── Update User ──────────────────────────────────────────────────────
@@ -246,4 +262,25 @@ async function updateUser(
       });
     }
   }
+}
+
+// ── User-friendly DB error messages ──────────────────────────────────
+
+function formatDbError(raw: string): string {
+  if (raw.includes('uq_users_tenant_email') || raw.includes('duplicate key') && raw.includes('email')) {
+    return 'A user with this email already exists';
+  }
+  if (raw.includes('uq_users_tenant_username') || raw.includes('duplicate key') && raw.includes('username')) {
+    return 'A user with this username already exists';
+  }
+  if (raw.includes('duplicate key')) {
+    return 'Duplicate record — this user may already exist';
+  }
+  if (raw.includes('violates foreign key')) {
+    return 'Invalid reference (role or location does not exist)';
+  }
+  if (raw.includes('violates not-null')) {
+    return 'A required field is missing';
+  }
+  return raw;
 }

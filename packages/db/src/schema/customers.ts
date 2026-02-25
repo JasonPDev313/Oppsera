@@ -882,6 +882,7 @@ export const customerAuthAccounts = pgTable(
       .references(() => customers.id),
     provider: text('provider').notNull(),
     authProviderUserId: text('auth_provider_user_id'),
+    passwordHash: text('password_hash'),
     isActive: boolean('is_active').notNull().default(false),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

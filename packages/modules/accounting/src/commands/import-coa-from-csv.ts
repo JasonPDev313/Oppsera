@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
@@ -63,8 +63,10 @@ export async function importCoaFromCsv(
 
     const existingNumbers = new Set(existingAccounts.map((a) => a.accountNumber));
 
-    // First pass: insert accounts (skip existing account numbers)
+    // First pass: insert accounts — each row wrapped in a savepoint so one
+    // DB error does not abort the entire transaction.
     const accountIdMap = new Map<string, string>(); // accountNumber → id
+    const createdAccountIds: string[] = [];
     let successCount = 0;
     let skipCount = 0;
     const importErrors: Array<{ row: number; message: string }> = [];
@@ -81,7 +83,10 @@ export async function importCoaFromCsv(
         continue;
       }
 
+      const sp = `sp_acct_${i}`;
       try {
+        await tx.execute(sql.raw(`SAVEPOINT ${sp}`));
+
         const id = generateUlid();
         const classificationId = acct.classificationName
           ? classMap.get(acct.classificationName.toLowerCase()) ?? null
@@ -103,11 +108,16 @@ export async function importCoaFromCsv(
         });
 
         accountIdMap.set(acct.accountNumber, id);
+        createdAccountIds.push(id);
         successCount++;
+        await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
       } catch (err) {
+        // Roll back to the savepoint so subsequent rows can still execute
+        try { await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${sp}`)); } catch { /* ignore */ }
+        const msg = err instanceof Error ? err.message : 'Unknown error';
         importErrors.push({
           row: i + 2,
-          message: err instanceof Error ? err.message : 'Unknown error',
+          message: formatCoaDbError(msg),
         });
       }
     }
@@ -127,13 +137,14 @@ export async function importCoaFromCsv(
     }
 
     // Update import log
+    const realErrorCount = importErrors.filter((e) => !e.message.includes('already exists')).length;
     await tx
       .update(glCoaImportLogs)
       .set({
         successRows: successCount,
-        errorRows: skipCount + importErrors.filter((e) => !e.message.includes('already exists')).length,
+        errorRows: skipCount + realErrorCount,
         errors: importErrors.length > 0 ? importErrors : null,
-        status: 'complete',
+        status: realErrorCount > 0 ? 'complete_with_errors' : 'complete',
         completedAt: new Date(),
       })
       .where(eq(glCoaImportLogs.id, importLogId));
@@ -151,10 +162,11 @@ export async function importCoaFromCsv(
         totalRows: parsedAccounts.length,
         successRows: successCount,
         skipCount,
-        errorCount: importErrors.filter((e) => !e.message.includes('already exists')).length,
+        errorCount: realErrorCount,
         warnings: warnings.map((w) => w.message),
         stateDetections,
         errors: importErrors,
+        createdAccountIds,
       },
       events: [event],
     };
@@ -163,4 +175,22 @@ export async function importCoaFromCsv(
   await auditLog(ctx, 'accounting.coa.imported', 'gl_coa_import_log', result.importLogId);
 
   return result;
+}
+
+// ── User-friendly DB error messages ──────────────────────────────────
+
+function formatCoaDbError(raw: string): string {
+  if (raw.includes('duplicate key') && raw.includes('account_number')) {
+    return 'An account with this number already exists';
+  }
+  if (raw.includes('duplicate key')) {
+    return 'Duplicate record — this account may already exist';
+  }
+  if (raw.includes('violates foreign key')) {
+    return 'Invalid reference (classification does not exist)';
+  }
+  if (raw.includes('violates not-null')) {
+    return 'A required field is missing';
+  }
+  return raw;
 }

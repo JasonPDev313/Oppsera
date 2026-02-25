@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withPortalAuth } from '@/lib/with-portal-auth';
 import { withTenant, membershipMembers } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { getInitiationSummary } from '@oppsera/module-membership';
 
 async function resolveAccountId(tenantId: string, customerId: string): Promise<string | null> {
   return withTenant(tenantId, async (tx) => {
@@ -31,7 +32,6 @@ export const GET = withPortalAuth(async (_request: NextRequest, { session }) => 
     );
   }
 
-  const { getInitiationSummary } = await import('@oppsera/module-membership');
   const summary = await getInitiationSummary({
     tenantId: session.tenantId,
     membershipAccountId: accountId,

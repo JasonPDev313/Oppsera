@@ -158,7 +158,7 @@ If in a corporate network, ensure outbound HTTPS access to `*.cardconnect.com` i
 
 | Error | Cause | Fix |
 |---|---|---|
-| `PROVIDER_NOT_CONFIGURED` | No provider credentials for this tenant | Set up credentials in Settings > Merchant Processing |
+| `PROVIDER_NOT_CONFIGURED` | No provider credentials for this tenant | Set up credentials in Settings > Merchant Services |
 | `NO_MERCHANT_ACCOUNT` | No MID found for the terminal/location | Create a merchant account or assign a terminal |
 | `CREDENTIAL_DECRYPTION_FAILED` | `PAYMENT_ENCRYPTION_KEY` changed | Re-save credentials with the current key |
 | `DUPLICATE_REQUEST` | Same `clientRequestId` used twice | Generate a unique ID for each request |

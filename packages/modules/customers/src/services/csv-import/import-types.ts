@@ -112,4 +112,5 @@ export interface ImportResult {
   skippedRows: number;
   errorRows: number;
   errors: Array<{ row: number; message: string }>;
+  createdCustomerIds?: string[];
 }

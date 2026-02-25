@@ -132,6 +132,7 @@ function buildStaticDefaults(): StepCompletion {
     pos_config: { pos_terminal_prefs: false, quick_menu: false, drawer_defaults: false, tip_config: false },
     fnb: { floor_plans: false, sync_tables: false, kds_stations: false, menu_periods: false, allergens: false, tip_pools: false },
     reporting: { dashboard_widgets: false, custom_reports: false, ai_lenses: false },
+    merchant_services: { add_provider: false, create_mid: false, assign_terminals: false, assign_devices: false, test_transaction: false },
     go_live: { all_phases_complete: false, test_order: false, verify_gl: false, final_review: false },
   };
 }
@@ -255,7 +256,17 @@ export function useOnboardingStatus(): OnboardingStatus {
         );
       }
 
-      // ── Phase 10: Go Live — test order ──
+      // ── Phase 10: Merchant Services ──
+      if (checkModule('payments')) {
+        checks.push(
+          hasRecords('/api/v1/settings/payment-processors/providers').then((v) => ['merchant_services', 'add_provider', v]),
+          hasRecords('/api/v1/settings/payment-processors/merchant-accounts').then((v) => ['merchant_services', 'create_mid', v]),
+          hasRecords('/api/v1/settings/payment-processors/terminal-assignments').then((v) => ['merchant_services', 'assign_terminals', v]),
+          hasRecords('/api/v1/settings/payment-processors/device-assignments').then((v) => ['merchant_services', 'assign_devices', v]),
+        );
+      }
+
+      // ── Phase 11: Go Live — test order ──
       checks.push(
         hasRecords('/api/v1/orders?limit=1').then((v) => ['go_live', 'test_order', v]),
       );

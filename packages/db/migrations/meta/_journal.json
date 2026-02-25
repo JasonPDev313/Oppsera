@@ -1317,6 +1317,41 @@
       "when": 1708100187000,
       "tag": "0187_erp_dual_mode_infrastructure",
       "breakpoints": true
+    },
+    {
+      "idx": 188,
+      "version": "7",
+      "when": 1708100188000,
+      "tag": "0188_merchant_account_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1708100189000,
+      "tag": "0189_day_end_close_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1708100190000,
+      "tag": "0190_guest_pay_lookup_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 191,
+      "version": "7",
+      "when": 1708100191000,
+      "tag": "0191_member_portal_passwords",
+      "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1708100192000,
+      "tag": "0192_guest_pay_receipt_emailed",
+      "breakpoints": true
     }
   ]
 }

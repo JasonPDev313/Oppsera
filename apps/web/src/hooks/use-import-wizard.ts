@@ -37,6 +37,7 @@ export function useImportWizard() {
   const [step, setStep] = useState<WizardStep>('upload');
   const [jobId, setJobId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRollingBack, setIsRollingBack] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const stepIndex = STEP_ORDER.indexOf(step);
@@ -252,6 +253,29 @@ export function useImportWizard() {
     }
   }, [jobId]);
 
+  // ── Go Back from Results (keep mappings) ──────────────────────
+  const goBackFromResults = useCallback(() => {
+    setStep('reconciliation');
+  }, []);
+
+  // ── Roll Back Import ─────────────────────────────────────────
+  const rollbackImport = useCallback(async () => {
+    if (!jobId) return;
+    setIsRollingBack(true);
+    setError(null);
+    try {
+      await apiFetch(`/api/v1/import/jobs/${jobId}/rollback`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      setStep('reconciliation');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Rollback failed');
+    } finally {
+      setIsRollingBack(false);
+    }
+  }, [jobId]);
+
   // ── Cancel Import ──────────────────────────────────────────────
 
   const cancelImport = useCallback(async () => {
@@ -270,6 +294,7 @@ export function useImportWizard() {
     stepIndex,
     jobId,
     isSubmitting,
+    isRollingBack,
     error,
     canGoBack,
     canGoForward,
@@ -284,6 +309,8 @@ export function useImportWizard() {
     saveItemMappings,
     runValidation,
     executeImport,
+    goBackFromResults,
+    rollbackImport,
     cancelImport,
   };
 }

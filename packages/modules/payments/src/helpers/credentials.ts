@@ -19,15 +19,26 @@ function getEncryptionKey(): Buffer {
   );
 }
 
-/**
- * Encrypt a credentials object (site, username, password) using AES-256-GCM.
- * Returns a string: base64(iv + authTag + ciphertext)
- */
-export function encryptCredentials(credentials: {
+/** Extended credentials shape — base fields plus optional supplemental keys. */
+export interface ProviderCredentialsPayload {
   site: string;
   username: string;
   password: string;
-}): string {
+  authorizationKey?: string;
+  achUsername?: string;
+  achPassword?: string;
+  fundingUsername?: string;
+  fundingPassword?: string;
+  [key: string]: string | undefined; // index signature for ProviderCredentials compatibility
+}
+
+/**
+ * Encrypt a credentials object using AES-256-GCM.
+ * Accepts the base fields (site, username, password) and optional supplemental
+ * keys (authorizationKey, achUsername, achPassword, fundingUsername, fundingPassword).
+ * Returns a string: base64(iv + authTag + ciphertext)
+ */
+export function encryptCredentials(credentials: ProviderCredentialsPayload): string {
   const key = getEncryptionKey();
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv);
@@ -46,12 +57,9 @@ export function encryptCredentials(credentials: {
 
 /**
  * Decrypt a credentials blob back to the original object.
+ * Returns the extended payload including any supplemental keys that were stored.
  */
-export function decryptCredentials(encryptedBlob: string): {
-  site: string;
-  username: string;
-  password: string;
-} {
+export function decryptCredentials(encryptedBlob: string): ProviderCredentialsPayload {
   const key = getEncryptionKey();
   const packed = Buffer.from(encryptedBlob, 'base64');
 

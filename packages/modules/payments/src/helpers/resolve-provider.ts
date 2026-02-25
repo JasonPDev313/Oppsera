@@ -132,7 +132,7 @@ export async function resolveProvider(
     if (!merchantAccount) {
       throw new AppError(
         'NO_MERCHANT_ACCOUNT',
-        'No active merchant account (MID) configured. Assign a MID in Merchant Processing settings.',
+        'No active merchant account (MID) configured. Assign a MID in Merchant Services settings.',
         422,
       );
     }
@@ -177,7 +177,7 @@ export async function resolveProvider(
     if (!credentialsRow) {
       throw new AppError(
         'NO_PAYMENT_CREDENTIALS',
-        'No payment provider credentials configured. Add credentials in Merchant Processing settings.',
+        'No payment provider credentials configured. Add credentials in Merchant Services settings.',
         422,
       );
     }

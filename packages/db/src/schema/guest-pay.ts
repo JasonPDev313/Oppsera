@@ -37,6 +37,9 @@ export const guestPaySessions = pgTable(
     // Token: base64url 32 bytes (256-bit entropy), used in guest URL
     token: text('token').notNull(),
 
+    // Lookup code: 6-char alphanumeric for manual entry (e.g., "A3F7K2")
+    lookupCode: text('lookup_code'),
+
     // Status lifecycle: active → paid | expired | invalidated | superseded
     status: text('status').notNull().default('active'),
 
@@ -66,6 +69,7 @@ export const guestPaySessions = pgTable(
     // Lifecycle
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     paidAt: timestamp('paid_at', { withTimezone: true }),
+    receiptEmailedAt: timestamp('receipt_emailed_at', { withTimezone: true }),
     supersededById: text('superseded_by_id'),
 
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

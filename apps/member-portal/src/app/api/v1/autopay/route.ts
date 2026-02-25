@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withPortalAuth } from '@/lib/with-portal-auth';
 import { withTenant, membershipMembers } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { getAutopayProfile, configureAutopayProfile, configureAutopayProfileSchema } from '@oppsera/module-membership';
 
 async function resolveAccountId(tenantId: string, customerId: string): Promise<string | null> {
   return withTenant(tenantId, async (tx) => {
@@ -31,7 +32,6 @@ export const GET = withPortalAuth(async (_request: NextRequest, { session }) => 
     );
   }
 
-  const { getAutopayProfile } = await import('@oppsera/module-membership');
   const profile = await getAutopayProfile({
     tenantId: session.tenantId,
     membershipAccountId: accountId,
@@ -50,9 +50,6 @@ export const PATCH = withPortalAuth(async (request: NextRequest, { session }) =>
   }
 
   const body = await request.json();
-  const { configureAutopayProfile, configureAutopayProfileSchema } =
-    await import('@oppsera/module-membership');
-
   const parsed = configureAutopayProfileSchema.safeParse({
     ...body,
     membershipAccountId: accountId,

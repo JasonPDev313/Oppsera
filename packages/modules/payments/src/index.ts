@@ -233,7 +233,7 @@ export type { ResponseInterpretation, InterpretInput } from './services/response
 
 // Gateway helpers
 export { centsToDollars, dollarsToCents, generateProviderOrderId, extractCardLast4, detectCardBrand } from './helpers/amount';
-export { encryptCredentials, decryptCredentials } from './helpers/credentials';
+export { encryptCredentials, decryptCredentials, type ProviderCredentialsPayload } from './helpers/credentials';
 export { resolveProvider } from './helpers/resolve-provider';
 
 // ACH helpers

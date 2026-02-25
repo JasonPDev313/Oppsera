@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, ExternalLink, Check, Users, CalendarDays, ShoppingBag, Shield } from 'lucide-react';
+import { Copy, ExternalLink, Check, Users, CalendarDays, ShoppingBag, Shield, QrCode } from 'lucide-react';
 import type { Globe } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 
@@ -48,6 +48,15 @@ function useWebApps(tenantSlug: string | undefined) {
       helpText: adminConfigured
         ? 'Only platform administrators can access this portal.'
         : 'Set the NEXT_PUBLIC_ADMIN_URL environment variable to enable the admin portal link.',
+    },
+    {
+      id: 'pay-at-table',
+      name: 'Pay at Table',
+      description: 'Customers scan a QR code on their receipt or enter a check code to pay and tip from their phone.',
+      icon: QrCode,
+      status: 'active',
+      portalUrl: typeof window !== 'undefined' ? `${window.location.origin}/pay` : '/pay',
+      helpText: 'This link is always available. Print QR codes on receipts or share the URL directly.',
     },
     {
       id: 'event-registration',

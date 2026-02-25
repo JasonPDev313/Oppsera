@@ -9,6 +9,7 @@ export const SMB_PROTECTED_WORKFLOWS = [
   'accounting.period_close',
   'inventory.costing',
   'payments.settlement_matching',
+  'ar.credit_hold',
 ] as const;
 
 export function isProtectedWorkflow(moduleKey: string, workflowKey: string): boolean {

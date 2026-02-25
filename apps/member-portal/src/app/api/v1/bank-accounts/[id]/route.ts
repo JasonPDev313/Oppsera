@@ -35,13 +35,8 @@ export const DELETE = withPortalAuth(async (request: NextRequest, { session }) =
     );
   }
 
-  const ctx = {
-    tenantId: session.tenantId,
-    locationId: '',
-    requestId: crypto.randomUUID(),
-    user: { id: `customer:${session.customerId}`, email: session.email, role: 'member' as const },
-  };
-
-  await removePaymentMethod(ctx as any, parsed.data);
+  const { buildPortalCtx } = await import('@/lib/build-portal-ctx');
+  const ctx = await buildPortalCtx(session);
+  await removePaymentMethod(ctx, parsed.data);
   return NextResponse.json({ data: { removed: true } });
 });

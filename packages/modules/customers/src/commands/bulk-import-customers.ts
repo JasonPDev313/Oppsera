@@ -17,7 +17,7 @@ import {
   customerActivityLog,
   customerImportLogs,
 } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import type {
   MappedCustomerRow,
   DuplicateResolution,
@@ -65,27 +65,32 @@ export async function bulkImportCustomers(
     let skippedRows = 0;
     let errorRows = 0;
     const errors: Array<{ row: number; message: string }> = [];
+    const createdCustomerIds: string[] = [];
 
     for (const mappedRow of mappedRows) {
-      try {
-        const resolution = duplicateResolutions[mappedRow.rowIndex];
+      const resolution = duplicateResolutions[mappedRow.rowIndex];
 
-        // Handle skip
-        if (resolution === 'skip') {
-          skippedRows++;
-          continue;
-        }
+      // Handle skip — no savepoint needed
+      if (resolution === 'skip') {
+        skippedRows++;
+        continue;
+      }
+
+      // Wrap each row in a savepoint so one DB error doesn't abort
+      // the entire transaction.
+      const sp = `sp_cust_${mappedRow.rowIndex}`;
+      try {
+        await tx.execute(sql.raw(`SAVEPOINT ${sp}`));
 
         const c = mappedRow.customer;
 
         // Handle update (merge into existing)
         if (resolution === 'update') {
-          // Find the existing customer from the duplicate match info
-          // The duplicate detector already found matching customers, look them up by the mapped data
           const existingId = await findExistingCustomerId(tx, ctx.tenantId, mappedRow);
           if (existingId) {
             await updateExistingCustomer(tx, ctx.tenantId, existingId, mappedRow);
             updatedRows++;
+            await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
             continue;
           }
           // If we can't find the existing customer, fall through to create
@@ -136,6 +141,7 @@ export async function bulkImportCustomers(
         }).returning();
 
         const customerId = created!.id;
+        createdCustomerIds.push(customerId);
 
         // Insert address if mapped
         if (mappedRow.address && Object.keys(mappedRow.address).length > 0) {
@@ -184,11 +190,15 @@ export async function bulkImportCustomers(
         });
 
         successRows++;
+        await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
       } catch (err: any) {
+        // Roll back to the savepoint so subsequent rows can still execute
+        try { await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${sp}`)); } catch { /* ignore */ }
         errorRows++;
+        const msg = err.message ?? 'Unknown error';
         errors.push({
           row: mappedRow.rowIndex + 1,
-          message: err.message ?? 'Unknown error',
+          message: formatCustomerDbError(msg),
         });
       }
     }
@@ -201,7 +211,7 @@ export async function bulkImportCustomers(
         skippedRows,
         errorRows,
         errors: errors.length > 0 ? JSON.stringify(errors) : null,
-        status: errorRows === mappedRows.length ? 'failed' : 'completed',
+        status: errorRows === mappedRows.length ? 'failed' : errorRows > 0 ? 'complete_with_errors' : 'completed',
         completedAt: new Date(),
       })
       .where(eq(customerImportLogs.id, importLogId));
@@ -224,7 +234,8 @@ export async function bulkImportCustomers(
         skippedRows,
         errorRows,
         errors,
-      } satisfies ImportResult,
+        createdCustomerIds,
+      } as ImportResult,
       events: [event],
     };
   });
@@ -232,6 +243,30 @@ export async function bulkImportCustomers(
   await auditLog(ctx, 'customers.bulk_imported', 'customer_import_log', result.importLogId);
 
   return result;
+}
+
+// ── User-friendly DB error messages ─────────────────────────────
+
+function formatCustomerDbError(raw: string): string {
+  if (raw.includes('duplicate key') && raw.includes('email')) {
+    return 'A customer with this email already exists';
+  }
+  if (raw.includes('duplicate key') && raw.includes('phone')) {
+    return 'A customer with this phone number already exists';
+  }
+  if (raw.includes('duplicate key') && raw.includes('member_number')) {
+    return 'A customer with this member number already exists';
+  }
+  if (raw.includes('duplicate key')) {
+    return 'Duplicate record — this customer may already exist';
+  }
+  if (raw.includes('violates foreign key')) {
+    return 'Invalid reference (linked record does not exist)';
+  }
+  if (raw.includes('violates not-null')) {
+    return 'A required field is missing';
+  }
+  return raw;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────

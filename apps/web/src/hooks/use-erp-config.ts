@@ -21,6 +21,19 @@ export interface TenantTierInfo {
   tierOverride: boolean;
   tierOverrideReason: string | null;
   tierLastEvaluatedAt: string | null;
+  tenantName: string;
+  createdAt: string;
+  locationCount: number;
+  userCount: number;
+  glAccountCount: number;
+  enabledModuleCount: number;
+  enabledModules: string[];
+  verticalInfo: {
+    name: string;
+    icon: string;
+    description: string;
+    recommendedModules: string[];
+  } | null;
 }
 
 export interface TierEvaluationResult {
@@ -156,6 +169,57 @@ export function useCloseOrchestratorRuns(filters: CloseRunFilters = {}) {
     isLoading: result.isLoading,
     error: result.error,
     refetch: result.refetch,
+  };
+}
+
+// ── Auto-Close Settings type ────────────────────────────────────
+
+export interface AutoCloseSettings {
+  autoCloseEnabled: boolean;
+  autoCloseTime: string; // HH:MM
+  autoCloseSkipHolidays: boolean;
+  dayEndCloseEnabled: boolean;
+  dayEndCloseTime: string; // HH:MM
+}
+
+// ── useAutoCloseSettings ────────────────────────────────────────
+
+export function useAutoCloseSettings() {
+  const queryClient = useQueryClient();
+
+  const result = useQuery({
+    queryKey: ['auto-close-settings'],
+    queryFn: () =>
+      apiFetch<{ data: AutoCloseSettings | null }>('/api/v1/accounting/settings').then((r) => {
+        const d = r.data;
+        if (!d) return null;
+        return {
+          autoCloseEnabled: d.autoCloseEnabled ?? false,
+          autoCloseTime: d.autoCloseTime ?? '02:00',
+          autoCloseSkipHolidays: d.autoCloseSkipHolidays ?? false,
+          dayEndCloseEnabled: d.dayEndCloseEnabled ?? false,
+          dayEndCloseTime: d.dayEndCloseTime ?? '23:00',
+        } satisfies AutoCloseSettings;
+      }),
+    staleTime: 60_000,
+  });
+
+  const updateSettings = useMutation({
+    mutationFn: (input: Partial<AutoCloseSettings>) =>
+      apiFetch<{ data: unknown }>('/api/v1/accounting/settings', {
+        method: 'PATCH',
+        body: JSON.stringify(input),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['auto-close-settings'] });
+    },
+  });
+
+  return {
+    settings: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    updateSettings,
   };
 }
 

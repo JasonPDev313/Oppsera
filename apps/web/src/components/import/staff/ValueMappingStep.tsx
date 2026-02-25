@@ -61,8 +61,36 @@ export function ValueMappingStep({
   const unmappedRoles = valueMappings.roles.filter((r) => !r.oppsEraRoleId).length;
   const unmappedLocations = valueMappings.locations.filter((l) => l.oppsEraLocationIds.length === 0).length;
 
+  // Rows at risk: unmapped with no fallback
+  const rolesAtRisk = unmappedRoles > 0 && !defaultRoleId;
+  const locationsAtRisk = unmappedLocations > 0 && defaultLocationIds.length === 0;
+
   return (
     <div className="space-y-8">
+      {/* Skip warning banner */}
+      {(rolesAtRisk || locationsAtRisk) && (
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 space-y-1.5">
+          <p className="text-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Some rows will be skipped during import
+          </p>
+          {rolesAtRisk && (
+            <p className="text-sm text-red-600 dark:text-red-400 ml-6">
+              {unmappedRoles} unmapped role{unmappedRoles === 1 ? '' : 's'} with no default fallback
+              &mdash; rows with these roles will be <strong>skipped</strong>.
+              Set a default role below or map each role to fix this.
+            </p>
+          )}
+          {locationsAtRisk && (
+            <p className="text-sm text-red-600 dark:text-red-400 ml-6">
+              {unmappedLocations} unmapped location{unmappedLocations === 1 ? '' : 's'} with no default fallback
+              &mdash; rows with these locations will be <strong>skipped</strong>.
+              Check a default location below or map each location to fix this.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* ── Role Mappings ── */}
       <section>
         <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
@@ -101,7 +129,7 @@ export function ValueMappingStep({
                       <select
                         value={rm.oppsEraRoleId ?? ''}
                         onChange={(e) => handleRoleMapping(idx, e.target.value || null)}
-                        className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm"
+                        className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1.5 text-sm"
                       >
                         <option value="">— Not mapped —</option>
                         {context.roles.map((r) => (
@@ -131,7 +159,7 @@ export function ValueMappingStep({
             <select
               value={defaultRoleId ?? ''}
               onChange={(e) => onDefaultRoleIdChange(e.target.value || null)}
-              className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
+              className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 text-sm"
             >
               <option value="">— None (will error) —</option>
               {context.roles.map((r) => (

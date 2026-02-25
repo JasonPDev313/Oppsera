@@ -42,6 +42,13 @@ export interface AccountingSettings {
   defaultSurchargeRevenueAccountId: string | null;
   // ACH Receivable account (migration 0178)
   defaultAchReceivableAccountId: string | null;
+  // Auto-close orchestrator (migration 0187)
+  autoCloseEnabled: boolean;
+  autoCloseTime: string; // HH:MM
+  autoCloseSkipHolidays: boolean;
+  // Day-end close (migration 0189)
+  dayEndCloseEnabled: boolean;
+  dayEndCloseTime: string; // HH:MM
 }
 
 /**
@@ -99,5 +106,10 @@ export async function getAccountingSettings(
     enableAutoRemap: row.enableAutoRemap,
     defaultSurchargeRevenueAccountId: row.defaultSurchargeRevenueAccountId ?? null,
     defaultAchReceivableAccountId: row.defaultAchReceivableAccountId ?? null,
+    autoCloseEnabled: row.autoCloseEnabled,
+    autoCloseTime: row.autoCloseTime ?? '02:00',
+    autoCloseSkipHolidays: row.autoCloseSkipHolidays,
+    dayEndCloseEnabled: row.dayEndCloseEnabled,
+    dayEndCloseTime: row.dayEndCloseTime ?? '23:00',
   };
 }

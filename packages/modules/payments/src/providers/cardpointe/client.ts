@@ -55,6 +55,11 @@ export interface CardPointeClientConfig {
   username: string;
   password: string;
   sandbox?: boolean;
+  authorizationKey?: string;
+  achUsername?: string;
+  achPassword?: string;
+  fundingUsername?: string;
+  fundingPassword?: string;
 }
 
 /**
@@ -64,6 +69,8 @@ export interface CardPointeClientConfig {
 export class CardPointeClient {
   private baseUrl: string;
   private authHeader: string;
+  private achAuthHeader: string | null;
+  private fundingAuthHeader: string | null;
   private readonly AUTH_TIMEOUT_MS = 30_000;
   private readonly DEFAULT_TIMEOUT_MS = 15_000;
   private readonly MAX_RETRIES = 3;
@@ -73,6 +80,88 @@ export class CardPointeClient {
     this.baseUrl = `https://${config.site}.cardconnect.com/cardconnect/rest/`;
     const credentials = Buffer.from(`${config.username}:${config.password}`).toString('base64');
     this.authHeader = `Basic ${credentials}`;
+
+    // Separate auth for ACH operations (falls back to main credentials if not provided)
+    if (config.achUsername && config.achPassword) {
+      const achCreds = Buffer.from(`${config.achUsername}:${config.achPassword}`).toString('base64');
+      this.achAuthHeader = `Basic ${achCreds}`;
+    } else {
+      this.achAuthHeader = null;
+    }
+
+    // Separate auth for funding operations (falls back to main credentials if not provided)
+    if (config.fundingUsername && config.fundingPassword) {
+      const fundingCreds = Buffer.from(`${config.fundingUsername}:${config.fundingPassword}`).toString('base64');
+      this.fundingAuthHeader = `Basic ${fundingCreds}`;
+    } else {
+      this.fundingAuthHeader = null;
+    }
+  }
+
+  /** Get the appropriate auth header for ACH operations */
+  getAchAuthHeader(): string {
+    return this.achAuthHeader ?? this.authHeader;
+  }
+
+  /** Get the appropriate auth header for funding operations */
+  getFundingAuthHeader(): string {
+    return this.fundingAuthHeader ?? this.authHeader;
+  }
+
+  /** Get the base URL for external connectivity tests */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /** Get the main auth header for external connectivity tests */
+  getMainAuthHeader(): string {
+    return this.authHeader;
+  }
+
+  /**
+   * Test connectivity to the CardPointe API with a specific auth header.
+   * Uses the inquire endpoint with a dummy retref — any response (including
+   * "Transaction not found") means the credentials are valid.
+   * Returns { ok: true } on success or { ok: false, error } on failure.
+   * Single attempt, no retries — designed for quick credential verification.
+   */
+  async testConnectivity(
+    merchid: string,
+    authHeaderOverride?: string,
+  ): Promise<{ ok: boolean; error?: string; httpStatus?: number }> {
+    const url = `${this.baseUrl}inquire/connectivity-test-00000/${merchid}`;
+    const auth = authHeaderOverride ?? this.authHeader;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: auth,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timer);
+
+      // 401/403 = invalid credentials
+      if (response.status === 401 || response.status === 403) {
+        return { ok: false, error: 'Unauthorized', httpStatus: response.status };
+      }
+
+      // Any 2xx or 4xx (like 404 "Txn not found") means credentials are valid
+      // The inquire endpoint requires valid auth even to return "not found"
+      return { ok: true, httpStatus: response.status };
+    } catch (err) {
+      clearTimeout(timer);
+      if (err instanceof Error && err.name === 'AbortError') {
+        return { ok: false, error: 'Connection timed out' };
+      }
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   // ── Core API Methods ─────────────────────────────────────────

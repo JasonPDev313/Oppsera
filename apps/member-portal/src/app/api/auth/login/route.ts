@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { z } from 'zod';
-import { withTenant, tenants, customers } from '@oppsera/db';
+import bcrypt from 'bcryptjs';
+import { db, withTenant, tenants, customers, customerAuthAccounts } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { createPortalToken, makeSessionCookie } from '@/lib/portal-auth';
 
 const loginSchema = z.object({
   email: z.string().email(),
   tenantSlug: z.string().min(1),
+  password: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -21,11 +23,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, tenantSlug } = parsed.data;
+    const { email, tenantSlug, password } = parsed.data;
     const isDevBypass = process.env.PORTAL_DEV_BYPASS === 'true' && process.env.NODE_ENV !== 'production';
 
     // 1. Resolve tenant from slug
-    const { db } = await import('@oppsera/db');
     const [tenant] = await db
       .select({ id: tenants.id })
       .from(tenants)
@@ -58,9 +59,11 @@ export async function POST(request: NextRequest) {
 
     if (!customer) {
       if (!isDevBypass) {
+        // Constant-time comparison to prevent timing attacks
+        await bcrypt.compare(password ?? '', '$2b$12$invalidhashpaddingtoconstanttime');
         return NextResponse.json(
-          { error: { code: 'NOT_FOUND', message: 'No membership account found for this email' } },
-          { status: 404 },
+          { error: { code: 'NOT_FOUND', message: 'Invalid email or password' } },
+          { status: 401 },
         );
       }
       // Dev bypass: pick first customer in tenant so portal shows real data
@@ -81,7 +84,63 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 3. V1: Generate token directly (V2: send magic link email)
+    // 3. Validate password (skip in dev bypass mode)
+    if (!isDevBypass && customer) {
+      // Look up portal auth account
+      const authAccount = await withTenant(tenantId, async (tx) => {
+        const rows = await (tx as any)
+          .select({
+            id: customerAuthAccounts.id,
+            passwordHash: customerAuthAccounts.passwordHash,
+            isActive: customerAuthAccounts.isActive,
+          })
+          .from(customerAuthAccounts)
+          .where(
+            and(
+              eq(customerAuthAccounts.tenantId, tenantId),
+              eq(customerAuthAccounts.customerId, resolvedCustomerId),
+              eq(customerAuthAccounts.provider, 'portal'),
+            ),
+          )
+          .limit(1);
+        const arr = Array.isArray(rows) ? rows : [];
+        return arr.length > 0 ? arr[0] : null;
+      });
+
+      if (!authAccount || !authAccount.isActive || !authAccount.passwordHash) {
+        // No portal auth set up — constant-time compare to prevent timing attacks
+        await bcrypt.compare(password ?? '', '$2b$12$invalidhashpaddingtoconstanttime');
+        return NextResponse.json(
+          { error: { code: 'AUTH_REQUIRED', message: 'Portal access not configured. Contact your administrator.' } },
+          { status: 401 },
+        );
+      }
+
+      if (!password) {
+        return NextResponse.json(
+          { error: { code: 'VALIDATION_ERROR', message: 'Password is required' } },
+          { status: 400 },
+        );
+      }
+
+      const valid = await bcrypt.compare(password, authAccount.passwordHash);
+      if (!valid) {
+        return NextResponse.json(
+          { error: { code: 'AUTH_FAILED', message: 'Invalid email or password' } },
+          { status: 401 },
+        );
+      }
+
+      // Best-effort: update last login timestamp
+      withTenant(tenantId, async (tx) => {
+        await (tx as any)
+          .update(customerAuthAccounts)
+          .set({ lastLoginAt: new Date() })
+          .where(eq(customerAuthAccounts.id, authAccount.id));
+      }).catch(() => undefined);
+    }
+
+    // 4. Generate token
     const token = await createPortalToken({
       customerId: resolvedCustomerId,
       tenantId,

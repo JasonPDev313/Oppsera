@@ -317,7 +317,7 @@ export function renderGuestCheckWithQRText(data: GuestCheckWithQRData): string {
 
   // Short URL for manual entry
   const displayUrl = data.guestPayShortCode
-    ? `pay.oppsera.com/g/${data.guestPayShortCode}`
+    ? `oppsera.com/pay?code=${data.guestPayShortCode}`
     : data.guestPayUrl;
   lines.push(centerText(displayUrl));
   lines.push('');

@@ -16,8 +16,9 @@
     "@oppsera/module-customers": "workspace:*",
     "@oppsera/module-membership": "workspace:*",
     "@oppsera/shared": "workspace:*",
-    "dotenv": "^16.4.0",
     "@tanstack/react-query": "^5",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.0",
     "jose": "^5.9.6",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0",

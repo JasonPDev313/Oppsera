@@ -36,13 +36,8 @@ export const POST = withPortalAuth(async (request: NextRequest, { session }) => 
     );
   }
 
-  const ctx = {
-    tenantId: session.tenantId,
-    locationId: '',
-    requestId: crypto.randomUUID(),
-    user: { id: `customer:${session.customerId}`, email: session.email, role: 'member' as const },
-  };
-
-  const result = await verifyMicroDeposits(ctx as any, parsed.data);
+  const { buildPortalCtx } = await import('@/lib/build-portal-ctx');
+  const ctx = await buildPortalCtx(session);
+  const result = await verifyMicroDeposits(ctx, parsed.data);
   return NextResponse.json({ data: result });
 });

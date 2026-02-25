@@ -37,6 +37,20 @@ export interface MerchantAccountInfo {
   isDefault: boolean;
   isActive: boolean;
   config: Record<string, unknown> | null;
+  // ── Settings (migration 0188) ──
+  hsn: string | null;
+  achMerchantId: string | null;
+  fundingMerchantId: string | null;
+  useForCardSwipe: boolean;
+  readerBeep: boolean;
+  isProduction: boolean;
+  allowManualEntry: boolean;
+  tipOnDevice: boolean;
+  // ── ACH settings ──
+  achEnabled: boolean;
+  achDefaultSecCode: string;
+  achCompanyName: string | null;
+  achCompanyId: string | null;
   createdAt: string;
 }
 
@@ -113,7 +127,7 @@ export function useMerchantAccounts(providerId: string | null) {
 
 // ── useTerminalAssignments ───────────────────────────────────
 
-export function useTerminalAssignments() {
+export function useTerminalAssignments(enabled = true) {
   const result = useQuery({
     queryKey: ['terminal-assignments'],
     queryFn: () =>
@@ -121,6 +135,7 @@ export function useTerminalAssignments() {
         '/api/v1/settings/payment-processors/terminal-assignments',
       ).then((r) => r.data),
     staleTime: 30_000,
+    enabled,
   });
 
   return {
@@ -150,7 +165,7 @@ export interface DeviceAssignmentInfo {
 
 // ── useDeviceAssignments ─────────────────────────────────────
 
-export function useDeviceAssignments(providerId?: string | null) {
+export function useDeviceAssignments(providerId?: string | null, enabled = true) {
   const result = useQuery({
     queryKey: ['device-assignments', providerId ?? 'all'],
     queryFn: () => {
@@ -160,6 +175,7 @@ export function useDeviceAssignments(providerId?: string | null) {
       return apiFetch<{ data: DeviceAssignmentInfo[] }>(url).then((r) => r.data);
     },
     staleTime: 30_000,
+    enabled,
   });
 
   return {
@@ -243,7 +259,7 @@ export interface SurchargeSettingsInfo {
 
 // ── useSurchargeSettings ─────────────────────────────────────
 
-export function useSurchargeSettings(providerId?: string | null) {
+export function useSurchargeSettings(providerId?: string | null, enabled = true) {
   const result = useQuery({
     queryKey: ['surcharge-settings', providerId ?? 'all'],
     queryFn: () => {
@@ -253,6 +269,7 @@ export function useSurchargeSettings(providerId?: string | null) {
       return apiFetch<{ data: SurchargeSettingsInfo[] }>(url).then((r) => r.data);
     },
     staleTime: 30_000,
+    enabled,
   });
 
   return {
@@ -306,15 +323,145 @@ export function useSurchargeMutations() {
   return { saveSurcharge, deleteSurcharge };
 }
 
+// ── Merchant Account Setup Types ─────────────────────────────
+
+export interface MerchantAccountSetupData {
+  account: {
+    id: string;
+    providerId: string;
+    locationId: string | null;
+    merchantId: string;
+    displayName: string;
+    isDefault: boolean;
+    isActive: boolean;
+    hsn: string;
+    achMerchantId: string;
+    achEnabled: boolean;
+    achDefaultSecCode: string;
+    achCompanyName: string;
+    achCompanyId: string;
+    fundingMerchantId: string;
+    useForCardSwipe: boolean;
+    readerBeep: boolean;
+    isProduction: boolean;
+    allowManualEntry: boolean;
+    tipOnDevice: boolean;
+  };
+  credentials: {
+    site: string | null;
+    username: string | null;
+    password: string | null;
+    authorizationKey: string | null;
+    achUsername: string | null;
+    achPassword: string | null;
+    fundingUsername: string | null;
+    fundingPassword: string | null;
+  };
+  credentialId: string | null;
+  isSandbox: boolean;
+}
+
+// ── useMerchantAccountSetup ─────────────────────────────────
+
+export function useMerchantAccountSetup(providerId: string | null, accountId: string | null) {
+  const queryClient = useQueryClient();
+
+  const result = useQuery({
+    queryKey: ['merchant-account-setup', providerId, accountId],
+    queryFn: () =>
+      apiFetch<{ data: MerchantAccountSetupData }>(
+        `/api/v1/settings/payment-processors/${providerId}/merchant-accounts/${accountId}/setup`,
+      ).then((r) => r.data),
+    enabled: !!providerId && !!accountId,
+    staleTime: 15_000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (input: Record<string, unknown>) =>
+      apiFetch(
+        `/api/v1/settings/payment-processors/${providerId}/merchant-accounts/${accountId}/setup`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(input),
+        },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['merchant-account-setup', providerId, accountId] });
+      queryClient.invalidateQueries({ queryKey: ['merchant-accounts', providerId] });
+      queryClient.invalidateQueries({ queryKey: ['provider-credentials', providerId] });
+    },
+  });
+
+  return {
+    setup: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    save: saveMutation.mutate,
+    saveAsync: saveMutation.mutateAsync,
+    isSaving: saveMutation.isPending,
+    saveError: saveMutation.error,
+    refetch: result.refetch,
+  };
+}
+
+// ── Verify Credentials ──────────────────────────────────────
+
+export interface VerifyCredentialRow {
+  merchantAccountId: string;
+  displayName: string;
+  merchantId: string;
+  accountType: 'Ecom' | 'ACH' | 'Funding';
+  mid: string;
+  username: string;
+  password: string;
+  status: 'OK' | 'Unauthorized' | 'Timeout' | 'Error' | 'Blank Credentials';
+  error?: string;
+}
+
+export interface VerifyCredentialsResult {
+  rows: VerifyCredentialRow[];
+  testedAt: string;
+}
+
+export function useVerifyCredentials(providerId: string | null) {
+  const mutation = useMutation({
+    mutationFn: () =>
+      apiFetch<{ data: VerifyCredentialsResult }>(
+        `/api/v1/settings/payment-processors/${providerId}/verify-credentials`,
+        { method: 'POST' },
+      ).then((r) => r.data),
+  });
+
+  return {
+    verify: mutation.mutate,
+    verifyAsync: mutation.mutateAsync,
+    isVerifying: mutation.isPending,
+    result: mutation.data ?? null,
+    error: mutation.error,
+    reset: mutation.reset,
+  };
+}
+
 // ── usePaymentProcessorMutations ─────────────────────────────
 
 export function usePaymentProcessorMutations() {
   const queryClient = useQueryClient();
 
-  const invalidateAll = () => {
+  const invalidateProviders = () => {
+    queryClient.invalidateQueries({ queryKey: ['payment-providers'] });
+  };
+
+  const invalidateCredentials = () => {
     queryClient.invalidateQueries({ queryKey: ['payment-providers'] });
     queryClient.invalidateQueries({ queryKey: ['provider-credentials'] });
+  };
+
+  const invalidateMids = () => {
+    queryClient.invalidateQueries({ queryKey: ['payment-providers'] });
     queryClient.invalidateQueries({ queryKey: ['merchant-accounts'] });
+  };
+
+  const invalidateTerminals = () => {
     queryClient.invalidateQueries({ queryKey: ['terminal-assignments'] });
   };
 
@@ -324,7 +471,7 @@ export function usePaymentProcessorMutations() {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    onSuccess: () => invalidateAll(),
+    onSuccess: () => invalidateProviders(),
   });
 
   const updateProvider = useMutation({
@@ -333,7 +480,7 @@ export function usePaymentProcessorMutations() {
         method: 'PATCH',
         body: JSON.stringify(input),
       }),
-    onSuccess: () => invalidateAll(),
+    onSuccess: () => invalidateProviders(),
   });
 
   const saveCredentials = useMutation({
@@ -347,7 +494,7 @@ export function usePaymentProcessorMutations() {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    onSuccess: () => invalidateAll(),
+    onSuccess: () => invalidateCredentials(),
   });
 
   const testConnection = useMutation({
@@ -378,7 +525,7 @@ export function usePaymentProcessorMutations() {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    onSuccess: () => invalidateAll(),
+    onSuccess: () => invalidateMids(),
   });
 
   const updateMerchantAccount = useMutation({
@@ -397,7 +544,7 @@ export function usePaymentProcessorMutations() {
           body: JSON.stringify(input),
         },
       ),
-    onSuccess: () => invalidateAll(),
+    onSuccess: () => invalidateMids(),
   });
 
   const deleteMerchantAccount = useMutation({
@@ -406,7 +553,7 @@ export function usePaymentProcessorMutations() {
         `/api/v1/settings/payment-processors/${input.providerId}/merchant-accounts/${input.accountId}`,
         { method: 'DELETE' },
       ),
-    onSuccess: () => invalidateAll(),
+    onSuccess: () => invalidateMids(),
   });
 
   const assignTerminal = useMutation({
@@ -415,7 +562,7 @@ export function usePaymentProcessorMutations() {
         method: 'POST',
         body: JSON.stringify(input),
       }),
-    onSuccess: () => invalidateAll(),
+    onSuccess: () => invalidateTerminals(),
   });
 
   return {

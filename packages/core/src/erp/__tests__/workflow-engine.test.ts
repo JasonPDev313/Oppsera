@@ -162,14 +162,19 @@ describe('workflow-engine', () => {
   describe('getModuleWorkflowConfigs', () => {
     it('returns all defaults for a module', async () => {
       const configs = await getModuleWorkflowConfigs('tnt_test', 'accounting');
-      // SMB defaults for accounting module — should have 5 workflows
+      // SMB defaults for accounting module — should have 10 workflows
       const accountingKeys = Object.keys(configs).filter((k) => k.startsWith('accounting.'));
-      expect(accountingKeys).toHaveLength(5);
+      expect(accountingKeys).toHaveLength(10);
       expect(configs['accounting.journal_posting']).toBeDefined();
       expect(configs['accounting.period_close']).toBeDefined();
       expect(configs['accounting.bank_reconciliation']).toBeDefined();
       expect(configs['accounting.depreciation']).toBeDefined();
       expect(configs['accounting.revenue_recognition']).toBeDefined();
+      expect(configs['accounting.year_end_close']).toBeDefined();
+      expect(configs['accounting.eod_reconciliation']).toBeDefined();
+      expect(configs['accounting.intercompany']).toBeDefined();
+      expect(configs['accounting.budget_variance']).toBeDefined();
+      expect(configs['accounting.dormant_accounts']).toBeDefined();
     });
 
     it('overrides defaults with explicit configs', async () => {
@@ -204,10 +209,10 @@ describe('workflow-engine', () => {
   });
 
   describe('getAllWorkflowConfigs', () => {
-    it('returns all 13 workflows for SMB tier', async () => {
+    it('returns all 26 workflows for SMB tier', async () => {
       const configs = await getAllWorkflowConfigs('tnt_test');
       const keys = Object.keys(configs);
-      expect(keys).toHaveLength(13);
+      expect(keys).toHaveLength(26);
     });
 
     it('returns configs keyed by module.workflow', async () => {
@@ -217,6 +222,27 @@ describe('workflow-engine', () => {
       expect(configs['inventory.costing']).toBeDefined();
       expect(configs['ap.bill_approval']).toBeDefined();
       expect(configs['ar.invoice_posting']).toBeDefined();
+    });
+
+    it('includes new wired workflows', async () => {
+      const configs = await getAllWorkflowConfigs('tnt_test');
+      expect(configs['accounting.year_end_close']).toBeDefined();
+      expect(configs['accounting.eod_reconciliation']).toBeDefined();
+      expect(configs['payments.refund_approval']).toBeDefined();
+      expect(configs['payments.cash_variance_alert']).toBeDefined();
+      expect(configs['payments.deposit_verification']).toBeDefined();
+      expect(configs['ar.credit_hold']).toBeDefined();
+    });
+
+    it('includes coming-soon workflows', async () => {
+      const configs = await getAllWorkflowConfigs('tnt_test');
+      expect(configs['accounting.intercompany']).toBeDefined();
+      expect(configs['accounting.budget_variance']).toBeDefined();
+      expect(configs['accounting.dormant_accounts']).toBeDefined();
+      expect(configs['payments.chargeback_deadlines']).toBeDefined();
+      expect(configs['ap.payment_scheduling']).toBeDefined();
+      expect(configs['ar.dunning']).toBeDefined();
+      expect(configs['ar.recurring_invoices']).toBeDefined();
     });
   });
 

@@ -311,6 +311,8 @@ export function FnbModifierDrawer({
   if (!open) return null;
 
   const toggleOption = (groupId: string, optionId: string, maxSel: number) => {
+    let shouldAutoAdvance = false;
+
     setSelected((prev) => {
       const next = new Map(prev);
       const groupSet = new Set(next.get(groupId) ?? []);
@@ -325,10 +327,31 @@ export function FnbModifierDrawer({
       } else {
         if (maxSel === 1) groupSet.clear();
         groupSet.add(optionId);
+
+        // Auto-advance: if this is a single-select required group in stepper mode
+        // and we just selected the required number, advance to next step
+        if (!useSimpleMode && isOnRequiredStep && currentRequiredGroup) {
+          const g = currentRequiredGroup;
+          if (g.id === groupId && maxSel === 1 && g.minSelections <= 1) {
+            // Check if instruction mode is off — if instructions are active,
+            // user might want to pick None/Extra/OnSide before advancing
+            const hasInstr = g.instructionMode === 'all' || g.instructionMode === 'per_option';
+            if (!hasInstr) {
+              shouldAutoAdvance = true;
+            }
+          }
+        }
       }
       next.set(groupId, groupSet);
       return next;
     });
+
+    // Defer auto-advance to next tick so state has settled
+    if (shouldAutoAdvance) {
+      setTimeout(() => {
+        setActiveStep((s) => Math.min(s + 1, totalSteps - 1));
+      }, 150);
+    }
   };
 
   const handleInstructionChange = (optionId: string, instruction: ModifierInstruction) => {

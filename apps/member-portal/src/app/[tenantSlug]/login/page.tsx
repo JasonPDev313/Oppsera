@@ -6,6 +6,7 @@ import { usePortalAuth } from '@/hooks/use-portal-auth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = usePortalAuth();
@@ -18,7 +19,7 @@ export default function LoginPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(email);
+      await login(email, password);
       localStorage.setItem('portal_last_slug', tenantSlug);
       router.push(`/${tenantSlug}/dashboard`);
     } catch (err: any) {
@@ -51,6 +52,22 @@ export default function LoginPage() {
                 className="w-full rounded-lg border border-[var(--portal-border)] px-3 py-2 text-sm
                   focus:outline-none focus:ring-2 focus:ring-[var(--portal-primary)] focus:border-transparent"
                 placeholder="you@example.com"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-[var(--portal-border)] px-3 py-2 text-sm
+                  focus:outline-none focus:ring-2 focus:ring-[var(--portal-primary)] focus:border-transparent"
+                placeholder="Enter your password"
               />
             </div>
 

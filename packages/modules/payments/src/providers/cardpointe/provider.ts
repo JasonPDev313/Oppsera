@@ -54,6 +54,11 @@ export class CardPointeProvider implements PaymentProvider {
       username: credentials.username,
       password: credentials.password,
       sandbox: credentials.sandbox === 'true',
+      authorizationKey: credentials.authorizationKey,
+      achUsername: credentials.achUsername,
+      achPassword: credentials.achPassword,
+      fundingUsername: credentials.fundingUsername,
+      fundingPassword: credentials.fundingPassword,
     });
   }
 

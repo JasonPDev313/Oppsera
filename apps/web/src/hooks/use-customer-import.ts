@@ -62,6 +62,7 @@ export interface ImportResult {
   skippedRows: number;
   errorRows: number;
   errors: Array<{ row: number; message: string }>;
+  createdCustomerIds?: string[];
 }
 
 // ── Step enum ─────────────────────────────────────────────────────
@@ -106,6 +107,7 @@ export function useCustomerImport() {
 
   // Result state
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [isRollingBack, setIsRollingBack] = useState(false);
 
   // ── Step 1: Handle file upload ──
   const handleFileSelected = useCallback(async (file: File) => {
@@ -249,6 +251,48 @@ export function useCustomerImport() {
     }
   }, [csvContent, mappings, transforms, duplicateResolutions, fileName, fileSizeBytes]);
 
+  // ── Go Back from Results (keep validation data) ──
+  const goBackFromResults = useCallback(() => {
+    setImportResult(null);
+    if (duplicates.length > 0) {
+      setStep('duplicates');
+    } else {
+      setStep('validation_preview');
+    }
+  }, [duplicates]);
+
+  // ── Roll Back Import ──
+  const rollbackImport = useCallback(async () => {
+    if (!importResult?.importLogId) return;
+    setIsRollingBack(true);
+    try {
+      const res = await apiFetch('/api/v1/customers/import/rollback', {
+        method: 'POST',
+        body: JSON.stringify({
+          importLogId: importResult.importLogId,
+          createdCustomerIds: importResult.createdCustomerIds ?? [],
+        }),
+      }) as Response;
+
+      if (!res.ok) {
+        const errBody = await res.json() as { error?: { message?: string } };
+        setError(errBody.error?.message ?? 'Rollback failed');
+        return;
+      }
+
+      setImportResult(null);
+      if (duplicates.length > 0) {
+        setStep('duplicates');
+      } else {
+        setStep('validation_preview');
+      }
+    } catch (err: any) {
+      setError(err.message ?? 'Rollback failed');
+    } finally {
+      setIsRollingBack(false);
+    }
+  }, [importResult, duplicates]);
+
   // ── Reset ──
   const reset = useCallback(() => {
     setStep('upload');
@@ -287,6 +331,7 @@ export function useCustomerImport() {
     preview,
     duplicateResolutions,
     importResult,
+    isRollingBack,
 
     // Actions
     handleFileSelected,
@@ -295,6 +340,8 @@ export function useCustomerImport() {
     setDuplicateResolution,
     setAllDuplicateResolutions,
     executeImport,
+    goBackFromResults,
+    rollbackImport,
     reset,
     setStep,
 

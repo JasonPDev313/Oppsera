@@ -206,10 +206,10 @@ export default function ModifiersContent() {
   if (isLoading) {
     return (
       <div className="p-6">
-        <div className="h-8 w-48 rounded bg-gray-200 animate-pulse mb-6" />
+        <div className="h-8 w-48 rounded bg-gray-200/50 animate-pulse mb-6" />
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 rounded-lg bg-gray-100 animate-pulse" />
+            <div key={i} className="h-20 rounded-lg bg-gray-200/30 animate-pulse" />
           ))}
         </div>
       </div>
@@ -227,7 +227,7 @@ export default function ModifiersContent() {
   return (
     <div className="flex h-full">
       {/* Left panel: Category tree */}
-      <div className="w-56 shrink-0 border-r border-gray-200 overflow-y-auto p-3">
+      <div className="w-56 shrink-0 border-r border-gray-200/60 overflow-y-auto p-3">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Categories</h3>
           <button
@@ -236,7 +236,7 @@ export default function ModifiersContent() {
               setEditingCategory(null);
               setCategoryFormOpen(true);
             }}
-            className="rounded p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+            className="rounded p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-500/10 transition-colors"
             title="Add category"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -249,8 +249,8 @@ export default function ModifiersContent() {
           onClick={() => setSelectedCategoryId(null)}
           className={`w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors mb-1 ${
             selectedCategoryId === null
-              ? 'bg-indigo-50 text-indigo-700'
-              : 'text-gray-600 hover:bg-gray-100'
+              ? 'bg-indigo-500/15 text-indigo-600'
+              : 'text-gray-600 hover:bg-gray-200/50'
           }`}
         >
           All Groups
@@ -265,8 +265,8 @@ export default function ModifiersContent() {
                 onClick={() => setSelectedCategoryId(root.id)}
                 className={`flex-1 text-left rounded-lg px-3 py-1.5 text-sm font-medium transition-colors truncate ${
                   selectedCategoryId === root.id
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-indigo-500/15 text-indigo-600'
+                    : 'text-gray-600 hover:bg-gray-200/50'
                 }`}
               >
                 <FolderTree className="h-3.5 w-3.5 inline mr-1.5 opacity-50" />
@@ -293,8 +293,8 @@ export default function ModifiersContent() {
                   onClick={() => setSelectedCategoryId(child.id)}
                   className={`flex-1 text-left rounded-lg px-3 py-1 text-xs font-medium transition-colors truncate ${
                     selectedCategoryId === child.id
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'text-gray-500 hover:bg-gray-100'
+                      ? 'bg-indigo-500/15 text-indigo-600'
+                      : 'text-gray-500 hover:bg-gray-200/50'
                   }`}
                 >
                   {child.name}
@@ -327,7 +327,7 @@ export default function ModifiersContent() {
             <button
               type="button"
               onClick={() => setBulkAssignOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300/60 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50 transition-colors"
             >
               Bulk Assign
             </button>
@@ -350,13 +350,13 @@ export default function ModifiersContent() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search groups or options..."
-            className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+            className="w-full rounded-lg border border-gray-300/60 bg-surface pl-9 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
           />
         </div>
 
         {/* Groups list */}
         {filteredGroups.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300 p-12 text-center">
+          <div className="rounded-lg border border-dashed border-gray-300/60 p-12 text-center">
             <p className="text-sm font-medium text-gray-600 mb-1">
               {searchTerm ? 'No matching groups found' : 'No modifier groups yet'}
             </p>
@@ -387,7 +387,7 @@ export default function ModifiersContent() {
               return (
                 <div
                   key={group.id}
-                  className="rounded-lg border border-gray-200 bg-white overflow-hidden transition-shadow hover:shadow-sm"
+                  className="rounded-lg border border-gray-200/60 bg-surface overflow-hidden transition-shadow hover:shadow-sm"
                 >
                   {/* Group header */}
                   <div className="flex items-center gap-3 px-4 py-3">
@@ -410,16 +410,16 @@ export default function ModifiersContent() {
                     >
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-sm text-gray-900">{group.name}</span>
-                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-600">
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-200/50 text-gray-600">
                           {group.selectionType === 'single' ? 'Single' : 'Multi'}
                         </span>
                         {group.isRequired && (
-                          <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-red-50 text-red-600">
+                          <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-red-500/10 text-red-500">
                             Required
                           </span>
                         )}
                         {instrMode && instrMode !== 'none' && (
-                          <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-blue-50 text-blue-600">
+                          <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-blue-500/10 text-blue-500">
                             {instrMode === 'all' ? 'Instructions' : 'Per-Option'}
                           </span>
                         )}
@@ -436,7 +436,7 @@ export default function ModifiersContent() {
                       <button
                         type="button"
                         onClick={() => setMenuOpenId(menuOpenId === group.id ? null : group.id)}
-                        className="rounded p-1.5 text-gray-400 hover:bg-gray-100 transition-colors"
+                        className="rounded p-1.5 text-gray-400 hover:bg-gray-200/50 transition-colors"
                       >
                         <MoreVertical className="h-4 w-4" />
                       </button>
@@ -447,18 +447,18 @@ export default function ModifiersContent() {
                             className="fixed inset-0 z-10"
                             onClick={() => setMenuOpenId(null)}
                           />
-                          <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                          <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-lg border border-gray-200/60 bg-surface py-1 shadow-lg">
                             <button
                               type="button"
                               onClick={() => handleEdit(group)}
-                              className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                              className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200/50"
                             >
                               Edit
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDuplicate(group)}
-                              className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                              className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200/50 flex items-center gap-2"
                             >
                               <Copy className="h-3.5 w-3.5" />
                               Duplicate
@@ -471,14 +471,14 @@ export default function ModifiersContent() {
 
                   {/* Expanded: show modifier options */}
                   {isExpanded && group.modifiers && (
-                    <div className="px-4 pb-3 border-t border-gray-100">
+                    <div className="px-4 pb-3 border-t border-gray-200/40">
                       <div className="mt-2 space-y-1">
                         {group.modifiers
                           .filter((m) => m.isActive)
                           .map((mod) => (
                             <div
                               key={mod.id}
-                              className="flex items-center justify-between rounded px-3 py-1.5 text-sm bg-gray-50"
+                              className="flex items-center justify-between rounded px-3 py-1.5 text-sm bg-gray-200/30"
                             >
                               <div className="flex items-center gap-2">
                                 <span className="text-gray-700">{mod.name}</span>
@@ -488,7 +488,7 @@ export default function ModifiersContent() {
                                   </span>
                                 )}
                                 {mod.isDefaultOption && (
-                                  <span className="rounded px-1 py-0.5 text-[9px] font-medium bg-green-50 text-green-600">
+                                  <span className="rounded px-1 py-0.5 text-[9px] font-medium bg-green-500/10 text-green-600">
                                     Default
                                   </span>
                                 )}
@@ -585,7 +585,7 @@ function CategoryFormModal({
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
+      <div className="bg-surface rounded-xl shadow-2xl w-full max-w-sm p-5">
         <h3 className="text-sm font-bold text-gray-900 mb-3">
           {editing ? 'Edit Category' : 'New Category'}
         </h3>
@@ -598,7 +598,7 @@ function CategoryFormModal({
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSubmit();
           }}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none mb-3"
+          className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none mb-3"
         />
         <div className="flex gap-2">
           {editing && onDelete && (
@@ -608,7 +608,7 @@ function CategoryFormModal({
                 await onDelete();
                 onClose();
               }}
-              className="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+              className="rounded-lg px-3 py-2 text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors"
             >
               Delete
             </button>
@@ -617,7 +617,7 @@ function CategoryFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="rounded-lg border border-gray-300/60 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-200/50 transition-colors"
           >
             Cancel
           </button>
@@ -808,16 +808,16 @@ function ModifierGroupModal({
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-surface rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200/60">
           <h2 className="text-base font-bold text-gray-900">
             {isEditing ? 'Edit Modifier Group' : 'New Modifier Group'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors"
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-200/50 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -834,7 +834,7 @@ function ModifierGroupModal({
                 value={form.name}
                 onChange={(e) => updateField('name', e.target.value)}
                 placeholder="e.g., Cooking Temperature, Extra Toppings"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div className="w-48">
@@ -842,7 +842,7 @@ function ModifierGroupModal({
               <select
                 value={form.categoryId}
                 onChange={(e) => updateField('categoryId', e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               >
                 <option value="">None</option>
                 {categories.map((c) => (
@@ -861,7 +861,7 @@ function ModifierGroupModal({
               <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Selection Type
               </label>
-              <div className="flex rounded-lg overflow-hidden border border-gray-300">
+              <div className="flex rounded-lg overflow-hidden border border-gray-300/60">
                 <button
                   type="button"
                   onClick={() => {
@@ -871,7 +871,7 @@ function ModifierGroupModal({
                   className={`flex-1 py-2 text-xs font-medium transition-colors ${
                     form.selectionType === 'single'
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                      : 'bg-surface text-gray-600 hover:bg-gray-200/50'
                   }`}
                 >
                   Single Choice
@@ -885,7 +885,7 @@ function ModifierGroupModal({
                   className={`flex-1 py-2 text-xs font-medium transition-colors ${
                     form.selectionType === 'multiple'
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                      : 'bg-surface text-gray-600 hover:bg-gray-200/50'
                   }`}
                 >
                   Multiple Choice
@@ -902,7 +902,7 @@ function ModifierGroupModal({
                   updateField('isRequired', next);
                   if (next && form.minSelections < 1) updateField('minSelections', 1);
                 }}
-                className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 w-full"
+                className="flex items-center gap-2 rounded-lg border border-gray-300/60 px-3 py-2 w-full"
               >
                 {form.isRequired ? (
                   <ToggleRight className="h-5 w-5 text-indigo-600" />
@@ -928,7 +928,7 @@ function ModifierGroupModal({
                   min={0}
                   value={form.minSelections}
                   onChange={(e) => updateField('minSelections', parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                 />
               </div>
               <div className="flex-1">
@@ -940,7 +940,7 @@ function ModifierGroupModal({
                   min={1}
                   value={form.maxSelections}
                   onChange={(e) => updateField('maxSelections', parseInt(e.target.value) || 1)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                 />
               </div>
             </div>
@@ -961,13 +961,13 @@ function ModifierGroupModal({
           </button>
 
           {showAdvanced && (
-            <div className="space-y-4 rounded-lg border border-gray-200 p-4 bg-gray-50/50">
+            <div className="space-y-4 rounded-lg border border-gray-200/60 p-4 bg-gray-200/20">
               {/* Instruction mode */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Instruction Mode
                 </label>
-                <div className="flex rounded-lg overflow-hidden border border-gray-300">
+                <div className="flex rounded-lg overflow-hidden border border-gray-300/60">
                   {(['none', 'all', 'per_option'] as const).map((mode) => (
                     <button
                       key={mode}
@@ -976,7 +976,7 @@ function ModifierGroupModal({
                       className={`flex-1 py-2 text-xs font-medium transition-colors ${
                         form.instructionMode === mode
                           ? 'bg-indigo-600 text-white'
-                          : 'bg-white text-gray-600 hover:bg-gray-50'
+                          : 'bg-surface text-gray-600 hover:bg-gray-200/50'
                       }`}
                     >
                       {mode === 'none'
@@ -997,14 +997,14 @@ function ModifierGroupModal({
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   Default Behavior
                 </label>
-                <div className="flex rounded-lg overflow-hidden border border-gray-300">
+                <div className="flex rounded-lg overflow-hidden border border-gray-300/60">
                   <button
                     type="button"
                     onClick={() => updateField('defaultBehavior', 'none')}
                     className={`flex-1 py-2 text-xs font-medium transition-colors ${
                       form.defaultBehavior === 'none'
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                        : 'bg-surface text-gray-600 hover:bg-gray-200/50'
                     }`}
                   >
                     None
@@ -1015,7 +1015,7 @@ function ModifierGroupModal({
                     className={`flex-1 py-2 text-xs font-medium transition-colors ${
                       form.defaultBehavior === 'auto_select_defaults'
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                        : 'bg-surface text-gray-600 hover:bg-gray-200/50'
                     }`}
                   >
                     Auto-Select Defaults
@@ -1063,7 +1063,7 @@ function ModifierGroupModal({
               {form.modifiers.map((mod, index) => (
                 <div
                   key={index}
-                  className="rounded-lg border border-gray-200 p-3 bg-white space-y-2"
+                  className="rounded-lg border border-gray-200/60 p-3 bg-gray-200/20 space-y-2"
                 >
                   {/* Row 1: Name + Price + Reorder + Delete */}
                   <div className="flex items-center gap-2">
@@ -1084,7 +1084,7 @@ function ModifierGroupModal({
                       value={mod.name}
                       onChange={(e) => updateModifier(index, { name: e.target.value })}
                       placeholder="Option name"
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                      className="flex-1 rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                     />
 
                     <div className="relative w-24 shrink-0">
@@ -1099,7 +1099,7 @@ function ModifierGroupModal({
                         onChange={(e) =>
                           updateModifier(index, { priceAdjustment: e.target.value })
                         }
-                        className="w-full rounded-lg border border-gray-300 pl-7 pr-2 py-2 text-sm text-right focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                        className="w-full rounded-lg border border-gray-300/60 bg-surface pl-7 pr-2 py-2 text-sm text-gray-900 text-right focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                       />
                     </div>
 
@@ -1121,7 +1121,7 @@ function ModifierGroupModal({
                       type="button"
                       onClick={() => removeModifier(index)}
                       disabled={form.modifiers.length <= 1}
-                      className="shrink-0 rounded p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 disabled:opacity-30 transition-colors"
+                      className="shrink-0 rounded p-1 text-gray-400 hover:text-red-500 hover:bg-red-500/10 disabled:opacity-30 transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -1144,7 +1144,7 @@ function ModifierGroupModal({
                             updateModifier(index, { extraPriceDelta: e.target.value })
                           }
                           placeholder="—"
-                          className="w-full rounded border border-gray-200 pl-12 pr-1 py-1 text-xs text-right focus:border-indigo-500 outline-none"
+                          className="w-full rounded border border-gray-300/60 bg-surface pl-12 pr-1 py-1 text-xs text-gray-900 text-right placeholder:text-gray-400 focus:border-indigo-500 outline-none"
                         />
                       </div>
 
@@ -1156,7 +1156,7 @@ function ModifierGroupModal({
                           updateModifier(index, { kitchenLabel: e.target.value })
                         }
                         placeholder="Kitchen label"
-                        className="w-28 rounded border border-gray-200 px-2 py-1 text-xs focus:border-indigo-500 outline-none"
+                        className="w-28 rounded border border-gray-300/60 bg-surface px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 outline-none"
                       />
 
                       {/* Per-option instruction flags */}
@@ -1192,18 +1192,18 @@ function ModifierGroupModal({
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 font-medium">
+            <div className="rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-500 font-medium">
               {error}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex gap-2 px-5 py-4 border-t border-gray-200">
+        <div className="flex gap-2 px-5 py-4 border-t border-gray-200/60">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex-1 rounded-lg border border-gray-300/60 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200/50 transition-colors"
           >
             Cancel
           </button>

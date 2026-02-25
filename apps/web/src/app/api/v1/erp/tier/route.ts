@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { ValidationError } from '@oppsera/shared';
+import { ValidationError, getVertical } from '@oppsera/shared';
 import { changeTierSchema, validateTierTransition, applyTierChange } from '@oppsera/core/erp';
-import { db } from '@oppsera/db';
+import { db, withTenant } from '@oppsera/db';
 import { tenants } from '@oppsera/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { BusinessTier } from '@oppsera/shared';
 
 export const GET = withMiddleware(
@@ -17,6 +17,8 @@ export const GET = withMiddleware(
         tierOverride: tenants.tierOverride,
         tierOverrideReason: tenants.tierOverrideReason,
         tierLastEvaluatedAt: tenants.tierLastEvaluatedAt,
+        name: tenants.name,
+        createdAt: tenants.createdAt,
       })
       .from(tenants)
       .where(eq(tenants.id, ctx.tenantId))
@@ -26,7 +28,47 @@ export const GET = withMiddleware(
       return NextResponse.json({ error: { code: 'NOT_FOUND', message: 'Tenant not found' } }, { status: 404 });
     }
 
-    return NextResponse.json({ data: rows[0] });
+    const tenant = rows[0]!;
+
+    // Gather stats in parallel
+    const [locationRows, userRows, glRows, entitlementRows] = await withTenant(ctx.tenantId, (tx) =>
+      Promise.all([
+        tx.execute(sql`SELECT COUNT(*)::int AS count FROM locations WHERE tenant_id = ${ctx.tenantId}`),
+        tx.execute(sql`SELECT COUNT(*)::int AS count FROM users WHERE tenant_id = ${ctx.tenantId}`),
+        tx.execute(sql`SELECT COUNT(*)::int AS count FROM gl_accounts WHERE tenant_id = ${ctx.tenantId} AND is_active = true`),
+        tx.execute(sql`SELECT module_key FROM entitlements WHERE tenant_id = ${ctx.tenantId} AND access_mode != 'off'`),
+      ]),
+    );
+
+    const locationArr = Array.from(locationRows as Iterable<Record<string, unknown>>);
+    const userArr = Array.from(userRows as Iterable<Record<string, unknown>>);
+    const glArr = Array.from(glRows as Iterable<Record<string, unknown>>);
+    const entitlementArr = Array.from(entitlementRows as Iterable<Record<string, unknown>>);
+
+    const enabledModules = entitlementArr.map((r) => String(r.module_key));
+
+    // Resolve vertical info from constants
+    const vertical = getVertical(tenant.businessVertical);
+
+    return NextResponse.json({
+      data: {
+        businessTier: tenant.businessTier,
+        businessVertical: tenant.businessVertical,
+        tierOverride: tenant.tierOverride,
+        tierOverrideReason: tenant.tierOverrideReason,
+        tierLastEvaluatedAt: tenant.tierLastEvaluatedAt,
+        tenantName: tenant.name,
+        createdAt: tenant.createdAt,
+        locationCount: locationArr[0] ? Number(locationArr[0].count) : 0,
+        userCount: userArr[0] ? Number(userArr[0].count) : 0,
+        glAccountCount: glArr[0] ? Number(glArr[0].count) : 0,
+        enabledModuleCount: enabledModules.length,
+        enabledModules,
+        verticalInfo: vertical
+          ? { name: vertical.name, icon: vertical.icon, description: vertical.description, recommendedModules: vertical.recommendedModules }
+          : null,
+      },
+    });
   },
   { entitlement: 'platform_core', permission: 'settings.view' },
 );

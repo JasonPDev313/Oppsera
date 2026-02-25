@@ -32,10 +32,10 @@ export function usePortalAuth() {
     checkSession();
   }, [checkSession]);
 
-  const login = useCallback(async (email: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     await portalFetch('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, tenantSlug }),
+      body: JSON.stringify({ email, password, tenantSlug }),
     });
     await checkSession();
   }, [tenantSlug, checkSession]);

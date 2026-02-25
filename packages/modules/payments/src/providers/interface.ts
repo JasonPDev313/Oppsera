@@ -222,5 +222,5 @@ export interface ProviderCredentials {
   site: string;
   username: string;
   password: string;
-  [key: string]: string; // allow provider-specific extras
+  [key: string]: string | undefined; // allow provider-specific extras (optional fields may be undefined)
 }

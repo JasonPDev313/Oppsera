@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, AlertTriangle, Download, ArrowRight, RotateCcw } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Download, ArrowRight, ArrowLeft, RotateCcw, Loader2 } from 'lucide-react';
 import type { ImportJobDetail } from '@/hooks/use-import-jobs';
 
 interface ImportResultsSummaryProps {
@@ -9,9 +9,15 @@ interface ImportResultsSummaryProps {
   onViewOrders?: () => void;
   /** Callback to retry failed rows with a corrected file */
   onRetryErrors?: () => void;
+  /** Navigate back to reconciliation step with data intact */
+  onGoBack?: () => void;
+  /** Roll back all created records */
+  onRollback?: () => void;
+  /** Whether a rollback is currently in progress */
+  isRollingBack?: boolean;
 }
 
-export function ImportResultsSummary({ job, onDownloadErrors, onViewOrders, onRetryErrors }: ImportResultsSummaryProps) {
+export function ImportResultsSummary({ job, onDownloadErrors, onViewOrders, onRetryErrors, onGoBack, onRollback, isRollingBack }: ImportResultsSummaryProps) {
   const isSuccess = job.status === 'completed';
   const isPartial = isSuccess && job.errorRows > 0;
   const hasErrors = job.errorRows > 0;
@@ -79,6 +85,50 @@ export function ImportResultsSummary({ job, onDownloadErrors, onViewOrders, onRe
         <ResultCard label="Skipped" value={job.skippedRows.toLocaleString()} color="yellow" />
         <ResultCard label="Errors" value={job.errorRows.toLocaleString()} color={hasErrors ? 'red' : undefined} />
       </div>
+
+      {/* Inline action cards for Go Back & Fix / Roll Back Import */}
+      {hasErrors && (onGoBack || onRollback) && (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {onGoBack && (
+            <button
+              type="button"
+              onClick={onGoBack}
+              disabled={isRollingBack}
+              className="flex flex-1 items-center gap-3 rounded-lg border border-gray-300 bg-surface p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              <ArrowLeft className="h-5 w-5 shrink-0 text-indigo-500" />
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Go Back &amp; Fix</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Return to review to fix errors
+                </p>
+              </div>
+            </button>
+          )}
+          {onRollback && (
+            <button
+              type="button"
+              onClick={onRollback}
+              disabled={isRollingBack}
+              className="flex flex-1 items-center gap-3 rounded-lg border border-red-300 bg-surface p-4 text-left transition-colors hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-900/20 disabled:opacity-50"
+            >
+              {isRollingBack ? (
+                <Loader2 className="h-5 w-5 shrink-0 animate-spin text-red-500" />
+              ) : (
+                <RotateCcw className="h-5 w-5 shrink-0 text-red-500" />
+              )}
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {isRollingBack ? 'Rolling Back...' : 'Roll Back Import'}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Delete all newly created records
+                </p>
+              </div>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex flex-wrap gap-3">

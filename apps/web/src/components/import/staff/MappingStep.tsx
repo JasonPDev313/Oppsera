@@ -72,7 +72,7 @@ export function MappingStep({
             <select
               value={importMode}
               onChange={(e) => onImportModeChange(e.target.value as StaffImportMode)}
-              className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-sm"
+              className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 text-sm"
             >
               <option value="upsert">Create + Update</option>
               <option value="create_only">Create Only</option>
@@ -126,7 +126,7 @@ export function MappingStep({
                   <select
                     value={mapping.targetField ?? ''}
                     onChange={(e) => handleFieldChange(mapping.columnIndex, (e.target.value || null) as StaffTargetField | null)}
-                    className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1.5 text-sm"
+                    className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1.5 text-sm"
                   >
                     {ALL_TARGET_OPTIONS.map((opt) => (
                       <option

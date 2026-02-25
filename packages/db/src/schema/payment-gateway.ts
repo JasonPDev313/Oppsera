@@ -87,6 +87,15 @@ export const paymentMerchantAccounts = pgTable(
     achCompanyId: text('ach_company_id'), // originator identification
     achVerificationMode: text('ach_verification_mode').notNull().default('account_validation'),
     // 'none' | 'account_validation' | 'micro_deposit'
+    // ── Merchant Account Settings (migration 0188) ──
+    hsn: text('hsn'), // Hardware Serial Number for primary card reader
+    achMerchantId: text('ach_merchant_id'), // separate ACH MID if different from card MID
+    fundingMerchantId: text('funding_merchant_id'), // separate funding MID if required by processor
+    useForCardSwipe: boolean('use_for_card_swipe').notNull().default(true),
+    readerBeep: boolean('reader_beep').notNull().default(true),
+    isProduction: boolean('is_production').notNull().default(false),
+    allowManualEntry: boolean('allow_manual_entry').notNull().default(false),
+    tipOnDevice: boolean('tip_on_device').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
