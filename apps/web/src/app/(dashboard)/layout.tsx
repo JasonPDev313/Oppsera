@@ -748,11 +748,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             ? 'overflow-hidden'
             : 'overflow-y-auto p-4 md:p-6'
         }`}>
-          {isLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
-            </div>
-          ) : children}
+          {children}
         </main>
       </div>
 

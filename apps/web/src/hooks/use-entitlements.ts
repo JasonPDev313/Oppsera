@@ -23,14 +23,29 @@ interface EntitlementsResponse {
   };
 }
 
+// ── Module-level cache (survives React re-mounts, same pattern as _catCache) ──
+let _entCache: { entitlements: Map<string, EntitlementInfo>; ts: number } | null = null;
+const ENT_CACHE_TTL = 60_000; // 60s — entitlements change very rarely
+
 export function useEntitlements() {
   const { isAuthenticated } = useAuthContext();
-  const [entitlements, setEntitlements] = useState<Map<string, EntitlementInfo>>(new Map());
-  const [isLoading, setIsLoading] = useState(true);
+
+  // Seed state from cache if available and fresh
+  const cached = _entCache && (Date.now() - _entCache.ts) < ENT_CACHE_TTL ? _entCache : null;
+  const [entitlements, setEntitlements] = useState<Map<string, EntitlementInfo>>(cached?.entitlements ?? new Map());
+  const [isLoading, setIsLoading] = useState(!cached);
 
   const fetchEntitlements = useCallback(async () => {
     if (!isAuthenticated) {
       setEntitlements(new Map());
+      _entCache = null;
+      setIsLoading(false);
+      return;
+    }
+
+    // Return cached data if still fresh (avoids refetch on re-mount)
+    if (_entCache && (Date.now() - _entCache.ts) < ENT_CACHE_TTL) {
+      setEntitlements(_entCache.entitlements);
       setIsLoading(false);
       return;
     }
@@ -42,6 +57,7 @@ export function useEntitlements() {
         map.set(e.moduleKey, e);
       }
       setEntitlements(map);
+      _entCache = { entitlements: map, ts: Date.now() };
     } catch {
       setEntitlements(new Map());
     } finally {

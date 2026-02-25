@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Shield, Users, Plus, X, Loader2, Check, Blocks, ScrollText, LayoutDashboard, Grid3X3, List, MapPin, Store, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
+import { Shield, Users, Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissionsContext } from '@/components/permissions-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { AuditLogViewer } from '@/components/audit-log-viewer';
-import { UserManagementTab } from './user-management-tab';
 import { useRoleAccess } from '@/hooks/use-role-access';
 import { RoleAccessDialog } from '@/components/settings/role-access-dialog';
 
@@ -147,67 +146,6 @@ const PERMISSION_GROUPS: PermissionGroupEntry[] = [
     ],
   },
 ];
-
-// ── Settings Page ────────────────────────────────────────────────
-
-export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'audit' | 'dashboard'>('users');
-  const { can } = usePermissionsContext();
-
-  const allTabs = [
-    { id: 'users' as const, label: 'Users', icon: Users, requiredPermission: 'users.view' },
-    { id: 'roles' as const, label: 'Roles', icon: Shield, requiredPermission: 'users.manage' },
-    { id: 'modules' as const, label: 'Modules', icon: Blocks, requiredPermission: 'modules.manage' },
-    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard.configure' },
-    { id: 'audit' as const, label: 'Audit Log', icon: ScrollText, requiredPermission: 'audit.view' },
-  ];
-
-  const tabs = allTabs.filter((tab) => can(tab.requiredPermission));
-
-  // Auto-select first visible tab when current tab is not visible
-  useEffect(() => {
-    if (tabs.length > 0 && !tabs.some((t) => t.id === activeTab)) {
-      setActiveTab(tabs[0]!.id);
-    }
-  }, [tabs.length]);
-
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-      <p className="mt-1 text-sm text-gray-500">Manage your team, permissions, and modules</p>
-
-      {/* Tab navigation */}
-      <div className="mt-6 border-b border-gray-200">
-        <nav className="-mb-px flex gap-6 overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      {/* Tab content */}
-      <div className="mt-6">
-        {activeTab === 'users' && <UserManagementTab canManage={can('users.manage')} />}
-        {activeTab === 'roles' && <RolesTab canManage={can('users.manage')} />}
-        {activeTab === 'modules' && <ModulesTab />}
-        {activeTab === 'dashboard' && <DashboardSettingsTab />}
-        {activeTab === 'audit' && <AuditLogTab />}
-      </div>
-    </div>
-  );
-}
 
 // ── Roles Tab ────────────────────────────────────────────────────
 

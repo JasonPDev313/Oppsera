@@ -29,11 +29,12 @@ function matchPermission(granted: string, requested: string): boolean {
   return false;
 }
 
+// ── Module-level cache (survives React re-mounts, same pattern as _catCache) ──
+let _permCache: { permissions: Set<string>; roles: RoleInfo[]; roleId: string | null; ts: number } | null = null;
+const PERM_CACHE_TTL = 30_000; // 30s — permissions rarely change mid-session
+
 export function usePermissions() {
   const { isAuthenticated } = useAuthContext();
-  const [permissions, setPermissions] = useState<Set<string>>(new Set());
-  const [roles, setRoles] = useState<RoleInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
 
   // Read roleId from terminal session for role-scoped permission fetching
   const roleId = useMemo(() => {
@@ -47,10 +48,25 @@ export function usePermissions() {
     }
   }, []);
 
+  // Seed state from cache if available and fresh
+  const cached = _permCache && _permCache.roleId === roleId && (Date.now() - _permCache.ts) < PERM_CACHE_TTL ? _permCache : null;
+  const [permissions, setPermissions] = useState<Set<string>>(cached?.permissions ?? new Set());
+  const [roles, setRoles] = useState<RoleInfo[]>(cached?.roles ?? []);
+  const [isLoading, setIsLoading] = useState(!cached);
+
   const fetchPermissions = useCallback(async () => {
     if (!isAuthenticated) {
       setPermissions(new Set());
       setRoles([]);
+      _permCache = null;
+      setIsLoading(false);
+      return;
+    }
+
+    // Return cached data if still fresh (avoids refetch on re-mount)
+    if (_permCache && _permCache.roleId === roleId && (Date.now() - _permCache.ts) < PERM_CACHE_TTL) {
+      setPermissions(_permCache.permissions);
+      setRoles(_permCache.roles);
       setIsLoading(false);
       return;
     }
@@ -58,8 +74,10 @@ export function usePermissions() {
     try {
       const roleParam = roleId ? `?roleId=${roleId}` : '';
       const response = await apiFetch<PermissionsResponse>(`/api/v1/me/permissions${roleParam}`);
-      setPermissions(new Set(response.data.permissions));
+      const perms = new Set(response.data.permissions);
+      setPermissions(perms);
       setRoles(response.data.roles);
+      _permCache = { permissions: perms, roles: response.data.roles, roleId, ts: Date.now() };
     } catch {
       setPermissions(new Set());
       setRoles([]);
