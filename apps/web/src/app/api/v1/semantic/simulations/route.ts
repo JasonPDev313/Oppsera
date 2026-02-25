@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, lt } from 'drizzle-orm';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, sql, semanticSimulations } from '@oppsera/db';
@@ -50,7 +50,6 @@ export const GET = withMiddleware(
       conditions.push(eq(semanticSimulations.simulationType, simulationType));
     }
     if (cursor) {
-      const { lt } = await import('drizzle-orm');
       conditions.push(lt(semanticSimulations.id, cursor));
     }
 

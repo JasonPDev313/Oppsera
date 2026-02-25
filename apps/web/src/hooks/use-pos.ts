@@ -94,8 +94,12 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
 
   // Refresh held count after initial render (deferred so it doesn't block POS load)
   useEffect(() => {
-    const id = requestIdleCallback(() => fetchHeldOrderCount());
-    return () => cancelIdleCallback(id);
+    if (typeof requestIdleCallback === 'function') {
+      const id = requestIdleCallback(() => fetchHeldOrderCount());
+      return () => cancelIdleCallback(id);
+    }
+    const id = setTimeout(() => fetchHeldOrderCount(), 0);
+    return () => clearTimeout(id);
   }, [fetchHeldOrderCount]);
 
   // ── Error handler with 409 auto-refetch ────────────────────────
@@ -269,10 +273,13 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
           },
         );
 
-        // Track this in-flight call so placeOrder can wait for it
-        const tracked = serverCall.then(() => {}).catch(() => {});
+        // Track this in-flight call so placeOrder can wait for it.
+        // Rejection is preserved on the tracked promise so allSettled sees it.
+        // placeOrder uses allSettled — failed items (already rolled back from
+        // the cart by handleMutationError) don't block placing the order.
+        const tracked = serverCall.then(() => {});
         pendingAddItems.current.push(tracked);
-        tracked.finally(() => {
+        tracked.catch(() => {}).finally(() => {
           pendingAddItems.current = pendingAddItems.current.filter((p) => p !== tracked);
         });
 
@@ -534,9 +541,10 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     // Already placed (may have resolved after waiting for openOrder)
     if (order.status === 'placed') return order;
 
-    // Wait for any in-flight addItem calls to complete before placing
+    // Wait for any in-flight addItem calls to settle before placing.
+    // Use allSettled so failed addItems (already shown to user) don't block placeOrder.
     if (pendingAddItems.current.length > 0) {
-      await Promise.all(pendingAddItems.current);
+      await Promise.allSettled(pendingAddItems.current);
       // Re-read after awaiting — addItem may have updated the order
       order = orderRef.current!;
       if (!order || !order.id) throw new Error('Order is still being created');

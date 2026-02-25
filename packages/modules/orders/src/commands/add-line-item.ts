@@ -189,6 +189,8 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
   });
 
   // Fire-and-forget audit log — don't block the API response
-  auditLog(ctx, 'order.line_added', 'order', orderId).catch(() => {});
+  auditLog(ctx, 'order.line_added', 'order', orderId).catch((e) => {
+    console.error('Audit log failed for order.line_added:', e instanceof Error ? e.message : e);
+  });
   return result;
 }

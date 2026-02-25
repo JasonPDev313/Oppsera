@@ -292,6 +292,8 @@ export async function recordTender(
   });
 
   // Fire-and-forget — audit log should never block the POS response
-  auditLog(ctx, 'tender.recorded', 'order', orderId).catch(() => {});
+  auditLog(ctx, 'tender.recorded', 'order', orderId).catch((e) => {
+    console.error('Audit log failed for tender.recorded:', e instanceof Error ? e.message : e);
+  });
   return result;
 }

@@ -10,6 +10,9 @@ interface NamedHandler {
   consumerName: string;
 }
 
+const HANDLER_TIMEOUT_MS = 30_000;
+const MAX_CONCURRENT_HANDLERS = 10;
+
 export class InMemoryEventBus implements EventBus {
   private handlers = new Map<string, NamedHandler[]>();
   private patternHandlers = new Map<string, NamedHandler[]>();
@@ -40,11 +43,14 @@ export class InMemoryEventBus implements EventBus {
 
     const handlers = this.getMatchingHandlers(event.eventType);
 
-    const promises = handlers.map(({ handler, consumerName }) =>
-      this.dispatchWithRetry(event, handler, consumerName),
-    );
-
-    await Promise.allSettled(promises);
+    // Process handlers with concurrency limit to avoid overwhelming the DB pool
+    for (let i = 0; i < handlers.length; i += MAX_CONCURRENT_HANDLERS) {
+      const batch = handlers.slice(i, i + MAX_CONCURRENT_HANDLERS);
+      const promises = batch.map(({ handler, consumerName }) =>
+        this.dispatchWithRetry(event, handler, consumerName),
+      );
+      await Promise.allSettled(promises);
+    }
   }
 
   async start(): Promise<void> {
@@ -105,7 +111,17 @@ export class InMemoryEventBus implements EventBus {
 
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
-        await handler(event);
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            handler(event),
+            new Promise<never>((_, reject) => {
+              timeoutId = setTimeout(() => reject(new Error(`Handler timeout after ${HANDLER_TIMEOUT_MS}ms`)), HANDLER_TIMEOUT_MS);
+            }),
+          ]);
+        } finally {
+          if (timeoutId) clearTimeout(timeoutId);
+        }
         await this.markProcessed(event.eventId, consumerName);
         return;
       } catch (error) {

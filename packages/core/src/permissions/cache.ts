@@ -4,6 +4,8 @@ export interface PermissionCache {
   delete(pattern: string): Promise<void>;
 }
 
+const PERMISSION_CACHE_MAX_SIZE = 1000;
+
 export class InMemoryPermissionCache implements PermissionCache {
   private store = new Map<string, { permissions: Set<string>; expiresAt: number }>();
 
@@ -14,14 +16,29 @@ export class InMemoryPermissionCache implements PermissionCache {
       this.store.delete(key);
       return null;
     }
+    // LRU touch: move to end of insertion order
+    this.store.delete(key);
+    this.store.set(key, entry);
     return new Set(entry.permissions);
   }
 
   async set(key: string, permissions: Set<string>, ttlSeconds: number): Promise<void> {
+    // LRU: delete-before-set ensures key moves to end
+    this.store.delete(key);
     this.store.set(key, {
       permissions: new Set(permissions),
       expiresAt: Date.now() + ttlSeconds * 1000,
     });
+    // Evict oldest entries when over capacity
+    if (this.store.size > PERMISSION_CACHE_MAX_SIZE) {
+      const keysIter = this.store.keys();
+      const toEvict = this.store.size - PERMISSION_CACHE_MAX_SIZE;
+      for (let i = 0; i < toEvict; i++) {
+        const { value, done } = keysIter.next();
+        if (done) break;
+        this.store.delete(value);
+      }
+    }
   }
 
   async delete(pattern: string): Promise<void> {

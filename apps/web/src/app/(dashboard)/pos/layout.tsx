@@ -112,8 +112,8 @@ function usePOSVisibilityRefresh(): void {
       // 1. Proactive token refresh if near expiry (<5 min remaining)
       refreshTokenIfNeeded().catch(() => {});
 
-      // 2. Warm serverless function — fire and forget
-      fetch('/api/health').catch(() => {});
+      // 2. Warm serverless function — fire and forget (no DB, instant response)
+      fetch('/api/health/light').catch(() => {});
 
       // 3. Signal POS hooks to refresh stale data
       window.dispatchEvent(

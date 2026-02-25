@@ -162,6 +162,8 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
   });
 
   // Fire-and-forget — audit log should never block the POS response
-  auditLog(ctx, 'order.placed', 'order', orderId).catch(() => {});
+  auditLog(ctx, 'order.placed', 'order', orderId).catch((e) => {
+    console.error('Audit log failed for order.placed:', e instanceof Error ? e.message : e);
+  });
   return result;
 }

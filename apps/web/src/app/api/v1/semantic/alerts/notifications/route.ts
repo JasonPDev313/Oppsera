@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, semanticAlertNotifications } from '@oppsera/db';
 
@@ -28,7 +28,6 @@ export const GET = withMiddleware(
       conditions.push(eq(semanticAlertNotifications.severity, severity));
     }
     if (cursor) {
-      const { lt } = await import('drizzle-orm');
       conditions.push(lt(semanticAlertNotifications.id, cursor));
     }
 

@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   FileCheck,
   Settings,
+  Hotel,
   type LucideIcon,
 } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
@@ -32,6 +33,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Flag,
   Building2,
   Sparkles,
+  Hotel,
 };
 
 const AVAILABLE_MODULES = [
@@ -43,6 +45,9 @@ const AVAILABLE_MODULES = [
   { key: 'customers', name: 'Customers', description: 'Customer profiles, history' },
   { key: 'reporting', name: 'Reports', description: 'Sales reports, analytics' },
   { key: 'accounting', name: 'Accounting', description: 'GL, chart of accounts, financial statements' },
+  { key: 'pms', name: 'Property Management', description: 'Reservations, rooms, housekeeping, folios' },
+  { key: 'semantic', name: 'AI Insights', description: 'AI-powered analytics, natural language queries' },
+  { key: 'room_layouts', name: 'Room Layouts', description: 'Floor plan editor for table management' },
 ];
 
 const TIMEZONES = [
@@ -356,7 +361,7 @@ function BusinessTypeStep({
             <span className="mt-1 text-xs text-gray-500">
               {isOtherTypeSelected
                 ? 'Tap to change'
-                : 'Golf, marina, spa & more'}
+                : 'Hotels, golf, spa & more'}
             </span>
           </button>
         </div>

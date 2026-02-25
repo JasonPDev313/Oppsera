@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, lt } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, semanticAnalysisFindings } from '@oppsera/db';
 
@@ -33,7 +33,6 @@ export const GET = withMiddleware(
       conditions.push(eq(semanticAnalysisFindings.priority, priority));
     }
     if (cursor) {
-      const { lt } = await import('drizzle-orm');
       conditions.push(lt(semanticAnalysisFindings.id, cursor));
     }
 

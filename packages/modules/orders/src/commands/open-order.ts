@@ -51,6 +51,8 @@ export async function openOrder(ctx: RequestContext, input: OpenOrderInput) {
   });
 
   // Fire-and-forget audit log — don't block the API response
-  auditLog(ctx, 'order.opened', 'order', order.id).catch(() => {});
+  auditLog(ctx, 'order.opened', 'order', order.id).catch((e) => {
+    console.error('Audit log failed for order.opened:', e instanceof Error ? e.message : e);
+  });
   return order;
 }

@@ -111,6 +111,44 @@ export const OTHER_BUSINESS_TYPES = [
       },
     ],
   },
+  {
+    key: 'hotel',
+    name: 'Hotel / Resort',
+    icon: 'Hotel',
+    description: 'Hotels, resorts, boutique properties, inns',
+    recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_fnb', 'payments', 'inventory', 'customers', 'reporting', 'accounting', 'pms', 'semantic', 'room_layouts'],
+    starterHierarchy: [
+      {
+        department: 'Rooms',
+        subDepartments: [
+          { name: 'Room Revenue', categories: ['Standard', 'Deluxe', 'Suite', 'Premium'] },
+          { name: 'Packages', categories: ['Bed & Breakfast', 'All-Inclusive', 'Weekend Getaway'] },
+        ],
+      },
+      {
+        department: 'Food & Beverage',
+        subDepartments: [
+          { name: 'Restaurant', categories: ['Breakfast', 'Lunch', 'Dinner'] },
+          { name: 'Bar & Lounge', categories: ['Non-Alcoholic', 'Beer', 'Wine', 'Spirits', 'Cocktails'] },
+          { name: 'Room Service', categories: ['In-Room Dining', 'Mini Bar'] },
+          { name: 'Banquets', categories: ['Events', 'Catering', 'Meetings'] },
+        ],
+      },
+      {
+        department: 'Retail',
+        subDepartments: [
+          { name: 'Gift Shop', categories: ['Souvenirs', 'Sundries', 'Snacks'] },
+        ],
+      },
+      {
+        department: 'Services',
+        subDepartments: [
+          { name: 'Guest Services', categories: ['Spa', 'Fitness', 'Parking', 'Laundry'] },
+          { name: 'Business Center', categories: ['Printing', 'Conference Rooms'] },
+        ],
+      },
+    ],
+  },
 ] as const;
 
 /** Enterprise business type — manual accounting workflows, approval gates */

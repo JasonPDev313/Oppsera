@@ -27,7 +27,7 @@ export function useConnectionStatus(): ConnectionState {
 
     try {
       const start = performance.now();
-      await fetch('/api/health', { method: 'HEAD', cache: 'no-store' });
+      await fetch('/api/health/light', { method: 'HEAD', cache: 'no-store' });
       const latencyMs = Math.round(performance.now() - start);
       setState({
         status: latencyMs > SLOW_THRESHOLD_MS ? 'slow' : 'online',

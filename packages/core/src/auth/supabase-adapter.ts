@@ -1,6 +1,6 @@
 import { createPublicKey, type KeyObject } from 'node:crypto';
 import jwt from 'jsonwebtoken';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, sql } from 'drizzle-orm';
 import { db } from '@oppsera/db';
 import { users, memberships, tenants } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
@@ -40,15 +40,25 @@ function getCachedAuthUser(authProviderId: string): AuthUser | null {
     authUserCache.delete(authProviderId);
     return null;
   }
+  // LRU touch: move to end of insertion order so frequently-used entries survive eviction
+  authUserCache.delete(authProviderId);
+  authUserCache.set(authProviderId, entry);
   return entry.user;
 }
 
 function setCachedAuthUser(authProviderId: string, user: AuthUser) {
+  // Delete-before-set ensures this key moves to end of insertion order (LRU)
+  authUserCache.delete(authProviderId);
   authUserCache.set(authProviderId, { user, ts: Date.now() });
-  // Prevent unbounded growth
+  // Evict oldest entries when over capacity (batch evict to avoid per-insert overhead)
   if (authUserCache.size > 200) {
-    const oldest = authUserCache.keys().next().value;
-    if (oldest) authUserCache.delete(oldest);
+    const keysIter = authUserCache.keys();
+    const toEvict = authUserCache.size - 200;
+    for (let i = 0; i < toEvict; i++) {
+      const { value, done } = keysIter.next();
+      if (done) break;
+      authUserCache.delete(value);
+    }
   }
 }
 
@@ -81,16 +91,22 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       });
       if (!user) return null;
 
-      // Look up active membership + tenant in parallel
-      const membership = await db.query.memberships.findFirst({
-        where: and(
-          eq(memberships.userId, user.id),
-          eq(memberships.status, 'active'),
-        ),
-        orderBy: [asc(memberships.createdAt)],
-      });
+      // Look up active membership + tenant in one query (saves 1 DB round-trip on cold start)
+      const membershipRows = await db
+        .select({
+          membershipStatus: memberships.status,
+          tenantId: memberships.tenantId,
+          tenantStatus: tenants.status,
+        })
+        .from(memberships)
+        .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
+        .where(and(eq(memberships.userId, user.id), eq(memberships.status, 'active')))
+        .orderBy(asc(memberships.createdAt))
+        .limit(1);
 
-      if (!membership) {
+      const membershipRow = membershipRows[0];
+
+      if (!membershipRow) {
         // User exists but has no tenant — needs onboarding
         const result: AuthUser = {
           id: user.id,
@@ -104,21 +120,13 @@ export class SupabaseAuthAdapter implements AuthAdapter {
         return result;
       }
 
-      // Look up tenant — select only needed columns to avoid schema mismatch
-      // when new columns exist in Drizzle but migration hasn't run yet
-      const tenant = await db.query.tenants.findFirst({
-        where: eq(tenants.id, membership.tenantId),
-        columns: { id: true, status: true },
-      });
-      if (!tenant) return null;
-
       const result: AuthUser = {
         id: user.id,
         email: user.email,
         name: user.name,
-        tenantId: membership.tenantId,
-        tenantStatus: tenant.status,
-        membershipStatus: membership.status,
+        tenantId: membershipRow.tenantId,
+        tenantStatus: membershipRow.tenantStatus,
+        membershipStatus: membershipRow.membershipStatus,
       };
       setCachedAuthUser(authProviderId, result);
       return result;

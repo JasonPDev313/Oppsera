@@ -65,7 +65,10 @@ export async function getActionItems(filters: ActionItemFilters = {}): Promise<A
   // ── Items + stats in parallel ──────────────────────────
   const [itemRows, statsRows] = await Promise.all([
     db.execute(sql`
-      SELECT * FROM usage_action_items
+      SELECT id, category, severity, title, description, tenant_id, module_key,
+             metadata, status, reviewed_by, reviewed_at, review_notes, expires_at,
+             created_at, updated_at
+      FROM usage_action_items
       ${whereClause}
       ORDER BY
         CASE severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,

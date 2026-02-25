@@ -31,11 +31,10 @@ import {
   accountingSettings,
 } from '@oppsera/db';
 import type { Database } from '@oppsera/db';
-import { bootstrapTenantCoa } from '@oppsera/module-accounting';
 import { TIER_WORKFLOW_DEFAULTS, getAllWorkflowKeys } from '@oppsera/shared';
 
 const onboardSchema = z.object({
-  businessType: z.enum(['restaurant', 'retail', 'golf', 'hybrid', 'enterprise']),
+  businessType: z.enum(['restaurant', 'retail', 'golf', 'hybrid', 'hotel', 'enterprise']),
   companyName: z.string().min(1).max(100),
   locationName: z.string().min(1).max(100),
   timezone: z.string().min(1),
@@ -184,12 +183,13 @@ export const POST = withMiddleware(
       // 3. Create tenant
       const tenantId = generateUlid();
       const isEnterprise = businessType === 'enterprise';
+      const tierMap: Record<string, string> = { enterprise: 'ENTERPRISE', hotel: 'MID_MARKET' };
       await tx.insert(tenants).values({
         id: tenantId,
         name: companyName,
         slug,
         status: 'active',
-        businessTier: isEnterprise ? 'ENTERPRISE' : 'SMB',
+        businessTier: tierMap[businessType] ?? 'SMB',
         businessVertical: isEnterprise ? 'general' : businessType,
       }).returning();
 
@@ -269,8 +269,9 @@ export const POST = withMiddleware(
       // Wrapped in try/catch — accounting bootstrap must NEVER block onboarding
       if (moduleSet.has('accounting')) {
         try {
-          // Enterprise uses hybrid_default COA template (no enterprise-specific template)
-          const coaTemplateKey = businessType === 'enterprise' ? 'hybrid_default' : `${businessType}_default`;
+          // Enterprise and hotel use hybrid_default COA template (closest match)
+          const coaTemplateKey = (businessType === 'enterprise' || businessType === 'hotel') ? 'hybrid_default' : `${businessType}_default`;
+          const { bootstrapTenantCoa } = await import('@oppsera/module-accounting');
           await bootstrapTenantCoa(txDb, tenantId, coaTemplateKey);
         } catch (err) {
           console.error('[onboard] Accounting bootstrap failed (non-blocking):', err);

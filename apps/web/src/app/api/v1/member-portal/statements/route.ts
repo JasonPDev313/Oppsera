@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, customers, membershipMembers } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { listStatements } from '@oppsera/module-membership';
 
 /**
  * Resolve the authenticated user's membership account ID.
@@ -46,7 +47,6 @@ export const GET = withMiddleware(
     }
 
     const url = new URL(request.url);
-    const { listStatements } = await import('@oppsera/module-membership');
     const result = await listStatements({
       tenantId: ctx.tenantId,
       membershipAccountId: accountId,

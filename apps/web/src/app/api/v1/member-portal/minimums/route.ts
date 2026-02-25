@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, customers } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { getMinimumProgress } from '@oppsera/module-membership';
 
 /**
  * Resolve the authenticated user's customer ID by matching email.
@@ -31,7 +32,6 @@ export const GET = withMiddleware(
     }
 
     const url = new URL(request.url);
-    const { getMinimumProgress } = await import('@oppsera/module-membership');
     const progress = await getMinimumProgress({
       tenantId: ctx.tenantId,
       customerId,

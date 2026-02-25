@@ -13,6 +13,8 @@ export interface EntitlementCache {
   delete(key: string): Promise<void>;
 }
 
+const ENTITLEMENT_CACHE_MAX_SIZE = 500;
+
 export class InMemoryEntitlementCache implements EntitlementCache {
   private store = new Map<string, { entries: Map<string, EntitlementCacheEntry>; expiresAt: number }>();
 
@@ -23,14 +25,29 @@ export class InMemoryEntitlementCache implements EntitlementCache {
       this.store.delete(key);
       return null;
     }
+    // LRU touch: move to end of insertion order
+    this.store.delete(key);
+    this.store.set(key, entry);
     return new Map(entry.entries);
   }
 
   async set(key: string, entries: Map<string, EntitlementCacheEntry>, ttlSeconds: number): Promise<void> {
+    // LRU: delete-before-set ensures key moves to end
+    this.store.delete(key);
     this.store.set(key, {
       entries: new Map(entries),
       expiresAt: Date.now() + ttlSeconds * 1000,
     });
+    // Evict oldest entries when over capacity
+    if (this.store.size > ENTITLEMENT_CACHE_MAX_SIZE) {
+      const keysIter = this.store.keys();
+      const toEvict = this.store.size - ENTITLEMENT_CACHE_MAX_SIZE;
+      for (let i = 0; i < toEvict; i++) {
+        const { value, done } = keysIter.next();
+        if (done) break;
+        this.store.delete(value);
+      }
+    }
   }
 
   async delete(key: string): Promise<void> {

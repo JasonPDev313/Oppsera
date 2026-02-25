@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { db } from '@oppsera/db';
-import { runCloseOrchestrator } from '@oppsera/module-accounting';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
 /**
@@ -84,6 +83,7 @@ export async function POST(request: NextRequest) {
           if (existing.length === 0) {
             try {
               const ctx = buildSystemContext(tenantId);
+              const { runCloseOrchestrator } = await import('@oppsera/module-accounting');
               const result = await runCloseOrchestrator(ctx, { businessDate });
               results.push({
                 tenantId,
@@ -124,7 +124,8 @@ export async function POST(request: NextRequest) {
           if (existing.length === 0) {
             try {
               const ctx = buildSystemContext(tenantId, 'day_end');
-              const result = await runCloseOrchestrator(ctx, { businessDate });
+              const { runCloseOrchestrator: runClose } = await import('@oppsera/module-accounting');
+              const result = await runClose(ctx, { businessDate });
               results.push({
                 tenantId,
                 trigger: 'day_end_close',

@@ -41,16 +41,25 @@ function getCachedLocation(tenantId: string, locationId: string): { isActive: bo
     locationCache.delete(key);
     return null;
   }
+  // LRU touch: move to end of insertion order
+  locationCache.delete(key);
+  locationCache.set(key, entry);
   return { isActive: entry.isActive };
 }
 
 function setCachedLocation(tenantId: string, locationId: string, isActive: boolean) {
   const key = `${tenantId}:${locationId}`;
+  locationCache.delete(key);
   locationCache.set(key, { isActive, ts: Date.now() });
-  // Prevent unbounded growth
+  // Evict oldest entries when over capacity
   if (locationCache.size > 500) {
-    const oldest = locationCache.keys().next().value;
-    if (oldest) locationCache.delete(oldest);
+    const keysIter = locationCache.keys();
+    const toEvict = locationCache.size - 500;
+    for (let i = 0; i < toEvict; i++) {
+      const { value, done } = keysIter.next();
+      if (done) break;
+      locationCache.delete(value);
+    }
   }
 }
 

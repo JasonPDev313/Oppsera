@@ -75,7 +75,7 @@ export function recordUsage(event: UsageEvent): void {
   if (!_flushTimer) startFlushTimer();
 
   const hourBucket = getHourBucket(event.timestamp);
-  const key = `${event.tenantId}:${event.moduleKey}:${hourBucket}`;
+  const key = `${event.tenantId}|${event.moduleKey}|${hourBucket}`;
 
   let bucket = buffer.get(key);
   if (!bucket) {
@@ -231,7 +231,7 @@ async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
   >();
 
   for (const [key, data] of snapshot) {
-    const [tenantId, moduleKey, hourBucket] = key.split(':');
+    const [tenantId, moduleKey, hourBucket] = key.split('|');
     if (!tenantId || !moduleKey || !hourBucket) continue;
 
     const usageDate = getDateBucket(new Date(hourBucket).getTime());

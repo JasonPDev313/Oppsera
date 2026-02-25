@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, customers, membershipMembers } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { getInitiationSummary } from '@oppsera/module-membership';
 
 /**
  * Resolve the authenticated user's membership account ID.
@@ -45,7 +46,6 @@ export const GET = withMiddleware(
       );
     }
 
-    const { getInitiationSummary } = await import('@oppsera/module-membership');
     const summary = await getInitiationSummary({
       tenantId: ctx.tenantId,
       membershipAccountId: accountId,

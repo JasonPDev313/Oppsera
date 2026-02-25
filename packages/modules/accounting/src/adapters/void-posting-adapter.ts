@@ -1,6 +1,6 @@
 import { db } from '@oppsera/db';
 import { glJournalEntries } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, like } from 'drizzle-orm';
 import type { EventEnvelope } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
@@ -54,7 +54,8 @@ export async function handleOrderVoidForAccounting(event: EventEnvelope): Promis
 
   try {
     // Find all posted GL entries for this order.
-    // POS adapter creates entries with sourceModule='pos' and memo='POS Sale - Order {orderId}'.
+    // POS adapter creates entries with sourceModule='pos' and memo containing the orderId.
+    // Use LIKE for resilience against minor memo format changes.
     // Only status='posted' entries are candidates — already voided entries are skipped.
     const postedEntries = await db
       .select({ id: glJournalEntries.id })
@@ -64,11 +65,18 @@ export async function handleOrderVoidForAccounting(event: EventEnvelope): Promis
           eq(glJournalEntries.tenantId, tenantId),
           eq(glJournalEntries.sourceModule, 'pos'),
           eq(glJournalEntries.status, 'posted'),
-          eq(glJournalEntries.memo, `POS Sale - Order ${data.orderId}`),
+          like(glJournalEntries.memo, `%Order ${data.orderId}%`),
         ),
       );
 
-    if (postedEntries.length === 0) return; // no GL entries to void
+    if (postedEntries.length === 0) {
+      // Log when an order with a non-zero total has no GL entries — indicates
+      // the POS adapter failed or was disabled when the tender was recorded.
+      if (data.total > 0) {
+        console.warn(`No GL entries found to void for order ${data.orderId} (total=${data.total})`);
+      }
+      return;
+    }
 
     // Void each GL entry (one per tender for split-tender orders)
     for (const entry of postedEntries) {

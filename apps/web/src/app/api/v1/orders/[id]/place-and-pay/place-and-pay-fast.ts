@@ -166,6 +166,9 @@ export async function placeAndRecordTender(
     const totalTendered = activeTenders.reduce((sum: number, t: any) => sum + (t.amount as number), 0);
     const remaining = order.total - totalTendered;
 
+    // Defense-in-depth: reject if order is already fully paid.
+    // fetchOrderForMutation's FOR UPDATE lock serializes concurrent requests,
+    // so after the lock releases the second caller sees the updated state.
     if (remaining <= 0) {
       throw new ConflictError('Order is already fully paid');
     }
@@ -387,8 +390,12 @@ export async function placeAndRecordTender(
   }
 
   // Fire-and-forget audit logs
-  auditLog(ctx, 'order.placed', 'order', orderId).catch(() => {});
-  auditLog(ctx, 'tender.recorded', 'order', orderId).catch(() => {});
+  auditLog(ctx, 'order.placed', 'order', orderId).catch((e) => {
+    console.error('Audit log failed for order.placed:', e instanceof Error ? e.message : e);
+  });
+  auditLog(ctx, 'tender.recorded', 'order', orderId).catch((e) => {
+    console.error('Audit log failed for tender.recorded:', e instanceof Error ? e.message : e);
+  });
 
   return result;
 }

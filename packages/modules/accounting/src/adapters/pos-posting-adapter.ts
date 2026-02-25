@@ -180,8 +180,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     const taxByGroup = new Map<string, number>();
 
     // COGS: only post per-tender in perpetual mode (periodic/disabled skip)
-    const shouldPostCogs = settings.cogsPostingMode === 'perpetual'
-      || (settings.cogsPostingMode !== 'periodic' && settings.enableCogsPosting);
+    const shouldPostCogs = settings.cogsPostingMode === 'perpetual';
 
     for (const line of data.lines) {
       // Check if this is a package with enriched component allocations
@@ -246,24 +245,32 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
       }
 
       // ── Discount debit (contra-revenue by sub-department) ────
-      if (discountTotal > 0 && totalRevenueCents > 0 && subDeptMapping?.discountAccountId) {
+      // Always post the discount debit to maintain GL balance.
+      // Use sub-department mapping first, fall back to uncategorized revenue account.
+      if (discountTotal > 0 && totalRevenueCents > 0) {
         const subDeptDiscountShare = Math.round(
           discountTotal * tenderRatio * (amountCents / totalRevenueCents),
         );
         if (subDeptDiscountShare > 0) {
-          glLines.push({
-            accountId: subDeptMapping.discountAccountId,
-            debitAmount: (subDeptDiscountShare / 100).toFixed(2),
-            creditAmount: '0',
-            locationId: data.locationId,
-            subDepartmentId: subDeptId,
-            terminalId: data.terminalId,
-            channel: 'pos',
-            memo: `Discount - sub-dept ${subDeptId}`,
-          });
+          const discountAccountId = subDeptMapping?.discountAccountId
+            ?? settings.defaultUncategorizedRevenueAccountId
+            ?? null;
+          if (!subDeptMapping?.discountAccountId) {
+            missingMappings.push(`discount_account:${subDeptId}`);
+          }
+          if (discountAccountId) {
+            glLines.push({
+              accountId: discountAccountId,
+              debitAmount: (subDeptDiscountShare / 100).toFixed(2),
+              creditAmount: '0',
+              locationId: data.locationId,
+              subDepartmentId: subDeptId,
+              terminalId: data.terminalId,
+              channel: 'pos',
+              memo: `Discount - sub-dept ${subDeptId}`,
+            });
+          }
         }
-      } else if (discountTotal > 0 && totalRevenueCents > 0 && !subDeptMapping?.discountAccountId) {
-        missingMappings.push(`discount_account:${subDeptId}`);
       }
     }
 

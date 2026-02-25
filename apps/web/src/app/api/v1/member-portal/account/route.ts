@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, customers } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { getMemberPortalAccount } from '@oppsera/module-membership';
 
 /**
  * Resolve the authenticated user's customer ID by matching email.
@@ -30,7 +31,6 @@ export const GET = withMiddleware(
       );
     }
 
-    const { getMemberPortalAccount } = await import('@oppsera/module-membership');
     const account = await getMemberPortalAccount({ tenantId: ctx.tenantId, customerId });
     if (!account) {
       return NextResponse.json(

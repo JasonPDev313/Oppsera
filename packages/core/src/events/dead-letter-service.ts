@@ -182,12 +182,16 @@ export async function retryDeadLetter(
     .limit(1);
 
   if (!row) return { success: false, error: 'Dead letter not found' };
-  if (row.status !== 'failed') return { success: false, error: `Cannot retry entry with status '${row.status}'` };
+  // Accept both 'failed' and 'retrying' (crash recovery: a prior retry may have crashed
+  // after setting status to 'retrying' but before completing or resetting to 'failed')
+  if (row.status !== 'failed' && row.status !== 'retrying') {
+    return { success: false, error: `Cannot retry entry with status '${row.status}'` };
+  }
 
-  // Mark as retrying
+  // Mark as retrying (don't set lastFailedAt yet — only set it on actual failure)
   await db
     .update(eventDeadLetters)
-    .set({ status: 'retrying', lastFailedAt: new Date() })
+    .set({ status: 'retrying' })
     .where(eq(eventDeadLetters.id, id));
 
   try {
@@ -237,7 +241,10 @@ export async function resolveDeadLetter(
       resolvedBy,
       resolutionNotes: notes ?? null,
     })
-    .where(and(eq(eventDeadLetters.id, id), eq(eventDeadLetters.status, 'failed')))
+    .where(and(
+      eq(eventDeadLetters.id, id),
+      sql`${eventDeadLetters.status} IN ('failed', 'retrying')`,
+    ))
     .returning({ id: eventDeadLetters.id });
 
   return result.length > 0;
@@ -256,7 +263,10 @@ export async function discardDeadLetter(
       resolvedBy,
       resolutionNotes: notes ?? null,
     })
-    .where(and(eq(eventDeadLetters.id, id), eq(eventDeadLetters.status, 'failed')))
+    .where(and(
+      eq(eventDeadLetters.id, id),
+      sql`${eventDeadLetters.status} IN ('failed', 'retrying')`,
+    ))
     .returning({ id: eventDeadLetters.id });
 
   return result.length > 0;

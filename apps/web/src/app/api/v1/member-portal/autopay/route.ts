@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, customers, membershipMembers } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { getAutopayProfile, configureAutopayProfile, configureAutopayProfileSchema } from '@oppsera/module-membership';
+import { ValidationError } from '@oppsera/shared';
 
 /**
  * Resolve the authenticated user's membership account ID.
@@ -45,7 +47,6 @@ export const GET = withMiddleware(
       );
     }
 
-    const { getAutopayProfile } = await import('@oppsera/module-membership');
     const profile = await getAutopayProfile({
       tenantId: ctx.tenantId,
       membershipAccountId: accountId,
@@ -67,9 +68,6 @@ export const PATCH = withMiddleware(
     }
 
     const body = await request.json();
-    const { configureAutopayProfile, configureAutopayProfileSchema } =
-      await import('@oppsera/module-membership');
-    const { ValidationError } = await import('@oppsera/shared');
 
     const parsed = configureAutopayProfileSchema.safeParse({
       ...body,

@@ -138,7 +138,7 @@ export async function register() {
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('@oppsera/core')>['getEventBus']>) {
-  await Promise.all([
+  await Promise.allSettled([
     // CustomerWriteApi — only used by PMS guest creation
     importSafe('CustomerWriteApi', async () => {
       const { initializeCustomerWriteApi } = await import('./lib/customer-bootstrap');
