@@ -15,6 +15,7 @@ import {
   FolderTree,
   Copy,
   MoreVertical,
+  Info,
 } from 'lucide-react';
 import { useModifierGroups, useModifierGroupCategories } from '@/hooks/use-catalog';
 import { BulkAssignModifiersDialog } from '@/components/catalog/BulkAssignModifiersDialog';
@@ -858,8 +859,15 @@ function ModifierGroupModal({
           {/* Row 2: Selection type + Required */}
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
+              <label className="flex items-center gap-1 text-xs font-semibold text-gray-700 mb-1">
                 Selection Type
+                <span className="relative group">
+                  <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                  <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 hidden group-hover:block w-52 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug p-2 shadow-lg z-50 pointer-events-none">
+                    <strong>Single Choice:</strong> Customer picks exactly one option (e.g. burger temperature).<br /><br />
+                    <strong>Multiple Choice:</strong> Customer can pick several options (e.g. pizza toppings). Unlocks min/max selection limits.
+                  </span>
+                </span>
               </label>
               <div className="flex rounded-lg overflow-hidden border border-gray-300/60">
                 <button
@@ -1113,7 +1121,7 @@ function ModifierGroupModal({
                           }
                           className="h-3.5 w-3.5 rounded text-indigo-600"
                         />
-                        <span className="text-[10px] text-gray-500">Def</span>
+                        <span className="text-[10px] text-gray-500">Default</span>
                       </label>
                     )}
 

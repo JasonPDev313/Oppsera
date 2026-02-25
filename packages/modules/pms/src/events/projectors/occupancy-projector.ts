@@ -121,7 +121,7 @@ async function recalculateOccupancy(
   await tx.execute(sql`
     INSERT INTO rm_pms_daily_occupancy (
       id, tenant_id, property_id, business_date,
-      total_rooms, rooms_occupied, rooms_available, rooms_out_of_order,
+      total_rooms, rooms_occupied, rooms_available, rooms_ooo,
       occupancy_pct, arrivals, departures, created_at, updated_at
     )
     SELECT
@@ -143,7 +143,7 @@ async function recalculateOccupancy(
       total_rooms = EXCLUDED.total_rooms,
       rooms_occupied = EXCLUDED.rooms_occupied,
       rooms_available = EXCLUDED.rooms_available,
-      rooms_out_of_order = EXCLUDED.rooms_out_of_order,
+      rooms_ooo = EXCLUDED.rooms_ooo,
       occupancy_pct = EXCLUDED.occupancy_pct,
       arrivals = EXCLUDED.arrivals,
       departures = EXCLUDED.departures,

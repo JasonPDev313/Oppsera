@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronRight, ArrowRight } from 'lucide-react';
 import { CollapsibleSection } from '../shared/CollapsibleSection';
 import { Badge } from '@/components/ui/badge';
@@ -88,14 +88,25 @@ function ChangeEntry({ entry }: { entry: ChangeLogEntry }) {
 
 interface ActivitySectionProps {
   itemId: string;
+  /** Increment to trigger a refetch (e.g. after save) */
+  refreshKey?: number;
 }
 
-export function ActivitySection({ itemId }: ActivitySectionProps) {
+export function ActivitySection({ itemId, refreshKey }: ActivitySectionProps) {
   // Lazy fetch: only load change log when the section is first expanded
   const [enabled, setEnabled] = useState(false);
-  const { entries, isLoading, hasMore, loadMore, isLoadingMore } = useItemChangeLog(
+  const { entries, isLoading, hasMore, loadMore, isLoadingMore, refresh } = useItemChangeLog(
     enabled ? itemId : null,
   );
+
+  // Refetch when refreshKey changes (after a save)
+  const prevKeyRef = useRef(refreshKey);
+  useEffect(() => {
+    if (refreshKey !== undefined && refreshKey !== prevKeyRef.current && enabled) {
+      prevKeyRef.current = refreshKey;
+      refresh();
+    }
+  }, [refreshKey, enabled, refresh]);
 
   return (
     <CollapsibleSection

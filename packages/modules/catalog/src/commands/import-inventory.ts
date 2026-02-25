@@ -14,6 +14,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
+import type { EventEnvelope } from '@oppsera/shared';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
@@ -144,20 +145,18 @@ export async function importInventory(
         })
         .where(eq(catalogImportLogs.id, importLog!.id));
 
-      return {
-        result: {
-          importLogId: importLog!.id,
-          totalRows: validation.stats.totalRows,
-          successRows: 0,
-          errorRows: validation.stats.errorRows,
-          skippedRows: 0,
-          updatedRows: 0,
-          categoriesCreated: 0,
-          errors: validation.errors.map((e) => ({ row: e.row, message: e.message })),
-          createdItemIds: [] as string[],
-        } satisfies ImportResult,
-        events: [] as Array<ReturnType<typeof buildEventFromContext>>,
+      const failResult: ImportResult = {
+        importLogId: importLog!.id,
+        totalRows: validation.stats.totalRows,
+        successRows: 0,
+        errorRows: validation.stats.errorRows,
+        skippedRows: 0,
+        updatedRows: 0,
+        categoriesCreated: 0,
+        errors: validation.errors.map((e) => ({ row: e.row, message: e.message })),
+        createdItemIds: [],
       };
+      return { result: failResult, events: [] as EventEnvelope[] };
     }
 
     // 4. Auto-create missing category hierarchy
@@ -399,20 +398,18 @@ export async function importInventory(
       })
       .where(eq(catalogImportLogs.id, importLog!.id));
 
-    return {
-      result: {
-        importLogId: importLog!.id,
-        totalRows: parsed.totalRows,
-        successRows,
-        errorRows: itemErrors.length,
-        skippedRows,
-        updatedRows,
-        categoriesCreated,
-        errors: itemErrors,
-        createdItemIds,
-      } satisfies ImportResult,
-      events,
+    const successResult: ImportResult = {
+      importLogId: importLog!.id,
+      totalRows: parsed.totalRows,
+      successRows,
+      errorRows: itemErrors.length,
+      skippedRows,
+      updatedRows,
+      categoriesCreated,
+      errors: itemErrors,
+      createdItemIds,
     };
+    return { result: successResult, events };
   });
 
   await auditLog(ctx, 'catalog.import.completed', 'catalog_import_log', result.importLogId);

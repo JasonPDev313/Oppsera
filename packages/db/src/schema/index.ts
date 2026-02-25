@@ -75,3 +75,4 @@ export * from './surcharge';
 export * from './ach';
 export * from './modifier-reporting';
 export * from './erp-config';
+export * from './business-info';

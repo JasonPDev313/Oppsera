@@ -1352,6 +1352,13 @@
       "when": 1708100192000,
       "tag": "0192_guest_pay_receipt_emailed",
       "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1708100193000,
+      "tag": "0193_tenant_business_info",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,8 @@ import { config } from 'dotenv';
 import { resolve } from 'path';
 import type { NextConfig } from 'next';
 
-// Load env from monorepo root (.env.local first, then .env fallback)
+// Load env: app-local first, then monorepo root fallback (first load wins for dupes)
+config({ path: resolve(__dirname, '.env.local') });
 config({ path: resolve(__dirname, '../../.env.local') });
 config({ path: resolve(__dirname, '../../.env') });
 

@@ -10,3 +10,4 @@ export * from './permissions/permission-matrix';
 export * from './constants/erp-tiers';
 export * from './constants/erp-default-profiles';
 export * from './constants/business-verticals';
+export * from './schemas/business-info';

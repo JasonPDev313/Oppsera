@@ -115,6 +115,7 @@ export function ItemEditDrawer() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0);
   const { toast } = useToast();
 
   const { data: item, isLoading, error, mutate: refetchItem } = useCatalogItem(
@@ -260,6 +261,7 @@ export function ItemEditDrawer() {
         toast.success('Item updated successfully');
         refetchItem();
         onSaveSuccess?.();
+        setActivityRefreshKey((k) => k + 1);
         // Update original to match current form — triggers isDirty recalculation via useState
         setOriginal({ ...form, metadata: { ...form.metadata } });
 
@@ -385,7 +387,7 @@ export function ItemEditDrawer() {
                 <FnbSection metadata={form.metadata} onUpdateMetadata={updateMetadata} />
               )}
               <MenuDisplaySection metadata={form.metadata} onUpdateMetadata={updateMetadata} />
-              <ActivitySection itemId={itemId!} />
+              <ActivitySection itemId={itemId!} refreshKey={activityRefreshKey} />
             </>
           ) : null}
         </div>

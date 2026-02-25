@@ -7084,3 +7084,373 @@ Next.js dev server on Windows crashes with `EPERM: operation not permitted, open
 - **R3**: When killing Node processes on Windows, always use PowerShell `Stop-Process -Name node -Force`, never bash `taskkill /F /IM node.exe` (which runs inside Node and can't kill its own process tree).
 - **R4**: After any abnormal dev server shutdown on Windows, always kill all Node processes and delete `.next` before restarting — partial `.next` state causes `middleware-manifest.json` / `routes-manifest.json` ENOENT errors.
 
+---
+
+## 128. Payment Gateway Architecture
+
+### Provider Registry Pattern
+
+Payment providers implement a common interface (`PaymentProvider`) and register via factory:
+
+```typescript
+// packages/modules/payments/src/providers/registry.ts
+providerRegistry.register('cardpointe', (credentials, merchantId) => {
+  return new CardPointeProvider(credentials, merchantId);
+});
+```
+
+### Facade Pattern
+
+All payment operations go through `PaymentsFacade` — a singleton with 8 methods:
+
+```typescript
+// Usage from any caller (POS, online, recurring)
+const result = await paymentsFacade.sale(ctx, {
+  amount: '100.00',        // dollar strings for gateway
+  token: 'cardSecureToken',
+  orderId: 'ORD-123',
+  clientRequestId: ulid(), // per-operation idempotency
+});
+```
+
+### Payment Intent Lifecycle
+
+```
+created → authorized → captured → voided
+                    → declined
+                    → error → resolved
+       → refunded (partial or full)
+```
+
+### Provider Resolution Order
+
+1. Resolve provider + credentials (read-only, OUTSIDE transaction)
+2. Resolve merchant account (terminal-specific → location-specific → tenant default)
+3. Enter `publishWithOutbox` transaction
+4. Check idempotency (per-operation `clientRequestId`)
+5. Call external provider API
+6. Record transaction + update intent status
+7. Emit event
+
+### Key Rules
+
+- **Provider resolution outside transactions** — keeps DB locks short, avoids holding connections during external API calls
+- **Per-operation idempotency** — each void/refund/capture on the same intent has its own `clientRequestId`
+- **Dollar strings for gateway, cents for POS** — gateways use dollar strings ("100.00"), POS uses integer cents. Convert at boundary: `(cents / 100).toFixed(2)`
+- **Never expose raw decline codes** — use `interpretResponse()` which returns separate `userMessage` (for cardholder) and `operatorMessage` (for staff)
+- **Encrypted credentials at rest** — AES-256-GCM via `encryptCredentials()`/`decryptCredentials()` helpers
+- **Terminal-level MID routing** — terminals can be assigned to specific merchant accounts (not just location-level)
+
+### Surcharge Compliance
+
+```typescript
+// 3-level scoping (most specific wins):
+// 1. Terminal-specific settings
+// 2. Location-specific settings
+// 3. Tenant-wide settings
+const settings = await resolveSurchargeSettings(tenantId, locationId, terminalId);
+const surcharge = calculateSurcharge(amountCents, settings, cardType);
+// Pure function with compliance checks: credit-only, debit exemption, prepaid exemption, state prohibition
+```
+
+---
+
+## 129. ERP Workflow Engine
+
+### Tier-Based Configuration
+
+Business tiers control default automation levels:
+
+| Tier | Behavior | Use Case |
+|---|---|---|
+| SMB | Automatic + invisible | Least friction, owner-operators |
+| MID_MARKET | Automatic + visible | See what's happening, growing businesses |
+| ENTERPRISE | Manual + approvals | Maximum control, multi-location |
+
+### Workflow Config Resolution
+
+```typescript
+// Cascading fallback (most specific wins):
+const config = await getWorkflowConfig(tenantId, 'accounting', 'journal_posting');
+// 1. Check DB: erpWorkflowConfigs row for this tenant+module+workflow
+// 2. Fall back: TIER_WORKFLOW_DEFAULTS[tenant.business_tier].accounting.journal_posting
+// 3. Ultimate fallback: { autoMode: true, approvalRequired: false, userVisible: false }
+```
+
+### Key Rules
+
+- **Always use the workflow engine** — never query `erpWorkflowConfigs` directly
+- **Cache is tenant-scoped with 60s TTL** — call `invalidateWorkflowCache(tenantId)` after config changes
+- **Cron limitations**: Vercel Hobby = daily only; 15-minute intervals require Vercel Pro
+- **Close orchestrator is idempotent** — checks `erpCloseOrchestratorRuns` for existing run per tenant+businessDate
+- **Business date logic for close times** — if close time < 12:00 (early morning), business date = yesterday
+
+---
+
+## 130. Role Access Scoping
+
+### Three-Level Access Restriction
+
+Roles can be restricted at location, profit center, or terminal level:
+
+```
+role_location_access       → restrict which locations a role can access
+role_profit_center_access  → restrict which profit centers within allowed locations
+role_terminal_access       → restrict which terminals within allowed profit centers
+```
+
+### Key Convention
+
+**Empty table = unrestricted.** This is the opposite of permissions (which are additive):
+
+- Role with NO rows in `role_location_access` → can see ALL locations
+- Role with 1+ rows → restricted to ONLY those specific locations
+- Same pattern for profit centers and terminals
+
+### Query Pattern
+
+```typescript
+// Check if role has location access
+const restrictions = await db.select().from(roleLocationAccess)
+  .where(eq(roleLocationAccess.roleId, roleId));
+
+// Empty = unrestricted
+if (restrictions.length === 0) return allLocations;
+
+// Otherwise, filter to only allowed locations
+const allowedIds = restrictions.map(r => r.locationId);
+return locations.filter(l => allowedIds.includes(l.id));
+```
+
+---
+
+## 131. SuperAdmin Portal Conventions
+
+### Separate Auth System
+
+Platform admins use their own auth (JWT + bcrypt), completely separate from tenant users (Supabase Auth):
+
+```typescript
+// Admin context for calling core commands
+const ctx = buildAdminCtx(session, tenantId);
+// ctx.user.id = 'admin:{adminId}', ctx.isPlatformAdmin = true
+```
+
+### Permission Middleware
+
+```typescript
+export const GET = withAdminPermission(handler, {
+  module: 'tenants',
+  action: 'view',
+});
+// Checks platform_admin_role_permissions for the admin's assigned roles
+```
+
+### Timeline Writes (Fire-and-Forget)
+
+```typescript
+// ALWAYS fire-and-forget — never await, never throw
+void writeTimelineEvent({
+  tenantId,
+  eventType: 'tenant.module.enabled',
+  severity: 'info',
+  actorId: adminId,
+  metadata: { moduleKey, newMode },
+});
+// Errors are caught internally — timeline failures never break primary operations
+```
+
+### Financial Views are Read-Only
+
+All admin financial support endpoints (orders, voids, refunds, GL issues, chargebacks, close batches) are investigative only — zero mutations. Use the tenant app for actual corrections.
+
+### Health Scoring
+
+```
+Score starts at 100, with deductions:
+  DLQ depth > 20: -25 (critical)
+  DLQ depth > 5: -10 (elevated)
+  DLQ unresolved > 24h: -15
+  Error rate > 50/hr: -20
+  Error rate > 10/hr: -10
+  Unmapped GL events: -10
+  Unposted GL > 5: -10
+  No orders in 24h: -5
+  Background job failures > 5: -10
+
+Grade: A >= 90, B >= 75, C >= 60, D >= 40, F < 40
+```
+
+### Impersonation Safety
+
+- Cannot impersonate platform admins or users of suspended tenants
+- Max duration (default 60 minutes), action counting in audit log
+- Restricted: no void/refund > $500, no accounting changes, no record deletion
+- JWT includes `is_impersonation: true`, `impersonator_id`, `impersonation_session_id`
+- Undismissible banner in tenant app during impersonation
+
+---
+
+## 132. POS Resilience Patterns
+
+### Visibility Resume (Tablet Wake-from-Sleep)
+
+POS tablets may sleep for extended periods. When the tab becomes visible after >30s:
+
+1. Proactively refresh JWT if within 5 minutes of expiry (avoids 401 → refresh → retry)
+2. Ping `/api/health` to warm Vercel serverless function (avoids cold start latency)
+3. Dispatch `pos-visibility-resume` custom event on `window`
+
+```typescript
+// Any hook needing to refresh stale POS data:
+useEffect(() => {
+  const handler = () => { /* refresh data */ };
+  window.addEventListener('pos-visibility-resume', handler);
+  return () => window.removeEventListener('pos-visibility-resume', handler);
+}, []);
+```
+
+### Connection Indicator
+
+Three-state connection monitoring in POS header:
+- `online` (green dot): health ping < 2s
+- `slow` (amber, pulse animation): health ping > 2s
+- `offline` (red WifiOff icon + label): health ping failed
+
+Pings `/api/health` every 30s with `HEAD` request.
+
+### Customer Cache
+
+Module-level singleton (survives React unmount, NOT page refresh):
+- Up to 500 customers, 5-min TTL
+- Pre-warmed on POS layout mount
+- `filterCustomersLocal()` for instant results
+- `searchCustomersServer()` fallback with AbortController cancellation
+- `isCacheComplete()` flag: if DB had <= 500 customers, local search is exhaustive
+
+### Error Boundary
+
+Mode-aware (shows "Retail POS Error" or "F&B POS Error"):
+- Wraps each POS shell independently
+- Preserves Zustand state on crash (data not lost)
+- "Reload" button resets error boundary without losing state
+
+---
+
+## 133. Modifier Group Architecture
+
+### Channel Visibility
+
+Modifiers now support channel filtering:
+
+```typescript
+// catalog_modifier_groups.channel_visibility = ['pos', 'online', 'qr', 'kiosk']
+// POS only shows modifiers where 'pos' is in channel_visibility
+const posModifiers = allModifiers.filter(m =>
+  m.channelVisibility?.includes('pos')
+);
+```
+
+### Per-Assignment Overrides
+
+The same modifier group can behave differently on different items:
+
+```typescript
+// catalog_item_modifier_groups (junction table) has:
+// override_required, override_min_selections, override_max_selections,
+// override_instruction_mode, prompt_order
+
+// Resolution order:
+// 1. Check junction table overrides (per-item behavior)
+// 2. Fall back to modifier group defaults
+const required = assignment.overrideRequired ?? group.required;
+const min = assignment.overrideMinSelections ?? group.minSelections;
+```
+
+### Instruction Modes
+
+Modifiers support instruction modes (none, extra, on_side):
+- `allow_none`: customer can remove the modifier entirely
+- `allow_extra`: customer can request extra (triggers `extra_price_delta`)
+- `allow_on_side`: customer can request on the side
+
+### Modifier Reporting
+
+3 read model tables track modifier analytics:
+- `rm_modifier_item_sales`: modifier × item × day (revenue, selection count, instruction breakdown)
+- `rm_modifier_daypart`: modifier × daypart × day (for heatmap visualization)
+- `rm_modifier_group_attach`: group-level attach rate (how often customers select from a group)
+
+---
+
+## 134. Explicit Column Selects in Queries
+
+**Always use explicit column selects, never SELECT * on tables that receive frequent schema additions.**
+
+Migration 0183 added columns to modifier tables, causing a 500 error in the item detail endpoint because the query used implicit `SELECT *` and the mapping type didn't include the new columns.
+
+```typescript
+// BAD — breaks when new columns are added:
+const result = await tx.select().from(catalogModifierGroups).where(...);
+
+// GOOD — explicit and stable:
+const result = await tx.select({
+  id: catalogModifierGroups.id,
+  name: catalogModifierGroups.name,
+  required: catalogModifierGroups.required,
+  minSelections: catalogModifierGroups.minSelections,
+  maxSelections: catalogModifierGroups.maxSelections,
+}).from(catalogModifierGroups).where(...);
+```
+
+This is especially important for:
+- Catalog tables (modifiers, items, categories) — frequently extended
+- Payment tables — new columns for each gateway feature
+- Tenant/settings tables — new configuration columns
+
+---
+
+## 135. CI/Build Lessons
+
+### Destructured Array Default Values
+
+```typescript
+// BAD — undefined if string doesn't contain delimiter:
+const [hours, minutes] = closeTime.split(':').map(Number);
+
+// GOOD — always provide defaults:
+const [hours = 0, minutes = 0] = closeTime.split(':').map(Number);
+```
+
+### Vercel Hobby Plan Cron
+
+- Hobby: only `0 0 * * *` (daily at midnight UTC)
+- Pro: up to every 1 minute (`* * * * *`)
+- Any ERP auto-close or scheduled job design must account for the plan-specific interval
+
+### ESLint `consistent-type-imports`
+
+When adding `import type` statements, use the ESLint convention:
+
+```typescript
+// BAD — ESLint error on Vercel build:
+import { MyType } from './types';
+
+// GOOD:
+import type { MyType } from './types';
+```
+
+### Test Mock Alignment
+
+When module exports change (e.g., adding new commands/queries), test mocks must be updated:
+
+```typescript
+// If the real module now exports `newFunction`, mocks must include it:
+vi.mock('@oppsera/module-payments', () => ({
+  ...existingMocks,
+  newFunction: vi.fn(), // Must be added when module export surface changes
+}));
+```
+
+Use `mockReset()` instead of `clearAllMocks()` to clear `mockReturnValueOnce` queues between tests (gotcha #58).
+

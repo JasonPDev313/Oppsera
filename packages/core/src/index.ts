@@ -168,6 +168,7 @@ export * from './pos-ops';
 
 // ── Settings ────────────────────────────────────────────────────
 export { getNavPreferences, saveNavPreferences } from './settings';
+export { getBusinessInfo, updateBusinessInfo, getContentBlocks, updateContentBlock } from './settings';
 
 // ── Email ───────────────────────────────────────────────────────
 export { sendEmail } from './email/send-email';

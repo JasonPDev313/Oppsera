@@ -392,7 +392,7 @@ export type {
   KitchenChitData, KitchenChitItem,
   DeltaChitData, DeltaChitItem,
   GuestCheckData, GuestCheckItem,
-  ReceiptData,
+  ReceiptData as ChitReceiptData,
   ExpoChitData, ExpoChitItem,
   ZReportData as ZReportChitData,
 } from './helpers/chit-layout';

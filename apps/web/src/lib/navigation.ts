@@ -236,7 +236,7 @@ export const navigation: NavItem[] = [
     requiredPermission: 'settings.view',
     children: [
       { name: 'Onboarding', href: '/settings/onboarding', icon: Rocket, requiredPermission: 'settings.update' },
-      { name: 'General', href: '/settings', icon: Settings, requiredPermission: 'settings.view' },
+      { name: 'General', href: '/settings/general', icon: Settings, requiredPermission: 'settings.view' },
       { name: 'Navigation', href: '/settings/navigation', icon: GripVertical, requiredPermission: 'settings.update' },
       { name: 'Profit Centers', href: '/settings/profit-centers', icon: Building2, requiredPermission: 'settings.update' },
       { name: 'Merchant Services', href: '/settings/merchant-services', icon: CreditCard, moduleKey: 'payments', requiredPermission: 'settings.update' },

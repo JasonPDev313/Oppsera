@@ -29,7 +29,7 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Platform Core (auth, RBAC, entitlements, events, audit) | platform_core | V1 | Done |
 | Product Catalog (items, categories, modifiers, pricing, tax) | catalog | V1 | Done |
 | Retail POS (orders, line items, discounts, tax calc) | orders | V1 | Done (backend + frontend) |
-| Payments / Tenders | payments | V1 | Done (cash V1) |
+| Payments / Tenders + Gateway | payments | V1 | Done (cash V1 + CardPointe gateway + ACH + surcharges) |
 | Inventory | inventory | V1 | Done (movements + receiving + vendor management) |
 | Customer Management | customers | V1 | Done (CRM + Universal Profile) |
 | Reporting / Exports | reporting | V1 | Done (complete: backend + frontend + custom builder + dashboards) |
@@ -43,6 +43,8 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Golf Operations | golf_ops | V2 | Planned |
 | AI Insights (Semantic Layer) | semantic | V1 | Done (dual-mode pipeline + SQL generation + RAG + eval training platform) |
 | Property Management (PMS) | pms | V1 | Done (reservations, calendar, folios, housekeeping, yield mgmt, channels, loyalty) |
+| ERP Workflow Engine | erp | V1 | Done (tier-based workflow defaults, close orchestrator, cron) |
+| SuperAdmin Portal | admin_portal | V1 | Done (spec: 14 sessions, 120 API routes — implementation pending) |
 
 ## Monorepo Structure
 
@@ -817,6 +819,106 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **Sidebar navigation**: extracted to `apps/web/src/lib/navigation.ts`, Operations link added, CommandPalette (Ctrl+K)
   - **Close checklist extended**: 8 new items (#11-#18): drawer sessions, retail/F&B close batches, tip balances, deposit slips, dead letter events, card settlements, COGS posting
   - **309 accounting tests**: 31 UXOPS posting matrix tests validating GL balance for retail close, comp, void-line, return, settlement, tip payout, periodic COGS, deposit slip + end-to-end lifecycle flows + idempotency
+- **Payment Gateway Integration** (CardPointe) — Sessions 2026-02-23–24:
+  - **21 migrations** (0172–0192): payment gateway foundation, ACH, surcharge, terminal devices, modifier groups, ERP config, guest pay enhancements, member portal passwords
+  - **7 core gateway tables**: `paymentProviders`, `paymentProviderCredentials`, `paymentMerchantAccounts`, `terminalMerchantAssignments`, `paymentIntents`, `paymentTransactions`, `paymentWebhookEvents`
+  - **Provider Registry pattern**: `providerRegistry.register('cardpointe', factory)` — pluggable provider architecture for CardPointe, Square, Worldpay, etc.
+  - **PaymentsFacade**: singleton entry point with 8 methods (authorize, capture, sale, void, refund, tokenize, createProfile, inquire). All POS/online/recurring callers go through this facade.
+  - **Payment intent lifecycle**: `created → authorized → captured → voided → refunded → declined → error → resolved`
+  - **Per-operation idempotency**: each void/refund/capture gets its own `clientRequestId` (not just per-intent). Migration 0176 adds partial unique index excluding NULL keys.
+  - **AES-256-GCM encrypted credentials**: `paymentProviderCredentials.credentialsEncrypted` stores encrypted JSON
+  - **Terminal-level MID assignment**: different terminals can route to different merchant accounts at the same location
+  - **ACH payment support**: `ach_returns` table (append-only), `ach_micro_deposits` table, NACHA return codes R01-R83 with retry classification
+  - **Surcharge compliance**: `surcharge_settings` table with rate caps, state prohibition lists, debit/prepaid exemptions. 3 partial unique indexes for NULL-scoped tenant/location/terminal settings. Pure `calculateSurcharge()` function.
+  - **Response interpreter**: 3-tier decline categorization (processor:code → PPS fallback → respstat-based). Separate user-safe vs operator messages. AVS/CVV independent interpretation.
+  - **Gateway response codes**: `packages/shared/src/constants/gateway-response-codes.ts` — 50+ PPS codes, `DeclineCategory`, `SuggestedAction` types
+  - **Terminal device management**: `terminal_device_assignments` table mapping physical CardPointe terminals (HSN) to POS terminals
+  - **Wallet payments**: `wallet_type` column on `tenders` (apple_pay, google_pay)
+  - **GL wiring**: surcharge revenue (4510), ACH receivable (1150/1160) COA templates. `default_surcharge_revenue_account_id` on accounting settings.
+  - **Tokenization**: CardPointe Hosted iFrame tokenizer (`cardpointe-iframe-tokenizer.tsx`), `useTokenizerConfig` hook, `GET /api/v1/payments/tokenizer-config`
+  - **30+ API routes**: tokenizer config, settlements, transactions, failed payments, terminal ops (auth-card, read-card, display, cancel), bank accounts, ACH, wallet, Apple Pay validation
+  - **Frontend**: merchant services settings page, transaction list/detail pages, ACH status page, failed payments page, Apple Pay / Google Pay button components
+- **ERP Dual-Mode Infrastructure** (Session 2026-02-23–24):
+  - **Schema**: 3 new tables (`erpWorkflowConfigs`, `erpWorkflowConfigChangeLog`, `erpCloseOrchestratorRuns`), extended `tenants` with `business_tier` (SMB/MID_MARKET/ENTERPRISE), `business_vertical`
+  - **Tier-based workflow defaults**: `TIER_WORKFLOW_DEFAULTS` in `packages/shared/src/constants/erp-default-profiles.ts` — SMB (automatic/invisible), MID_MARKET (visible/automatic), ENTERPRISE (manual/approvals)
+  - **Workflow engine**: `packages/core/src/erp/workflow-engine.ts` — cascading fallback (DB config → tier defaults → ultimate fallback), in-memory 60s TTL cache
+  - **25+ workflow keys** across accounting, payments, inventory, AP, AR modules
+  - **Close orchestrator**: `erpCloseOrchestratorRuns` tracks day-end close with step-by-step results
+  - **Cron route**: `POST /api/v1/erp/cron` — Vercel Cron trigger for auto-close with timezone handling and idempotency
+  - **9 API routes**: config CRUD per module/workflow, tier evaluation, close-orchestrator, verticals, cron
+  - **Frontend**: ERP config settings page with workflow toggles per module
+  - **Day-end close settings**: `auto_close_enabled`, `auto_close_time`, `auto_close_skip_holidays`, `day_end_close_enabled`, `day_end_close_time` on `accounting_settings`
+- **Modifier Group Enhancements** (Session 2026-02-24):
+  - **Schema** (migration 0183): `catalog_modifier_group_categories` table (hierarchical), extended `catalog_modifier_groups` (category_id, instruction_mode, default_behavior, channel_visibility, sort_order), extended `catalog_modifiers` (extra_price_delta, kitchen_label, allow_none/extra/on_side, is_default_option, cost), per-assignment overrides on `catalog_item_modifier_groups` (override_required, override_min/max, override_instruction_mode, prompt_order)
+  - **Bulk assignment**: `bulkAssignModifierGroups` command with replace/merge modes + per-assignment overrides
+  - **Channel visibility**: modifiers filterable by channel (pos, online, qr, kiosk)
+  - **Modifier reporting**: 3 new `rm_` read model tables (`rmModifierItemSales`, `rmModifierDaypart`, `rmModifierGroupAttach`), 2 event consumers, 8 queries (performance, upsell impact, daypart heatmap, waste signals, complexity, group health, location heatmap, group-item heatmap)
+  - **Frontend**: modifiers management page, modifier reports page with analytics
+  - **API routes**: modifier groups CRUD, bulk assign, modifier group categories CRUD, item modifier assignments, modifier reports
+- **Role Access Scoping** (Session 2026-02-24):
+  - **3 junction tables**: `role_location_access`, `role_profit_center_access`, `role_terminal_access` (migration 0175)
+  - **Convention**: Empty table = unrestricted (role sees everything). Adding rows restricts to only those entities.
+  - All use CASCADE on DELETE for cleanup
+- **SuperAdmin Portal** (Sessions 1-14, Phases 1-3):
+  - **~120 API routes** across 14 modules: tenant management, admin RBAC, impersonation, module provisioning, DLQ management, user management, health dashboard, financial support, audit log, global search, timeline, onboarding engine, notifications/alerts, dashboard home
+  - **~90 frontend components** with dark mode, keyboard shortcuts, loading skeletons, error boundaries
+  - **16+ new DB tables**: tenant extensions, onboarding checklists, support notes, impersonation sessions, feature flags, health/system snapshots, admin searches, timeline events, onboarding templates, alert rules, notification preferences, notifications
+  - **6 admin roles**: Super Admin, Platform Engineer, Implementation Specialist, Support Agent, Finance Support, Viewer — with granular permission middleware (`withAdminPermission`)
+  - **Impersonation safety**: restricted actions (no void >$500, no accounting changes), max duration, action counting, audit trail, undismissible banner in tenant app
+  - **Health scoring**: score 0-100 with grade (A-F), deductions for DLQ depth, error rate, unmapped GL, inactive tenants. Snapshots every 15 minutes.
+  - **Alert engine**: 7 seeded rule types, cooldown mechanism, Slack webhook integration, in-app notifications with 30s polling
+  - **Timeline**: unified chronological feed with fire-and-forget writes, retroactive hydration from 5 data sources, 25+ event types
+  - **Onboarding engine**: auto-detection of setup progress (parallel HEAD/GET checks), template-based step initialization, dependency chains, stalled detection (>3 days), auto-complete to active when all steps done
+  - **4 scheduled jobs**: impersonation expiry, health snapshot capture, health snapshot cleanup, alert check runner
+- **Semantic Intelligence Expansion** (Session 2026-02-24):
+  - **Tier 2 services**: anomaly detection (z-score on `rm_daily_sales`), root cause analyzer (dimension decomposition), correlation engine (Pearson + p-value), predictive forecaster (linear regression, SMA, exponential smoothing), what-if simulator, background analyst
+  - **Tier 3 (agentic)**: agentic orchestrator (multi-step Think/Act/Observe loop with 5-step max, SELECT-only guardrails), NL report builder, data quality scorer
+  - **Additional services**: shared insights (snapshot + token URLs), role-based feed, voice input (transcript normalization), multi-language (detection + prompt wrapping), scheduled delivery (recurring AI reports)
+- **POS UX Improvements** (Session 2026-02-24):
+  - **Visibility resume hook** (`usePOSVisibilityRefresh`): proactive JWT refresh + health ping + custom event dispatch after 30s idle. Other hooks listen for `pos-visibility-resume` to refresh stale data.
+  - **Connection indicator**: 3-state (online/slow/offline), pings `/api/health` every 30s with HEAD
+  - **Customer cache**: module-level singleton (500 entries, 5-min TTL), pre-warmed on mount, client-side search with server fallback, AbortController cancellation
+  - **Display size selector**: 3 sizes (1x/1.15x/1.3x) via CSS custom property `--pos-font-scale`, localStorage persisted
+  - **POS error boundary**: mode-aware (Retail/F&B), preserves Zustand state on crash
+  - **POS close page**: `/pos/close` with denomination counting and status stepper
+  - **POS header redesign**: CSS custom property-based theming, employee name, connection indicator, font size selector, dark mode toggle
+- **Member Portal Payment Methods** (Session 2026-02-24):
+  - **Bank accounts**: tokenize, add, verify (micro-deposit), CRUD API routes
+  - **Payment methods**: CardPointe iFrame tokenizer integration, CRUD with default selection
+  - **One-time payments**: make-payment page with amount entry and payment method selection
+  - **Password auth**: `password_hash` on `customer_auth_accounts` for email+password login (migration 0191)
+- **Guest Pay Enhancements** (Session 2026-02-24):
+  - **Lookup codes**: 6-char alphanumeric codes for manual entry (migration 0190), partial unique index on active sessions
+  - **Receipt email tracking**: `receipt_emailed_at` column, one email per session rate limit (migration 0192)
+  - **Card charge**: `POST /api/v1/guest-pay/[token]/card-charge` for credit card payment via gateway
+  - **Email receipt**: `POST /api/v1/guest-pay/[token]/email-receipt`
+- **CI/Build Improvements** (Session 2026-02-24):
+  - **Business logic test workflow**: `.github/workflows/business-logic-tests.yml` — separate CI for domain tests
+  - **Test mock alignment**: multiple fix commits for mock chain order, schema test skipping without DB, pipeline fallback mocks
+  - **Destructured array defaults**: `const [a = 0] = str.split(':').map(Number)` pattern enforced
+  - **Vercel Hobby cron limitation**: daily-only cron on Hobby plan (15-min requires Pro)
+- **Migrations 0172–0192** (Session 2026-02-23–24):
+  - `0172_payment_gateway_foundation.sql`: 7 gateway tables + payment_intent_id on tenders
+  - `0173_fnb_my_section_tables.sql`: F&B server section assignment tables
+  - `0174_payment_profile_extensions.sql`: customer payment profile columns
+  - `0175_role_access_scoping.sql`: role-location/profit-center/terminal access junction tables
+  - `0176_payment_idempotency_hardening.sql`: per-operation client_request_id on payment_intents
+  - `0177_terminal_device_management.sql`: terminal device assignments table
+  - `0178_ach_payment_support.sql`: ACH columns, ach_returns, ach_micro_deposits tables
+  - `0179_payment_wallet_type.sql`: wallet_type on tenders
+  - `0180_payment_response_enrichment.sql`: decline categorization columns on payment_transactions
+  - `0181_surcharge_settings.sql`: surcharge settings table with 3-level scoping
+  - `0182_payment_surcharge_columns.sql`: surcharge_amount_cents on intents/transactions/tenders
+  - `0183_modifier_groups_enhancement.sql`: modifier group categories, extended modifiers/assignments
+  - `0184_payment_gateway_gl_wiring.sql`: surcharge revenue + ACH receivable GL accounts
+  - `0185_ach_receivable_gl_template_fix.sql`: fix column names in GL template INSERT
+  - `0186_modifier_reporting.sql`: 3 modifier analytics read model tables
+  - `0187_erp_dual_mode_infrastructure.sql`: ERP workflow tables + tenant tier columns
+  - `0188_merchant_account_settings.sql`: HSN + ACH/funding MID columns on merchant accounts
+  - `0189_day_end_close_settings.sql`: auto-close and day-end-close on accounting settings
+  - `0190_guest_pay_lookup_code.sql`: lookup_code on guest_pay_sessions
+  - `0191_member_portal_passwords.sql`: password_hash on customer_auth_accounts
+  - `0192_guest_pay_receipt_emailed.sql`: receipt_emailed_at on guest_pay_sessions
 
 ### Test Coverage
 3330+ tests: 134 core + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 621 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
@@ -1018,7 +1120,6 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - Install `@sentry/nextjs` and uncomment Sentry init in `instrumentation.ts`
 - Ship logs to external aggregator (Axiom/Datadog/Grafana Cloud)
 - Remaining security items: CORS for production, email verification, account lockout, container image scanning (see `infra/SECURITY_AUDIT.md` checklist)
-- Run migrations 0066-0144 on dev DB
 - Run `pnpm --filter @oppsera/module-semantic semantic:sync` after migrations 0070-0073
 - For existing tenants: run `tools/scripts/add-semantic-entitlement.ts` to grant semantic access
 - ~~Package "Price as sum of components" toggle~~ ✓ DONE (Session 27)
@@ -1111,7 +1212,17 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~Catalog/customer/staff import system~~ ✓ DONE
 - ~~Customer tag management (smart tags, rules, audit)~~ ✓ DONE
 - ~~PMS calendar frontend~~ ✓ IN PROGRESS (uncommitted)
-- Run migrations 0134-0168 on dev DB
+- ~~Payment gateway integration (CardPointe foundation + ACH + surcharges)~~ ✓ DONE
+- ~~ERP dual-mode infrastructure (workflow engine + tier defaults + close orchestrator)~~ ✓ DONE
+- ~~Modifier group enhancements (categories, channel visibility, per-assignment overrides)~~ ✓ DONE
+- ~~Modifier reporting read models (3 rm_ tables + 8 analytics queries)~~ ✓ DONE
+- ~~Role access scoping (location/profit-center/terminal level)~~ ✓ DONE
+- ~~SuperAdmin portal (14 sessions, 120 API routes, 90+ components)~~ ✓ DONE (spec complete)
+- ~~Semantic intelligence expansion (anomaly detection, root cause, correlation, forecasting, agentic orchestrator)~~ ✓ DONE
+- ~~POS UX (visibility resume, connection indicator, customer cache, display size, error boundary)~~ ✓ DONE
+- ~~Member portal payment methods (bank accounts, card tokenization, one-time payments)~~ ✓ DONE
+- ~~Guest pay enhancements (lookup codes, email receipts, card charges)~~ ✓ DONE
+- Run migrations 0134-0192 on dev DB
 - Run `tools/scripts/seed-admin-roles.ts` after migration 0097
 - Run `tools/scripts/backfill-accounting-accounts.ts` after migration 0100 (creates Tips Payable + Service Charge Revenue for existing tenants)
 - Toggle `enableLegacyGlPosting = false` per tenant after validating GL reconciliation
@@ -1122,6 +1233,10 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - Module template management UI (create/apply presets)
 - Entitlement bulk mode change (batch enable/disable with dependency resolution)
 - Semantic SQL mode testing: regression suite for common SQL patterns
+- Payment gateway: additional providers (Square, Worldpay), Apple Pay merchant validation, recurring billing
+- ERP cron: upgrade to Vercel Pro for 15-minute cron intervals (required for auto-close windows)
+- SuperAdmin portal: implement all 14 session specs (build frontend + backend per session notes)
+- Modifier reporting: frontend analytics dashboards (daypart heatmaps, upsell impact, waste signals)
 
 ## Critical Gotchas (Quick Reference)
 
@@ -1477,6 +1592,27 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 341. **Windows EPERM on `.next/trace` — full server fix** — When the dev server crashes with `EPERM: operation not permitted, open '.next/trace'`, orphaned Node processes are holding the file lock. **Critical**: bash `taskkill /F /IM node.exe` CANNOT kill its own parent process tree — always use PowerShell: `powershell.exe -NoProfile -Command 'Stop-Process -Name node -Force'`, then `sleep 3`, verify 0 processes, `rm -rf apps/web/.next`, restart. Running `next dev` (with or without Turbopack) on a partial `.next` directory causes cascading `middleware-manifest.json` / `routes-manifest.json` ENOENT errors. Always fully delete `.next` before restart.
 342. **Never mix dynamic slug names at the same route level** — Next.js App Router requires exactly one dynamic segment name per path level. Having both `payment-processors/[id]/` and `payment-processors/[providerId]/` as siblings causes a fatal startup error: `You cannot use different slug names for the same dynamic path`. Pick one name and use it consistently for all routes at that level.
 343. **CommonJS scripts in ESM packages must use `.cjs` extension** — When `package.json` has `"type": "module"`, any script using `require()` must be named `.cjs` (not `.js`). The `dev-prep.cjs` script in `apps/web/scripts/` was renamed from `.js` for this reason. Always check the package's `type` field before adding new scripts.
+344. **Payment gateway credentials are AES-256-GCM encrypted** — `paymentProviderCredentials.credentialsEncrypted` stores encrypted JSON. Use `encryptCredentials()` / `decryptCredentials()` helpers from `packages/modules/payments/src/helpers/credentials.ts`. Never store raw API keys in the database.
+345. **Payment provider resolution happens OUTSIDE the transaction** — read-only provider/credential/merchant lookup happens before entering `publishWithOutbox`. This keeps transactions short and avoids holding locks during external API calls. Pattern: resolve → enter transaction → idempotency check → call provider → record result.
+346. **Per-operation idempotency on payment intents** — each void/refund/capture gets its own `clientRequestId` column (migration 0176). Unlike tender-level idempotency (one key per tender), payment intents track idempotency per operation type. Partial unique index excludes NULL values for backward compatibility.
+347. **Never expose raw gateway decline codes to end users** — use `interpretResponse()` from `packages/modules/payments/src/services/response-interpreter.ts` which returns separate `userMessage` (safe for cardholder display) and `operatorMessage` (with raw codes for staff). The `SuggestedAction` type guides retry behavior.
+348. **Surcharge settings use 3-level scoping** — queries must check terminal-specific → location-specific → tenant-wide settings (most specific wins). Each level uses a partial unique index with NULL-scoped columns: `(tenant_id) WHERE location_id IS NULL AND terminal_id IS NULL` for tenant-wide, etc.
+349. **Role access scoping: empty table = unrestricted** — `role_location_access`, `role_profit_center_access`, `role_terminal_access` use an "open by default" pattern. A role with NO rows in `role_location_access` can see ALL locations. Adding ANY row restricts the role to ONLY those locations. This is the opposite of the permission model (additive on top of nothing).
+350. **ERP workflow config uses cascading fallback** — `getWorkflowConfig()` checks: (1) explicit DB row for tenant+module+workflow, (2) `TIER_WORKFLOW_DEFAULTS` based on `tenants.business_tier`, (3) ultimate fallback (auto=true, userVisible=false). Always use the workflow engine, never query `erpWorkflowConfigs` directly.
+351. **Destructured `.split().map()` results need default values** — `const [a, b] = str.split(':').map(Number)` can produce `undefined` if the string is malformed. Always use `const [a = 0, b = 0] = ...`. This applies to all destructured array results from `split`/`map` chains.
+352. **Vercel Hobby plan only supports daily cron** — `vercel.json` cron schedule `"0 0 * * *"` is the only supported interval on Hobby. 15-minute intervals require Vercel Pro. The ERP `isWithinWindow()` function was designed for 15-minute intervals — with daily cron it only fires if close time is within 15 minutes of midnight.
+353. **Modifier per-assignment overrides live on the junction table** — `catalog_item_modifier_groups` has `override_required`, `override_min_selections`, `override_max_selections`, `override_instruction_mode`, `prompt_order`. The same modifier group can behave differently on different items. When rendering in POS, always check the junction table first, fall back to the modifier group defaults.
+354. **Always use explicit column selects, never SELECT * on tables with frequent additions** — commit `cdbf002` fixed a 500 error caused by `SELECT *` on modifier tables after migration 0183 added new columns. Drizzle queries that select all columns can break when new columns are added if the mapping type doesn't include them. Use explicit `.select({ id: table.id, ... })` for safety.
+355. **Payment intents are mutable (unlike tenders)** — `paymentIntents.status` is updated through a state machine (created → authorized → captured → voided → refunded → declined → error → resolved). Validate transitions before updating. Tenders remain append-only — the `payment_intent_id` FK on tenders is the bridge.
+356. **POS visibility resume pattern** — when the browser tab was hidden >30s and becomes visible, `usePOSVisibilityRefresh` in `pos/layout.tsx`: (1) proactively refreshes JWT if within 5min of expiry, (2) pings `/api/health` to warm Vercel serverless function, (3) dispatches `pos-visibility-resume` custom event. Any hook needing to refresh stale POS data should `addEventListener('pos-visibility-resume', handler)`.
+357. **Customer cache is module-level singleton** — `apps/web/src/lib/customer-cache.ts` caches up to 500 customers with 5-min TTL. Pre-warmed on POS mount via `warmCustomerCache()`. Use `filterCustomersLocal()` for instant results, `searchCustomersServer()` as fallback when cache is incomplete. Survives React unmounts but NOT full page refreshes.
+358. **POS display size uses CSS custom property** — `--pos-font-scale` set on POS layout root via `usePOSDisplaySize` hook. 3 sizes: default (1x), large (1.15x), xlarge (1.3x). Persisted in `localStorage('pos_display_size')`. All POS text that should scale must use `calc(var(--pos-font-scale) * base-size)`.
+359. **ACH return codes have retry classification** — `packages/modules/payments/src/helpers/ach-return-codes.ts` classifies R01-R83 codes into categories (nsf, closed, invalid, unauthorized, admin, regulatory, other). Only R01 (insufficient funds) and R09 (uncollected funds) are retryable with a 2-day delay. All other return codes are terminal — do not retry.
+360. **SuperAdmin timeline writes are fire-and-forget** — `void writeTimelineEvent({...})` is called AFTER the primary operation succeeds, with no `await`. Errors are caught and logged internally. Never use `publishWithOutbox` for timeline events — they are read model inserts, not domain events. Never let timeline failures break primary operations.
+361. **SuperAdmin health snapshots use parallel `Promise.all`** — health scoring computes ~20 metrics per tenant. All metrics are fetched concurrently via `Promise.all`. Score starts at 100 with deductions (DLQ depth: -25, error rate: -20, unmapped GL: -10, etc.). Grade: A≥90, B≥75, C≥60, D≥40, F<40.
+362. **SuperAdmin alert cooldown is per-rule, not per-tenant** — when a DLQ depth alert fires for Tenant A, the cooldown prevents the same rule from firing for ANY tenant during the cooldown window. This prevents alert floods but means simultaneous issues across tenants may only generate one notification.
+363. **Intelligence services read from `rm_*` tables only** — all semantic intelligence services (anomaly detection, correlation, forecasting, etc.) read from CQRS read models, never operational tables. If a new metric needs analysis, ensure it's being populated into the appropriate read model first. Anomaly detection writes only to its own `semanticAlertNotifications` table.
+364. **Agentic orchestrator has strict guardrails** — max 5 Think/Act/Observe steps, SELECT-only SQL validation, tenant isolation, total timeout. Each step is a separate LLM call — a complex question can consume 5x the tokens of a simple query. Monitor via existing semantic observability metrics.
 
 ## Migration Rules (IMPORTANT — Multi-Agent Safety)
 
