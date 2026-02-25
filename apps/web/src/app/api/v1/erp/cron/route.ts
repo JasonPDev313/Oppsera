@@ -202,8 +202,8 @@ function getTenantLocalTime(utcDate: Date, timezone: string): TenantLocalTime {
  * E.g., isWithinWindow('02:07', '02:00', 15) → true
  */
 function isWithinWindow(currentHHMM: string, targetHHMM: string, windowMinutes: number): boolean {
-  const [cH, cM] = currentHHMM.split(':').map(Number);
-  const [tH, tM] = targetHHMM.split(':').map(Number);
+  const [cH = 0, cM = 0] = currentHHMM.split(':').map(Number);
+  const [tH = 0, tM = 0] = targetHHMM.split(':').map(Number);
   const currentMins = cH * 60 + cM;
   const targetMins = tH * 60 + tM;
 
