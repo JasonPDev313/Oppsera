@@ -27,12 +27,19 @@ export const GET = withAdminAuth(async (req: NextRequest) => {
     .limit(limit + 1);
 
   const hasMore = rows.length > limit;
-  const items = hasMore ? rows.slice(0, limit) : rows;
+  const sliced = hasMore ? rows.slice(0, limit) : rows;
+
+  // Convert Drizzle numeric strings to numbers (gotcha #35)
+  const items = sliced.map((r) => ({
+    ...r,
+    passRate: r.passRate != null ? Number(r.passRate) : null,
+    totalCostUsd: r.totalCostUsd != null ? Number(r.totalCostUsd) : null,
+  }));
 
   return NextResponse.json({
-    data: items,
-    meta: {
-      cursor: hasMore ? items[items.length - 1]!.id : null,
+    data: {
+      runs: items,
+      cursor: hasMore ? sliced[sliced.length - 1]!.id : null,
       hasMore,
     },
   });

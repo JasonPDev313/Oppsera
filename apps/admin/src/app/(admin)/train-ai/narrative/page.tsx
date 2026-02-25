@@ -151,6 +151,23 @@ export default function NarrativePromptPage() {
         </div>
       </div>
 
+      {/* Knowledge box */}
+      <div className="mb-6 p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
+        <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-2">What is the narrative prompt?</p>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          The narrative prompt is the <strong className="text-white">single, global system prompt</strong> that defines <em>how</em> the
+          AI writes all Insights responses &mdash; its personality, response format, tone, data interpretation rules, and
+          token budget. Every response across every tenant and every lens is shaped by this template. It uses three
+          dynamic placeholders (<code className="text-indigo-300 text-xs">{'{{INDUSTRY_HINT}}'}</code>,{' '}
+          <code className="text-indigo-300 text-xs">{'{{LENS_SECTION}}'}</code>,{' '}
+          <code className="text-indigo-300 text-xs">{'{{METRIC_SECTION}}'}</code>) that get replaced at runtime with
+          context-specific content.
+        </p>
+        <p className="text-xs text-slate-500 mt-2">
+          The narrative prompt controls <em>style</em> (how the AI responds). <a href="/train-ai/lenses" className="text-indigo-400 hover:text-indigo-300 underline">Lenses</a> control <em>scope</em> (what metrics are available). A lens&apos;s prompt fragment is injected into this template via the <code className="text-indigo-300 text-xs">{'{{LENS_SECTION}}'}</code> placeholder.
+        </p>
+      </div>
+
       {/* Error / Success alerts */}
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-start gap-2">

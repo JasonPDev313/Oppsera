@@ -10,7 +10,7 @@ import { eq, desc } from 'drizzle-orm';
 export const GET = withAdminAuth(async (_req: NextRequest) => {
   const rows = await db
     .select({
-      id: semanticEvalRegressionRuns.id,
+      runId: semanticEvalRegressionRuns.id,
       name: semanticEvalRegressionRuns.name,
       createdAt: semanticEvalRegressionRuns.createdAt,
       passRate: semanticEvalRegressionRuns.passRate,
@@ -22,5 +22,11 @@ export const GET = withAdminAuth(async (_req: NextRequest) => {
     .orderBy(desc(semanticEvalRegressionRuns.createdAt))
     .limit(20);
 
-  return NextResponse.json({ data: rows });
+  // Convert Drizzle numeric strings to numbers (gotcha #35)
+  const items = rows.map((r) => ({
+    ...r,
+    passRate: r.passRate != null ? Number(r.passRate) : null,
+  }));
+
+  return NextResponse.json({ data: items });
 });

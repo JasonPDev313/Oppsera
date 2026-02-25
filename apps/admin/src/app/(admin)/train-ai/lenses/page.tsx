@@ -390,6 +390,21 @@ export default function SystemLensesPage() {
         </div>
       </div>
 
+      {/* Knowledge box */}
+      <div className="mb-6 p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
+        <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-2">What are lenses?</p>
+        <p className="text-sm text-slate-300 leading-relaxed">
+          A <strong className="text-white">lens</strong> is a named analysis context that controls <em>what</em> the AI can talk about.
+          Each lens constrains the available metrics and dimensions for a specific use case (e.g., &quot;Golf Daily Ops&quot; only
+          exposes rounds played, pace of play, and utilization). Lenses also include a <strong className="text-white">prompt fragment</strong> that
+          gets injected into the system prompt when active, shaping how the AI interprets data for that context.
+          Tenants see lenses as selectable focus areas in the Insights chat.
+        </p>
+        <p className="text-xs text-slate-500 mt-2">
+          Lenses control <em>scope</em> (what metrics are available). The <a href="/train-ai/narrative" className="text-indigo-400 hover:text-indigo-300 underline">Narrative Prompt</a> controls <em>style</em> (how the AI writes its response).
+        </p>
+      </div>
+
       {/* Cache status */}
       {cacheStatus && (
         <div className="mb-4 px-4 py-2.5 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-indigo-400 text-xs">

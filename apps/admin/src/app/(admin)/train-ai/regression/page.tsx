@@ -24,7 +24,7 @@ function TrendChart({ data }: { data: { runId: string; name: string | null; pass
   if (data.length === 0) {
     return <p className="text-sm text-slate-500 italic text-center py-8">No regression runs yet</p>;
   }
-  const maxExamples = Math.max(...data.map((d) => d.totalExamples), 1);
+  const maxExamples = Math.max(...data.map((d) => d.totalExamples ?? 0), 1);
 
   return (
     <div className="flex items-end gap-1.5 h-32">
@@ -152,9 +152,9 @@ function RunCard({ run }: { run: RegressionRun }) {
   const statusColor = STATUS_COLORS[run.status] ?? { bg: 'bg-yellow-500/20', text: 'text-yellow-400' };
   const passRate = run.passRate ?? 0;
   const total = run.totalExamples || 1;
-  const passedPct = (run.passed / total) * 100;
-  const failedPct = (run.failed / total) * 100;
-  const erroredPct = (run.errored / total) * 100;
+  const passedPct = ((run.passed ?? 0) / total) * 100;
+  const failedPct = ((run.failed ?? 0) / total) * 100;
+  const erroredPct = ((run.errored ?? 0) / total) * 100;
 
   return (
     <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
@@ -198,15 +198,15 @@ function RunCard({ run }: { run: RegressionRun }) {
         <div className="flex items-center gap-4 shrink-0 text-xs text-slate-400">
           <span className="flex items-center gap-1">
             <CheckCircle size={12} className="text-green-400" />
-            {run.passed}
+            {run.passed ?? 0}
           </span>
           <span className="flex items-center gap-1">
             <XCircle size={12} className="text-red-400" />
-            {run.failed}
+            {run.failed ?? 0}
           </span>
           <span className="flex items-center gap-1">
             <AlertTriangle size={12} className="text-orange-400" />
-            {run.errored}
+            {run.errored ?? 0}
           </span>
           <span className="flex items-center gap-1">
             <Clock size={12} />

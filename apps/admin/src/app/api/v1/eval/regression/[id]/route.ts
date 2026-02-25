@@ -35,10 +35,16 @@ export const GET = withAdminAuth(
       .where(eq(semanticEvalRegressionResults.runId, id))
       .orderBy(asc(semanticEvalRegressionResults.createdAt));
 
+    // Convert Drizzle numeric strings to numbers (gotcha #35)
     return NextResponse.json({
       data: {
         ...run,
-        results,
+        passRate: run.passRate != null ? Number(run.passRate) : null,
+        totalCostUsd: run.totalCostUsd != null ? Number(run.totalCostUsd) : null,
+        results: results.map((r) => ({
+          ...r,
+          costUsd: r.costUsd != null ? Number(r.costUsd) : null,
+        })),
       },
     });
   },
