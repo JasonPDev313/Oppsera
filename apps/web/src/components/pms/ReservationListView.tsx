@@ -146,7 +146,7 @@ export default function ReservationListView({
   // Re-fetch when external refreshKey changes
   useEffect(() => {
     if (refreshKey !== undefined && refreshKey > 0) fetchReservations();
-  }, [refreshKey]); // eslint-disable-line
+  }, [refreshKey]);
 
   const handleLoadMore = useCallback(() => {
     if (cursor && !isLoadingMore) fetchReservations(cursor);

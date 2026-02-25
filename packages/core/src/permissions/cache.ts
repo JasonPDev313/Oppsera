@@ -4,7 +4,10 @@ export interface PermissionCache {
   delete(pattern: string): Promise<void>;
 }
 
-const PERMISSION_CACHE_MAX_SIZE = 1000;
+// Sized for Vercel Pro fleet: 5K entries × ~350 bytes = ~1.75MB per instance.
+// Key is tenantId:userId:locationId — at 2K users × 3 locations = 6K unique keys.
+// 5K slots give ~83% hit rate; 15s TTL ensures fast permission revocation.
+const PERMISSION_CACHE_MAX_SIZE = 5_000;
 
 export class InMemoryPermissionCache implements PermissionCache {
   private store = new Map<string, { permissions: Set<string>; expiresAt: number }>();

@@ -29,8 +29,11 @@ function getVerificationKey(): { key: string | KeyObject; algorithms: jwt.Algori
   throw new Error('SUPABASE_JWT_JWK or SUPABASE_JWT_SECRET must be set');
 }
 
-// In-memory auth user cache (60s TTL). Eliminates 3 DB queries per request on hot paths.
-const AUTH_CACHE_TTL = 60_000;
+// In-memory auth user cache (120s TTL, 2K entries). Eliminates 3 DB queries per request on hot paths.
+// Sized for Vercel Pro fleet: 2K entries × ~250 bytes = ~500KB per instance. With 100 instances
+// that's 50MB aggregate — well within Vercel Pro's 3GB memory limit per function.
+const AUTH_CACHE_TTL = 120_000;
+const AUTH_CACHE_MAX_SIZE = 2_000;
 const authUserCache = new Map<string, { user: AuthUser; ts: number }>();
 
 function getCachedAuthUser(authProviderId: string): AuthUser | null {
@@ -51,9 +54,9 @@ function setCachedAuthUser(authProviderId: string, user: AuthUser) {
   authUserCache.delete(authProviderId);
   authUserCache.set(authProviderId, { user, ts: Date.now() });
   // Evict oldest entries when over capacity (batch evict to avoid per-insert overhead)
-  if (authUserCache.size > 200) {
+  if (authUserCache.size > AUTH_CACHE_MAX_SIZE) {
     const keysIter = authUserCache.keys();
-    const toEvict = authUserCache.size - 200;
+    const toEvict = authUserCache.size - AUTH_CACHE_MAX_SIZE;
     for (let i = 0; i < toEvict; i++) {
       const { value, done } = keysIter.next();
       if (done) break;
