@@ -15,9 +15,11 @@ import {
   Phone,
   Calendar,
   Activity,
+  Pencil,
 } from 'lucide-react';
 import { useTenantDetail } from '@/hooks/use-tenant-management';
 import { adminFetch } from '@/lib/api-fetch';
+import { EditTenantDialog } from '@/components/tenants/EditTenantDialog';
 import { TenantStatusBadge } from '@/components/tenants/TenantStatusBadge';
 import { OrgHierarchyBuilder } from '@/components/tenants/OrgHierarchyBuilder';
 import { ModuleManager } from '@/components/tenants/ModuleManager';
@@ -50,7 +52,7 @@ const ONBOARDING_STATUS_COLORS: Record<string, string> = {
 
 export default function TenantDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { tenant, isLoading, error, load, update: _update } = useTenantDetail(id);
+  const { tenant, isLoading, error, load, update } = useTenantDetail(id);
   const [tab, setTab] = useState<Tab>('overview');
   const [showImpersonateDialog, setShowImpersonateDialog] = useState(false);
 
@@ -194,7 +196,7 @@ export default function TenantDetailPage() {
       </div>
 
       {/* Tab Content */}
-      {tab === 'overview' && <OverviewTab tenant={tenant} />}
+      {tab === 'overview' && <OverviewTab tenant={tenant} onUpdate={update} />}
       {tab === 'onboarding' && <OnboardingTab tenantId={id} industry={tenant.industry} />}
       {tab === 'organization' && <OrgHierarchyBuilder tenantId={id} />}
       {tab === 'modules' && (
@@ -221,7 +223,9 @@ export default function TenantDetailPage() {
   );
 }
 
-function OverviewTab({ tenant }: { tenant: NonNullable<ReturnType<typeof useTenantDetail>['tenant']> }) {
+function OverviewTab({ tenant, onUpdate }: { tenant: NonNullable<ReturnType<typeof useTenantDetail>['tenant']>; onUpdate: (body: Record<string, unknown>) => Promise<void> }) {
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
   const stats = [
     { label: 'Sites', value: tenant.siteCount, icon: Building, color: 'text-blue-400' },
     { label: 'Venues', value: tenant.venueCount, icon: Store, color: 'text-purple-400' },
@@ -233,6 +237,17 @@ function OverviewTab({ tenant }: { tenant: NonNullable<ReturnType<typeof useTena
 
   return (
     <div className="space-y-6">
+      {/* Edit button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowEditDialog(true)}
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-slate-700 border border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white transition-colors"
+        >
+          <Pencil size={14} />
+          Edit Tenant Info
+        </button>
+      </div>
+
       {/* Zero-site warning */}
       {tenant.siteCount === 0 && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-3 text-amber-400 text-sm">
@@ -328,6 +343,15 @@ function OverviewTab({ tenant }: { tenant: NonNullable<ReturnType<typeof useTena
           <h3 className="text-sm font-medium text-slate-300 mb-2">Internal Notes</h3>
           <p className="text-sm text-slate-400 whitespace-pre-wrap">{tenant.internalNotes}</p>
         </div>
+      )}
+
+      {/* Edit Dialog */}
+      {showEditDialog && (
+        <EditTenantDialog
+          tenant={tenant}
+          onClose={() => setShowEditDialog(false)}
+          onSave={onUpdate}
+        />
       )}
     </div>
   );

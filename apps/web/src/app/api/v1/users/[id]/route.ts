@@ -22,6 +22,7 @@ const updateBody = z.object({
   externalPayrollEmployeeId: z.string().max(100).optional().or(z.literal('')),
   locationIds: z.array(z.string().min(1)).optional(),
   passwordResetRequired: z.boolean().optional(),
+  password: z.string().min(8).max(128).optional(),
 });
 
 function extractUserId(request: NextRequest): string {
@@ -73,6 +74,7 @@ export const PATCH = withMiddleware(
       externalPayrollEmployeeId: parsed.data.externalPayrollEmployeeId || undefined,
       locationIds: parsed.data.locationIds,
       passwordResetRequired: parsed.data.passwordResetRequired,
+      password: parsed.data.password,
     });
 
     const after = await getUserById({ tenantId: ctx.tenantId, userId });

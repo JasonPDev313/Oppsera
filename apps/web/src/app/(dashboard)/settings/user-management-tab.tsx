@@ -36,6 +36,8 @@ interface EditUserForm {
   lastName: string;
   emailAddress: string;
   userName: string;
+  password: string;
+  confirmPassword: string;
   phoneNumber: string;
   userRole: string;
   additionalRoleIds: string[];
@@ -52,6 +54,8 @@ const emptyEditForm: EditUserForm = {
   lastName: '',
   emailAddress: '',
   userName: '',
+  password: '',
+  confirmPassword: '',
   phoneNumber: '',
   userRole: '',
   additionalRoleIds: [],
@@ -189,6 +193,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
   const [editForm, setEditForm] = useState<EditUserForm>(emptyEditForm);
   const [editUserId, setEditUserId] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
+  const [showEditPasswords, setShowEditPasswords] = useState(false);
 
   const openEditModal = useCallback(async (userId: string) => {
     setEditLoading(true);
@@ -201,6 +206,8 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
         lastName: u.lastName ?? '',
         emailAddress: u.email,
         userName: u.username ?? '',
+        password: '',
+        confirmPassword: '',
         phoneNumber: u.phone ?? '',
         userRole: u.roles[0]?.id ?? '',
         additionalRoleIds: u.roles.slice(1).map((r) => r.id),
@@ -220,7 +227,16 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
   }, []);
 
   const canSubmitEdit = useMemo(() => {
-    return !!(editForm.firstName && editForm.lastName && editForm.emailAddress && editForm.userName && editForm.userRole);
+    if (!editForm.firstName || !editForm.lastName || !editForm.emailAddress || !editForm.userName || !editForm.userRole) {
+      return false;
+    }
+    if (editForm.password && editForm.password !== editForm.confirmPassword) {
+      return false;
+    }
+    if (editForm.password && editForm.password.length < 8) {
+      return false;
+    }
+    return true;
   }, [editForm]);
 
   const openMakeHousekeeper = useCallback(async (userId: string) => {
@@ -259,10 +275,12 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
     if (!canSubmitEdit || !editUserId) return;
     setIsSaving(true);
     try {
+      const { confirmPassword: _confirm, ...rest } = editForm;
       await apiFetch(`/api/v1/users/${editUserId}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          ...editForm,
+          ...rest,
+          password: editForm.password || undefined,
           additionalRoleIds: editForm.additionalRoleIds.length > 0 ? editForm.additionalRoleIds : undefined,
           posOverridePin: editForm.posOverridePin || undefined,
           uniqueIdentificationPin: editForm.uniqueIdentificationPin || undefined,
@@ -270,6 +288,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
         }),
       });
       setShowEditModal(false);
+      setShowEditPasswords(false);
       setEditUserId(null);
       setEditForm(emptyEditForm);
       invalidateAll();
@@ -570,7 +589,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
           <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-gray-300 bg-surface p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Edit User</h3>
-              <button type="button" onClick={() => { setShowEditModal(false); setEditUserId(null); setEditForm(emptyEditForm); }} className="rounded-lg p-1 text-gray-500 hover:bg-gray-200/50">
+              <button type="button" onClick={() => { setShowEditModal(false); setShowEditPasswords(false); setEditUserId(null); setEditForm(emptyEditForm); }} className="rounded-lg p-1 text-gray-500 hover:bg-gray-200/50">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -586,6 +605,27 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
                   <option value="" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Select Role</option>
                   {roles.map((r) => <option key={r.id} value={r.id} style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>{r.name}</option>)}
                 </select>
+              </div>
+              <div className="md:col-span-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditPasswords((v) => !v); if (showEditPasswords) setEditForm((p) => ({ ...p, password: '', confirmPassword: '' })); }}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                >
+                  {showEditPasswords ? 'Cancel password change' : 'Set new password'}
+                </button>
+                {showEditPasswords && (
+                  <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <input type="password" placeholder="New Password (min 8 characters)" className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.password} onChange={(e) => setEditForm((p) => ({ ...p, password: e.target.value }))} />
+                    <input type="password" placeholder="Confirm Password" className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.confirmPassword} onChange={(e) => setEditForm((p) => ({ ...p, confirmPassword: e.target.value }))} />
+                    {editForm.password && editForm.confirmPassword && editForm.password !== editForm.confirmPassword && (
+                      <p className="md:col-span-2 text-xs text-red-500">Passwords do not match</p>
+                    )}
+                    {editForm.password && editForm.password.length > 0 && editForm.password.length < 8 && (
+                      <p className="md:col-span-2 text-xs text-red-500">Password must be at least 8 characters</p>
+                    )}
+                  </div>
+                )}
               </div>
               <select className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none" value={editForm.userStatus} onChange={(e) => setEditForm((p) => ({ ...p, userStatus: e.target.value as EditUserForm['userStatus'] }))}>
                 <option value="invited" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Invited</option>
@@ -650,7 +690,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
               </div>
             </div>
             <div className="mt-5 flex justify-end gap-3">
-              <button type="button" onClick={() => { setShowEditModal(false); setEditUserId(null); setEditForm(emptyEditForm); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50">Cancel</button>
+              <button type="button" onClick={() => { setShowEditModal(false); setShowEditPasswords(false); setEditUserId(null); setEditForm(emptyEditForm); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50">Cancel</button>
               <button type="button" disabled={!canSubmitEdit || isSaving} onClick={submitEditUser} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
                 {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                 Save Changes

@@ -64,6 +64,7 @@ export interface UpdateUserInput {
   externalPayrollEmployeeId?: string;
   locationIds?: string[];
   passwordResetRequired?: boolean;
+  password?: string;
 }
 
 export interface ResetPinInput {
@@ -509,10 +510,40 @@ export async function updateUser(input: UpdateUserInput): Promise<{ userId: stri
   if (input.userRole) await ensureRoleInTenant(input.tenantId, input.userRole);
   if (input.locationIds) await ensureLocationsInTenant(input.tenantId, input.locationIds);
 
+  // If password provided, update Supabase Auth BEFORE entering the transaction
+  // (external API call — keep outside transaction to avoid holding locks)
+  if (input.password) {
+    const supabase = createSupabaseAdmin();
+    if (existing.authProviderId) {
+      const { error } = await supabase.auth.admin.updateUserById(existing.authProviderId, {
+        password: input.password,
+        email_confirm: true,
+      });
+      if (error) throw new ConflictError(error.message);
+    } else {
+      // User has no Supabase Auth account yet — create one
+      const { data, error } = await supabase.auth.admin.createUser({
+        email,
+        password: input.password,
+        email_confirm: true,
+      });
+      if (error || !data.user) throw new ConflictError(error?.message ?? 'Unable to create auth account');
+      // authProviderId will be set inside the transaction below
+      (existing as { authProviderId: string | null }).authProviderId = data.user.id;
+    }
+  }
+
   await withTenant(input.tenantId, async (tx) => {
     const firstName = input.firstName?.trim() ?? existing.firstName ?? '';
     const lastName = input.lastName?.trim() ?? existing.lastName ?? '';
     const displayName = `${firstName} ${lastName}`.trim();
+
+    const passwordFields: Record<string, unknown> = {};
+    if (input.password) {
+      passwordFields.passwordHash = hashSecret(input.password);
+      passwordFields.passwordResetRequired = false;
+      passwordFields.authProviderId = existing.authProviderId;
+    }
 
     await tx.update(users).set({
       email,
@@ -531,6 +562,7 @@ export async function updateUser(input: UpdateUserInput): Promise<{ userId: stri
       passwordResetRequired: input.passwordResetRequired ?? existing.passwordResetRequired,
       updatedByUserId: input.updatedByUserId,
       updatedAt: new Date(),
+      ...passwordFields,
     }).where(eq(users.id, input.userId));
 
     if (input.userStatus) {
