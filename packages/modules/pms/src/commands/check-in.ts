@@ -224,6 +224,8 @@ export async function checkIn(
         subtotalCents,
         taxCents,
         totalCents,
+        checkedInAt: new Date(),
+        checkedInBy: ctx.user.id,
         version: sql`version + 1`,
         updatedAt: new Date(),
       })

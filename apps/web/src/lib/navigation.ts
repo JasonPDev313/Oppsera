@@ -28,7 +28,6 @@ import {
   Lock,
   Wallet,
   Hotel,
-  BedDouble,
   DoorOpen,
   ConciergeBell,
   Brush,
@@ -181,8 +180,7 @@ export const navigation: NavItem[] = [
     requiredPermission: 'pms.property.view',
     children: [
       // Operations
-      { name: 'Calendar', href: '/pms/calendar', icon: CalendarDays, group: 'Operations', requiredPermission: 'pms.calendar.view' },
-      { name: 'Reservations', href: '/pms/reservations', icon: BedDouble, group: 'Operations', requiredPermission: 'pms.reservations.view' },
+      { name: 'Reservations', href: '/pms/calendar', icon: CalendarDays, group: 'Operations', requiredPermission: 'pms.reservations.view' },
       { name: 'Front Desk', href: '/pms/front-desk', icon: ConciergeBell, group: 'Operations', requiredPermission: 'pms.front_desk.check_in' },
       { name: 'Housekeeping', href: '/pms/housekeeping', icon: Brush, group: 'Operations', requiredPermission: 'pms.housekeeping.view' },
       { name: 'Maintenance', href: '/pms/maintenance', icon: Wrench, group: 'Operations', requiredPermission: 'pms.housekeeping.manage' },

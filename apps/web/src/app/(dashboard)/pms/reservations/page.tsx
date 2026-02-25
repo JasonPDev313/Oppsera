@@ -1,13 +1,12 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { PageSkeleton } from '@/components/ui/page-skeleton';
-
-const ReservationsContent = dynamic(() => import('./reservations-content'), {
-  loading: () => <PageSkeleton rows={8} />,
-  ssr: false,
-});
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function ReservationsPage() {
-  return <ReservationsContent />;
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/pms/calendar?view=list');
+  }, [router]);
+  return null;
 }

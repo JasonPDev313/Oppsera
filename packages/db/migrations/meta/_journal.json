@@ -1429,6 +1429,13 @@
       "when": 1708100203000,
       "tag": "0203_usage_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1708100204000,
+      "tag": "0204_gl_transaction_type_mappings",
+      "breakpoints": true
     }
   ]
 }

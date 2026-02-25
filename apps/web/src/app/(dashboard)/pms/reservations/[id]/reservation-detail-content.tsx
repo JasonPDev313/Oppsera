@@ -649,7 +649,7 @@ export default function ReservationDetailContent() {
     } finally {
       setIsCheckingOut(false);
     }
-  }, [reservationId, toast, fetchReservation]);
+  }, [reservationId, reservation, toast, fetchReservation]);
 
   // ── Loading state ────────────────────────────────────────────────
   if (isLoading) {

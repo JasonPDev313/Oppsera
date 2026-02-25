@@ -11,6 +11,7 @@ import {
   XCircle,
   ShoppingCart,
   Copy,
+  Plus,
 } from 'lucide-react';
 
 export interface ContextMenuState {
@@ -19,6 +20,9 @@ export interface ContextMenuState {
   reservationId: string;
   status: string;
   confirmationNumber: string | null;
+  version?: number;
+  roomId?: string;
+  emptyCell?: { roomId: string; date: string; roomTypeId: string };
 }
 
 interface ReservationContextMenuProps {
@@ -30,6 +34,7 @@ interface ReservationContextMenuProps {
   onCancel?: (id: string) => void;
   onCheckInToPos?: (id: string) => void;
   isPostingToPos?: boolean;
+  onNewReservation?: (roomId: string, date: string, roomTypeId: string) => void;
 }
 
 export default function ReservationContextMenu({
@@ -41,6 +46,7 @@ export default function ReservationContextMenu({
   onCancel,
   onCheckInToPos,
   isPostingToPos,
+  onNewReservation,
 }: ReservationContextMenuProps) {
   useEffect(() => {
     const handleClick = () => onClose();
@@ -55,6 +61,7 @@ export default function ReservationContextMenu({
     };
   }, [onClose]);
 
+  const isEmptyCell = !!state.emptyCell;
   const canCheckIn = state.status === 'CONFIRMED';
   const canCheckOut = state.status === 'CHECKED_IN';
   const canCancel = state.status === 'HOLD' || state.status === 'CONFIRMED';
@@ -76,36 +83,50 @@ export default function ReservationContextMenu({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <MenuItem icon={Eye} label="View Reservation" onClick={() => { onViewReservation(state.reservationId); onClose(); }} />
-
-      {canCheckIn && onCheckIn && (
-        <MenuItem icon={LogIn} label="Check In" onClick={() => { onCheckIn(state.reservationId); onClose(); }} />
-      )}
-
-      {canCheckOut && onCheckOut && (
-        <MenuItem icon={LogOut} label="Check Out" onClick={() => { onCheckOut(state.reservationId); onClose(); }} />
-      )}
-
-      <MenuItem icon={ArrowRightLeft} label="Move Room" disabled onClick={() => onClose()} />
-      <MenuItem icon={MapPin} label="Assign Room" disabled onClick={() => onClose()} />
-
-      {canCancel && onCancel && (
-        <MenuItem icon={XCircle} label="Cancel" onClick={() => { onCancel(state.reservationId); onClose(); }} destructive />
-      )}
-
-      <div className="my-1 border-t border-gray-100" />
-
-      {canSendToPos && onCheckInToPos && (
+      {isEmptyCell ? (
         <MenuItem
-          icon={ShoppingCart}
-          label={isPostingToPos ? 'Sending to POS...' : 'Check In & Send to POS'}
-          disabled={isPostingToPos}
-          onClick={() => onCheckInToPos(state.reservationId)}
+          icon={Plus}
+          label="New Reservation"
+          onClick={() => {
+            const ec = state.emptyCell!;
+            onNewReservation?.(ec.roomId, ec.date, ec.roomTypeId);
+            onClose();
+          }}
         />
-      )}
+      ) : (
+        <>
+          <MenuItem icon={Eye} label="View Reservation" onClick={() => { onViewReservation(state.reservationId); onClose(); }} />
 
-      {state.confirmationNumber && (
-        <MenuItem icon={Copy} label="Copy Confirmation #" onClick={handleCopyConfirmation} />
+          {canCheckIn && onCheckIn && (
+            <MenuItem icon={LogIn} label="Check In" onClick={() => { onCheckIn(state.reservationId); onClose(); }} />
+          )}
+
+          {canCheckOut && onCheckOut && (
+            <MenuItem icon={LogOut} label="Check Out" onClick={() => { onCheckOut(state.reservationId); onClose(); }} />
+          )}
+
+          <MenuItem icon={ArrowRightLeft} label="Move Room" disabled onClick={() => onClose()} />
+          <MenuItem icon={MapPin} label="Assign Room" disabled onClick={() => onClose()} />
+
+          {canCancel && onCancel && (
+            <MenuItem icon={XCircle} label="Cancel" onClick={() => { onCancel(state.reservationId); onClose(); }} destructive />
+          )}
+
+          <div className="my-1 border-t border-gray-100" />
+
+          {canSendToPos && onCheckInToPos && (
+            <MenuItem
+              icon={ShoppingCart}
+              label={isPostingToPos ? 'Sending to POS...' : 'Check In & Send to POS'}
+              disabled={isPostingToPos}
+              onClick={() => onCheckInToPos(state.reservationId)}
+            />
+          )}
+
+          {state.confirmationNumber && (
+            <MenuItem icon={Copy} label="Copy Confirmation #" onClick={handleCopyConfirmation} />
+          )}
+        </>
       )}
     </div>,
     document.body,

@@ -2,11 +2,14 @@
 
 import { useState, useRef, useEffect } from 'react';
 import {
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Search,
   Filter,
+  List,
+  Plus,
   Printer,
+  Search,
   X,
 } from 'lucide-react';
 import type { ViewRange, CalendarFilters, CalendarRoom, CalendarSegment } from './types';
@@ -33,6 +36,9 @@ interface CalendarToolbarProps {
   rooms: CalendarRoom[];
   segments: CalendarSegment[];
   lastUpdatedAt: string | null;
+  pageView?: 'calendar' | 'list';
+  onPageViewChange?: (view: 'calendar' | 'list') => void;
+  onNewReservation?: () => void;
 }
 
 export default function CalendarToolbar({
@@ -54,6 +60,9 @@ export default function CalendarToolbar({
   onToggleLegend,
   rooms,
   segments,
+  pageView,
+  onPageViewChange,
+  onNewReservation,
 }: CalendarToolbarProps) {
   const [showFilters, setShowFilters] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -105,28 +114,54 @@ export default function CalendarToolbar({
       {/* Row 1: View controls + property + search */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          {/* Grid / Day toggle */}
-          <div className="flex rounded-lg border border-gray-200 bg-surface">
-            <button
-              onClick={() => onViewModeChange('grid')}
-              className={`rounded-l-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
-              }`}
-            >
-              Grid
-            </button>
-            <button
-              onClick={() => onViewModeChange('day')}
-              className={`rounded-r-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                viewMode === 'day' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
-              }`}
-            >
-              Day
-            </button>
-          </div>
+          {/* Calendar / List page-level toggle */}
+          {pageView && onPageViewChange && (
+            <div className="flex rounded-lg border border-gray-200 bg-surface">
+              <button
+                onClick={() => onPageViewChange('calendar')}
+                className={`flex items-center gap-1.5 rounded-l-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  pageView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
+                }`}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Calendar
+              </button>
+              <button
+                onClick={() => onPageViewChange('list')}
+                className={`flex items-center gap-1.5 rounded-r-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  pageView === 'list' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
+                }`}
+              >
+                <List className="h-3.5 w-3.5" />
+                List
+              </button>
+            </div>
+          )}
 
-          {/* Range selector (only in grid mode) */}
-          {viewMode === 'grid' && (
+          {/* Grid / Day toggle (calendar view only) */}
+          {(!pageView || pageView === 'calendar') && (
+            <div className="flex rounded-lg border border-gray-200 bg-surface">
+              <button
+                onClick={() => onViewModeChange('grid')}
+                className={`rounded-l-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
+                }`}
+              >
+                Grid
+              </button>
+              <button
+                onClick={() => onViewModeChange('day')}
+                className={`rounded-r-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === 'day' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
+                }`}
+              >
+                Day
+              </button>
+            </div>
+          )}
+
+          {/* Range selector (only in grid mode within calendar view) */}
+          {(!pageView || pageView === 'calendar') && viewMode === 'grid' && (
             <div className="flex rounded-lg border border-gray-200 bg-surface">
               {([7, 14, 30] as ViewRange[]).map((r) => (
                 <button
@@ -270,6 +305,17 @@ export default function CalendarToolbar({
             <Printer className="h-3.5 w-3.5" />
           </button>
 
+          {/* New Reservation */}
+          {onNewReservation && (
+            <button
+              onClick={onNewReservation}
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Reservation
+            </button>
+          )}
+
           {/* Property selector */}
           {properties.length > 1 && (
             <select
@@ -287,8 +333,8 @@ export default function CalendarToolbar({
         </div>
       </div>
 
-      {/* Row 2: Date navigation */}
-      <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface px-4 py-1.5">
+      {/* Row 2: Date navigation (calendar view only) */}
+      {(!pageView || pageView === 'calendar') && <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface px-4 py-1.5">
         <button onClick={onPrev} className="rounded-md p-1 text-gray-600 hover:bg-gray-200/50">
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -306,7 +352,7 @@ export default function CalendarToolbar({
         <button onClick={onNext} className="rounded-md p-1 text-gray-600 hover:bg-gray-200/50">
           <ChevronRight className="h-4 w-4" />
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

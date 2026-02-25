@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -67,6 +67,8 @@ interface CalendarGridProps {
     from: { checkInDate: string; checkOutDate: string; roomId: string; version: number };
     to: { checkInDate?: string; checkOutDate?: string };
   }) => void;
+  onEmptyCellClick?: (roomId: string, date: string, roomTypeId: string) => void;
+  onEmptyCellContextMenu?: (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => void;
 }
 
 // ── Main Grid Component ──────────────────────────────────────────
@@ -84,6 +86,8 @@ export default function CalendarGrid({
   onContextMenu,
   onMove,
   onResize: _onResize,
+  onEmptyCellClick,
+  onEmptyCellContextMenu,
 }: CalendarGridProps) {
   const router = useRouter();
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(new Set());
@@ -327,6 +331,8 @@ export default function CalendarGrid({
                   onContextMenu={onContextMenu}
                   onShowTooltip={showTooltip}
                   onHideTooltip={hideTooltip}
+                  onEmptyCellClick={onEmptyCellClick}
+                  onEmptyCellContextMenu={onEmptyCellContextMenu}
                 />
               );
             })}
@@ -385,6 +391,8 @@ function RoomTypeSection({
   onContextMenu,
   onShowTooltip,
   onHideTooltip,
+  onEmptyCellClick,
+  onEmptyCellContextMenu,
 }: {
   group: RoomTypeGroup;
   isCollapsed: boolean;
@@ -402,6 +410,8 @@ function RoomTypeSection({
   onContextMenu: (state: ContextMenuState) => void;
   onShowTooltip: (seg: CalendarSegment, x: number, y: number) => void;
   onHideTooltip: () => void;
+  onEmptyCellClick?: (roomId: string, date: string, roomTypeId: string) => void;
+  onEmptyCellContextMenu?: (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => void;
 }) {
   return (
     <>
@@ -434,6 +444,7 @@ function RoomTypeSection({
           <RoomRow
             key={room.roomId}
             room={room}
+            roomTypeId={group.roomTypeId}
             dates={dates}
             todayStr={todayStr}
             colWidth={colWidth}
@@ -447,6 +458,8 @@ function RoomTypeSection({
             onContextMenu={onContextMenu}
             onShowTooltip={onShowTooltip}
             onHideTooltip={onHideTooltip}
+            onEmptyCellClick={onEmptyCellClick}
+            onEmptyCellContextMenu={onEmptyCellContextMenu}
           />
         ))}
     </>
@@ -457,6 +470,7 @@ function RoomTypeSection({
 
 function RoomRow({
   room,
+  roomTypeId,
   dates,
   todayStr,
   colWidth,
@@ -470,8 +484,11 @@ function RoomRow({
   onContextMenu,
   onShowTooltip,
   onHideTooltip,
+  onEmptyCellClick,
+  onEmptyCellContextMenu,
 }: {
   room: CalendarRoom;
+  roomTypeId: string;
   dates: string[];
   todayStr: string;
   colWidth: string;
@@ -485,6 +502,8 @@ function RoomRow({
   onContextMenu: (state: ContextMenuState) => void;
   onShowTooltip: (seg: CalendarSegment, x: number, y: number) => void;
   onHideTooltip: () => void;
+  onEmptyCellClick?: (roomId: string, date: string, roomTypeId: string) => void;
+  onEmptyCellContextMenu?: (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => void;
 }) {
   return (
     <tr className="group">
@@ -507,6 +526,7 @@ function RoomRow({
           <DateCell
             key={date}
             roomId={room.roomId}
+            roomTypeId={roomTypeId}
             date={date}
             bar={bar}
             oooBlock={oooBlock}
@@ -519,6 +539,8 @@ function RoomRow({
             onContextMenu={onContextMenu}
             onShowTooltip={onShowTooltip}
             onHideTooltip={onHideTooltip}
+            onEmptyCellClick={onEmptyCellClick}
+            onEmptyCellContextMenu={onEmptyCellContextMenu}
           />
         );
       })}
@@ -530,6 +552,7 @@ function RoomRow({
 
 function DateCell({
   roomId,
+  roomTypeId,
   date,
   bar,
   oooBlock,
@@ -542,8 +565,11 @@ function DateCell({
   onContextMenu,
   onShowTooltip,
   onHideTooltip,
+  onEmptyCellClick,
+  onEmptyCellContextMenu,
 }: {
   roomId: string;
+  roomTypeId: string;
   date: string;
   bar: BarInfo | undefined;
   oooBlock: OooBlock | undefined;
@@ -556,9 +582,12 @@ function DateCell({
   onContextMenu: (state: ContextMenuState) => void;
   onShowTooltip: (seg: CalendarSegment, x: number, y: number) => void;
   onHideTooltip: () => void;
+  onEmptyCellClick?: (roomId: string, date: string, roomTypeId: string) => void;
+  onEmptyCellContextMenu?: (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => void;
 }) {
   const dropId = `${roomId}:${date}`;
   const { setNodeRef, isOver } = useDroppable({ id: dropId });
+  const isEmpty = !bar && !oooBlock;
 
   return (
     <td
@@ -566,7 +595,9 @@ function DateCell({
       colSpan={bar ? bar.span : 1}
       className={`${colWidth} border-b border-gray-200 px-0.5 py-0.5 ${
         date === todayStr ? 'bg-indigo-50/50' : ''
-      } ${oooBlock && !bar ? '' : ''} ${isOver ? 'bg-green-100/50' : ''}`}
+      } ${isOver ? 'bg-green-100/50' : ''} ${isEmpty ? 'group/empty cursor-pointer hover:bg-gray-50/80' : ''}`}
+      onClick={isEmpty ? () => onEmptyCellClick?.(roomId, date, roomTypeId) : undefined}
+      onContextMenu={isEmpty ? (e) => { e.preventDefault(); onEmptyCellContextMenu?.(e, roomId, date, roomTypeId); } : undefined}
     >
       {bar ? (
         <ReservationBarCell
@@ -590,7 +621,11 @@ function DateCell({
         >
           {viewRange <= 14 ? 'OOO' : ''}
         </div>
-      ) : null}
+      ) : (
+        <div className="flex h-full min-h-[28px] items-center justify-center opacity-0 transition-opacity group-hover/empty:opacity-100">
+          <Plus className="h-3.5 w-3.5 text-gray-300" />
+        </div>
+      )}
     </td>
   );
 }
@@ -644,6 +679,8 @@ function ReservationBarCell({
           reservationId: segment.reservationId,
           status: segment.status,
           confirmationNumber: segment.confirmationNumber,
+          version: segment.version,
+          roomId: segment.roomId,
         });
       }}
       onMouseEnter={(e) => onShowTooltip(segment, e.clientX, e.clientY)}

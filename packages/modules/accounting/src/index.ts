@@ -59,6 +59,8 @@ export type { CloseOrchestratorRunResult, StepResult } from './commands/run-clos
 export { createTenantTenderType } from './commands/create-tenant-tender-type';
 export { updateTenantTenderType } from './commands/update-tenant-tender-type';
 export { deactivateTenderType } from './commands/deactivate-tender-type';
+export { saveTransactionTypeMapping } from './commands/save-transaction-type-mapping';
+export { deleteTransactionTypeMapping } from './commands/delete-transaction-type-mapping';
 
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
@@ -191,11 +193,13 @@ export {
   resolvePaymentTypeAccounts,
   resolveTaxGroupAccount,
   resolveFolioEntryTypeAccount,
+  resolveTransactionTypeMapping,
   logUnmappedEvent,
 } from './helpers/resolve-mapping';
 export type {
   SubDeptGL,
   PaymentTypeGL,
+  TransactionTypeGL,
   UnmappedEventParams,
 } from './helpers/resolve-mapping';
 export { getAccountingSettings } from './helpers/get-accounting-settings';
@@ -346,6 +350,8 @@ export {
   batchRemapSchema,
   createTenantTenderTypeSchema,
   updateTenantTenderTypeSchema,
+  saveTransactionTypeMappingSchema,
+  deleteTransactionTypeMappingSchema,
 } from './validation';
 export type {
   PostJournalEntryInput,
@@ -390,4 +396,6 @@ export type {
   BatchRemapInput,
   CreateTenantTenderTypeInput,
   UpdateTenantTenderTypeInput,
+  SaveTransactionTypeMappingInput,
+  DeleteTransactionTypeMappingInput,
 } from './validation';

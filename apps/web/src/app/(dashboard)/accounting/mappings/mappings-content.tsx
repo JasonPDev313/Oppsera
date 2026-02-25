@@ -7,10 +7,12 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  Info,
   Package,
   Plus,
   RefreshCw,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { AccountPicker, getSuggestedAccount } from '@/components/accounting/account-picker';
@@ -37,6 +39,13 @@ import { Select } from '@/components/ui/select';
 import { FNB_CATEGORY_CONFIG, TRANSACTION_TYPE_CATEGORY_LABELS, TRANSACTION_TYPE_CATEGORY_ORDER } from '@oppsera/shared';
 import type { FnbBatchCategoryKey } from '@oppsera/shared';
 import type { TransactionTypeCategory } from '@oppsera/shared';
+import {
+  getSystemTransactionType,
+  DEBIT_KIND_ACCOUNT_FILTER,
+  CREDIT_KIND_ACCOUNT_FILTER,
+  getMappedStatusRule,
+} from '@oppsera/shared/src/constants/transaction-types';
+import type { DebitKind, CreditKind } from '@oppsera/shared/src/constants/transaction-types';
 import type { SubDepartmentMapping, AccountType, TransactionTypeMapping } from '@/types/accounting';
 
 type TabKey = 'departments' | 'payments' | 'taxes' | 'fnb' | 'unmapped';
@@ -48,7 +57,7 @@ export default function MappingsContent() {
 
   const tabs: { key: TabKey; label: string; count?: number }[] = [
     { key: 'departments', label: 'Sub-Departments' },
-    { key: 'payments', label: 'Payment Types' },
+    { key: 'payments', label: 'Transaction Types' },
     { key: 'taxes', label: 'Tax Groups' },
     { key: 'fnb', label: 'F&B Categories' },
     { key: 'unmapped', label: 'Unmapped Events', count: unmappedEvents.length },
@@ -69,7 +78,7 @@ export default function MappingsContent() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[
               { label: 'Sub-Departments', ...coverage.departments },
-              { label: 'Payment Types', ...coverage.paymentTypes },
+              { label: 'Transaction Types', ...coverage.paymentTypes },
               { label: 'Tax Groups', ...coverage.taxGroups },
             ].map(({ label, mapped, total }) => (
               <div key={label}>
@@ -660,15 +669,77 @@ interface CategoryGroup {
   totalCount: number;
 }
 
-const POSTING_MODE_LABELS: Record<string, { label: string; color: string }> = {
-  clearing: { label: 'Clearing', color: 'bg-blue-100 text-blue-700' },
-  direct_bank: { label: 'Direct', color: 'bg-green-100 text-green-700' },
-  non_cash: { label: 'Non-Cash', color: 'bg-purple-100 text-purple-700' },
+const SOURCE_BADGE: Record<string, { label: string; color: string }> = {
+  manual: { label: 'Manual', color: 'bg-blue-500/10 text-blue-600 border-blue-500/30' },
+  backfilled: { label: 'Backfilled', color: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
+  auto: { label: 'Auto', color: 'bg-green-500/10 text-green-600 border-green-500/30' },
 };
+
+/** Resolve the AccountPicker filter types for a given DebitKind or CreditKind */
+function getDebitAccountTypes(code: string): readonly string[] {
+  const sysType = getSystemTransactionType(code);
+  if (!sysType) return ['asset'];
+  return DEBIT_KIND_ACCOUNT_FILTER[sysType.defaultDebitKind as DebitKind] ?? ['asset'];
+}
+
+function getCreditAccountTypes(code: string): readonly string[] {
+  const sysType = getSystemTransactionType(code);
+  if (!sysType) return ['revenue'];
+  return CREDIT_KIND_ACCOUNT_FILTER[sysType.defaultCreditKind as CreditKind] ?? ['revenue'];
+}
+
+function isDebitDisabled(code: string): boolean {
+  const sysType = getSystemTransactionType(code);
+  return sysType?.defaultDebitKind === 'none';
+}
+
+function isCreditDisabled(code: string): boolean {
+  const sysType = getSystemTransactionType(code);
+  return sysType?.defaultCreditKind === 'none';
+}
+
+/** Tooltip text for disabled pickers */
+function getDebitDisabledTooltip(category: string): string {
+  switch (category) {
+    case 'revenue': return 'Revenue type \u2014 debit side determined by payment method';
+    case 'tax': return 'Tax type \u2014 debit side determined by payment method';
+    case 'tip': return 'Tip type \u2014 debit side determined by payment method';
+    default: return 'Debit account not applicable for this type';
+  }
+}
+
+function getCreditDisabledTooltip(category: string): string {
+  switch (category) {
+    case 'tender': return 'Tender type \u2014 credit postings come from Sub-Department / Tax Group mappings';
+    default: return 'Credit account not applicable for this type';
+  }
+}
+
+/** Map mapping role for AccountPicker suggestions */
+function getDebitMappingRole(code: string): 'cash' | 'clearing' | 'expense' | undefined {
+  const sysType = getSystemTransactionType(code);
+  if (!sysType) return 'cash';
+  switch (sysType.defaultDebitKind) {
+    case 'cash_bank': return 'cash';
+    case 'clearing': return 'clearing';
+    case 'expense': case 'contra_revenue': return 'expense';
+    default: return undefined;
+  }
+}
+
+function getCreditMappingRole(code: string): 'revenue' | 'tax' | undefined {
+  const sysType = getSystemTransactionType(code);
+  if (!sysType) return 'revenue';
+  switch (sysType.defaultCreditKind) {
+    case 'revenue': return 'revenue';
+    case 'tax_payable': case 'tips_payable': case 'deposit_liability': return 'tax';
+    default: return undefined;
+  }
+}
 
 function PaymentTypeMappingsTab() {
   const { data: allTypes, isLoading, mutate } = useTransactionTypeMappings();
-  const { savePaymentTypeDefaults } = useMappingMutations();
+  const { saveTransactionTypeMapping, deleteTransactionTypeMapping } = useMappingMutations();
   const { toast } = useToast();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['tender']));
   const [isAutoMapping, setIsAutoMapping] = useState(false);
@@ -695,7 +766,6 @@ function PaymentTypeMappingsTab() {
       group.totalCount++;
       if (t.isMapped) group.mappedCount++;
     }
-    // Sort by the canonical category order
     return TRANSACTION_TYPE_CATEGORY_ORDER
       .filter((cat) => map.has(cat))
       .map((cat) => map.get(cat)!);
@@ -705,11 +775,23 @@ function PaymentTypeMappingsTab() {
   const suggestionsAvailable = useMemo(() => {
     if (!allAccounts || allAccounts.length === 0) return 0;
     let count = 0;
-    const assetAccounts = allAccounts.filter((a) => a.accountType === 'asset');
     for (const t of allTypes) {
       if (t.isMapped) continue;
-      const suggestion = getSuggestedAccount(assetAccounts, t.name, 'cash');
-      if (suggestion) count++;
+      const rule = getMappedStatusRule(t.category);
+      // For debit-driven types, look for asset accounts
+      if (rule === 'debit' || rule === 'both') {
+        const debitTypes = getDebitAccountTypes(t.code) as string[];
+        const candidates = allAccounts.filter((a) => debitTypes.includes(a.accountType));
+        const suggestion = getSuggestedAccount(candidates, t.name, getDebitMappingRole(t.code) ?? 'cash');
+        if (suggestion) { count++; continue; }
+      }
+      // For credit-driven types, look for revenue/liability accounts
+      if (rule === 'credit' || rule === 'both') {
+        const creditTypes = getCreditAccountTypes(t.code) as string[];
+        const candidates = allAccounts.filter((a) => creditTypes.includes(a.accountType));
+        const suggestion = getSuggestedAccount(candidates, t.name, getCreditMappingRole(t.code) ?? 'revenue');
+        if (suggestion) { count++; continue; }
+      }
     }
     return count;
   }, [allTypes, allAccounts]);
@@ -723,25 +805,30 @@ function PaymentTypeMappingsTab() {
     });
   };
 
-  const handleSave = async (t: TransactionTypeMapping, patch: Partial<{ cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null; expenseAccountId: string | null; postingMode: string }>) => {
+  const handleSaveMapping = async (
+    t: TransactionTypeMapping,
+    patch: { creditAccountId?: string | null; debitAccountId?: string | null },
+  ) => {
     try {
-      const res = await savePaymentTypeDefaults.mutateAsync({
-        paymentType: t.code,
-        cashAccountId: patch.cashAccountId !== undefined ? patch.cashAccountId : t.cashAccountId,
-        clearingAccountId: patch.clearingAccountId !== undefined ? patch.clearingAccountId : t.clearingAccountId,
-        feeExpenseAccountId: patch.feeExpenseAccountId !== undefined ? patch.feeExpenseAccountId : t.feeExpenseAccountId,
-        expenseAccountId: patch.expenseAccountId !== undefined ? patch.expenseAccountId : t.expenseAccountId,
-        postingMode: patch.postingMode ?? t.postingMode ?? 'clearing',
+      await saveTransactionTypeMapping.mutateAsync({
+        code: t.code,
+        creditAccountId: patch.creditAccountId !== undefined ? patch.creditAccountId : t.creditAccountId,
+        debitAccountId: patch.debitAccountId !== undefined ? patch.debitAccountId : t.debitAccountId,
       });
-      const d = (res as any)?.data;
-      if (d?.autoRemapCount > 0) {
-        toast.success(`Mapping saved. ${d.autoRemapCount} transaction(s) automatically remapped.`);
-      } else {
-        toast.success('Mapping saved');
-      }
+      toast.success('Mapping saved');
       mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save');
+    }
+  };
+
+  const handleDeleteMapping = async (t: TransactionTypeMapping) => {
+    try {
+      await deleteTransactionTypeMapping.mutateAsync({ code: t.code });
+      toast.success('Mapping cleared');
+      mutate();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to clear mapping');
     }
   };
 
@@ -751,25 +838,33 @@ function PaymentTypeMappingsTab() {
     let mapped = 0;
     let failed = 0;
 
-    const assetAccounts = allAccounts.filter((a) => a.accountType === 'asset');
-    const liabilityAccounts = allAccounts.filter((a) => a.accountType === 'liability');
-    const expenseAccounts = allAccounts.filter((a) => a.accountType === 'expense');
-
     for (const t of allTypes) {
       if (t.isMapped) continue;
-      const cashSuggestion = getSuggestedAccount(assetAccounts, t.name, 'cash');
-      if (!cashSuggestion) continue;
+      const rule = getMappedStatusRule(t.category);
+      let debitId: string | null = t.debitAccountId;
+      let creditId: string | null = t.creditAccountId;
 
-      const clearingSuggestion = getSuggestedAccount([...assetAccounts, ...liabilityAccounts], t.name, 'clearing');
-      const feeSuggestion = getSuggestedAccount(expenseAccounts, t.name, 'fee');
+      if ((rule === 'debit' || rule === 'both') && !debitId && !isDebitDisabled(t.code)) {
+        const debitTypes = getDebitAccountTypes(t.code) as string[];
+        const candidates = allAccounts.filter((a) => debitTypes.includes(a.accountType));
+        const suggestion = getSuggestedAccount(candidates, t.name, getDebitMappingRole(t.code) ?? 'cash');
+        if (suggestion) debitId = suggestion.id;
+      }
+      if ((rule === 'credit' || rule === 'both') && !creditId && !isCreditDisabled(t.code)) {
+        const creditTypes = getCreditAccountTypes(t.code) as string[];
+        const candidates = allAccounts.filter((a) => creditTypes.includes(a.accountType));
+        const suggestion = getSuggestedAccount(candidates, t.name, getCreditMappingRole(t.code) ?? 'revenue');
+        if (suggestion) creditId = suggestion.id;
+      }
+
+      // Only save if we found at least one new account
+      if (debitId === t.debitAccountId && creditId === t.creditAccountId) continue;
 
       try {
-        await savePaymentTypeDefaults.mutateAsync({
-          paymentType: t.code,
-          cashAccountId: cashSuggestion.id,
-          clearingAccountId: clearingSuggestion?.id ?? t.clearingAccountId,
-          feeExpenseAccountId: feeSuggestion?.id ?? t.feeExpenseAccountId,
-          postingMode: t.postingMode ?? 'clearing',
+        await saveTransactionTypeMapping.mutateAsync({
+          code: t.code,
+          creditAccountId: creditId,
+          debitAccountId: debitId,
         });
         mapped++;
       } catch {
@@ -894,19 +989,18 @@ function PaymentTypeMappingsTab() {
                     <thead>
                       <tr className="border-b border-gray-100 bg-gray-50">
                         <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                          Type
+                          Transaction Type
                         </th>
                         <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                          Cash/Bank Account
+                          Credit Account
                         </th>
                         <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                          Clearing Account
-                        </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
-                          Fee Expense
+                          Debit Account
                         </th>
                         <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-20">
                           Status
+                        </th>
+                        <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-12">
                         </th>
                       </tr>
                     </thead>
@@ -915,7 +1009,8 @@ function PaymentTypeMappingsTab() {
                         <TransactionTypeRow
                           key={t.id}
                           type={t}
-                          onSave={handleSave}
+                          onSave={handleSaveMapping}
+                          onDelete={handleDeleteMapping}
                         />
                       ))}
                     </tbody>
@@ -940,12 +1035,18 @@ function PaymentTypeMappingsTab() {
 function TransactionTypeRow({
   type: t,
   onSave,
+  onDelete,
 }: {
   type: TransactionTypeMapping;
-  onSave: (t: TransactionTypeMapping, patch: Partial<{ cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null; expenseAccountId: string | null; postingMode: string }>) => void;
+  onSave: (t: TransactionTypeMapping, patch: { creditAccountId?: string | null; debitAccountId?: string | null }) => void;
+  onDelete: (t: TransactionTypeMapping) => void;
 }) {
-  const mode = t.postingMode ?? 'clearing';
-  const modeInfo = POSTING_MODE_LABELS[mode] ?? { label: 'Clearing', color: 'bg-blue-100 text-blue-700' };
+  const debitDisabled = isDebitDisabled(t.code);
+  const creditDisabled = isCreditDisabled(t.code);
+  const hasMappingRow = t.creditAccountId != null || t.debitAccountId != null;
+  const sourceBadge = t.mappingSource ? SOURCE_BADGE[t.mappingSource] : null;
+
+  const isPartial = !t.isMapped && (t.creditAccountId != null || t.debitAccountId != null);
 
   return (
     <tr
@@ -953,6 +1054,7 @@ function TransactionTypeRow({
         !t.isMapped ? 'bg-amber-500/5' : ''
       }`}
     >
+      {/* Type info */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <div>
@@ -960,65 +1062,90 @@ function TransactionTypeRow({
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="text-xs font-mono text-gray-400">{t.code}</span>
               {!t.isSystem && (
-                <span className="inline-flex rounded-full bg-indigo-100 px-1.5 py-0 text-[10px] font-medium text-indigo-700">
+                <span className="inline-flex rounded-full bg-indigo-500/10 border border-indigo-500/30 px-1.5 py-0 text-[10px] font-medium text-indigo-600">
                   Custom
                 </span>
               )}
-              <span className={`inline-flex rounded-full px-1.5 py-0 text-[10px] font-medium ${modeInfo.color}`}>
-                {modeInfo.label}
-              </span>
+              {sourceBadge && (
+                <span className={`inline-flex rounded-full border px-1.5 py-0 text-[10px] font-medium ${sourceBadge.color}`}>
+                  {sourceBadge.label}
+                </span>
+              )}
             </div>
           </div>
         </div>
       </td>
+
+      {/* Credit Account */}
       <td className="px-4 py-3">
-        <AccountPicker
-          value={t.cashAccountId}
-          onChange={(v) => onSave(t, { cashAccountId: v })}
-          accountTypes={['asset']}
-          suggestFor={t.name}
-          mappingRole="cash"
-          className="w-48"
-        />
-      </td>
-      <td className="px-4 py-3">
-        <AccountPicker
-          value={t.clearingAccountId}
-          onChange={(v) => onSave(t, { clearingAccountId: v })}
-          accountTypes={['asset', 'liability']}
-          suggestFor={t.name}
-          mappingRole="clearing"
-          className="w-48"
-        />
-      </td>
-      <td className="px-4 py-3">
-        {mode === 'non_cash' ? (
-          <AccountPicker
-            value={t.expenseAccountId}
-            onChange={(v) => onSave(t, { expenseAccountId: v })}
-            accountTypes={['expense']}
-            suggestFor={t.name}
-            mappingRole="expense"
-            className="w-48"
-          />
+        {creditDisabled ? (
+          <div className="group relative flex items-center gap-1.5 text-xs text-gray-400 italic">
+            <span>N/A</span>
+            <Info className="h-3.5 w-3.5" />
+            <div className="pointer-events-none absolute bottom-full left-0 mb-1 hidden w-56 rounded-lg border border-gray-200 bg-surface p-2 text-xs text-gray-600 shadow-lg group-hover:block z-10">
+              {getCreditDisabledTooltip(t.category)}
+            </div>
+          </div>
         ) : (
           <AccountPicker
-            value={t.feeExpenseAccountId}
-            onChange={(v) => onSave(t, { feeExpenseAccountId: v })}
-            accountTypes={['expense']}
+            value={t.creditAccountId}
+            onChange={(v) => onSave(t, { creditAccountId: v })}
+            accountTypes={getCreditAccountTypes(t.code) as AccountType[]}
             suggestFor={t.name}
-            mappingRole="fee"
-            className="w-48"
+            mappingRole={getCreditMappingRole(t.code)}
+            className="w-52"
           />
         )}
       </td>
+
+      {/* Debit Account */}
+      <td className="px-4 py-3">
+        {debitDisabled ? (
+          <div className="group relative flex items-center gap-1.5 text-xs text-gray-400 italic">
+            <span>N/A</span>
+            <Info className="h-3.5 w-3.5" />
+            <div className="pointer-events-none absolute bottom-full left-0 mb-1 hidden w-56 rounded-lg border border-gray-200 bg-surface p-2 text-xs text-gray-600 shadow-lg group-hover:block z-10">
+              {getDebitDisabledTooltip(t.category)}
+            </div>
+          </div>
+        ) : (
+          <AccountPicker
+            value={t.debitAccountId}
+            onChange={(v) => onSave(t, { debitAccountId: v })}
+            accountTypes={getDebitAccountTypes(t.code) as AccountType[]}
+            suggestFor={t.name}
+            mappingRole={getDebitMappingRole(t.code)}
+            className="w-52"
+          />
+        )}
+      </td>
+
+      {/* Status */}
       <td className="px-4 py-3 text-center">
         {t.isMapped ? (
           <CheckCircle className="inline h-5 w-5 text-green-500" />
+        ) : isPartial ? (
+          <span className="inline-flex rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-xs font-medium text-amber-600">
+            Partial
+          </span>
         ) : (
-          <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+          <span className="inline-flex rounded-full bg-red-500/10 border border-red-500/30 px-2 py-0.5 text-xs font-medium text-red-600">
             Not Mapped
           </span>
+        )}
+      </td>
+
+      {/* Reset */}
+      <td className="px-4 py-3 text-center">
+        {hasMappingRow && (
+          <button
+            type="button"
+            onClick={() => onDelete(t)}
+            className="inline-flex items-center rounded p-1 text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-500"
+            title="Clear mapping"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         )}
       </td>
     </tr>

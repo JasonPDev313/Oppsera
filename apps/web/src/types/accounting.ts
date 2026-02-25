@@ -198,6 +198,14 @@ export interface TransactionTypeMapping {
   defaultDebitAccountType: string | null;
   defaultCreditAccountType: string | null;
   sortOrder: number;
+  // New Credit/Debit mapping
+  creditAccountId: string | null;
+  creditAccountDisplay: string | null;
+  debitAccountId: string | null;
+  debitAccountDisplay: string | null;
+  mappingSource: 'manual' | 'backfilled' | 'auto' | null;
+  isMapped: boolean;
+  // Legacy GL mapping (POS adapter still uses these)
   cashAccountId: string | null;
   cashAccountDisplay: string | null;
   clearingAccountId: string | null;
@@ -208,7 +216,7 @@ export interface TransactionTypeMapping {
   expenseAccountDisplay: string | null;
   postingMode: TenderPostingMode | null;
   mappingDescription: string | null;
-  isMapped: boolean;
+  // Tender type info
   tenderTypeId: string | null;
   tenderCategory: TenderCategory | null;
   requiresReference: boolean;

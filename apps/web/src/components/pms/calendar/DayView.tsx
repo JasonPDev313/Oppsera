@@ -160,6 +160,8 @@ export default function DayView({
                             reservationId: seg.reservationId,
                             status: seg.status,
                             confirmationNumber: seg.confirmationNumber,
+                            version: seg.version,
+                            roomId: seg.roomId,
                           });
                         }}
                         className="font-medium text-indigo-600 hover:underline"

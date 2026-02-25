@@ -7,8 +7,10 @@ import {
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import { tenants } from './core';
+import { locations } from './core';
 import { glAccounts } from './accounting';
 
 // ── Transaction Type Registry ─────────────────────────────────────
@@ -72,5 +74,36 @@ export const tenantTenderTypes = pgTable(
   (table) => [
     uniqueIndex('uq_tenant_tender_types_code').on(table.tenantId, table.code),
     index('idx_tenant_tender_types_active').on(table.tenantId, table.isActive),
+  ],
+);
+
+// ── GL Transaction Type Mappings ────────────────────────────────
+// Clean Credit/Debit model for all 45 transaction types.
+// Tenant-scoped with optional location override.
+// For tender types, saves write-through to payment_type_gl_defaults.
+export const glTransactionTypeMappings = pgTable(
+  'gl_transaction_type_mappings',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    transactionTypeCode: text('transaction_type_code').notNull(),
+    locationId: text('location_id').references(() => locations.id),
+    creditAccountId: text('credit_account_id').references(() => glAccounts.id),
+    debitAccountId: text('debit_account_id').references(() => glAccounts.id),
+    source: text('source').notNull().default('manual'), // 'manual' | 'backfilled' | 'auto'
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_gl_tt_mappings_tenant_code_loc')
+      .on(table.tenantId, table.transactionTypeCode)
+      .where(sql`location_id IS NULL`),
+    uniqueIndex('uq_gl_tt_mappings_tenant_code_loc_specific')
+      .on(table.tenantId, table.transactionTypeCode, table.locationId)
+      .where(sql`location_id IS NOT NULL`),
+    index('idx_gl_tt_mappings_tenant').on(table.tenantId),
+    index('idx_gl_tt_mappings_code').on(table.tenantId, table.transactionTypeCode),
   ],
 );

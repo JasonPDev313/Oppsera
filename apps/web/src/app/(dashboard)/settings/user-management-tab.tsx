@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { Edit3, Loader2, Plus, RefreshCw, Shield, UserPlus, X, Brush } from 'lucide-react';
+import { ChevronDown, Clock, Edit3, Loader2, Plus, RefreshCw, Shield, UserPlus, X } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useUsers, useRoles, useMyLocations, useInvalidateSettingsData } from '@/hooks/use-settings-data';
 import type { ManagedUser, RoleOption } from '@/hooks/use-settings-data';
 import type { PMSProperty } from '@/hooks/use-pms';
+import { LoginHistoryModal } from '@/components/settings/login-history-modal';
 
 interface AddUserForm {
   firstName: string;
@@ -97,11 +98,20 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
   const [isSaving, setIsSaving] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [hkUserId, setHkUserId] = useState<string | null>(null);
-  const [hkPropertyId, setHkPropertyId] = useState('');
-  const [hkProperties, setHkProperties] = useState<PMSProperty[]>([]);
-  const [hkSaving, setHkSaving] = useState(false);
   const [addForm, setAddForm] = useState<AddUserForm>(emptyAddForm);
+
+  // ── Login History ─────────────────────────────────────────────
+  const [loginHistoryUserId, setLoginHistoryUserId] = useState<string | null>(null);
+  const [loginHistoryUserName, setLoginHistoryUserName] = useState('');
+
+  // ── Module Designations (inside Edit modal) ───────────────────
+  const [hkProperties, setHkProperties] = useState<PMSProperty[]>([]);
+  const [editDesignations, setEditDesignations] = useState<{
+    housekeeperEnabled: boolean;
+    housekeeperPropertyId: string;
+    housekeeperExistingRecordId: string | null;
+  }>({ housekeeperEnabled: false, housekeeperPropertyId: '', housekeeperExistingRecordId: null });
+  const [designationsExpanded, setDesignationsExpanded] = useState(false);
   const [showPasswords, setShowPasswords] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     emailAddress: '',
@@ -198,9 +208,16 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
   const openEditModal = useCallback(async (userId: string) => {
     setEditLoading(true);
     setEditUserId(userId);
+    setDesignationsExpanded(false);
     try {
-      const res = await apiFetch<{ data: UserDetail }>(`/api/v1/users/${userId}`);
-      const u = res.data;
+      // Fetch user detail + housekeeper status + PMS properties in parallel
+      const [userRes, hkRes, propsRes] = await Promise.all([
+        apiFetch<{ data: UserDetail }>(`/api/v1/users/${userId}`),
+        apiFetch<{ data: Array<{ id: string; propertyId: string; propertyName: string | null; isActive: boolean }> }>(`/api/v1/pms/housekeepers/by-user?userId=${userId}`).catch(() => ({ data: [] as Array<{ id: string; propertyId: string; propertyName: string | null; isActive: boolean }> })),
+        apiFetch<{ data: PMSProperty[] }>('/api/v1/pms/properties').catch(() => ({ data: [] as PMSProperty[] })),
+      ]);
+
+      const u = userRes.data;
       setEditForm({
         firstName: u.firstName ?? '',
         lastName: u.lastName ?? '',
@@ -218,6 +235,16 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
         externalPayrollEmployeeId: u.externalPayrollEmployeeId ?? '',
         locationIds: u.locations.map((l) => l.id),
       });
+
+      // Set housekeeper designation state
+      setHkProperties(propsRes.data);
+      const activeHk = hkRes.data.find((h) => h.isActive);
+      setEditDesignations({
+        housekeeperEnabled: !!activeHk,
+        housekeeperPropertyId: activeHk?.propertyId ?? (propsRes.data.length === 1 ? propsRes.data[0]!.id : ''),
+        housekeeperExistingRecordId: activeHk?.id ?? null,
+      });
+
       setShowEditModal(true);
     } catch (error) {
       if (error instanceof ApiError) alert(error.message);
@@ -239,38 +266,6 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
     return true;
   }, [editForm]);
 
-  const openMakeHousekeeper = useCallback(async (userId: string) => {
-    setHkUserId(userId);
-    setHkPropertyId('');
-    try {
-      const res = await apiFetch<{ data: PMSProperty[] }>('/api/v1/pms/properties');
-      setHkProperties(res.data);
-      if (res.data.length === 1) setHkPropertyId(res.data[0]!.id);
-    } catch {
-      setHkProperties([]);
-    }
-  }, []);
-
-  const submitMakeHousekeeper = useCallback(async () => {
-    if (!hkUserId || !hkPropertyId) return;
-    setHkSaving(true);
-    try {
-      await apiFetch('/api/v1/pms/housekeepers/from-user', {
-        method: 'POST',
-        body: JSON.stringify({ userId: hkUserId, propertyId: hkPropertyId }),
-      });
-      const user = users.find((u) => u.id === hkUserId);
-      const prop = hkProperties.find((p) => p.id === hkPropertyId);
-      alert(`${user?.displayName ?? 'User'} is now a housekeeper at ${prop?.name ?? 'the property'}`);
-      setHkUserId(null);
-      invalidateUsers();
-    } catch (error) {
-      if (error instanceof ApiError) alert(error.message);
-    } finally {
-      setHkSaving(false);
-    }
-  }, [hkUserId, hkPropertyId, hkProperties, users, invalidateUsers]);
-
   const submitEditUser = useCallback(async () => {
     if (!canSubmitEdit || !editUserId) return;
     setIsSaving(true);
@@ -287,17 +282,27 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
           externalPayrollEmployeeId: editForm.externalPayrollEmployeeId || undefined,
         }),
       });
+
+      // Handle housekeeper designation (best-effort, don't block save)
+      if (editDesignations.housekeeperEnabled && !editDesignations.housekeeperExistingRecordId && editDesignations.housekeeperPropertyId) {
+        await apiFetch('/api/v1/pms/housekeepers/from-user', {
+          method: 'POST',
+          body: JSON.stringify({ userId: editUserId, propertyId: editDesignations.housekeeperPropertyId }),
+        }).catch(() => { /* best-effort */ });
+      }
+
       setShowEditModal(false);
       setShowEditPasswords(false);
       setEditUserId(null);
       setEditForm(emptyEditForm);
+      setEditDesignations({ housekeeperEnabled: false, housekeeperPropertyId: '', housekeeperExistingRecordId: null });
       invalidateAll();
     } catch (error) {
       if (error instanceof ApiError) alert(error.message);
     } finally {
       setIsSaving(false);
     }
-  }, [editForm, canSubmitEdit, editUserId, invalidateAll]);
+  }, [editForm, canSubmitEdit, editUserId, editDesignations, invalidateAll]);
 
   if (isLoading) {
     return (
@@ -392,12 +397,17 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
                         Edit
                       </button>
                     )}
-                    {canManage && user.status === 'active' && (
-                      <button type="button" onClick={() => openMakeHousekeeper(user.id)} className="inline-flex items-center gap-1 text-xs text-amber-600 hover:underline">
-                        <Brush className="h-3 w-3" />
-                        Make Housekeeper
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginHistoryUserId(user.id);
+                        setLoginHistoryUserName(user.displayName || `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs text-gray-600 hover:underline"
+                    >
+                      <Clock className="h-3 w-3" />
+                      Login History
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -536,52 +546,12 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
         </div>
       )}
 
-      {hkUserId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-xl border border-gray-300 bg-surface p-6 shadow-2xl">
-            <div className="mb-5 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Make Housekeeper</h3>
-              <button type="button" onClick={() => setHkUserId(null)} className="rounded-lg p-1 text-gray-500 hover:bg-gray-200/50">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="mb-4 text-sm text-gray-600">
-              Select the property where{' '}
-              <span className="font-medium text-gray-900">
-                {users.find((u) => u.id === hkUserId)?.displayName ?? 'this user'}
-              </span>{' '}
-              will be a housekeeper.
-            </p>
-            {hkProperties.length === 0 ? (
-              <p className="text-sm text-gray-500">No PMS properties found. Configure properties in PMS first.</p>
-            ) : (
-              <select
-                value={hkPropertyId}
-                onChange={(e) => setHkPropertyId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
-              >
-                <option value="" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Select Property</option>
-                {hkProperties.map((p) => (
-                  <option key={p.id} value={p.id} style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>{p.name}</option>
-                ))}
-              </select>
-            )}
-            <div className="mt-5 flex justify-end gap-3">
-              <button type="button" onClick={() => setHkUserId(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50">
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!hkPropertyId || hkSaving}
-                onClick={submitMakeHousekeeper}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {hkSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-                Assign as Housekeeper
-              </button>
-            </div>
-          </div>
-        </div>
+      {loginHistoryUserId && (
+        <LoginHistoryModal
+          userId={loginHistoryUserId}
+          userName={loginHistoryUserName}
+          onClose={() => setLoginHistoryUserId(null)}
+        />
       )}
 
       {showEditModal && (
@@ -589,7 +559,7 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
           <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-xl border border-gray-300 bg-surface p-6 shadow-2xl">
             <div className="mb-5 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Edit User</h3>
-              <button type="button" onClick={() => { setShowEditModal(false); setShowEditPasswords(false); setEditUserId(null); setEditForm(emptyEditForm); }} className="rounded-lg p-1 text-gray-500 hover:bg-gray-200/50">
+              <button type="button" onClick={() => { setShowEditModal(false); setShowEditPasswords(false); setEditUserId(null); setEditForm(emptyEditForm); setEditDesignations({ housekeeperEnabled: false, housekeeperPropertyId: '', housekeeperExistingRecordId: null }); }} className="rounded-lg p-1 text-gray-500 hover:bg-gray-200/50">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -688,9 +658,65 @@ export function UserManagementTab({ canManage }: { canManage: boolean }) {
                   ))}
                 </div>
               </div>
+
+              {/* ── Module Designations ─────────────────────────── */}
+              {hkProperties.length > 0 && (
+                <div className="md:col-span-2">
+                  <button
+                    type="button"
+                    onClick={() => setDesignationsExpanded((v) => !v)}
+                    className="flex w-full items-center justify-between rounded-lg border border-gray-300 bg-gray-100 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  >
+                    <span>Module Designations</span>
+                    <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${designationsExpanded ? 'rotate-180' : ''}`} />
+                  </button>
+                  {designationsExpanded && (
+                    <div className="mt-2 space-y-3 rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+                      {/* Housekeeper */}
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id="designation-housekeeper"
+                          checked={editDesignations.housekeeperEnabled}
+                          disabled={!!editDesignations.housekeeperExistingRecordId}
+                          onChange={(e) => setEditDesignations((p) => ({ ...p, housekeeperEnabled: e.target.checked }))}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="designation-housekeeper" className="block text-sm font-medium text-gray-900">
+                            Housekeeper
+                            {editDesignations.housekeeperExistingRecordId && (
+                              <span className="ml-2 inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">Active</span>
+                            )}
+                          </label>
+                          <p className="text-xs text-gray-500">Assign this user as a PMS housekeeper at a property.</p>
+                          {editDesignations.housekeeperEnabled && !editDesignations.housekeeperExistingRecordId && (
+                            <select
+                              value={editDesignations.housekeeperPropertyId}
+                              onChange={(e) => setEditDesignations((p) => ({ ...p, housekeeperPropertyId: e.target.value }))}
+                              className="mt-2 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                            >
+                              <option value="" style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>Select Property</option>
+                              {hkProperties.map((p) => (
+                                <option key={p.id} value={p.id} style={{ color: '#1f2937', backgroundColor: '#f9fafb' }}>{p.name}</option>
+                              ))}
+                            </select>
+                          )}
+                          {editDesignations.housekeeperExistingRecordId && (
+                            <p className="mt-1 text-xs text-gray-400">
+                              Assigned to: {hkProperties.find((p) => p.id === editDesignations.housekeeperPropertyId)?.name ?? 'Unknown property'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {/* Placeholder for future designations */}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="mt-5 flex justify-end gap-3">
-              <button type="button" onClick={() => { setShowEditModal(false); setShowEditPasswords(false); setEditUserId(null); setEditForm(emptyEditForm); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50">Cancel</button>
+              <button type="button" onClick={() => { setShowEditModal(false); setShowEditPasswords(false); setEditUserId(null); setEditForm(emptyEditForm); setEditDesignations({ housekeeperEnabled: false, housekeeperPropertyId: '', housekeeperExistingRecordId: null }); }} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50">Cancel</button>
               <button type="button" disabled={!canSubmitEdit || isSaving} onClick={submitEditUser} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
                 {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
                 Save Changes

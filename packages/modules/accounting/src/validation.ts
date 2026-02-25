@@ -186,6 +186,20 @@ export const updateTenantTenderTypeSchema = z.object({
 
 export type UpdateTenantTenderTypeInput = z.input<typeof updateTenantTenderTypeSchema>;
 
+export const saveTransactionTypeMappingSchema = z.object({
+  creditAccountId: z.string().nullable().optional(),
+  debitAccountId: z.string().nullable().optional(),
+  locationId: z.string().nullable().optional(),
+});
+
+export type SaveTransactionTypeMappingInput = z.input<typeof saveTransactionTypeMappingSchema>;
+
+export const deleteTransactionTypeMappingSchema = z.object({
+  locationId: z.string().nullable().optional(),
+});
+
+export type DeleteTransactionTypeMappingInput = z.input<typeof deleteTransactionTypeMappingSchema>;
+
 export const saveTaxGroupDefaultsSchema = z.object({
   taxPayableAccountId: z.string().nullable().optional(),
 });

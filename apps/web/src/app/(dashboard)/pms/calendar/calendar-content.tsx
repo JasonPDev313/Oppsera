@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, Loader2 } from 'lucide-react';
+import { CalendarDays, Loader2 } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
@@ -27,6 +27,8 @@ import DayView from '@/components/pms/calendar/DayView';
 import UnassignedPanel from '@/components/pms/calendar/UnassignedPanel';
 import ReservationContextMenu from '@/components/pms/calendar/ReservationContextMenu';
 import type { ContextMenuState } from '@/components/pms/calendar/ReservationContextMenu';
+import CreateReservationDialog from '@/components/pms/CreateReservationDialog';
+import ReservationListView from '@/components/pms/ReservationListView';
 
 interface Property {
   id: string;
@@ -39,6 +41,26 @@ const PMS_RESERVATION_CATALOG_ITEM_KEY = 'pms:reservation-charge-catalog-item';
 export default function CalendarContent() {
   const router = useRouter();
   const { locations } = useAuthContext();
+
+  // ── Page-level view (calendar vs list) ─────────────────────────
+  const [pageView, setPageView] = useState<'calendar' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      const param = new URLSearchParams(window.location.search).get('view');
+      if (param === 'list') return 'list';
+      return (localStorage.getItem('pms_view_mode') as 'calendar' | 'list') ?? 'calendar';
+    }
+    return 'calendar';
+  });
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [createPrefill, setCreatePrefill] = useState<{
+    checkIn?: string; checkOut?: string; roomTypeId?: string; roomId?: string;
+  }>({});
+  const [listRefreshKey, setListRefreshKey] = useState(0);
+
+  // Persist page view preference
+  useEffect(() => {
+    localStorage.setItem('pms_view_mode', pageView);
+  }, [pageView]);
 
   // ── State ───────────────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<'grid' | 'day'>('grid');
@@ -137,6 +159,7 @@ export default function CalendarContent() {
   // ── Keyboard shortcuts ────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (showCreateDialog) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       switch (e.key) {
         case 't':
@@ -300,6 +323,81 @@ export default function CalendarContent() {
     [locations, reservationCatalogItemId, terminalId, router],
   );
 
+  // ── Quick actions from context menu ───────────────────────────
+  const [isActing, setIsActing] = useState(false);
+
+  const handleCheckIn = useCallback(
+    async (reservationId: string) => {
+      if (!contextMenu?.version || !contextMenu?.roomId) {
+        router.push(`/pms/reservations/${reservationId}`);
+        return;
+      }
+      setIsActing(true);
+      try {
+        await apiFetch(`/api/v1/pms/reservations/${reservationId}/check-in`, {
+          method: 'POST',
+          body: JSON.stringify({ roomId: contextMenu.roomId, version: contextMenu.version }),
+        });
+        if (viewMode === 'grid') fetchGrid(true);
+        else fetchDay(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Check-in failed');
+      } finally {
+        setIsActing(false);
+        setContextMenu(null);
+      }
+    },
+    [contextMenu, viewMode, fetchGrid, fetchDay, router],
+  );
+
+  const handleCheckOut = useCallback(
+    async (reservationId: string) => {
+      if (!contextMenu?.version) {
+        router.push(`/pms/reservations/${reservationId}`);
+        return;
+      }
+      setIsActing(true);
+      try {
+        await apiFetch(`/api/v1/pms/reservations/${reservationId}/check-out`, {
+          method: 'POST',
+          body: JSON.stringify({ version: contextMenu.version }),
+        });
+        if (viewMode === 'grid') fetchGrid(true);
+        else fetchDay(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Check-out failed');
+      } finally {
+        setIsActing(false);
+        setContextMenu(null);
+      }
+    },
+    [contextMenu, viewMode, fetchGrid, fetchDay, router],
+  );
+
+  const handleCancel = useCallback(
+    async (reservationId: string) => {
+      if (!contextMenu?.version) {
+        router.push(`/pms/reservations/${reservationId}`);
+        return;
+      }
+      setIsActing(true);
+      try {
+        await apiFetch(`/api/v1/pms/reservations/${reservationId}/cancel`, {
+          method: 'POST',
+          body: JSON.stringify({ reason: 'Cancelled from calendar', version: contextMenu.version }),
+        });
+        if (viewMode === 'grid') fetchGrid(true);
+        else fetchDay(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Cancel failed');
+      } finally {
+        setIsActing(false);
+        setContextMenu(null);
+      }
+    },
+    [contextMenu, viewMode, fetchGrid, fetchDay, router],
+  );
+
   // ── Date click (grid header -> day view) ──────────────────────
   const handleDateClick = useCallback((date: string) => {
     setSelectedDate(date);
@@ -307,6 +405,59 @@ export default function CalendarContent() {
   }, []);
 
   const handleContextMenu = useCallback((state: ContextMenuState) => setContextMenu(state), []);
+
+  // ── Empty cell handlers (create reservation from calendar) ────
+  const computeCheckOut = useCallback((checkIn: string) => {
+    const d = new Date(`${checkIn}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return formatDate(d);
+  }, []);
+
+  const handleEmptyCellClick = useCallback(
+    (roomId: string, date: string, roomTypeId: string) => {
+      setCreatePrefill({ checkIn: date, checkOut: computeCheckOut(date), roomTypeId, roomId });
+      setShowCreateDialog(true);
+    },
+    [computeCheckOut],
+  );
+
+  const handleEmptyCellContextMenu = useCallback(
+    (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => {
+      e.preventDefault();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        reservationId: '',
+        status: '',
+        confirmationNumber: null,
+        emptyCell: { roomId, date, roomTypeId },
+      });
+    },
+    [],
+  );
+
+  const handleNewReservation = useCallback(() => {
+    setCreatePrefill({});
+    setShowCreateDialog(true);
+  }, []);
+
+  const handleNewReservationFromMenu = useCallback(
+    (roomId: string, date: string, roomTypeId: string) => {
+      setCreatePrefill({ checkIn: date, checkOut: computeCheckOut(date), roomTypeId, roomId });
+      setShowCreateDialog(true);
+    },
+    [computeCheckOut],
+  );
+
+  const handleCreateSuccess = useCallback(() => {
+    setShowCreateDialog(false);
+    if (pageView === 'calendar') {
+      if (viewMode === 'grid') fetchGrid(true);
+      else fetchDay(true);
+    } else {
+      setListRefreshKey((k) => k + 1);
+    }
+  }, [pageView, viewMode, fetchGrid, fetchDay]);
 
   // ── Derived data ───────────────────────────────────────────────
   const currentRooms = viewMode === 'grid' ? (weekData?.rooms ?? []) : (dayData?.rooms ?? []);
@@ -317,8 +468,8 @@ export default function CalendarContent() {
     <div className="space-y-3 print:space-y-2">
       {/* Header */}
       <div className="flex items-center gap-3 print:hidden">
-        <Calendar className="h-5 w-5 text-gray-500" />
-        <h1 className="text-xl font-semibold text-gray-900">Calendar</h1>
+        <CalendarDays className="h-5 w-5 text-gray-500" />
+        <h1 className="text-xl font-semibold text-gray-900">Reservations</h1>
       </div>
 
       {/* POS config row (collapsible later) */}
@@ -364,91 +515,126 @@ export default function CalendarContent() {
         rooms={currentRooms}
         segments={currentSegments}
         lastUpdatedAt={lastUpdatedRef.current}
+        pageView={pageView}
+        onPageViewChange={setPageView}
+        onNewReservation={handleNewReservation}
       />
 
-      {/* Legend */}
-      <CalendarLegend visible={showLegend} />
+      {/* Calendar view */}
+      {pageView === 'calendar' && (
+        <>
+          {/* Legend */}
+          <CalendarLegend visible={showLegend} />
 
-      {/* Stats bar */}
-      <CalendarStatsBar
-        totalRooms={viewMode === 'grid' ? (weekData?.meta.totalRooms ?? 0) : (dayData?.rooms.length ?? 0)}
-        occupancy={aggregateOccupancy}
-        lastUpdatedAt={lastUpdatedRef.current}
-      />
+          {/* Stats bar */}
+          <CalendarStatsBar
+            totalRooms={viewMode === 'grid' ? (weekData?.meta.totalRooms ?? 0) : (dayData?.rooms.length ?? 0)}
+            occupancy={aggregateOccupancy}
+            lastUpdatedAt={lastUpdatedRef.current}
+          />
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-        </div>
+          {/* Loading */}
+          {isLoading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+          )}
+
+          {/* Grid view */}
+          {!isLoading && !error && viewMode === 'grid' && weekData && (
+            <CalendarGrid
+              rooms={weekData.rooms}
+              segments={weekData.segments}
+              oooBlocks={weekData.oooBlocks}
+              dates={dates}
+              viewRange={viewRange}
+              occupancyByDate={weekData.meta.occupancyByDate}
+              totalRooms={weekData.meta.totalRooms}
+              filters={filters}
+              onDateClick={handleDateClick}
+              onContextMenu={handleContextMenu}
+              onMove={handleMove}
+              onResize={handleResize}
+              onEmptyCellClick={handleEmptyCellClick}
+              onEmptyCellContextMenu={handleEmptyCellContextMenu}
+            />
+          )}
+
+          {/* Day view */}
+          {!isLoading && !error && viewMode === 'day' && dayData && (
+            <DayView
+              rooms={dayData.rooms}
+              segments={dayData.segments}
+              oooBlocks={dayData.oooBlocks}
+              occupancy={dayData.occupancy}
+              date={selectedDate}
+              filters={filters}
+              onContextMenu={handleContextMenu}
+            />
+          )}
+
+          {/* Unassigned panel */}
+          {!isLoading && !error && unassigned.length > 0 && (
+            <UnassignedPanel
+              reservations={unassigned}
+              onClickReservation={(id) => router.push(`/pms/reservations/${id}`)}
+              onContextMenu={(e, id, status) => {
+                e.preventDefault();
+                handleContextMenu({ x: e.clientX, y: e.clientY, reservationId: id, status, confirmationNumber: null });
+              }}
+            />
+          )}
+
+          {/* Empty states */}
+          {!isLoading && !error && viewMode === 'grid' && weekData?.rooms.length === 0 && (
+            <EmptyState />
+          )}
+          {!isLoading && !error && viewMode === 'day' && dayData?.rooms.length === 0 && (
+            <EmptyState />
+          )}
+        </>
       )}
 
-      {/* Error */}
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-      )}
-
-      {/* Grid view */}
-      {!isLoading && !error && viewMode === 'grid' && weekData && (
-        <CalendarGrid
-          rooms={weekData.rooms}
-          segments={weekData.segments}
-          oooBlocks={weekData.oooBlocks}
-          dates={dates}
-          viewRange={viewRange}
-          occupancyByDate={weekData.meta.occupancyByDate}
-          totalRooms={weekData.meta.totalRooms}
-          filters={filters}
-          onDateClick={handleDateClick}
-          onContextMenu={handleContextMenu}
-          onMove={handleMove}
-          onResize={handleResize}
+      {/* List view */}
+      {pageView === 'list' && propertyId && (
+        <ReservationListView
+          propertyId={propertyId}
+          onRowClick={(id) => router.push(`/pms/reservations/${id}`)}
+          refreshKey={listRefreshKey}
         />
       )}
 
-      {/* Day view */}
-      {!isLoading && !error && viewMode === 'day' && dayData && (
-        <DayView
-          rooms={dayData.rooms}
-          segments={dayData.segments}
-          oooBlocks={dayData.oooBlocks}
-          occupancy={dayData.occupancy}
-          date={selectedDate}
-          filters={filters}
-          onContextMenu={handleContextMenu}
-        />
-      )}
-
-      {/* Unassigned panel */}
-      {!isLoading && !error && unassigned.length > 0 && (
-        <UnassignedPanel
-          reservations={unassigned}
-          onClickReservation={(id) => router.push(`/pms/reservations/${id}`)}
-          onContextMenu={(e, id, status) => {
-            e.preventDefault();
-            handleContextMenu({ x: e.clientX, y: e.clientY, reservationId: id, status, confirmationNumber: null });
-          }}
-        />
-      )}
-
-      {/* Empty states */}
-      {!isLoading && !error && viewMode === 'grid' && weekData?.rooms.length === 0 && (
-        <EmptyState />
-      )}
-      {!isLoading && !error && viewMode === 'day' && dayData?.rooms.length === 0 && (
-        <EmptyState />
-      )}
-
-      {/* Context menu */}
+      {/* Context menu (both views) */}
       {contextMenu && (
         <ReservationContextMenu
           state={contextMenu}
           onClose={() => setContextMenu(null)}
           onViewReservation={(id) => router.push(`/pms/reservations/${id}`)}
+          onCheckIn={handleCheckIn}
+          onCheckOut={handleCheckOut}
+          onCancel={handleCancel}
           onCheckInToPos={handleCheckInToPos}
-          isPostingToPos={isPostingToPos}
+          isPostingToPos={isPostingToPos || isActing}
+          onNewReservation={handleNewReservationFromMenu}
         />
       )}
+
+      {/* Create Reservation Dialog (shared across both views) */}
+      <CreateReservationDialog
+        open={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        onSuccess={handleCreateSuccess}
+        propertyId={propertyId}
+        prefillCheckIn={createPrefill.checkIn}
+        prefillCheckOut={createPrefill.checkOut}
+        prefillRoomTypeId={createPrefill.roomTypeId}
+        prefillRoomId={createPrefill.roomId}
+      />
     </div>
   );
 }
@@ -456,7 +642,7 @@ export default function CalendarContent() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-      <Calendar className="mb-2 h-10 w-10 text-gray-300" />
+      <CalendarDays className="mb-2 h-10 w-10 text-gray-300" />
       <p className="text-sm">No rooms found for this property.</p>
     </div>
   );

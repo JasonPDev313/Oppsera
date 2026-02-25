@@ -151,6 +151,46 @@ export async function resolveFolioEntryTypeAccount(
 }
 
 /**
+ * Resolve GL account mapping for a transaction type (Credit/Debit model).
+ * Returns null if no mapping is found.
+ */
+export interface TransactionTypeGL {
+  transactionTypeCode: string;
+  creditAccountId: string | null;
+  debitAccountId: string | null;
+}
+
+export async function resolveTransactionTypeMapping(
+  tx: Database,
+  tenantId: string,
+  code: string,
+  locationId?: string | null,
+): Promise<TransactionTypeGL | null> {
+  // Try location-specific first, then tenant-wide
+  const rows = await tx.execute(sql`
+    SELECT transaction_type_code, credit_account_id, debit_account_id
+    FROM gl_transaction_type_mappings
+    WHERE tenant_id = ${tenantId}
+      AND transaction_type_code = ${code}
+      AND (location_id = ${locationId ?? null} OR location_id IS NULL)
+    ORDER BY location_id IS NULL ASC
+    LIMIT 1
+  `);
+
+  const arr = Array.from(rows as Iterable<Record<string, unknown>>);
+  if (arr.length === 0) {
+    return null;
+  }
+
+  const row = arr[0]!;
+  return {
+    transactionTypeCode: String(row.transaction_type_code),
+    creditAccountId: row.credit_account_id ? String(row.credit_account_id) : null,
+    debitAccountId: row.debit_account_id ? String(row.debit_account_id) : null,
+  };
+}
+
+/**
  * Batch-fetch all sub-department GL mappings for a tenant.
  * Returns a Map keyed by subDepartmentId for O(1) lookups.
  * Replaces N sequential resolveSubDepartmentAccounts calls with 1 query.

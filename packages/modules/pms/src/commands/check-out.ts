@@ -208,6 +208,8 @@ export async function checkOut(
         subtotalCents,
         taxCents,
         totalCents,
+        checkedOutAt: new Date(),
+        checkedOutBy: ctx.user.id,
         version: sql`version + 1`,
         updatedAt: new Date(),
       })

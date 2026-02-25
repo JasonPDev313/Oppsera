@@ -229,6 +229,27 @@ export function useMappingMutations() {
     onSuccess: () => invalidate(),
   });
 
+  const saveTransactionTypeMapping = useMutation({
+    mutationFn: (input: { code: string; creditAccountId?: string | null; debitAccountId?: string | null; locationId?: string | null }) => {
+      const { code, ...body } = input;
+      return apiFetch(`/api/v1/accounting/mappings/transaction-type-mappings/${code}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+    },
+    onSuccess: () => invalidate(),
+  });
+
+  const deleteTransactionTypeMapping = useMutation({
+    mutationFn: (input: { code: string; locationId?: string | null }) => {
+      const qs = input.locationId ? `?locationId=${input.locationId}` : '';
+      return apiFetch(`/api/v1/accounting/mappings/transaction-type-mappings/${input.code}${qs}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => invalidate(),
+  });
+
   const savePaymentTypeDefaults = useMutation({
     mutationFn: (input: { paymentType: string; cashAccountId: string | null; clearingAccountId: string | null; feeExpenseAccountId: string | null; postingMode?: string; expenseAccountId?: string | null; description?: string | null }) =>
       apiFetch(`/api/v1/accounting/mappings/payment-types/${input.paymentType}`, {
@@ -247,7 +268,7 @@ export function useMappingMutations() {
     onSuccess: () => invalidate(),
   });
 
-  return { saveSubDepartmentDefaults, savePaymentTypeDefaults, saveTaxGroupDefaults };
+  return { saveSubDepartmentDefaults, savePaymentTypeDefaults, saveTaxGroupDefaults, saveTransactionTypeMapping, deleteTransactionTypeMapping };
 }
 
 // ── useUnmappedEvents ────────────────────────────────────────
