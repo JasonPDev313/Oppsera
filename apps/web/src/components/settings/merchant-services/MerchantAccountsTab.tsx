@@ -831,7 +831,6 @@ function VerifyCredentialsReport({ providerId, onClose }: { providerId: string; 
   useEffect(() => {
     verify();
     return () => reset();
-    // eslint-disable-next-line
   }, []);
 
   const statusColor = (status: VerifyCredentialRow['status']) => {

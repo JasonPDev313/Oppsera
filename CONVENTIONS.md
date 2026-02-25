@@ -7606,3 +7606,206 @@ New tabbed UI under `/settings/merchant-services` (was `/settings/payment-proces
 - **Catalog import-inventory**: added `createdItemIds` to validation failure path to fix `publishWithOutbox` inference
 - **PMS occupancy projector**: added type annotation for empty events array
 
+---
+
+## 134. Profit Centers & Terminal Selection API Consolidation
+
+### Problem
+
+The Profit Centers Settings page and Terminal Selection Screen each required 3+ sequential API calls to load data (locations → profit centers → terminals), creating waterfall latency and cascading loading states. Additionally, the terminal selection screen had no role-based access filtering — all users saw all terminals regardless of their role's access scope.
+
+### Solution: Single-Fetch + Client-Side Filtering
+
+Two new consolidated queries replace the N+3 cascading API calls:
+
+#### `getSettingsData(tenantId)` — Settings Page
+
+Single query returns all locations, profit centers, and terminals for the tenant:
+
+```typescript
+// packages/core/src/profit-centers/queries/get-settings-data.ts
+export async function getSettingsData(tenantId: string): Promise<SettingsData> {
+  return withTenant(tenantId, async (tx) => {
+    const [locationRows, pcRows, terminalRows] = await Promise.all([
+      tx.execute(sql`SELECT ... FROM locations ...`),
+      tx.execute(sql`SELECT ... FROM terminal_locations ...`),
+      tx.execute(sql`SELECT ... FROM terminals ...`),
+    ]);
+    return { locations, profitCenters, terminals };
+  });
+}
+```
+
+- **API route**: `GET /api/v1/profit-centers/settings-data` (entitlement: `platform_core`, permission: `settings.view`)
+- **Frontend hook**: `useProfitCenterSettings()` — single fetch, client-side filtering via helper functions
+
+#### `getTerminalSelectionAll(tenantId, roleId?)` — Terminal Selection Screen
+
+Single query returns all selection data with role-based access filtering:
+
+```typescript
+// packages/core/src/profit-centers/queries/get-terminal-selection-all.ts
+export async function getTerminalSelectionAll(
+  tenantId: string,
+  roleId?: string | null,
+): Promise<TerminalSelectionAllData> {
+  // Fetch role access restrictions + entity data in parallel
+  const [accessRestrictions, entityData] = await Promise.all([
+    roleId ? fetchRoleAccess(tenantId, roleId) : Promise.resolve(null),
+    withTenant(tenantId, async (tx) => { /* 3 parallel queries */ }),
+  ]);
+  // Apply role-based access filtering (empty access table = unrestricted)
+  if (accessRestrictions?.locationIds.length > 0) { /* filter locations */ }
+  if (accessRestrictions?.profitCenterIds.length > 0) { /* filter PCs */ }
+  if (accessRestrictions?.terminalIds.length > 0) { /* filter terminals */ }
+  return { locations, profitCenters, terminals };
+}
+```
+
+- **API route**: `GET /api/v1/terminal-session/all?roleId=xxx` (entitlement: `platform_core`)
+- **Frontend hook**: `useTerminalSelection(options?)` — single fetch, derived lists via `useMemo`, auto-selects single options
+
+### Key Rules
+
+1. **All 3 entity queries run in parallel** inside `withTenant` — `Promise.all([...])`, never sequential
+2. **Role access filtering is additive restriction** — empty `role_location_access` = unrestricted (see gotcha §349)
+3. **Role access tables have no RLS** — fetched via global `db.query`, not `withTenant`. Entity data uses `withTenant` for RLS.
+4. **Client-side filtering replaces cascading API calls** — `filterProfitCenters()`, `filterTerminalsByLocation()`, `filterTerminalsByPC()` are pure functions in `use-profit-center-settings.ts`
+5. **`useTerminalSelection` auto-selects single options** — if only one site, venue, PC, or terminal exists, it's auto-selected via `useEffect` chains (same pattern as before, but now instant since data is local)
+
+### `useProfitCenterSettings` Hook Pattern
+
+```typescript
+// apps/web/src/hooks/use-profit-center-settings.ts
+export function useProfitCenterSettings() {
+  // Single fetch → { locations, profitCenters, terminals }
+}
+export function filterProfitCenters(allPCs, locationId): ProfitCenter[]
+export function filterTerminalsByLocation(allTerminals, allPCs, locationId): Terminal[]
+export function filterTerminalsByPC(allTerminals, profitCenterId): Terminal[]
+export function useVenuesBySite(locations): Map<string, LocationForSettings[]>
+```
+
+The orchestrator (`profit-centers-content.tsx`) uses these helpers for instant filtering when the user clicks through the location tree — no API calls after the initial load.
+
+---
+
+## 135. Merchant Services Settings — React Query Hooks
+
+### Pattern
+
+The merchant services UI under `/settings/merchant-services` uses React Query (`@tanstack/react-query`) instead of raw `useEffect` + `apiFetch` for all data fetching. This provides automatic caching, background refetching, and mutation invalidation.
+
+### Hooks (`apps/web/src/hooks/use-payment-processors.ts`)
+
+| Hook | Query Key | Purpose |
+|---|---|---|
+| `usePaymentProviders()` | `['payment-providers']` | List all providers with credential status + MID count |
+| `useProviderCredentials(providerId)` | `['provider-credentials', id]` | Credentials for a specific provider (no decrypted values) |
+| `useMerchantAccounts(providerId)` | `['merchant-accounts', id]` | Merchant accounts with setup details (HSN, ACH, processing opts) |
+| `useTerminalAssignments()` | `['terminal-assignments']` | Terminal-to-MID assignments with enriched names |
+| `useDeviceAssignments(providerId?)` | `['device-assignments', id]` | Physical terminal device assignments |
+| `useSurchargeSettings(providerId?)` | `['surcharge-settings', id]` | Surcharge configuration per provider/location/terminal |
+| `useMerchantAccountSetup(providerId, accountId)` | `['merchant-account-setup', pid, aid]` | Full setup data (account + credentials + sandbox flag) |
+| `useVerifyCredentials(providerId)` | Mutation only | POST to verify all credentials for a provider |
+
+### Mutation Hooks
+
+- `usePaymentProcessorMutations()` — CRUD for providers, credentials, merchant accounts, terminal assignments. Each mutation invalidates relevant query keys.
+- `useDeviceAssignmentMutations()` — assign, update, remove physical devices
+- `useSurchargeMutations()` — save and delete surcharge settings
+
+### MerchantAccountsTab — Setup Panel
+
+The setup panel (`MerchantAccountSetupPanel`) provides comprehensive merchant account configuration:
+- CardPointe API credentials (site, username, password, authorization key)
+- ACH credentials (username, password) and Funding credentials
+- Account settings (HSN, ACH MID, Funding MID)
+- Terminal & processing options (card swipe, reader beep, production mode, manual entry, tip on device)
+- Sandbox/UAT test data display (test card numbers, ACH routing numbers, AVS test codes)
+- Verify credentials report showing status per MID/credential pair
+
+### Backend Query (`packages/modules/payments/src/queries/get-provider-config.ts`)
+
+Four optimized queries using subqueries to eliminate N+1:
+- `listPaymentProviders()` — providers with `hasCredentials` boolean + `merchantAccountCount` via subquery
+- `listProviderCredentials(providerId)` — credential info WITHOUT decrypted values
+- `listMerchantAccounts(providerId)` — full setup details including HSN, ACH, processing options
+- `listTerminalAssignments()` — enriched with terminal name + merchant display name via JOINs
+
+---
+
+## 136. Settings Page Consolidation
+
+### Navigation Change
+
+`/settings` now redirects to `/settings/general` via `router.replace()`. The `page.tsx` at `/settings/` is a thin redirect stub:
+
+```typescript
+// apps/web/src/app/(dashboard)/settings/page.tsx
+export default function SettingsPage() {
+  const router = useRouter();
+  useEffect(() => { router.replace('/settings/general'); }, [router]);
+  return <PageSkeleton />;
+}
+```
+
+### Settings General Page — 6-Tab Layout
+
+The `/settings/general` page (`general-info-content.tsx`) now contains a comprehensive 6-tab layout:
+
+1. **Business Info**: Business information, operations, online presence, content blocks, advanced details (see §133)
+2. **Users**: User management with invite, role assignment, status management
+3. **Roles**: RBAC management with 75+ permissions grouped by category, role details sidebar, access scope (location/profit-center/terminal scoping)
+4. **Modules**: Module enable/disable with grid/list view modes, status badges, plan tier display
+5. **Dashboard**: Widget toggle configuration, customizable dashboard notes (localStorage)
+6. **Audit Log**: Full audit log viewer with actor display, filterable
+
+### Profile Completeness
+
+The Business Info tab includes a profile completeness progress bar:
+- Calculates filled/total fields across all sections
+- Displays percentage with color coding (red < 30%, yellow < 70%, green ≥ 70%)
+- Sticky save bar with Discard/Save buttons appears when changes are dirty
+
+### Key Rules
+
+1. **`/settings` is a redirect, not a page** — all settings content lives under `/settings/general`, `/settings/profit-centers`, `/settings/merchant-services`, etc.
+2. **Tabs are URL-hash driven** — switching tabs updates `#tab-name` in the URL for bookmarkability
+3. **Settings pages are all code-split** — thin `page.tsx` + heavy `*-content.tsx` per §107
+
+---
+
+## 137. Impersonation Safety Guards
+
+### Pattern
+
+Admin impersonation sessions have safety guards that restrict dangerous operations. Guards are implemented as assertion functions that throw `ImpersonationRestrictionError` (403) when violated.
+
+### Guards (`packages/core/src/auth/impersonation-safety.ts`)
+
+```typescript
+isImpersonating(ctx: RequestContext): boolean
+assertImpersonationCanVoid(ctx, amountCents): void      // blocks voids > $500
+assertImpersonationCanRefund(ctx, amountCents): void     // blocks refunds > $500
+assertImpersonationCanModifyAccounting(ctx): void         // blocks ALL accounting changes
+assertImpersonationCanDelete(ctx): void                   // blocks ALL deletes
+assertImpersonationCanModifyPermissions(ctx): void        // blocks permission changes
+assertNotImpersonating(ctx, action: string): void         // blocks specified action entirely
+```
+
+### Key Rules
+
+1. **Amount threshold is $500** — voids and refunds over $500 are blocked during impersonation
+2. **Accounting is fully blocked** — no GL entries, no journal posting, no COA changes during impersonation
+3. **Deletes are fully blocked** — no hard or soft deletes during impersonation
+4. **Permission changes are fully blocked** — cannot modify roles or role assignments during impersonation
+5. **`ImpersonationRestrictionError`** — code `IMPERSONATION_RESTRICTED`, HTTP 403, includes the attempted action in the message
+
+### Test Coverage
+
+Tests in `packages/core/src/__tests__/impersonation-safety.test.ts` cover:
+- All guard functions with both normal and impersonating contexts
+- Amount threshold boundary testing (exact $500 allowed, $500.01 blocked)
+- Error class properties (code, status, message)
+

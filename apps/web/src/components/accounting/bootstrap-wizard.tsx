@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { CheckCircle, ChevronRight, Landmark, BookOpen, Settings2, Sparkles } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
 import Link from 'next/link';
@@ -52,6 +53,7 @@ const US_STATES = [
 
 export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [selectedState, setSelectedState] = useState<string>('');
@@ -71,6 +73,13 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
           stateName: selectedState || undefined,
         }),
       });
+      // Invalidate the caches so useAccountingBootstrapStatus picks up
+      // the new settings + accounts immediately (prevents wizard loop)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['accounting-settings'] }),
+        queryClient.invalidateQueries({ queryKey: ['gl-accounts'] }),
+        queryClient.invalidateQueries({ queryKey: ['accounting-health-summary'] }),
+      ]);
       toast.success('Accounting setup complete!');
       setStep(5);
     } catch (err: unknown) {
@@ -81,7 +90,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
     } finally {
       setIsBootstrapping(false);
     }
-  }, [selectedTemplate, selectedState, toast]);
+  }, [selectedTemplate, selectedState, toast, queryClient]);
 
   return (
     <div className="mx-auto max-w-2xl">

@@ -864,7 +864,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **~90 frontend components** with dark mode, keyboard shortcuts, loading skeletons, error boundaries
   - **16+ new DB tables**: tenant extensions, onboarding checklists, support notes, impersonation sessions, feature flags, health/system snapshots, admin searches, timeline events, onboarding templates, alert rules, notification preferences, notifications
   - **6 admin roles**: Super Admin, Platform Engineer, Implementation Specialist, Support Agent, Finance Support, Viewer — with granular permission middleware (`withAdminPermission`)
-  - **Impersonation safety**: restricted actions (no void >$500, no accounting changes), max duration, action counting, audit trail, undismissible banner in tenant app
+  - **Impersonation safety**: restricted actions (no void >$500, no accounting changes, no deletes, no permission changes), max duration, action counting, audit trail, undismissible banner in tenant app. Guard functions: `assertImpersonationCanVoid`, `assertImpersonationCanRefund`, `assertImpersonationCanModifyAccounting`, `assertImpersonationCanDelete`, `assertImpersonationCanModifyPermissions`, `assertNotImpersonating`. 25 tests in `impersonation-safety.test.ts`.
   - **Health scoring**: score 0-100 with grade (A-F), deductions for DLQ depth, error rate, unmapped GL, inactive tenants. Snapshots every 15 minutes.
   - **Alert engine**: 7 seeded rule types, cooldown mechanism, Slack webhook integration, in-app notifications with 30s polling
   - **Timeline**: unified chronological feed with fire-and-forget writes, retroactive hydration from 5 data sources, 25+ event types
@@ -927,18 +927,25 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **Commands**: `updateBusinessInfo(ctx, input)` (upsert), `updateContentBlock(ctx, blockKey, content)` (upsert) — in `packages/core/src/settings/business-info.ts`
   - **Queries**: `getBusinessInfo(tenantId)`, `getContentBlocks(tenantId)`
   - **API routes**: `GET/PATCH /api/v1/settings/business-info`, `GET/PATCH /api/v1/settings/content-blocks`
-  - **Frontend**: `/settings/general` page (code-split), 5 collapsible sections (Business Info, Operations, Online Presence, Content Blocks, Advanced)
+  - **Frontend**: `/settings/general` page (code-split) with 6-tab layout: Business Info, Users, Roles, Modules, Dashboard, Audit Log. Business Info tab has 5 collapsible sections (Business Info, Operations, Online Presence, Content Blocks, Advanced) with profile completeness progress bar
+  - **Settings redirect**: `/settings` now redirects to `/settings/general` via `router.replace()`
+  - **Roles tab**: RBAC management with 75+ permissions grouped by category, role details sidebar, access scope (location/profit-center/terminal scoping)
+  - **Modules tab**: Module enable/disable with grid/list view modes, status badges, plan tier display
+  - **Dashboard tab**: Widget toggle configuration, customizable dashboard notes (localStorage)
+  - **Audit Log tab**: Full audit log viewer with actor display, filterable
   - **Sub-components**: `BusinessHoursEditor`, `RichTextEditor` (contentEditable with toolbar), `SocialLinksEditor`, `TagInput`
   - **Hook**: `useBusinessInfo()` — loads both data sources, provides `saveInfo()` and `saveBlock()` mutations
   - **Tax ID masking**: stored encrypted, returned with bullet characters + last 4
 - **Merchant Services Settings UI** (Session 2026-02-24):
   - **5-tab layout** under `/settings/merchant-services`: ProvidersTab, MerchantAccountsTab, DevicesTab, TerminalsTab, WalletsTab
-  - **ProvidersTab**: payment provider CRUD with credential management
-  - **MerchantAccountsTab**: merchant account CRUD with terminal assignment
+  - **ProvidersTab**: payment provider CRUD with credential management, test connection, activate/deactivate
+  - **MerchantAccountsTab**: merchant account CRUD with MerchantAccountSetupPanel — full credential management (CardPointe API, ACH, Funding), account settings (HSN, MIDs), terminal processing options, sandbox test data display, credential verification report
   - **DevicesTab**: physical terminal device management (HSN mapping to CardPointe terminals)
-  - **TerminalsTab**: POS terminal assignment to merchant accounts
-  - **WalletsTab**: Apple Pay / Google Pay configuration
+  - **TerminalsTab**: POS terminal-to-MID assignment with cascading location/profit-center/terminal selectors (uses `useProfitCenterSettings` for single-fetch filtering)
+  - **WalletsTab**: Apple Pay / Google Pay configuration with auto-fill gateway MID from default merchant account
   - **Shared**: `DialogOverlay` component in `_shared.tsx`
+  - **Hooks** (`use-payment-processors.ts`): React Query-based — `usePaymentProviders`, `useProviderCredentials`, `useMerchantAccounts`, `useTerminalAssignments`, `useDeviceAssignments`, `useSurchargeSettings`, `useMerchantAccountSetup`, `useVerifyCredentials`, plus mutation hooks with automatic query invalidation
+  - **Backend queries** (`get-provider-config.ts`): `listPaymentProviders` (with subquery for credential status + MID count), `listProviderCredentials`, `listMerchantAccounts` (full setup details), `listTerminalAssignments` (enriched JOINs)
 - **Year Seed Script** (`packages/db/src/seed-year.ts`):
   - Generates 366 days of realistic transactions (~$800K–$1.2M revenue) with seasonal variation, tournament spikes, void rates (8%), cash/card mix (33%/67%)
   - Deterministic PRNG (`mulberry32(20260224)`) — same data every run
@@ -956,9 +963,22 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - F&B module index: fixed duplicate `ReceiptData` export (renamed to `FnbReceiptData`)
   - Catalog import-inventory: added `createdItemIds` to validation failure path for `publishWithOutbox` inference
   - PMS occupancy projector: type-annotated empty events array for Vercel build
+- **API Consolidation & Settings Improvements** (Session 2026-02-25):
+  - **Profit centers settings data**: new `getSettingsData(tenantId)` query — single API call replaces 3 sequential calls for locations + profit centers + terminals. API: `GET /api/v1/profit-centers/settings-data`
+  - **Terminal selection all data**: new `getTerminalSelectionAll(tenantId, roleId?)` query — single API call with role-based access filtering (uses `role_location_access`, `role_profit_center_access`, `role_terminal_access` tables). API: `GET /api/v1/terminal-session/all?roleId=xxx`
+  - **`useProfitCenterSettings` hook**: single-fetch + client-side filtering via `filterProfitCenters()`, `filterTerminalsByLocation()`, `filterTerminalsByPC()`, `useVenuesBySite()`
+  - **`useTerminalSelection` rewritten**: single API call, derived lists via `useMemo`, auto-selects single options via `useEffect` chains
+  - **Settings page redirect**: `/settings` → `/settings/general` via `router.replace()`
+  - **Settings General 6-tab layout**: Business Info (with profile completeness), Users, Roles (75+ permissions, access scope), Modules (grid/list view), Dashboard (widget toggles), Audit Log
+  - **Merchant services React Query hooks**: `usePaymentProviders`, `useMerchantAccounts`, `useTerminalAssignments`, `useDeviceAssignments`, `useSurchargeSettings`, `useMerchantAccountSetup`, `useVerifyCredentials` + mutation hooks with auto-invalidation
+  - **MerchantAccountSetupPanel**: comprehensive merchant account configuration (credentials, ACH, processing options, sandbox test data, credential verification)
+  - **TerminalsTab**: cascading location/profit-center/terminal selectors using `useProfitCenterSettings` for single-fetch filtering
+  - **Payment provider config queries**: `listPaymentProviders` (subquery for credential status + MID count), `listMerchantAccounts` (full setup details), `listTerminalAssignments` (enriched JOINs) in `get-provider-config.ts`
+  - **Impersonation safety guards**: 6 assertion functions (`assertImpersonationCanVoid`, `assertImpersonationCanRefund`, `assertImpersonationCanModifyAccounting`, `assertImpersonationCanDelete`, `assertImpersonationCanModifyPermissions`, `assertNotImpersonating`) with 25 tests
+  - **Test fixes**: updated mock patterns in onboard, account-crud, close-checklist, bulk-import tests for hoisted mock compatibility
 
 ### Test Coverage
-3330+ tests: 134 core + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 621 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
+3355+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 621 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -1029,11 +1049,11 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 
 - **Profit Centers Submodule** (`packages/core/src/profit-centers/`):
   - **7 commands**: `createProfitCenter`, `updateProfitCenter`, `deactivateProfitCenter`, `ensureDefaultProfitCenter`, `createTerminal`, `updateTerminal`, `deactivateTerminal`
-  - **7 queries**: `listProfitCenters`, `getProfitCenter`, `listTerminals`, `getTerminal`, `listTerminalsByLocation`, `getLocationsForSelection`, `getProfitCentersForSelection`, `getTerminalsForSelection`
+  - **9 queries**: `listProfitCenters`, `getProfitCenter`, `listTerminals`, `getTerminal`, `listTerminalsByLocation`, `getLocationsForSelection`, `getProfitCentersForSelection`, `getTerminalsForSelection`, `getSettingsData`, `getTerminalSelectionAll`
   - **Types**: `ProfitCenter` (with terminalCount), `Terminal`, `TerminalSession`
   - **Validation**: Zod schemas for all inputs, `allowSiteLevel` flag for site-level guardrail
-  - **~14 API routes**: CRUD for profit centers + terminals, terminal-session selection endpoints, ensure-default, by-location
-  - **Hooks**: `useProfitCenters`, `useProfitCenterMutations`, `useTerminals`, `useTerminalsByLocation`, `useTerminalMutations`
+  - **~16 API routes**: CRUD for profit centers + terminals, terminal-session selection endpoints, ensure-default, by-location, settings-data (consolidated), terminal-session/all (consolidated with role filtering)
+  - **Hooks**: `useProfitCenters`, `useProfitCenterMutations`, `useProfitCenterSettings` (consolidated settings fetch + client-side filtering), `useTerminals`, `useTerminalsByLocation`, `useTerminalMutations`
 
 - **Terminal Infrastructure Schema** (`packages/db/src/schema/terminals.ts`):
   - **9+ tables**: `terminalLocations` (profit centers), `terminals`, `terminalCardReaders`, `terminalCardReaderSettings`, `dayEndClosings`, `dayEndClosingPaymentTypes`, `dayEndClosingCashCounts`, `terminalLocationTipSuggestions`, `terminalLocationFloorPlans`, `drawerEvents`, `registerNotes`, `printers`, `printJobs`
@@ -1049,13 +1069,13 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - **Terminal Session Flow**:
   - **TerminalSelectionScreen**: Full-screen modal with 4-level cascading selects (Site → Venue → Profit Center → Terminal), auto-selects when only one option exists
   - **TerminalSessionProvider**: React Context + localStorage persistence (`oppsera:terminal-session`), provides `session`, `setSession()`, `clearSession()`
-  - **`useTerminalSelection` hook**: Manages cascading selection state, derived `sites`/`venues`, `canContinue` flag, `buildSession()` factory
+  - **`useTerminalSelection` hook**: Single API call (`GET /api/v1/terminal-session/all?roleId=xxx`) fetches all locations + profit centers + terminals, then filters client-side via `useMemo`. Supports optional `roleId` for role-based access scoping. Auto-selects single sites/venues/PCs/terminals via `useEffect` chains. Returns `buildSession()` factory for constructing `TerminalSession` object.
 
 - **Profit Centers Settings UI** (3-panel layout):
   - **LocationsPane**: Read-only site/venue tree with expand/collapse chevrons, icons (Building2/MapPin), auto-expand single site
   - **ProfitCenterPane**: CRUD list with selection highlight, MoreVertical menu (Edit/Deactivate), code badge, terminal count pill
   - **TerminalPane**: CRUD list with terminal number badge, device identifier, menu actions
-  - **Orchestrator** (`profit-centers-content.tsx`): Simple/Advanced mode toggle (localStorage), 2-col/3-col grid, selection cascade, site-level warning banner, ensure-default for Simple mode terminal add
+  - **Orchestrator** (`profit-centers-content.tsx`): Single API call via `useProfitCenterSettings()` fetches all data; client-side filtering via helper functions (`filterProfitCenters`, `filterTerminalsByLocation`, `filterTerminalsByPC`). Simple/Advanced mode toggle (localStorage), 2-col/3-col grid, selection cascade, site-level warning banner, ensure-default for Simple mode terminal add
   - **ProfitCenterFormModal**: `prefilledLocationId` + `requireSiteLevelConfirm` props for guardrail checkbox
   - **Site-level guardrail**: Backend rejects profit centers at sites with child venues unless `allowSiteLevel: true`; frontend shows yellow warning banner + confirmation checkbox
 
@@ -1659,6 +1679,13 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 366. **Year seed script is additive-only and deterministic** — `packages/db/src/seed-year.ts` uses `mulberry32(20260224)` PRNG. Running twice creates duplicate orders (no dedup). Always run on a clean DB after `pnpm db:seed`. Populates `rm_daily_sales` and `rm_item_sales` directly via ON CONFLICT upsert (bypasses event consumers). Supports `--remote` flag for production.
 367. **Portal auth default password is `member123`** — `seed-portal-auth.ts` uses a pre-computed bcrypt hash. For production members, use `add-portal-member.ts` with a custom password. Portal auth accounts use provider `'portal'` with unique constraint on `(tenant_id, customer_id, provider)`.
 368. **Settings navigation renamed** — sidebar nav for Settings → General now points to `/settings/general` (was undefined). Merchant services moved from `/settings/payment-processors` to `/settings/merchant-services`.
+369. **Profit centers settings use single-fetch + client-side filtering** — `useProfitCenterSettings()` calls `GET /api/v1/profit-centers/settings-data` once, returns `{ locations, profitCenters, terminals }`. Use `filterProfitCenters()`, `filterTerminalsByLocation()`, `filterTerminalsByPC()` for instant filtering — never make separate API calls for each level. `useVenuesBySite()` builds the site→venue map via `useMemo`.
+370. **Terminal selection uses single-fetch with role scoping** — `useTerminalSelection({ roleId })` calls `GET /api/v1/terminal-session/all?roleId=xxx` once, then derives `sites`, `venues`, `profitCenters`, `terminals` via `useMemo`. Role access filtering happens server-side via `role_location_access`, `role_profit_center_access`, `role_terminal_access` tables. Empty tables = unrestricted (gotcha #349 applies).
+371. **Merchant services hooks use React Query** — all payment processor hooks (`usePaymentProviders`, `useMerchantAccounts`, `useTerminalAssignments`, etc.) use `@tanstack/react-query` with `staleTime: 15_000–30_000`. Mutation hooks auto-invalidate relevant query keys via `queryClient.invalidateQueries()`. Never use raw `useEffect` + `apiFetch` for merchant services data.
+372. **`/settings` is a redirect, not a page** — `apps/web/src/app/(dashboard)/settings/page.tsx` redirects to `/settings/general` via `router.replace()`. All settings content lives under specific sub-routes: `/settings/general` (6-tab layout), `/settings/profit-centers`, `/settings/merchant-services`, etc. Never put settings content directly in `/settings/page.tsx`.
+373. **Impersonation safety guards throw 403** — `assertImpersonationCanVoid(ctx, amountCents)` blocks voids >$500, `assertImpersonationCanModifyAccounting(ctx)` blocks ALL accounting changes, `assertImpersonationCanDelete(ctx)` blocks ALL deletes during impersonation. All throw `ImpersonationRestrictionError` (code `IMPERSONATION_RESTRICTED`, HTTP 403). Check `isImpersonating(ctx)` for conditional logic.
+374. **`getSettingsData` runs 3 queries in parallel inside `withTenant`** — the settings data query uses `Promise.all([locations, profitCenters, terminals])` inside a single `withTenant` call. All three queries share the same RLS-scoped transaction. Never run them sequentially or in separate `withTenant` calls.
+375. **`getTerminalSelectionAll` fetches role access outside `withTenant`** — role access tables (`role_location_access`, `role_profit_center_access`, `role_terminal_access`) have no RLS and are fetched via global `db.query`. Entity data (locations, PCs, terminals) uses `withTenant` for RLS. Both run in parallel via `Promise.all`.
 
 ## Migration Rules (IMPORTANT — Multi-Agent Safety)
 
