@@ -547,13 +547,11 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   }, [pos, toast]);
 
   const handlePayClick = useCallback(() => {
-    // Switch to inline payment panel
+    // Just show the payment panel — place-and-pay handles open orders atomically.
+    // Pre-emptive place calls compete for the same FOR UPDATE lock and exhaust
+    // the Vercel connection pool (max 2), blocking the real tender request.
     setPosView('payment');
-    // Start placeOrder early — gives it the full time while user picks payment method.
-    if (pos.currentOrder && pos.currentOrder.status !== 'placed') {
-      pos.placeOrder().catch(() => {});
-    }
-  }, [pos]);
+  }, []);
 
   const handlePaymentComplete = useCallback(
     (_result: RecordTenderResult) => {

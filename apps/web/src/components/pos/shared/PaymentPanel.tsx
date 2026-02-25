@@ -70,18 +70,9 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
     if (order.status === 'placed') isPlacedRef.current = true;
   }, [order.status]);
 
-  // Place order early when panel mounts (if not already placed).
-  // handlePayClick already fires pos.placeOrder() — this is a safety net
-  // in case the panel is rendered without that call (e.g., split tender flow).
-  useEffect(() => {
-    if (order.status !== 'placed' && order.id) {
-      apiFetch(`/api/v1/orders/${order.id}/place`, {
-        method: 'POST',
-        headers: locationHeaders,
-        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
-      }).catch(() => {});
-    }
-  }, []);
+  // No preemptive place call — place-and-pay handles open orders atomically.
+  // Pre-emptive place calls compete for the same FOR UPDATE lock and exhaust
+  // the Vercel connection pool (max 2), causing the real tender to stall.
 
   // Fetch existing tenders when a type is selected (for split payments)
   useEffect(() => {

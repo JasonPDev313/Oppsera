@@ -24,11 +24,9 @@ import {
   orderLineTaxes,
   tenders,
   tenderReversals,
-  catalogCategories,
-  catalogModifierGroups,
 } from '@oppsera/db';
+import { withTenant } from '@oppsera/db';
 import { eq, and, inArray } from 'drizzle-orm';
-import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { fetchOrderForMutation, incrementVersion } from '@oppsera/core/helpers/optimistic-lock';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -69,6 +67,15 @@ export async function placeAndRecordTender(
   } catch {
     // AccountingPostingApi not initialized — legacy behavior
   }
+
+  // Closure variable for post-transaction legacy GL
+  let legacyGlData: {
+    tenderId: string; tenantId: string; locationId: string; orderId: string;
+    tenderType: string; tenderAmount: number; tipAmount: number;
+    businessDate: string; subtotal: number; taxTotal: number;
+    serviceChargeTotal: number; discountTotal: number; total: number;
+    orderLinesForGL: OrderLineForGL[]; isFullyPaid: boolean;
+  } | null = null;
 
   const result = await publishWithOutbox(ctx, async (tx) => {
     // --- Combined idempotency check (use tender's clientRequestId as the canonical key) ---
@@ -215,35 +222,25 @@ export async function placeAndRecordTender(
       packageComponents: l.packageComponents ?? null,
     }));
 
-    // Legacy GL journal entry (gated)
-    let allocationSnapshot: Record<string, unknown> | null = null;
-    if (enableLegacyGl) {
-      const journalResult = await generateJournalEntry(
-        tx,
-        {
-          id: tender.id,
-          tenantId: ctx.tenantId,
-          locationId: ctx.locationId!,
-          orderId,
-          tenderType: tenderInput.tenderType,
-          amount: tenderAmount,
-          tipAmount: tenderInput.tipAmount ?? 0,
-        },
-        {
-          businessDate: tenderInput.businessDate,
-          subtotal: order.subtotal,
-          taxTotal: order.taxTotal,
-          serviceChargeTotal: order.serviceChargeTotal,
-          discountTotal: order.discountTotal,
-          total: order.total,
-          lines: orderLinesForGL,
-        },
-        isFullyPaid,
-      );
-      allocationSnapshot = journalResult.allocationSnapshot;
-
-      await (tx as any).update(tenders).set({ allocationSnapshot }).where(eq(tenders.id, tender.id));
-    }
+    // Legacy GL is now fire-and-forget AFTER the transaction to reduce lock hold time.
+    // Capture data needed for post-transaction GL via closure.
+    legacyGlData = enableLegacyGl ? {
+      tenderId: tender.id,
+      tenantId: ctx.tenantId,
+      locationId: ctx.locationId!,
+      orderId,
+      tenderType: tenderInput.tenderType,
+      tenderAmount,
+      tipAmount: tenderInput.tipAmount ?? 0,
+      businessDate: tenderInput.businessDate,
+      subtotal: order.subtotal,
+      taxTotal: order.taxTotal,
+      serviceChargeTotal: order.serviceChargeTotal,
+      discountTotal: order.discountTotal,
+      total: order.total,
+      orderLinesForGL,
+      isFullyPaid,
+    } : null;
 
     // If fully paid, update order status
     if (isFullyPaid) {
@@ -268,38 +265,8 @@ export async function placeAndRecordTender(
     });
 
     // ========== BUILD EVENTS ==========
-    // Resolve category names + modifier groups in parallel (for order.placed event enrichment)
-    const subDeptIds = [...new Set(placedLines.map((l: any) => l.subDepartmentId).filter(Boolean))] as string[];
-    const catalogItemIds = [...new Set(placedLines.map((l: any) => l.catalogItemId).filter(Boolean))] as string[];
-    const categoryNameMap = new Map<string, string>();
-    let assignedGroupsMap = new Map<string, string[]>();
-    const modGroupMetaMap = new Map<string, { name: string; isRequired: boolean }>();
-
-    await Promise.all([
-      subDeptIds.length > 0
-        ? (tx as any).select({ id: catalogCategories.id, name: catalogCategories.name })
-            .from(catalogCategories).where(inArray(catalogCategories.id, subDeptIds))
-            .then((cats: any[]) => { for (const c of cats) categoryNameMap.set(c.id, c.name); })
-        : Promise.resolve(),
-      catalogItemIds.length > 0
-        ? (async () => {
-            try {
-              const catalogApi = getCatalogReadApi();
-              assignedGroupsMap = await catalogApi.getAssignedModifierGroupIds(ctx.tenantId, catalogItemIds);
-              const allGroupIds = [...new Set(Array.from(assignedGroupsMap.values()).flat())];
-              if (allGroupIds.length > 0) {
-                const groups = await (tx as any).select({
-                  id: catalogModifierGroups.id,
-                  name: catalogModifierGroups.name,
-                  isRequired: catalogModifierGroups.isRequired,
-                }).from(catalogModifierGroups).where(inArray(catalogModifierGroups.id, allGroupIds));
-                for (const g of groups) modGroupMetaMap.set(g.id, { name: g.name, isRequired: g.isRequired });
-              }
-            } catch { /* best-effort */ }
-          })()
-        : Promise.resolve(),
-    ]);
-
+    // Category names + modifier groups are optional enrichment — no consumer uses them
+    // for business logic. Skipping saves 2-4 DB round-trips from the locked transaction.
     const events = [];
 
     // order.placed event (only if we actually placed it)
@@ -319,7 +286,7 @@ export async function placeAndRecordTender(
         lines: placedLines.map((l: any) => ({
           catalogItemId: l.catalogItemId,
           catalogItemName: l.catalogItemName ?? 'Unknown',
-          categoryName: l.subDepartmentId ? (categoryNameMap.get(l.subDepartmentId) ?? null) : null,
+          categoryName: null,
           qty: Number(l.qty),
           unitPrice: l.unitPrice ?? 0,
           lineSubtotal: l.lineSubtotal ?? 0,
@@ -334,11 +301,7 @@ export async function placeAndRecordTender(
             instruction: m.instruction ?? null,
             isDefault: m.isDefault ?? false,
           })),
-          assignedModifierGroupIds: (assignedGroupsMap.get(l.catalogItemId) ?? []).map((gId: string) => ({
-            modifierGroupId: gId,
-            groupName: modGroupMetaMap.get(gId)?.name ?? null,
-            isRequired: modGroupMetaMap.get(gId)?.isRequired ?? false,
-          })),
+          assignedModifierGroupIds: [],
         })),
       }));
     }
@@ -378,7 +341,7 @@ export async function placeAndRecordTender(
 
     return {
       result: {
-        tender: { ...tender, allocationSnapshot },
+        tender,
         changeGiven,
         isFullyPaid,
         remainingBalance: order.total - newTotalTendered,
@@ -387,6 +350,41 @@ export async function placeAndRecordTender(
       events,
     };
   });
+
+  // Post-transaction: legacy GL journal entry (fire-and-forget, never blocks POS)
+  if (legacyGlData) {
+    withTenant(ctx.tenantId, async (glTx) => {
+      const journalResult = await generateJournalEntry(
+        glTx,
+        {
+          id: legacyGlData!.tenderId,
+          tenantId: legacyGlData!.tenantId,
+          locationId: legacyGlData!.locationId,
+          orderId: legacyGlData!.orderId,
+          tenderType: legacyGlData!.tenderType,
+          amount: legacyGlData!.tenderAmount,
+          tipAmount: legacyGlData!.tipAmount,
+        },
+        {
+          businessDate: legacyGlData!.businessDate,
+          subtotal: legacyGlData!.subtotal,
+          taxTotal: legacyGlData!.taxTotal,
+          serviceChargeTotal: legacyGlData!.serviceChargeTotal,
+          discountTotal: legacyGlData!.discountTotal,
+          total: legacyGlData!.total,
+          lines: legacyGlData!.orderLinesForGL,
+        },
+        legacyGlData!.isFullyPaid,
+      );
+      // Update tender with allocation snapshot (denormalized, non-critical)
+      await (glTx as any).update(tenders).set({
+        allocationSnapshot: journalResult.allocationSnapshot,
+      }).where(eq(tenders.id, legacyGlData!.tenderId));
+    }).catch(() => {
+      // Legacy GL failure never blocks POS — log and continue
+      console.error(`Legacy GL failed for tender in order ${orderId}`);
+    });
+  }
 
   // Fire-and-forget audit logs
   auditLog(ctx, 'order.placed', 'order', orderId).catch(() => {});
