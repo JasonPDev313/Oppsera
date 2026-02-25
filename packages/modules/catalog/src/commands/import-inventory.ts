@@ -155,7 +155,7 @@ export async function importInventory(
           categoriesCreated: 0,
           errors: validation.errors.map((e) => ({ row: e.row, message: e.message })),
         } satisfies ImportResult,
-        events: [],
+        events: [] as Array<ReturnType<typeof buildEventFromContext>>,
       };
     }
 
