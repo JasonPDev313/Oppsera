@@ -71,6 +71,9 @@ function isError(statusCode: number): boolean {
 export function recordUsage(event: UsageEvent): void {
   if (!event.tenantId || !event.moduleKey) return;
 
+  // Lazy-start flush timer on first usage event
+  if (!_flushTimer) startFlushTimer();
+
   const hourBucket = getHourBucket(event.timestamp);
   const key = `${event.tenantId}:${event.moduleKey}:${hourBucket}`;
 
@@ -122,6 +125,29 @@ export function recordUsage(event: UsageEvent): void {
 
 // ── Flush Logic ──────────────────────────────────────────────
 
+/** Once set to true, flush stops retrying — tables don't exist yet. */
+let _tablesChecked = false;
+let _tablesExist = false;
+
+async function checkTablesExist(): Promise<boolean> {
+  if (_tablesChecked) return _tablesExist;
+  try {
+    const result = await db.execute(sql`
+      SELECT 1 FROM information_schema.tables
+      WHERE table_name = 'rm_usage_hourly' LIMIT 1
+    `);
+    _tablesExist = Array.from(result as Iterable<unknown>).length > 0;
+  } catch {
+    _tablesExist = false;
+  }
+  _tablesChecked = true;
+  if (!_tablesExist) {
+    // Stop the timer — no point retrying every 30s if tables don't exist
+    stopFlushTimer();
+  }
+  return _tablesExist;
+}
+
 /**
  * Atomic swap: take ownership of the current buffer and
  * replace it with an empty one so new events accumulate fresh.
@@ -129,13 +155,20 @@ export function recordUsage(event: UsageEvent): void {
 async function flushBuffer(): Promise<void> {
   if (buffer.size === 0) return;
 
+  // Skip flush entirely if usage tables haven't been created yet
+  if (!(await checkTablesExist())) {
+    buffer.clear(); // Discard — no point growing the buffer forever
+    return;
+  }
+
   const snapshot = buffer;
   buffer = new Map();
 
   try {
     await flushToDb(snapshot);
   } catch (err) {
-    // Re-merge unflushed data back into active buffer
+    // Safe to re-merge: flushToDb uses a transaction, so on failure
+    // nothing was committed — no double-counting risk.
     for (const [key, data] of snapshot) {
       const existing = buffer.get(key);
       if (existing) {
@@ -165,41 +198,36 @@ async function flushBuffer(): Promise<void> {
 }
 
 async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
-  // Group by tenantId:moduleKey:date for daily aggregation
+  // Pre-aggregate all data in memory before touching DB
+  const hourlyRows: Array<{
+    tenantId: string; moduleKey: string; hourBucket: string;
+    requestCount: number; writeCount: number; readCount: number;
+    errorCount: number; uniqueUsers: number; totalDurationMs: number; maxDurationMs: number;
+  }> = [];
+
   const dailyMap = new Map<
     string,
     {
-      tenantId: string;
-      moduleKey: string;
-      usageDate: string;
-      requestCount: number;
-      writeCount: number;
-      readCount: number;
-      errorCount: number;
-      uniqueUsers: number;
-      totalDurationMs: number;
-      maxDurationMs: number;
+      tenantId: string; moduleKey: string; usageDate: string;
+      requestCount: number; writeCount: number; readCount: number;
+      errorCount: number; uniqueUsers: number; totalDurationMs: number; maxDurationMs: number;
     }
   >();
 
-  // Accumulate workflow daily buckets
   const workflowDailyMap = new Map<
     string,
     {
-      tenantId: string;
-      moduleKey: string;
-      workflowKey: string;
-      usageDate: string;
-      requestCount: number;
-      errorCount: number;
-      uniqueUsers: number;
+      tenantId: string; moduleKey: string; workflowKey: string; usageDate: string;
+      requestCount: number; errorCount: number; uniqueUsers: number;
     }
   >();
 
-  // Adoption tracking
   const adoptionMap = new Map<
     string,
-    { tenantId: string; moduleKey: string; requests: number; users: Set<string>; timestamp: number }
+    {
+      tenantId: string; moduleKey: string; requests: number;
+      users: Set<string>; timestamp: number; dates: Set<string>;
+    }
   >();
 
   for (const [key, data] of snapshot) {
@@ -209,28 +237,16 @@ async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
     const usageDate = getDateBucket(new Date(hourBucket).getTime());
     const uniqueUserCount = data.uniqueUsers.size;
 
-    // ── Upsert hourly ────────────────────────────────────────
-    await db.execute(sql`
-      INSERT INTO rm_usage_hourly (id, tenant_id, module_key, hour_bucket,
-        request_count, write_count, read_count, error_count, unique_users,
-        total_duration_ms, max_duration_ms, updated_at)
-      VALUES (
-        ${generateId()}, ${tenantId}, ${moduleKey}, ${hourBucket}::timestamptz,
-        ${data.requestCount}, ${data.writeCount}, ${data.readCount}, ${data.errorCount},
-        ${uniqueUserCount}, ${data.totalDurationMs}, ${data.maxDurationMs}, NOW()
-      )
-      ON CONFLICT (tenant_id, module_key, hour_bucket) DO UPDATE SET
-        request_count = rm_usage_hourly.request_count + EXCLUDED.request_count,
-        write_count = rm_usage_hourly.write_count + EXCLUDED.write_count,
-        read_count = rm_usage_hourly.read_count + EXCLUDED.read_count,
-        error_count = rm_usage_hourly.error_count + EXCLUDED.error_count,
-        unique_users = GREATEST(rm_usage_hourly.unique_users, EXCLUDED.unique_users),
-        total_duration_ms = rm_usage_hourly.total_duration_ms + EXCLUDED.total_duration_ms,
-        max_duration_ms = GREATEST(rm_usage_hourly.max_duration_ms, EXCLUDED.max_duration_ms),
-        updated_at = NOW()
-    `);
+    // Collect hourly row
+    hourlyRows.push({
+      tenantId, moduleKey, hourBucket,
+      requestCount: data.requestCount, writeCount: data.writeCount,
+      readCount: data.readCount, errorCount: data.errorCount,
+      uniqueUsers: uniqueUserCount, totalDurationMs: data.totalDurationMs,
+      maxDurationMs: data.maxDurationMs,
+    });
 
-    // ── Accumulate daily ─────────────────────────────────────
+    // Accumulate daily
     const dailyKey = `${tenantId}:${moduleKey}:${usageDate}`;
     const daily = dailyMap.get(dailyKey);
     if (daily) {
@@ -243,20 +259,15 @@ async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
       daily.maxDurationMs = Math.max(daily.maxDurationMs, data.maxDurationMs);
     } else {
       dailyMap.set(dailyKey, {
-        tenantId,
-        moduleKey,
-        usageDate,
-        requestCount: data.requestCount,
-        writeCount: data.writeCount,
-        readCount: data.readCount,
-        errorCount: data.errorCount,
-        uniqueUsers: uniqueUserCount,
-        totalDurationMs: data.totalDurationMs,
+        tenantId, moduleKey, usageDate,
+        requestCount: data.requestCount, writeCount: data.writeCount,
+        readCount: data.readCount, errorCount: data.errorCount,
+        uniqueUsers: uniqueUserCount, totalDurationMs: data.totalDurationMs,
         maxDurationMs: data.maxDurationMs,
       });
     }
 
-    // ── Accumulate workflow daily ─────────────────────────────
+    // Accumulate workflow daily
     for (const [wk, wd] of data.workflows) {
       const wdKey = `${tenantId}:${moduleKey}:${wk}:${usageDate}`;
       const existing = workflowDailyMap.get(wdKey);
@@ -266,101 +277,146 @@ async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
         existing.uniqueUsers = Math.max(existing.uniqueUsers, wd.uniqueUsers.size);
       } else {
         workflowDailyMap.set(wdKey, {
-          tenantId,
-          moduleKey,
-          workflowKey: wk,
-          usageDate,
-          requestCount: wd.requestCount,
-          errorCount: wd.errorCount,
+          tenantId, moduleKey, workflowKey: wk, usageDate,
+          requestCount: wd.requestCount, errorCount: wd.errorCount,
           uniqueUsers: wd.uniqueUsers.size,
         });
       }
     }
 
-    // ── Adoption accumulator ─────────────────────────────────
+    // Adoption accumulator — track distinct dates for active_days fix
     const adoptionKey = `${tenantId}:${moduleKey}`;
     const adopt = adoptionMap.get(adoptionKey);
     if (adopt) {
       adopt.requests += data.requestCount;
       for (const u of data.uniqueUsers) adopt.users.add(u);
       adopt.timestamp = Math.max(adopt.timestamp, new Date(hourBucket).getTime());
+      adopt.dates.add(usageDate);
     } else {
       adoptionMap.set(adoptionKey, {
-        tenantId,
-        moduleKey,
+        tenantId, moduleKey,
         requests: data.requestCount,
         users: new Set(data.uniqueUsers),
         timestamp: new Date(hourBucket).getTime(),
+        dates: new Set([usageDate]),
       });
     }
   }
 
-  // ── Flush daily aggregates ───────────────────────────────────
-  for (const d of dailyMap.values()) {
-    const avgDuration = d.requestCount > 0 ? (d.totalDurationMs / d.requestCount).toFixed(2) : '0';
-    await db.execute(sql`
-      INSERT INTO rm_usage_daily (id, tenant_id, module_key, usage_date,
-        request_count, write_count, read_count, error_count, unique_users,
-        total_duration_ms, max_duration_ms, avg_duration_ms, updated_at)
-      VALUES (
-        ${generateId()}, ${d.tenantId}, ${d.moduleKey}, ${d.usageDate}::date,
-        ${d.requestCount}, ${d.writeCount}, ${d.readCount}, ${d.errorCount},
-        ${d.uniqueUsers}, ${d.totalDurationMs}, ${d.maxDurationMs}, ${avgDuration}::numeric, NOW()
-      )
-      ON CONFLICT (tenant_id, module_key, usage_date) DO UPDATE SET
-        request_count = rm_usage_daily.request_count + EXCLUDED.request_count,
-        write_count = rm_usage_daily.write_count + EXCLUDED.write_count,
-        read_count = rm_usage_daily.read_count + EXCLUDED.read_count,
-        error_count = rm_usage_daily.error_count + EXCLUDED.error_count,
-        unique_users = GREATEST(rm_usage_daily.unique_users, EXCLUDED.unique_users),
-        total_duration_ms = rm_usage_daily.total_duration_ms + EXCLUDED.total_duration_ms,
-        max_duration_ms = GREATEST(rm_usage_daily.max_duration_ms, EXCLUDED.max_duration_ms),
-        avg_duration_ms = CASE
-          WHEN (rm_usage_daily.request_count + EXCLUDED.request_count) > 0
-          THEN ((rm_usage_daily.total_duration_ms + EXCLUDED.total_duration_ms)::numeric /
-                (rm_usage_daily.request_count + EXCLUDED.request_count))
-          ELSE 0
-        END,
-        updated_at = NOW()
-    `);
-  }
+  // ── Batch upsert all tables in a single Drizzle transaction ──
+  // IMPORTANT: Never use manual BEGIN/COMMIT via db.execute() — with
+  // postgres.js connection pooling, each db.execute() can go to a
+  // different connection, leaving connections stuck in open transactions.
+  // db.transaction() properly holds a single connection for the duration.
+  await db.transaction(async (tx) => {
+    // ── Hourly: batch in chunks of 50 ─────────────────────────
+    for (let i = 0; i < hourlyRows.length; i += 50) {
+      const chunk = hourlyRows.slice(i, i + 50);
+      const values = chunk.map(
+        (r) =>
+          sql`(${generateId()}, ${r.tenantId}, ${r.moduleKey}, ${r.hourBucket}::timestamptz,
+               ${r.requestCount}, ${r.writeCount}, ${r.readCount}, ${r.errorCount},
+               ${r.uniqueUsers}, ${r.totalDurationMs}, ${r.maxDurationMs}, NOW())`,
+      );
+      await tx.execute(sql`
+        INSERT INTO rm_usage_hourly (id, tenant_id, module_key, hour_bucket,
+          request_count, write_count, read_count, error_count, unique_users,
+          total_duration_ms, max_duration_ms, updated_at)
+        VALUES ${sql.join(values, sql`, `)}
+        ON CONFLICT (tenant_id, module_key, hour_bucket) DO UPDATE SET
+          request_count = rm_usage_hourly.request_count + EXCLUDED.request_count,
+          write_count = rm_usage_hourly.write_count + EXCLUDED.write_count,
+          read_count = rm_usage_hourly.read_count + EXCLUDED.read_count,
+          error_count = rm_usage_hourly.error_count + EXCLUDED.error_count,
+          unique_users = GREATEST(rm_usage_hourly.unique_users, EXCLUDED.unique_users),
+          total_duration_ms = rm_usage_hourly.total_duration_ms + EXCLUDED.total_duration_ms,
+          max_duration_ms = GREATEST(rm_usage_hourly.max_duration_ms, EXCLUDED.max_duration_ms),
+          updated_at = NOW()
+      `);
+    }
 
-  // ── Flush workflow daily ─────────────────────────────────────
-  for (const w of workflowDailyMap.values()) {
-    await db.execute(sql`
-      INSERT INTO rm_usage_workflow_daily (id, tenant_id, module_key, workflow_key, usage_date,
-        request_count, error_count, unique_users, updated_at)
-      VALUES (
-        ${generateId()}, ${w.tenantId}, ${w.moduleKey}, ${w.workflowKey}, ${w.usageDate}::date,
-        ${w.requestCount}, ${w.errorCount}, ${w.uniqueUsers}, NOW()
-      )
-      ON CONFLICT (tenant_id, module_key, workflow_key, usage_date) DO UPDATE SET
-        request_count = rm_usage_workflow_daily.request_count + EXCLUDED.request_count,
-        error_count = rm_usage_workflow_daily.error_count + EXCLUDED.error_count,
-        unique_users = GREATEST(rm_usage_workflow_daily.unique_users, EXCLUDED.unique_users),
-        updated_at = NOW()
-    `);
-  }
+    // ── Daily: batch upsert ─────────────────────────────────────
+    const dailyRows = Array.from(dailyMap.values());
+    for (let i = 0; i < dailyRows.length; i += 50) {
+      const chunk = dailyRows.slice(i, i + 50);
+      const values = chunk.map((d) => {
+        const avgDuration = d.requestCount > 0 ? (d.totalDurationMs / d.requestCount).toFixed(2) : '0';
+        return sql`(${generateId()}, ${d.tenantId}, ${d.moduleKey}, ${d.usageDate}::date,
+                    ${d.requestCount}, ${d.writeCount}, ${d.readCount}, ${d.errorCount},
+                    ${d.uniqueUsers}, ${d.totalDurationMs}, ${d.maxDurationMs}, ${avgDuration}::numeric, NOW())`;
+      });
+      await tx.execute(sql`
+        INSERT INTO rm_usage_daily (id, tenant_id, module_key, usage_date,
+          request_count, write_count, read_count, error_count, unique_users,
+          total_duration_ms, max_duration_ms, avg_duration_ms, updated_at)
+        VALUES ${sql.join(values, sql`, `)}
+        ON CONFLICT (tenant_id, module_key, usage_date) DO UPDATE SET
+          request_count = rm_usage_daily.request_count + EXCLUDED.request_count,
+          write_count = rm_usage_daily.write_count + EXCLUDED.write_count,
+          read_count = rm_usage_daily.read_count + EXCLUDED.read_count,
+          error_count = rm_usage_daily.error_count + EXCLUDED.error_count,
+          unique_users = GREATEST(rm_usage_daily.unique_users, EXCLUDED.unique_users),
+          total_duration_ms = rm_usage_daily.total_duration_ms + EXCLUDED.total_duration_ms,
+          max_duration_ms = GREATEST(rm_usage_daily.max_duration_ms, EXCLUDED.max_duration_ms),
+          avg_duration_ms = CASE
+            WHEN (rm_usage_daily.request_count + EXCLUDED.request_count) > 0
+            THEN ((rm_usage_daily.total_duration_ms + EXCLUDED.total_duration_ms)::numeric /
+                  (rm_usage_daily.request_count + EXCLUDED.request_count))
+            ELSE 0
+          END,
+          updated_at = NOW()
+      `);
+    }
 
-  // ── Flush adoption ───────────────────────────────────────────
-  for (const a of adoptionMap.values()) {
-    const now = new Date(a.timestamp).toISOString();
-    await db.execute(sql`
-      INSERT INTO rm_usage_module_adoption (id, tenant_id, module_key,
-        first_used_at, last_used_at, total_requests, total_unique_users, active_days, is_active, updated_at)
-      VALUES (
-        ${generateId()}, ${a.tenantId}, ${a.moduleKey},
-        ${now}::timestamptz, ${now}::timestamptz, ${a.requests}, ${a.users.size}, 1, true, NOW()
-      )
-      ON CONFLICT (tenant_id, module_key) DO UPDATE SET
-        last_used_at = GREATEST(rm_usage_module_adoption.last_used_at, EXCLUDED.last_used_at),
-        total_requests = rm_usage_module_adoption.total_requests + EXCLUDED.total_requests,
-        total_unique_users = GREATEST(rm_usage_module_adoption.total_unique_users, EXCLUDED.total_unique_users),
-        active_days = rm_usage_module_adoption.active_days + 1,
-        is_active = true,
-        updated_at = NOW()
-    `);
-  }
+    // ── Workflow daily: batch upsert ────────────────────────────
+    const wfRows = Array.from(workflowDailyMap.values());
+    for (let i = 0; i < wfRows.length; i += 50) {
+      const chunk = wfRows.slice(i, i + 50);
+      const values = chunk.map(
+        (w) =>
+          sql`(${generateId()}, ${w.tenantId}, ${w.moduleKey}, ${w.workflowKey}, ${w.usageDate}::date,
+               ${w.requestCount}, ${w.errorCount}, ${w.uniqueUsers}, NOW())`,
+      );
+      await tx.execute(sql`
+        INSERT INTO rm_usage_workflow_daily (id, tenant_id, module_key, workflow_key, usage_date,
+          request_count, error_count, unique_users, updated_at)
+        VALUES ${sql.join(values, sql`, `)}
+        ON CONFLICT (tenant_id, module_key, workflow_key, usage_date) DO UPDATE SET
+          request_count = rm_usage_workflow_daily.request_count + EXCLUDED.request_count,
+          error_count = rm_usage_workflow_daily.error_count + EXCLUDED.error_count,
+          unique_users = GREATEST(rm_usage_workflow_daily.unique_users, EXCLUDED.unique_users),
+          updated_at = NOW()
+      `);
+    }
+
+    // ── Adoption: batch upsert with date-aware active_days ──────
+    const adoptRows = Array.from(adoptionMap.values());
+    for (let i = 0; i < adoptRows.length; i += 50) {
+      const chunk = adoptRows.slice(i, i + 50);
+      const values = chunk.map((a) => {
+        const now = new Date(a.timestamp).toISOString();
+        return sql`(${generateId()}, ${a.tenantId}, ${a.moduleKey},
+                    ${now}::timestamptz, ${now}::timestamptz, ${a.requests}, ${a.users.size},
+                    ${a.dates.size}, true, NOW())`;
+      });
+      await tx.execute(sql`
+        INSERT INTO rm_usage_module_adoption (id, tenant_id, module_key,
+          first_used_at, last_used_at, total_requests, total_unique_users, active_days, is_active, updated_at)
+        VALUES ${sql.join(values, sql`, `)}
+        ON CONFLICT (tenant_id, module_key) DO UPDATE SET
+          last_used_at = GREATEST(rm_usage_module_adoption.last_used_at, EXCLUDED.last_used_at),
+          total_requests = rm_usage_module_adoption.total_requests + EXCLUDED.total_requests,
+          total_unique_users = GREATEST(rm_usage_module_adoption.total_unique_users, EXCLUDED.total_unique_users),
+          active_days = rm_usage_module_adoption.active_days + CASE
+            WHEN date_trunc('day', rm_usage_module_adoption.last_used_at) < date_trunc('day', EXCLUDED.last_used_at)
+            THEN EXCLUDED.active_days
+            ELSE 0
+          END,
+          is_active = true,
+          updated_at = NOW()
+      `);
+    }
+  });
 }
 
 // ── ID Generation ────────────────────────────────────────────
@@ -396,5 +452,8 @@ export async function forceFlush(): Promise<void> {
   await flushBuffer();
 }
 
-// Auto-start on first import
-startFlushTimer();
+// Auto-start on first import — but only if not in a build/compilation step
+// and only after a short delay to let the DB connection pool initialize.
+// The caller (withMiddleware) is responsible for calling startFlushTimer()
+// explicitly if needed via instrumentation.ts.
+// startFlushTimer(); — disabled: auto-start causes DB errors if migration 0203 hasn't been run
