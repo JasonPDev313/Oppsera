@@ -64,10 +64,13 @@ const ADMIN_SESSION = {
 };
 
 function makeRequest(url: string, options: RequestInit = {}): NextRequest {
-  return new Request(`http://localhost${url}`, {
+  const req = new Request(`http://localhost${url}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
-  }) as unknown as NextRequest;
+  });
+  // Add nextUrl to mimic NextRequest (plain Request doesn't have it)
+  (req as Record<string, unknown>).nextUrl = new URL(req.url);
+  return req as unknown as NextRequest;
 }
 
 // ── Tests ────────────────────────────────────────────────────────
@@ -170,7 +173,9 @@ describe('POST /api/v1/eval/turns/[id]/review', () => {
 
     expect(res.status).toBe(200);
     expect(mockSubmitAdminReview).toHaveBeenCalledWith(
-      expect.objectContaining({ turnId: 'turn_001', adminId: 'admin_001', verdict: 'correct' }),
+      'turn_001',
+      'admin_001',
+      expect.objectContaining({ verdict: 'correct', score: 5 }),
     );
   });
 });
@@ -205,14 +210,14 @@ describe('GET /api/v1/eval/dashboard', () => {
 
   it('returns dashboard data', async () => {
     const mockDashboard = {
-      avgUserRating: 4.2,
+      overallAvgUserRating: 4.2,
+      overallAvgAdminScore: 3.8,
       totalTurns: 100,
-      hallucinationRate: 2.5,
-      clarificationRate: 8.0,
-      ratingDistribution: [],
-      hallucinationTrend: [],
-      clarificationTrend: [],
-      execTimeTrend: [],
+      reviewedTurns: 50,
+      ratingDistribution: {},
+      hallucinationRateTrend: [],
+      clarificationRateTrend: [],
+      avgExecutionTimeTrend: [],
       byLens: [],
     };
     mockGetQualityDashboard.mockResolvedValue(mockDashboard);
