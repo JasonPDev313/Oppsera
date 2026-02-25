@@ -56,6 +56,9 @@ export async function placeAndRecordTender(
   if (!tenderInput.clientRequestId) {
     throw new ValidationError('clientRequestId is required for tender operations');
   }
+  if (tenderInput.amountGiven <= 0) {
+    throw new ValidationError('amountGiven must be at least 1 cent');
+  }
 
   // Pre-fetch accounting settings OUTSIDE the transaction (read-only, non-critical)
   let enableLegacyGl = true;

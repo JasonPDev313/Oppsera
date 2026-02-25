@@ -78,6 +78,11 @@ describe('recordTenderSchema', () => {
     }
   });
 
+  it('should reject zero amountGiven', () => {
+    const result = recordTenderSchema.safeParse({ ...validInput, amountGiven: 0 });
+    expect(result.success).toBe(false);
+  });
+
   it('should reject negative amountGiven', () => {
     const result = recordTenderSchema.safeParse({ ...validInput, amountGiven: -100 });
     expect(result.success).toBe(false);

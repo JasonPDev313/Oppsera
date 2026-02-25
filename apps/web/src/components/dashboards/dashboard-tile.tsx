@@ -48,12 +48,47 @@ function NoData() {
 }
 
 // ── Chart Renderers ──────────────────────────────────────────
-const CHART_PRIMARY = '#6366f1';
+const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'];
 const CHART_GRID = '#e5e7eb';
 
+/** Detect whether a column holds numeric data by sampling the first non-null value */
+function isNumericColumn(rows: Record<string, unknown>[], col: string): boolean {
+  for (const row of rows) {
+    const val = row[col];
+    if (val == null || val === '') continue;
+    return typeof val === 'number' || !isNaN(Number(val));
+  }
+  return false;
+}
+
+/** Split columns into a label (x-axis) column and numeric value columns */
+function classifyColumns(
+  columns: string[],
+  rows: Record<string, unknown>[],
+): { xKey: string | null; valueKeys: string[] } {
+  const numericCols: string[] = [];
+  const labelCols: string[] = [];
+
+  for (const col of columns) {
+    if (isNumericColumn(rows, col)) {
+      numericCols.push(col);
+    } else {
+      labelCols.push(col);
+    }
+  }
+
+  // Use the first non-numeric column as x-axis; fall back to the first column
+  const xKey = labelCols[0] ?? columns[0] ?? null;
+  // Value keys are all numeric columns (exclude xKey if it ended up there)
+  const valueKeys = numericCols.filter((c) => c !== xKey);
+
+  return { xKey, valueKeys };
+}
+
 function LineChartTile({ data }: { data: RunReportResult }) {
-  const xKey = data.columns[0]!;
-  const valueKeys = data.columns.slice(1);
+  const { xKey, valueKeys } = classifyColumns(data.columns, data.rows);
+
+  if (!xKey || valueKeys.length === 0) return <NoData />;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -78,10 +113,9 @@ function LineChartTile({ data }: { data: RunReportResult }) {
             key={key}
             type="monotone"
             dataKey={key}
-            stroke={CHART_PRIMARY}
+            stroke={CHART_COLORS[i % CHART_COLORS.length]}
             strokeWidth={2}
             dot={false}
-            strokeOpacity={1 - i * 0.2}
           />
         ))}
       </LineChart>
@@ -90,8 +124,9 @@ function LineChartTile({ data }: { data: RunReportResult }) {
 }
 
 function BarChartTile({ data }: { data: RunReportResult }) {
-  const xKey = data.columns[0]!;
-  const yKey = data.columns[1] ?? data.columns[0]!;
+  const { xKey, valueKeys } = classifyColumns(data.columns, data.rows);
+
+  if (!xKey || valueKeys.length === 0) return <NoData />;
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -111,7 +146,14 @@ function BarChartTile({ data }: { data: RunReportResult }) {
             fontSize: '0.75rem',
           }}
         />
-        <Bar dataKey={yKey} fill={CHART_PRIMARY} radius={[4, 4, 0, 0]} />
+        {valueKeys.map((key, i) => (
+          <Bar
+            key={key}
+            dataKey={key}
+            fill={CHART_COLORS[i % CHART_COLORS.length]}
+            radius={[4, 4, 0, 0]}
+          />
+        ))}
       </BarChart>
     </ResponsiveContainer>
   );

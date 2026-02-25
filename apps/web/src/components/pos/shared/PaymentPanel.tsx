@@ -70,27 +70,16 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
     if (order.status === 'placed') isPlacedRef.current = true;
   }, [order.status]);
 
-  // Start placeOrder early when panel mounts
+  // Place order early when panel mounts (if not already placed).
+  // handlePayClick already fires pos.placeOrder() — this is a safety net
+  // in case the panel is rendered without that call (e.g., split tender flow).
   useEffect(() => {
     if (order.status !== 'placed' && order.id) {
-      apiFetch(`/api/v1/orders/${order.id}/place-and-pay`, {
+      apiFetch(`/api/v1/orders/${order.id}/place`, {
         method: 'POST',
         headers: locationHeaders,
-        body: JSON.stringify({
-          clientRequestId: crypto.randomUUID(),
-          placeClientRequestId: crypto.randomUUID(),
-          orderId: order.id,
-          tenderType: 'cash',
-          amountGiven: 0,
-          tipAmount: 0,
-          terminalId: config.terminalId,
-          employeeId: user?.id ?? '',
-          businessDate: todayBusinessDate(),
-          posMode: config.posMode,
-        }),
+        body: JSON.stringify({ clientRequestId: crypto.randomUUID() }),
       }).catch(() => {});
-      // This will fail with amountGiven=0, but the server places the order first.
-      // Actually, let's just call placeOrder if there's a dedicated endpoint.
     }
   }, []);
 

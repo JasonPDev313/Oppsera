@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Sparkles, Trash2, ToggleLeft, ToggleRight, Download, History,
@@ -16,10 +16,19 @@ import { NotificationBell } from '@/components/insights/NotificationBell';
 import { VoiceInput } from '@/components/insights/VoiceInput';
 import { apiFetch } from '@/lib/api-client';
 import { exportSessionAsTxt } from '@/lib/export-chat';
+import { useEntitlements } from '@/hooks/use-entitlements';
 
 // ── Suggested questions ───────────────────────────────────────────
 
-const SUGGESTIONS = [
+const DEFAULT_SUGGESTIONS = [
+  'What were our total sales this week?',
+  'Show me revenue by department this month',
+  'Which items sold the most last week?',
+  'What was our average order value this month?',
+  'Compare sales by day this week vs last week',
+];
+
+const GOLF_SUGGESTIONS = [
   'How many rounds were played yesterday?',
   'What was our green fee revenue this week?',
   'Show me rounds by booking channel this month',
@@ -64,6 +73,11 @@ export default function InsightsContent() {
   const sessionLoadedRef = useRef(false);
   const isEmpty = messages.length === 0;
   const elapsed = useElapsedSeconds(isLoading);
+  const { isModuleEnabled } = useEntitlements();
+  const suggestions = useMemo(
+    () => isModuleEnabled('golf_reporting') ? GOLF_SUGGESTIONS : DEFAULT_SUGGESTIONS,
+    [isModuleEnabled],
+  );
 
   // History sidebar state
   const [historyOpen, setHistoryOpen] = useState(() => {
@@ -257,12 +271,12 @@ export default function InsightsContent() {
                   Ask anything about your business
                 </h2>
                 <p className="text-muted-foreground max-w-sm text-sm mb-8">
-                  Get instant answers from your data — rounds played, revenue, utilization, and more.
+                  Get instant answers from your data — sales, revenue, inventory, and more.
                 </p>
 
                 {/* Suggested questions */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
-                  {SUGGESTIONS.map((suggestion) => (
+                  {suggestions.map((suggestion) => (
                     <button
                       key={suggestion}
                       onClick={() => handleSendMessage(suggestion)}

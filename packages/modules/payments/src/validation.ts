@@ -5,7 +5,7 @@ export const recordTenderSchema = z.object({
   clientRequestId: z.string().min(1).max(128), // REQUIRED
   orderId: z.string().min(1),
   tenderType: z.string().min(1).max(50), // Accepts any registered tender type code
-  amountGiven: z.number().int().min(0), // cents
+  amountGiven: z.number().int().min(1), // cents — must be at least 1 cent
   tipAmount: z.number().int().min(0).default(0),
   terminalId: z.string().min(1),
   employeeId: z.string().min(1),
