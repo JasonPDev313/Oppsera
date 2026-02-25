@@ -530,7 +530,7 @@ describe('Orders Module', () => {
 
   describe('Validation Schemas', () => {
     it('openOrderSchema accepts minimal input', () => {
-      expect(openOrderSchema.safeParse({}).success).toBe(true);
+      expect(openOrderSchema.safeParse({ clientRequestId: 'cr_1' }).success).toBe(true);
     });
 
     it('openOrderSchema accepts full input', () => {
@@ -557,7 +557,7 @@ describe('Orders Module', () => {
     it('addLineItemSchema requires catalogItemId and qty', () => {
       expect(addLineItemSchema.safeParse({}).success).toBe(false);
       expect(
-        addLineItemSchema.safeParse({ catalogItemId: 'item_01', qty: 1 })
+        addLineItemSchema.safeParse({ clientRequestId: 'cr_1', catalogItemId: 'item_01', qty: 1 })
           .success,
       ).toBe(true);
     });
@@ -565,6 +565,7 @@ describe('Orders Module', () => {
     it('addLineItemSchema accepts modifiers and price override', () => {
       expect(
         addLineItemSchema.safeParse({
+          clientRequestId: 'cr_1',
           catalogItemId: 'item_01',
           qty: 2,
           modifiers: [
@@ -594,17 +595,17 @@ describe('Orders Module', () => {
     it('voidOrderSchema requires reason', () => {
       expect(voidOrderSchema.safeParse({}).success).toBe(false);
       expect(
-        voidOrderSchema.safeParse({ reason: 'Customer left' }).success,
+        voidOrderSchema.safeParse({ clientRequestId: 'cr_1', reason: 'Customer left' }).success,
       ).toBe(true);
     });
 
     it('applyDiscountSchema validates type and value', () => {
       expect(
-        applyDiscountSchema.safeParse({ type: 'percentage', value: 10 })
+        applyDiscountSchema.safeParse({ clientRequestId: 'cr_1', type: 'percentage', value: 10 })
           .success,
       ).toBe(true);
       expect(
-        applyDiscountSchema.safeParse({ type: 'fixed', value: 5 }).success,
+        applyDiscountSchema.safeParse({ clientRequestId: 'cr_1', type: 'fixed', value: 5 }).success,
       ).toBe(true);
       expect(
         applyDiscountSchema.safeParse({ type: 'bogus', value: 10 }).success,
@@ -859,7 +860,7 @@ describe('Orders Module', () => {
         'mobile',
         'api',
       ] as const) {
-        expect(openOrderSchema.safeParse({ source }).success).toBe(true);
+        expect(openOrderSchema.safeParse({ clientRequestId: 'cr_1', source }).success).toBe(true);
       }
     });
   });
@@ -974,11 +975,11 @@ describe('Orders Module', () => {
 
     it('handles fractional quantities', () => {
       expect(
-        addLineItemSchema.safeParse({ catalogItemId: 'item_01', qty: 0.5 })
+        addLineItemSchema.safeParse({ clientRequestId: 'cr_1', catalogItemId: 'item_01', qty: 0.5 })
           .success,
       ).toBe(true);
       expect(
-        addLineItemSchema.safeParse({ catalogItemId: 'item_01', qty: 0.25 })
+        addLineItemSchema.safeParse({ clientRequestId: 'cr_1', catalogItemId: 'item_01', qty: 0.25 })
           .success,
       ).toBe(true);
     });
@@ -1002,6 +1003,7 @@ describe('Orders Module', () => {
   describe('removeLineItem', () => {
     it('removes line and recalculates', async () => {
       const ctx = makeCtx();
+      mockSelectReturns([]); // checkIdempotency — no duplicate
       mockExecute.mockResolvedValueOnce([mockOrderDbRow]); // fetch order
       mockSelectReturns([
         {
@@ -1123,6 +1125,7 @@ describe('Orders Module', () => {
   describe('removeServiceCharge', () => {
     it('removes charge and recalculates', async () => {
       const ctx = makeCtx();
+      mockSelectReturns([]); // checkIdempotency — no duplicate
       mockExecute.mockResolvedValueOnce([mockOrderDbRow]);
       mockSelectReturns([
         { id: 'chg_01', orderId: ORDER_ID, name: 'Fee', amount: 500 },
@@ -1193,6 +1196,7 @@ describe('Orders Module', () => {
   describe('placeOrder', () => {
     it('places order with receipt snapshot', async () => {
       const ctx = makeCtx();
+      mockSelectReturns([]); // checkIdempotency — no duplicate
       const openOrderRow = {
         ...mockOrderDbRow,
         subtotal: 1200,
