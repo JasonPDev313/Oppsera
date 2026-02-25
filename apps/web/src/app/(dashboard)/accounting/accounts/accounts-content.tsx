@@ -12,12 +12,14 @@ import { AccountDialog } from '@/components/accounting/account-dialog';
 import { ClassificationsPanel } from '@/components/accounting/classifications-panel';
 import { BootstrapWizard } from '@/components/accounting/bootstrap-wizard';
 import { ImportWizard } from '@/components/accounting/import-wizard';
+import { useQueryClient } from '@tanstack/react-query';
 
 const ACCOUNT_TYPE_ORDER: AccountType[] = ['asset', 'liability', 'equity', 'revenue', 'expense'];
 
 const VIEW_KEY = 'coa_view_mode';
 
 export default function AccountsContent() {
+  const queryClient = useQueryClient();
   const { data: accounts, isLoading, mutate } = useGLAccounts();
   const { isBootstrapped, isLoading: bootstrapLoading } = useAccountingBootstrapStatus();
 
@@ -98,7 +100,12 @@ export default function AccountsContent() {
         breadcrumbs={[{ label: 'Chart of Accounts' }]}
       >
         {showBootstrap ? (
-          <BootstrapWizard onComplete={() => { mutate(); setShowBootstrap(false); }} />
+          <BootstrapWizard onComplete={() => {
+            queryClient.refetchQueries({ queryKey: ['accounting-settings'] });
+            queryClient.refetchQueries({ queryKey: ['gl-accounts'] });
+            mutate();
+            setShowBootstrap(false);
+          }} />
         ) : (
           <AccountingEmptyState
             title="No chart of accounts configured"

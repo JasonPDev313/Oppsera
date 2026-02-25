@@ -106,6 +106,8 @@ export { getAccountingPostingApi, setAccountingPostingApi } from './helpers/acco
 export type { AccountingPostingApi, AccountingPostJournalInput } from './helpers/accounting-posting-api';
 export { getOrdersWriteApi, setOrdersWriteApi } from './helpers/orders-write-api';
 export type { OrdersWriteApi, OrdersWriteOpenInput, OrdersWriteAddLineInput, OrdersWriteUpdateInput, OrdersWriteResult } from './helpers/orders-write-api';
+export { getCustomerWriteApi, setCustomerWriteApi, hasCustomerWriteApi } from './helpers/customer-write-api';
+export type { CustomerWriteApi, EnsureCustomerInput, EnsureCustomerResult } from './helpers/customer-write-api';
 export { getPaymentsGatewayApi, setPaymentsGatewayApi, hasPaymentsGateway } from './helpers/payments-gateway-api';
 export type {
   PaymentsGatewayApi,

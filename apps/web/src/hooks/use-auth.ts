@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch, ApiError, setTokens, clearTokens, getStoredToken } from '@/lib/api-client';
+import { ALL_TERMINAL_KEYS } from '@/components/terminal-session-provider';
 
 interface AuthUserProfile {
   id: string;
@@ -128,8 +129,13 @@ export function useAuth() {
   }, [fetchMe]);
 
   const login = useCallback(async (email: string, password: string): Promise<{ needsOnboarding: boolean }> => {
-    // Clear stale terminal session so the user goes through role/terminal selection
-    localStorage.removeItem('oppsera:terminal-session');
+    // Clear ALL terminal session state so the user MUST go through role/terminal
+    // selection on every login. Revenue must tie back to terminals for proper
+    // accounting — never allow stale sessions or skip flags to persist.
+    for (const key of ALL_TERMINAL_KEYS) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    }
 
     const response = await apiFetch<LoginResponse>('/api/v1/auth/login', {
       method: 'POST',
@@ -184,8 +190,11 @@ export function useAuth() {
     }
     clearTokens();
     sessionStorage.removeItem(IMPERSONATION_STORAGE_KEY);
-    // Clear terminal session so next login forces role/terminal selection
-    localStorage.removeItem('oppsera:terminal-session');
+    // Clear ALL terminal session state so next login forces role/terminal selection
+    for (const key of ALL_TERMINAL_KEYS) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    }
     setUser(null);
     setTenant(null);
     setLocations([]);
@@ -200,7 +209,10 @@ export function useAuth() {
     }
     clearTokens();
     sessionStorage.removeItem(IMPERSONATION_STORAGE_KEY);
-    localStorage.removeItem('oppsera:terminal-session');
+    for (const key of ALL_TERMINAL_KEYS) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    }
     setUser(null);
     setTenant(null);
     setLocations([]);

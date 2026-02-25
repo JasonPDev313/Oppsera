@@ -16,7 +16,9 @@ export async function bootstrapTenantCoa(
   templateKey: string,
   stateName?: string,
 ): Promise<{ accountCount: number; classificationCount: number }> {
-  // Idempotency: check if this tenant already has accounting settings
+  // Idempotency: check if this tenant already has a COMPLETE bootstrap
+  // (both settings AND accounts). If settings exist but accounts are missing
+  // (e.g. from a partial prior run), we proceed with account creation.
   const existingSettings = await tx
     .select({ tenantId: accountingSettings.tenantId })
     .from(accountingSettings)
@@ -24,19 +26,28 @@ export async function bootstrapTenantCoa(
     .limit(1);
 
   if (existingSettings.length > 0) {
-    // Already bootstrapped — count existing entities and return
-    const existingClassifications = await tx
-      .select({ id: glClassifications.id })
-      .from(glClassifications)
-      .where(eq(glClassifications.tenantId, tenantId));
     const existingAccounts = await tx
       .select({ id: glAccounts.id })
       .from(glAccounts)
       .where(eq(glAccounts.tenantId, tenantId));
-    return {
-      accountCount: existingAccounts.length,
-      classificationCount: existingClassifications.length,
-    };
+
+    // Only short-circuit if accounts actually exist — a settings row
+    // without accounts means a prior run was incomplete.
+    if (existingAccounts.length > 0) {
+      const existingClassifications = await tx
+        .select({ id: glClassifications.id })
+        .from(glClassifications)
+        .where(eq(glClassifications.tenantId, tenantId));
+      return {
+        accountCount: existingAccounts.length,
+        classificationCount: existingClassifications.length,
+      };
+    }
+    // Settings exist but no accounts — delete the orphaned settings row
+    // so the bootstrap can proceed cleanly (settings are re-created in step 5).
+    await tx
+      .delete(accountingSettings)
+      .where(eq(accountingSettings.tenantId, tenantId));
   }
 
   // 1. Load classification templates (shared across business types)

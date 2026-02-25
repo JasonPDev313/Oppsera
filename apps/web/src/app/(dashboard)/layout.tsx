@@ -773,12 +773,14 @@ function TerminalSessionGate({ children }: { children: React.ReactNode }) {
   const { needsOnboarding, isLoading: authLoading, isAuthenticated } = useAuthContext();
   const [skipped, setSkipped] = useState(() => {
     if (typeof window === 'undefined') return false;
-    try { return localStorage.getItem(TERMINAL_SKIP_KEY) === 'true'; } catch { return false; }
+    // Skip flag is now sessionStorage — only valid for the current browser session.
+    // Prevents the "skip once, bypass forever" bug from persisting across logins.
+    try { return sessionStorage.getItem(TERMINAL_SKIP_KEY) === 'true'; } catch { return false; }
   });
 
   const handleSkip = useCallback(() => {
     setSkipped(true);
-    try { localStorage.setItem(TERMINAL_SKIP_KEY, 'true'); } catch { /* ignore */ }
+    try { sessionStorage.setItem(TERMINAL_SKIP_KEY, 'true'); } catch { /* ignore */ }
   }, []);
 
   // Bypass the terminal gate when auth is unresolved, user isn't logged in,

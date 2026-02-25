@@ -30,6 +30,12 @@ function getWaitColor(elapsed: number): string {
   return 'var(--fnb-success)';
 }
 
+function getWaitBg(elapsed: number): string {
+  if (elapsed >= 30) return 'rgba(239, 68, 68, 0.1)';
+  if (elapsed >= 15) return 'rgba(234, 179, 8, 0.1)';
+  return 'rgba(34, 197, 94, 0.1)';
+}
+
 export function WaitlistPanel({
   entries,
   onSeat,
@@ -41,112 +47,76 @@ export function WaitlistPanel({
 
   return (
     <div
+      className="flex flex-col h-full overflow-hidden rounded-xl"
       style={{
-        background: 'var(--fnb-bg-surface)',
-        borderRadius: 'var(--fnb-radius-lg)',
+        backgroundColor: 'var(--fnb-bg-surface)',
         border: 'var(--fnb-border-subtle)',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        overflow: 'hidden',
       }}
     >
       {/* Header */}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: 'var(--fnb-space-4)',
-          borderBottom: 'var(--fnb-border-subtle)',
-        }}
+        className="flex items-center justify-between px-4 py-3 shrink-0"
+        style={{ borderBottom: 'var(--fnb-border-subtle)' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fnb-space-2)' }}>
+        <div className="flex items-center gap-2.5">
           <span
-            style={{
-              color: 'var(--fnb-text-primary)',
-              fontSize: 'var(--fnb-text-lg)',
-              fontWeight: 'var(--fnb-font-semibold)',
-            }}
+            className="text-sm font-bold"
+            style={{ color: 'var(--fnb-text-primary)' }}
           >
             Waitlist
           </span>
-          <span
-            style={{
-              background: 'var(--fnb-bg-elevated)',
-              color: 'var(--fnb-text-secondary)',
-              fontSize: 'var(--fnb-text-xs)',
-              fontWeight: 'var(--fnb-font-semibold)',
-              padding: '2px 8px',
-              borderRadius: 'var(--fnb-radius-full)',
-              fontFamily: 'var(--fnb-font-mono)',
-            }}
-          >
-            {entries.length}
-          </span>
+          {entries.length > 0 && (
+            <span
+              className="inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full text-[10px] font-bold tabular-nums"
+              style={{
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                color: 'var(--fnb-info)',
+                fontFamily: 'var(--fnb-font-mono)',
+              }}
+            >
+              {entries.length}
+            </span>
+          )}
         </div>
         <button
           onClick={onAdd}
+          className="flex items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-all active:scale-95"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--fnb-space-1)',
-            background: 'var(--fnb-success)',
+            backgroundColor: 'var(--fnb-success)',
             color: '#fff',
-            border: 'none',
-            borderRadius: 'var(--fnb-radius-md)',
-            padding: '8px 12px',
-            fontSize: 'var(--fnb-text-sm)',
-            fontWeight: 'var(--fnb-font-semibold)',
-            cursor: 'pointer',
-            minHeight: '44px',
+            height: '36px',
           }}
         >
-          <Plus size={16} />
+          <Plus size={14} />
           Add Guest
         </button>
       </div>
 
       {/* List */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: 'var(--fnb-space-3)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--fnb-space-2)',
-        }}
-      >
+      <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
         {sorted.length === 0 ? (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 'var(--fnb-space-12) var(--fnb-space-4)',
-              gap: 'var(--fnb-space-3)',
-            }}
-          >
-            <UserPlus
-              size={48}
-              style={{ color: 'var(--fnb-text-disabled)', opacity: 0.5 }}
-            />
-            <span
-              style={{
-                color: 'var(--fnb-text-muted)',
-                fontSize: 'var(--fnb-text-base)',
-              }}
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div
+              className="flex items-center justify-center h-14 w-14 rounded-full"
+              style={{ backgroundColor: 'var(--fnb-bg-elevated)' }}
             >
-              No guests waiting
-            </span>
+              <UserPlus size={24} style={{ color: 'var(--fnb-text-disabled)' }} />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium" style={{ color: 'var(--fnb-text-muted)' }}>
+                No guests waiting
+              </p>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--fnb-text-disabled)' }}>
+                Tap &quot;Add Guest&quot; to start
+              </p>
+            </div>
           </div>
         ) : (
-          sorted.map((entry) => (
+          sorted.map((entry, i) => (
             <WaitlistCard
               key={entry.id}
               entry={entry}
+              rank={i + 1}
               onSeat={() => onSeat(entry.id)}
               onNotify={() => onNotify(entry.id)}
               onRemove={() => onRemove(entry.id)}
@@ -160,66 +130,61 @@ export function WaitlistPanel({
 
 function WaitlistCard({
   entry,
+  rank,
   onSeat,
   onNotify,
   onRemove,
 }: {
   entry: WaitlistEntry;
+  rank: number;
   onSeat: () => void;
   onNotify: () => void;
   onRemove: () => void;
 }) {
   const isNotified = entry.status === 'notified';
+  const waitColor = getWaitColor(entry.elapsedMinutes);
+  const waitBg = getWaitBg(entry.elapsedMinutes);
 
   return (
     <div
+      className="rounded-lg p-3 transition-colors"
       style={{
-        background: 'var(--fnb-bg-elevated)',
-        borderRadius: 'var(--fnb-radius-lg)',
-        padding: 'var(--fnb-card-padding)',
-        borderLeft: isNotified ? '3px solid var(--fnb-info)' : '3px solid transparent',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--fnb-space-2)',
-        transition: 'background var(--fnb-duration-micro) ease',
+        backgroundColor: 'var(--fnb-bg-elevated)',
+        borderLeft: isNotified
+          ? '3px solid var(--fnb-info)'
+          : '3px solid transparent',
       }}
     >
-      {/* Row 1: Name + VIP */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fnb-space-2)' }}>
+      {/* Top row: rank + name + badges */}
+      <div className="flex items-center gap-2 mb-2">
         <span
+          className="flex items-center justify-center h-5 w-5 rounded text-[10px] font-bold shrink-0 tabular-nums"
           style={{
-            color: 'var(--fnb-text-primary)',
-            fontSize: 'var(--fnb-text-base)',
-            fontWeight: 'var(--fnb-font-semibold)',
-            flex: 1,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            backgroundColor: 'var(--fnb-bg-surface)',
+            color: 'var(--fnb-text-muted)',
+            fontFamily: 'var(--fnb-font-mono)',
           }}
+        >
+          {rank}
+        </span>
+        <span
+          className="text-sm font-semibold truncate flex-1"
+          style={{ color: 'var(--fnb-text-primary)' }}
         >
           {entry.guestName}
         </span>
         {entry.isVip && (
-          <span
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '2px',
-              color: '#f59e0b',
-              fontSize: 'var(--fnb-text-xs)',
-              fontWeight: 'var(--fnb-font-bold)',
-            }}
-          >
-            <Star size={12} fill="#f59e0b" />
+          <span className="flex items-center gap-0.5 text-[10px] font-bold shrink-0" style={{ color: '#f59e0b' }}>
+            <Star size={10} fill="#f59e0b" />
             VIP
           </span>
         )}
         {isNotified && (
           <span
+            className="text-[10px] font-semibold px-1.5 py-0.5 rounded shrink-0"
             style={{
-              fontSize: 'var(--fnb-text-xs)',
+              backgroundColor: 'rgba(59, 130, 246, 0.12)',
               color: 'var(--fnb-info)',
-              fontWeight: 'var(--fnb-font-medium)',
             }}
           >
             Notified
@@ -227,43 +192,37 @@ function WaitlistCard({
         )}
       </div>
 
-      {/* Row 2: Party size + Wait time */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--fnb-space-4)' }}>
+      {/* Middle row: metadata chips */}
+      <div className="flex items-center gap-2 flex-wrap mb-2.5">
         <span
+          className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--fnb-space-1)',
+            backgroundColor: 'var(--fnb-bg-surface)',
             color: 'var(--fnb-text-secondary)',
-            fontSize: 'var(--fnb-text-sm)',
           }}
         >
-          <Users size={14} />
+          <Users size={11} />
           {entry.partySize}
         </span>
+
         <span
+          className="inline-flex items-center gap-1 text-[11px] font-bold px-1.5 py-0.5 rounded tabular-nums"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--fnb-space-1)',
-            color: getWaitColor(entry.elapsedMinutes),
-            fontSize: 'var(--fnb-text-sm)',
+            backgroundColor: waitBg,
+            color: waitColor,
             fontFamily: 'var(--fnb-font-mono)',
-            fontWeight: 'var(--fnb-font-semibold)',
           }}
         >
-          <Clock size={14} />
+          <Clock size={11} />
           {entry.elapsedMinutes}m
         </span>
+
         {entry.seatingPreference && (
           <span
+            className="text-[11px] font-medium px-1.5 py-0.5 rounded"
             style={{
-              background: 'rgba(139, 92, 246, 0.15)',
+              backgroundColor: 'rgba(139, 92, 246, 0.12)',
               color: '#a78bfa',
-              fontSize: 'var(--fnb-text-xs)',
-              fontWeight: 'var(--fnb-font-medium)',
-              padding: '2px 8px',
-              borderRadius: 'var(--fnb-radius-full)',
             }}
           >
             {entry.seatingPreference}
@@ -271,90 +230,53 @@ function WaitlistCard({
         )}
       </div>
 
-      {/* Row 3: Notes */}
+      {/* Notes */}
       {entry.notes && (
-        <div
-          style={{
-            color: 'var(--fnb-text-muted)',
-            fontSize: 'var(--fnb-text-sm)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
+        <p
+          className="text-[11px] truncate mb-2.5"
+          style={{ color: 'var(--fnb-text-muted)' }}
         >
           {entry.notes}
-        </div>
+        </p>
       )}
 
-      {/* Row 4: Actions */}
-      <div
-        style={{
-          display: 'flex',
-          gap: 'var(--fnb-space-2)',
-          paddingTop: 'var(--fnb-space-1)',
-        }}
-      >
+      {/* Actions — Seat is primary, others are secondary/icon */}
+      <div className="flex items-center gap-1.5">
         <button
           onClick={onSeat}
+          className="flex items-center justify-center gap-1 rounded-md text-xs font-semibold flex-1 transition-all active:scale-[0.97]"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            background: 'rgba(34, 197, 94, 0.15)',
-            color: 'var(--fnb-success)',
-            border: 'none',
-            borderRadius: 'var(--fnb-radius-md)',
-            padding: '6px 12px',
-            fontSize: 'var(--fnb-text-sm)',
-            fontWeight: 'var(--fnb-font-medium)',
-            cursor: 'pointer',
-            minHeight: '44px',
-            flex: 1,
-            justifyContent: 'center',
+            backgroundColor: 'var(--fnb-success)',
+            color: '#fff',
+            height: '34px',
           }}
         >
-          <ArrowRight size={14} />
+          <ArrowRight size={13} />
           Seat
         </button>
         <button
           onClick={onNotify}
+          className="flex items-center justify-center gap-1 rounded-md text-xs font-medium flex-1 transition-all active:scale-[0.97]"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            background: 'rgba(59, 130, 246, 0.15)',
+            backgroundColor: 'rgba(59, 130, 246, 0.12)',
             color: 'var(--fnb-info)',
-            border: 'none',
-            borderRadius: 'var(--fnb-radius-md)',
-            padding: '6px 12px',
-            fontSize: 'var(--fnb-text-sm)',
-            fontWeight: 'var(--fnb-font-medium)',
-            cursor: 'pointer',
-            minHeight: '44px',
-            flex: 1,
-            justifyContent: 'center',
+            height: '34px',
           }}
         >
-          <Bell size={14} />
+          <Bell size={12} />
           Notify
         </button>
         <button
           onClick={onRemove}
+          className="flex items-center justify-center rounded-md transition-all active:scale-[0.97] shrink-0"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(239, 68, 68, 0.15)',
+            backgroundColor: 'rgba(239, 68, 68, 0.1)',
             color: 'var(--fnb-danger)',
-            border: 'none',
-            borderRadius: 'var(--fnb-radius-md)',
-            padding: '6px 10px',
-            cursor: 'pointer',
-            minHeight: '44px',
-            minWidth: '44px',
+            height: '34px',
+            width: '34px',
           }}
         >
-          <X size={16} />
+          <X size={14} />
         </button>
       </div>
     </div>

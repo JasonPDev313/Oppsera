@@ -20,15 +20,16 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
     const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
-    // Must have at least one line
-    const lines = await (tx as any).select().from(orderLines).where(eq(orderLines.orderId, orderId));
+    // Fetch lines, charges, discounts in parallel (independent reads)
+    const [lines, charges, discounts] = await Promise.all([
+      (tx as any).select().from(orderLines).where(eq(orderLines.orderId, orderId)),
+      (tx as any).select().from(orderCharges).where(eq(orderCharges.orderId, orderId)),
+      (tx as any).select().from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId)),
+    ]);
+
     if (lines.length === 0) {
       throw new ValidationError('Order must have at least one line item');
     }
-
-    // Build receipt snapshot
-    const charges = await (tx as any).select().from(orderCharges).where(eq(orderCharges.orderId, orderId));
-    const discounts = await (tx as any).select().from(orderDiscounts).where(eq(orderDiscounts.orderId, orderId));
 
     const lineIds = lines.map((l: any) => l.id);
     let lineTaxes: any[] = [];
@@ -81,38 +82,43 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'placeOrder', { orderId });
 
-    // Resolve category names for sub_department_ids (for reporting read models)
+    // Resolve category names + modifier groups in parallel (both are independent reporting enrichments)
     const subDeptIds = [...new Set(lines.map((l: any) => l.subDepartmentId).filter(Boolean))] as string[];
-    const categoryNameMap = new Map<string, string>();
-    if (subDeptIds.length > 0) {
-      const cats = await (tx as any).select({ id: catalogCategories.id, name: catalogCategories.name })
-        .from(catalogCategories)
-        .where(inArray(catalogCategories.id, subDeptIds));
-      for (const c of cats) categoryNameMap.set(c.id, c.name);
-    }
-
-    // Resolve modifier group assignments for attach rate denominator (modifier reporting)
     const catalogItemIds = [...new Set(lines.map((l: any) => l.catalogItemId).filter(Boolean))] as string[];
+    const categoryNameMap = new Map<string, string>();
     let assignedGroupsMap = new Map<string, string[]>();
     const modGroupMetaMap = new Map<string, { name: string; isRequired: boolean }>();
-    if (catalogItemIds.length > 0) {
-      try {
-        const catalogApi = getCatalogReadApi();
-        assignedGroupsMap = await catalogApi.getAssignedModifierGroupIds(ctx.tenantId, catalogItemIds);
-        // Resolve modifier group names + isRequired for all assigned groups
-        const allGroupIds = [...new Set(Array.from(assignedGroupsMap.values()).flat())];
-        if (allGroupIds.length > 0) {
-          const groups = await (tx as any).select({
-            id: catalogModifierGroups.id,
-            name: catalogModifierGroups.name,
-            isRequired: catalogModifierGroups.isRequired,
-          }).from(catalogModifierGroups).where(inArray(catalogModifierGroups.id, allGroupIds));
-          for (const g of groups) modGroupMetaMap.set(g.id, { name: g.name, isRequired: g.isRequired });
-        }
-      } catch {
-        // Best-effort — modifier reporting should never block order placement
-      }
-    }
+
+    // Run both enrichments concurrently
+    const [_catResult, _modResult] = await Promise.all([
+      // Category name resolution
+      subDeptIds.length > 0
+        ? (tx as any).select({ id: catalogCategories.id, name: catalogCategories.name })
+            .from(catalogCategories)
+            .where(inArray(catalogCategories.id, subDeptIds))
+            .then((cats: any[]) => { for (const c of cats) categoryNameMap.set(c.id, c.name); })
+        : Promise.resolve(),
+      // Modifier group resolution (best-effort)
+      catalogItemIds.length > 0
+        ? (async () => {
+            try {
+              const catalogApi = getCatalogReadApi();
+              assignedGroupsMap = await catalogApi.getAssignedModifierGroupIds(ctx.tenantId, catalogItemIds);
+              const allGroupIds = [...new Set(Array.from(assignedGroupsMap.values()).flat())];
+              if (allGroupIds.length > 0) {
+                const groups = await (tx as any).select({
+                  id: catalogModifierGroups.id,
+                  name: catalogModifierGroups.name,
+                  isRequired: catalogModifierGroups.isRequired,
+                }).from(catalogModifierGroups).where(inArray(catalogModifierGroups.id, allGroupIds));
+                for (const g of groups) modGroupMetaMap.set(g.id, { name: g.name, isRequired: g.isRequired });
+              }
+            } catch {
+              // Best-effort — modifier reporting should never block order placement
+            }
+          })()
+        : Promise.resolve(),
+    ]);
 
     const event = buildEventFromContext(ctx, 'order.placed.v1', {
       orderId,
@@ -155,6 +161,7 @@ export async function placeOrder(ctx: RequestContext, orderId: string, input: Pl
     return { result: { ...order, status: 'placed', placedAt: now, receiptSnapshot, version: order.version + 1 }, events: [event] };
   });
 
-  await auditLog(ctx, 'order.placed', 'order', orderId);
+  // Fire-and-forget — audit log should never block the POS response
+  auditLog(ctx, 'order.placed', 'order', orderId).catch(() => {});
   return result;
 }

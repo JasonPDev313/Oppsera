@@ -31,7 +31,7 @@ export default function CashFlowContent() {
       actions={
         <button
           type="button"
-          onClick={() => window.open(`/api/v1/accounting/statements/cash-flow?startDate=${startDate}&endDate=${endDate}&format=csv`, '_blank')}
+          onClick={() => window.open(`/api/v1/accounting/statements/cash-flow?from=${startDate}&to=${endDate}&format=csv`, '_blank')}
           className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
         >
           <Download className="h-4 w-4" />

@@ -23,8 +23,8 @@ export function useProfitAndLoss(params: {
     queryKey: ['profit-loss', params],
     queryFn: () => {
       const p = new URLSearchParams();
-      if (params.startDate) p.set('startDate', params.startDate);
-      if (params.endDate) p.set('endDate', params.endDate);
+      if (params.startDate) p.set('from', params.startDate);
+      if (params.endDate) p.set('to', params.endDate);
       if (params.locationId) p.set('locationId', params.locationId);
       if (params.comparative) p.set('comparative', 'true');
       const qs = p.toString();
@@ -80,8 +80,8 @@ export function useCashFlow(params: { startDate?: string; endDate?: string }) {
     queryKey: ['cash-flow', params],
     queryFn: () => {
       const p = new URLSearchParams();
-      if (params.startDate) p.set('startDate', params.startDate);
-      if (params.endDate) p.set('endDate', params.endDate);
+      if (params.startDate) p.set('from', params.startDate);
+      if (params.endDate) p.set('to', params.endDate);
       const qs = p.toString();
       return apiFetch<{ data: CashFlowStatement }>(
         `/api/v1/accounting/statements/cash-flow${qs ? `?${qs}` : ''}`,
@@ -106,8 +106,8 @@ export function useSalesTaxLiability(params: { startDate?: string; endDate?: str
     queryKey: ['sales-tax-liability', params],
     queryFn: () => {
       const p = new URLSearchParams();
-      if (params.startDate) p.set('startDate', params.startDate);
-      if (params.endDate) p.set('endDate', params.endDate);
+      if (params.startDate) p.set('from', params.startDate);
+      if (params.endDate) p.set('to', params.endDate);
       const qs = p.toString();
       return apiFetch<{ data: SalesTaxRow[] }>(
         `/api/v1/accounting/reports/sales-tax-liability${qs ? `?${qs}` : ''}`,

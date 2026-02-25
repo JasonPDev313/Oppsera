@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { CreditCard, DollarSign, FileText, X, Keyboard } from 'lucide-react';
+import { CreditCard, DollarSign, FileText, X, Wallet, AlertTriangle } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
 import { useAuthContext } from '@/components/auth-provider';
-import { PaymentMethodCapture } from '@/components/payments/payment-method-capture';
-import { useTokenizerConfig } from '@/hooks/use-tokenizer-config';
 import { useTerminalDevice } from '@/hooks/use-terminal-device';
 import { CardPresentIndicator } from '@/components/pos/CardPresentIndicator';
 import { useSurchargeSettings } from '@/hooks/use-payment-processors';
-import type { TokenizeResult } from '@oppsera/shared';
+import { usePaymentMethods } from '@/hooks/use-payment-methods';
 import type { POSConfig, Order, TenderSummary, RecordTenderResult } from '@/types/pos';
 
 type CardPresentStatus = 'idle' | 'waiting' | 'processing' | 'approved' | 'declined' | 'timeout' | 'cancelled';
@@ -52,8 +50,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const [amountGiven, setAmountGiven] = useState('');
   const [tipAmount, setTipAmount] = useState('');
   const [checkNumber, setCheckNumber] = useState('');
-  const [cardToken, setCardToken] = useState('');
-  const [manualEntry, setManualEntry] = useState(false);
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastResult, setLastResult] = useState<RecordTenderResult | null>(null);
 
@@ -83,19 +80,20 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const surchargeMaxRate = activeSurcharge ? parseFloat(activeSurcharge.maxSurchargeRate) : 0;
   const effectiveSurchargeRate = surchargeRate > 0 ? Math.min(surchargeRate, surchargeMaxRate) : 0;
 
-  // Only fetch tokenizer config when dialog opens for card tenders (card-NOT-present only)
-  const { config: tokenizerConfig, isLoading: tokenizerLoading, error: tokenizerError } = useTokenizerConfig({
-    locationId: order.locationId,
-    enabled: open && tenderType === 'card' && !isCardPresent,
-  });
+  // Fetch stored payment methods when order has a customer (for card-on-file)
+  const { data: storedCards, isLoading: cardsLoading } = usePaymentMethods(
+    open && tenderType === 'card' && !isCardPresent && order.customerId ? order.customerId : null,
+  );
+  // Filter to only card-type methods (not bank accounts)
+  const cardMethods = (storedCards ?? []).filter((m) => m.paymentType === 'card');
+  const hasStoredCards = cardMethods.length > 0;
 
-  const handleCardTokenize = useCallback((result: TokenizeResult) => {
-    setCardToken(result.token);
-  }, []);
-
-  const handleCardTokenError = useCallback((_msg: string) => {
-    setCardToken('');
-  }, []);
+  // Auto-select default card (or first card) when stored cards load
+  useEffect(() => {
+    if (!hasStoredCards || selectedPaymentMethodId) return;
+    const defaultCard = cardMethods.find((m) => m.isDefault) ?? cardMethods[0];
+    if (defaultCard) setSelectedPaymentMethodId(defaultCard.id);
+  }, [hasStoredCards, cardMethods.length]);
 
   // Track whether the order has been placed (for fetchTenders guard).
   // Starts from the order prop, set to true after first successful payment.
@@ -119,8 +117,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       setAmountGiven('');
       setTipAmount('');
       setCheckNumber('');
-      setCardToken('');
-      setManualEntry(false);
+      setSelectedPaymentMethodId(null);
       setLastResult(null);
       setCardPresentStatus('idle');
       setCardPresentResult({});
@@ -132,7 +129,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const fetchTenders = async () => {
     if (!order.id) return;
     // Don't fetch tenders for unplaced orders — there can't be any yet
-    const autoFillExact = tenderType === 'check' || tenderType === 'card';
+    const autoFillExact = tenderType === 'cash' || tenderType === 'check' || tenderType === 'card';
     if (!isPlacedRef.current) {
       setTenderSummary(null);
       if (autoFillExact) {
@@ -197,8 +194,8 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       toast.error('Check number is required');
       return;
     }
-    if (tenderType === 'card' && !cardToken.trim()) {
-      toast.error('Card token is required — scan or swipe a card');
+    if (tenderType === 'card' && !selectedPaymentMethodId) {
+      toast.error('Select a stored card to charge');
       return;
     }
     if (!order.id) {
@@ -226,8 +223,9 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       if (tenderType === 'check') {
         body.metadata = { checkNumber: checkNumber.trim() };
       }
-      if (tenderType === 'card') {
-        body.token = cardToken.trim();
+      if (tenderType === 'card' && selectedPaymentMethodId) {
+        body.paymentMethodId = selectedPaymentMethodId;
+        body.customerId = order.customerId;
         if (surchargeAmountCents > 0) {
           body.surchargeAmountCents = surchargeAmountCents;
         }
@@ -254,7 +252,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         setAmountGiven('');
         setTipAmount('');
         setCheckNumber('');
-        setCardToken('');
+        setSelectedPaymentMethodId(null);
         await fetchTenders();
       }
     } catch (err) {
@@ -541,55 +539,45 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                   </div>
                 )}
               </>
-            ) : (
-              /* ── Card-not-present mode: token-based entry ── */
+            ) : hasStoredCards ? (
+              /* ── Card-on-file mode: charge a stored card ── */
               <>
-                {/* Dual-mode card entry: Reader (default) / Manual Entry (toggle) */}
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      {manualEntry ? 'Manual Card Entry' : 'Card Reader'}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => { setManualEntry((v) => !v); setCardToken(''); }}
-                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
-                    >
-                      <Keyboard className="h-3.5 w-3.5" />
-                      {manualEntry ? 'Use Card Reader' : 'Manual Entry'}
-                    </button>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <Wallet className="inline h-4 w-4 mr-1 -mt-0.5" />
+                    Card on File
+                  </label>
+                  <div className="space-y-2">
+                    {cardMethods.map((method) => (
+                      <button
+                        key={method.id}
+                        type="button"
+                        onClick={() => setSelectedPaymentMethodId(method.id)}
+                        className={`w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors ${
+                          selectedPaymentMethodId === method.id
+                            ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20'
+                            : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <CreditCard className={`h-5 w-5 ${selectedPaymentMethodId === method.id ? 'text-indigo-600' : 'text-gray-400'}`} />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {method.brand ?? 'Card'} {method.last4 ? `****${method.last4}` : ''}
+                            </div>
+                            {method.expiryMonth && method.expiryYear && (
+                              <div className="text-xs text-gray-500">
+                                Exp {String(method.expiryMonth).padStart(2, '0')}/{String(method.expiryYear).slice(-2)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {method.isDefault && (
+                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Default</span>
+                        )}
+                      </button>
+                    ))}
                   </div>
-
-                  {manualEntry ? (
-                    /* Manual entry: hosted iframe tokenizer */
-                    <div>
-                      <PaymentMethodCapture
-                        config={tokenizerConfig}
-                        isConfigLoading={tokenizerLoading}
-                        configError={tokenizerError}
-                        onTokenize={handleCardTokenize}
-                        onError={handleCardTokenError}
-                        showWallets={false}
-                      />
-                      {cardToken && (
-                        <p className="mt-1 text-xs text-green-600">Card tokenized successfully.</p>
-                      )}
-                    </div>
-                  ) : (
-                    /* Reader mode: keyboard wedge input */
-                    <div>
-                      <input
-                        id="cardToken"
-                        type="text"
-                        value={cardToken}
-                        onChange={(e) => setCardToken(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 py-3 px-4 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                        placeholder="Waiting for card swipe/tap..."
-                        autoFocus
-                      />
-                      <p className="mt-1 text-xs text-gray-400">Swipe, tap, or insert card on the reader</p>
-                    </div>
-                  )}
                 </div>
 
                 {/* Amount */}
@@ -611,7 +599,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                     />
                   </div>
                 </div>
-                {/* Tip section (card tips) */}
+                {/* Tip section (card-on-file tips) */}
                 {config.tipEnabled && (
                   <div>
                     <label htmlFor="tipAmount" className="block text-sm font-medium text-gray-700 mb-1">
@@ -633,6 +621,21 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                   </div>
                 )}
               </>
+            ) : (
+              /* ── No payment device and no stored cards ── */
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-6 text-center space-y-3">
+                <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">No payment device configured</p>
+                  <p className="mt-1 text-xs text-amber-700">
+                    {order.customerId
+                      ? cardsLoading
+                        ? 'Loading stored cards...'
+                        : 'This customer has no cards on file. Connect a card reader or add a card to the customer profile.'
+                      : 'No customer attached to this order. Connect a card reader or attach a customer with a stored card.'}
+                  </p>
+                </div>
+              </div>
             )
           ) : tenderType === 'check' ? (
             <>
@@ -776,7 +779,8 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               || (cardPresentStatus === 'waiting' || cardPresentStatus === 'processing')
               || (!isCardPresent && amountCents <= 0)
               || (tenderType === 'check' && !checkNumber.trim())
-              || (tenderType === 'card' && !isCardPresent && !cardToken.trim())
+              || (tenderType === 'card' && !isCardPresent && !selectedPaymentMethodId)
+              || (tenderType === 'card' && !isCardPresent && !hasStoredCards)
             }
             className={`flex-1 rounded-lg px-4 py-3 text-sm font-medium text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               tenderType === 'card'

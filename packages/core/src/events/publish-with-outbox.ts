@@ -16,9 +16,11 @@ export async function publishWithOutbox<T>(
   return db.transaction(async (tx) => {
     const txDb = tx as unknown as Database;
 
-    await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${ctx.tenantId}, true)`);
+    // Combine set_config calls into a single SQL statement to save a round-trip
     if (ctx.locationId) {
-      await tx.execute(sql`SELECT set_config('app.current_location_id', ${ctx.locationId}, true)`);
+      await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${ctx.tenantId}, true), set_config('app.current_location_id', ${ctx.locationId}, true)`);
+    } else {
+      await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${ctx.tenantId}, true)`);
     }
 
     const { result, events } = await operation(txDb);

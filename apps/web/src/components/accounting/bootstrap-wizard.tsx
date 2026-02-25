@@ -66,21 +66,41 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
     setIsBootstrapping(true);
     setErrorDetail(null);
     try {
-      await apiFetch('/api/v1/accounting/bootstrap', {
-        method: 'POST',
-        body: JSON.stringify({
-          templateKey: selectedTemplate,
-          stateName: selectedState || undefined,
-        }),
-      });
-      // Invalidate the caches so useAccountingBootstrapStatus picks up
-      // the new settings + accounts immediately (prevents wizard loop)
+      const res = await apiFetch<{ data: { accountCount: number; classificationCount: number } }>(
+        '/api/v1/accounting/bootstrap',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            templateKey: selectedTemplate,
+            stateName: selectedState || undefined,
+          }),
+        },
+      );
+
+      // Verify that accounts were actually created — prevents the "success but empty" loop
+      if (!res.data || res.data.accountCount === 0) {
+        setErrorDetail(
+          'Bootstrap completed but no accounts were created. This can happen if migrations are pending. Run: pnpm db:migrate',
+        );
+        toast.error('No accounts created — check database migrations');
+        return;
+      }
+
+      // Force refetch ALL accounting queries and WAIT for them to complete.
+      // invalidateQueries marks as stale + triggers refetch, but we also
+      // explicitly refetch to guarantee data is available before proceeding.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['accounting-settings'] }),
         queryClient.invalidateQueries({ queryKey: ['gl-accounts'] }),
         queryClient.invalidateQueries({ queryKey: ['accounting-health-summary'] }),
       ]);
-      toast.success('Accounting setup complete!');
+      // Double-ensure: refetchQueries blocks until data is returned
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['accounting-settings'] }),
+        queryClient.refetchQueries({ queryKey: ['gl-accounts'] }),
+      ]);
+
+      toast.success(`Accounting setup complete! ${res.data.accountCount} accounts created.`);
       setStep(5);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Bootstrap failed';

@@ -57,6 +57,9 @@ vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a, b) => ({ type: 'eq', a, b })),
   and: vi.fn((...args: unknown[]) => ({ type: 'and', args })),
   max: vi.fn((col) => ({ type: 'max', col })),
+  sql: Object.assign((strings: TemplateStringsArray, ...values: unknown[]) => ({ type: 'sql', strings, values }), {
+    raw: (s: string) => ({ type: 'sql_raw', value: s }),
+  }),
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({

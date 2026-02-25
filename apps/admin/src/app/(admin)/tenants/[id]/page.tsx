@@ -21,15 +21,17 @@ import { adminFetch } from '@/lib/api-fetch';
 import { TenantStatusBadge } from '@/components/tenants/TenantStatusBadge';
 import { OrgHierarchyBuilder } from '@/components/tenants/OrgHierarchyBuilder';
 import { ModuleManager } from '@/components/tenants/ModuleManager';
+import { FeatureFlagsPanel } from '@/components/tenants/FeatureFlagsPanel';
 import { TenantRolesTab } from '@/components/tenants/TenantRolesTab';
 import { TenantUsersTab } from '@/components/tenants/TenantUsersTab';
 import { SubscriptionTab } from '@/components/tenants/SubscriptionTab';
 import { OnboardingTab } from '@/components/tenants/OnboardingTab';
 import { NotesTab } from '@/components/tenants/NotesTab';
+import { ApiKeysTab } from '@/components/tenants/ApiKeysTab';
 import { ImpersonateDialog } from '@/components/tenants/ImpersonateDialog';
 import { ImpersonationHistoryTab } from '@/components/tenants/ImpersonationHistoryTab';
 
-type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users' | 'subscription' | 'onboarding' | 'notes' | 'impersonation';
+type Tab = 'overview' | 'organization' | 'modules' | 'roles' | 'users' | 'subscription' | 'onboarding' | 'notes' | 'impersonation' | 'api-keys';
 
 const HEALTH_GRADE_COLORS: Record<string, string> = {
   A: 'text-emerald-400 bg-emerald-500/10',
@@ -93,6 +95,7 @@ export default function TenantDetailPage() {
     { key: 'roles', label: 'Roles' },
     { key: 'users', label: 'Users' },
     { key: 'notes', label: 'Notes' },
+    { key: 'api-keys', label: 'API Keys' },
     { key: 'impersonation', label: 'Impersonation' },
   ];
 
@@ -194,11 +197,17 @@ export default function TenantDetailPage() {
       {tab === 'overview' && <OverviewTab tenant={tenant} />}
       {tab === 'onboarding' && <OnboardingTab tenantId={id} industry={tenant.industry} />}
       {tab === 'organization' && <OrgHierarchyBuilder tenantId={id} />}
-      {tab === 'modules' && <ModuleManager tenantId={id} />}
+      {tab === 'modules' && (
+        <div className="space-y-8">
+          <ModuleManager tenantId={id} />
+          <FeatureFlagsPanel tenantId={id} />
+        </div>
+      )}
       {tab === 'subscription' && <SubscriptionTab tenantId={id} />}
       {tab === 'roles' && <TenantRolesTab tenantId={id} />}
       {tab === 'users' && <TenantUsersTab tenantId={id} />}
       {tab === 'notes' && <NotesTab tenantId={id} />}
+      {tab === 'api-keys' && <ApiKeysTab tenantId={id} />}
       {tab === 'impersonation' && <ImpersonationHistoryTab tenantId={id} />}
 
       {/* Impersonation Dialog */}

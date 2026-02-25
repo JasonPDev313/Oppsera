@@ -7819,3 +7819,375 @@ Tests in `packages/core/src/__tests__/impersonation-safety.test.ts` cover:
 - Amount threshold boundary testing (exact $500 allowed, $500.01 blocked)
 - Error class properties (code, status, message)
 
+---
+
+## 138. In-Memory Caching for Hot Auth & Middleware Paths
+
+### Problem
+
+POS and other high-frequency API paths call `validateToken()` and `resolveLocation()` on every request, each performing multiple sequential DB queries. At scale, these per-request DB round-trips add significant latency and connection pressure.
+
+### Pattern: Module-Level TTL Cache
+
+```typescript
+const CACHE_TTL = 60_000; // 60 seconds
+const cache = new Map<string, { data: T; ts: number }>();
+
+function getCached(key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCache(key: string, data: T) {
+  cache.set(key, { data, ts: Date.now() });
+  // Prevent unbounded growth
+  if (cache.size > MAX_SIZE) {
+    const oldest = cache.keys().next().value;
+    if (oldest) cache.delete(oldest);
+  }
+}
+```
+
+### Applied Instances
+
+| Cache | Location | TTL | Max Size | Key |
+|---|---|---|---|---|
+| Auth user | `supabase-adapter.ts` | 60s | 200 | `authProviderId` |
+| Location validation | `with-middleware.ts` | 60s | 500 | `tenantId:locationId` |
+| Permission | `packages/core` | 15s | — | `tenantId:userId` |
+
+### Key Rules
+
+1. **Only cache immutable-ish data** — auth users, locations, and permissions change infrequently during a session. Never cache inventory on-hand, order state, or financial balances.
+2. **Module-level `Map`** — survives across requests in the same serverless instance but dies on cold start (automatic cache invalidation).
+3. **Bounded size** — always cap with FIFO eviction to prevent memory leaks. Delete the oldest entry (`cache.keys().next().value`) when the cap is hit.
+4. **Check cache before DB** — cache hit returns immediately. Cache miss queries DB and populates cache before returning.
+5. **TTL is 60s for auth/location** — matches the 15s permission cache TTL in spirit (frequent enough to catch deactivations).
+
+---
+
+## 139. Combine SQL Round-Trips in Transactions
+
+### Problem
+
+`publishWithOutbox` called `set_config('app.current_tenant_id', ...)` and optionally `set_config('app.current_location_id', ...)` as two sequential SQL statements — wasting a round-trip on every write transaction.
+
+### Pattern
+
+Combine independent `set_config` calls into a single SQL statement using PostgreSQL's ability to return multiple `set_config` results in one SELECT:
+
+```typescript
+if (ctx.locationId) {
+  await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${ctx.tenantId}, true), set_config('app.current_location_id', ${ctx.locationId}, true)`);
+} else {
+  await tx.execute(sql`SELECT set_config('app.current_tenant_id', ${ctx.tenantId}, true)`);
+}
+```
+
+### Key Rules
+
+1. **Always combine independent `set_config` calls** — never issue two sequential SELECTs for config when they can be one.
+2. **Apply the same principle to any independent SQL statements** inside a transaction — fewer round-trips = lower latency.
+3. **Use `Promise.all` for parallel JS-level work outside transactions** (e.g., fetching data needed before entering a transaction).
+
+---
+
+## 140. Place-and-Pay Single-Transaction Fast Path
+
+### Problem
+
+The original `place-and-pay` API route executed `placeOrder()` and `recordTender()` as two separate transactions — each with its own `set_config`, `fetchOrderForMutation`, idempotency pair, and `incrementVersion`. This caused ~8 redundant DB round-trips.
+
+### Pattern
+
+Combine both operations into a single transaction in the orchestration layer (`apps/web/`). The file `apps/web/src/app/api/v1/orders/[id]/place-and-pay/place-and-pay-fast.ts` shows this:
+
+```typescript
+export async function placeAndRecordTender(ctx, orderId, placeInput, tenderInput) {
+  return db.transaction(async (tx) => {
+    // 1x set_config (combined)
+    // 1x fetchOrderForMutation (accepts ['open', 'placed'] to skip place if already done)
+    // 1x order_lines fetch (shared by both operations)
+    // Place if needed → build receipt snapshot → insert tender → 1x incrementVersion
+    // Return combined result with events for both operations
+  });
+}
+```
+
+### Key Rules
+
+1. **Single-transaction fast paths belong in `apps/web/`** — they are orchestration-layer code that imports from multiple modules, which is only allowed in the web app.
+2. **Accept multiple statuses in `fetchOrderForMutation`** — `['open', 'placed']` lets the combined operation handle race conditions (order already placed by a concurrent preemptive call).
+3. **Single `incrementVersion`** — covers both the place and tender mutations, saving a round-trip.
+4. **Resolve external data BEFORE entering the transaction** — category names, modifier groups, GL settings should all be fetched before `db.transaction()` to keep the transaction window short.
+5. **Fire-and-forget audit logs** — audit writes should NOT block the POS response. Use `auditLog(...).catch(() => {})` instead of `await auditLog(...)`.
+
+---
+
+## 141. Fire-and-Forget Audit Logs on POS Paths
+
+### Problem
+
+`await auditLog(ctx, ...)` in POS commands (`placeOrder`, `recordTender`) adds a DB write to the critical path. Audit logs are important but should never increase POS response latency.
+
+### Pattern
+
+```typescript
+// Before (blocks response):
+await auditLog(ctx, 'orders.order.placed', 'order', result.id);
+
+// After (fire-and-forget):
+auditLog(ctx, 'orders.order.placed', 'order', result.id).catch(() => {});
+```
+
+### Key Rules
+
+1. **POS commands use fire-and-forget audit** — `placeOrder`, `recordTender`, `addLineItem`, and other POS-critical paths.
+2. **Non-POS commands may still `await`** — admin operations, accounting entries, and batch processes can afford the latency.
+3. **Always `.catch(() => {})` on fire-and-forget promises** — unhandled rejections crash the process.
+4. **Audit log failures are acceptable** — audit is best-effort (existing pattern from gotcha #69). The critical business operation must always succeed.
+
+---
+
+## 142. Terminal Session Confirmation & Skip Scoping
+
+### Problem
+
+Terminal sessions persisted in `localStorage` survived across browser sessions and logins. A user could log out, log back in as a different user, and inherit the previous user's terminal session. The "skip terminal selection" flag also persisted in `localStorage`, allowing users to bypass terminal selection permanently.
+
+### Pattern
+
+Three-key terminal session lifecycle:
+
+| Key | Storage | Purpose |
+|---|---|---|
+| `oppsera:terminal-session` | localStorage | Terminal session data (survives page refresh) |
+| `oppsera:terminal-session-confirmed` | sessionStorage | Confirmation flag (current browser session only) |
+| `oppsera:terminal-session-skipped` | sessionStorage | Skip flag (current browser session only) |
+
+### Key Rules
+
+1. **Session data is only trusted when confirmed** — `TerminalSessionProvider` only restores a cached terminal session from `localStorage` if `sessionStorage` has the `TERMINAL_CONFIRMED_KEY`. Without it, the user must re-select.
+2. **Skip flag is session-scoped** — `TERMINAL_SKIP_KEY` in `sessionStorage` prevents the "skip once, bypass forever" bug. Closing the browser clears it.
+3. **Login/logout clears ALL three keys** — use the exported `ALL_TERMINAL_KEYS` array to clear from both `localStorage` and `sessionStorage`.
+4. **`setSession()` sets the confirmed flag** — when a user actively selects a terminal, both the session data (localStorage) and the confirmation flag (sessionStorage) are set.
+5. **Revenue must tie back to terminals** — this is an accounting requirement. Never allow stale sessions to silently persist across logins.
+
+---
+
+## 143. Parallel Data Fetching in Commands
+
+### Problem
+
+Commands like `placeOrder` and `recordTender` fetched related data (lines, charges, discounts, tenders, reversals) sequentially — each query waiting for the previous one to complete.
+
+### Pattern
+
+Use `Promise.all` for independent queries within a transaction:
+
+```typescript
+// Before (sequential — 3 round-trips):
+const lines = await tx.query...;
+const charges = await tx.query...;
+const discounts = await tx.query...;
+
+// After (parallel — 1 round-trip wall-clock):
+const [lines, charges, discounts] = await Promise.all([
+  tx.query...,
+  tx.query...,
+  tx.query...,
+]);
+```
+
+### Key Rules
+
+1. **Queries that don't depend on each other should run in parallel** — order lines, charges, and discounts are independent reads.
+2. **Keep independent reads inside the same transaction** — `Promise.all` within a `tx` context still shares the same transaction scope and RLS settings.
+3. **Category/modifier resolution should also be parallel** — name resolution lookups after the main query can use `Promise.all`.
+4. **Enrichment resolution is best-effort** — modifier group name resolution should be wrapped in `try/catch` and not block the operation.
+
+---
+
+## 144. Bootstrap Partial-Run Recovery
+
+### Problem
+
+If `bootstrapTenantCoa` created the `accounting_settings` row but crashed before creating GL accounts (network error, timeout, deploy), re-running bootstrap would short-circuit on the existing settings row and return 0 accounts — leaving the tenant in a broken state.
+
+### Pattern
+
+After finding existing settings, check if accounts also exist. If settings exist but accounts don't (partial run), delete the orphaned settings row and proceed with full bootstrap:
+
+```typescript
+const existingSettings = await getAccountingSettings(tenantId);
+if (existingSettings) {
+  const accounts = await listGlAccounts({ tenantId });
+  if (accounts.length > 0) {
+    return { accountCount: accounts.length }; // fully bootstrapped
+  }
+  // Partial run — settings exist but no accounts. Clean up and re-bootstrap.
+  await tx.delete(accountingSettings).where(eq(...));
+}
+// Proceed with full bootstrap...
+```
+
+### Key Rules
+
+1. **Idempotent bootstraps must verify COMPLETE state, not just partial markers** — checking only settings existence creates a false-positive for "already done."
+2. **Delete orphaned state rather than patching** — it's safer to re-run the full bootstrap than to try to fill in missing pieces.
+3. **Post-bootstrap verification** — the `BootstrapWizard` frontend now verifies `accountCount > 0` and shows a specific error if zero.
+4. **React Query cache invalidation after bootstrap** — use both `invalidateQueries` AND `refetchQueries` (the latter blocks until data is returned) to prevent stale isBootstrapped checks.
+
+---
+
+## 145. Dark Mode: Opacity-Based Colors Only
+
+### Problem
+
+Components using explicit light/dark color pairs (e.g., `bg-red-100 text-red-700` for light, `dark:bg-red-900 dark:text-red-300` for dark) become unmaintainable and often break in the inverted gray scale theme.
+
+### Pattern
+
+Use opacity-based colors that work in both modes:
+
+```tsx
+// Before (breaks in dark mode or requires dark: prefix):
+<div className="bg-red-100 text-red-700 border-red-200" />
+
+// After (works in both modes):
+<div className="bg-red-500/10 text-red-500 border-red-500/30" />
+```
+
+### Conversion Table
+
+| Old Light Mode | Opacity-Based Universal |
+|---|---|
+| `bg-green-50 text-green-700` | `bg-green-500/10 text-green-500` |
+| `bg-red-100 text-red-800` | `bg-red-500/10 text-red-500` |
+| `bg-blue-100 text-blue-700` | `bg-blue-500/10 text-blue-500` |
+| `bg-amber-100 text-amber-700` | `bg-amber-500/10 text-amber-500` |
+| `bg-gray-100 text-gray-600` | `bg-gray-500/10 text-gray-500` |
+| `bg-white` | `bg-surface` |
+| `hover:bg-gray-50` | `hover:bg-gray-200/50` |
+
+### Key Rules
+
+1. **Never use `bg-white`** — always use `bg-surface` for theme-aware backgrounds.
+2. **Never use `dark:` prefixed classes** — opacity-based colors adapt automatically.
+3. **Status badges** use the `/10` background + `/30` border + `500` text pattern.
+4. **Hover states** use `/50` opacity (e.g., `hover:bg-gray-200/50`).
+5. **Dynamic backgrounds** — when color depends on runtime data, use a static lookup object instead of template literals:
+   ```typescript
+   const CARD_BG: Record<string, string> = {
+     blue: 'bg-blue-500/10',
+     green: 'bg-green-500/10',
+     // ...
+   };
+   ```
+
+---
+
+## 146. API Route Field Name Mapping
+
+### Problem
+
+Backend query functions return field names matching the DB schema (e.g., `occupiedRooms`, `totalRevenueCents`, `outOfOrder`), but the frontend API contract expects different names (e.g., `roomsOccupied`, `roomRevenueCents`, `oooRooms`). Returning backend names directly couples the API contract to the database schema.
+
+### Pattern
+
+Add an explicit mapping layer in the API route between the backend query result and the response:
+
+```typescript
+const report = await getManagerFlashReport(ctx);
+const mapped = {
+  roomsOccupied: report.occupiedRooms,
+  roomRevenueCents: report.totalRevenueCents,
+  oooRooms: report.outOfOrder,
+  // ...
+};
+return NextResponse.json({ data: mapped });
+```
+
+### Key Rules
+
+1. **API routes own the response shape** — never let backend query return types leak directly to the frontend.
+2. **Queries return DB-native names** — queries should use column names that match the schema.
+3. **Frontend types define the contract** — the mapping layer translates between the two.
+4. **This prevents breaking changes** — if a DB column is renamed, only the mapping layer changes, not the frontend.
+
+---
+
+## 147. Admin Portal UI Patterns
+
+### Batch Operations
+
+Admin list pages (dead letters, users, etc.) support batch operations:
+- Checkbox selection on actionable rows (e.g., only failed items, not resolved ones)
+- "Select All" header checkbox scoped to the current filter
+- Batch action bar with count, action buttons, and clear
+- Loading state per batch operation
+- Error banner on partial failure
+
+### Collapsible Sections
+
+Detail pages use `CollapsibleSection` for long content:
+```tsx
+<CollapsibleSection title="Error Message" defaultOpen={true}>
+  <pre>{errorMessage}</pre>
+</CollapsibleSection>
+```
+
+### Status Badges
+
+Reusable `StatusBadge` / `KeyStatusBadge` components with opacity-based colors:
+```tsx
+const colors: Record<string, string> = {
+  active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+  failed: 'bg-red-500/10 text-red-400 border-red-500/30',
+  resolved: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
+};
+```
+
+### Admin Permission Granularity
+
+Admin API routes use fine-grained permissions (not broad ones):
+- `tenants.detail.view` (not `tenants.view`)
+- `tenants.detail.manage` (not `tenants.edit`)
+- `events.dlq.view` (not `tenants.view`)
+
+---
+
+## 148. F&B Host Stand Compact Layout
+
+### Problem
+
+The Host Stand page was too spacious for real-world tablet use — large paddings, oversized stats, and wasted vertical space.
+
+### Pattern
+
+Host Stand components use a compact, information-dense layout:
+
+1. **StatsBar uses grouped flex, not grid** — two card groups ("Guest Metrics" and "Table Metrics") with vertical dividers between metrics inside each group. Values use `text-sm` (not `text-xl`), labels use `text-[9px]`.
+2. **WaitlistPanel shows rank numbers** — each waitlist card gets a position number badge for quick visual scanning.
+3. **Action buttons are role-stratified** — primary action (Seat/Check In) is solid green, secondary (Notify/No Show) is outlined, tertiary (Remove/Cancel) is icon-only (34x34px).
+4. **Metadata as chips** — party size, wait time, seating preference shown as small rounded pills with background colors, not as text rows.
+5. **Count badges only shown when > 0** — empty sections don't show "(0)" badges.
+6. **42/58 split** — left panel (Waitlist) gets 42% width, right panel (Reservations + Rotation) gets 58%.
+
+---
+
+## 149. Accounting Settings 404 on Unconfigured Tenants
+
+### Pattern
+
+The `GET /api/v1/accounting/settings` route now returns 404 with message `"Accounting not configured — run bootstrap first"` when no settings row exists, instead of `{ data: null }`. This lets the frontend distinguish between "not configured" (show bootstrap wizard) and "configured but empty settings" (show settings form).
+
+### Key Rule
+
+API routes that return configuration objects should return 404 when the configuration doesn't exist — not `{ data: null }`. This follows the REST convention that missing resources are 404.
+

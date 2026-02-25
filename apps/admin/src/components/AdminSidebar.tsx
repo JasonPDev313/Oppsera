@@ -49,6 +49,7 @@ const MODULES: NavModule[] = [
     prefix: '/tenants',
     children: [
       { href: '/tenants', label: 'All Tenants', icon: List },
+      { href: '/modules', label: 'Capability Matrix', icon: Layers },
     ],
   },
   {
@@ -56,6 +57,7 @@ const MODULES: NavModule[] = [
     icon: Users,
     prefix: '/users',
     children: [
+      { href: '/users/global', label: 'Global Search', icon: Users },
       { href: '/users/staff', label: 'Staff', icon: UserCog },
       { href: '/users/customers', label: 'Customers', icon: Users },
       { href: '/users/roles', label: 'Roles & Permissions', icon: Shield },

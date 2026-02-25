@@ -19,7 +19,17 @@ export const GET = withMiddleware(
       ]);
     }
 
-    const data = await getHousekeepingProductivity(ctx.tenantId, propertyId, startDate, endDate);
+    const rows = await getHousekeepingProductivity(ctx.tenantId, propertyId, startDate, endDate);
+    // Map backend fields to frontend HousekeepingProductivity interface
+    const data = rows.map((row) => ({
+      housekeeperId: row.housekeeperId,
+      housekeeperName: row.housekeeperName,
+      roomsCleaned: row.totalRoomsCleaned,
+      avgMinutesPerRoom: row.avgMinutesPerRoom,
+      totalMinutes: row.totalMinutes,
+      // inspectionPassRate not tracked in read model yet — default to 0
+      inspectionPassRate: 0,
+    }));
     return NextResponse.json({ data });
   },
   { entitlement: 'pms', permission: PMS_PERMISSIONS.REPORTS_VIEW },

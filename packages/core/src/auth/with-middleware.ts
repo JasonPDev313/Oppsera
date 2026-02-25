@@ -29,6 +29,31 @@ interface MiddlewareOptions {
   cache?: string;
 }
 
+// In-memory location validation cache (60s TTL). Locations rarely change during a session.
+const LOCATION_CACHE_TTL = 60_000;
+const locationCache = new Map<string, { isActive: boolean; ts: number }>();
+
+function getCachedLocation(tenantId: string, locationId: string): { isActive: boolean } | null {
+  const key = `${tenantId}:${locationId}`;
+  const entry = locationCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > LOCATION_CACHE_TTL) {
+    locationCache.delete(key);
+    return null;
+  }
+  return { isActive: entry.isActive };
+}
+
+function setCachedLocation(tenantId: string, locationId: string, isActive: boolean) {
+  const key = `${tenantId}:${locationId}`;
+  locationCache.set(key, { isActive, ts: Date.now() });
+  // Prevent unbounded growth
+  if (locationCache.size > 500) {
+    const oldest = locationCache.keys().next().value;
+    if (oldest) locationCache.delete(oldest);
+  }
+}
+
 async function resolveLocation(
   request: NextRequest,
   ctx: RequestContext,
@@ -38,19 +63,27 @@ async function resolveLocation(
 
   if (!locationId) return undefined;
 
-  const location = await db.query.locations.findFirst({
-    where: and(
-      eq(locations.id, locationId),
-      eq(locations.tenantId, ctx.tenantId),
-    ),
-  });
+  // Check in-memory cache first (avoids DB round-trip for hot POS paths)
+  const cached = getCachedLocation(ctx.tenantId, locationId);
+  if (cached) {
+    if (!cached.isActive) throw new NotFoundError('Location');
+  } else {
+    const location = await db.query.locations.findFirst({
+      where: and(
+        eq(locations.id, locationId),
+        eq(locations.tenantId, ctx.tenantId),
+      ),
+    });
 
-  if (!location) {
-    throw new NotFoundError('Location');
-  }
+    if (!location) {
+      throw new NotFoundError('Location');
+    }
 
-  if (!location.isActive) {
-    throw new NotFoundError('Location');
+    setCachedLocation(ctx.tenantId, locationId, location.isActive);
+
+    if (!location.isActive) {
+      throw new NotFoundError('Location');
+    }
   }
 
   // Impersonation sessions skip the role assignment check —

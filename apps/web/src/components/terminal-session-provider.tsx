@@ -20,20 +20,41 @@ interface TerminalSessionContextValue {
 const TerminalSessionContext = createContext<TerminalSessionContextValue | null>(null);
 
 const STORAGE_KEY = 'oppsera:terminal-session';
-/** Also used by TerminalSessionGate in layout.tsx — keep in sync */
+
+/**
+ * Session-scoped confirmation flag (sessionStorage).
+ * Set when user actively selects a terminal in the current browser session.
+ * If this is missing, the TerminalSessionGate forces re-selection even if
+ * localStorage has a terminal session from a previous browser session.
+ * This prevents stale sessions from auto-auth (valid token + old localStorage).
+ */
+export const TERMINAL_CONFIRMED_KEY = 'oppsera:terminal-session-confirmed';
+
+/**
+ * Session-scoped skip flag (sessionStorage, NOT localStorage).
+ * Only valid for the current browser session — closing the browser clears it.
+ * This prevents the "skip once, bypass forever" bug that occurred when the
+ * skip flag was persisted in localStorage across logins.
+ */
 export const TERMINAL_SKIP_KEY = 'oppsera:terminal-session-skipped';
+
+/** All terminal session keys that should be cleared on login/logout. */
+export const ALL_TERMINAL_KEYS = [STORAGE_KEY, TERMINAL_CONFIRMED_KEY, TERMINAL_SKIP_KEY] as const;
 
 export function TerminalSessionProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<TerminalSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load from localStorage on mount (safe for SSR)
+  // Load from localStorage on mount, but only trust it if confirmed this session
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
+      const confirmed = sessionStorage.getItem(TERMINAL_CONFIRMED_KEY) === 'true';
+      if (stored && confirmed) {
         setSessionState(JSON.parse(stored));
       }
+      // If stored but NOT confirmed, we intentionally leave session as null.
+      // The TerminalSessionGate will force the user to re-select.
     } catch {
       /* ignore parse errors */
     }
@@ -43,13 +64,16 @@ export function TerminalSessionProvider({ children }: { children: ReactNode }) {
   const setSession = useCallback((s: TerminalSession) => {
     setSessionState(s);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    // Mark as confirmed for this browser session
+    sessionStorage.setItem(TERMINAL_CONFIRMED_KEY, 'true');
     // Clear the skip flag — user has a real session now
-    localStorage.removeItem(TERMINAL_SKIP_KEY);
+    sessionStorage.removeItem(TERMINAL_SKIP_KEY);
   }, []);
 
   const clearSession = useCallback(() => {
     setSessionState(null);
     localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(TERMINAL_CONFIRMED_KEY);
   }, []);
 
   return (

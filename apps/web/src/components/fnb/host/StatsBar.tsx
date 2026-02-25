@@ -30,53 +30,35 @@ interface StatsBarProps {
   } | null;
 }
 
-interface StatCardProps {
+interface StatItemProps {
   icon: LucideIcon;
   value: number | string;
   label: string;
   color?: string;
 }
 
-function StatCard({ icon: Icon, value, label, color }: StatCardProps) {
-  const iconColor = color ?? 'var(--fnb-text-muted)';
-
+function StatItem({ icon: Icon, value, label, color }: StatItemProps) {
   return (
-    <div
-      style={{
-        background: 'var(--fnb-bg-elevated)',
-        borderRadius: 'var(--fnb-radius-lg)',
-        padding: 'var(--fnb-space-3) var(--fnb-space-4)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--fnb-space-3)',
-        minWidth: 0,
-      }}
-    >
-      <Icon size={20} style={{ color: iconColor, flexShrink: 0 }} />
-      <div style={{ minWidth: 0 }}>
+    <div className="flex items-center gap-2 min-w-0">
+      <div
+        className="flex items-center justify-center h-7 w-7 rounded-md shrink-0"
+        style={{ backgroundColor: `color-mix(in srgb, ${color ?? 'var(--fnb-text-muted)'} 12%, transparent)` }}
+      >
+        <Icon size={14} style={{ color: color ?? 'var(--fnb-text-muted)' }} />
+      </div>
+      <div className="min-w-0">
         <div
+          className="text-sm font-bold leading-none tabular-nums"
           style={{
             color: color ?? 'var(--fnb-text-primary)',
-            fontSize: 'var(--fnb-text-xl)',
-            fontWeight: 'var(--fnb-font-bold)',
             fontFamily: 'var(--fnb-font-mono)',
-            lineHeight: 1.1,
           }}
         >
           {value}
         </div>
         <div
-          style={{
-            color: 'var(--fnb-text-muted)',
-            fontSize: 'var(--fnb-text-xs)',
-            fontWeight: 'var(--fnb-font-semibold)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.04em',
-            lineHeight: 1.3,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
+          className="text-[9px] font-semibold uppercase tracking-wide leading-tight mt-0.5 truncate"
+          style={{ color: 'var(--fnb-text-muted)' }}
         >
           {label}
         </div>
@@ -87,68 +69,73 @@ function StatCard({ icon: Icon, value, label, color }: StatCardProps) {
 
 export function StatsBar({ stats, tableSummary }: StatsBarProps) {
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-        gap: 'var(--fnb-space-2)',
-        padding: 'var(--fnb-space-3)',
-        background: 'var(--fnb-bg-surface)',
-        borderRadius: 'var(--fnb-radius-lg)',
-        border: 'var(--fnb-border-subtle)',
-      }}
-    >
-      {/* Guest stats */}
-      <StatCard
-        icon={Users}
-        value={stats?.totalCoversToday ?? 0}
-        label="Covers"
-      />
-      <StatCard
-        icon={Clock}
-        value={stats?.currentWaiting ?? 0}
-        label="Waiting"
-        color={
-          stats && stats.currentWaiting > 0
-            ? 'var(--fnb-warning)'
-            : undefined
-        }
-      />
-      <StatCard
-        icon={Timer}
-        value={stats ? `${stats.avgWaitMinutes}m` : '0m'}
-        label="Avg Wait"
-      />
+    <div className="flex items-stretch gap-2">
+      {/* Guest Metrics Group */}
+      <div
+        className="flex items-center gap-4 px-4 py-2.5 rounded-lg flex-1"
+        style={{
+          backgroundColor: 'var(--fnb-bg-surface)',
+          border: 'var(--fnb-border-subtle)',
+        }}
+      >
+        <StatItem icon={Users} value={stats?.totalCoversToday ?? 0} label="Covers" />
 
-      {/* Table stats */}
-      <StatCard
-        icon={LayoutGrid}
-        value={tableSummary?.available ?? 0}
-        label="Available"
-        color="var(--fnb-status-available)"
-      />
-      <StatCard
-        icon={Check}
-        value={tableSummary?.seated ?? 0}
-        label="Seated"
-        color="var(--fnb-status-seated)"
-      />
-      <StatCard
-        icon={Calendar}
-        value={tableSummary?.reserved ?? 0}
-        label="Reserved"
-        color="var(--fnb-status-reserved)"
-      />
-      <StatCard
-        icon={Droplets}
-        value={tableSummary?.dirty ?? 0}
-        label="Dirty"
-        color={
-          tableSummary && tableSummary.dirty > 0
-            ? 'var(--fnb-warning)'
-            : undefined
-        }
-      />
+        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
+
+        <StatItem
+          icon={Clock}
+          value={stats?.currentWaiting ?? 0}
+          label="Waiting"
+          color={stats && stats.currentWaiting > 0 ? 'var(--fnb-warning)' : undefined}
+        />
+
+        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
+
+        <StatItem icon={Timer} value={stats ? `${stats.avgWaitMinutes}m` : '0m'} label="Avg Wait" />
+      </div>
+
+      {/* Table Metrics Group */}
+      <div
+        className="flex items-center gap-4 px-4 py-2.5 rounded-lg flex-1"
+        style={{
+          backgroundColor: 'var(--fnb-bg-surface)',
+          border: 'var(--fnb-border-subtle)',
+        }}
+      >
+        <StatItem
+          icon={LayoutGrid}
+          value={tableSummary?.available ?? 0}
+          label="Open"
+          color="var(--fnb-status-available)"
+        />
+
+        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
+
+        <StatItem
+          icon={Check}
+          value={tableSummary?.seated ?? 0}
+          label="Seated"
+          color="var(--fnb-status-seated)"
+        />
+
+        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
+
+        <StatItem
+          icon={Calendar}
+          value={tableSummary?.reserved ?? 0}
+          label="Reserved"
+          color="var(--fnb-status-reserved)"
+        />
+
+        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
+
+        <StatItem
+          icon={Droplets}
+          value={tableSummary?.dirty ?? 0}
+          label="Dirty"
+          color={tableSummary && tableSummary.dirty > 0 ? 'var(--fnb-danger)' : undefined}
+        />
+      </div>
     </div>
   );
 }

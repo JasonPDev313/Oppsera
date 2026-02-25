@@ -17,6 +17,13 @@ export const GET = withMiddleware(
       return getAccountingSettings(tx, ctx.tenantId);
     });
 
+    if (!settings) {
+      return NextResponse.json(
+        { error: { code: 'NOT_FOUND', message: 'Accounting not configured — run bootstrap first' } },
+        { status: 404 },
+      );
+    }
+
     return NextResponse.json({ data: settings });
   },
   { entitlement: 'accounting', permission: 'accounting.view' },

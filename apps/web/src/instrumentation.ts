@@ -32,6 +32,15 @@ export async function register() {
       console.error('Failed to initialize OrdersWriteApi:', e);
     }
 
+    // ── Register customer write API (for PMS guest→customer auto-linking) ──
+    try {
+      const { initializeCustomerWriteApi } = await import('./lib/customer-bootstrap');
+      await initializeCustomerWriteApi();
+      console.log('Initialized CustomerWriteApi singleton');
+    } catch (e) {
+      console.error('Failed to initialize CustomerWriteApi:', e);
+    }
+
     // ── Register module event consumers ──────────────────────────
     const bus = getEventBus();
 

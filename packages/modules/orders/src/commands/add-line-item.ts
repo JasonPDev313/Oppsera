@@ -5,12 +5,12 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, NotFoundError, computePackageAllocations } from '@oppsera/shared';
 import type { PackageMetadata } from '@oppsera/shared';
 import { orders, orderLines, orderCharges, orderDiscounts, orderLineTaxes } from '@oppsera/db';
-import { eq, max } from 'drizzle-orm';
+import { eq, max, sql } from 'drizzle-orm';
 import { getCatalogReadApi } from '@oppsera/core/helpers/catalog-read-api';
 import { calculateTaxes } from '@oppsera/core/helpers/tax-calc';
 import type { AddLineItemInput } from '../validation';
 import { checkIdempotency, saveIdempotencyKey } from '../helpers/idempotency';
-import { fetchOrderForMutation, incrementVersion } from '../helpers/optimistic-lock';
+import { fetchOrderForMutation } from '../helpers/optimistic-lock';
 import { recalculateOrderTotals } from '../helpers/order-totals';
 
 export async function addLineItem(ctx: RequestContext, orderId: string, input: AddLineItemInput) {
@@ -76,9 +76,12 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
   }
 
   const result = await publishWithOutbox(ctx, async (tx) => {
-    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'addLineItem');
+    // Parallelize idempotency check + order fetch (independent queries)
+    const [idempotencyCheck, order] = await Promise.all([
+      checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'addLineItem'),
+      fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open'),
+    ]);
     if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
-    const order = await fetchOrderForMutation(tx, ctx.tenantId, orderId, 'open');
 
     const unitPrice = input.priceOverride ? input.priceOverride.unitPrice : posItem.unitPriceCents;
     const lineSubtotal = Math.round(Number(input.qty) * unitPrice);
@@ -159,13 +162,13 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
 
     const totals = recalculateOrderTotals(allLines, allCharges, allDiscounts);
 
+    // Combined UPDATE: set totals + increment version in a single DB round-trip
     await (tx as any).update(orders).set({
       ...totals,
+      version: sql`version + 1`,
       updatedBy: ctx.user.id,
       updatedAt: new Date(),
     }).where(eq(orders.id, orderId));
-
-    await incrementVersion(tx, orderId);
 
     await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'addLineItem', { lineId: line!.id });
 
@@ -185,6 +188,7 @@ export async function addLineItem(ctx: RequestContext, orderId: string, input: A
     return { result: { order: { ...order, ...totals, version: order.version + 1 }, line: { ...line!, qty: Number(line!.qty) } }, events: [event] };
   });
 
-  await auditLog(ctx, 'order.line_added', 'order', orderId);
+  // Fire-and-forget audit log — don't block the API response
+  auditLog(ctx, 'order.line_added', 'order', orderId).catch(() => {});
   return result;
 }

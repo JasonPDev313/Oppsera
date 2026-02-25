@@ -19,7 +19,18 @@ export const GET = withMiddleware(
       ]);
     }
 
-    const data = await getNoShowReport(ctx.tenantId, propertyId, startDate, endDate);
+    const result = await getNoShowReport(ctx.tenantId, propertyId, startDate, endDate);
+    // Unwrap items and map fields to frontend NoShowRecord interface
+    const data = result.items.map((row) => ({
+      reservationId: row.reservationId,
+      guestName: row.guestName,
+      roomTypeName: row.roomTypeName,
+      checkInDate: row.checkInDate,
+      nightlyRateCents: row.nightCount > 0
+        ? Math.round(row.estimatedRevenueCents / row.nightCount)
+        : 0,
+      lostRevenueCents: row.estimatedRevenueCents,
+    }));
     return NextResponse.json({ data });
   },
   { entitlement: 'pms', permission: PMS_PERMISSIONS.REPORTS_VIEW },

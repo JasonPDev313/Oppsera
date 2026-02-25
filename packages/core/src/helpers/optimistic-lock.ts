@@ -13,9 +13,16 @@ export async function fetchOrderForMutation(
   requiredStatus: string | string[],
   expectedVersion?: number,
 ): Promise<Order> {
-  // Use raw SQL for SELECT ... FOR UPDATE
+  // Select only the columns callers actually need — skip receipt_snapshot (large JSONB blob)
+  // which is only built during placeOrder and never read back from fetchOrderForMutation.
   const result = await (tx as any).execute(sql`
-    SELECT * FROM orders
+    SELECT id, tenant_id, location_id, order_number, status, source, version,
+           customer_id, subtotal, tax_total, service_charge_total, discount_total,
+           rounding_adjustment, total, notes, metadata, business_date,
+           terminal_id, employee_id, shift_id, billing_account_id,
+           placed_at, paid_at, voided_at, void_reason, voided_by,
+           held_at, held_by, created_at, updated_at, created_by, updated_by
+    FROM orders
     WHERE tenant_id = ${tenantId} AND id = ${orderId}
     FOR UPDATE
   `);
@@ -62,7 +69,8 @@ export async function fetchOrderForMutation(
     terminalId: (row.terminal_id as string) ?? null,
     employeeId: (row.employee_id as string) ?? null,
     shiftId: (row.shift_id as string) ?? null,
-    receiptSnapshot: row.receipt_snapshot ?? null,
+    billingAccountId: (row.billing_account_id as string) ?? null,
+    receiptSnapshot: null,
     placedAt: row.placed_at ? new Date(row.placed_at as string) : null,
     paidAt: row.paid_at ? new Date(row.paid_at as string) : null,
     voidedAt: row.voided_at ? new Date(row.voided_at as string) : null,

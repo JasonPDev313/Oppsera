@@ -20,7 +20,7 @@ import { BootstrapWizard } from '@/components/accounting/bootstrap-wizard';
 import { StatusBadge } from '@/components/accounting/status-badge';
 import { formatAccountingMoney } from '@/types/accounting';
 import type { HealthSummary } from '@/types/accounting';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { useAuditCoverage } from '@/hooks/use-audit';
 import { useAccountingBootstrapStatus } from '@/hooks/use-accounting';
@@ -73,6 +73,7 @@ function getDefaultDateRange() {
 }
 
 export default function AccountingDashboardContent() {
+  const queryClient = useQueryClient();
   const { isBootstrapped, isLoading: bootstrapLoading } = useAccountingBootstrapStatus();
   const [showBootstrap, setShowBootstrap] = useState(false);
 
@@ -94,7 +95,16 @@ export default function AccountingDashboardContent() {
     return (
       <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
         {showBootstrap ? (
-          <BootstrapWizard onComplete={() => { setShowBootstrap(false); }} />
+          <BootstrapWizard
+            onComplete={() => {
+              // Force one final refetch to guarantee bootstrap status is fresh
+              // before hiding the wizard. This prevents the loop where stale
+              // query data causes isBootstrapped to still be false.
+              queryClient.refetchQueries({ queryKey: ['accounting-settings'] });
+              queryClient.refetchQueries({ queryKey: ['gl-accounts'] });
+              setShowBootstrap(false);
+            }}
+          />
         ) : (
           <AccountingEmptyState
             title="Accounting not configured"

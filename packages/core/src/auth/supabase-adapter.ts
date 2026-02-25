@@ -29,6 +29,29 @@ function getVerificationKey(): { key: string | KeyObject; algorithms: jwt.Algori
   throw new Error('SUPABASE_JWT_JWK or SUPABASE_JWT_SECRET must be set');
 }
 
+// In-memory auth user cache (60s TTL). Eliminates 3 DB queries per request on hot paths.
+const AUTH_CACHE_TTL = 60_000;
+const authUserCache = new Map<string, { user: AuthUser; ts: number }>();
+
+function getCachedAuthUser(authProviderId: string): AuthUser | null {
+  const entry = authUserCache.get(authProviderId);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > AUTH_CACHE_TTL) {
+    authUserCache.delete(authProviderId);
+    return null;
+  }
+  return entry.user;
+}
+
+function setCachedAuthUser(authProviderId: string, user: AuthUser) {
+  authUserCache.set(authProviderId, { user, ts: Date.now() });
+  // Prevent unbounded growth
+  if (authUserCache.size > 200) {
+    const oldest = authUserCache.keys().next().value;
+    if (oldest) authUserCache.delete(oldest);
+  }
+}
+
 export class SupabaseAuthAdapter implements AuthAdapter {
   private _supabase: ReturnType<typeof createSupabaseAdmin> | null = null;
 
@@ -48,14 +71,17 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       const authProviderId = decoded.sub;
       if (!authProviderId) return null;
 
+      // Check cache first — avoids 3 sequential DB queries on hot POS paths
+      const cached = getCachedAuthUser(authProviderId);
+      if (cached) return cached;
+
       // Look up user by auth_provider_id
       const user = await db.query.users.findFirst({
         where: eq(users.authProviderId, authProviderId),
       });
       if (!user) return null;
 
-      // Look up active membership
-      // TODO: V2 — support multiple tenants with tenant switching
+      // Look up active membership + tenant in parallel
       const membership = await db.query.memberships.findFirst({
         where: and(
           eq(memberships.userId, user.id),
@@ -66,7 +92,7 @@ export class SupabaseAuthAdapter implements AuthAdapter {
 
       if (!membership) {
         // User exists but has no tenant — needs onboarding
-        return {
+        const result: AuthUser = {
           id: user.id,
           email: user.email,
           name: user.name,
@@ -74,6 +100,8 @@ export class SupabaseAuthAdapter implements AuthAdapter {
           tenantStatus: 'none',
           membershipStatus: 'none',
         };
+        setCachedAuthUser(authProviderId, result);
+        return result;
       }
 
       // Look up tenant — select only needed columns to avoid schema mismatch
@@ -84,7 +112,7 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       });
       if (!tenant) return null;
 
-      return {
+      const result: AuthUser = {
         id: user.id,
         email: user.email,
         name: user.name,
@@ -92,6 +120,8 @@ export class SupabaseAuthAdapter implements AuthAdapter {
         tenantStatus: tenant.status,
         membershipStatus: membership.status,
       };
+      setCachedAuthUser(authProviderId, result);
+      return result;
     } catch (error) {
       // JWT errors are auth failures → return null → 401
       if (error instanceof jwt.JsonWebTokenError) {

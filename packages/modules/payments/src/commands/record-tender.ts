@@ -68,28 +68,28 @@ export async function recordTender(
       );
     }
 
-    // 3. Calculate remaining balance
-    const existingTendersRows = await (tx as any)
-      .select()
-      .from(tenders)
-      .where(
-        and(
-          eq(tenders.tenantId, ctx.tenantId),
-          eq(tenders.orderId, orderId),
-          eq(tenders.status, 'captured'),
+    // 3. Calculate remaining balance — fetch tenders + reversals in parallel
+    const [existingTendersRows, existingReversals] = await Promise.all([
+      (tx as any)
+        .select()
+        .from(tenders)
+        .where(
+          and(
+            eq(tenders.tenantId, ctx.tenantId),
+            eq(tenders.orderId, orderId),
+            eq(tenders.status, 'captured'),
+          ),
         ),
-      );
-
-    // Filter out reversed tenders
-    const existingReversals = await (tx as any)
-      .select()
-      .from(tenderReversals)
-      .where(
-        and(
-          eq(tenderReversals.tenantId, ctx.tenantId),
-          eq(tenderReversals.orderId, orderId),
+      (tx as any)
+        .select()
+        .from(tenderReversals)
+        .where(
+          and(
+            eq(tenderReversals.tenantId, ctx.tenantId),
+            eq(tenderReversals.orderId, orderId),
+          ),
         ),
-      );
+    ]);
     const reversedIds = new Set(
       (existingReversals as any[]).map((r: any) => r.originalTenderId),
     );
@@ -291,6 +291,7 @@ export async function recordTender(
     };
   });
 
-  await auditLog(ctx, 'tender.recorded', 'order', orderId);
+  // Fire-and-forget — audit log should never block the POS response
+  auditLog(ctx, 'tender.recorded', 'order', orderId).catch(() => {});
   return result;
 }

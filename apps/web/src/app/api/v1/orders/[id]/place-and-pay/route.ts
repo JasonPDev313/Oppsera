@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { AppError, ConflictError } from '@oppsera/shared';
-import { placeOrder, placeOrderSchema, getOrder } from '@oppsera/module-orders';
-import { recordTender, recordTenderSchema } from '@oppsera/module-payments';
+import { AppError } from '@oppsera/shared';
+import { placeOrderSchema } from '@oppsera/module-orders';
+import { recordTenderSchema, listPaymentMethods } from '@oppsera/module-payments';
 import { hasPaymentsGateway, getPaymentsGatewayApi } from '@oppsera/core/helpers/payments-gateway-api';
+import { placeAndRecordTender } from './place-and-pay-fast';
 
 function extractOrderId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
@@ -16,11 +17,16 @@ function extractOrderId(request: NextRequest): string {
  * POST /api/v1/orders/:id/place-and-pay
  *
  * Combined endpoint: places the order (if still open) and records a tender
- * in a single HTTP round-trip. Eliminates the 2-call race condition that
- * caused "Payment conflict" and "Order is placed, expected open" errors.
+ * in a SINGLE DB TRANSACTION. This eliminates ~8 redundant DB round-trips
+ * vs the old 2-transaction approach.
  *
- * For card tenders: if token or paymentMethodId is included and gateway
- * is configured, processes through PaymentsGatewayApi.sale() before recording.
+ * Card payment modes:
+ *   1. Card-present (physical terminal): `paymentIntentId` + `entryMode: 'terminal'`
+ *      — payment already captured by terminal, just records tender.
+ *   2. Card-on-file (stored payment method): `paymentMethodId` — resolves stored
+ *      token from customer_payment_methods and charges via gateway.
+ *   3. Token (CNP): `token` — charges via gateway directly.
+ *
  * Cash/check/voucher tenders bypass the gateway entirely.
  */
 export const POST = withMiddleware(
@@ -28,6 +34,27 @@ export const POST = withMiddleware(
     const orderId = extractOrderId(request);
     const body = await request.json();
     const tenderType = body.tenderType as string | undefined;
+
+    // Card-on-file: resolve paymentMethodId → stored token before gateway call
+    if (tenderType === 'card' && body.paymentMethodId && !body.token && !body.paymentIntentId) {
+      const methods = await listPaymentMethods(ctx.tenantId, body.customerId);
+      const method = methods.find((m) => m.id === body.paymentMethodId);
+      if (!method) {
+        throw new AppError('PAYMENT_METHOD_NOT_FOUND', 'Stored payment method not found', 404);
+      }
+      // Use the stored CardSecure token for the gateway charge
+      body.token = method.providerProfileId
+        ? `${method.providerProfileId}/${method.providerAccountId ?? ''}`
+        : undefined;
+      // Enrich metadata with card-on-file details for receipt/audit
+      body.metadata = {
+        ...(body.metadata ?? {}),
+        entryMode: 'card_on_file',
+        storedCardBrand: method.brand,
+        storedCardLast4: method.last4,
+        paymentMethodId: body.paymentMethodId,
+      };
+    }
 
     // Card tenders with token/paymentMethodId go through the gateway
     if (tenderType === 'card' && (body.token || body.paymentMethodId) && hasPaymentsGateway()) {
@@ -43,7 +70,7 @@ export const POST = withMiddleware(
         customerId: body.customerId,
         tipCents,
         ecomind: 'R',
-        metadata: { source: 'retail_pos', terminalId: body.terminalId },
+        metadata: { source: 'retail_pos', terminalId: body.terminalId, entryMode: body.metadata?.entryMode ?? 'keyed' },
         clientRequestId: body.clientRequestId ?? `retail-${Date.now()}`,
       });
 
@@ -70,7 +97,7 @@ export const POST = withMiddleware(
       delete body.customerId;
     }
 
-    // Parse tender data (the main payload)
+    // Parse tender data
     const tenderParsed = recordTenderSchema.safeParse(body);
     if (!tenderParsed.success) {
       return NextResponse.json(
@@ -79,32 +106,16 @@ export const POST = withMiddleware(
       );
     }
 
-    // Step 1: Place the order (if not already placed)
-    let orderVersion: number;
     const placeBody = { clientRequestId: body.placeClientRequestId ?? crypto.randomUUID() };
     const placeParsed = placeOrderSchema.safeParse(placeBody);
 
-    try {
-      const placed = await placeOrder(ctx, orderId, placeParsed.success ? placeParsed.data : { clientRequestId: crypto.randomUUID() });
-      orderVersion = (placed as any).version ?? 0;
-    } catch (err) {
-      if (err instanceof ConflictError && err.message.includes('Order is placed')) {
-        // Already placed — fetch the current version
-        const existing = await getOrder(ctx.tenantId, orderId);
-        if (!existing || existing.status !== 'placed') {
-          throw err;
-        }
-        orderVersion = existing.version;
-      } else {
-        throw err;
-      }
-    }
-
-    // Step 2: Record tender with the correct version from step 1
-    const tenderResult = await recordTender(ctx, orderId, {
-      ...tenderParsed.data,
-      version: orderVersion,
-    });
+    // Single-transaction fast path: place + tender atomically
+    const tenderResult = await placeAndRecordTender(
+      ctx,
+      orderId,
+      placeParsed.success ? placeParsed.data : { clientRequestId: crypto.randomUUID() },
+      tenderParsed.data,
+    );
 
     return NextResponse.json({ data: tenderResult }, { status: 201 });
   },

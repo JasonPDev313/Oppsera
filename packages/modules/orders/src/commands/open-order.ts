@@ -50,6 +50,7 @@ export async function openOrder(ctx: RequestContext, input: OpenOrderInput) {
     return { result: created!, events: [event] };
   });
 
-  await auditLog(ctx, 'order.opened', 'order', order.id);
+  // Fire-and-forget audit log — don't block the API response
+  auditLog(ctx, 'order.opened', 'order', order.id).catch(() => {});
   return order;
 }

@@ -17,7 +17,21 @@ export const GET = withMiddleware(
       ]);
     }
 
-    const data = await getManagerFlashReport(ctx.tenantId, propertyId, businessDate);
+    const report = await getManagerFlashReport(ctx.tenantId, propertyId, businessDate);
+    // Map backend fields to frontend ManagerFlash interface
+    const data = {
+      businessDate: report.businessDate,
+      totalRooms: report.totalRooms,
+      roomsOccupied: report.occupiedRooms,
+      occupancyPct: report.occupancyPct,
+      adrCents: report.adrCents,
+      revParCents: report.revParCents,
+      roomRevenueCents: report.totalRevenueCents,
+      arrivals: report.arrivals,
+      departures: report.departures,
+      stayovers: report.stayovers,
+      oooRooms: report.outOfOrder,
+    };
     return NextResponse.json({ data });
   },
   { entitlement: 'pms', permission: PMS_PERMISSIONS.REPORTS_VIEW },

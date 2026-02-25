@@ -57,10 +57,7 @@ export default function HostContent() {
   );
 
   // ── Table availability for seating dialog ───────────
-  const {
-    suggested,
-    allAvailable,
-  } = useTableAvailability(
+  const { suggested, allAvailable } = useTableAvailability(
     seatTarget ? locationId : null,
     seatTarget?.partySize ?? 2,
     undefined,
@@ -145,22 +142,22 @@ export default function HostContent() {
 
   return (
     <div
-      className="h-[calc(100vh-64px)] flex flex-col"
+      className="h-[calc(100vh-64px)] flex flex-col overflow-hidden"
       style={{ backgroundColor: 'var(--fnb-bg-primary)' }}
     >
       {/* ── Header ────────────────────────────────────── */}
-      <div
-        className="flex items-center justify-between px-6 py-3 border-b shrink-0"
+      <header
+        className="flex items-center justify-between px-5 py-3 shrink-0"
         style={{
           backgroundColor: 'var(--fnb-bg-surface)',
-          borderColor: 'rgba(148, 163, 184, 0.15)',
+          borderBottom: 'var(--fnb-border-subtle)',
         }}
       >
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => router.push('/pos/fnb')}
-            className="flex items-center justify-center rounded-lg h-9 w-9 transition-colors hover:opacity-80"
+            className="flex items-center justify-center rounded-lg h-9 w-9 transition-all active:scale-95"
             style={{
               backgroundColor: 'var(--fnb-bg-elevated)',
               color: 'var(--fnb-text-secondary)',
@@ -168,38 +165,50 @@ export default function HostContent() {
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex items-center gap-2">
-            <Users
-              className="h-5 w-5"
-              style={{ color: 'var(--fnb-status-seated)' }}
-            />
-            <h1
-              className="text-lg font-bold"
-              style={{ color: 'var(--fnb-text-primary)' }}
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex items-center justify-center h-8 w-8 rounded-lg"
+              style={{ backgroundColor: 'rgba(59, 130, 246, 0.12)' }}
             >
-              Host Stand
-            </h1>
+              <Users className="h-4 w-4" style={{ color: 'var(--fnb-info)' }} />
+            </div>
+            <div>
+              <h1
+                className="text-base font-bold leading-tight"
+                style={{ color: 'var(--fnb-text-primary)' }}
+              >
+                Host Stand
+              </h1>
+              <p
+                className="text-[10px] font-medium leading-tight"
+                style={{ color: 'var(--fnb-text-muted)' }}
+              >
+                {new Date().toLocaleDateString(undefined, {
+                  weekday: 'long',
+                  month: 'short',
+                  day: 'numeric',
+                })}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => refresh()}
-            className="flex items-center justify-center rounded-lg h-9 w-9 transition-colors hover:opacity-80"
+            className="flex items-center justify-center rounded-lg h-9 w-9 transition-all active:scale-95"
             style={{
               backgroundColor: 'var(--fnb-bg-elevated)',
               color: 'var(--fnb-text-secondary)',
             }}
           >
-            <RefreshCw
-              className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-            />
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
           <button
             type="button"
             onClick={() => router.push('/settings/merchant-services')}
-            className="flex items-center justify-center rounded-lg h-9 w-9 transition-colors hover:opacity-80"
+            className="flex items-center justify-center rounded-lg h-9 w-9 transition-all active:scale-95"
             style={{
               backgroundColor: 'var(--fnb-bg-elevated)',
               color: 'var(--fnb-text-secondary)',
@@ -208,20 +217,17 @@ export default function HostContent() {
             <Settings className="h-4 w-4" />
           </button>
         </div>
-      </div>
+      </header>
 
       {/* ── Stats Bar ─────────────────────────────────── */}
-      <div className="shrink-0 px-4 py-3">
+      <div className="shrink-0 px-4 pt-3 pb-1">
         <StatsBar stats={stats} tableSummary={tableSummary} />
       </div>
 
-      {/* ── Main Content: Split Layout ────────────────── */}
-      <div className="flex-1 overflow-hidden flex">
+      {/* ── Main Content ──────────────────────────────── */}
+      <div className="flex-1 overflow-hidden flex gap-3 px-4 pb-3 pt-2">
         {/* Left: Waitlist */}
-        <div
-          className="w-1/2 border-r overflow-y-auto p-4"
-          style={{ borderColor: 'rgba(148, 163, 184, 0.15)' }}
-        >
+        <div className="w-[42%] min-w-0 overflow-hidden flex flex-col">
           <WaitlistPanel
             entries={waitlist}
             onSeat={handleSeatFromWaitlist}
@@ -231,21 +237,25 @@ export default function HostContent() {
           />
         </div>
 
-        {/* Right: Reservations + Server Rotation */}
-        <div className="w-1/2 overflow-y-auto p-4 space-y-4">
-          <ReservationTimeline
-            reservations={reservations}
-            onCheckIn={handleCheckInReservation}
-            onCancel={(id) => resMut.cancelReservation({ id })}
-            onNoShow={(id) => resMut.markNoShow(id)}
-            onAdd={() => setShowNewReservation(true)}
-          />
+        {/* Right: Reservations + Rotation */}
+        <div className="w-[58%] min-w-0 overflow-hidden flex flex-col gap-3">
+          <div className="flex-1 overflow-hidden">
+            <ReservationTimeline
+              reservations={reservations}
+              onCheckIn={handleCheckInReservation}
+              onCancel={(id) => resMut.cancelReservation({ id })}
+              onNoShow={(id) => resMut.markNoShow(id)}
+              onAdd={() => setShowNewReservation(true)}
+            />
+          </div>
 
-          <RotationQueue
-            servers={rotationServers}
-            onAdvance={handleAdvanceRotation}
-            disabled={isActing}
-          />
+          <div className="shrink-0">
+            <RotationQueue
+              servers={rotationServers}
+              onAdvance={handleAdvanceRotation}
+              disabled={isActing}
+            />
+          </div>
         </div>
       </div>
 

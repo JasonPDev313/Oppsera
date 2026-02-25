@@ -13,6 +13,7 @@ export interface StoredPaymentMethod {
   isDefault: boolean;
   nickname: string | null;
   providerProfileId: string | null;
+  providerAccountId: string | null;
   createdAt: Date;
   // Bank-account-specific fields
   bankRoutingLast4: string | null;
@@ -44,6 +45,7 @@ export async function listPaymentMethods(
         isDefault: customerPaymentMethods.isDefault,
         nickname: customerPaymentMethods.nickname,
         providerProfileId: customerPaymentMethods.providerProfileId,
+        providerAccountId: customerPaymentMethods.providerAccountId,
         createdAt: customerPaymentMethods.createdAt,
         bankRoutingLast4: customerPaymentMethods.bankRoutingLast4,
         bankAccountType: customerPaymentMethods.bankAccountType,
@@ -75,6 +77,7 @@ export async function listPaymentMethods(
       isDefault: r.isDefault,
       nickname: r.nickname ?? null,
       providerProfileId: r.providerProfileId ?? null,
+      providerAccountId: r.providerAccountId ?? null,
       createdAt: r.createdAt,
       bankRoutingLast4: r.bankRoutingLast4 ?? null,
       bankAccountType: r.bankAccountType ?? null,
