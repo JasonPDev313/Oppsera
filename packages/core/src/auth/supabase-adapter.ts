@@ -1,6 +1,6 @@
 import { createPublicKey, type KeyObject } from 'node:crypto';
 import jwt from 'jsonwebtoken';
-import { eq, and, asc, sql } from 'drizzle-orm';
+import { eq, and, asc } from 'drizzle-orm';
 import { db } from '@oppsera/db';
 import { users, memberships, tenants } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
