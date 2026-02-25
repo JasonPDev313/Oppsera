@@ -5,6 +5,7 @@ const { mockInsert, mockUpdate, mockExecute } = vi.hoisted(() => {
   const makeChain = (result: unknown[] = []) => {
     const chain: Record<string, ReturnType<typeof vi.fn>> = {};
     chain.values = vi.fn().mockReturnValue(chain);
+    chain.onConflictDoNothing = vi.fn().mockReturnValue(chain);
     chain.where = vi.fn().mockReturnValue(chain);
     chain.set = vi.fn().mockReturnValue(chain);
     chain.then = vi.fn((resolve: (v: unknown) => unknown) => resolve(result));
@@ -254,7 +255,8 @@ describe('EvalCaptureService.recordTurn', () => {
     });
 
     expect(turnId).toBe('EVAL_TURN_ULID');
-    expect(mockInsert).toHaveBeenCalledOnce();
+    // 2 inserts: session upsert + turn insert
+    expect(mockInsert).toHaveBeenCalledTimes(2);
     expect(mockUpdate).toHaveBeenCalledOnce();
   });
 
@@ -311,6 +313,7 @@ describe('EvalCaptureService.recordTurn', () => {
       llmLatencyMs: 500,
     });
 
-    expect(mockInsert).toHaveBeenCalledOnce();
+    // 2 inserts: session upsert + turn insert
+    expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 });

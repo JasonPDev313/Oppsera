@@ -10,22 +10,20 @@ import * as schema from '../schema';
 const ADMIN_URL = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
 const APP_URL = process.env.DATABASE_URL;
 
-if (!ADMIN_URL || !APP_URL) {
-  throw new Error('DATABASE_URL and DATABASE_URL_ADMIN must be set');
-}
+const SKIP = !ADMIN_URL || !APP_URL;
 
-const adminClient = postgres(ADMIN_URL, { max: 3 });
-const adminDb = drizzle(adminClient, { schema });
+const adminClient = SKIP ? null : postgres(ADMIN_URL!, { max: 3 });
+const adminDb = SKIP ? null : drizzle(adminClient!, { schema });
 
-const appClient = postgres(APP_URL, { max: 3 });
+const appClient = SKIP ? null : postgres(APP_URL!, { max: 3 });
 
 afterAll(async () => {
-  await adminClient.end();
-  await appClient.end();
+  if (adminClient) await adminClient.end();
+  if (appClient) await appClient.end();
 });
 
 // ── Test 1: All tables exist ─────────────────────────────────────
-describe('all tables exist', () => {
+describe.skipIf(SKIP)('all tables exist', () => {
   const tables = [
     'tenants',
     'locations',
@@ -50,7 +48,7 @@ describe('all tables exist', () => {
 });
 
 // ── Test 2: gen_ulid() works ─────────────────────────────────────
-describe('gen_ulid()', () => {
+describe.skipIf(SKIP)('gen_ulid()', () => {
   it('returns a 26-character string', async () => {
     const result = await adminDb.execute(sql`SELECT gen_ulid() AS id`);
     const id = (result[0] as { id: string }).id;
@@ -79,7 +77,7 @@ describe('gen_ulid()', () => {
 });
 
 // ── Test 3: Seed data is present ─────────────────────────────────
-describe('seed data', () => {
+describe.skipIf(SKIP)('seed data', () => {
   let tenantId: string;
 
   beforeAll(async () => {
@@ -136,7 +134,7 @@ describe('seed data', () => {
 // ── Test 4: RLS isolation works ──────────────────────────────────
 // Uses SET ROLE oppsera_app to enforce RLS (postgres has BYPASSRLS on Supabase)
 // Uses set_config() (parameterized) instead of SET LOCAL (which doesn't support $1)
-describe('RLS isolation', () => {
+describe.skipIf(SKIP)('RLS isolation', () => {
   let tenantId: string;
   const fakeTenantId = '00000000000000000000000000';
 
@@ -176,7 +174,7 @@ describe('RLS isolation', () => {
 });
 
 // ── Test 5: withTenant wrapper works ─────────────────────────────
-describe('withTenant wrapper', () => {
+describe.skipIf(SKIP)('withTenant wrapper', () => {
   let tenantId: string;
   const fakeTenantId = '00000000000000000000000000';
 
