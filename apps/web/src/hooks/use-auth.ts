@@ -100,20 +100,24 @@ export function useAuth() {
       // Only clear tokens on actual auth failures (401).
       // Transient server errors (500, network, DB timeout) should NOT log the user out.
       const isAuthFailure = err instanceof ApiError && err.statusCode === 401;
+      // Circuit breaker tripped — don't retry, just show the error state
+      const isCircuitOpen = err instanceof ApiError && err.code === 'SERVICE_UNAVAILABLE';
 
       if (isAuthFailure) {
         setUser(null);
         setTenant(null);
         setLocations([]);
         clearTokens();
-      } else if (retryCount.current < 2) {
-        // Retry up to 2 times for transient errors (cold start, DB pool exhaustion)
+      } else if (!isCircuitOpen && retryCount.current < 2) {
+        // Retry up to 2 times for transient errors (cold start, DB pool exhaustion).
+        // Skip retries when the circuit breaker is open — the backend is down and
+        // retrying just makes the thundering herd worse.
         retryCount.current += 1;
         const delay = retryCount.current * 1500; // 1.5s, 3s
         setTimeout(() => { fetchMe(); }, delay);
         return; // Don't set isLoading false yet — still retrying
       } else {
-        // Exhausted retries — clear state but keep tokens so user can refresh
+        // Exhausted retries or circuit open — clear state but keep tokens so user can refresh
         setUser(null);
         setTenant(null);
         setLocations([]);

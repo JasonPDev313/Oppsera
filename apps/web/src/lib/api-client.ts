@@ -69,7 +69,18 @@ async function attemptTokenRefresh(): Promise<boolean> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     });
-    if (!response.ok) return false;
+    if (!response.ok) {
+      // If refresh failed, check if another tab already refreshed.
+      // Supabase rotates refresh tokens — if another tab used ours first,
+      // localStorage may already have a newer token from that tab's refresh.
+      const currentRefresh = getStoredRefreshToken();
+      if (currentRefresh && currentRefresh !== refreshToken) {
+        // Another tab beat us to the refresh and wrote new tokens.
+        // Our stale refresh token was rejected, but localStorage has fresh tokens.
+        return true;
+      }
+      return false;
+    }
     const data = await response.json();
     const tokens = data.data ?? data;
     if (tokens.accessToken && tokens.refreshToken) {
@@ -93,10 +104,52 @@ function getActiveRoleId(): string | null {
   }
 }
 
+// ── Global error circuit breaker ──────────────────────────────────
+// Prevents retry storms: if many requests fail in a short window,
+// short-circuit subsequent requests instead of hammering the backend.
+let _recentFailures = 0;
+let _circuitOpenUntil = 0;
+const CIRCUIT_THRESHOLD = 5;    // failures within window to trip
+const CIRCUIT_COOLDOWN = 10_000; // 10s cooldown when tripped
+
+function recordFailure() {
+  _recentFailures++;
+  if (_recentFailures >= CIRCUIT_THRESHOLD) {
+    _circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN;
+    _recentFailures = 0;
+  }
+  // Decay failures after 30s so occasional errors don't accumulate
+  setTimeout(() => { _recentFailures = Math.max(0, _recentFailures - 1); }, 30_000);
+}
+
+function resetCircuit() {
+  _recentFailures = 0;
+  _circuitOpenUntil = 0;
+}
+
+function isCircuitOpen(): boolean {
+  if (_circuitOpenUntil === 0) return false;
+  if (Date.now() > _circuitOpenUntil) {
+    resetCircuit();
+    return false;
+  }
+  return true;
+}
+
 export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  // Circuit breaker: if we've had too many recent failures, fail fast
+  // to prevent thundering herd retries. Skip for auth paths (login/refresh).
+  if (isCircuitOpen() && !path.includes('/auth/')) {
+    throw new ApiError(
+      'SERVICE_UNAVAILABLE',
+      'Connection issues — please wait a moment and try again',
+      503,
+    );
+  }
+
   const token = getStoredToken();
   const method = (options.method ?? 'GET').toUpperCase();
   const headers: Record<string, string> = {
@@ -135,6 +188,7 @@ export async function apiFetch<T = unknown>(
       throw fetchErr;
     }
     // "Failed to fetch" = network-level failure (server unreachable, CORS, CSP, etc.)
+    recordFailure();
     console.error('[apiFetch] Network error:', {
       path,
       method,
@@ -156,7 +210,8 @@ export async function apiFetch<T = unknown>(
     }
     const refreshed = await refreshPromise;
     if (refreshed) {
-      // Retry with new token
+      // Retry with new token (re-read from localStorage — may have been
+      // updated by another tab's refresh via the cross-tab detection)
       const newToken = getStoredToken();
       if (newToken) headers['Authorization'] = `Bearer ${newToken}`;
       response = await fetch(path, { ...options, headers });
@@ -167,6 +222,14 @@ export async function apiFetch<T = unknown>(
       // Let the auth context handle the redirect via its useEffect
       throw new ApiError('UNAUTHORIZED', 'Authentication required', 401);
     }
+  }
+
+  // Track 5xx failures for circuit breaker
+  if (response.status >= 500) {
+    recordFailure();
+  } else {
+    // Successful response resets the circuit breaker
+    resetCircuit();
   }
 
   if (response.status === 204) {

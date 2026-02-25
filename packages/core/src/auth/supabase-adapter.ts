@@ -209,10 +209,13 @@ export class SupabaseAuthAdapter implements AuthAdapter {
 
   async signOut(token: string): Promise<void> {
     try {
-      // Decode without verification to extract sub for admin signout
-      const decoded = jwt.decode(token) as { sub?: string } | null;
-      if (decoded?.sub) {
-        await this.supabase.auth.admin.signOut(decoded.sub);
+      // Use 'local' scope to revoke ONLY this session's refresh token.
+      // The previous code used 'global' scope (the default) which revoked ALL
+      // sessions for the user — if Ian logged out from Device A, Device B's
+      // session was also destroyed, causing cascading 401s and "everything spins".
+      // admin.signOut() takes the JWT (not user ID) + scope.
+      if (token) {
+        await this.supabase.auth.admin.signOut(token, 'local');
       }
     } catch {
       // Best-effort — swallow errors
