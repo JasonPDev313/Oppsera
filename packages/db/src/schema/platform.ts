@@ -1,6 +1,6 @@
 import { pgTable, text, boolean, timestamp, jsonb, uniqueIndex, index, integer } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
-import { tenants } from './core.js';
+import { tenants } from './core';
 
 // ── Platform Admins ──────────────────────────────────────────────
 // NOT tenant-scoped — these are OppsEra internal operators.

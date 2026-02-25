@@ -1,7 +1,7 @@
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
-import { auditLog } from '@oppsera/core/audit/audit-log';
+import { auditLog } from '@oppsera/core/audit';
 import { sql } from 'drizzle-orm';
 import type { CreateReservationInput } from '../validation';
 
