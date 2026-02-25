@@ -38,7 +38,7 @@ export interface ImportResult {
   skippedRows: number;
   updatedRows: number;
   categoriesCreated: number;
-  errors: Array<{ row?: number; message: string }>;
+  errors: Array<{ row: number | undefined; message: string }>;
   createdItemIds?: string[];
 }
 
@@ -59,7 +59,7 @@ export async function importInventory(
       skippedRows: 0,
       updatedRows: 0,
       categoriesCreated: 0,
-      errors: [{ message: parsed.message }],
+      errors: [{ row: undefined, message: parsed.message }],
     };
   }
 
@@ -244,7 +244,7 @@ export async function importInventory(
     let successRows = 0;
     let skippedRows = 0;
     let updatedRows = 0;
-    const itemErrors: Array<{ row?: number; message: string }> = [];
+    const itemErrors: Array<{ row: number | undefined; message: string }> = [];
     const events: Array<ReturnType<typeof buildEventFromContext>> = [];
     const createdItemIds: string[] = [];
 
