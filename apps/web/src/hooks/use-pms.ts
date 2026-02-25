@@ -931,6 +931,7 @@ export function usePmsMutations(_propertyId: string | null) {
     queryClient.invalidateQueries({ queryKey: ['pms-calendar-day'] });
     queryClient.invalidateQueries({ queryKey: ['pms-suggest-rooms'] });
     queryClient.invalidateQueries({ queryKey: ['pms-occupancy'] });
+    queryClient.invalidateQueries({ queryKey: ['pms-front-desk'] });
   };
 
   const invalidateFolios = () => {
@@ -3964,4 +3965,42 @@ export function useLoyaltyMutations() {
   });
 
   return { createProgram, updateProgram, enrollGuest, earnPoints, redeemPoints, adjustPoints };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Front Desk (batch endpoint — arrivals + in-house in one request)
+// ═══════════════════════════════════════════════════════════════════
+
+interface FrontDeskData {
+  arrivals: PMSReservation[];
+  inHouse: PMSReservation[];
+}
+
+export function useFrontDesk(propertyId: string | null) {
+  const result = useQuery({
+    queryKey: ['pms-front-desk', propertyId],
+    queryFn: ({ signal }) =>
+      apiFetch<{
+        data: FrontDeskData;
+        meta: {
+          arrivalsCount: number;
+          inHouseCount: number;
+          arrivalsHasMore: boolean;
+          inHouseHasMore: boolean;
+        };
+      }>(`/api/v1/pms/front-desk?propertyId=${propertyId}`, { signal }),
+    enabled: !!propertyId,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  return {
+    arrivals: result.data?.data.arrivals ?? [],
+    inHouse: result.data?.data.inHouse ?? [],
+    meta: result.data?.meta ?? null,
+    isLoading: result.isLoading,
+    isFetching: result.isFetching,
+    error: result.error,
+    refetch: result.refetch,
+  };
 }
