@@ -108,7 +108,7 @@ describe('query-cache', () => {
 
     it('has expected constant fields', () => {
       const stats = getQueryCacheStats();
-      expect(stats.maxSize).toBe(200);
+      expect(stats.maxSize).toBe(500);
       expect(stats.ttlMs).toBe(5 * 60 * 1000);
     });
   });
