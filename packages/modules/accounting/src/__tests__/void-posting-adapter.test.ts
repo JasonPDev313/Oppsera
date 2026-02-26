@@ -49,6 +49,7 @@ vi.mock('@oppsera/db', () => ({
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a: string, b: string) => ({ op: 'eq', a, b })),
   and: vi.fn((...args: unknown[]) => ({ op: 'and', args })),
+  like: vi.fn((a: string, b: string) => ({ op: 'like', a, b })),
 }));
 
 vi.mock('../helpers/get-accounting-settings', () => ({

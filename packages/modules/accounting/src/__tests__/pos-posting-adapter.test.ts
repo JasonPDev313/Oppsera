@@ -454,7 +454,7 @@ describe('handleTenderForAccounting', () => {
   it('should apply proportional ratio to COGS and inventory when enabled', async () => {
     mocks.getAccountingSettings.mockResolvedValueOnce({
       ...defaultSettings,
-      enableCogsPosting: true,
+      cogsPostingMode: 'perpetual',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
     mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
@@ -1098,7 +1098,7 @@ describe('handleTenderForAccounting', () => {
   it('should set subDepartmentId on COGS and inventory lines', async () => {
     mocks.getAccountingSettings.mockResolvedValueOnce({
       ...defaultSettings,
-      enableCogsPosting: true,
+      cogsPostingMode: 'perpetual',
     });
     mocks.resolvePaymentTypeAccounts.mockResolvedValueOnce(defaultPaymentMapping);
     mocks.batchResolveSubDepartmentAccounts.mockResolvedValueOnce(new Map([
