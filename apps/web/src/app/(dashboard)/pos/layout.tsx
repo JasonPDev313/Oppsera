@@ -121,6 +121,9 @@ function usePOSVisibilityRefresh(): void {
           detail: { idleDurationMs: idleDuration },
         }),
       );
+
+      // Reset so duplicate visibilitychange events don't re-trigger
+      lastHiddenAt = 0;
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -241,6 +244,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={() => switchMode('retail')}
+              aria-pressed={isRetail}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
                 isRetail
                   ? 'bg-indigo-600 text-white shadow-sm'
@@ -248,12 +252,13 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
               }`}
               style={isRetail ? undefined : { color: 'var(--pos-text-muted)' }}
             >
-              <ShoppingCart className="h-3.5 w-3.5" />
+              <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" />
               Retail
             </button>
             <button
               type="button"
               onClick={() => switchMode('fnb')}
+              aria-pressed={isFnB}
               className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
                 isFnB
                   ? 'bg-amber-600 text-white shadow-sm'
@@ -261,7 +266,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
               }`}
               style={isFnB ? undefined : { color: 'var(--pos-text-muted)' }}
             >
-              <UtensilsCrossed className="h-3.5 w-3.5" />
+              <UtensilsCrossed className="h-3.5 w-3.5" aria-hidden="true" />
               F&B
             </button>
           </div>
@@ -271,7 +276,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
           {/* Location */}
           <div className="flex items-center gap-1.5">
-            <MapPin className="h-4 w-4" style={{ color: 'var(--pos-accent)' }} />
+            <MapPin className="h-4 w-4" style={{ color: 'var(--pos-accent)' }} aria-hidden="true" />
             <span className="text-sm font-semibold" style={{ color: 'var(--pos-text-primary)' }}>
               {locationName}
             </span>
@@ -282,7 +287,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
           {/* Terminal */}
           <div className="flex items-center gap-1.5">
-            <Monitor className="h-4 w-4" style={{ color: 'var(--pos-text-muted)' }} />
+            <Monitor className="h-4 w-4" style={{ color: 'var(--pos-text-muted)' }} aria-hidden="true" />
             <span className="text-sm font-medium" style={{ color: 'var(--pos-text-secondary)' }}>
               {terminalId}
             </span>
@@ -293,7 +298,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
           {/* Employee */}
           <div className="flex items-center gap-1.5">
-            <User className="h-4 w-4" style={{ color: 'var(--pos-text-muted)' }} />
+            <User className="h-4 w-4" style={{ color: 'var(--pos-text-muted)' }} aria-hidden="true" />
             <span className="text-sm font-medium" style={{ color: 'var(--pos-text-secondary)' }}>
               {displayName}
             </span>
@@ -314,9 +319,10 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
                   displaySize === size ? 'bg-indigo-600 text-white shadow-sm' : ''
                 }`}
                 style={displaySize === size ? undefined : { color: 'var(--pos-text-muted)' }}
-                title={`Font size: ${size}`}
+                aria-label={`Font size: ${size}`}
+                aria-pressed={displaySize === size}
               >
-                <span style={{ fontSize: size === 'default' ? '11px' : size === 'large' ? '13px' : '15px' }}>A</span>
+                <span aria-hidden="true" style={{ fontSize: size === 'default' ? '11px' : size === 'large' ? '13px' : '15px' }}>A</span>
               </button>
             ))}
           </div>
@@ -329,7 +335,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             aria-label="Toggle dark mode"
           >
-            {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {theme === 'dark' ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
           </button>
           {/* Exit POS */}
           <button
@@ -340,7 +346,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
             title="Exit POS"
             aria-label="Exit POS"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       </header>

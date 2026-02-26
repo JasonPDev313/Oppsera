@@ -6,6 +6,7 @@ import type { EvalExample } from '../evaluation/types';
 import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
 import { pruneForIntentResolver } from './conversation-pruner';
 import { retrieveFewShotExamples } from '../rag/few-shot-retriever';
+import { guardPromptSize } from './adapters/resilience';
 
 // ── System prompt builder ─────────────────────────────────────────
 // Constructs the intent-resolution prompt from:
@@ -65,6 +66,10 @@ function buildMetricDimensionCompatibility(catalog: RegistryCatalog): string {
     rm_golf_pace_daily: 'Golf Pace of Play',
     rm_golf_channel_daily: 'Golf Channels',
     rm_golf_daypart_revenue: 'Golf Daypart',
+    rm_pms_daily_occupancy: 'PMS Occupancy (rooms occupied, arrivals, departures, ADR, RevPAR)',
+    rm_pms_revenue_by_room_type: 'PMS Room Revenue by Type',
+    rm_pms_housekeeping_productivity: 'PMS Housekeeping Productivity',
+    pms_reservations: 'PMS Reservations (booking counts, cancellations, no-shows, avg rate, avg stay length)',
   };
 
   for (const [table, group] of groups) {
@@ -153,7 +158,10 @@ Respond with a single JSON object — no markdown fences, no prose before/after.
 ### Money Conventions
 - Metrics from rm_daily_sales and rm_item_sales are already in DOLLARS (no conversion needed)
 - Metrics from rm_customer_activity total_spend is in DOLLARS
+- PMS metrics (adr, revpar, room_revenue, tax_revenue_pms) convert cents→dollars automatically in their SQL expressions
 - If you route to SQL mode: orders/tenders tables store amounts in CENTS (divide by 100 for dollars)
+- If you route to SQL mode: pms_reservations amounts (nightly_rate_cents, total_cents, etc.) are in CENTS
+- If you route to SQL mode: rm_pms_daily_occupancy adr_cents, revpar_cents are in CENTS
 - catalog_items, GL, AP, AR tables store amounts in DOLLARS
 
 ### Data Source Types
@@ -175,6 +183,13 @@ Respond with a single JSON object — no markdown fences, no prose before/after.
 - Active catalog items: archived_at IS NULL (not a boolean flag).
 - Active vendors: is_active = true.
 - Inventory on-hand = SUM(quantity_delta) from inventory_movements. Never a stored column.
+- **Reservations**: Active/upcoming = status IN ('CONFIRMED', 'HOLD'). In-house = 'CHECKED_IN'. Completed = 'CHECKED_OUT'. Cancelled = 'CANCELLED'. No-show = 'NO_SHOW'.
+
+### PMS (Property Management) Routing
+- For **aggregate occupancy/rate questions** (occupancy %, ADR, RevPAR, rooms occupied, arrivals count, departures count) → use **mode="metrics"** with PMS metrics from rm_pms_daily_occupancy / rm_pms_revenue_by_room_type / rm_pms_housekeeping_productivity.
+- For **specific reservation questions** (list reservations for a date, guest details, room assignments, upcoming arrivals with names, in-house guests) → use **mode="sql"** querying pms_reservations, pms_guests, pms_rooms, pms_room_types directly.
+- For "how many reservations" on a specific date → use **mode="sql"** with COUNT on pms_reservations (the read models don't track individual reservation counts).
+- pms_reservations has check_in_date (DATE) and check_out_date (DATE) for date-based queries. Use primary_guest_json->>'firstName' and primary_guest_json->>'lastName' for guest names.
 
 ## Rules
 1. Only use metric/dimension slugs from the lists below. Never invent slugs.
@@ -329,10 +344,30 @@ export async function resolveIntent(
     console.warn('[semantic] RAG retrieval failed (non-blocking):', err);
   }
 
-  let systemPrompt = buildSystemPrompt(catalog, context, examples, lensPromptFragment, schemaSummary);
+  const rawSystemPrompt = buildSystemPrompt(catalog, context, examples, lensPromptFragment, schemaSummary);
+
+  // ── Prompt size guard: truncate oversized sections to prevent context overflow ──
+  // Schema catalog and examples can grow very large with many tables/golden examples.
+  // Guard truncates progressively: RAG → examples → schema, preserving the base prompt.
+  const guarded = guardPromptSize({
+    basePrompt: rawSystemPrompt,
+    schemaSection: schemaSummary ?? null,
+    examplesSection: examples.length > 0 ? buildExamplesSnippet(examples) : null,
+    ragSection: ragExamplesSnippet || null,
+  });
+  if (guarded.wasTruncated) {
+    console.warn('[semantic] Prompt truncated to fit context window — some schema/examples may be reduced');
+  }
+
+  // Rebuild final prompt: base already includes schema + golden examples inline via buildSystemPrompt,
+  // so we only append RAG examples separately (they are fetched after prompt construction).
+  let systemPrompt = rawSystemPrompt;
 
   // Append RAG examples after golden examples (if any were found)
-  if (ragExamplesSnippet) {
+  // Use guarded version if it was truncated
+  if (guarded.ragSection) {
+    systemPrompt += '\n\n' + guarded.ragSection;
+  } else if (ragExamplesSnippet && !guarded.wasTruncated) {
     systemPrompt += '\n\n' + ragExamplesSnippet;
   }
 

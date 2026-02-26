@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getMinimumHistory } from '@oppsera/module-membership';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -13,9 +14,7 @@ export const GET = withMiddleware(
       customerId: accountId,
       ruleId: url.searchParams.get('ruleId') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit')
-        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({

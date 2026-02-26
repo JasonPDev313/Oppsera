@@ -18,7 +18,7 @@ export function ReassuranceBanner({
 }: ReassuranceBannerProps) {
   if (variant === 'subtle') {
     return (
-      <p className="text-center text-xs italic text-gray-400 dark:text-gray-500">
+      <p className="text-center text-xs italic text-muted-foreground">
         {message}
       </p>
     );
@@ -26,8 +26,8 @@ export function ReassuranceBanner({
 
   return (
     <div className="flex items-start gap-3 rounded-lg border border-blue-500/40 bg-blue-500/10 p-4">
-      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
-      <p className="text-sm text-blue-700 dark:text-blue-300">{message}</p>
+      <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+      <p className="text-sm text-blue-500">{message}</p>
     </div>
   );
 }

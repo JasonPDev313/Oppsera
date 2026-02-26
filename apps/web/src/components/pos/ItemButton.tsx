@@ -98,7 +98,7 @@ export const ItemButton = memo(function ItemButton({
     ? 'w-full h-[120px] text-sm'
     : 'w-full h-[140px] text-base';
 
-  const menuItemClass = 'flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50';
+  const menuItemClass = 'flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent';
 
   return (
     <>
@@ -119,7 +119,7 @@ export const ItemButton = memo(function ItemButton({
         {/* Out of stock overlay */}
         {isOutOfStock && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-surface/60">
-            <span className="rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+            <span className="rounded-md bg-red-500/20 px-2 py-1 text-xs font-semibold text-red-500">
               Out of Stock
             </span>
           </div>
@@ -132,7 +132,7 @@ export const ItemButton = memo(function ItemButton({
         <div className="flex flex-1 flex-col justify-between p-2">
           {/* Item name */}
           <span
-            className={`line-clamp-2 text-left font-medium leading-tight ${hasMenuColor ? '' : 'text-gray-900'}`}
+            className={`line-clamp-2 text-left font-medium leading-tight ${hasMenuColor ? '' : 'text-foreground'}`}
             style={{
               fontSize: `calc(${isNormal ? '0.875rem' : '1rem'} * var(--pos-font-scale, 1))`,
               ...(textColor ? { color: textColor } : {}),
@@ -143,7 +143,7 @@ export const ItemButton = memo(function ItemButton({
 
           {/* Price */}
           <span
-            className={`text-left font-semibold ${hasMenuColor ? '' : 'text-gray-700'}`}
+            className={`text-left font-semibold ${hasMenuColor ? '' : 'text-foreground'}`}
             style={{
               fontSize: `calc(${isNormal ? '0.875rem' : '1rem'} * var(--pos-font-scale, 1))`,
               ...(textColor ? { color: textColor, opacity: 0.85 } : {}),
@@ -255,7 +255,7 @@ export const ItemButton = memo(function ItemButton({
                   onArchiveItem(item.id);
                   setContextMenu(null);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-500/10"
               >
                 <Archive className="h-4 w-4" />
                 Archive Item

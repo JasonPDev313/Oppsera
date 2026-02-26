@@ -198,7 +198,7 @@ export default function DashboardContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-foreground">
             {greeting}, {user?.name?.split(' ')[0] ?? 'there'}
           </h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -209,9 +209,9 @@ export default function DashboardContent() {
           type="button"
           onClick={handleRefresh}
           disabled={isLoading}
-          className="inline-flex items-center gap-2 self-start rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="inline-flex items-center gap-2 self-start rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
         >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
           Refresh
         </button>
       </div>
@@ -229,7 +229,7 @@ export default function DashboardContent() {
             label={salesLabel}
             value={metricsLoading && !totalSalesDisplay ? null : totalSalesDisplay}
             icon={DollarSign}
-            iconColor="text-green-600 bg-green-100"
+            iconColor="text-green-500 bg-green-500/20"
             trend={metrics && metrics.todayOrders > 0 ? `${metrics.todayOrders} orders` : undefined}
           />
         )}
@@ -238,7 +238,7 @@ export default function DashboardContent() {
             label={ordersLabel}
             value={metricsLoading && !orderCountDisplay ? null : orderCountDisplay}
             icon={ShoppingCart}
-            iconColor="text-blue-600 bg-blue-100"
+            iconColor="text-blue-500 bg-blue-500/20"
             trend={ordersTrend}
           />
         )}
@@ -248,8 +248,8 @@ export default function DashboardContent() {
             value={metricsLoading && !lowStockCountDisplay ? null : (lowStockCountDisplay ?? '0')}
             icon={AlertTriangle}
             iconColor={lowStockItems.length > 0 || (metrics && metrics.lowStockCount > 0)
-              ? 'text-amber-600 bg-amber-100'
-              : 'text-green-600 bg-green-100'}
+              ? 'text-amber-500 bg-amber-500/20'
+              : 'text-green-500 bg-green-500/20'}
             trend={lowStockItems.length > 0 || (metrics && metrics.lowStockCount > 0) ? 'Needs attention' : 'All good'}
             href="/catalog"
           />
@@ -258,7 +258,7 @@ export default function DashboardContent() {
           label="Active Location"
           value={primaryLocation?.name ?? '--'}
           icon={TrendingUp}
-          iconColor="text-indigo-600 bg-indigo-100"
+          iconColor="text-indigo-500 bg-indigo-500/20"
           trend={locations?.length ? `${locations.length} total` : undefined}
         />
       </div>
@@ -269,16 +269,16 @@ export default function DashboardContent() {
         {prefs.showRecentOrders && (
           <div className="lg:col-span-2">
             <div className="rounded-xl bg-surface shadow-sm ring-1 ring-gray-950/5">
-              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                <h2 className="text-sm font-semibold text-gray-900">Recent Orders</h2>
+              <div className="flex items-center justify-between border-b border-border px-6 py-4">
+                <h2 className="text-sm font-semibold text-foreground">Recent Orders</h2>
                 <Link
                   href="/orders"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-indigo-500 hover:text-indigo-500"
                 >
-                  View all <ArrowRight className="h-3 w-3" />
+                  View all <ArrowRight className="h-3 w-3" aria-hidden="true" />
                 </Link>
               </div>
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border">
                 {ordersLoading && recentOrders.length === 0 ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
@@ -292,14 +292,14 @@ export default function DashboardContent() {
                     <Link
                       key={order.id}
                       href={`/orders/${order.id}`}
-                      className="flex items-center justify-between px-6 py-3 hover:bg-gray-50/50"
+                      className="flex items-center justify-between px-6 py-3 hover:bg-accent"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                          <ShoppingCart className="h-4 w-4 text-gray-500" />
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
+                          <ShoppingCart className="h-4 w-4 text-gray-500" aria-hidden="true" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">#{order.orderNumber}</p>
+                          <p className="text-sm font-medium text-foreground">#{order.orderNumber}</p>
                           <p className="text-xs text-gray-500">
                             {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             {order.customerId && ' · Customer attached'}
@@ -307,7 +307,7 @@ export default function DashboardContent() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-semibold text-gray-900">{formatMoney(order.total)}</p>
+                        <p className="text-sm font-semibold text-foreground">{formatMoney(order.total)}</p>
                         <OrderStatusBadge status={order.status} />
                       </div>
                     </Link>
@@ -323,16 +323,16 @@ export default function DashboardContent() {
           {/* Notes Widget */}
           {prefs.showNotes && (
             <div className="rounded-xl bg-surface shadow-sm ring-1 ring-gray-950/5">
-              <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
-                <StickyNote className="h-4 w-4 text-amber-500" />
-                <h2 className="text-sm font-semibold text-gray-900">Notes</h2>
+              <div className="flex items-center gap-2 border-b border-border px-6 py-4">
+                <StickyNote className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                <h2 className="text-sm font-semibold text-foreground">Notes</h2>
               </div>
               <div className="p-4">
                 <textarea
                   value={notes}
                   onChange={(e) => handleNotesChange(e.target.value)}
                   placeholder="Quick notes, reminders, daily specials..."
-                  className="w-full resize-none rounded-lg border border-gray-200 bg-transparent p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full resize-none rounded-lg border border-border bg-transparent p-3 text-sm text-foreground placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   rows={5}
                 />
                 <p className="mt-1 text-right text-xs text-gray-400">Auto-saved locally</p>
@@ -343,32 +343,32 @@ export default function DashboardContent() {
           {/* Low Stock Alert */}
           {prefs.showLowStock && lowStockItems.length > 0 && (
             <div className="rounded-xl bg-surface shadow-sm ring-1 ring-gray-950/5">
-              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+              <div className="flex items-center justify-between border-b border-border px-6 py-4">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <h2 className="text-sm font-semibold text-gray-900">Low Stock Alert</h2>
+                  <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                  <h2 className="text-sm font-semibold text-foreground">Low Stock Alert</h2>
                 </div>
                 <Link
                   href="/catalog"
-                  className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                  className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
                 >
                   View all
                 </Link>
               </div>
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-border">
                 {lowStockItems.slice(0, 5).map((item) => (
                   <div key={item.id} className="flex items-center justify-between px-6 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
-                        <Package className="h-4 w-4 text-amber-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10">
+                        <Package className="h-4 w-4 text-amber-500" aria-hidden="true" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{item.name}</p>
+                        <p className="text-sm font-medium text-foreground">{item.name}</p>
                         {item.sku && <p className="text-xs text-gray-500">{item.sku}</p>}
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-semibold ${item.onHand <= 0 ? 'text-red-600' : 'text-amber-600'}`}>
+                      <p className={`text-sm font-semibold ${item.onHand <= 0 ? 'text-red-500' : 'text-amber-500'}`}>
                         {item.onHand}
                       </p>
                       <p className="text-xs text-gray-400">on hand</p>
@@ -383,7 +383,7 @@ export default function DashboardContent() {
 
       {/* Footer */}
       <p className="text-xs text-gray-400">
-        <Clock className="mr-1 inline h-3 w-3" />
+        <Clock className="mr-1 inline h-3 w-3" aria-hidden="true" />
         Last refreshed {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
     </div>
@@ -411,14 +411,14 @@ function MetricCard({
     <div className="rounded-xl bg-surface p-6 shadow-sm ring-1 ring-gray-950/5 transition-shadow hover:shadow-md">
       <div className="flex items-center gap-4">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconColor}`}>
-          <Icon className="h-5 w-5" />
+          <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
         <div className="min-w-0">
           <p className="text-sm font-medium text-gray-500">{label}</p>
           {value === null ? (
             <div className="mt-1 h-7 w-20 animate-pulse rounded bg-gray-200" />
           ) : (
-            <p className="truncate text-2xl font-bold text-gray-900">{value}</p>
+            <p className="truncate text-2xl font-bold text-foreground">{value}</p>
           )}
           {trend && <p className="mt-0.5 text-xs text-gray-400">{trend}</p>}
         </div>
@@ -466,11 +466,11 @@ function SetupStatusBanner() {
     return (
       <div className="flex items-center gap-4 rounded-xl border border-green-500/30 bg-green-500/10 px-5 py-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/20">
-          <CheckCircle2 className="h-5 w-5 text-green-600" />
+          <CheckCircle2 className="h-5 w-5 text-green-500" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-green-700">Your system is all set up</p>
-          <p className="text-xs text-green-600/70">
+          <p className="text-sm font-semibold text-green-500">Your system is all set up</p>
+          <p className="text-xs text-green-500/70">
             Business went live on{' '}
             {new Date(progress.completedAt).toLocaleDateString(undefined, {
               month: 'long',
@@ -492,10 +492,10 @@ function SetupStatusBanner() {
   return (
     <div className="flex items-center gap-4 rounded-xl border border-red-400/30 bg-red-400/10 px-5 py-4">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-400/20">
-        <Rocket className="h-5 w-5 text-red-500" />
+        <Rocket className="h-5 w-5 text-red-500" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-red-600">Complete your business setup</p>
+        <p className="text-sm font-semibold text-red-500">Complete your business setup</p>
         <p className="text-xs text-red-500/70">
           {progress.percentage > 0
             ? `You're ${progress.percentage}% of the way there — finish setting up to start taking orders.`
@@ -522,12 +522,12 @@ function SetupStatusBanner() {
 
 function OrderStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; classes: string }> = {
-    open: { label: 'Open', classes: 'bg-blue-100 text-blue-700' },
-    placed: { label: 'Placed', classes: 'bg-amber-100 text-amber-700' },
-    paid: { label: 'Paid', classes: 'bg-green-100 text-green-700' },
-    voided: { label: 'Voided', classes: 'bg-red-100 text-red-700' },
+    open: { label: 'Open', classes: 'bg-blue-500/20 text-blue-500' },
+    placed: { label: 'Placed', classes: 'bg-amber-500/20 text-amber-500' },
+    paid: { label: 'Paid', classes: 'bg-green-500/20 text-green-500' },
+    voided: { label: 'Voided', classes: 'bg-red-500/20 text-red-500' },
   };
-  const c = config[status] ?? { label: status, classes: 'bg-gray-100 text-gray-600' };
+  const c = config[status] ?? { label: status, classes: 'bg-muted text-gray-600' };
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.classes}`}>
       {c.label}

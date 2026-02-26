@@ -105,10 +105,10 @@ export default function InvoiceFormContent() {
     >
       <div className="space-y-6">
         {/* Header */}
-        <div className="rounded-lg border border-gray-200 bg-surface p-5 space-y-4">
+        <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Customer <span className="text-red-500">*</span>
               </label>
               <input
@@ -116,25 +116,25 @@ export default function InvoiceFormContent() {
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
                 placeholder="Customer ID"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Billing Account</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Billing Account</label>
               <input
                 type="text"
                 value={billingAccountId}
                 onChange={(e) => setBillingAccountId(e.target.value)}
                 placeholder="Auto-filled from customer"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Source Type</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Source Type</label>
               <select
                 value={sourceType}
                 onChange={(e) => setSourceType(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               >
                 <option value="manual">Manual</option>
                 <option value="membership">Membership</option>
@@ -142,35 +142,35 @@ export default function InvoiceFormContent() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Invoice Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Due Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Memo</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Memo</label>
             <textarea
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
         </div>
@@ -178,7 +178,7 @@ export default function InvoiceFormContent() {
         {/* Lines */}
         <div>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Invoice Lines</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Invoice Lines</h2>
             <button
               type="button"
               onClick={addLine}
@@ -187,29 +187,29 @@ export default function InvoiceFormContent() {
               <Plus className="h-4 w-4" /> Add Line
             </button>
           </div>
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+          <div className="overflow-hidden rounded-lg border border-border bg-surface">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Revenue Account</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Description</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500 w-20">Qty</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500 w-28">Unit Price</th>
-                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-gray-500 w-28">Amount</th>
+                  <tr className="border-b border-border bg-muted">
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Revenue Account</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground w-20">Qty</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground w-28">Unit Price</th>
+                    <th className="px-3 py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground w-28">Amount</th>
                     <th className="px-3 py-2 w-10" />
                   </tr>
                 </thead>
                 <tbody>
                   {lines.map((line, idx) => (
-                    <tr key={idx} className="border-b border-gray-100 last:border-0">
+                    <tr key={idx} className="border-b border-border last:border-0">
                       <td className="px-3 py-2">
                         <input
                           type="text"
                           value={line.revenueAccountId}
                           onChange={(e) => updateLine(idx, 'revenueAccountId', e.target.value)}
                           placeholder="Account"
-                          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          className="w-full rounded border border-border px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -218,7 +218,7 @@ export default function InvoiceFormContent() {
                           value={line.description}
                           onChange={(e) => updateLine(idx, 'description', e.target.value)}
                           placeholder="Description"
-                          className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          className="w-full rounded border border-border px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -226,7 +226,7 @@ export default function InvoiceFormContent() {
                           type="text"
                           value={line.quantity}
                           onChange={(e) => updateLine(idx, 'quantity', e.target.value)}
-                          className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm tabular-nums focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          className="w-full rounded border border-border px-2 py-1 text-right text-sm tabular-nums focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         />
                       </td>
                       <td className="px-3 py-2">
@@ -235,10 +235,10 @@ export default function InvoiceFormContent() {
                           value={line.unitPrice}
                           onChange={(e) => updateLine(idx, 'unitPrice', e.target.value)}
                           placeholder="0.00"
-                          className="w-full rounded border border-gray-300 px-2 py-1 text-right text-sm tabular-nums focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          className="w-full rounded border border-border px-2 py-1 text-right text-sm tabular-nums focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         />
                       </td>
-                      <td className="px-3 py-2 text-right text-sm tabular-nums font-medium text-gray-900">
+                      <td className="px-3 py-2 text-right text-sm tabular-nums font-medium text-foreground">
                         {formatAccountingMoney(computeLineAmount(line))}
                       </td>
                       <td className="px-3 py-2">
@@ -246,7 +246,7 @@ export default function InvoiceFormContent() {
                           type="button"
                           onClick={() => removeLine(idx)}
                           disabled={lines.length <= 1}
-                          className="text-gray-400 hover:text-red-500 disabled:opacity-30"
+                          className="text-muted-foreground hover:text-red-500 disabled:opacity-30"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -262,14 +262,14 @@ export default function InvoiceFormContent() {
           <div className="mt-3 flex justify-end">
             <div className="w-64 space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Subtotal</span>
+                <span className="text-muted-foreground">Subtotal</span>
                 <span className="tabular-nums">{formatAccountingMoney(subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Tax</span>
+                <span className="text-muted-foreground">Tax</span>
                 <span className="tabular-nums">{formatAccountingMoney(taxTotal)}</span>
               </div>
-              <div className="flex justify-between border-t border-gray-200 pt-1 font-semibold">
+              <div className="flex justify-between border-t border-border pt-1 font-semibold">
                 <span>Total</span>
                 <span className="tabular-nums">{formatAccountingMoney(grandTotal)}</span>
               </div>
@@ -281,7 +281,7 @@ export default function InvoiceFormContent() {
         <div className="flex items-center justify-between">
           <Link
             href="/ar/invoices"
-            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Invoices
@@ -291,7 +291,7 @@ export default function InvoiceFormContent() {
               type="button"
               onClick={() => handleSubmit(false)}
               disabled={isSubmitting || !customerId || !dueDate}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
             >
               Save Draft
             </button>

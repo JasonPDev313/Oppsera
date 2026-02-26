@@ -55,24 +55,24 @@ function trafficLightColor(percent: number): {
 } {
   if (percent >= 100) {
     return {
-      bg: 'bg-green-100',
-      fill: 'bg-green-500',
-      text: 'text-green-700',
+      bg: 'bg-green-500/20',
+      fill: 'bg-green-500/100',
+      text: 'text-green-500',
       label: 'Met',
     };
   }
   if (percent >= 50) {
     return {
-      bg: 'bg-amber-100',
-      fill: 'bg-amber-500',
-      text: 'text-amber-700',
+      bg: 'bg-amber-500/20',
+      fill: 'bg-amber-500/100',
+      text: 'text-amber-500',
       label: 'At Risk',
     };
   }
   return {
-    bg: 'bg-red-100',
-    fill: 'bg-red-500',
-    text: 'text-red-700',
+    bg: 'bg-red-500/20',
+    fill: 'bg-red-500/100',
+    text: 'text-red-500',
     label: 'Below',
   };
 }
@@ -84,11 +84,11 @@ function ProgressCard({ entry }: { entry: MinimumProgressEntry }) {
   const cappedPercent = Math.min(entry.progressPercent, 100);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Target className="h-4 w-4 text-indigo-600" />
-          <span className="text-sm font-medium text-gray-900">
+          <span className="text-sm font-medium text-foreground">
             Rule: {entry.ruleId.slice(0, 8)}...
           </span>
         </div>
@@ -113,7 +113,7 @@ function ProgressCard({ entry }: { entry: MinimumProgressEntry }) {
       {/* Progress bar */}
       <div className="mb-2">
         <div className="mb-1 flex items-center justify-between text-xs">
-          <span className="text-gray-500">Progress</span>
+          <span className="text-muted-foreground">Progress</span>
           <span className={`font-semibold ${colors.text}`}>
             {entry.progressPercent}%
           </span>
@@ -129,37 +129,37 @@ function ProgressCard({ entry }: { entry: MinimumProgressEntry }) {
       {/* Stats grid */}
       <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
         <div>
-          <div className="text-xs text-gray-500">Required</div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-xs text-muted-foreground">Required</div>
+          <div className="text-sm font-medium text-foreground">
             {formatMoney(entry.requiredCents)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Spent</div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-xs text-muted-foreground">Spent</div>
+          <div className="text-sm font-medium text-foreground">
             {formatMoney(entry.satisfiedCents)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Shortfall</div>
-          <div className={`text-sm font-medium ${entry.shortfallCents > 0 ? 'text-red-600' : 'text-green-600'}`}>
+          <div className="text-xs text-muted-foreground">Shortfall</div>
+          <div className={`text-sm font-medium ${entry.shortfallCents > 0 ? 'text-red-500' : 'text-green-500'}`}>
             {entry.shortfallCents > 0 ? formatMoney(entry.shortfallCents) : '$0.00'}
           </div>
         </div>
         {entry.rolloverInCents > 0 && (
           <div>
-            <div className="text-xs text-gray-500">Rollover In</div>
-            <div className="flex items-center gap-1 text-sm text-gray-900">
-              <ArrowRightLeft className="h-3 w-3 text-gray-400" />
+            <div className="text-xs text-muted-foreground">Rollover In</div>
+            <div className="flex items-center gap-1 text-sm text-foreground">
+              <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
               {formatMoney(entry.rolloverInCents)}
             </div>
           </div>
         )}
         {entry.rolloverOutCents > 0 && (
           <div>
-            <div className="text-xs text-gray-500">Rollover Out</div>
-            <div className="flex items-center gap-1 text-sm text-gray-900">
-              <ArrowRightLeft className="h-3 w-3 text-gray-400" />
+            <div className="text-xs text-muted-foreground">Rollover Out</div>
+            <div className="flex items-center gap-1 text-sm text-foreground">
+              <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
               {formatMoney(entry.rolloverOutCents)}
             </div>
           </div>
@@ -167,7 +167,7 @@ function ProgressCard({ entry }: { entry: MinimumProgressEntry }) {
       </div>
 
       {/* Period */}
-      <div className="mt-3 flex items-center gap-4 border-t border-gray-100 pt-2 text-xs text-gray-500">
+      <div className="mt-3 flex items-center gap-4 border-t border-border pt-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
           {formatDate(entry.periodStart)} - {formatDate(entry.periodEnd)}
@@ -184,13 +184,13 @@ function HistoryRow({ entry }: { entry: MinimumHistoryEntry }) {
 
   return (
     <tr>
-      <td className="py-2 pr-4 text-sm text-gray-900">
+      <td className="py-2 pr-4 text-sm text-foreground">
         {formatDate(entry.periodStart)} - {formatDate(entry.periodEnd)}
       </td>
-      <td className="py-2 pr-4 text-sm text-right font-medium text-gray-900">
+      <td className="py-2 pr-4 text-sm text-right font-medium text-foreground">
         {formatMoney(entry.requiredCents)}
       </td>
-      <td className="py-2 pr-4 text-sm text-right text-gray-900">
+      <td className="py-2 pr-4 text-sm text-right text-foreground">
         {formatMoney(entry.satisfiedCents)}
       </td>
       <td className="py-2 pr-4 text-sm text-right">
@@ -200,9 +200,9 @@ function HistoryRow({ entry }: { entry: MinimumHistoryEntry }) {
       </td>
       <td className="py-2 pr-4 text-sm text-right">
         {entry.shortfallCents > 0 ? (
-          <span className="text-red-600">{formatMoney(entry.shortfallCents)}</span>
+          <span className="text-red-500">{formatMoney(entry.shortfallCents)}</span>
         ) : (
-          <span className="text-green-600">$0.00</span>
+          <span className="text-green-500">$0.00</span>
         )}
       </td>
       <td className="py-2">
@@ -244,23 +244,23 @@ function AssignMinimumModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-md rounded-lg border border-gray-200 bg-surface p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Assign Minimum Spend Rule</h3>
+      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl">
+        <h3 className="mb-4 text-lg font-semibold text-foreground">Assign Minimum Spend Rule</h3>
 
         {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
             {error}
           </div>
         )}
 
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-foreground">
             Select Policy
           </label>
           <select
             value={selectedRuleId}
             onChange={(e) => setSelectedRuleId(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
             <option value="">-- Select a policy --</option>
             {policies.map((p) => (
@@ -275,7 +275,7 @@ function AssignMinimumModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -311,8 +311,8 @@ export default function MinimumsSubTab({ accountId }: { accountId: string }) {
   if (isLoading) {
     return (
       <div className="space-y-4 p-4">
-        <div className="h-32 animate-pulse rounded-lg bg-gray-100" />
-        <div className="h-24 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-32 animate-pulse rounded-lg bg-muted" />
+        <div className="h-24 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
@@ -320,13 +320,13 @@ export default function MinimumsSubTab({ accountId }: { accountId: string }) {
   // Error state
   if (error) {
     return (
-      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-gray-500">
+      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-muted-foreground">
         <AlertCircle className="h-6 w-6 text-red-400" />
         <p className="text-sm">Failed to load minimum spend data</p>
         <button
           type="button"
           onClick={mutate}
-          className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
+          className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-500"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Retry
@@ -338,9 +338,9 @@ export default function MinimumsSubTab({ accountId }: { accountId: string }) {
   // Empty state
   if (entries.length === 0) {
     return (
-      <div className="flex h-48 flex-col items-center justify-center gap-3 p-4 text-gray-400">
+      <div className="flex h-48 flex-col items-center justify-center gap-3 p-4 text-muted-foreground">
         <Target className="h-6 w-6" />
-        <p className="text-sm font-medium text-gray-500">No Minimum Spend Rules</p>
+        <p className="text-sm font-medium text-muted-foreground">No Minimum Spend Rules</p>
         <p className="text-xs">No minimum spending requirements have been assigned.</p>
         <button
           type="button"
@@ -372,24 +372,24 @@ export default function MinimumsSubTab({ accountId }: { accountId: string }) {
   return (
     <div className="space-y-4 p-4">
       {/* Summary card */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-indigo-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Minimum Spend Overview</h3>
+            <h3 className="text-sm font-semibold text-foreground">Minimum Spend Overview</h3>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setShowAssign(true)}
-              className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
             >
               + Assign Rule
             </button>
             <button
               type="button"
               onClick={() => setShowHistory((v) => !v)}
-              className="flex items-center gap-1 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-1 rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
             >
               <History className="h-3 w-3" />
               History
@@ -405,15 +405,15 @@ export default function MinimumsSubTab({ accountId }: { accountId: string }) {
         {/* Overall progress */}
         <div className="mb-3 grid grid-cols-3 gap-4">
           <div className="text-center">
-            <div className="text-xs text-gray-500">Required</div>
-            <div className="text-lg font-semibold text-gray-900">{formatMoney(totalRequired)}</div>
+            <div className="text-xs text-muted-foreground">Required</div>
+            <div className="text-lg font-semibold text-foreground">{formatMoney(totalRequired)}</div>
           </div>
           <div className="text-center">
-            <div className="text-xs text-gray-500">Spent</div>
-            <div className="text-lg font-semibold text-gray-900">{formatMoney(totalSatisfied)}</div>
+            <div className="text-xs text-muted-foreground">Spent</div>
+            <div className="text-lg font-semibold text-foreground">{formatMoney(totalSatisfied)}</div>
           </div>
           <div className="text-center">
-            <div className="text-xs text-gray-500">Overall</div>
+            <div className="text-xs text-muted-foreground">Overall</div>
             <div className={`text-lg font-semibold ${overallColors.text}`}>
               {overallPercent}%
             </div>
@@ -438,8 +438,8 @@ export default function MinimumsSubTab({ accountId }: { accountId: string }) {
 
       {/* Closed entries (collapsed by default) */}
       {entries.some((e) => e.status !== 'open') && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <h3 className="mb-2 text-sm font-semibold text-gray-500">Completed Periods</h3>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Completed Periods</h3>
           <div className="space-y-3">
             {entries
               .filter((e) => e.status !== 'open')
@@ -472,20 +472,20 @@ function HistorySection({ accountId }: { accountId: string }) {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
-        <div className="h-24 animate-pulse rounded-lg bg-gray-100" />
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <div className="h-24 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-4 text-center text-sm text-gray-500">
+      <div className="rounded-lg border border-border bg-surface p-4 text-center text-sm text-muted-foreground">
         Failed to load history.{' '}
         <button
           type="button"
           onClick={mutate}
-          className="text-indigo-600 hover:text-indigo-700"
+          className="text-indigo-600 hover:text-indigo-500"
         >
           Retry
         </button>
@@ -495,22 +495,22 @@ function HistorySection({ accountId }: { accountId: string }) {
 
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-4 text-center text-sm text-gray-400">
+      <div className="rounded-lg border border-border bg-surface p-4 text-center text-sm text-muted-foreground">
         No history records found.
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center gap-2">
         <History className="h-4 w-4 text-indigo-600" />
-        <h3 className="text-sm font-semibold text-gray-900">Period History</h3>
+        <h3 className="text-sm font-semibold text-foreground">Period History</h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 pr-4 font-medium">Period</th>
               <th className="pb-2 pr-4 text-right font-medium">Required</th>
               <th className="pb-2 pr-4 text-right font-medium">Spent</th>
@@ -530,7 +530,7 @@ function HistorySection({ accountId }: { accountId: string }) {
         <div className="mt-3 text-center">
           <button
             type="button"
-            className="text-sm text-indigo-600 hover:text-indigo-700"
+            className="text-sm text-indigo-600 hover:text-indigo-500"
             onClick={() => {
               // Load more would require cursor pagination update in the hook
             }}

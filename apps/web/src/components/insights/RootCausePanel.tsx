@@ -121,8 +121,8 @@ export function RootCausePanel({ result, className }: RootCausePanelProps) {
           <span
             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
               isPositive
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-red-100 text-red-700'
+                ? 'bg-emerald-500/10 text-emerald-500'
+                : 'bg-red-500/10 text-red-500'
             }`}
           >
             {isPositive ? (

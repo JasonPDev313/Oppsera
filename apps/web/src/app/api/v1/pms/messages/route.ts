@@ -6,6 +6,7 @@ import {
   PMS_PERMISSIONS,
 } from '@oppsera/module-pms';
 import { ValidationError } from '@oppsera/shared';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -19,7 +20,7 @@ export const GET = withMiddleware(
       guestId: url.searchParams.get('guestId') ?? undefined,
       channel: url.searchParams.get('channel') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     return NextResponse.json({ data: data.items, meta: { cursor: data.cursor, hasMore: data.hasMore } });
   },

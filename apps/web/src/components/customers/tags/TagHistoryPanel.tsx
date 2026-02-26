@@ -28,31 +28,31 @@ const ACTION_CONFIG: Record<
 > = {
   applied: {
     Icon: Plus,
-    colorClass: 'text-green-600',
+    colorClass: 'text-green-500',
     label: 'Applied',
     dotColor: 'bg-green-500',
   },
   removed: {
     Icon: Minus,
-    colorClass: 'text-red-600',
+    colorClass: 'text-red-500',
     label: 'Removed',
     dotColor: 'bg-red-500',
   },
   expired: {
     Icon: Clock,
-    colorClass: 'text-amber-600',
+    colorClass: 'text-amber-500',
     label: 'Expired',
     dotColor: 'bg-amber-500',
   },
   auto_applied: {
     Icon: Sparkles,
-    colorClass: 'text-purple-600',
+    colorClass: 'text-purple-500',
     label: 'Auto-applied',
     dotColor: 'bg-purple-500',
   },
   auto_removed: {
     Icon: X,
-    colorClass: 'text-purple-600',
+    colorClass: 'text-purple-500',
     label: 'Auto-removed',
     dotColor: 'bg-purple-500',
   },
@@ -82,7 +82,7 @@ function TimelineEntry({ entry }: { entry: TagAuditEntry }) {
         >
           <Icon className={`h-3.5 w-3.5 ${colorClass}`} />
         </div>
-        <div className="w-px flex-1 bg-gray-200/80" />
+        <div className="w-px flex-1 bg-border" />
       </div>
 
       {/* Content */}
@@ -92,34 +92,34 @@ function TimelineEntry({ entry }: { entry: TagAuditEntry }) {
             className="h-2 w-2 shrink-0 rounded-full"
             style={{ backgroundColor: entry.tagColor || '#6b7280' }}
           />
-          <span className="text-sm font-medium text-gray-800">
+          <span className="text-sm font-medium text-foreground">
             {entry.tagName}
           </span>
           <span
-            className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colorClass} bg-gray-100/60`}
+            className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${colorClass} bg-muted/60`}
           >
             {label}
           </span>
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
           <span>{formatTimestamp(entry.occurredAt)}</span>
           {entry.actorName && (
             <>
-              <span className="text-gray-300">|</span>
+              <span className="text-border">|</span>
               <span>by {entry.actorName}</span>
             </>
           )}
           {entry.source && entry.source !== 'manual' && (
             <>
-              <span className="text-gray-300">|</span>
+              <span className="text-border">|</span>
               <span className="capitalize">{entry.source.replace(/_/g, ' ')}</span>
             </>
           )}
         </div>
 
         {entry.reason && (
-          <p className="mt-1 text-xs text-gray-500 italic">
+          <p className="mt-1 text-xs text-muted-foreground italic">
             {entry.reason}
           </p>
         )}
@@ -133,10 +133,10 @@ function TimelineSkeleton() {
     <div className="space-y-4">
       {[1, 2, 3].map((i) => (
         <div key={i} className="flex gap-3">
-          <div className="h-7 w-7 animate-pulse rounded-full bg-gray-200/60" />
+          <div className="h-7 w-7 animate-pulse rounded-full bg-muted" />
           <div className="flex-1 space-y-2 pt-1">
-            <div className="h-4 w-32 animate-pulse rounded bg-gray-200/60" />
-            <div className="h-3 w-48 animate-pulse rounded bg-gray-200/60" />
+            <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-48 animate-pulse rounded bg-muted" />
           </div>
         </div>
       ))}
@@ -200,7 +200,7 @@ export function TagHistoryPanel({ customerId }: TagHistoryPanelProps) {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200/60 bg-red-50/40 px-4 py-3 text-sm text-red-600">
+      <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
         {error}
       </div>
     );
@@ -208,7 +208,7 @@ export function TagHistoryPanel({ customerId }: TagHistoryPanelProps) {
 
   if (entries.length === 0) {
     return (
-      <div className="py-8 text-center text-sm text-gray-500">
+      <div className="py-8 text-center text-sm text-muted-foreground">
         No tag history
       </div>
     );
@@ -228,7 +228,7 @@ export function TagHistoryPanel({ customerId }: TagHistoryPanelProps) {
             type="button"
             onClick={() => fetchData(true)}
             disabled={isLoadingMore}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50/60 disabled:opacity-50"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-500/10 disabled:opacity-50"
           >
             {isLoadingMore ? 'Loading...' : 'Load more'}
           </button>

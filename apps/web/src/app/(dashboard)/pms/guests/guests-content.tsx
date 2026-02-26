@@ -137,15 +137,15 @@ export default function GuestsContent() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Users className="h-5 w-5 text-gray-500" />
-          <h1 className="text-xl font-semibold text-gray-900">Guests</h1>
+          <Users className="h-5 w-5 text-muted-foreground" />
+          <h1 className="text-xl font-semibold text-foreground">Guests</h1>
         </div>
         <div className="flex items-center gap-2">
           {properties.length > 1 && (
             <select
               value={propertyId}
               onChange={(e) => setPropertyId(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-900"
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
             >
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -164,44 +164,44 @@ export default function GuestsContent() {
 
       {/* Search bar */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           value={searchInput}
           onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Search by name, email, or phone..."
-          className="w-full rounded-lg border border-gray-200 bg-surface py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+          className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
         />
       </div>
 
       {/* Error banner */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
           {error}
         </div>
       )}
 
       {/* Guests table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[600px] border-collapse">
           <thead>
             <tr className="bg-surface">
-              <th className="border-b border-gray-200 px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                 Name
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                 Email
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                 Phone
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-center text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-center text-xs font-medium text-muted-foreground">
                 VIP
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-right text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">
                 Total Stays
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-right text-xs font-medium text-gray-500 w-10">
+              <th className="border-b border-border px-4 py-2.5 text-right text-xs font-medium text-muted-foreground w-10">
               </th>
             </tr>
           </thead>
@@ -209,8 +209,8 @@ export default function GuestsContent() {
             {!isLoading && guests.length === 0 && (
               <tr>
                 <td colSpan={6} className="py-12 text-center">
-                  <div className="flex flex-col items-center text-gray-500">
-                    <Users className="h-8 w-8 mb-2 text-gray-300" />
+                  <div className="flex flex-col items-center text-muted-foreground">
+                    <Users className="h-8 w-8 mb-2 text-muted-foreground" />
                     <p className="text-sm">
                       {searchTerm ? 'No guests match your search.' : 'No guests found.'}
                     </p>
@@ -224,41 +224,41 @@ export default function GuestsContent() {
                 onClick={() => router.push(`/pms/guests/${g.id}`)}
                 className="cursor-pointer hover:bg-gray-200/30 transition-colors"
               >
-                <td className="border-b border-gray-100 px-4 py-3">
-                  <span className="text-sm font-medium text-gray-900">
+                <td className="border-b border-border px-4 py-3">
+                  <span className="text-sm font-medium text-foreground">
                     {g.firstName} {g.lastName}
                   </span>
                 </td>
-                <td className="border-b border-gray-100 px-4 py-3">
+                <td className="border-b border-border px-4 py-3">
                   {g.email ? (
-                    <span className="flex items-center gap-1.5 text-sm text-gray-600">
-                      <Mail className="h-3 w-3 text-gray-400" />
+                    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Mail className="h-3 w-3 text-muted-foreground" />
                       {g.email}
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-400">-</span>
+                    <span className="text-sm text-muted-foreground">-</span>
                   )}
                 </td>
-                <td className="border-b border-gray-100 px-4 py-3">
+                <td className="border-b border-border px-4 py-3">
                   {g.phone ? (
-                    <span className="flex items-center gap-1.5 text-sm text-gray-600">
-                      <Phone className="h-3 w-3 text-gray-400" />
+                    <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Phone className="h-3 w-3 text-muted-foreground" />
                       {g.phone}
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-400">-</span>
+                    <span className="text-sm text-muted-foreground">-</span>
                   )}
                 </td>
-                <td className="border-b border-gray-100 px-4 py-3 text-center">
+                <td className="border-b border-border px-4 py-3 text-center">
                   {g.isVip && (
                     <Star className="mx-auto h-4 w-4 fill-amber-400 text-amber-400" />
                   )}
                 </td>
-                <td className="border-b border-gray-100 px-4 py-3 text-right">
-                  <span className="text-sm text-gray-600">{g.totalStays}</span>
+                <td className="border-b border-border px-4 py-3 text-right">
+                  <span className="text-sm text-muted-foreground">{g.totalStays}</span>
                 </td>
-                <td className="border-b border-gray-100 px-4 py-3 text-right">
-                  <ChevronRight className="h-4 w-4 text-gray-300" />
+                <td className="border-b border-border px-4 py-3 text-right">
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </td>
               </tr>
             ))}
@@ -269,7 +269,7 @@ export default function GuestsContent() {
       {/* Loading indicator */}
       {isLoading && (
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       )}
 
@@ -278,7 +278,7 @@ export default function GuestsContent() {
         <div className="flex justify-center">
           <button
             onClick={loadMore}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-gray-200/50"
           >
             Load more
           </button>

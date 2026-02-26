@@ -100,11 +100,11 @@ export function VendorCatalogAddDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-surface p-6 text-foreground shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Add Catalog Item</h2>
-          <button type="button" onClick={handleClose} className="rounded p-1 text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <h2 className="text-lg font-semibold text-foreground">Add Catalog Item</h2>
+          <button type="button" onClick={handleClose} aria-label="Close" className="rounded p-1 text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -112,19 +112,19 @@ export function VendorCatalogAddDialog({
           {/* Item selector */}
           {!selectedItem ? (
             <div>
-              <label className="block text-sm font-medium text-gray-700">Inventory Item</label>
+              <label className="block text-sm font-medium text-foreground">Inventory Item</label>
               <div className="relative mt-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search items by name or SKU..."
-                  className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-input py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   autoFocus
                 />
               </div>
-              {isSearching && <p className="mt-1 text-xs text-gray-400">Searching...</p>}
+              {isSearching && <p className="mt-1 text-xs text-muted-foreground">Searching...</p>}
               {results.length > 0 && (
                 <ul className="mt-2 max-h-48 overflow-auto rounded-lg border border-gray-200">
                   {results.map((item) => (
@@ -132,10 +132,10 @@ export function VendorCatalogAddDialog({
                       <button
                         type="button"
                         onClick={() => setSelectedItem(item)}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-50"
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
                       >
-                        <span className="font-medium text-gray-900">{item.name}</span>
-                        {item.sku && <span className="text-xs text-gray-400">{item.sku}</span>}
+                        <span className="font-medium text-foreground">{item.name}</span>
+                        {item.sku && <span className="text-xs text-muted-foreground">{item.sku}</span>}
                       </button>
                     </li>
                   ))}
@@ -143,17 +143,18 @@ export function VendorCatalogAddDialog({
               )}
             </div>
           ) : (
-            <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+            <div className="flex items-center justify-between rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2">
               <div>
-                <span className="text-sm font-medium text-indigo-900">{selectedItem.name}</span>
-                {selectedItem.sku && <span className="ml-2 text-xs text-indigo-600">{selectedItem.sku}</span>}
+                <span className="text-sm font-medium text-indigo-400">{selectedItem.name}</span>
+                {selectedItem.sku && <span className="ml-2 text-xs text-indigo-400">{selectedItem.sku}</span>}
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedItem(null)}
-                className="text-indigo-400 hover:text-indigo-600"
+                aria-label="Clear selected item"
+                className="text-indigo-400 hover:text-indigo-300"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           )}
@@ -161,56 +162,56 @@ export function VendorCatalogAddDialog({
           {/* Vendor-specific fields */}
           <div className="grid grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Vendor SKU</span>
+              <span className="text-sm font-medium text-foreground">Vendor SKU</span>
               <input
                 type="text"
                 value={vendorSku}
                 onChange={(e) => setVendorSku(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Vendor Cost</span>
+              <span className="text-sm font-medium text-foreground">Vendor Cost</span>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={vendorCost}
                 onChange={(e) => setVendorCost(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 placeholder="0.00"
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Lead Time (days)</span>
+              <span className="text-sm font-medium text-foreground">Lead Time (days)</span>
               <input
                 type="number"
                 min="0"
                 value={leadTimeDays}
                 onChange={(e) => setLeadTimeDays(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Min Order Qty</span>
+              <span className="text-sm font-medium text-foreground">Min Order Qty</span>
               <input
                 type="number"
                 min="1"
                 step="any"
                 value={minOrderQty}
                 onChange={(e) => setMinOrderQty(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </label>
           </div>
 
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Pack Size</span>
+            <span className="text-sm font-medium text-foreground">Pack Size</span>
             <input
               type="text"
               value={packSize}
               onChange={(e) => setPackSize(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               placeholder="e.g. Case of 24"
             />
           </label>
@@ -220,27 +221,27 @@ export function VendorCatalogAddDialog({
               type="checkbox"
               checked={isPreferred}
               onChange={(e) => setIsPreferred(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-input text-indigo-600 focus:ring-indigo-500"
             />
-            <Star className={`h-4 w-4 ${isPreferred ? 'fill-amber-400 text-amber-400' : 'text-gray-400'}`} />
-            <span className="text-sm font-medium text-gray-700">Preferred vendor for this item</span>
+            <Star className={`h-4 w-4 ${isPreferred ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`} />
+            <span className="text-sm font-medium text-foreground">Preferred vendor for this item</span>
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Notes</span>
+            <span className="text-sm font-medium text-foreground">Notes</span>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               rows={2}
             />
           </label>
 
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
+          <div className="flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
               Cancel
             </button>

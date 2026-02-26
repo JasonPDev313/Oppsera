@@ -431,11 +431,11 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
     <div className="space-y-6">
       {/* Validation errors banner */}
       {validationErrors.length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm font-medium text-red-800">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+          <p className="text-sm font-medium text-red-500">
             Please fix the following errors:
           </p>
-          <ul className="mt-2 list-inside list-disc text-sm text-red-600">
+          <ul className="mt-2 list-inside list-disc text-sm text-red-400">
             {validationErrors.map((err, i) => (
               <li key={i}>{err}</li>
             ))}
@@ -472,7 +472,7 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
               className={`w-full rounded-lg border px-3 py-2 text-sm focus:ring-1 focus:outline-none ${
                 nameError
                   ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-                  : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+                  : 'border-input focus:border-indigo-500 focus:ring-indigo-500'
               }`}
             />
           </FormField>
@@ -484,26 +484,26 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description..."
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
           {/* Multi-Dataset Field Picker */}
-          <div className="rounded-lg border border-gray-200 bg-surface p-4">
-            <h3 className="mb-3 text-sm font-semibold text-gray-900">
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <h3 className="mb-3 text-sm font-semibold text-foreground">
               Select Fields
             </h3>
-            <p className="mb-3 text-xs text-gray-500">
+            <p className="mb-3 text-xs text-muted-foreground">
               Select fields from one or more datasets. Compatible datasets will be automatically joined.
             </p>
             {fieldsLoading ? (
               <div className="space-y-2">
                 {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-8 animate-pulse rounded bg-gray-200" />
+                  <div key={i} className="h-8 animate-pulse rounded bg-muted" />
                 ))}
               </div>
             ) : fieldsError ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-500">
                 Failed to load fields. Make sure migration 0050 has been applied
                 ({fieldsError.message}).
               </div>
@@ -518,8 +518,8 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
 
           {/* Filter Builder (excludes date range filters managed by the filter bar) */}
           {hasFields && activeFields.length > 0 && (
-            <div className="rounded-lg border border-gray-200 bg-surface p-4">
-              <h3 className="mb-3 text-sm font-semibold text-gray-900">
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">
                 Filters
               </h3>
               <FilterBuilder
@@ -594,7 +594,7 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
                 }}
                 min={1}
                 max={10000}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
           )}
@@ -604,7 +604,7 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
         <div className="space-y-6">
           {/* Chart type selector */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">
+            <label className="mb-2 block text-sm font-medium text-foreground">
               Visualization
             </label>
             <div className="grid grid-cols-4 gap-2">
@@ -618,8 +618,8 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
                   }}
                   className={`flex flex-col items-center gap-1 rounded-lg border px-3 py-3 text-sm font-medium transition-colors ${
                     chartType === type
-                      ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                      ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-500'
+                      : 'border-border text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   <Icon className="h-5 w-5" />
@@ -635,7 +635,7 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
               type="button"
               onClick={handlePreview}
               disabled={previewReport.isLoading || !hasFields}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play className="h-4 w-4" />
               {previewReport.isLoading ? 'Running...' : 'Preview'}
@@ -656,7 +656,7 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
       </div>
 
       {/* Actions bar */}
-      <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-gray-200 bg-surface pt-4 pb-2">
+      <div className="sticky bottom-0 flex flex-wrap items-center gap-3 border-t border-border bg-surface pt-4 pb-2">
         <button
           type="button"
           onClick={handleSave}
@@ -671,7 +671,7 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
           <button
             type="button"
             onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -681,7 +681,7 @@ export function ReportBuilder({ reportId, initialData }: ReportBuilderProps) {
         <button
           type="button"
           onClick={() => guardedNavigate('/reports/custom')}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           <ArrowLeft className="h-4 w-4" />
           Back

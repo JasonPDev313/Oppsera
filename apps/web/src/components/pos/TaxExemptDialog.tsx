@@ -28,7 +28,7 @@ export function TaxExemptDialog({ open, onClose, onConfirm }: TaxExemptDialogPro
           <p className="text-sm font-medium">Tax Exemption</p>
         </div>
 
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Please provide a reason for the tax exemption. This will be recorded on the order and receipt.
         </p>
 
@@ -41,8 +41,8 @@ export function TaxExemptDialog({ open, onClose, onConfirm }: TaxExemptDialogPro
               onClick={() => setReason(r)}
               className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors active:scale-[0.97] ${
                 reason === r
-                  ? 'border-purple-300 bg-purple-50 text-purple-700'
-                  : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                  ? 'border-purple-500/30 bg-purple-500/10 text-purple-500'
+                  : 'border-border text-foreground hover:bg-accent'
               }`}
             >
               {r}
@@ -51,7 +51,7 @@ export function TaxExemptDialog({ open, onClose, onConfirm }: TaxExemptDialogPro
         </div>
 
         <div>
-          <label htmlFor="taxExemptReason" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="taxExemptReason" className="block text-sm font-medium text-foreground mb-1">
             Reason
           </label>
           <input
@@ -59,7 +59,7 @@ export function TaxExemptDialog({ open, onClose, onConfirm }: TaxExemptDialogPro
             type="text"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
+            className="w-full rounded-lg border border-input bg-surface px-4 py-2.5 text-sm text-foreground focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20"
             placeholder="Enter tax exempt reason..."
             autoFocus
           />
@@ -69,7 +69,7 @@ export function TaxExemptDialog({ open, onClose, onConfirm }: TaxExemptDialogPro
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Cancel
           </button>

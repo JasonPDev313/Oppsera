@@ -188,13 +188,13 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative flex w-full max-w-2xl flex-col rounded-lg bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center gap-3 border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center gap-3 border-b border-border px-6 py-4">
           <Sparkles className="h-5 w-5 text-indigo-500" />
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-foreground">
               {isEdit ? 'Edit Smart Tag Rule' : 'Create Smart Tag Rule'}
             </h3>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               Step {step + 1} of {STEPS.length}: {STEPS[step]}
             </p>
           </div>
@@ -202,7 +202,7 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -214,7 +214,7 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
             <div
               key={label}
               className={`h-1 flex-1 rounded-full transition-colors ${
-                idx <= step ? 'bg-indigo-500' : 'bg-gray-200'
+                idx <= step ? 'bg-indigo-500' : 'bg-muted'
               }`}
             />
           ))}
@@ -248,12 +248,12 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={handleBack}
             disabled={step === 0 || isSubmitting}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronLeft className="h-4 w-4" />
             Back
@@ -305,14 +305,14 @@ function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate }: StepTagInfoP
     <div className="space-y-5">
       {/* Tag selector */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-foreground">
           Smart Tag <span className="text-red-500">*</span>
         </label>
         <select
           value={form.tagId}
           onChange={(e) => onUpdate('tagId', e.target.value)}
           disabled={isEdit}
-          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
+          className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:opacity-60"
         >
           <option value="">Select a smart tag...</option>
           {smartTags.map((tag) => (
@@ -321,15 +321,15 @@ function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate }: StepTagInfoP
             </option>
           ))}
         </select>
-        {errors.tagId && <p className="text-xs text-red-600">{errors.tagId}</p>}
+        {errors.tagId && <p className="text-xs text-red-500">{errors.tagId}</p>}
         {isEdit && (
-          <p className="text-xs text-gray-400">Tag cannot be changed after creation</p>
+          <p className="text-xs text-muted-foreground">Tag cannot be changed after creation</p>
         )}
       </div>
 
       {/* Name */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-foreground">
           Rule Name <span className="text-red-500">*</span>
         </label>
         <input
@@ -337,20 +337,20 @@ function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate }: StepTagInfoP
           value={form.name}
           onChange={(e) => onUpdate('name', e.target.value)}
           placeholder="e.g. High-value frequent visitor"
-          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
-        {errors.name && <p className="text-xs text-red-600">{errors.name}</p>}
+        {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
       </div>
 
       {/* Description */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Description</label>
+        <label className="block text-sm font-medium text-foreground">Description</label>
         <textarea
           value={form.description}
           onChange={(e) => onUpdate('description', e.target.value)}
           rows={3}
           placeholder="Optional description of what this rule does..."
-          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
     </div>
@@ -371,15 +371,15 @@ function StepConditions({ groups, error, onChange }: StepConditionsProps) {
   return (
     <div className="space-y-4">
       <div>
-        <h4 className="text-sm font-medium text-gray-700">Conditions</h4>
-        <p className="mt-0.5 text-xs text-gray-500">
+        <h4 className="text-sm font-medium text-foreground">Conditions</h4>
+        <p className="mt-0.5 text-xs text-muted-foreground">
           Conditions within a group are combined with AND. Groups are combined with OR.
         </p>
       </div>
 
       <ConditionGroupEditor groups={groups} onChange={onChange} />
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   );
 }
@@ -401,7 +401,7 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
     <div className="space-y-5">
       {/* Evaluation mode */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">Evaluation Mode</label>
+        <label className="block text-sm font-medium text-foreground">Evaluation Mode</label>
         <div className="space-y-2">
           {([
             { value: 'scheduled', label: 'Scheduled', desc: 'Run on a cron schedule' },
@@ -413,7 +413,7 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
               className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors ${
                 form.evaluationMode === opt.value
                   ? 'border-indigo-500 bg-indigo-500/5'
-                  : 'border-gray-200 hover:bg-gray-50/50'
+                  : 'border-border hover:bg-accent/50'
               }`}
             >
               <input
@@ -422,11 +422,11 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
                 value={opt.value}
                 checked={form.evaluationMode === opt.value}
                 onChange={(e) => onUpdate('evaluationMode', e.target.value as EvaluationMode)}
-                className="mt-0.5 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5 h-4 w-4 border-input text-indigo-600 focus:ring-indigo-500"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">{opt.label}</span>
-                <p className="text-xs text-gray-500">{opt.desc}</p>
+                <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                <p className="text-xs text-muted-foreground">{opt.desc}</p>
               </div>
             </label>
           ))}
@@ -436,11 +436,11 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
       {/* Cron schedule */}
       {showCron && (
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-foreground">
             Cron Schedule <span className="text-red-500">*</span>
           </label>
           <div className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4 shrink-0 text-gray-400" />
+            <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
             <input
               type="text"
               value={form.scheduleCron}
@@ -449,18 +449,18 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
               className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm font-mono text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
-          {errors.scheduleCron && <p className="text-xs text-red-600">{errors.scheduleCron}</p>}
-          <p className="text-xs text-gray-500">
+          {errors.scheduleCron && <p className="text-xs text-red-500">{errors.scheduleCron}</p>}
+          <p className="text-xs text-muted-foreground">
             Standard cron expression (e.g., &quot;0 2 * * *&quot; = daily at 2 AM)
           </p>
         </div>
       )}
 
       {/* Auto-remove toggle */}
-      <div className="flex items-center justify-between rounded-lg border border-gray-200 p-3">
+      <div className="flex items-center justify-between rounded-lg border border-border p-3">
         <div>
-          <span className="text-sm font-medium text-gray-900">Auto-Remove</span>
-          <p className="text-xs text-gray-500">
+          <span className="text-sm font-medium text-foreground">Auto-Remove</span>
+          <p className="text-xs text-muted-foreground">
             Automatically remove tag when customer no longer matches conditions
           </p>
         </div>
@@ -470,7 +470,7 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
           aria-checked={form.autoRemove}
           onClick={() => onUpdate('autoRemove', !form.autoRemove)}
           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
-            form.autoRemove ? 'bg-indigo-600' : 'bg-gray-200'
+            form.autoRemove ? 'bg-indigo-600' : 'bg-muted'
           }`}
         >
           <span
@@ -483,32 +483,32 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
 
       {/* Cooldown hours */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Cooldown Hours</label>
+        <label className="block text-sm font-medium text-foreground">Cooldown Hours</label>
         <input
           type="number"
           value={form.cooldownHours}
           onChange={(e) => onUpdate('cooldownHours', e.target.value)}
           placeholder="Optional"
           min="0"
-          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
-        {errors.cooldownHours && <p className="text-xs text-red-600">{errors.cooldownHours}</p>}
-        <p className="text-xs text-gray-500">
+        {errors.cooldownHours && <p className="text-xs text-red-500">{errors.cooldownHours}</p>}
+        <p className="text-xs text-muted-foreground">
           Minimum hours between re-evaluations for the same customer
         </p>
       </div>
 
       {/* Priority */}
       <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Priority</label>
+        <label className="block text-sm font-medium text-foreground">Priority</label>
         <input
           type="number"
           value={form.priority}
           onChange={(e) => onUpdate('priority', e.target.value)}
           min="0"
-          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Higher priority rules are evaluated first (0 = lowest)
         </p>
       </div>

@@ -19,8 +19,8 @@ export default function AccountPage() {
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
-        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-        <div className="h-64 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="h-64 bg-muted rounded-lg animate-pulse" />
       </div>
     );
   }
@@ -28,8 +28,8 @@ export default function AccountPage() {
   if (error) {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+          <p className="text-red-500">{error}</p>
         </div>
       </div>
     );
@@ -69,7 +69,7 @@ export default function AccountPage() {
       {/* Account Info */}
       <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4">
         <h2 className="font-semibold mb-4 flex items-center gap-2">
-          <CreditCard className="h-5 w-5 text-gray-400" />
+          <CreditCard className="h-5 w-5 text-muted-foreground" />
           Membership Account
         </h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
@@ -107,7 +107,7 @@ export default function AccountPage() {
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Wallet className="h-5 w-5 text-gray-400" />
+            <Wallet className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="font-semibold text-sm">Payment Methods</p>
               <p className="text-sm text-[var(--portal-text-muted)]">
@@ -115,14 +115,14 @@ export default function AccountPage() {
               </p>
             </div>
           </div>
-          <ChevronRight className="h-5 w-5 text-gray-400" />
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
         </div>
       </Link>
 
       {/* Autopay Settings */}
       <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4">
         <h2 className="font-semibold mb-4 flex items-center gap-2">
-          <Settings className="h-5 w-5 text-gray-400" />
+          <Settings className="h-5 w-5 text-muted-foreground" />
           Autopay Settings
         </h2>
         <div className="flex items-center justify-between">
@@ -139,7 +139,7 @@ export default function AccountPage() {
             disabled={isSubmitting}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               autopay?.enabled
-                ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-muted text-foreground hover:bg-accent'
                 : 'bg-[var(--portal-primary)] text-white hover:opacity-90'
             } disabled:opacity-50`}
           >

@@ -11,7 +11,7 @@ export default function TenantError({
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="text-center max-w-md">
-        <div className="h-16 w-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
+        <div className="h-16 w-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4">
           <svg className="h-8 w-8 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
           </svg>
@@ -29,7 +29,7 @@ export default function TenantError({
           </button>
           <Link
             href="/find-club"
-            className="rounded-lg border border-[var(--portal-border)] px-5 py-2.5 text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="rounded-lg border border-[var(--portal-border)] px-5 py-2.5 text-sm font-medium hover:bg-accent transition-colors"
           >
             Find Your Club
           </Link>

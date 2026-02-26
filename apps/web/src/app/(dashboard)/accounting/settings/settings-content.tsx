@@ -142,7 +142,7 @@ export default function SettingsContent() {
       <AccountingPageShell title="Accounting Settings" breadcrumbs={[{ label: 'Settings' }]}>
         <div className="space-y-6">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       </AccountingPageShell>
@@ -154,12 +154,12 @@ export default function SettingsContent() {
       <div className="mx-auto max-w-2xl space-y-8">
         {/* General */}
         <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">General</h2>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">General</h2>
+          <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
             <FormField label="Base Currency">
-              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600">
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground">
                 USD — US Dollar
-                <span className="text-xs text-gray-400">(Multi-currency coming soon)</span>
+                <span className="text-xs text-muted-foreground">(Multi-currency coming soon)</span>
               </div>
             </FormField>
 
@@ -179,9 +179,9 @@ export default function SettingsContent() {
                     name="autoPostMode"
                     checked={form.autoPostMode === 'auto_post'}
                     onChange={() => setForm((f) => ({ ...f, autoPostMode: 'auto_post' }))}
-                    className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 border-border text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm text-gray-700">Auto-post entries</span>
+                  <span className="text-sm text-foreground">Auto-post entries</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -189,9 +189,9 @@ export default function SettingsContent() {
                     name="autoPostMode"
                     checked={form.autoPostMode === 'draft_only'}
                     onChange={() => setForm((f) => ({ ...f, autoPostMode: 'draft_only' }))}
-                    className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 border-border text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm text-gray-700">Create as draft (manual posting)</span>
+                  <span className="text-sm text-foreground">Create as draft (manual posting)</span>
                 </label>
               </div>
             </FormField>
@@ -200,8 +200,8 @@ export default function SettingsContent() {
 
         {/* Default Accounts */}
         <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Default Accounts</h2>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Default Accounts</h2>
+          <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
             {[
               { key: 'defaultAPControlAccountId', label: 'AP Control Account', help: 'Used for accounts payable postings' },
               { key: 'defaultARControlAccountId', label: 'AR Control Account', help: 'Used for accounts receivable postings' },
@@ -230,8 +230,8 @@ export default function SettingsContent() {
 
         {/* Operations Accounts */}
         <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Operations Accounts</h2>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Operations Accounts</h2>
+          <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
             {[
               { key: 'defaultTipsPayableAccountId', label: 'Tips Payable', help: 'Liability account for collected tips pending payout' },
               { key: 'defaultServiceChargeRevenueAccountId', label: 'Service Charge Revenue', help: 'Revenue account for automatic service charges' },
@@ -260,8 +260,8 @@ export default function SettingsContent() {
 
         {/* Posting Options */}
         <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Posting Options</h2>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Posting Options</h2>
+          <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
             <FormField label="Rounding Tolerance (cents)" helpText="Max allowed imbalance before auto-rounding. Default: 5 cents">
               <input
                 type="number"
@@ -269,7 +269,7 @@ export default function SettingsContent() {
                 max="100"
                 value={form.roundingToleranceCents}
                 onChange={(e) => setForm((f) => ({ ...f, roundingToleranceCents: parseInt(e.target.value) || 0 }))}
-                className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-24 rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
 
@@ -286,10 +286,10 @@ export default function SettingsContent() {
                       name="cogsPostingMode"
                       checked={form.cogsPostingMode === value}
                       onChange={() => setForm((f) => ({ ...f, cogsPostingMode: value }))}
-                      className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 border-border text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span className="text-sm text-gray-700">
-                      {label} <span className="text-gray-400">— {desc}</span>
+                    <span className="text-sm text-foreground">
+                      {label} <span className="text-muted-foreground">— {desc}</span>
                     </span>
                   </label>
                 ))}
@@ -320,11 +320,11 @@ export default function SettingsContent() {
                   type="checkbox"
                   checked={form[key as keyof typeof form] as boolean}
                   onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.checked }))}
-                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="mt-0.5 h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
                 />
                 <div>
-                  <span className="text-sm font-medium text-gray-700">{label}</span>
-                  <p className="text-xs text-gray-500">{help}</p>
+                  <span className="text-sm font-medium text-foreground">{label}</span>
+                  <p className="text-xs text-muted-foreground">{help}</p>
                 </div>
               </label>
             ))}
@@ -333,33 +333,33 @@ export default function SettingsContent() {
 
         {/* GL Remap */}
         <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">GL Remap</h2>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">GL Remap</h2>
+          <div className="rounded-lg border border-border bg-surface p-4 space-y-3">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.enableAutoRemap}
                 onChange={(e) => setForm((f) => ({ ...f, enableAutoRemap: e.target.checked }))}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5 h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
               <div>
-                <span className="text-sm font-medium text-gray-700">Auto-remap on mapping save</span>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <span className="text-sm font-medium text-foreground">Auto-remap on mapping save</span>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   When enabled, saving a GL mapping automatically voids and reposts affected transactions
                   with corrected accounts. Applies to tenders where all missing mappings are now configured.
                 </p>
               </div>
             </label>
             {form.enableAutoRemap && (
-              <div className="ml-7 rounded-lg border border-amber-400/40 bg-amber-50/50 p-3">
-                <p className="text-xs font-medium text-amber-800">Risks to consider:</p>
-                <ul className="mt-1 text-xs text-amber-700 list-disc pl-4 space-y-0.5">
+              <div className="ml-7 rounded-lg border border-amber-400/40 bg-amber-500/10 p-3">
+                <p className="text-xs font-medium text-amber-500">Risks to consider:</p>
+                <ul className="mt-1 text-xs text-amber-500 list-disc pl-4 space-y-0.5">
                   <li>Original GL entries will be voided and replaced — creates reversal + new posting pairs</li>
                   <li>Large batches (up to 50 tenders at a time) may take several seconds</li>
                   <li>If a period has already been closed or exported, remapped entries may create discrepancies</li>
                   <li>All remaps are audit-logged and can be reviewed in the Unmapped Events tab</li>
                 </ul>
-                <p className="mt-2 text-xs text-amber-600">
+                <p className="mt-2 text-xs text-amber-500">
                   You can always use the manual &quot;Preview &amp; Remap&quot; tool on the Mappings page regardless of this setting.
                 </p>
               </div>
@@ -369,25 +369,25 @@ export default function SettingsContent() {
 
         {/* Vouchers / Gift Cards */}
         <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Vouchers / Gift Cards</h2>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Vouchers / Gift Cards</h2>
+          <div className="rounded-lg border border-border bg-surface p-4 space-y-4">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.voucherExpiryEnabled}
                 onChange={(e) => setForm((f) => ({ ...f, voucherExpiryEnabled: e.target.checked }))}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5 h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
               <div>
-                <span className="text-sm font-medium text-gray-700">Allow voucher expiration</span>
-                <p className="text-xs text-gray-500">When disabled, vouchers never expire (required in some jurisdictions, e.g. California)</p>
+                <span className="text-sm font-medium text-foreground">Allow voucher expiration</span>
+                <p className="text-xs text-muted-foreground">When disabled, vouchers never expire (required in some jurisdictions, e.g. California)</p>
               </div>
             </label>
 
             {!form.voucherExpiryEnabled && (
-              <div className="flex items-start gap-2 rounded-lg border border-amber-400/40 bg-amber-50/50 p-3">
-                <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                <p className="text-xs text-amber-800">
+              <div className="flex items-start gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 p-3">
+                <AlertCircle className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
+                <p className="text-xs text-amber-500">
                   With expiration disabled, vouchers will remain as outstanding liabilities indefinitely. No breakage income will be recognized.
                 </p>
               </div>
@@ -398,11 +398,11 @@ export default function SettingsContent() {
                 type="checkbox"
                 checked={form.recognizeBreakageAutomatically}
                 onChange={(e) => setForm((f) => ({ ...f, recognizeBreakageAutomatically: e.target.checked }))}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5 h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
               <div>
-                <span className="text-sm font-medium text-gray-700">Automatically recognize breakage income</span>
-                <p className="text-xs text-gray-500">When disabled, expired vouchers queue for manual review before GL posting</p>
+                <span className="text-sm font-medium text-foreground">Automatically recognize breakage income</span>
+                <p className="text-xs text-muted-foreground">When disabled, expired vouchers queue for manual review before GL posting</p>
               </div>
             </label>
 
@@ -419,10 +419,10 @@ export default function SettingsContent() {
                       name="breakageRecognitionMethod"
                       checked={form.breakageRecognitionMethod === value}
                       onChange={() => setForm((f) => ({ ...f, breakageRecognitionMethod: value }))}
-                      className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="h-4 w-4 border-border text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span className="text-sm text-gray-700">
-                      {label} <span className="text-gray-400">— {desc}</span>
+                    <span className="text-sm text-foreground">
+                      {label} <span className="text-muted-foreground">— {desc}</span>
                     </span>
                   </label>
                 ))}
@@ -449,16 +449,16 @@ export default function SettingsContent() {
 
         {/* Period Lock */}
         <section className="space-y-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Period Lock</h2>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Period Lock</h2>
+          <div className="rounded-lg border border-border bg-surface p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-700">Lock Period Through</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm font-medium text-foreground">Lock Period Through</p>
+                <p className="text-sm text-muted-foreground">
                   {settings?.lockPeriodThrough ?? 'No periods locked'}
                 </p>
               </div>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-foreground">
                 Entries cannot be posted to locked periods
               </span>
             </div>
@@ -466,7 +466,7 @@ export default function SettingsContent() {
         </section>
 
         {/* Save */}
-        <div className="flex justify-end border-t border-gray-200 pt-4">
+        <div className="flex justify-end border-t border-border pt-4">
           <button
             type="button"
             onClick={handleSave}

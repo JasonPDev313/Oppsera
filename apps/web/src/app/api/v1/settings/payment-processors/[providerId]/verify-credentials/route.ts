@@ -169,7 +169,7 @@ export const POST = withMiddleware(
 
     return NextResponse.json({ data: { rows, testedAt: new Date().toISOString() } });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );
 
 /** Mask a value to show only last 4 characters */

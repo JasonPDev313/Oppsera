@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import { getServerPerformance, getServerPerformanceSchema } from '@oppsera/module-fnb';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/fnb/reports/server-performance — get server performance
 export const GET = withMiddleware(
@@ -14,7 +15,7 @@ export const GET = withMiddleware(
       startDate: url.searchParams.get('startDate') ?? '',
       endDate: url.searchParams.get('endDate') ?? '',
       serverUserId: url.searchParams.get('serverUserId') || undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     if (!parsed.success) {
       throw new ValidationError(

@@ -84,7 +84,7 @@ export function ColumnMappingTable({
   return (
     <div className="space-y-4">
       {/* Grouping Key Selector */}
-      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-surface p-3 dark:border-gray-700">
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-3">
         <label className="text-sm font-medium whitespace-nowrap">Grouping Key:</label>
         <MappingDropdown
           value={groupingKey ?? ''}
@@ -93,7 +93,7 @@ export function ColumnMappingTable({
           placeholder="Select column that groups rows into orders..."
           className="flex-1"
         />
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-muted-foreground">
           Rows sharing the same value in this column become one order
         </span>
       </div>
@@ -102,7 +102,7 @@ export function ColumnMappingTable({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 text-left dark:border-gray-700">
+            <tr className="border-b border-border text-left">
               <th className="px-3 py-2 font-medium">Source Column</th>
               <th className="px-3 py-2 font-medium">Target Entity</th>
               <th className="px-3 py-2 font-medium">Target Field</th>
@@ -116,9 +116,9 @@ export function ColumnMappingTable({
             {mappings.map((m) => (
               <tr
                 key={m.id}
-                className={`border-b border-gray-100 dark:border-gray-800 ${
+                className={`border-b border-border ${
                   !m.isConfirmed && m.confidence < 0.5
-                    ? 'bg-red-50/50 dark:bg-red-900/10'
+                    ? 'bg-red-500/10'
                     : ''
                 }`}
               >
@@ -154,8 +154,8 @@ export function ColumnMappingTable({
                 <td className="px-3 py-2">
                   <ConfidenceBadge confidence={m.confidence} />
                 </td>
-                <td className="px-3 py-2 text-xs text-gray-500">{m.dataType ?? '-'}</td>
-                <td className="max-w-[200px] truncate px-3 py-2 text-xs text-gray-500">
+                <td className="px-3 py-2 text-xs text-muted-foreground">{m.dataType ?? '-'}</td>
+                <td className="max-w-[200px] truncate px-3 py-2 text-xs text-muted-foreground">
                   {(m.sampleValues ?? []).slice(0, 3).join(', ') || '-'}
                 </td>
                 <td className="px-3 py-2">
@@ -170,8 +170,8 @@ export function ColumnMappingTable({
                     }
                     className={`rounded p-1 ${
                       m.isConfirmed
-                        ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30'
-                        : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        ? 'text-green-600 hover:bg-green-500/20'
+                        : 'text-muted-foreground hover:bg-accent'
                     }`}
                   >
                     {m.isConfirmed ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}

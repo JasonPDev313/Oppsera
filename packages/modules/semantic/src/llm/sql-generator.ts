@@ -60,14 +60,20 @@ Respond with a single JSON object — no markdown fences, no prose before/after:
 - **gl_journal_lines, ap_bills, ar_invoices**: amounts are in **dollars** (NUMERIC). No conversion needed.
 - **rm_daily_sales, rm_item_sales**: amounts are in **dollars** (NUMERIC). No conversion needed.
 - **inventory receiving** (receiving_receipt_lines): amounts are in **dollars** (NUMERIC 12,4).
+- **pms_reservations**: nightly_rate_cents, subtotal_cents, tax_cents, fee_cents, total_cents are in **cents** (INTEGER). Divide by 100.0 for dollars.
+- **rm_pms_daily_occupancy**: adr_cents, revpar_cents are in **cents**. Divide by 100.0.
+- **rm_pms_revenue_by_room_type**: room_revenue_cents, tax_revenue_cents, adr_cents are in **cents**. Divide by 100.0.
 - When the user asks about "sales" or "revenue" in dollar terms, convert cents to dollars.
 
 ## Date Conventions
 - Most tables use \`created_at\` (timestamptz) for creation time.
 - Orders have \`business_date\` (text, YYYY-MM-DD format) for the business day.
 - Use \`business_date\` for date filtering on orders, not \`created_at\`.
+- **pms_reservations** have \`check_in_date\` (DATE) and \`check_out_date\` (DATE). Use check_in_date for "arriving on" queries, check_out_date for "departing on" queries. For "staying on" or "in-house on" a date, use: \`check_in_date <= date AND check_out_date > date\`.
+- **rm_pms_daily_occupancy** uses \`business_date\` (DATE) — one row per property per day.
 - Current date: ${context.currentDate}
 - "Today" = '${context.currentDate}', "yesterday" = date before that, "this week" = last 7 days, "this month" = current calendar month, "last month" = previous calendar month.
+- For "next Tuesday", "next Friday", etc., compute the specific date from the current date.
 
 ## Status Conventions
 - Orders: 'open', 'placed', 'paid', 'voided'. Active orders = status IN ('placed', 'paid').
@@ -75,6 +81,8 @@ Respond with a single JSON object — no markdown fences, no prose before/after:
 - Catalog items: active items have \`archived_at IS NULL\`.
 - Vendors: \`is_active = true\` for active vendors.
 - Inventory: on-hand = SUM(quantity_delta) from inventory_movements. Never a stored column.
+- **Reservations**: 'CONFIRMED', 'CHECKED_IN', 'CHECKED_OUT', 'CANCELLED', 'NO_SHOW', 'HOLD'. Active/upcoming reservations = status IN ('CONFIRMED', 'HOLD'). In-house guests = status = 'CHECKED_IN'. Past stays = status = 'CHECKED_OUT'.
+- **Rooms**: 'clean', 'occupied', 'dirty', 'cleaning', 'inspected'. Available rooms = status = 'clean' AND is_out_of_order = false.
 
 ## Common Patterns
 - **Count of records**: \`SELECT count(*) as total FROM table WHERE tenant_id = $1\` — NO LIMIT on count queries!
@@ -85,6 +93,10 @@ Respond with a single JSON object — no markdown fences, no prose before/after:
 - **On-hand inventory**: \`SELECT ii.id, ci.name, SUM(im.quantity_delta) as on_hand FROM inventory_movements im JOIN inventory_items ii ON im.inventory_item_id = ii.id AND ii.tenant_id = $1 JOIN catalog_items ci ON ii.catalog_item_id = ci.id AND ci.tenant_id = $1 WHERE im.tenant_id = $1 GROUP BY ii.id, ci.name LIMIT 100\`
 - **Users (staff)**: \`SELECT id, name, email, status FROM users WHERE tenant_id = $1 LIMIT 100\`
 - **Customers**: \`SELECT id, first_name, last_name, email, customer_type, display_name FROM customers WHERE tenant_id = $1 LIMIT 100\`
+- **Reservations arriving on a date**: \`SELECT r.id, r.primary_guest_json->>'firstName' as first_name, r.primary_guest_json->>'lastName' as last_name, rt.name as room_type, rm.room_number, r.nightly_rate_cents / 100.0 as nightly_rate, r.nights, r.status FROM pms_reservations r JOIN pms_room_types rt ON r.room_type_id = rt.id AND rt.tenant_id = $1 LEFT JOIN pms_rooms rm ON r.room_id = rm.id AND rm.tenant_id = $1 WHERE r.tenant_id = $1 AND r.check_in_date = '2026-03-03' AND r.status IN ('CONFIRMED', 'HOLD') ORDER BY r.created_at LIMIT 100\`
+- **In-house guests today**: \`SELECT r.id, r.primary_guest_json->>'firstName' as first_name, r.primary_guest_json->>'lastName' as last_name, rm.room_number, r.check_in_date, r.check_out_date FROM pms_reservations r LEFT JOIN pms_rooms rm ON r.room_id = rm.id AND rm.tenant_id = $1 WHERE r.tenant_id = $1 AND r.status = 'CHECKED_IN' ORDER BY rm.room_number LIMIT 100\`
+- **Occupancy for a date range**: \`SELECT business_date, rooms_occupied, rooms_available, occupancy_pct, adr_cents / 100.0 as adr, revpar_cents / 100.0 as revpar FROM rm_pms_daily_occupancy WHERE tenant_id = $1 AND business_date BETWEEN '2026-02-25' AND '2026-03-03' ORDER BY business_date LIMIT 100\`
+- **Reservation count for a date**: \`SELECT count(*) as reservation_count FROM pms_reservations WHERE tenant_id = $1 AND check_in_date = '2026-03-03' AND status IN ('CONFIRMED', 'HOLD', 'CHECKED_IN')\`
 
 ## Week-over-Week and Period Comparisons
 When the user asks to compare periods (e.g., "last week vs week before", "this month vs last month"):

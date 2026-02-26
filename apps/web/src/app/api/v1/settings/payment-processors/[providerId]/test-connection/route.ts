@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, paymentProviderCredentials, paymentMerchantAccounts } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { decryptCredentials, providerRegistry } from '@oppsera/module-payments';
 
 function extractProviderId(request: NextRequest): string {
@@ -47,7 +47,7 @@ export const POST = withMiddleware(
               eq(paymentProviderCredentials.isActive, true),
               locationId
                 ? eq(paymentProviderCredentials.locationId, locationId)
-                : eq(paymentProviderCredentials.locationId, ''),
+                : isNull(paymentProviderCredentials.locationId),
             ),
           )
           .limit(1);
@@ -153,5 +153,5 @@ export const POST = withMiddleware(
       });
     }
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );

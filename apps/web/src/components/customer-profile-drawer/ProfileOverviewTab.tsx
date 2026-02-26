@@ -121,14 +121,14 @@ export function ProfileOverviewTab({
       {/* ── Service Flags ─────────────────────────────────────────────── */}
       {serviceFlags.length > 0 && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Service Flags
           </h3>
           <div className="flex flex-wrap gap-2">
             {serviceFlags.map((flag) => (
               <Badge key={flag.id} variant={SEVERITY_STYLES[flag.severity]}>
                 {flag.severity === 'critical' && (
-                  <AlertTriangle className="mr-1 h-3 w-3" />
+                  <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
                 )}
                 {flag.flagType}
                 {flag.notes && (
@@ -143,7 +143,7 @@ export function ProfileOverviewTab({
       {/* ── Active Alerts ─────────────────────────────────────────────── */}
       {activeAlerts.length > 0 && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Active Alerts
           </h3>
           <div className="space-y-2">
@@ -152,13 +152,13 @@ export function ProfileOverviewTab({
                 key={alert.id}
                 className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${
                   alert.severity === 'critical'
-                    ? 'border-red-200 bg-red-50 text-red-800'
+                    ? 'border-red-500/30 bg-red-500/100/10 text-red-500'
                     : alert.severity === 'warning'
-                      ? 'border-amber-200 bg-amber-50 text-amber-800'
-                      : 'border-blue-200 bg-blue-50 text-blue-800'
+                      ? 'border-amber-500/30 bg-amber-500/100/10 text-amber-500'
+                      : 'border-blue-500/30 bg-blue-500/100/10 text-blue-500'
                 }`}
               >
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <div>
                   <p className="font-medium">{alert.alertType}</p>
                   <p className="mt-0.5 opacity-80">{alert.message}</p>
@@ -172,41 +172,41 @@ export function ProfileOverviewTab({
       {/* ── Personal Details ──────────────────────────────────────────── */}
       {hasPersonalDetails && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Personal Details
           </h3>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2">
             {dob && (
               <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                <span className="text-gray-500">DOB</span>
-                <span className="ml-auto text-gray-900">
+                <Calendar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="text-muted-foreground">DOB</span>
+                <span className="ml-auto text-foreground">
                   {formatDate(dob)}
                   {calculateAge(dob) != null && (
-                    <span className="ml-1 text-gray-500">({calculateAge(dob)})</span>
+                    <span className="ml-1 text-muted-foreground">({calculateAge(dob)})</span>
                   )}
                 </span>
               </div>
             )}
             {gender && (
               <div className="flex items-center gap-2 text-sm">
-                <User className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                <span className="text-gray-500">Gender</span>
-                <span className="ml-auto capitalize text-gray-900">{gender}</span>
+                <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="text-muted-foreground">Gender</span>
+                <span className="ml-auto capitalize text-foreground">{gender}</span>
               </div>
             )}
             {anniversary && (
               <div className="flex items-center gap-2 text-sm">
-                <Heart className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                <span className="text-gray-500">Anniversary</span>
-                <span className="ml-auto text-gray-900">{formatDate(anniversary)}</span>
+                <Heart className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="text-muted-foreground">Anniversary</span>
+                <span className="ml-auto text-foreground">{formatDate(anniversary)}</span>
               </div>
             )}
             {preferredLanguage && (
               <div className="flex items-center gap-2 text-sm">
-                <Globe className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                <span className="text-gray-500">Language</span>
-                <span className="ml-auto text-gray-900">{preferredLanguage}</span>
+                <Globe className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="text-muted-foreground">Language</span>
+                <span className="ml-auto text-foreground">{preferredLanguage}</span>
               </div>
             )}
           </div>
@@ -216,16 +216,16 @@ export function ProfileOverviewTab({
       {/* ── Contact & Address ─────────────────────────────────────────── */}
       {hasContacts && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Contact
           </h3>
           <div className="space-y-1.5">
             {(primaryEmail || customer.email) && (
               <a
                 href={`mailto:${primaryEmail?.value ?? customer.email}`}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-indigo-500/100/100/10 hover:text-indigo-600"
               >
-                <Mail className="h-4 w-4 shrink-0 text-gray-400" />
+                <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="truncate">{primaryEmail?.value ?? customer.email}</span>
                 {primaryEmail?.isPrimary && (
                   <Badge variant="indigo">Primary</Badge>
@@ -235,9 +235,9 @@ export function ProfileOverviewTab({
             {(primaryPhone || customer.phone) && (
               <a
                 href={`tel:${primaryPhone?.value ?? customer.phone}`}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-indigo-500/100/100/10 hover:text-indigo-600"
               >
-                <Phone className="h-4 w-4 shrink-0 text-gray-400" />
+                <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span>{formatPhone(primaryPhone?.value ?? customer.phone ?? '')}</span>
                 {primaryPhone?.isPrimary && (
                   <Badge variant="indigo">Primary</Badge>
@@ -245,8 +245,8 @@ export function ProfileOverviewTab({
               </a>
             )}
             {primaryAddress && (
-              <div className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-700">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+              <div className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span>{primaryAddress.value}</span>
               </div>
             )}
@@ -257,18 +257,18 @@ export function ProfileOverviewTab({
       {/* ── Identifiers ───────────────────────────────────────────────── */}
       {activeIdentifiers.length > 0 && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Identifiers
           </h3>
           <div className="flex flex-wrap gap-2">
             {activeIdentifiers.map((id) => (
               <div
                 key={id.id}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-sm"
               >
-                <CreditCard className="h-3.5 w-3.5 text-gray-400" />
-                <span className="font-medium text-gray-900">{id.value}</span>
-                <span className="text-xs text-gray-500">{id.type.replace(/_/g, ' ')}</span>
+                <CreditCard className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                <span className="font-medium text-foreground">{id.value}</span>
+                <span className="text-xs text-muted-foreground">{id.type.replace(/_/g, ' ')}</span>
               </div>
             ))}
           </div>
@@ -277,51 +277,51 @@ export function ProfileOverviewTab({
 
       {/* ── Stats Grid ────────────────────────────────────────────────── */}
       <section>
-        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Customer Stats
         </h3>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-gray-200 bg-surface p-3">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <Calendar className="h-3.5 w-3.5" />
+          <div className="rounded-lg border border-border bg-surface p-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
               Total Visits
             </div>
-            <p className="mt-1 text-xl font-semibold text-gray-900">
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {stats.totalVisits.toLocaleString()}
             </p>
             {stats.lastVisitAt && (
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Last: {formatDate(stats.lastVisitAt)}
               </p>
             )}
           </div>
-          <div className="rounded-lg border border-gray-200 bg-surface p-3">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <DollarSign className="h-3.5 w-3.5" />
+          <div className="rounded-lg border border-border bg-surface p-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <DollarSign className="h-3.5 w-3.5" aria-hidden="true" />
               Avg Spend
             </div>
-            <p className="mt-1 text-xl font-semibold text-gray-900">
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatCurrency(stats.avgSpendCents)}
             </p>
-            <p className="mt-0.5 text-xs text-gray-500">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {stats.visitFrequency}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-surface p-3">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <TrendingUp className="h-3.5 w-3.5" />
+          <div className="rounded-lg border border-border bg-surface p-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />
               Lifetime Value
             </div>
-            <p className="mt-1 text-xl font-semibold text-gray-900">
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatCurrency(stats.lifetimeValueCents)}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-surface p-3">
-            <div className="flex items-center gap-2 text-xs text-gray-500">
-              <CreditCard className="h-3.5 w-3.5" />
+          <div className="rounded-lg border border-border bg-surface p-3">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
               Total Spend
             </div>
-            <p className="mt-1 text-xl font-semibold text-gray-900">
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatCurrency(stats.totalSpendCents)}
             </p>
           </div>
@@ -331,16 +331,16 @@ export function ProfileOverviewTab({
       {/* ── Membership Card ───────────────────────────────────────────── */}
       {memberships?.active && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Membership
           </h3>
-          <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-            <CreditCard className="h-5 w-5 text-indigo-600" />
+          <div className="flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/100/10 p-3">
+            <CreditCard className="h-5 w-5 text-indigo-600" aria-hidden="true" />
             <div>
-              <p className="text-sm font-medium text-indigo-900">
+              <p className="text-sm font-medium text-indigo-400">
                 {memberships.active.planName}
               </p>
-              <p className="text-xs text-indigo-700">
+              <p className="text-xs text-indigo-400">
                 Status: {memberships.active.status}
                 {memberships.active.renewalDate && (
                   <> &middot; Renews {formatDate(memberships.active.renewalDate)}</>
@@ -355,7 +355,7 @@ export function ProfileOverviewTab({
       {stats.revenueByCategory &&
         Object.keys(stats.revenueByCategory).length > 0 && (
           <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Revenue Breakdown
             </h3>
             <div className="space-y-2">
@@ -370,12 +370,12 @@ export function ProfileOverviewTab({
                   return (
                     <div key={category}>
                       <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700">{category}</span>
-                        <span className="font-medium text-gray-900">
+                        <span className="text-muted-foreground">{category}</span>
+                        <span className="font-medium text-foreground">
                           {formatCurrency(cents)}
                         </span>
                       </div>
-                      <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100">
+                      <div className="mt-1 h-1.5 w-full rounded-full bg-muted">
                         <div
                           className="h-1.5 rounded-full bg-indigo-600"
                           style={{ width: `${pct}%` }}
@@ -391,7 +391,7 @@ export function ProfileOverviewTab({
       {/* ── Household Tree ────────────────────────────────────────────── */}
       {household?.households && household.households.length > 0 && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Household
           </h3>
           <HouseholdTreeView
@@ -404,12 +404,12 @@ export function ProfileOverviewTab({
       {/* ── Notes ─────────────────────────────────────────────────────── */}
       {customer.notes && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Notes
           </h3>
-          <div className="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
-            <p className="text-sm italic text-gray-700 whitespace-pre-line">{customer.notes}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-border bg-muted p-3">
+            <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <p className="text-sm italic text-muted-foreground whitespace-pre-line">{customer.notes}</p>
           </div>
         </section>
       )}
@@ -417,7 +417,7 @@ export function ProfileOverviewTab({
       {/* ── Recent Activity ───────────────────────────────────────────── */}
       {customer && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Recent Activity
           </h3>
           <RecentActivity customerId={customerId} />
@@ -427,7 +427,7 @@ export function ProfileOverviewTab({
       {/* ── Tags ──────────────────────────────────────────────────────── */}
       {customer.tags.length > 0 && (
         <section>
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Segments & Tags
           </h3>
           <div className="flex flex-wrap gap-1.5">
@@ -482,7 +482,7 @@ function RecentActivity({ customerId }: { customerId: string }) {
   }
 
   if (!activities.length) {
-    return <p className="py-2 text-sm text-gray-500">No recent activity.</p>;
+    return <p className="py-2 text-sm text-muted-foreground">No recent activity.</p>;
   }
 
   return (
@@ -492,10 +492,10 @@ function RecentActivity({ customerId }: { customerId: string }) {
           key={activity.id}
           className="flex items-start gap-2 text-sm"
         >
-          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />
+          <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <p className="text-gray-700">{activity.title}</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-muted-foreground">{activity.title}</p>
+            <p className="text-xs text-muted-foreground">
               {formatDateTime(activity.createdAt)}
             </p>
           </div>

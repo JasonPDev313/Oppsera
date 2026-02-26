@@ -90,12 +90,12 @@ export function AddPaymentMethodDialog({
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Add Payment Method</h2>
+            <h2 className="text-lg font-semibold text-foreground">Add Payment Method</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -105,7 +105,7 @@ export function AddPaymentMethodDialog({
         <div className="space-y-4">
           {/* Card input */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Card Details
             </label>
             <PaymentMethodCapture
@@ -125,8 +125,8 @@ export function AddPaymentMethodDialog({
 
           {/* Nickname */}
           <div>
-            <label htmlFor="pm-nickname" className="mb-1 block text-sm font-medium text-gray-700">
-              Nickname <span className="text-gray-400">(optional)</span>
+            <label htmlFor="pm-nickname" className="mb-1 block text-sm font-medium text-foreground">
+              Nickname <span className="text-muted-foreground">(optional)</span>
             </label>
             <input
               id="pm-nickname"
@@ -135,7 +135,7 @@ export function AddPaymentMethodDialog({
               onChange={(e) => setNickname(e.target.value)}
               placeholder="e.g., Personal Visa, Business Amex"
               maxLength={50}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
 
@@ -145,14 +145,14 @@ export function AddPaymentMethodDialog({
               type="checkbox"
               checked={isDefault}
               onChange={(e) => setIsDefault(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-input text-indigo-600 focus:ring-indigo-500"
             />
-            <span className="text-sm text-gray-700">Set as default payment method</span>
+            <span className="text-sm text-foreground">Set as default payment method</span>
           </label>
 
           {/* Error */}
           {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+            <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-500">{error}</p>
           )}
         </div>
 
@@ -161,7 +161,7 @@ export function AddPaymentMethodDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Cancel
           </button>

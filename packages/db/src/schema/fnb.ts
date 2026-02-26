@@ -2198,3 +2198,59 @@ export const fnbWaitTimeHistory = pgTable(
     index('idx_fnb_wait_time_history_date').on(table.tenantId, table.locationId, table.businessDate),
   ],
 );
+
+// ═══════════════════════════════════════════════════════════════════
+// HOST MODULE V2 — Table Turn Log & Guest Notifications
+// ═══════════════════════════════════════════════════════════════════
+
+// ── Table Turn Log (analytics for wait-time estimation) ──────────
+export const fnbTableTurnLog = pgTable(
+  'fnb_table_turn_log',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    tableId: text('table_id').notNull(),
+    partySize: integer('party_size').notNull(),
+    mealPeriod: text('meal_period').notNull(),
+    seatedAt: timestamp('seated_at', { withTimezone: true }).notNull(),
+    clearedAt: timestamp('cleared_at', { withTimezone: true }),
+    turnTimeMinutes: integer('turn_time_minutes'),
+    dayOfWeek: integer('day_of_week').notNull(),
+    wasReservation: boolean('was_reservation').notNull().default(false),
+    reservationId: text('reservation_id'),
+    waitlistEntryId: text('waitlist_entry_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_turn_log_tenant').on(table.tenantId),
+    index('idx_fnb_turn_log_analytics').on(table.tenantId, table.locationId, table.mealPeriod, table.dayOfWeek),
+    index('idx_fnb_turn_log_table_open').on(table.tenantId, table.tableId),
+  ],
+);
+
+// ── Guest Notifications (SMS/email/push audit trail) ─────────────
+export const fnbGuestNotifications = pgTable(
+  'fnb_guest_notifications',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id').notNull().references(() => tenants.id),
+    locationId: text('location_id').notNull().references(() => locations.id),
+    referenceType: text('reference_type').notNull(),
+    referenceId: text('reference_id').notNull(),
+    notificationType: text('notification_type').notNull(),
+    channel: text('channel').notNull(),
+    recipientPhone: text('recipient_phone'),
+    recipientEmail: text('recipient_email'),
+    messageBody: text('message_body').notNull(),
+    status: text('status').notNull().default('pending'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    errorMessage: text('error_message'),
+    externalId: text('external_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_fnb_notifications_ref').on(table.tenantId, table.referenceType, table.referenceId),
+  ],
+);

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getEvalFeed } from '@oppsera/module-semantic/evaluation';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/semantic/eval/feed
 // Returns the paginated eval turn feed for the current tenant.
@@ -11,7 +12,7 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const { searchParams } = new URL(request.url);
 
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '25', 10), 100);
+    const limit = parseLimit(searchParams.get('limit'), 100, 25);
     const cursor = searchParams.get('cursor') ?? undefined;
     const status = (searchParams.get('status') ?? 'all') as 'unreviewed' | 'reviewed' | 'flagged' | 'all';
     const sortBy = (searchParams.get('sortBy') ?? 'newest') as

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getOpenBills } from '@oppsera/module-ap';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -11,7 +12,7 @@ export const GET = withMiddleware(
       vendorId: searchParams.get('vendorId') ?? undefined,
       locationId: searchParams.get('locationId') ?? undefined,
       cursor: searchParams.get('cursor') ?? undefined,
-      limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined,
+      limit: parseLimit(searchParams.get('limit')),
     });
     return NextResponse.json({
       data: result.items,

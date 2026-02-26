@@ -79,7 +79,7 @@ export default function DayView({
       )}
 
       {/* Room table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-surface">
@@ -103,36 +103,36 @@ export default function DayView({
               const isDeparture = seg?.checkOutDate === date;
 
               return (
-                <tr key={room.roomId} className="hover:bg-gray-50/50">
+                <tr key={room.roomId} className="hover:bg-accent/50">
                   {/* Room number with status dot */}
-                  <td className="border-b border-gray-200 px-4 py-2">
+                  <td className="border-b border-border px-4 py-2">
                     <div className="flex items-center gap-1.5">
                       <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${ROOM_STATUS_COLORS[room.status] ?? 'bg-gray-300'}`} />
-                      <span className="text-sm font-medium text-gray-900">{room.roomNumber}</span>
-                      {room.floor && <span className="text-[10px] text-gray-400">F{room.floor}</span>}
+                      <span className="text-sm font-medium text-foreground">{room.roomNumber}</span>
+                      {room.floor && <span className="text-[10px] text-muted-foreground">F{room.floor}</span>}
                     </div>
                   </td>
 
                   {/* Room type */}
-                  <td className="border-b border-gray-200 px-4 py-2 text-xs text-gray-500">
+                  <td className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
                     {room.roomTypeName}
                   </td>
 
                   {/* Room housekeeping status */}
-                  <td className="border-b border-gray-200 px-4 py-2">
+                  <td className="border-b border-border px-4 py-2">
                     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      room.status === 'VACANT_CLEAN' ? 'bg-green-100 text-green-700' :
-                      room.status === 'VACANT_DIRTY' ? 'bg-yellow-100 text-yellow-700' :
-                      room.status === 'OCCUPIED' ? 'bg-blue-100 text-blue-700' :
-                      room.status === 'OUT_OF_ORDER' ? 'bg-red-100 text-red-700' :
-                      'bg-gray-100 text-gray-600'
+                      room.status === 'VACANT_CLEAN' ? 'bg-green-500/20 text-green-500' :
+                      room.status === 'VACANT_DIRTY' ? 'bg-yellow-500/20 text-yellow-500' :
+                      room.status === 'OCCUPIED' ? 'bg-blue-500/20 text-blue-500' :
+                      room.status === 'OUT_OF_ORDER' ? 'bg-red-500/20 text-red-500' :
+                      'bg-muted text-muted-foreground'
                     }`}>
                       {ROOM_STATUS_LABELS[room.status] ?? room.status}
                     </span>
                   </td>
 
                   {/* Reservation status */}
-                  <td className="border-b border-gray-200 px-4 py-2">
+                  <td className="border-b border-border px-4 py-2">
                     {seg ? (
                       <span className="inline-flex items-center gap-1.5 text-xs font-medium">
                         <span className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT_COLORS[seg.status] ?? 'bg-gray-400'}`} />
@@ -141,14 +141,14 @@ export default function DayView({
                         {isDeparture && <span className="text-amber-600">&#9664;</span>}
                       </span>
                     ) : isOoo ? (
-                      <span className="text-xs text-gray-500">OOO</span>
+                      <span className="text-xs text-muted-foreground">OOO</span>
                     ) : (
-                      <span className="text-xs text-gray-400">Vacant</span>
+                      <span className="text-xs text-muted-foreground">Vacant</span>
                     )}
                   </td>
 
                   {/* Guest name */}
-                  <td className="border-b border-gray-200 px-4 py-2 text-sm">
+                  <td className="border-b border-border px-4 py-2 text-sm">
                     {seg ? (
                       <button
                         onClick={() => router.push(`/pms/reservations/${seg.reservationId}`)}
@@ -169,34 +169,34 @@ export default function DayView({
                         {seg.guestName}
                       </button>
                     ) : (
-                      <span className="text-gray-400">-</span>
+                      <span className="text-muted-foreground">-</span>
                     )}
                   </td>
 
                   {/* Rate */}
-                  <td className="border-b border-gray-200 px-4 py-2 text-xs text-gray-500">
+                  <td className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
                     {seg && seg.nightlyRateCents > 0 ? formatMoney(seg.nightlyRateCents) : '-'}
                   </td>
 
                   {/* Source */}
-                  <td className="border-b border-gray-200 px-4 py-2 text-xs text-gray-400">
+                  <td className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
                     {seg?.sourceType ? (
                       <span title={seg.sourceType}>{SOURCE_ICONS[seg.sourceType] ?? seg.sourceType}</span>
                     ) : '-'}
                   </td>
 
                   {/* Check-in date */}
-                  <td className="border-b border-gray-200 px-4 py-2 text-xs text-gray-500">
+                  <td className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
                     {seg ? formatDateDisplay(seg.checkInDate) : '-'}
                   </td>
 
                   {/* Check-out date */}
-                  <td className="border-b border-gray-200 px-4 py-2 text-xs text-gray-500">
+                  <td className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
                     {seg ? formatDateDisplay(seg.checkOutDate) : '-'}
                   </td>
 
                   {/* Nights */}
-                  <td className="border-b border-gray-200 px-4 py-2 text-xs text-gray-500">
+                  <td className="border-b border-border px-4 py-2 text-xs text-muted-foreground">
                     {seg ? nightsBetween(seg.checkInDate, seg.checkOutDate) : '-'}
                   </td>
                 </tr>
@@ -211,7 +211,7 @@ export default function DayView({
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="border-b border-gray-200 px-4 py-2 text-left text-xs font-medium text-gray-500">
+    <th className="border-b border-border px-4 py-2 text-left text-xs font-medium text-muted-foreground">
       {children}
     </th>
   );
@@ -219,9 +219,9 @@ function Th({ children }: { children: React.ReactNode }) {
 
 function StatCard({ label, value, valueClass }: { label: string; value: number; valueClass?: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-3">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className={`text-lg font-semibold ${valueClass ?? 'text-gray-900'}`}>{value}</div>
+    <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className={`text-lg font-semibold ${valueClass ?? 'text-foreground'}`}>{value}</div>
     </div>
   );
 }

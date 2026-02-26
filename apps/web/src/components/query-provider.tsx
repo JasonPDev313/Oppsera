@@ -61,8 +61,8 @@ function useThrottledFocusRefetch(queryClient: QueryClient) {
     });
 
     return () => {
-      // Reset to default focus manager on unmount
-      focusManager.setEventListener(undefined as unknown as Parameters<typeof focusManager.setEventListener>[0]);
+      // Reset to a no-op listener on unmount (setEventListener requires a function)
+      focusManager.setEventListener(() => () => {});
     };
   }, [handleFocus]);
 }

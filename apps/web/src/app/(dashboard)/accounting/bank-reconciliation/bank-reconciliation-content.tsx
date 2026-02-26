@@ -72,15 +72,15 @@ function StartReconciliationDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Start Bank Reconciliation</h3>
+        <h3 className="text-lg font-semibold text-foreground mb-4">Start Bank Reconciliation</h3>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bank Account</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Bank Account</label>
             <select
               value={bankAccountId}
               onChange={(e) => setBankAccountId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             >
               <option value="">Select a bank account...</option>
               {accounts.map((a) => (
@@ -92,24 +92,24 @@ function StartReconciliationDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Statement Date</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Statement Date</label>
             <input
               type="date"
               value={statementDate}
               onChange={(e) => setStatementDate(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Statement Ending Balance</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Statement Ending Balance</label>
             <input
               type="number"
               step="0.01"
               value={statementBalance}
               onChange={(e) => setStatementBalance(e.target.value)}
               placeholder="0.00"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
         </div>
@@ -117,7 +117,7 @@ function StartReconciliationDialog({
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -175,15 +175,15 @@ function AddAdjustmentDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Bank Adjustment</h3>
+        <h3 className="text-lg font-semibold text-foreground mb-4">Add Bank Adjustment</h3>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Type</label>
             <select
               value={itemType}
               onChange={(e) => setItemType(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             >
               <option value="fee">Bank Fee</option>
               <option value="interest">Interest Earned</option>
@@ -192,35 +192,35 @@ function AddAdjustmentDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Amount (negative for deductions)</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Amount (negative for deductions)</label>
             <input
               type="number"
               step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="-15.00"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Date</label>
             <input
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Description</label>
             <input
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Monthly service charge"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
         </div>
@@ -228,7 +228,7 @@ function AddAdjustmentDialog({
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -283,8 +283,8 @@ function ReconciliationWorkspace({
   if (isLoading || !recon) {
     return (
       <div className="space-y-4">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-100" />
-        <div className="h-64 animate-pulse rounded bg-gray-100" />
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-64 animate-pulse rounded bg-muted" />
       </div>
     );
   }
@@ -303,12 +303,12 @@ function ReconciliationWorkspace({
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            className="text-sm font-medium text-indigo-500 hover:text-indigo-500"
           >
             &larr; Back to List
           </button>
-          <span className="text-gray-300">|</span>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <span className="text-muted-foreground">|</span>
+          <h2 className="text-lg font-semibold text-foreground">
             {recon.bankAccountName ?? 'Bank Reconciliation'} &mdash; {recon.statementDate}
           </h2>
         </div>
@@ -317,7 +317,7 @@ function ReconciliationWorkspace({
             <>
               <button
                 onClick={() => setShowAdjustment(true)}
-                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 <Plus className="h-4 w-4" />
                 Add Adjustment
@@ -333,7 +333,7 @@ function ReconciliationWorkspace({
           )}
           <button
             onClick={() => refetch()}
-            className="rounded-lg border border-gray-300 p-2 text-gray-500 hover:bg-gray-50"
+            className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -344,46 +344,46 @@ function ReconciliationWorkspace({
       <div
         className={`rounded-lg border-2 p-4 text-center ${
           isBalanced
-            ? 'border-green-300 bg-green-50'
-            : 'border-red-300 bg-red-50'
+            ? 'border-green-500/30 bg-green-500/10'
+            : 'border-red-500/30 bg-red-500/10'
         }`}
       >
-        <p className="text-sm font-medium text-gray-600">Difference</p>
+        <p className="text-sm font-medium text-muted-foreground">Difference</p>
         <p
           className={`text-3xl font-bold tabular-nums font-mono ${
-            isBalanced ? 'text-green-600' : 'text-red-600'
+            isBalanced ? 'text-green-500' : 'text-red-500'
           }`}
         >
           {formatAccountingMoney(difference)}
         </p>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-muted-foreground">
           {isBalanced ? 'Balanced — ready to complete' : 'Must be $0.00 to complete'}
         </p>
       </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium text-gray-500">Statement Balance</p>
-          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-gray-900">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium text-muted-foreground">Statement Balance</p>
+          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-foreground">
             {formatAccountingMoney(recon.statementEndingBalance)}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium text-gray-500">Beginning Balance</p>
-          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-gray-900">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium text-muted-foreground">Beginning Balance</p>
+          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-foreground">
             {formatAccountingMoney(recon.beginningBalance)}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium text-gray-500">Cleared Total</p>
-          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-gray-900">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium text-muted-foreground">Cleared Total</p>
+          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-foreground">
             {formatAccountingMoney(recon.clearedBalance)}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium text-gray-500">Outstanding</p>
-          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-amber-600">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium text-muted-foreground">Outstanding</p>
+          <p className="mt-1 text-lg font-semibold font-mono tabular-nums text-amber-500">
             {formatAccountingMoney(
               Number(recon.outstandingDeposits) - Number(recon.outstandingWithdrawals),
             )}
@@ -393,26 +393,26 @@ function ReconciliationWorkspace({
 
       {/* Uncleared items (outstanding) */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">
+        <h3 className="text-sm font-semibold text-foreground mb-2">
           Outstanding Items ({unclearedItems.length})
         </h3>
         {unclearedItems.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4">All items are cleared.</p>
+          <p className="text-sm text-muted-foreground py-4">All items are cleared.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="py-2 px-3 text-left font-medium text-gray-500 w-10"></th>
-                  <th className="py-2 px-3 text-left font-medium text-gray-500">Date</th>
-                  <th className="py-2 px-3 text-left font-medium text-gray-500">Description</th>
-                  <th className="py-2 px-3 text-left font-medium text-gray-500">Type</th>
-                  <th className="py-2 px-3 text-right font-medium text-gray-500">Amount</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="py-2 px-3 text-left font-medium text-muted-foreground w-10"></th>
+                  <th className="py-2 px-3 text-left font-medium text-muted-foreground">Date</th>
+                  <th className="py-2 px-3 text-left font-medium text-muted-foreground">Description</th>
+                  <th className="py-2 px-3 text-left font-medium text-muted-foreground">Type</th>
+                  <th className="py-2 px-3 text-right font-medium text-muted-foreground">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {unclearedItems.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                  <tr key={item.id} className="border-b border-border hover:bg-accent">
                     <td className="py-2 px-3">
                       {!isCompleted && (
                         <input
@@ -420,23 +420,23 @@ function ReconciliationWorkspace({
                           checked={false}
                           onChange={() => handleToggleItem(item)}
                           disabled={clearItems.isPending}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="rounded border-border text-indigo-600 focus:ring-indigo-500"
                         />
                       )}
                     </td>
-                    <td className="py-2 px-3 text-gray-700">{item.date}</td>
-                    <td className="py-2 px-3 text-gray-700">
+                    <td className="py-2 px-3 text-foreground">{item.date}</td>
+                    <td className="py-2 px-3 text-foreground">
                       {item.description ?? '—'}
                       {item.journalNumber && (
-                        <span className="ml-2 text-xs text-gray-400">J#{item.journalNumber}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">J#{item.journalNumber}</span>
                       )}
                     </td>
                     <td className="py-2 px-3">
-                      <span className="text-xs font-medium text-gray-500">
+                      <span className="text-xs font-medium text-muted-foreground">
                         {BANK_REC_ITEM_TYPE_CONFIG[item.itemType]?.label ?? item.itemType}
                       </span>
                     </td>
-                    <td className={`py-2 px-3 text-right font-mono tabular-nums ${Number(item.amount) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    <td className={`py-2 px-3 text-right font-mono tabular-nums ${Number(item.amount) < 0 ? 'text-red-500' : 'text-foreground'}`}>
                       {formatAccountingMoney(item.amount)}
                     </td>
                   </tr>
@@ -449,26 +449,26 @@ function ReconciliationWorkspace({
 
       {/* Cleared items */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">
+        <h3 className="text-sm font-semibold text-foreground mb-2">
           Cleared Items ({clearedItems.length})
         </h3>
         {clearedItems.length === 0 ? (
-          <p className="text-sm text-gray-500 py-4">No items cleared yet. Check off items above that appear on your bank statement.</p>
+          <p className="text-sm text-muted-foreground py-4">No items cleared yet. Check off items above that appear on your bank statement.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="overflow-x-auto rounded-lg border border-border">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="py-2 px-3 text-left font-medium text-gray-500 w-10"></th>
-                  <th className="py-2 px-3 text-left font-medium text-gray-500">Date</th>
-                  <th className="py-2 px-3 text-left font-medium text-gray-500">Description</th>
-                  <th className="py-2 px-3 text-left font-medium text-gray-500">Type</th>
-                  <th className="py-2 px-3 text-right font-medium text-gray-500">Amount</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="py-2 px-3 text-left font-medium text-muted-foreground w-10"></th>
+                  <th className="py-2 px-3 text-left font-medium text-muted-foreground">Date</th>
+                  <th className="py-2 px-3 text-left font-medium text-muted-foreground">Description</th>
+                  <th className="py-2 px-3 text-left font-medium text-muted-foreground">Type</th>
+                  <th className="py-2 px-3 text-right font-medium text-muted-foreground">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {clearedItems.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-100 bg-green-50/30">
+                  <tr key={item.id} className="border-b border-border bg-green-500/5">
                     <td className="py-2 px-3">
                       {!isCompleted && (
                         <input
@@ -476,24 +476,24 @@ function ReconciliationWorkspace({
                           checked={true}
                           onChange={() => handleToggleItem(item)}
                           disabled={clearItems.isPending}
-                          className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                          className="rounded border-border text-green-500 focus:ring-green-500"
                         />
                       )}
                       {isCompleted && <CheckCircle className="h-4 w-4 text-green-500" />}
                     </td>
-                    <td className="py-2 px-3 text-gray-700">{item.date}</td>
-                    <td className="py-2 px-3 text-gray-700">
+                    <td className="py-2 px-3 text-foreground">{item.date}</td>
+                    <td className="py-2 px-3 text-foreground">
                       {item.description ?? '—'}
                       {item.journalNumber && (
-                        <span className="ml-2 text-xs text-gray-400">J#{item.journalNumber}</span>
+                        <span className="ml-2 text-xs text-muted-foreground">J#{item.journalNumber}</span>
                       )}
                     </td>
                     <td className="py-2 px-3">
-                      <span className="text-xs font-medium text-gray-500">
+                      <span className="text-xs font-medium text-muted-foreground">
                         {BANK_REC_ITEM_TYPE_CONFIG[item.itemType]?.label ?? item.itemType}
                       </span>
                     </td>
-                    <td className={`py-2 px-3 text-right font-mono tabular-nums ${Number(item.amount) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                    <td className={`py-2 px-3 text-right font-mono tabular-nums ${Number(item.amount) < 0 ? 'text-red-500' : 'text-foreground'}`}>
                       {formatAccountingMoney(item.amount)}
                     </td>
                   </tr>
@@ -552,11 +552,11 @@ export default function BankReconciliationContent() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Status</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All</option>
             <option value="in_progress">In Progress</option>
@@ -565,7 +565,7 @@ export default function BankReconciliationContent() {
         </div>
         <button
           onClick={() => refetch()}
-          className="flex items-center gap-2 rounded-lg border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
@@ -584,30 +584,30 @@ export default function BankReconciliationContent() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       ) : reconciliations.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-surface p-12 text-center">
-          <p className="text-sm text-gray-500">No bank reconciliations found.</p>
+        <div className="rounded-lg border border-border bg-surface p-12 text-center">
+          <p className="text-sm text-muted-foreground">No bank reconciliations found.</p>
           <button
             onClick={() => setShowStart(true)}
-            className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            className="mt-3 text-sm font-medium text-indigo-500 hover:text-indigo-500"
           >
             Start your first reconciliation
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="py-3 px-4 text-left font-semibold text-gray-500">Bank Account</th>
-                <th className="py-3 px-4 text-left font-semibold text-gray-500">Statement Date</th>
-                <th className="py-3 px-4 text-right font-semibold text-gray-500">Statement Balance</th>
-                <th className="py-3 px-4 text-right font-semibold text-gray-500">Difference</th>
-                <th className="py-3 px-4 text-center font-semibold text-gray-500">Items</th>
-                <th className="py-3 px-4 text-center font-semibold text-gray-500">Status</th>
+              <tr className="border-b border-border bg-muted">
+                <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Bank Account</th>
+                <th className="py-3 px-4 text-left font-semibold text-muted-foreground">Statement Date</th>
+                <th className="py-3 px-4 text-right font-semibold text-muted-foreground">Statement Balance</th>
+                <th className="py-3 px-4 text-right font-semibold text-muted-foreground">Difference</th>
+                <th className="py-3 px-4 text-center font-semibold text-muted-foreground">Items</th>
+                <th className="py-3 px-4 text-center font-semibold text-muted-foreground">Status</th>
                 <th className="py-3 px-4 w-10"></th>
               </tr>
             </thead>
@@ -619,34 +619,34 @@ export default function BankReconciliationContent() {
                 return (
                   <tr
                     key={rec.id}
-                    className="border-b border-gray-100 hover:bg-gray-50/50 cursor-pointer"
+                    className="border-b border-border hover:bg-accent cursor-pointer"
                     onClick={() => setActiveReconciliationId(rec.id)}
                   >
                     <td className="py-3 px-4">
-                      <div className="font-medium text-gray-900">{rec.bankAccountName}</div>
-                      <div className="text-xs text-gray-500">{rec.glAccountNumber}</div>
+                      <div className="font-medium text-foreground">{rec.bankAccountName}</div>
+                      <div className="text-xs text-muted-foreground">{rec.glAccountNumber}</div>
                     </td>
-                    <td className="py-3 px-4 text-gray-700">{rec.statementDate}</td>
-                    <td className="py-3 px-4 text-right font-mono tabular-nums text-gray-900">
+                    <td className="py-3 px-4 text-foreground">{rec.statementDate}</td>
+                    <td className="py-3 px-4 text-right font-mono tabular-nums text-foreground">
                       {formatAccountingMoney(rec.statementEndingBalance)}
                     </td>
-                    <td className={`py-3 px-4 text-right font-mono tabular-nums font-medium ${Math.abs(diff) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
+                    <td className={`py-3 px-4 text-right font-mono tabular-nums font-medium ${Math.abs(diff) < 0.01 ? 'text-green-500' : 'text-red-500'}`}>
                       {formatAccountingMoney(diff)}
                     </td>
-                    <td className="py-3 px-4 text-center text-gray-600">
+                    <td className="py-3 px-4 text-center text-muted-foreground">
                       {rec.clearedCount}/{rec.itemCount}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                         statusConfig?.variant === 'success'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-700'
+                          ? 'bg-green-500/10 text-green-500'
+                          : 'bg-amber-500/10 text-amber-500'
                       }`}>
                         {statusConfig?.label ?? rec.status}
                       </span>
                     </td>
                     <td className="py-3 px-4">
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </td>
                   </tr>
                 );

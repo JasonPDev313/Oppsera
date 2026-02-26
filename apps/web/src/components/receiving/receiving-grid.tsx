@@ -90,10 +90,10 @@ export function ReceivingGrid({
 
   if (lines.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
-        <p className="text-sm text-gray-500">No items added yet</p>
+      <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+        <p className="text-sm text-muted-foreground">No items added yet</p>
         {isDraft && (
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-muted-foreground">
             Use the search bar above to add items
           </p>
         )}
@@ -102,43 +102,43 @@ export function ReceivingGrid({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface">
       {/* Desktop table */}
       <div className="hidden lg:block overflow-x-auto">
         <table ref={gridRef} className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+            <tr className="border-b border-border bg-muted">
+              <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Item
               </th>
-              <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2.5 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 PLU / SKU
               </th>
-              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Rcvd Qty
               </th>
-              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Cur O/H
               </th>
-              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Total O/H
               </th>
-              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Rcvd Cost
               </th>
-              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Product Cost
               </th>
-              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Cur Cost
               </th>
               {isAllocateMode && (
-                <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Shipping
                 </th>
               )}
               {isAllocateMode && (
-                <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                <th className="px-3 py-2.5 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   New Wtd Cost
                 </th>
               )}
@@ -151,15 +151,15 @@ export function ReceivingGrid({
             {lines.map((line, rowIdx) => (
               <tr
                 key={line.id}
-                className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50 transition-colors"
+                className="border-b border-border last:border-0 hover:bg-accent/50 transition-colors"
               >
                 {/* Item Name */}
-                <td className="px-3 py-2 font-medium text-gray-900 max-w-[200px] truncate">
+                <td className="px-3 py-2 font-medium text-foreground max-w-[200px] truncate">
                   {line.itemName}
                 </td>
 
                 {/* PLU / SKU */}
-                <td className="px-3 py-2 text-gray-500">
+                <td className="px-3 py-2 text-muted-foreground">
                   {line.itemSku ?? '—'}
                 </td>
 
@@ -176,7 +176,7 @@ export function ReceivingGrid({
                 </td>
 
                 {/* Current O/H */}
-                <td className="px-3 py-2 text-right text-gray-500">
+                <td className="px-3 py-2 text-right text-muted-foreground">
                   {line.currentOnHand}
                 </td>
 
@@ -185,8 +185,8 @@ export function ReceivingGrid({
                   <span
                     className={
                       line.totalOnHand < 0
-                        ? 'font-medium text-red-600'
-                        : 'font-medium text-green-700'
+                        ? 'font-medium text-red-500'
+                        : 'font-medium text-green-500'
                     }
                   >
                     {line.totalOnHand}
@@ -206,18 +206,18 @@ export function ReceivingGrid({
                 </td>
 
                 {/* Product Cost (computed) */}
-                <td className="px-3 py-2 text-right font-medium text-gray-900">
+                <td className="px-3 py-2 text-right font-medium text-foreground">
                   {formatMoney(line.productCost)}
                 </td>
 
                 {/* Current Unit Cost */}
-                <td className="px-3 py-2 text-right text-gray-500">
+                <td className="px-3 py-2 text-right text-muted-foreground">
                   {formatMoney(line.currentUnitCost, 4)}
                 </td>
 
                 {/* Allocated Shipping (allocate mode only) */}
                 {isAllocateMode && (
-                  <td className="px-3 py-2 text-right text-gray-500">
+                  <td className="px-3 py-2 text-right text-muted-foreground">
                     {formatMoney(line.allocatedShipping, 4)}
                   </td>
                 )}
@@ -225,7 +225,7 @@ export function ReceivingGrid({
                 {/* New Weighted Cost (allocate mode only) */}
                 {isAllocateMode && (
                   <td className="px-3 py-2 text-right">
-                    <span className="font-semibold text-indigo-600">
+                    <span className="font-semibold text-indigo-500">
                       {formatMoney(line.newWeightedCost, 4)}
                     </span>
                   </td>
@@ -239,7 +239,7 @@ export function ReceivingGrid({
                         type="button"
                         onClick={() => onRemoveLine(line.id)}
                         disabled={removingLineId === line.id}
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50 transition-colors"
+                        className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50 transition-colors"
                         title="Remove line"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -258,16 +258,16 @@ export function ReceivingGrid({
         {lines.map((line, rowIdx) => (
           <div
             key={line.id}
-            className="rounded-lg border border-gray-100 p-3 space-y-2"
+            className="rounded-lg border border-border p-3 space-y-2"
           >
             {/* Item header */}
             <div className="flex items-start justify-between">
               <div className="min-w-0 flex-1">
-                <div className="font-medium text-gray-900 truncate">
+                <div className="font-medium text-foreground truncate">
                   {line.itemName}
                 </div>
                 {line.itemSku && (
-                  <div className="text-xs text-gray-500">{line.itemSku}</div>
+                  <div className="text-xs text-muted-foreground">{line.itemSku}</div>
                 )}
               </div>
               {isDraft && onRemoveLine && (
@@ -275,7 +275,7 @@ export function ReceivingGrid({
                   type="button"
                   onClick={() => onRemoveLine(line.id)}
                   disabled={removingLineId === line.id}
-                  className="ml-2 rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                  className="ml-2 rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -285,7 +285,7 @@ export function ReceivingGrid({
             {/* Editable fields */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs font-medium text-gray-500">Rcvd Qty</label>
+                <label className="text-xs font-medium text-muted-foreground">Rcvd Qty</label>
                 <EditableCell
                   value={line.quantityReceived}
                   onChange={(v) => onUpdateLine(line.id, 'quantityReceived', v)}
@@ -295,7 +295,7 @@ export function ReceivingGrid({
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500">Rcvd Cost</label>
+                <label className="text-xs font-medium text-muted-foreground">Rcvd Cost</label>
                 <EditableCell
                   value={line.unitCost}
                   onChange={(v) => onUpdateLine(line.id, 'unitCost', v)}
@@ -309,16 +309,16 @@ export function ReceivingGrid({
             {/* Computed values */}
             <div className={`grid gap-2 text-xs ${isAllocateMode ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <div>
-                <span className="text-gray-500">Product Cost</span>
+                <span className="text-muted-foreground">Product Cost</span>
                 <div className="font-medium">{formatMoney(line.productCost)}</div>
               </div>
               <div>
-                <span className="text-gray-500">O/H After</span>
+                <span className="text-muted-foreground">O/H After</span>
                 <div
                   className={
                     line.totalOnHand < 0
-                      ? 'font-medium text-red-600'
-                      : 'font-medium text-green-700'
+                      ? 'font-medium text-red-500'
+                      : 'font-medium text-green-500'
                   }
                 >
                   {line.totalOnHand}
@@ -326,8 +326,8 @@ export function ReceivingGrid({
               </div>
               {isAllocateMode && (
                 <div>
-                  <span className="text-gray-500">New Cost</span>
-                  <div className="font-semibold text-indigo-600">
+                  <span className="text-muted-foreground">New Cost</span>
+                  <div className="font-semibold text-indigo-500">
                     {formatMoney(line.newWeightedCost, 4)}
                   </div>
                 </div>

@@ -199,7 +199,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
         <select
           value={selectedRoomTypeId}
           onChange={(e) => { setSelectedRoomTypeId(e.target.value); setPendingChanges(new Map()); }}
-          className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+          className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm"
         >
           <option value="">All Room Types</option>
           {roomTypes.map((rt) => (
@@ -210,7 +210,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
         <select
           value={selectedRatePlanId}
           onChange={(e) => { setSelectedRatePlanId(e.target.value); setPendingChanges(new Map()); }}
-          className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+          className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm"
         >
           <option value="">All Rate Plans</option>
           {ratePlans.map((rp) => (
@@ -219,14 +219,14 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
         </select>
 
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={goBack} className="rounded p-1 hover:bg-gray-200/50" title="Previous week">
-            <ChevronLeft className="h-4 w-4" />
+          <button onClick={goBack} className="rounded p-1 hover:bg-gray-200/50" title="Previous week" aria-label="Previous week">
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </button>
           <button onClick={goToday} className="rounded px-2 py-1 text-xs hover:bg-gray-200/50">
             Today
           </button>
-          <button onClick={goForward} className="rounded p-1 hover:bg-gray-200/50" title="Next week">
-            <ChevronRight className="h-4 w-4" />
+          <button onClick={goForward} className="rounded p-1 hover:bg-gray-200/50" title="Next week" aria-label="Next week">
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -255,13 +255,13 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
 
       {/* Grid */}
       {isLoading ? (
-        <div className="flex h-40 items-center justify-center text-sm text-gray-500">Loading restrictions...</div>
+        <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">Loading restrictions...</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-200">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50/50">
-                <th className="sticky left-0 z-10 bg-gray-50/50 px-3 py-2 text-left text-xs font-medium text-gray-500">
+              <tr className="border-b border-border bg-muted/50">
+                <th className="sticky left-0 z-10 bg-muted/50 px-3 py-2 text-left text-xs font-medium text-muted-foreground">
                   Restriction
                 </th>
                 {dates.map((d) => {
@@ -269,10 +269,10 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
                   return (
                     <th
                       key={d}
-                      className={`min-w-[72px] px-2 py-2 text-center text-xs font-medium ${isWeekend ? 'bg-gray-100/50' : ''}`}
+                      className={`min-w-[72px] px-2 py-2 text-center text-xs font-medium ${isWeekend ? 'bg-muted/50' : ''}`}
                     >
-                      <div className="text-gray-500">{formatDayOfWeek(d)}</div>
-                      <div className="text-gray-900">{formatDate(d)}</div>
+                      <div className="text-muted-foreground">{formatDayOfWeek(d)}</div>
+                      <div className="text-foreground">{formatDate(d)}</div>
                     </th>
                   );
                 })}
@@ -280,7 +280,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
             </thead>
             <tbody>
               {/* Stop Sell row */}
-              <tr className="border-b border-gray-100">
+              <tr className="border-b border-border">
                 <td className="sticky left-0 z-10 bg-surface px-3 py-2 font-medium">
                   <span className="inline-flex items-center gap-1">
                     <ShieldBan className="h-3.5 w-3.5 text-red-500" />
@@ -296,8 +296,8 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
                         onClick={() => toggleFlag(d, 'stopSell')}
                         className={`inline-flex h-7 w-7 items-center justify-center rounded ${
                           eff.stopSell
-                            ? 'bg-red-100 text-red-600 ring-1 ring-red-300'
-                            : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                            ? 'bg-red-500/20 text-red-500 ring-1 ring-red-500/30'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
                         } ${isPending ? 'ring-2 ring-indigo-400' : ''}`}
                         title={eff.stopSell ? 'Stop sell active' : 'No stop sell'}
                       >
@@ -309,7 +309,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
               </tr>
 
               {/* CTA row */}
-              <tr className="border-b border-gray-100">
+              <tr className="border-b border-border">
                 <td className="sticky left-0 z-10 bg-surface px-3 py-2 font-medium">CTA</td>
                 {dates.map((d) => {
                   const eff = getEffective(d);
@@ -320,8 +320,8 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
                         onClick={() => toggleFlag(d, 'cta')}
                         className={`inline-flex h-7 w-7 items-center justify-center rounded text-xs ${
                           eff.cta
-                            ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300'
-                            : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                            ? 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500/30'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
                         } ${isPending ? 'ring-2 ring-indigo-400' : ''}`}
                         title={eff.cta ? 'Closed to arrival' : 'Open to arrival'}
                       >
@@ -333,7 +333,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
               </tr>
 
               {/* CTD row */}
-              <tr className="border-b border-gray-100">
+              <tr className="border-b border-border">
                 <td className="sticky left-0 z-10 bg-surface px-3 py-2 font-medium">CTD</td>
                 {dates.map((d) => {
                   const eff = getEffective(d);
@@ -344,8 +344,8 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
                         onClick={() => toggleFlag(d, 'ctd')}
                         className={`inline-flex h-7 w-7 items-center justify-center rounded text-xs ${
                           eff.ctd
-                            ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300'
-                            : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                            ? 'bg-amber-500/20 text-amber-500 ring-1 ring-amber-500/30'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
                         } ${isPending ? 'ring-2 ring-indigo-400' : ''}`}
                         title={eff.ctd ? 'Closed to departure' : 'Open to departure'}
                       >
@@ -357,7 +357,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
               </tr>
 
               {/* Min Stay row */}
-              <tr className="border-b border-gray-100">
+              <tr className="border-b border-border">
                 <td className="sticky left-0 z-10 bg-surface px-3 py-2 font-medium">Min Stay</td>
                 {dates.map((d) => {
                   const eff = getEffective(d);
@@ -374,7 +374,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
                           const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
                           setStay(d, 'minStay', val && val > 0 ? val : null);
                         }}
-                        className={`h-7 w-14 rounded border border-gray-200 bg-surface px-1 text-center text-xs ${
+                        className={`h-7 w-14 rounded border border-border bg-surface px-1 text-center text-xs ${
                           isPending ? 'ring-2 ring-indigo-400' : ''
                         }`}
                       />
@@ -401,7 +401,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
                           const val = e.target.value === '' ? null : parseInt(e.target.value, 10);
                           setStay(d, 'maxStay', val && val > 0 ? val : null);
                         }}
-                        className={`h-7 w-14 rounded border border-gray-200 bg-surface px-1 text-center text-xs ${
+                        className={`h-7 w-14 rounded border border-border bg-surface px-1 text-center text-xs ${
                           isPending ? 'ring-2 ring-indigo-400' : ''
                         }`}
                       />
@@ -415,13 +415,13 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
       )}
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-red-100 ring-1 ring-red-300" />
+          <span className="inline-block h-3 w-3 rounded bg-red-500/20 ring-1 ring-red-500/30" />
           Stop Sell — no bookings allowed
         </span>
         <span className="inline-flex items-center gap-1">
-          <span className="inline-block h-3 w-3 rounded bg-amber-100 ring-1 ring-amber-300" />
+          <span className="inline-block h-3 w-3 rounded bg-amber-500/20 ring-1 ring-amber-500/30" />
           CTA/CTD — closed to arrival/departure
         </span>
         <span className="inline-flex items-center gap-1">

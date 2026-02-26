@@ -135,61 +135,61 @@ function OverviewSection({
   holdCharging: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center gap-2">
         <Crown className="h-5 w-5 text-indigo-600" />
-        <h3 className="text-sm font-semibold text-gray-900">Account Overview</h3>
+        <h3 className="text-sm font-semibold text-foreground">Account Overview</h3>
       </div>
       <div className="grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
         <div>
-          <div className="text-xs text-gray-500">Account Number</div>
-          <div className="flex items-center gap-1.5 text-sm font-medium text-gray-900">
-            <Hash className="h-3.5 w-3.5 text-gray-400" />
+          <div className="text-xs text-muted-foreground">Account Number</div>
+          <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            <Hash className="h-3.5 w-3.5 text-muted-foreground" />
             {accountNumber}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Status</div>
+          <div className="text-xs text-muted-foreground">Status</div>
           <div className="mt-0.5">
             <StatusBadge status={status} />
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Start Date</div>
-          <div className="flex items-center gap-1.5 text-sm text-gray-900">
-            <Calendar className="h-3.5 w-3.5 text-gray-400" />
+          <div className="text-xs text-muted-foreground">Start Date</div>
+          <div className="flex items-center gap-1.5 text-sm text-foreground">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
             {formatDate(startDate)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">End Date</div>
-          <div className="text-sm text-gray-900">{formatDate(endDate)}</div>
+          <div className="text-xs text-muted-foreground">End Date</div>
+          <div className="text-sm text-foreground">{formatDate(endDate)}</div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Primary Member</div>
-          <div className="text-sm text-gray-900">{primaryMemberName || '--'}</div>
+          <div className="text-xs text-muted-foreground">Primary Member</div>
+          <div className="text-sm text-foreground">{primaryMemberName || '--'}</div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Autopay</div>
-          <div className="text-sm text-gray-900">
+          <div className="text-xs text-muted-foreground">Autopay</div>
+          <div className="text-sm text-foreground">
             {autopayEnabled ? (
-              <span className="flex items-center gap-1 text-green-700">
+              <span className="flex items-center gap-1 text-green-500">
                 <CheckCircle className="h-3.5 w-3.5" /> Enabled
               </span>
             ) : (
-              <span className="text-gray-500">Disabled</span>
+              <span className="text-muted-foreground">Disabled</span>
             )}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Credit Limit</div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-xs text-muted-foreground">Credit Limit</div>
+          <div className="text-sm font-medium text-foreground">
             {creditLimitCents > 0 ? formatMoney(creditLimitCents) : '--'}
           </div>
         </div>
         {holdCharging && (
           <div>
-            <div className="text-xs text-gray-500">Charging</div>
+            <div className="text-xs text-muted-foreground">Charging</div>
             <Badge variant="warning">Hold</Badge>
           </div>
         )}
@@ -201,24 +201,24 @@ function OverviewSection({
 function MembersSection({ members }: { members: MembershipMemberEntry[] }) {
   if (members.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-indigo-600" />
-            <h3 className="text-sm font-semibold text-gray-900">Members & Dependents</h3>
+            <h3 className="text-sm font-semibold text-foreground">Members & Dependents</h3>
           </div>
         </div>
-        <p className="text-sm text-gray-400">No members on this account.</p>
+        <p className="text-sm text-muted-foreground">No members on this account.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-indigo-600" />
-          <h3 className="text-sm font-semibold text-gray-900">
+          <h3 className="text-sm font-semibold text-foreground">
             Members & Dependents ({members.length})
           </h3>
         </div>
@@ -226,7 +226,7 @@ function MembersSection({ members }: { members: MembershipMemberEntry[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 pr-4 font-medium">Name</th>
               <th className="pb-2 pr-4 font-medium">Role</th>
               <th className="pb-2 pr-4 font-medium">Member #</th>
@@ -236,7 +236,7 @@ function MembersSection({ members }: { members: MembershipMemberEntry[] }) {
           <tbody className="divide-y divide-gray-50">
             {members.map((m) => (
               <tr key={m.id}>
-                <td className="py-2 pr-4 font-medium text-gray-900">
+                <td className="py-2 pr-4 font-medium text-foreground">
                   {m.customerName || m.customerId}
                 </td>
                 <td className="py-2 pr-4">
@@ -244,7 +244,7 @@ function MembersSection({ members }: { members: MembershipMemberEntry[] }) {
                     {ROLE_LABELS[m.role] ?? m.role}
                   </Badge>
                 </td>
-                <td className="py-2 pr-4 text-gray-600">{m.memberNumber || '--'}</td>
+                <td className="py-2 pr-4 text-muted-foreground">{m.memberNumber || '--'}</td>
                 <td className="py-2">
                   <StatusBadge status={m.status} />
                 </td>
@@ -260,21 +260,21 @@ function MembersSection({ members }: { members: MembershipMemberEntry[] }) {
 function ClassesSection({ classes }: { classes: MembershipClassEntry[] }) {
   if (classes.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <div className="flex items-center gap-2">
           <BookOpen className="h-5 w-5 text-indigo-600" />
-          <h3 className="text-sm font-semibold text-gray-900">Membership Classes</h3>
+          <h3 className="text-sm font-semibold text-foreground">Membership Classes</h3>
         </div>
-        <p className="mt-2 text-sm text-gray-400">No classes assigned.</p>
+        <p className="mt-2 text-sm text-muted-foreground">No classes assigned.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center gap-2">
         <BookOpen className="h-5 w-5 text-indigo-600" />
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-sm font-semibold text-foreground">
           Membership Classes ({classes.length})
         </h3>
       </div>
@@ -284,19 +284,19 @@ function ClassesSection({ classes }: { classes: MembershipClassEntry[] }) {
             key={c.id}
             className={`flex items-center justify-between rounded-md border px-3 py-2 ${
               c.isArchived
-                ? 'border-gray-100 bg-gray-50 opacity-60'
-                : 'border-gray-200 bg-surface'
+                ? 'border-border bg-muted opacity-60'
+                : 'border-border bg-surface'
             }`}
           >
             <div>
-              <span className="text-sm font-medium text-gray-900">{c.className}</span>
+              <span className="text-sm font-medium text-foreground">{c.className}</span>
               {c.isArchived && (
                 <Badge variant="neutral" className="ml-2">
                   Archived
                 </Badge>
               )}
             </div>
-            <div className="flex items-center gap-4 text-xs text-gray-500">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span>Effective: {formatDate(c.effectiveDate)}</span>
               {c.expirationDate && <span>Expires: {formatDate(c.expirationDate)}</span>}
               {c.billedThroughDate && (
@@ -313,28 +313,28 @@ function ClassesSection({ classes }: { classes: MembershipClassEntry[] }) {
 function BillingItemsSection({ items }: { items: MembershipBillingItemEntry[] }) {
   if (items.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <div className="flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-indigo-600" />
-          <h3 className="text-sm font-semibold text-gray-900">Billing Plans</h3>
+          <h3 className="text-sm font-semibold text-foreground">Billing Plans</h3>
         </div>
-        <p className="mt-2 text-sm text-gray-400">No billing items configured.</p>
+        <p className="mt-2 text-sm text-muted-foreground">No billing items configured.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center gap-2">
         <CreditCard className="h-5 w-5 text-indigo-600" />
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-sm font-semibold text-foreground">
           Billing Plans ({items.length})
         </h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 pr-4 font-medium">Description</th>
               <th className="pb-2 pr-4 font-medium text-right">Amount</th>
               <th className="pb-2 pr-4 font-medium text-right">Discount</th>
@@ -345,7 +345,7 @@ function BillingItemsSection({ items }: { items: MembershipBillingItemEntry[] })
           <tbody className="divide-y divide-gray-50">
             {items.map((item) => (
               <tr key={item.id} className={item.isActive ? '' : 'opacity-50'}>
-                <td className="py-2 pr-4 text-gray-900">
+                <td className="py-2 pr-4 text-foreground">
                   {item.description}
                   {item.isSubMemberItem && (
                     <Badge variant="neutral" className="ml-2">
@@ -353,13 +353,13 @@ function BillingItemsSection({ items }: { items: MembershipBillingItemEntry[] })
                     </Badge>
                   )}
                 </td>
-                <td className="py-2 pr-4 text-right font-medium text-gray-900">
+                <td className="py-2 pr-4 text-right font-medium text-foreground">
                   {formatMoney(item.amountCents)}
                 </td>
-                <td className="py-2 pr-4 text-right text-gray-600">
+                <td className="py-2 pr-4 text-right text-muted-foreground">
                   {item.discountCents > 0 ? formatMoney(item.discountCents) : '--'}
                 </td>
-                <td className="py-2 pr-4 text-gray-600">
+                <td className="py-2 pr-4 text-muted-foreground">
                   {FREQUENCY_LABELS[item.frequency] ?? item.frequency}
                 </td>
                 <td className="py-2">
@@ -379,28 +379,28 @@ function BillingItemsSection({ items }: { items: MembershipBillingItemEntry[] })
 function AuthorizedUsersSection({ users }: { users: MembershipAuthorizedUserEntry[] }) {
   if (users.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <div className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-indigo-600" />
-          <h3 className="text-sm font-semibold text-gray-900">Authorized Users</h3>
+          <h3 className="text-sm font-semibold text-foreground">Authorized Users</h3>
         </div>
-        <p className="mt-2 text-sm text-gray-400">No authorized users.</p>
+        <p className="mt-2 text-sm text-muted-foreground">No authorized users.</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center gap-2">
         <Shield className="h-5 w-5 text-indigo-600" />
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-sm font-semibold text-foreground">
           Authorized Users ({users.length})
         </h3>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 pr-4 font-medium">Name</th>
               <th className="pb-2 pr-4 font-medium">Relationship</th>
               <th className="pb-2 pr-4 font-medium">Effective</th>
@@ -411,10 +411,10 @@ function AuthorizedUsersSection({ users }: { users: MembershipAuthorizedUserEntr
           <tbody className="divide-y divide-gray-50">
             {users.map((u) => (
               <tr key={u.id}>
-                <td className="py-2 pr-4 font-medium text-gray-900">{u.name}</td>
-                <td className="py-2 pr-4 text-gray-600">{u.relationship || '--'}</td>
-                <td className="py-2 pr-4 text-gray-600">{formatDate(u.effectiveDate)}</td>
-                <td className="py-2 pr-4 text-gray-600">{formatDate(u.expirationDate)}</td>
+                <td className="py-2 pr-4 font-medium text-foreground">{u.name}</td>
+                <td className="py-2 pr-4 text-muted-foreground">{u.relationship || '--'}</td>
+                <td className="py-2 pr-4 text-muted-foreground">{formatDate(u.effectiveDate)}</td>
+                <td className="py-2 pr-4 text-muted-foreground">{formatDate(u.expirationDate)}</td>
                 <td className="py-2">
                   <StatusBadge status={u.status} />
                 </td>
@@ -444,21 +444,21 @@ function AccountCard({
       onClick={onSelect}
       className={`w-full rounded-lg border p-3 text-left transition-colors ${
         isSelected
-          ? 'border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200'
-          : 'border-gray-200 bg-surface hover:border-gray-300'
+          ? 'border-indigo-500/30 bg-indigo-500/10 ring-1 ring-indigo-500/30'
+          : 'border-border bg-surface hover:border-input'
       }`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Crown className="h-4 w-4 text-indigo-600" />
-          <span className="text-sm font-semibold text-gray-900">{entry.accountNumber}</span>
+          <span className="text-sm font-semibold text-foreground">{entry.accountNumber}</span>
         </div>
         <StatusBadge status={entry.status} />
       </div>
-      <div className="mt-1.5 flex items-center gap-4 text-xs text-gray-500">
+      <div className="mt-1.5 flex items-center gap-4 text-xs text-muted-foreground">
         <span>{entry.primaryMemberName || 'No primary'}</span>
         <span>{entry.memberCount} member{entry.memberCount !== 1 ? 's' : ''}</span>
-        {entry.autopayEnabled && <span className="text-green-600">Autopay</span>}
+        {entry.autopayEnabled && <span className="text-green-500">Autopay</span>}
       </div>
     </button>
   );
@@ -469,8 +469,8 @@ function AccountCard({
 function SubTabSkeleton() {
   return (
     <div className="space-y-4 p-4">
-      <div className="h-24 animate-pulse rounded-lg bg-gray-100" />
-      <div className="h-24 animate-pulse rounded-lg bg-gray-100" />
+      <div className="h-24 animate-pulse rounded-lg bg-muted" />
+      <div className="h-24 animate-pulse rounded-lg bg-muted" />
     </div>
   );
 }
@@ -498,7 +498,7 @@ export default function MembershipTab({ customerId }: { customerId: string }) {
     return (
       <div className="space-y-4 p-6">
         {[...Array(3)].map((_, i) => (
-          <div key={i} className="h-24 animate-pulse rounded-lg bg-gray-100" />
+          <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
         ))}
       </div>
     );
@@ -507,10 +507,10 @@ export default function MembershipTab({ customerId }: { customerId: string }) {
   // Error state
   if (listError) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2 p-6 text-gray-500">
+      <div className="flex h-64 flex-col items-center justify-center gap-2 p-6 text-muted-foreground">
         <AlertCircle className="h-8 w-8 text-red-400" />
         <p className="text-sm">Failed to load membership data</p>
-        <p className="text-xs text-gray-400">{listError.message}</p>
+        <p className="text-xs text-muted-foreground">{listError.message}</p>
       </div>
     );
   }
@@ -518,9 +518,9 @@ export default function MembershipTab({ customerId }: { customerId: string }) {
   // Empty state
   if (accounts.length === 0) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2 p-6 text-gray-400">
+      <div className="flex h-64 flex-col items-center justify-center gap-2 p-6 text-muted-foreground">
         <Crown className="h-8 w-8" />
-        <p className="text-sm font-medium text-gray-500">No Membership Accounts</p>
+        <p className="text-sm font-medium text-muted-foreground">No Membership Accounts</p>
         <p className="text-xs">This customer is not associated with any membership accounts.</p>
       </div>
     );
@@ -531,7 +531,7 @@ export default function MembershipTab({ customerId }: { customerId: string }) {
       {/* Multi-account selector (only if > 1 account) */}
       {accounts.length > 1 && (
         <div className="mb-4">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500">
+          <div className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Membership Accounts ({accounts.length})
           </div>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -549,7 +549,7 @@ export default function MembershipTab({ customerId }: { customerId: string }) {
 
       {/* Sub-tab navigation */}
       {activeAccountId && (
-        <div className="mb-4 flex gap-1 overflow-x-auto border-b border-gray-200">
+        <div className="mb-4 flex gap-1 overflow-x-auto border-b border-border">
           {SUB_TAB_CONFIG.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
@@ -558,7 +558,7 @@ export default function MembershipTab({ customerId }: { customerId: string }) {
               className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
                 activeSubTab === key
                   ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-muted-foreground hover:border-input hover:text-foreground'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -575,7 +575,7 @@ export default function MembershipTab({ customerId }: { customerId: string }) {
           {detailLoading && (
             <div className="space-y-4">
               {[...Array(4)].map((_, i) => (
-                <div key={i} className="h-20 animate-pulse rounded-lg bg-gray-100" />
+                <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
               ))}
             </div>
           )}

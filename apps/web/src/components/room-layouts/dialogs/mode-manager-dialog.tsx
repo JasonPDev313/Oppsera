@@ -104,13 +104,13 @@ export function ModeManagerDialog({
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Room Modes</h2>
-          <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-200/50">
+          <h2 className="text-lg font-semibold text-foreground">Room Modes</h2>
+          <button onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-accent">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-gray-500">
+        <p className="mb-4 text-sm text-muted-foreground">
           Modes let you save different layouts for the same room (e.g., Lunch, Dinner, Event).
         </p>
 
@@ -118,7 +118,7 @@ export function ModeManagerDialog({
         {isLoading ? (
           <div className="space-y-2">
             {[1, 2].map((i) => (
-              <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />
+              <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
             ))}
           </div>
         ) : (
@@ -129,28 +129,28 @@ export function ModeManagerDialog({
                 className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${
                   mode.name === currentMode
                     ? 'border-indigo-500 bg-indigo-500/10'
-                    : 'border-gray-200'
+                    : 'border-border'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onModeChanged(mode.name)}
-                    className="text-sm font-medium text-gray-900 hover:text-indigo-600"
+                    className="text-sm font-medium text-foreground hover:text-indigo-500"
                   >
                     {mode.name}
                   </button>
                   {mode.isDefault && (
-                    <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-[10px] font-medium text-yellow-700">
+                    <span className="rounded bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-500">
                       Default
                     </span>
                   )}
                   {mode.hasPublished && (
-                    <span className="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+                    <span className="rounded bg-green-500/10 px-1.5 py-0.5 text-[10px] font-medium text-green-500">
                       Published
                     </span>
                   )}
                   {mode.hasDraft && !mode.hasPublished && (
-                    <span className="rounded bg-yellow-100 px-1.5 py-0.5 text-[10px] font-medium text-yellow-600">
+                    <span className="rounded bg-yellow-500/10 px-1.5 py-0.5 text-[10px] font-medium text-yellow-500">
                       Draft
                     </span>
                   )}
@@ -159,7 +159,7 @@ export function ModeManagerDialog({
                   {!mode.isDefault && (
                     <button
                       onClick={() => handleSetDefault(mode.name)}
-                      className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-yellow-600"
+                      className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-yellow-500"
                       title="Set as default"
                     >
                       <Star className="h-3.5 w-3.5" />
@@ -168,7 +168,7 @@ export function ModeManagerDialog({
                   {modes.length > 1 && (
                     <button
                       onClick={() => handleDeleteMode(mode.name)}
-                      className="rounded p-1 text-gray-400 hover:bg-red-500/10 hover:text-red-600"
+                      className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                       title="Delete mode"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -182,20 +182,20 @@ export function ModeManagerDialog({
 
         {/* Add mode */}
         {showAdd ? (
-          <div className="mt-4 space-y-3 rounded-lg border border-gray-200 p-3">
+          <div className="mt-4 space-y-3 rounded-lg border border-border p-3">
             <input
               type="text"
               value={newModeName}
               onChange={(e) => setNewModeName(e.target.value)}
               placeholder="Mode name (e.g., Event)"
-              className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               autoFocus
             />
             {modes.length > 0 && (
               <select
                 value={copyFrom}
                 onChange={(e) => setCopyFrom(e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               >
                 <option value="">Start with blank canvas</option>
                 {modes.map((m) => (
@@ -208,7 +208,7 @@ export function ModeManagerDialog({
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowAdd(false)}
-                className="rounded-md px-3 py-1.5 text-xs text-gray-500 hover:bg-gray-200/50"
+                className="rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-accent"
               >
                 Cancel
               </button>
@@ -224,7 +224,7 @@ export function ModeManagerDialog({
         ) : (
           <button
             onClick={() => setShowAdd(true)}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-2.5 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-600"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input py-2.5 text-sm text-muted-foreground hover:border-muted-foreground hover:text-foreground"
           >
             <Plus className="h-4 w-4" />
             Add Mode
@@ -234,7 +234,7 @@ export function ModeManagerDialog({
         <div className="mt-6 flex justify-end">
           <button
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Done
           </button>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getImportErrors, getImportErrorsSchema } from '@oppsera/module-import';
+import { parseLimit } from '@/lib/api-params';
 
 function extractJobId(request: NextRequest): string {
   const url = new URL(request.url);
@@ -20,9 +21,7 @@ export const GET = withMiddleware(
       importJobId,
       severity: url.searchParams.get('severity') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit')
-        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     const result = await getImportErrors(input);

@@ -1443,6 +1443,13 @@
       "when": 1708100205000,
       "tag": "0205_auth_hot_path_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1708100206000,
+      "tag": "0206_host_module_v2",
+      "breakpoints": true
     }
   ]
 }

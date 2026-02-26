@@ -76,7 +76,7 @@ export default function ReservationContextMenu({
 
   return createPortal(
     <div
-      className="fixed z-50 min-w-52 rounded-lg border border-gray-200 bg-surface py-1 shadow-lg"
+      className="fixed z-50 min-w-52 rounded-lg border border-border bg-surface py-1 shadow-lg"
       style={{
         left: Math.min(state.x, window.innerWidth - 220),
         top: Math.min(state.y, window.innerHeight - 300),
@@ -112,7 +112,7 @@ export default function ReservationContextMenu({
             <MenuItem icon={XCircle} label="Cancel" onClick={() => { onCancel(state.reservationId); onClose(); }} destructive />
           )}
 
-          <div className="my-1 border-t border-gray-100" />
+          <div className="my-1 border-t border-border" />
 
           {canSendToPos && onCheckInToPos && (
             <MenuItem
@@ -152,8 +152,8 @@ function MenuItem({
       disabled={disabled}
       className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         destructive
-          ? 'text-red-600 hover:bg-red-50'
-          : 'text-gray-700 hover:bg-gray-100/50'
+          ? 'text-red-500 hover:bg-red-500/10'
+          : 'text-foreground hover:bg-accent'
       }`}
     >
       <Icon className="h-3.5 w-3.5 shrink-0" />

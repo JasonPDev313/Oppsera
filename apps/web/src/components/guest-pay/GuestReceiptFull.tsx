@@ -49,17 +49,17 @@ export function GuestReceiptFull({
     : '';
 
   return (
-    <div id="guest-receipt" className="rounded-2xl bg-white border border-gray-200 overflow-hidden">
+    <div id="guest-receipt" className="rounded-2xl bg-surface border border-border overflow-hidden">
       {/* Header */}
-      <div className="px-5 pt-5 pb-3 text-center border-b border-gray-100">
+      <div className="px-5 pt-5 pb-3 text-center border-b border-border">
         {restaurantName && (
-          <h2 className="text-lg font-bold text-gray-900">{restaurantName}</h2>
+          <h2 className="text-lg font-bold text-foreground">{restaurantName}</h2>
         )}
         {tableLabel && (
-          <p className="text-xs text-gray-500 mt-0.5">{tableLabel}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{tableLabel}</p>
         )}
         {dateStr && (
-          <p className="text-xs text-gray-400 mt-0.5">{dateStr}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{dateStr}</p>
         )}
       </div>
 
@@ -70,14 +70,14 @@ export function GuestReceiptFull({
             {lines.map((line, i) => (
               <div key={i} className="flex justify-between items-start">
                 <div className="flex-1 min-w-0 pr-3">
-                  <p className="text-sm text-gray-800">{line.name}</p>
+                  <p className="text-sm text-foreground">{line.name}</p>
                   {line.qty > 1 && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {line.qty} x {fmt(line.unitPriceCents)}
                     </p>
                   )}
                 </div>
-                <span className="text-sm text-gray-800 whitespace-nowrap">
+                <span className="text-sm text-foreground whitespace-nowrap">
                   {fmt(line.lineTotalCents)}
                 </span>
               </div>
@@ -87,22 +87,22 @@ export function GuestReceiptFull({
       )}
 
       {/* Summary */}
-      <div className="px-5 pb-5 pt-2 border-t border-gray-100">
+      <div className="px-5 pb-5 pt-2 border-t border-border">
         <div className="space-y-1.5">
-          <div className="flex justify-between text-sm text-gray-500">
+          <div className="flex justify-between text-sm text-muted-foreground">
             <span>Subtotal</span>
             <span>{fmt(subtotalCents)}</span>
           </div>
 
           {taxCents > 0 && (
-            <div className="flex justify-between text-sm text-gray-500">
+            <div className="flex justify-between text-sm text-muted-foreground">
               <span>Tax</span>
               <span>{fmt(taxCents)}</span>
             </div>
           )}
 
           {serviceChargeCents > 0 && (
-            <div className="flex justify-between text-sm text-gray-500">
+            <div className="flex justify-between text-sm text-muted-foreground">
               <span>Service Charge</span>
               <span>{fmt(serviceChargeCents)}</span>
             </div>
@@ -115,19 +115,19 @@ export function GuestReceiptFull({
             </div>
           )}
 
-          <div className="flex justify-between text-sm font-semibold text-gray-900 pt-1.5 border-t border-gray-200">
+          <div className="flex justify-between text-sm font-semibold text-foreground pt-1.5 border-t border-border">
             <span>Total</span>
             <span>{fmt(totalCents)}</span>
           </div>
 
           {tipCents > 0 && (
-            <div className="flex justify-between text-sm text-gray-500">
+            <div className="flex justify-between text-sm text-muted-foreground">
               <span>Tip</span>
               <span>{fmt(tipCents)}</span>
             </div>
           )}
 
-          <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t-2 border-gray-900">
+          <div className="flex justify-between text-base font-bold text-foreground pt-2 border-t-2 border-foreground">
             <span>Amount Paid</span>
             <span>{fmt(grandTotalCents)}</span>
           </div>

@@ -22,7 +22,7 @@ export default function TerminalsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium text-gray-900">Terminal → MID Assignments</h2>
+        <h2 className="text-lg font-medium text-foreground">Terminal → MID Assignments</h2>
         <button
           onClick={() => setShowAssign(true)}
           className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
@@ -32,34 +32,34 @@ export default function TerminalsTab() {
       </div>
 
       {isLoading ? (
-        <div className="py-12 text-center text-gray-400">Loading assignments...</div>
+        <div className="py-12 text-center text-muted-foreground">Loading assignments...</div>
       ) : assignments.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-          <Unlink className="mx-auto h-12 w-12 text-gray-400" />
-          <p className="mt-4 text-sm font-medium text-gray-900">No terminal assignments</p>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="rounded-lg border-2 border-dashed border-input p-12 text-center">
+          <Unlink className="mx-auto h-12 w-12 text-muted-foreground" />
+          <p className="mt-4 text-sm font-medium text-foreground">No terminal assignments</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             Assign terminals to merchant accounts so each terminal knows which MID to use.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Terminal</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Merchant ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">MID Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Terminal</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Merchant ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">MID Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-surface">
+            <tbody className="divide-y divide-border bg-surface">
               {assignments.map((a) => (
                 <tr key={a.id}>
-                  <td className="px-4 py-3 text-sm text-gray-900">{a.terminalName ?? a.terminalId}</td>
-                  <td className="px-4 py-3 text-sm font-mono text-gray-900">{a.merchantId}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{a.merchantDisplayName}</td>
+                  <td className="px-4 py-3 text-sm text-foreground">{a.terminalName ?? a.terminalId}</td>
+                  <td className="px-4 py-3 text-sm font-mono text-foreground">{a.merchantId}</td>
+                  <td className="px-4 py-3 text-sm text-foreground">{a.merchantDisplayName}</td>
                   <td className="px-4 py-3 text-sm">
-                    {a.isActive ? <span className="text-green-600">Active</span> : <span className="text-gray-400">Inactive</span>}
+                    {a.isActive ? <span className="text-green-500">Active</span> : <span className="text-muted-foreground">Inactive</span>}
                   </td>
                 </tr>
               ))}
@@ -130,15 +130,15 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
     [settingsData?.terminals, selectedProfitCenterId],
   );
 
-  const selectCls = 'mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm';
+  const selectCls = 'mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm';
 
   return (
     <DialogOverlay onClose={onClose}>
-      <h3 className="text-lg font-semibold text-gray-900">Assign Terminal to MID</h3>
+      <h3 className="text-lg font-semibold text-foreground">Assign Terminal to MID</h3>
       <div className="mt-4 space-y-3">
         {/* Provider */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Provider</label>
+          <label className="block text-sm font-medium text-foreground">Provider</label>
           <select
             value={selectedProviderId}
             onChange={(e) => setSelectedProviderId(e.target.value)}
@@ -151,7 +151,7 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
 
         {/* Location */}
         <div>
-          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <Building2 className="h-3.5 w-3.5" /> Location
           </label>
           <select
@@ -175,7 +175,7 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
 
         {/* Profit Center */}
         <div>
-          <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+          <label className="flex items-center gap-1.5 text-sm font-medium text-foreground">
             <MapPin className="h-3.5 w-3.5" /> Profit Center
           </label>
           <select
@@ -198,7 +198,7 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
 
         {/* Terminal */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Terminal</label>
+          <label className="block text-sm font-medium text-foreground">Terminal</label>
           <select
             value={selectedTerminalId}
             onChange={(e) => setSelectedTerminalId(e.target.value)}
@@ -216,7 +216,7 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
 
         {/* Merchant Account */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Merchant Account</label>
+          <label className="block text-sm font-medium text-foreground">Merchant Account</label>
           <select
             value={merchantAccountId}
             onChange={(e) => setMerchantAccountId(e.target.value)}
@@ -232,7 +232,7 @@ function AssignTerminalDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-3">
-        <button onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
         <button
           onClick={() => mutations.assignTerminal.mutate({ terminalId: selectedTerminalId, merchantAccountId }, { onSuccess: () => onClose() })}
           disabled={mutations.assignTerminal.isPending || !selectedTerminalId || !merchantAccountId}

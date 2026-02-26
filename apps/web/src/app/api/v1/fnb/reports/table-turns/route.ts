@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import { getTableTurns, getTableTurnsSchema } from '@oppsera/module-fnb';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -13,7 +14,7 @@ export const GET = withMiddleware(
       startDate: url.searchParams.get('startDate') ?? '',
       endDate: url.searchParams.get('endDate') ?? '',
       tableId: url.searchParams.get('tableId') || undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     if (!parsed.success) {
       throw new ValidationError('Validation failed', parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })));

@@ -66,7 +66,7 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
   const lines = order?.lines ?? [];
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="receipt-preview-dialog-title">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40"
@@ -75,16 +75,17 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
       />
 
       {/* Dialog */}
-      <div className="relative z-10 w-full max-w-md rounded-xl bg-white shadow-2xl print:shadow-none print:rounded-none print:max-w-full">
+      <div className="relative z-10 w-full max-w-md rounded-xl bg-surface shadow-2xl print:shadow-none print:rounded-none print:max-w-full">
         {/* Header (hidden in print) */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 print:hidden">
-          <h2 className="text-base font-semibold text-gray-900">Receipt Preview</h2>
+        <div className="flex items-center justify-between border-b border-border px-4 py-3 print:hidden">
+          <h2 id="receipt-preview-dialog-title" className="text-base font-semibold text-foreground">Receipt Preview</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Close"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -92,27 +93,27 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
         <div className="px-6 py-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <p className="text-sm text-gray-400">Loading receipt...</p>
+              <p className="text-sm text-muted-foreground">Loading receipt...</p>
             </div>
           ) : !order ? (
             <div className="flex items-center justify-center py-12">
-              <p className="text-sm text-gray-400">No recent order found</p>
+              <p className="text-sm text-muted-foreground">No recent order found</p>
             </div>
           ) : (
             <div className="space-y-4 font-mono text-sm">
               {/* Business info */}
               <div className="text-center">
                 <p className="font-bold text-base">{locationName}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   Order #{order.orderNumber}
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground">
                   {formatDate(order.createdAt)}
                 </p>
               </div>
 
               {/* Divider */}
-              <div className="border-t border-dashed border-gray-300" />
+              <div className="border-t border-dashed border-border" />
 
               {/* Line items */}
               <div className="space-y-1">
@@ -130,7 +131,7 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
               </div>
 
               {/* Divider */}
-              <div className="border-t border-dashed border-gray-300" />
+              <div className="border-t border-dashed border-border" />
 
               {/* Totals */}
               <div className="space-y-1">
@@ -156,14 +157,14 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
                     <span>{formatMoney(order.taxTotal)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold text-base border-t border-gray-300 pt-1">
+                <div className="flex justify-between font-bold text-base border-t border-border pt-1">
                   <span>TOTAL</span>
                   <span>{formatMoney(order.total)}</span>
                 </div>
               </div>
 
               {/* Footer */}
-              <div className="text-center text-xs text-gray-500 pt-2">
+              <div className="text-center text-xs text-muted-foreground pt-2">
                 <p>Thank you!</p>
               </div>
             </div>
@@ -171,11 +172,11 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
         </div>
 
         {/* Actions (hidden in print) */}
-        <div className="flex gap-3 border-t border-gray-200 px-4 py-3 print:hidden">
+        <div className="flex gap-3 border-t border-border px-4 py-3 print:hidden">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            className="flex-1 rounded-lg border border-input py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent"
           >
             Close
           </button>
@@ -185,7 +186,7 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
             disabled={!order}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
           >
-            <Printer className="h-4 w-4" />
+            <Printer className="h-4 w-4" aria-hidden="true" />
             Print
           </button>
         </div>

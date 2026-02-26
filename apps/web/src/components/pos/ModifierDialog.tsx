@@ -418,20 +418,20 @@ export function ModifierDialog({
   if (!open || !item || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modifier-dialog-title">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-lg bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
+            <h3 id="modifier-dialog-title" className="text-lg font-semibold text-foreground">{item.name}</h3>
           </div>
-          <span className="text-lg font-semibold text-gray-900">{formatPrice(item.price)}</span>
+          <span className="text-lg font-semibold text-foreground">{formatPrice(item.price)}</span>
           <button
             ref={firstFocusRef}
             type="button"
             onClick={onClose}
-            className="ml-3 rounded-md p-1 text-gray-400 hover:text-gray-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+            className="ml-3 rounded-md p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
           >
             <X className="h-5 w-5" />
           </button>
@@ -442,7 +442,7 @@ export function ModifierDialog({
           {/* Fraction picker */}
           {allowedFractions && (
             <div>
-              <h4 className="mb-2 text-sm font-semibold text-gray-700">Portion Size</h4>
+              <h4 className="mb-2 text-sm font-semibold text-foreground">Portion Size</h4>
               <div className="flex gap-2">
                 {allowedFractions.map((frac) => (
                   <button
@@ -452,7 +452,7 @@ export function ModifierDialog({
                     className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                       selectedFraction === frac
                         ? 'border-indigo-600 bg-indigo-600 text-white'
-                        : 'border-gray-300 bg-surface text-gray-700 hover:bg-gray-50'
+                        : 'border-input bg-surface text-foreground hover:bg-accent'
                     }`}
                   >
                     {FRACTION_LABELS[frac] ?? `${frac}x`}
@@ -472,7 +472,7 @@ export function ModifierDialog({
 
             return (
               <div key={group.id}>
-                <h4 className="mb-2 text-sm font-semibold text-gray-700">
+                <h4 className="mb-2 text-sm font-semibold text-foreground">
                   {group.name}
                   {group.isRequired ? (
                     <span
@@ -481,7 +481,7 @@ export function ModifierDialog({
                       {isMissing ? '(required — select one)' : '(required)'}
                     </span>
                   ) : (
-                    <span className="ml-1 text-xs font-normal text-gray-400">(optional)</span>
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">(optional)</span>
                   )}
                 </h4>
 
@@ -510,8 +510,8 @@ export function ModifierDialog({
                         <label
                           className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 transition-colors ${
                             isSelected
-                              ? 'border-indigo-300 bg-indigo-50'
-                              : 'border-gray-200 hover:bg-gray-50'
+                              ? 'border-indigo-500/30 bg-indigo-500/10'
+                              : 'border-border hover:bg-accent'
                           }`}
                         >
                           <div className="flex items-center gap-3">
@@ -526,10 +526,10 @@ export function ModifierDialog({
                               }
                               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                             />
-                            <span className="text-sm text-gray-900">{mod.name}</span>
+                            <span className="text-sm text-foreground">{mod.name}</span>
                           </div>
                           {effectivePrice !== 0 && (
-                            <span className="text-sm text-gray-500">
+                            <span className="text-sm text-muted-foreground">
                               {effectivePrice > 0 ? '+' : ''}
                               {formatPrice(effectivePrice)}
                             </span>
@@ -565,13 +565,13 @@ export function ModifierDialog({
           {/* Special instructions */}
           {metadata.allowSpecialInstructions && (
             <div>
-              <h4 className="mb-2 text-sm font-semibold text-gray-700">Special Instructions</h4>
+              <h4 className="mb-2 text-sm font-semibold text-foreground">Special Instructions</h4>
               <textarea
                 value={specialInstructions}
                 onChange={(e) => setSpecialInstructions(e.target.value)}
                 placeholder="e.g., no onions, extra pickles"
                 rows={2}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
               <div className="mt-2 flex flex-wrap gap-2">
                 {QUICK_INSTRUCTIONS.map((text) => (
@@ -579,7 +579,7 @@ export function ModifierDialog({
                     key={text}
                     type="button"
                     onClick={() => appendInstruction(text)}
-                    className="rounded-full border border-gray-300 bg-surface px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                    className="rounded-full border border-input bg-surface px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                   >
                     {text}
                   </button>
@@ -590,13 +590,13 @@ export function ModifierDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-          <div className="text-lg font-semibold text-gray-900">Total: {formatPrice(total)}</div>
+        <div className="flex items-center justify-between border-t border-border px-6 py-4">
+          <div className="text-lg font-semibold text-foreground">Total: {formatPrice(total)}</div>
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               Cancel
             </button>
@@ -607,7 +607,7 @@ export function ModifierDialog({
               className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
                 canAdd
                   ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  : 'cursor-not-allowed bg-gray-300 text-gray-500'
+                  : 'cursor-not-allowed bg-muted text-muted-foreground'
               }`}
             >
               Add to Order

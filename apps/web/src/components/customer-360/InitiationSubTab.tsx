@@ -89,7 +89,7 @@ function StatusBadge({ status }: { status: string }) {
   const Icon = STATUS_ICONS[status];
   return (
     <Badge variant={variant}>
-      {Icon && <Icon className="mr-1 h-3 w-3" />}
+      {Icon && <Icon className="mr-1 h-3 w-3" aria-hidden="true" />}
       {status.replace('_', ' ')}
     </Badge>
   );
@@ -101,22 +101,22 @@ function ProgressBar({ percent }: { percent: number }) {
   const capped = Math.min(Math.max(percent, 0), 100);
   const color =
     capped >= 100
-      ? 'bg-green-500'
+      ? 'bg-green-500/100'
       : capped >= 50
-        ? 'bg-indigo-500'
-        : 'bg-amber-500';
+        ? 'bg-indigo-500/100'
+        : 'bg-amber-500/100';
   const bgColor =
     capped >= 100
-      ? 'bg-green-100'
+      ? 'bg-green-500/100/20'
       : capped >= 50
-        ? 'bg-indigo-100'
-        : 'bg-amber-100';
+        ? 'bg-indigo-500/100/20'
+        : 'bg-amber-500/100/20';
 
   return (
     <div className="mt-2">
       <div className="mb-1 flex items-center justify-between text-xs">
-        <span className="text-gray-500">Paid off</span>
-        <span className="font-semibold text-gray-700">{capped}%</span>
+        <span className="text-muted-foreground">Paid off</span>
+        <span className="font-semibold text-muted-foreground">{capped}%</span>
       </div>
       <div className={`h-2.5 w-full overflow-hidden rounded-full ${bgColor}`}>
         <div
@@ -197,7 +197,7 @@ function ContractCard({
   return (
     <div
       className={`rounded-lg border bg-surface p-4 transition-colors ${
-        isSelected ? 'border-indigo-300 ring-1 ring-indigo-200' : 'border-gray-200'
+        isSelected ? 'border-indigo-500/30 ring-1 ring-indigo-500/30' : 'border-border'
       }`}
     >
       <div className="mb-3 flex items-center justify-between">
@@ -206,14 +206,14 @@ function ContractCard({
           onClick={onSelect}
           className="flex items-center gap-2 text-left"
         >
-          <Landmark className="h-5 w-5 text-indigo-600" />
-          <span className="text-sm font-semibold text-gray-900">
+          <Landmark className="h-5 w-5 text-indigo-600" aria-hidden="true" />
+          <span className="text-sm font-semibold text-foreground">
             Initiation Contract
           </span>
           {isSelected ? (
-            <ChevronUp className="h-4 w-4 text-gray-400" />
+            <ChevronUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           )}
         </button>
         <StatusBadge status={contract.status} />
@@ -221,58 +221,58 @@ function ContractCard({
 
       <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
         <div>
-          <div className="text-xs text-gray-500">Contract Date</div>
-          <div className="flex items-center gap-1.5 text-sm text-gray-900">
-            <Calendar className="h-3.5 w-3.5 text-gray-400" />
+          <div className="text-xs text-muted-foreground">Contract Date</div>
+          <div className="flex items-center gap-1.5 text-sm text-foreground">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             {formatDate(contract.contractDate)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Initiation Fee</div>
-          <div className="flex items-center gap-1.5 text-sm font-medium text-gray-900">
-            <DollarSign className="h-3.5 w-3.5 text-gray-400" />
+          <div className="text-xs text-muted-foreground">Initiation Fee</div>
+          <div className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             {formatMoney(contract.initiationFeeCents)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Financed Amount</div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-xs text-muted-foreground">Financed Amount</div>
+          <div className="text-sm font-medium text-foreground">
             {formatMoney(contract.financedPrincipalCents)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Down Payment</div>
-          <div className="text-sm text-gray-900">
+          <div className="text-xs text-muted-foreground">Down Payment</div>
+          <div className="text-sm text-foreground">
             {formatMoney(contract.downPaymentCents)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">APR</div>
-          <div className="flex items-center gap-1.5 text-sm text-gray-900">
-            <Percent className="h-3.5 w-3.5 text-gray-400" />
+          <div className="text-xs text-muted-foreground">APR</div>
+          <div className="flex items-center gap-1.5 text-sm text-foreground">
+            <Percent className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             {formatApr(contract.aprBps)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Term</div>
-          <div className="flex items-center gap-1.5 text-sm text-gray-900">
-            <Hash className="h-3.5 w-3.5 text-gray-400" />
+          <div className="text-xs text-muted-foreground">Term</div>
+          <div className="flex items-center gap-1.5 text-sm text-foreground">
+            <Hash className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
             {contract.termMonths} months
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Remaining Principal</div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-xs text-muted-foreground">Remaining Principal</div>
+          <div className="text-sm font-medium text-foreground">
             {formatMoney(contract.remainingPrincipalCents)}
           </div>
         </div>
         {contract.nextPaymentDate && (
           <div>
-            <div className="text-xs text-gray-500">Next Payment</div>
-            <div className="text-sm text-gray-900">
+            <div className="text-xs text-muted-foreground">Next Payment</div>
+            <div className="text-sm text-foreground">
               {formatDate(contract.nextPaymentDate)}
               {contract.nextPaymentCents != null && (
-                <span className="ml-1 text-gray-500">
+                <span className="ml-1 text-muted-foreground">
                   ({formatMoney(contract.nextPaymentCents)})
                 </span>
               )}
@@ -285,33 +285,33 @@ function ContractCard({
 
       {/* Action buttons (only for active contracts) */}
       {contract.status === 'active' && (
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3">
           <button
             type="button"
             onClick={handleBillNext}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent"
           >
             Bill Next
           </button>
           <button
             type="button"
             onClick={() => setShowExtraPayment((v) => !v)}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent"
           >
             Extra Payment
           </button>
           <button
             type="button"
             onClick={onSelect}
-            className="flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-accent"
           >
-            <Calculator className="h-3.5 w-3.5" />
+            <Calculator className="h-3.5 w-3.5" aria-hidden="true" />
             Payoff Quote
           </button>
           <button
             type="button"
             onClick={() => setShowCancel((v) => !v)}
-            className="rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+            className="rounded-md border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-500/100/10"
           >
             Cancel
           </button>
@@ -320,22 +320,22 @@ function ContractCard({
 
       {/* Error display */}
       {actionError && (
-        <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/100/10 px-3 py-2 text-sm text-red-500">
           {actionError}
         </div>
       )}
 
       {/* Extra payment inline form */}
       {showExtraPayment && (
-        <div className="mt-3 flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 p-3">
-          <label className="text-sm text-gray-700">Amount ($):</label>
+        <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted p-3">
+          <label className="text-sm text-muted-foreground">Amount ($):</label>
           <input
             type="number"
             step="0.01"
             min="0.01"
             value={extraAmount}
             onChange={(e) => setExtraAmount(e.target.value)}
-            className="w-32 rounded-md border border-gray-300 bg-surface px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-32 rounded-md border border-input bg-surface px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             placeholder="0.00"
           />
           <button
@@ -349,7 +349,7 @@ function ContractCard({
           <button
             type="button"
             onClick={() => { setShowExtraPayment(false); setExtraAmount(''); }}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-muted-foreground hover:text-muted-foreground"
           >
             Cancel
           </button>
@@ -358,15 +358,15 @@ function ContractCard({
 
       {/* Cancel inline form */}
       {showCancel && (
-        <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3">
-          <label className="mb-1 block text-sm font-medium text-red-700">
+        <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/100/10 p-3">
+          <label className="mb-1 block text-sm font-medium text-red-500">
             Cancellation Reason
           </label>
           <input
             type="text"
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
-            className="mb-2 w-full rounded-md border border-red-300 bg-surface px-2 py-1 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
+            className="mb-2 w-full rounded-md border border-red-500/30 bg-surface px-2 py-1 text-sm focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
             placeholder="Enter reason for cancellation..."
           />
           <div className="flex gap-2">
@@ -381,7 +381,7 @@ function ContractCard({
             <button
               type="button"
               onClick={() => { setShowCancel(false); setCancelReason(''); }}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-muted-foreground hover:text-muted-foreground"
             >
               Dismiss
             </button>
@@ -429,14 +429,14 @@ function AmortizationTable({
   );
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center gap-2">
-        <BookOpen className="h-4 w-4 text-indigo-600" />
-        <h4 className="text-sm font-semibold text-gray-900">Amortization Schedule</h4>
+        <BookOpen className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+        <h4 className="text-sm font-semibold text-foreground">Amortization Schedule</h4>
       </div>
 
       {billError && (
-        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/100/10 px-3 py-2 text-sm text-red-500">
           {billError}
         </div>
       )}
@@ -444,7 +444,7 @@ function AmortizationTable({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+            <tr className="border-b border-border text-left text-xs text-muted-foreground">
               <th className="pb-2 pr-3 font-medium">#</th>
               <th className="pb-2 pr-3 font-medium">Due Date</th>
               <th className="pb-2 pr-3 text-right font-medium">Payment</th>
@@ -454,23 +454,23 @@ function AmortizationTable({
               <th className="pb-2 font-medium">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border">
             {schedule.map((entry) => {
               const isNext = entry.periodIndex === nextScheduledIndex;
               return (
                 <tr
                   key={entry.id}
-                  className={isNext ? 'bg-indigo-50/50' : ''}
+                  className={isNext ? 'bg-indigo-500/100/10' : ''}
                 >
-                  <td className="py-2 pr-3 text-gray-600">{entry.periodIndex + 1}</td>
-                  <td className="py-2 pr-3 text-gray-900">{formatDate(entry.dueDate)}</td>
-                  <td className="py-2 pr-3 text-right font-medium text-gray-900">
+                  <td className="py-2 pr-3 text-muted-foreground">{entry.periodIndex + 1}</td>
+                  <td className="py-2 pr-3 text-foreground">{formatDate(entry.dueDate)}</td>
+                  <td className="py-2 pr-3 text-right font-medium text-foreground">
                     {formatMoney(entry.paymentCents)}
                   </td>
-                  <td className="py-2 pr-3 text-right text-gray-700">
+                  <td className="py-2 pr-3 text-right text-muted-foreground">
                     {formatMoney(entry.principalCents)}
                   </td>
-                  <td className="py-2 pr-3 text-right text-gray-700">
+                  <td className="py-2 pr-3 text-right text-muted-foreground">
                     {formatMoney(entry.interestCents)}
                   </td>
                   <td className="py-2 pr-3">
@@ -522,46 +522,46 @@ function PayoffCalculator({
   );
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center justify-between"
       >
         <div className="flex items-center gap-2">
-          <Calculator className="h-4 w-4 text-indigo-600" />
-          <h4 className="text-sm font-semibold text-gray-900">Payoff Calculator</h4>
+          <Calculator className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+          <h4 className="text-sm font-semibold text-foreground">Payoff Calculator</h4>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-400" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         )}
       </button>
 
       {expanded && (
         <div className="mt-3 space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-700">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Payoff Date
             </label>
             <input
               type="date"
               value={dateInput}
               onChange={(e) => setDateInput(e.target.value)}
-              className="w-48 rounded-md border border-gray-300 bg-surface px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-48 rounded-md border border-input bg-surface px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
           {isLoading && (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               Calculating...
             </div>
           )}
 
           {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-md border border-red-500/30 bg-red-500/100/10 px-3 py-2 text-sm text-red-500">
               {error.message}
             </div>
           )}
@@ -569,20 +569,20 @@ function PayoffCalculator({
           {quote && !isLoading && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
               <div>
-                <div className="text-xs text-gray-500">Payoff Amount</div>
-                <div className="text-lg font-semibold text-gray-900">
+                <div className="text-xs text-muted-foreground">Payoff Amount</div>
+                <div className="text-lg font-semibold text-foreground">
                   {formatMoney(quote.payoffAmountCents)}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-gray-500">Principal</div>
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-xs text-muted-foreground">Principal</div>
+                <div className="text-sm font-medium text-foreground">
                   {formatMoney(quote.principalCents)}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-gray-500">Accrued Interest</div>
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-xs text-muted-foreground">Accrued Interest</div>
+                <div className="text-sm font-medium text-foreground">
                   {formatMoney(quote.accruedInterestCents)}
                 </div>
               </div>
@@ -601,34 +601,34 @@ function DeferredRevenueSection({ accountId }: { accountId: string }) {
   const { data, isLoading, error } = useDeferredRevenue(expanded ? accountId : undefined);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
         className="flex w-full items-center justify-between"
       >
         <div className="flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-indigo-600" />
-          <h4 className="text-sm font-semibold text-gray-900">Deferred Revenue</h4>
+          <BookOpen className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+          <h4 className="text-sm font-semibold text-foreground">Deferred Revenue</h4>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-400" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         )}
       </button>
 
       {expanded && (
         <div className="mt-3">
           {isLoading && (
-            <div className="flex items-center gap-2 text-sm text-gray-500">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               Loading...
             </div>
           )}
 
           {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-md border border-red-500/30 bg-red-500/100/10 px-3 py-2 text-sm text-red-500">
               {error.message}
             </div>
           )}
@@ -638,26 +638,26 @@ function DeferredRevenueSection({ accountId }: { accountId: string }) {
               {/* Summary totals */}
               <div className="mb-3 grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <div className="text-xs text-gray-500">Total Deferred</div>
-                  <div className="text-lg font-semibold text-amber-600">
+                  <div className="text-xs text-muted-foreground">Total Deferred</div>
+                  <div className="text-lg font-semibold text-amber-500">
                     {formatMoney(data.totalDeferredCents)}
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-gray-500">Total Recognized</div>
-                  <div className="text-lg font-semibold text-green-600">
+                  <div className="text-xs text-muted-foreground">Total Recognized</div>
+                  <div className="text-lg font-semibold text-green-500">
                     {formatMoney(data.totalRecognizedCents)}
                   </div>
                 </div>
               </div>
 
               {data.entries.length === 0 ? (
-                <p className="text-center text-sm text-gray-400">No deferred revenue entries.</p>
+                <p className="text-center text-sm text-muted-foreground">No deferred revenue entries.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                      <tr className="border-b border-border text-left text-xs text-muted-foreground">
                         <th className="pb-2 pr-3 font-medium">Contract</th>
                         <th className="pb-2 pr-3 text-right font-medium">Total Fee</th>
                         <th className="pb-2 pr-3 text-right font-medium">Recognized</th>
@@ -666,19 +666,19 @@ function DeferredRevenueSection({ accountId }: { accountId: string }) {
                         <th className="pb-2 font-medium">Next Recognition</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-border">
                       {data.entries.map((entry) => (
                         <tr key={entry.contractId}>
-                          <td className="py-2 pr-3 text-gray-900">
+                          <td className="py-2 pr-3 text-foreground">
                             {formatDate(entry.contractDate)}
                           </td>
-                          <td className="py-2 pr-3 text-right font-medium text-gray-900">
+                          <td className="py-2 pr-3 text-right font-medium text-foreground">
                             {formatMoney(entry.totalFeeCents)}
                           </td>
-                          <td className="py-2 pr-3 text-right text-green-600">
+                          <td className="py-2 pr-3 text-right text-green-500">
                             {formatMoney(entry.recognizedCents)}
                           </td>
-                          <td className="py-2 pr-3 text-right text-amber-600">
+                          <td className="py-2 pr-3 text-right text-amber-500">
                             {formatMoney(entry.deferredCents)}
                           </td>
                           <td className="py-2 pr-3">
@@ -686,7 +686,7 @@ function DeferredRevenueSection({ accountId }: { accountId: string }) {
                               {entry.clubModel.replace('_', ' ')}
                             </Badge>
                           </td>
-                          <td className="py-2 text-gray-600">
+                          <td className="py-2 text-muted-foreground">
                             {formatDate(entry.nextRecognitionDate)}
                           </td>
                         </tr>
@@ -730,8 +730,8 @@ export default function InitiationSubTab({
   if (isLoading) {
     return (
       <div className="space-y-4 p-4">
-        <div className="h-40 animate-pulse rounded-lg bg-gray-100" />
-        <div className="h-24 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-40 animate-pulse rounded-lg bg-muted" />
+        <div className="h-24 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
@@ -739,15 +739,15 @@ export default function InitiationSubTab({
   // Error state
   if (error) {
     return (
-      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-gray-500">
-        <AlertCircle className="h-6 w-6 text-red-400" />
+      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-muted-foreground">
+        <AlertCircle className="h-6 w-6 text-red-400" aria-hidden="true" />
         <p className="text-sm">Failed to load initiation financing data</p>
         <button
           type="button"
           onClick={mutate}
-          className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
+          className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-500"
         >
-          <RefreshCw className="h-3.5 w-3.5" />
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           Retry
         </button>
       </div>
@@ -757,9 +757,9 @@ export default function InitiationSubTab({
   // Empty state
   if (!contracts || contracts.length === 0) {
     return (
-      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-gray-400">
-        <Landmark className="h-6 w-6" />
-        <p className="text-sm font-medium text-gray-500">No Initiation Contracts</p>
+      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-muted-foreground">
+        <Landmark className="h-6 w-6" aria-hidden="true" />
+        <p className="text-sm font-medium text-muted-foreground">No Initiation Contracts</p>
         <p className="text-xs">
           No initiation fee financing has been set up for this account.
         </p>

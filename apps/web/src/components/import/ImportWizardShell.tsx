@@ -53,7 +53,7 @@ export function ImportWizardShell({
   if (!open) return null;
 
   const content = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="import-wizard-dialog-title">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/40"
@@ -65,13 +65,13 @@ export function ImportWizardShell({
         className={`relative mx-4 w-full ${maxWidth} rounded-xl bg-surface shadow-xl flex flex-col max-h-[90vh] overflow-hidden`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 id="import-wizard-dialog-title" className="text-lg font-semibold text-foreground">
               {title}
             </h2>
             {subtitle && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 {subtitle}
               </p>
             )}
@@ -80,9 +80,10 @@ export function ImportWizardShell({
             <button
               type="button"
               onClick={onClose}
+              aria-label="Close"
               className="rounded-md p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-500"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           )}
         </div>
@@ -97,7 +98,7 @@ export function ImportWizardShell({
 
         {/* Footer */}
         {footer && (
-          <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+          <div className="flex items-center justify-between border-t border-border px-6 py-4">
             {footer}
           </div>
         )}

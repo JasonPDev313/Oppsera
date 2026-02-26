@@ -82,15 +82,15 @@ export function RemapPreviewDialog({
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-xl bg-surface shadow-xl mx-4">
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-surface px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-6 py-4">
+          <h2 className="text-lg font-semibold text-foreground">
             {step === 'select' && 'Preview & Remap GL Entries'}
             {step === 'preview' && 'GL Line Comparison'}
             {step === 'executing' && 'Remapping in Progress...'}
             {step === 'done' && 'Remap Complete'}
           </h2>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-gray-100">
-            <X className="h-5 w-5 text-gray-500" />
+          <button type="button" onClick={onClose} className="rounded-lg p-1 hover:bg-accent" aria-label="Close">
+            <X className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
         </div>
 
@@ -98,7 +98,7 @@ export function RemapPreviewDialog({
           {/* Step 1: Select tenders */}
           {step === 'select' && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Select tenders to remap. Only tenders where all missing GL mappings are now configured can be remapped.
               </p>
 
@@ -109,9 +109,9 @@ export function RemapPreviewDialog({
                     className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
                       tender.canRemap
                         ? selected.has(tender.tenderId)
-                          ? 'border-indigo-300 bg-indigo-50/50'
-                          : 'border-gray-200 hover:border-gray-300 cursor-pointer'
-                        : 'border-gray-100 bg-gray-50 opacity-60'
+                          ? 'border-indigo-500/30 bg-indigo-500/10'
+                          : 'border-border hover:border-input cursor-pointer'
+                        : 'border-border bg-muted opacity-60'
                     }`}
                   >
                     <input
@@ -119,17 +119,17 @@ export function RemapPreviewDialog({
                       checked={selected.has(tender.tenderId)}
                       onChange={() => handleToggle(tender.tenderId)}
                       disabled={!tender.canRemap}
-                      className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600"
+                      className="mt-1 h-4 w-4 rounded border-input text-indigo-500"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-900">
+                        <span className="text-sm font-medium text-foreground">
                           {formatCents(tender.amountCents)}
                         </span>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           {tender.businessDate}
                         </span>
-                        <span className="text-xs text-gray-400 font-mono truncate">
+                        <span className="text-xs text-muted-foreground font-mono truncate">
                           {tender.tenderId.slice(0, 12)}...
                         </span>
                       </div>
@@ -139,8 +139,8 @@ export function RemapPreviewDialog({
                             key={i}
                             className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs ${
                               m.nowMapped
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-amber-100 text-amber-700'
+                                ? 'bg-green-500/20 text-green-500'
+                                : 'bg-amber-500/20 text-amber-500'
                             }`}
                           >
                             {m.nowMapped ? (
@@ -153,7 +153,7 @@ export function RemapPreviewDialog({
                         ))}
                       </div>
                       {!tender.canRemap && (
-                        <p className="mt-1 text-xs text-amber-600">
+                        <p className="mt-1 text-xs text-amber-500">
                           {!tender.glJournalEntryId
                             ? 'No GL entry to remap'
                             : 'Some mappings are still missing'}
@@ -168,7 +168,7 @@ export function RemapPreviewDialog({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
@@ -195,30 +195,30 @@ export function RemapPreviewDialog({
           {step === 'preview' && previews.length > 0 && (
             <div className="space-y-6">
               {previews.map((p) => (
-                <div key={p.tenderId} className="rounded-lg border border-gray-200">
-                  <div className="border-b border-gray-100 bg-gray-50 px-4 py-2">
-                    <span className="text-sm font-medium text-gray-900">
+                <div key={p.tenderId} className="rounded-lg border border-border">
+                  <div className="border-b border-border bg-muted px-4 py-2">
+                    <span className="text-sm font-medium text-foreground">
                       Tender {p.tenderId.slice(0, 12)}...
                     </span>
                     {p.businessDate && (
-                      <span className="ml-2 text-xs text-gray-500">{p.businessDate}</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{p.businessDate}</span>
                     )}
                     {p.error && (
-                      <span className="ml-2 text-xs text-red-600">{p.error}</span>
+                      <span className="ml-2 text-xs text-red-500">{p.error}</span>
                     )}
                   </div>
 
                   {!p.error && p.originalLines && p.projectedLines && (
-                    <div className="grid grid-cols-2 divide-x divide-gray-200">
+                    <div className="grid grid-cols-2 divide-x divide-border">
                       {/* Original */}
                       <div className="p-3">
-                        <h4 className="mb-2 text-xs font-semibold uppercase text-gray-500">Current (Fallback)</h4>
+                        <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">Current (Fallback)</h4>
                         <div className="space-y-1">
                           {p.originalLines.map((line, i) => (
                             <div
                               key={i}
                               className={`rounded px-2 py-1 text-xs ${
-                                line.isFallback ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'
+                                line.isFallback ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-muted'
                               }`}
                             >
                               <div className="flex justify-between">
@@ -231,7 +231,7 @@ export function RemapPreviewDialog({
                                 </span>
                               </div>
                               {line.isFallback && (
-                                <span className="text-amber-600 text-[10px]">Fallback</span>
+                                <span className="text-amber-500 text-[10px]">Fallback</span>
                               )}
                             </div>
                           ))}
@@ -241,15 +241,15 @@ export function RemapPreviewDialog({
                       {/* Projected */}
                       <div className="p-3">
                         <div className="mb-2 flex items-center gap-1">
-                          <ArrowRight className="h-3 w-3 text-gray-400" />
-                          <h4 className="text-xs font-semibold uppercase text-gray-500">Projected (Remapped)</h4>
+                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                          <h4 className="text-xs font-semibold uppercase text-muted-foreground">Projected (Remapped)</h4>
                         </div>
                         <div className="space-y-1">
                           {p.projectedLines.map((line, i) => (
                             <div
                               key={i}
                               className={`rounded px-2 py-1 text-xs ${
-                                line.isFallback ? 'bg-amber-50 border border-amber-200' : 'bg-green-50 border border-green-200'
+                                line.isFallback ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-green-500/10 border border-green-500/30'
                               }`}
                             >
                               <div className="flex justify-between">
@@ -262,7 +262,7 @@ export function RemapPreviewDialog({
                                 </span>
                               </div>
                               {line.isFallback && (
-                                <span className="text-amber-600 text-[10px]">Still Fallback</span>
+                                <span className="text-amber-500 text-[10px]">Still Fallback</span>
                               )}
                             </div>
                           ))}
@@ -277,7 +277,7 @@ export function RemapPreviewDialog({
                 <button
                   type="button"
                   onClick={() => setStep('select')}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
                 >
                   Back
                 </button>
@@ -295,11 +295,11 @@ export function RemapPreviewDialog({
           {/* Step 3: Executing */}
           {step === 'executing' && (
             <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
-              <p className="mt-4 text-sm text-gray-600">
+              <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
+              <p className="mt-4 text-sm text-muted-foreground">
                 Voiding original entries and reposting with corrected mappings...
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 This may take a moment for large batches.
               </p>
             </div>
@@ -308,13 +308,13 @@ export function RemapPreviewDialog({
           {/* Step 4: Done */}
           {step === 'done' && remapResult && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-4">
-                <CheckCircle className="h-6 w-6 text-green-600 shrink-0" />
+              <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+                <CheckCircle className="h-6 w-6 text-green-500 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-green-800">
+                  <p className="text-sm font-medium text-green-500">
                     Remap Complete
                   </p>
-                  <p className="text-sm text-green-700">
+                  <p className="text-sm text-green-500">
                     {remapResult.summary.success} of {remapResult.summary.total} tenders remapped successfully.
                     {remapResult.summary.failed > 0 && ` ${remapResult.summary.failed} failed.`}
                   </p>
@@ -323,9 +323,9 @@ export function RemapPreviewDialog({
 
               {remapResult.results.some(r => !r.success) && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-gray-900">Errors</h4>
+                  <h4 className="text-sm font-medium text-foreground">Errors</h4>
                   {remapResult.results.filter(r => !r.success).map((r) => (
-                    <div key={r.tenderId} className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                    <div key={r.tenderId} className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-500">
                       <span className="font-mono text-xs">{r.tenderId.slice(0, 12)}...</span>: {r.error}
                     </div>
                   ))}

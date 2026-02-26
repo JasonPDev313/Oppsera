@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
+import { parseLimit } from '@/lib/api-params';
 import {
   getAutopayDashboard,
   runAutopayBatch,
@@ -11,9 +12,7 @@ import {
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
-    const limit = url.searchParams.has('limit')
-      ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-      : undefined;
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const result = await getAutopayDashboard({
       tenantId: ctx.tenantId,

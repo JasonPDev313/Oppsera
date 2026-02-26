@@ -134,6 +134,9 @@ export function GiftCardTenderDialog({
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="gift-card-dialog-title"
       onKeyDown={handleKeyDown}
     >
       {/* Backdrop */}
@@ -144,32 +147,33 @@ export function GiftCardTenderDialog({
         {/* Header */}
         <div className="mb-5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Gift className="h-5 w-5 text-purple-500" />
-            <h2 className="text-lg font-semibold">Gift Card Payment</h2>
+            <Gift className="h-5 w-5 text-purple-500" aria-hidden="true" />
+            <h2 id="gift-card-dialog-title" className="text-lg font-semibold">Gift Card Payment</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close"
             className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50 active:scale-[0.97]"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         {/* Remaining balance on order */}
-        <div className="mb-4 rounded-lg bg-gray-100/60 px-4 py-3 text-sm">
-          <span className="text-gray-500">Amount Due:</span>{' '}
+        <div className="mb-4 rounded-lg bg-muted px-4 py-3 text-sm">
+          <span className="text-muted-foreground">Amount Due:</span>{' '}
           <span className="font-semibold">{formatMoney(remainingBalanceCents)}</span>
         </div>
 
         {/* Card number input + lookup */}
         <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-gray-600">
+          <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
             Card Number
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
-              <CreditCard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <CreditCard className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
                 ref={inputRef}
                 type="text"
@@ -188,7 +192,7 @@ export function GiftCardTenderDialog({
                   }
                 }}
                 placeholder="Scan or enter card number"
-                className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm outline-none transition-colors focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                className="w-full rounded-lg border border-input py-2.5 pl-10 pr-3 text-sm outline-none transition-colors focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
               />
             </div>
             <button
@@ -197,7 +201,7 @@ export function GiftCardTenderDialog({
               disabled={isLookingUp || !cardNumber.trim()}
               className="flex items-center gap-1.5 rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-50 active:scale-[0.97]"
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-4 w-4" aria-hidden="true" />
               {isLookingUp ? 'Looking up...' : 'Look Up'}
             </button>
           </div>
@@ -205,10 +209,10 @@ export function GiftCardTenderDialog({
 
         {/* Balance result */}
         {balance && (
-          <div className="mb-4 rounded-lg border border-green-200 bg-green-50/60 px-4 py-3">
+          <div className="mb-4 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-green-700">Card Balance</span>
-              <span className="text-lg font-bold text-green-700">
+              <span className="text-sm text-green-500">Card Balance</span>
+              <span className="text-lg font-bold text-green-500">
                 {formatMoney(balance.balanceCents)}
               </span>
             </div>
@@ -225,11 +229,11 @@ export function GiftCardTenderDialog({
         {/* Redemption amount */}
         {balance && (
           <div className="mb-5">
-            <label className="mb-1.5 block text-sm font-medium text-gray-600">
+            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
               Redemption Amount
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                 $
               </span>
               <input
@@ -245,10 +249,10 @@ export function GiftCardTenderDialog({
                     handleSubmit();
                   }
                 }}
-                className="w-full rounded-lg border border-gray-300 py-2.5 pl-7 pr-3 text-sm outline-none transition-colors focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
+                className="w-full rounded-lg border border-input py-2.5 pl-7 pr-3 text-sm outline-none transition-colors focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20"
               />
             </div>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               Max: {formatMoney(maxRedeem)}
             </p>
           </div>
@@ -259,7 +263,7 @@ export function GiftCardTenderDialog({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-100/60 active:scale-[0.97]"
+            className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent active:scale-[0.97]"
           >
             Cancel
           </button>
@@ -269,7 +273,7 @@ export function GiftCardTenderDialog({
             disabled={!balance || isSubmitting}
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:opacity-50 active:scale-[0.97]"
           >
-            <Gift className="h-4 w-4" />
+            <Gift className="h-4 w-4" aria-hidden="true" />
             {isSubmitting ? 'Applying...' : 'Apply Gift Card'}
           </button>
         </div>

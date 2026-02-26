@@ -100,7 +100,7 @@ export function ConditionRow({ condition, onChange, onRemove, canRemove }: Condi
           value={condition.operator}
           onChange={(e) => handleOperatorChange(e.target.value)}
           disabled={!condition.metric}
-          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:opacity-50"
+          className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:opacity-50"
         >
           {operators.map((op) => (
             <option key={op.value} value={op.value}>
@@ -113,12 +113,12 @@ export function ConditionRow({ condition, onChange, onRemove, canRemove }: Condi
       {/* Value input */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {valueType === 'boolean' ? (
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={!!condition.value}
               onChange={(e) => handleValueChange(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-input text-indigo-600 focus:ring-indigo-500"
             />
             {condition.value ? 'True' : 'False'}
           </label>
@@ -129,15 +129,15 @@ export function ConditionRow({ condition, onChange, onRemove, canRemove }: Condi
               value={String(Array.isArray(condition.value) ? condition.value[0] ?? '' : '')}
               onChange={(e) => handleBetweenChange(0, e.target.value)}
               placeholder="Min"
-              className="w-24 rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-24 rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
-            <span className="text-xs text-gray-400">and</span>
+            <span className="text-xs text-muted-foreground">and</span>
             <input
               type="number"
               value={String(Array.isArray(condition.value) ? condition.value[1] ?? '' : '')}
               onChange={(e) => handleBetweenChange(1, e.target.value)}
               placeholder="Max"
-              className="w-24 rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-24 rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
         ) : valueType === 'number' ? (
@@ -146,7 +146,7 @@ export function ConditionRow({ condition, onChange, onRemove, canRemove }: Condi
             value={condition.value != null ? String(condition.value) : ''}
             onChange={(e) => handleValueChange(e.target.value)}
             placeholder="Value"
-            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         ) : (
           <input
@@ -154,12 +154,12 @@ export function ConditionRow({ condition, onChange, onRemove, canRemove }: Condi
             value={condition.value != null ? String(condition.value) : ''}
             onChange={(e) => handleValueChange(e.target.value)}
             placeholder={condition.operator === 'in' ? 'value1, value2, ...' : 'Value'}
-            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         )}
 
         {unit && (
-          <span className="shrink-0 text-xs text-gray-500">{unit}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">{unit}</span>
         )}
       </div>
 
@@ -168,7 +168,7 @@ export function ConditionRow({ condition, onChange, onRemove, canRemove }: Condi
         type="button"
         onClick={onRemove}
         disabled={!canRemove}
-        className="shrink-0 rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+        className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
         title="Remove condition"
       >
         <Trash2 className="h-4 w-4" />

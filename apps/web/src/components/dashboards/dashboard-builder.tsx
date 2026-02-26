@@ -238,17 +238,17 @@ export function DashboardBuilder({
   return (
     <div className="flex min-h-screen flex-col">
       {/* Header */}
-      <div className="border-b border-gray-200 bg-surface px-6 py-4">
+      <div className="border-b border-border bg-surface px-6 py-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => router.push('/dashboards')}
-            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             aria-label="Back to dashboards"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-lg font-semibold text-gray-900">
+          <h1 className="text-lg font-semibold text-foreground">
             {dashboardId ? 'Edit Dashboard' : 'New Dashboard'}
           </h1>
         </div>
@@ -260,7 +260,7 @@ export function DashboardBuilder({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Dashboard name"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
           <FormField label="Description">
@@ -269,7 +269,7 @@ export function DashboardBuilder({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description"
               rows={1}
-              className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full resize-none rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
         </div>
@@ -278,7 +278,7 @@ export function DashboardBuilder({
           <button
             type="button"
             onClick={() => setAddModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-input px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <Plus className="h-4 w-4" />
             Add Tile
@@ -289,8 +289,8 @@ export function DashboardBuilder({
       {/* Grid */}
       <div className="flex-1 overflow-auto px-6 py-4">
         {tiles.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 py-20">
-            <p className="text-sm text-gray-500">No tiles yet.</p>
+          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border py-20">
+            <p className="text-sm text-muted-foreground">No tiles yet.</p>
             <button
               type="button"
               onClick={() => setAddModalOpen(true)}
@@ -327,12 +327,12 @@ export function DashboardBuilder({
       </div>
 
       {/* Sticky bottom bar */}
-      <div className="sticky bottom-0 border-t border-gray-200 bg-surface px-6 py-3">
+      <div className="sticky bottom-0 border-t border-border bg-surface px-6 py-3">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={() => router.push('/dashboards')}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Cancel
           </button>

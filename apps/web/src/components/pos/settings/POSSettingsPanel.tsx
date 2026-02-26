@@ -78,7 +78,7 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
       <div className="relative space-y-1 divide-y divide-gray-100">
         {/* Save indicator */}
         {showSaved && (
-          <div className="fixed right-6 top-20 z-10 flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 shadow-sm animate-[cart-slide-in_0.2s_ease-out]">
+          <div className="fixed right-6 top-20 z-10 flex items-center gap-1.5 rounded-full bg-green-500/20 px-3 py-1 text-xs font-medium text-green-500 shadow-sm animate-[cart-slide-in_0.2s_ease-out]">
             <Check className="h-3.5 w-3.5" />
             Saved
           </div>
@@ -102,7 +102,7 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
           <summary className="flex cursor-pointer items-center gap-3 py-3 select-none">
             <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
             <div>
-              <h4 className="text-sm font-semibold text-gray-900">Receipts</h4>
+              <h4 className="text-sm font-semibold text-foreground">Receipts</h4>
               <p className="text-xs text-gray-500">Choose how receipts are delivered after payment</p>
             </div>
           </summary>
@@ -120,12 +120,12 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
                   onClick={() => handleReceiptModeChange(opt.value)}
                   className={`flex flex-col items-start rounded-lg border-2 px-3 py-2 text-left transition-colors ${
                     config.receiptMode === opt.value
-                      ? 'border-indigo-500 bg-indigo-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-indigo-500 bg-indigo-500/10'
+                      : 'border-border hover:border-gray-300'
                   }`}
                 >
                   <span className={`text-sm font-medium ${
-                    config.receiptMode === opt.value ? 'text-indigo-700' : 'text-gray-700'
+                    config.receiptMode === opt.value ? 'text-indigo-500' : 'text-foreground'
                   }`}>
                     {opt.label}
                   </span>
@@ -141,7 +141,7 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
           <summary className="flex cursor-pointer items-center gap-3 py-3 select-none">
             <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
             <div>
-              <h4 className="text-sm font-semibold text-gray-900">Quick Menu</h4>
+              <h4 className="text-sm font-semibold text-foreground">Quick Menu</h4>
               <p className="text-xs text-gray-500">Customize the Hot Sellers grid layout</p>
             </div>
           </summary>

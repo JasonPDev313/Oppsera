@@ -32,7 +32,7 @@ export const PATCH = withMiddleware(
     const result = await updateMerchantAccount(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );
 
 /**
@@ -48,5 +48,5 @@ export const DELETE = withMiddleware(
     });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );

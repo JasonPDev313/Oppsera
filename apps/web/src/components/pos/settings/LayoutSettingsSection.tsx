@@ -35,7 +35,7 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
       <summary className="flex cursor-pointer items-center gap-3 py-3 select-none">
         <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
         <div>
-          <h4 className="text-sm font-semibold text-gray-900">Layout</h4>
+          <h4 className="text-sm font-semibold text-foreground">Layout</h4>
           <p className="text-xs text-gray-500">Adjust the POS screen layout and tile sizes</p>
         </div>
       </summary>
@@ -48,13 +48,13 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
           </label>
           <div className="space-y-2">
             {/* Mini preview */}
-            <div className="flex h-8 gap-1 rounded-md overflow-hidden border border-gray-200">
+            <div className="flex h-8 gap-1 rounded-md overflow-hidden border border-border">
               <div
-                className="bg-indigo-100 transition-all duration-200"
+                className="bg-indigo-500/20 transition-all duration-200"
                 style={{ width: `${splitRatio}%` }}
               />
               <div
-                className="bg-emerald-100 transition-all duration-200"
+                className="bg-emerald-500/20 transition-all duration-200"
                 style={{ width: `${100 - splitRatio}%` }}
               />
             </div>
@@ -68,7 +68,7 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
                 onChange={(e) => update({ splitRatio: parseInt(e.target.value, 10) })}
                 className="flex-1 accent-indigo-600"
               />
-              <span className="w-14 text-right text-sm font-medium text-gray-700">
+              <span className="w-14 text-right text-sm font-medium text-foreground">
                 {splitRatio}/{100 - splitRatio}
               </span>
             </div>
@@ -90,8 +90,8 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
                 onClick={() => update({ itemTileSize: size.value })}
                 className={`flex flex-col items-center gap-1 rounded-lg border-2 px-4 py-2 transition-colors ${
                   tileSize === size.value
-                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                    : 'border-border text-muted-foreground hover:border-gray-300'
                 }`}
               >
                 <span className="text-sm font-semibold">{size.label}</span>

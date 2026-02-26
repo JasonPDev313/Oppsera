@@ -4,8 +4,8 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import {
   getWaitlist,
-  addToWaitlist,
-  addToWaitlistSchema,
+  hostAddToWaitlist,
+  hostAddToWaitlistSchema,
 } from '@oppsera/module-fnb';
 
 export const GET = withMiddleware(
@@ -29,13 +29,13 @@ export const GET = withMiddleware(
       meta: { totalCount: result.totalCount },
     });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.host.view' },
 );
 
 export const POST = withMiddleware(
   async (req: NextRequest, ctx) => {
     const body = await req.json();
-    const parsed = addToWaitlistSchema.safeParse(body);
+    const parsed = hostAddToWaitlistSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Invalid waitlist entry',
@@ -43,13 +43,13 @@ export const POST = withMiddleware(
       );
     }
 
-    const result = await addToWaitlist(ctx, parsed.data);
+    const result = await hostAddToWaitlist(ctx, parsed.data);
 
     return NextResponse.json({ data: result }, { status: 201 });
   },
   {
     entitlement: 'pos_fnb',
-    permission: 'pos_fnb.floor_plan.manage',
+    permission: 'pos_fnb.host.manage',
     writeAccess: true,
   },
 );

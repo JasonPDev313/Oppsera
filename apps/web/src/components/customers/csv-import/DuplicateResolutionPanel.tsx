@@ -30,10 +30,10 @@ export function DuplicateResolutionPanel({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <h3 className="text-lg font-semibold text-foreground">
           Duplicate Records Found
         </h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           {duplicates.length} record{duplicates.length !== 1 ? 's' : ''} match existing customers.
           Choose how to handle each duplicate.
         </p>
@@ -43,19 +43,19 @@ export function DuplicateResolutionPanel({
       <div className="flex gap-2">
         <button
           onClick={() => onSetAllResolutions('skip')}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
         >
           Skip All
         </button>
         <button
           onClick={() => onSetAllResolutions('update')}
-          className="rounded-md border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900/20"
+          className="rounded-md border border-blue-500/30 px-3 py-1.5 text-xs font-medium text-blue-500 hover:bg-blue-500/10"
         >
           Update All
         </button>
         <button
           onClick={() => onSetAllResolutions('create_new')}
-          className="rounded-md border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/20"
+          className="rounded-md border border-amber-500/30 px-3 py-1.5 text-xs font-medium text-amber-500 hover:bg-amber-500/10"
         >
           Create All New
         </button>
@@ -66,16 +66,16 @@ export function DuplicateResolutionPanel({
         {duplicates.map((dup) => (
           <div
             key={dup.csvRowIndex}
-            className="rounded-lg border border-gray-200 p-3 dark:border-gray-700"
+            className="rounded-lg border border-border p-3"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-blue-500" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-foreground">
                     Row {dup.csvRowIndex + 1} → {dup.existingDisplayName}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-muted-foreground">
                     Matched by{' '}
                     <span className="font-medium">{MATCH_TYPE_LABELS[dup.matchType] ?? dup.matchType}</span>
                     {dup.existingEmail && ` · ${dup.existingEmail}`}
@@ -93,11 +93,11 @@ export function DuplicateResolutionPanel({
                   className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                     resolutions[dup.csvRowIndex] === resolution
                       ? resolution === 'skip'
-                        ? 'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                        ? 'bg-muted text-foreground'
                         : resolution === 'update'
-                          ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
-                      : 'text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800'
+                          ? 'bg-blue-500/20 text-blue-500'
+                          : 'bg-amber-500/20 text-amber-500'
+                      : 'text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   {resolution === 'skip' ? 'Skip' : resolution === 'update' ? 'Update' : 'Create New'}
@@ -111,7 +111,7 @@ export function DuplicateResolutionPanel({
       <div className="flex justify-between">
         <button
           onClick={onBack}
-          className="rounded-md border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
         >
           Back
         </button>

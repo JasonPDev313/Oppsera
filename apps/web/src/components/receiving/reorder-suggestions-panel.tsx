@@ -16,8 +16,8 @@ interface ReorderSuggestionsPanelProps {
 export function ReorderSuggestionsPanel({ suggestions, isLoading, onQuickReceive }: ReorderSuggestionsPanelProps) {
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-        <div className="h-4 w-32 animate-pulse rounded bg-amber-200" />
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+        <div className="h-4 w-32 animate-pulse rounded bg-amber-500/20" />
       </div>
     );
   }
@@ -25,10 +25,10 @@ export function ReorderSuggestionsPanel({ suggestions, isLoading, onQuickReceive
   if (suggestions.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
       <div className="flex items-center gap-2 mb-3">
         <AlertTriangle className="h-4 w-4 text-amber-600" />
-        <h3 className="text-sm font-semibold text-amber-800">
+        <h3 className="text-sm font-semibold text-amber-500">
           {suggestions.length} item{suggestions.length !== 1 ? 's' : ''} below reorder point
         </h3>
       </div>
@@ -36,8 +36,8 @@ export function ReorderSuggestionsPanel({ suggestions, isLoading, onQuickReceive
         {suggestions.slice(0, 5).map((s) => (
           <div key={s.id} className="flex items-center justify-between rounded-md bg-surface px-3 py-2 text-sm">
             <div className="min-w-0 flex-1">
-              <div className="font-medium text-gray-900">{s.name}</div>
-              <div className="text-xs text-gray-500">
+              <div className="font-medium text-foreground">{s.name}</div>
+              <div className="text-xs text-muted-foreground">
                 On hand: {s.onHand} / Reorder: {s.reorderPoint}
                 {s.preferredVendorName && ` | ${s.preferredVendorName}`}
                 {s.vendorCost !== null && ` @ ${formatMoney(s.vendorCost)}`}
@@ -56,7 +56,7 @@ export function ReorderSuggestionsPanel({ suggestions, isLoading, onQuickReceive
           </div>
         ))}
         {suggestions.length > 5 && (
-          <p className="text-xs text-amber-600">
+          <p className="text-xs text-amber-500">
             +{suggestions.length - 5} more items below reorder point
           </p>
         )}

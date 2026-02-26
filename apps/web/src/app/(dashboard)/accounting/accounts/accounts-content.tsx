@@ -126,7 +126,7 @@ export default function AccountsContent() {
           <button
             type="button"
             onClick={() => setClassificationsOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <Settings2 className="h-4 w-4" />
             <span className="hidden sm:inline">Classifications</span>
@@ -134,7 +134,7 @@ export default function AccountsContent() {
           <button
             type="button"
             onClick={() => setImportOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             <Upload className="h-4 w-4" />
             <span className="hidden sm:inline">Import COA</span>
@@ -162,10 +162,10 @@ export default function AccountsContent() {
       {isLoading ? (
         <div className="space-y-2">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={`skeleton-${i}`} className="flex items-center gap-4 rounded-lg border border-gray-100 p-4">
-              <div className="h-4 w-20 animate-pulse rounded bg-gray-100" />
-              <div className="h-4 w-48 animate-pulse rounded bg-gray-100" />
-              <div className="ml-auto h-4 w-24 animate-pulse rounded bg-gray-100" />
+            <div key={`skeleton-${i}`} className="flex items-center gap-4 rounded-lg border border-border p-4">
+              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+              <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+              <div className="ml-auto h-4 w-24 animate-pulse rounded bg-muted" />
             </div>
           ))}
         </div>

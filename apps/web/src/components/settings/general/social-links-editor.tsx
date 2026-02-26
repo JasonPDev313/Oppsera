@@ -58,8 +58,8 @@ export function SocialLinksEditor({ value, onChange, disabled = false }: SocialL
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-gray-700">Social Media & Listings</h4>
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+        <h4 className="text-sm font-medium text-foreground">Social Media & Listings</h4>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
           {linkedCount}/{PLATFORMS.length} linked
         </span>
       </div>
@@ -67,7 +67,7 @@ export function SocialLinksEditor({ value, onChange, disabled = false }: SocialL
       <div className="space-y-1.5">
         {visiblePlatforms.map((platform) => (
           <div key={platform.key} className="flex items-center gap-2">
-            <span className="w-28 shrink-0 text-sm text-gray-600">{platform.label}</span>
+            <span className="w-28 shrink-0 text-sm text-muted-foreground">{platform.label}</span>
             <div className="relative flex-1">
               <input
                 type="url"
@@ -80,14 +80,14 @@ export function SocialLinksEditor({ value, onChange, disabled = false }: SocialL
                 }}
                 placeholder={platform.placeholder}
                 disabled={disabled}
-                className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm placeholder:text-gray-300 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
+                className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60"
               />
               {value[platform.key] && (
                 <a
                   href={value[platform.key]}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-indigo-600"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-indigo-500"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
@@ -101,7 +101,7 @@ export function SocialLinksEditor({ value, onChange, disabled = false }: SocialL
         <button
           type="button"
           onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+          className="flex items-center gap-1 text-sm text-indigo-500 hover:text-indigo-500"
         >
           {showAll ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           {showAll ? 'Show fewer platforms' : `Show all platforms (${secondaryPlatforms.length} more)`}

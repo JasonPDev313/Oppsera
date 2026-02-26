@@ -102,11 +102,11 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
   if (error || !data) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load tags.</p>
+        <p className="text-sm text-red-500">Failed to load tags.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -120,7 +120,7 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
     <div className="space-y-6 p-6">
       {/* Tags */}
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Tags
         </h3>
 
@@ -134,7 +134,7 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
               if (e.key === 'Enter') handleAddTag();
             }}
             placeholder="Add a tag..."
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="flex-1 rounded-lg border border-input px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
           <button
             type="button"
@@ -158,14 +158,14 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 ring-1 ring-inset ring-indigo-600/20"
+                className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-3 py-1 text-sm font-medium text-indigo-500 ring-1 ring-inset ring-indigo-600/20"
               >
                 <Tag className="h-3 w-3" />
                 {tag}
                 <button
                   type="button"
                   onClick={() => handleRemoveTag(tag)}
-                  className="ml-0.5 rounded-full p-0.5 text-indigo-400 transition-colors hover:bg-indigo-100 hover:text-indigo-700"
+                  className="ml-0.5 rounded-full p-0.5 text-indigo-400 transition-colors hover:bg-indigo-500/100/20 hover:text-indigo-500"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -177,7 +177,7 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
 
       {/* Segments */}
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Segments
         </h3>
         {segments.length === 0 ? (
@@ -191,15 +191,15 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
             {segments.map((segment) => (
               <div
                 key={segment.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
               >
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-gray-400" />
+                  <Users className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-foreground">
                       {segment.segmentName}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Added {formatDate(segment.addedAt)}
                     </p>
                   </div>

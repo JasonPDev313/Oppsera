@@ -60,7 +60,7 @@ export default function JournalDetailContent() {
       <AccountingPageShell title="Journal Entry" breadcrumbs={[{ label: 'Journals', href: '/accounting/journals' }, { label: 'Loading...' }]}>
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       </AccountingPageShell>
@@ -70,7 +70,7 @@ export default function JournalDetailContent() {
   if (!entry) {
     return (
       <AccountingPageShell title="Journal Entry" breadcrumbs={[{ label: 'Journals', href: '/accounting/journals' }, { label: 'Not Found' }]}>
-        <div className="text-center py-12 text-gray-500">Journal entry not found.</div>
+        <div className="text-center py-12 text-muted-foreground">Journal entry not found.</div>
       </AccountingPageShell>
     );
   }
@@ -101,7 +101,7 @@ export default function JournalDetailContent() {
             <button
               type="button"
               onClick={() => setShowVoidDialog(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10"
             >
               <XCircle className="h-4 w-4" />
               Void
@@ -110,7 +110,7 @@ export default function JournalDetailContent() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             <Printer className="h-4 w-4" />
             Print
@@ -119,17 +119,17 @@ export default function JournalDetailContent() {
       }
     >
       {/* Header info */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-5 space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <StatusBadge status={entry.status} />
           {badge && (
             <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              badge.variant === 'success' ? 'bg-green-100 text-green-700' :
-              badge.variant === 'info' ? 'bg-blue-100 text-blue-700' :
-              badge.variant === 'purple' ? 'bg-purple-100 text-purple-700' :
-              badge.variant === 'orange' ? 'bg-orange-100 text-orange-700' :
-              badge.variant === 'indigo' ? 'bg-indigo-100 text-indigo-700' :
-              'bg-gray-100 text-gray-700'
+              badge.variant === 'success' ? 'bg-green-500/10 text-green-500' :
+              badge.variant === 'info' ? 'bg-blue-500/10 text-blue-500' :
+              badge.variant === 'purple' ? 'bg-purple-500/10 text-purple-500' :
+              badge.variant === 'orange' ? 'bg-orange-500/10 text-orange-500' :
+              badge.variant === 'indigo' ? 'bg-indigo-500/10 text-indigo-500' :
+              'bg-muted text-muted-foreground'
             }`}>
               {badge.label}
             </span>
@@ -138,46 +138,46 @@ export default function JournalDetailContent() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Business Date</p>
-            <p className="mt-1 text-sm text-gray-900">{entry.businessDate}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Business Date</p>
+            <p className="mt-1 text-sm text-foreground">{entry.businessDate}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Posting Period</p>
-            <p className="mt-1 text-sm text-gray-900">{entry.postingPeriod}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Posting Period</p>
+            <p className="mt-1 text-sm text-foreground">{entry.postingPeriod}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Currency</p>
-            <p className="mt-1 text-sm text-gray-900">{entry.currency}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Currency</p>
+            <p className="mt-1 text-sm text-foreground">{entry.currency}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Created</p>
-            <p className="mt-1 text-sm text-gray-900">{new Date(entry.createdAt).toLocaleDateString()}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Created</p>
+            <p className="mt-1 text-sm text-foreground">{new Date(entry.createdAt).toLocaleDateString()}</p>
           </div>
         </div>
 
         {entry.memo && (
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Memo</p>
-            <p className="mt-1 text-sm text-gray-900">{entry.memo}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Memo</p>
+            <p className="mt-1 text-sm text-foreground">{entry.memo}</p>
           </div>
         )}
 
         {entry.postedAt && (
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Posted At</p>
-            <p className="mt-1 text-sm text-gray-900">{new Date(entry.postedAt).toLocaleString()}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Posted At</p>
+            <p className="mt-1 text-sm text-foreground">{new Date(entry.postedAt).toLocaleString()}</p>
           </div>
         )}
 
         {entry.voidedAt && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 space-y-1">
-            <p className="text-sm font-medium text-red-700">Voided</p>
-            <p className="text-sm text-red-600">{entry.voidReason}</p>
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 space-y-1">
+            <p className="text-sm font-medium text-red-500">Voided</p>
+            <p className="text-sm text-red-500">{entry.voidReason}</p>
             <p className="text-xs text-red-500">Voided at: {new Date(entry.voidedAt).toLocaleString()}</p>
             {entry.reversalOfId && (
               <p className="text-xs text-red-500">
                 Reversal of{' '}
-                <Link href={`/accounting/journals/${entry.reversalOfId}`} className="underline hover:text-red-700">
+                <Link href={`/accounting/journals/${entry.reversalOfId}`} className="underline hover:text-red-500">
                   original entry
                 </Link>
               </p>
@@ -187,15 +187,15 @@ export default function JournalDetailContent() {
 
         {entry.sourceReferenceId && (
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Source Reference</p>
-            <p className="mt-1 text-sm text-gray-500">{entry.sourceReferenceId}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Source Reference</p>
+            <p className="mt-1 text-sm text-muted-foreground">{entry.sourceReferenceId}</p>
           </div>
         )}
       </div>
 
       {/* Lines */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Journal Lines ({entry.lines.length})
         </h2>
         <JournalLinesTable lines={entry.lines} />
@@ -204,7 +204,7 @@ export default function JournalDetailContent() {
       {/* Back link */}
       <Link
         href="/accounting/journals"
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Journal Entries
@@ -214,13 +214,13 @@ export default function JournalDetailContent() {
       {showVoidDialog && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowVoidDialog(false)} />
-          <div className="relative z-10 w-full max-w-md rounded-lg border border-gray-200 bg-surface p-6 shadow-xl space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Void Journal Entry</h3>
-            <p className="text-sm text-gray-500">
+          <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Void Journal Entry</h3>
+            <p className="text-sm text-muted-foreground">
               This will create a reversal entry. This action cannot be undone.
             </p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Void Reason <span className="text-red-500">*</span>
               </label>
               <textarea
@@ -228,14 +228,14 @@ export default function JournalDetailContent() {
                 onChange={(e) => setVoidReason(e.target.value)}
                 rows={3}
                 placeholder="Enter the reason for voiding this entry..."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div className="flex justify-end gap-2">
               <button
                 type="button"
                 onClick={() => { setShowVoidDialog(false); setVoidReason(''); }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Cancel
               </button>

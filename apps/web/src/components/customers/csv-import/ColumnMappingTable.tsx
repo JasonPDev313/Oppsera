@@ -75,10 +75,10 @@ export function ColumnMappingTable({
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <h3 className="text-lg font-semibold text-foreground">
           Review Column Mappings
         </h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           {mappedCount} of {mappings.length} columns mapped ({skippedCount} skipped).
           Adjust any mappings that don&apos;t look right.
         </p>
@@ -90,7 +90,7 @@ export function ColumnMappingTable({
           {transforms.map((t) => (
             <span
               key={t.sourceIndex}
-              className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"
+              className="inline-flex items-center rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-500"
             >
               &quot;{t.sourceHeader}&quot; → {t.description}
             </span>
@@ -99,25 +99,25 @@ export function ColumnMappingTable({
       )}
 
       {/* Mapping table */}
-      <div className="max-h-[400px] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-700">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-          <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+      <div className="max-h-[400px] overflow-y-auto rounded-lg border border-border">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="sticky top-0 bg-muted">
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-muted-foreground">
                 CSV Column
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-muted-foreground">
                 Sample Data
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-muted-foreground">
                 Confidence
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-gray-500 dark:text-gray-400">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase text-muted-foreground">
                 OppsEra Field
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 bg-surface dark:divide-gray-700">
+          <tbody className="divide-y divide-border bg-surface">
             {mappings.map((mapping) => {
               const samples = sampleRows
                 .map((row) => row[mapping.sourceIndex] ?? '')
@@ -125,11 +125,11 @@ export function ColumnMappingTable({
                 .slice(0, 3);
 
               return (
-                <tr key={mapping.sourceIndex} className={!mapping.targetField ? 'bg-gray-50/50 dark:bg-gray-800/50' : ''}>
-                  <td className="px-4 py-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+                <tr key={mapping.sourceIndex} className={!mapping.targetField ? 'bg-muted/50' : ''}>
+                  <td className="px-4 py-2 text-sm font-medium text-foreground">
                     {mapping.sourceHeader}
                   </td>
-                  <td className="max-w-[200px] truncate px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
+                  <td className="max-w-[200px] truncate px-4 py-2 text-xs text-muted-foreground">
                     {samples.join(', ') || '—'}
                   </td>
                   <td className="px-4 py-2">
@@ -141,7 +141,7 @@ export function ColumnMappingTable({
                   </td>
                   <td className="px-4 py-2">
                     <select
-                      className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-sm dark:border-gray-600"
+                      className="w-full rounded border border-input bg-surface px-2 py-1 text-sm"
                       value={mapping.targetField ?? ''}
                       onChange={(e) => onUpdateMapping(mapping.sourceIndex, e.target.value || null)}
                     >
@@ -171,7 +171,7 @@ export function ColumnMappingTable({
       <div className="flex justify-between">
         <button
           onClick={onBack}
-          className="rounded-md border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="rounded-md border border-input bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
         >
           Back
         </button>

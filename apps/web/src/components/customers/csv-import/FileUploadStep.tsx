@@ -41,10 +41,10 @@ export function FileUploadStep({ onFileSelected, error }: FileUploadStepProps) {
   return (
     <div className="space-y-4">
       <div className="text-center">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <h3 className="text-lg font-semibold text-foreground">
           Upload Customer Data
         </h3>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Import customers from a CSV or TSV file. We&apos;ll analyze your data and suggest column mappings.
         </p>
       </div>
@@ -52,19 +52,19 @@ export function FileUploadStep({ onFileSelected, error }: FileUploadStepProps) {
       <div
         className={`relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-12 transition-colors ${
           isDragOver
-            ? 'border-indigo-400 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-950/20'
-            : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
+            ? 'border-indigo-500 bg-indigo-500/10'
+            : 'border-border hover:border-muted-foreground'
         }`}
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
         onClick={() => inputRef.current?.click()}
       >
-        <Upload className="h-10 w-10 text-gray-400" />
-        <p className="mt-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-          Drop your file here, or <span className="text-indigo-600 dark:text-indigo-400">browse</span>
+        <Upload className="h-10 w-10 text-muted-foreground" />
+        <p className="mt-3 text-sm font-medium text-foreground">
+          Drop your file here, or <span className="text-indigo-500">browse</span>
         </p>
-        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-xs text-muted-foreground">
           CSV or TSV — up to 10MB, max 10,000 rows
         </p>
         <input
@@ -77,8 +77,8 @@ export function FileUploadStep({ onFileSelected, error }: FileUploadStepProps) {
       </div>
 
       {error && (
-        <div className="rounded-md bg-red-50 p-3 dark:bg-red-900/20">
-          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+        <div className="rounded-md bg-red-500/10 p-3">
+          <p className="text-sm text-red-500">{error}</p>
         </div>
       )}
     </div>

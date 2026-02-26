@@ -116,10 +116,10 @@ function CustomChartTooltip({
   if (!active || !payload?.length) return null;
   const row = payload[0]!.payload;
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-3 text-sm shadow-lg">
+    <div className="rounded-lg border border-border bg-surface p-3 text-sm shadow-lg">
       {columns.map((col) => (
-        <p key={col} className="text-gray-600">
-          <span className="font-medium text-gray-900">
+        <p key={col} className="text-muted-foreground">
+          <span className="font-medium text-foreground">
             {getFieldLabel(col, catalog)}:
           </span>{' '}
           {formatCellValue(row[col])}
@@ -215,10 +215,10 @@ export function ReportPreview({
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-[300px] animate-pulse rounded-xl bg-gray-200" />
+        <div className="h-[300px] animate-pulse rounded-xl bg-muted" />
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-10 animate-pulse rounded bg-gray-200" />
+            <div key={i} className="h-10 animate-pulse rounded bg-muted" />
           ))}
         </div>
       </div>
@@ -228,11 +228,11 @@ export function ReportPreview({
   // Error state
   if (error) {
     return (
-      <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+      <div className="flex items-start gap-3 rounded-lg border border-red-500/30 bg-red-500/10 p-4">
         <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
         <div>
-          <p className="text-sm font-medium text-red-800">Preview Error</p>
-          <p className="mt-1 text-sm text-red-600">{error}</p>
+          <p className="text-sm font-medium text-red-500">Preview Error</p>
+          <p className="mt-1 text-sm text-red-400">{error}</p>
         </div>
       </div>
     );
@@ -241,9 +241,9 @@ export function ReportPreview({
   // Empty / not yet run
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-        <FileQuestion className="mb-3 h-10 w-10 text-gray-300" />
-        <p className="text-sm text-gray-500">Select fields and a chart type to preview</p>
+      <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+        <FileQuestion className="mb-3 h-10 w-10 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground">Select fields and a chart type to preview</p>
       </div>
     );
   }
@@ -274,7 +274,7 @@ export function ReportPreview({
         <button
           type="button"
           onClick={handleExportCsv}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           <Download className="h-4 w-4" />
           Export CSV
@@ -312,8 +312,8 @@ function MetricDisplay({
 
   return (
     <div className="flex flex-col items-center justify-center rounded-xl bg-surface p-8 shadow-sm ring-1 ring-gray-950/5">
-      <p className="text-sm font-medium text-gray-500">{label}</p>
-      <p className="mt-2 text-5xl font-bold text-gray-900">
+      <p className="text-sm font-medium text-muted-foreground">{label}</p>
+      <p className="mt-2 text-5xl font-bold text-foreground">
         {typeof value === 'number' ? value.toLocaleString() : String(value ?? '-')}
       </p>
     </div>
@@ -347,7 +347,7 @@ function LineChartDisplay({
 
   return (
     <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
-      <h3 className="mb-4 text-sm font-medium text-gray-500">
+      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
         {yLabel} by {xLabel}
       </h3>
       <ResponsiveContainer width="100%" height={300}>
@@ -409,7 +409,7 @@ function BarChartDisplay({
 
   return (
     <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
-      <h3 className="mb-4 text-sm font-medium text-gray-500">
+      <h3 className="mb-4 text-sm font-medium text-muted-foreground">
         {metLabel} by {dimLabel}
       </h3>
       <ResponsiveContainer width="100%" height={300}>
@@ -467,13 +467,13 @@ function SortableColumnHeader({
     <th
       ref={setNodeRef}
       style={style}
-      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500"
+      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground"
     >
       <div className="flex items-center gap-1">
         {canDrag && (
           <button
             type="button"
-            className="cursor-grab touch-none text-gray-400 hover:text-gray-600 active:cursor-grabbing"
+            className="cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
             {...attributes}
             {...listeners}
           >
@@ -526,7 +526,7 @@ function PreviewDataTable({
   );
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface">
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
         <DndContext
@@ -536,7 +536,7 @@ function PreviewDataTable({
         >
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
+              <tr className="border-b border-border bg-muted">
                 <SortableContext
                   items={columns}
                   strategy={horizontalListSortingStrategy}
@@ -554,9 +554,9 @@ function PreviewDataTable({
             </thead>
             <tbody>
               {rows.map((row, idx) => (
-                <tr key={idx} className="border-b border-gray-100 last:border-0">
+                <tr key={idx} className="border-b border-border last:border-0">
                   {columns.map((col) => (
-                    <td key={col} className="px-4 py-3 text-sm text-gray-900">
+                    <td key={col} className="px-4 py-3 text-sm text-foreground">
                       {formatCellValue(row[col])}
                     </td>
                   ))}
@@ -565,11 +565,11 @@ function PreviewDataTable({
             </tbody>
             {hasAnyTotal && (
               <tfoot>
-                <tr className="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+                <tr className="border-t-2 border-border bg-muted font-semibold">
                   {columns.map((col, i) => {
                     const total = columnTotals[col];
                     return (
-                      <td key={col} className="px-4 py-3 text-sm text-gray-900">
+                      <td key={col} className="px-4 py-3 text-sm text-foreground">
                         {total !== null && total !== undefined
                           ? total.toLocaleString()
                           : i === 0
@@ -588,13 +588,13 @@ function PreviewDataTable({
       {/* Mobile card layout */}
       <div className="space-y-3 p-4 md:hidden">
         {rows.map((row, idx) => (
-          <div key={idx} className="rounded-lg border border-gray-100 p-4">
+          <div key={idx} className="rounded-lg border border-border p-4">
             {columns.map((col) => (
               <div key={col} className="flex items-baseline justify-between py-1">
-                <span className="text-xs font-medium text-gray-500">
+                <span className="text-xs font-medium text-muted-foreground">
                   {getFieldLabel(col, fieldCatalog)}
                 </span>
-                <span className="text-sm text-gray-900">
+                <span className="text-sm text-foreground">
                   {formatCellValue(row[col])}
                 </span>
               </div>
@@ -602,16 +602,16 @@ function PreviewDataTable({
           </div>
         ))}
         {hasAnyTotal && (
-          <div className="rounded-lg border-2 border-gray-300 bg-gray-50 p-4 font-semibold">
+          <div className="rounded-lg border-2 border-border bg-muted p-4 font-semibold">
             {columns.map((col, i) => {
               const total = columnTotals[col];
               if (total === null && i !== 0) return null;
               return (
                 <div key={col} className="flex items-baseline justify-between py-1">
-                  <span className="text-xs font-medium text-gray-500">
+                  <span className="text-xs font-medium text-muted-foreground">
                     {i === 0 && total === null ? 'Total' : getFieldLabel(col, fieldCatalog)}
                   </span>
-                  <span className="text-sm text-gray-900">
+                  <span className="text-sm text-foreground">
                     {total !== null && total !== undefined ? total.toLocaleString() : 'Total'}
                   </span>
                 </div>
@@ -623,7 +623,7 @@ function PreviewDataTable({
 
       {rows.length === 0 && (
         <div className="flex items-center justify-center py-12">
-          <p className="text-sm text-gray-500">No results</p>
+          <p className="text-sm text-muted-foreground">No results</p>
         </div>
       )}
     </div>

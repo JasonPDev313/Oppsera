@@ -26,7 +26,7 @@ export const PATCH = withMiddleware(
     const result = await updateDeviceAssignment(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );
 
 /**
@@ -39,5 +39,5 @@ export const DELETE = withMiddleware(
     const result = await removeDeviceAssignment(ctx, { id });
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );

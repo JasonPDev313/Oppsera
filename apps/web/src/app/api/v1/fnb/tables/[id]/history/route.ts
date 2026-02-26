@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listTableStatusHistory } from '@oppsera/module-fnb';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/fnb/tables/:id/history — table status history
 export const GET = withMiddleware(
@@ -16,7 +17,7 @@ export const GET = withMiddleware(
       startDate: url.searchParams.get('startDate') ?? undefined,
       endDate: url.searchParams.get('endDate') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : 50,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({

@@ -64,9 +64,9 @@ export function TransferTabPanel({
       <div className="shrink-0 border-b border-gray-100 px-4 py-3">
         <div className="flex items-center gap-2">
           <ArrowRightLeft className="h-4 w-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Transfer Tab</h3>
+          <h3 className="text-sm font-semibold text-foreground">Transfer Tab</h3>
           {filteredTabs.length > 0 && (
-            <span className="ml-auto rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+            <span className="ml-auto rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-500">
               {filteredTabs.length}
             </span>
           )}
@@ -122,7 +122,7 @@ export function TransferTabPanel({
             {filteredTabs.map((tab) => (
               <div
                 key={tab.id}
-                className="rounded-lg border border-gray-200 px-4 py-3 transition-colors hover:border-amber-200 hover:bg-amber-50/50"
+                className="rounded-lg border border-border px-4 py-3 transition-colors hover:border-amber-500/30 hover:bg-amber-500/10"
               >
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">

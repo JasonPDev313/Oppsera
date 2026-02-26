@@ -182,7 +182,7 @@ function CustomerProfileHeader({
               </h1>
               {header.memberNumber && (
                 <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
-                  <Hash className="h-3 w-3" />
+                  <Hash className="h-3 w-3" aria-hidden="true" />
                   {header.memberNumber}
                 </span>
               )}
@@ -193,14 +193,14 @@ function CustomerProfileHeader({
               </Badge>
               {header.activeMembership && (
                 <Badge variant="indigo">
-                  <Crown className="mr-1 h-3 w-3" />
+                  <Crown className="mr-1 h-3 w-3" aria-hidden="true" />
                   {header.activeMembership.planName}
                 </Badge>
               )}
               {header.taxExempt && <Badge variant="purple">Tax Exempt</Badge>}
               {header.loyaltyTier && (
                 <Badge variant="warning">
-                  <Star className="mr-1 h-3 w-3" />
+                  <Star className="mr-1 h-3 w-3" aria-hidden="true" />
                   {header.loyaltyTier}
                 </Badge>
               )}
@@ -217,7 +217,7 @@ function CustomerProfileHeader({
                   href={`mailto:${header.primaryEmail}`}
                   className="flex items-center gap-1 hover:text-indigo-600"
                 >
-                  <Mail className="h-3.5 w-3.5 text-gray-400" />
+                  <Mail className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
                   <span className="max-w-50 truncate">
                     {header.primaryEmail}
                   </span>
@@ -228,7 +228,7 @@ function CustomerProfileHeader({
                   href={`tel:${header.primaryPhone}`}
                   className="flex items-center gap-1 hover:text-indigo-600"
                 >
-                  <Phone className="h-3.5 w-3.5 text-gray-400" />
+                  <Phone className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
                   {header.primaryPhoneDisplay || formatPhone(header.primaryPhone)}
                 </a>
               )}
@@ -270,7 +270,7 @@ function CustomerProfileHeader({
                   key={flag.id}
                   className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${FLAG_COLORS[flag.severity] || FLAG_COLORS.low}`}
                 >
-                  <Flag className="h-3 w-3" />
+                  <Flag className="h-3 w-3" aria-hidden="true" />
                   {flag.flagType.replace(/_/g, ' ')}
                 </span>
               ))}
@@ -314,7 +314,7 @@ function QuickActionsBar({ customerId }: { customerId: string }) {
           onClick={action.onClick}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
         >
-          <action.icon className="h-4 w-4" />
+          <action.icon className="h-4 w-4" aria-hidden="true" />
           {action.label}
         </button>
       ))}
@@ -388,7 +388,7 @@ export default function CustomerDetailContent() {
           onClick={() => router.push('/customers')}
           className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Customers
         </button>
       </div>
@@ -415,7 +415,7 @@ export default function CustomerDetailContent() {
                     : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" aria-hidden="true" />
                 {tab.label}
               </button>
             );

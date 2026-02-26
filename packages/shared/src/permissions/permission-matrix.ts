@@ -138,6 +138,10 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'pos_fnb.gl.post', module: 'pos_fnb', description: 'Post F&B batches to GL', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
   { key: 'pos_fnb.gl.reverse', module: 'pos_fnb', description: 'Reverse F&B GL postings', defaultRoles: ['owner', 'manager'], requiresManagerPin: true, requiresAudit: true },
   { key: 'pos_fnb.gl.mappings', module: 'pos_fnb', description: 'Configure F&B GL account mappings', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'pos_fnb.host.view', module: 'pos_fnb', description: 'View host stand, reservations, and waitlist', defaultRoles: ['owner', 'manager', 'supervisor', 'cashier', 'server', 'staff'], requiresManagerPin: false, requiresAudit: false },
+  { key: 'pos_fnb.host.manage', module: 'pos_fnb', description: 'Create/edit reservations, manage waitlist entries', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'pos_fnb.host.notifications', module: 'pos_fnb', description: 'Send SMS notifications to guests', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
+  { key: 'pos_fnb.host.analytics', module: 'pos_fnb', description: 'View host analytics and reports', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
 
   // ── Golf ───────────────────────────────────────────────────
   { key: 'golf.analytics.view', module: 'golf', description: 'View golf analytics and reports', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },

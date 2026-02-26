@@ -8,6 +8,7 @@ import {
   createPrintJobSchema,
   listPrintJobsSchema,
 } from '@oppsera/module-fnb';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/fnb/print/jobs
 export const GET = withMiddleware(
@@ -20,7 +21,7 @@ export const GET = withMiddleware(
       status: url.searchParams.get('status') || undefined,
       printJobType: url.searchParams.get('printJobType') || undefined,
       cursor: url.searchParams.get('cursor') || undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     if (!parsed.success) {
       throw new ValidationError('Validation failed', parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })));

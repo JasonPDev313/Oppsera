@@ -57,11 +57,11 @@ export function SetupWizard({ onClose }: { onClose?: () => void }) {
     <div className="space-y-6">
       {/* Progress Bar */}
       <div>
-        <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
+        <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
           <span>Setup Progress</span>
           <span className="font-semibold">{setupStatus.overallPercentage}%</span>
         </div>
-        <div className="h-2 rounded-full bg-gray-100">
+        <div className="h-2 rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-indigo-500 transition-all"
             style={{ width: `${setupStatus.overallPercentage}%` }}
@@ -80,10 +80,10 @@ export function SetupWizard({ onClose }: { onClose?: () => void }) {
               onClick={() => setCurrentStep(i)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
                 isActive
-                  ? 'bg-indigo-100 text-indigo-700'
+                  ? 'bg-indigo-500/20 text-indigo-500'
                   : step.isComplete
-                    ? 'bg-green-50 text-green-700'
-                    : 'bg-gray-100 text-gray-500'
+                    ? 'bg-green-500/10 text-green-500'
+                    : 'bg-muted text-muted-foreground'
               }`}
             >
               <Icon className="h-3.5 w-3.5" />
@@ -96,29 +96,29 @@ export function SetupWizard({ onClose }: { onClose?: () => void }) {
 
       {/* Current Step Detail */}
       {current && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-6">
+        <div className="rounded-lg border border-border bg-surface p-6">
           <div className="flex items-start gap-4">
             {(() => {
               const StepIcon = STEP_ICONS[current.key] ?? ClipboardCheck;
               return (
                 <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${
-                  current.isComplete ? 'bg-green-100' : 'bg-indigo-100'
+                  current.isComplete ? 'bg-green-500/20' : 'bg-indigo-500/20'
                 }`}>
-                  <StepIcon className={`h-5 w-5 ${current.isComplete ? 'text-green-600' : 'text-indigo-600'}`} />
+                  <StepIcon className={`h-5 w-5 ${current.isComplete ? 'text-green-500' : 'text-indigo-500'}`} />
                 </div>
               );
             })()}
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-foreground">
                 Step {currentStep + 1}: {current.label}
               </h3>
-              <p className="mt-1 text-sm text-gray-600">
+              <p className="mt-1 text-sm text-muted-foreground">
                 {STEP_DESCRIPTIONS[current.key]}
               </p>
 
               <div className="mt-4 flex items-center gap-2">
                 {current.isComplete ? (
-                  <span className="flex items-center gap-1 text-sm font-medium text-green-600">
+                  <span className="flex items-center gap-1 text-sm font-medium text-green-500">
                     <CheckCircle className="h-4 w-4" /> Complete
                   </span>
                 ) : (
@@ -140,7 +140,7 @@ export function SetupWizard({ onClose }: { onClose?: () => void }) {
         <button
           onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
           disabled={currentStep === 0}
-          className="flex items-center gap-1 text-sm font-medium text-gray-600 hover:text-gray-800 disabled:opacity-30"
+          className="flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-30"
         >
           <ArrowLeft className="h-4 w-4" /> Previous
         </button>
@@ -154,14 +154,14 @@ export function SetupWizard({ onClose }: { onClose?: () => void }) {
               Setup Complete — Close Wizard
             </button>
           ) : (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               Complete all steps to finish setup
             </span>
           )
         ) : (
           <button
             onClick={() => setCurrentStep(Math.min(steps.length - 1, currentStep + 1))}
-            className="flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            className="flex items-center gap-1 text-sm font-medium text-indigo-500 hover:text-indigo-500"
           >
             Next <ArrowRight className="h-4 w-4" />
           </button>

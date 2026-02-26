@@ -76,16 +76,19 @@ export function ActionMenu({ items }: ActionMenuProps) {
       <button
         type="button"
         onClick={handleToggle}
-        className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+        className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         aria-label="Actions"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
       >
-        <MoreVertical className="h-4 w-4" />
+        <MoreVertical className="h-4 w-4" aria-hidden="true" />
       </button>
 
       {isOpen && (
         <div
           ref={menuRef}
-          className={`absolute right-0 z-30 w-56 rounded-lg border border-gray-200 bg-surface py-1 shadow-xl ${
+          role="menu"
+          className={`absolute right-0 z-30 w-56 rounded-lg border border-border bg-surface py-1 shadow-xl ${
             flipUp ? 'bottom-full mb-1' : 'top-full mt-1'
           }`}
         >
@@ -94,22 +97,23 @@ export function ActionMenu({ items }: ActionMenuProps) {
             return (
               <div key={item.key}>
                 {item.dividerBefore && (
-                  <div className="my-1 border-t border-gray-100" />
+                  <div role="separator" className="my-1 border-t border-border" />
                 )}
                 <button
                   type="button"
+                  role="menuitem"
                   onClick={() => handleItemClick(item)}
                   disabled={item.disabled}
                   title={item.disabled ? item.disabledReason : undefined}
                   className={`flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm transition-colors ${
                     item.disabled
-                      ? 'cursor-not-allowed text-gray-300'
+                      ? 'cursor-not-allowed text-muted-foreground/50'
                       : item.destructive
-                        ? 'text-red-600 hover:bg-red-50'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        ? 'text-red-500 hover:bg-red-500/10'
+                        : 'text-foreground hover:bg-accent'
                   }`}
                 >
-                  <Icon className="h-4 w-4 shrink-0" />
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>{item.label}</span>
                 </button>
               </div>

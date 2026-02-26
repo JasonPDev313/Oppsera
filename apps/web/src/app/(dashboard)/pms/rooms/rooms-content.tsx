@@ -306,14 +306,14 @@ export default function RoomsContent() {
         header: 'Room Number',
         width: '120px',
         render: (row: RoomRow) => (
-          <span className="font-semibold text-gray-900">{(row as Room).roomNumber}</span>
+          <span className="font-semibold text-foreground">{(row as Room).roomNumber}</span>
         ),
       },
       {
         key: 'roomTypeName',
         header: 'Room Type',
         render: (row: RoomRow) => (
-          <span className="text-sm text-gray-700">{(row as Room).roomTypeName}</span>
+          <span className="text-sm text-foreground">{(row as Room).roomTypeName}</span>
         ),
       },
       {
@@ -321,7 +321,7 @@ export default function RoomsContent() {
         header: 'Floor',
         width: '80px',
         render: (row: RoomRow) => (
-          <span className="text-sm text-gray-700">{(row as Room).floor ?? '\u2014'}</span>
+          <span className="text-sm text-foreground">{(row as Room).floor ?? '\u2014'}</span>
         ),
       },
       {
@@ -340,9 +340,9 @@ export default function RoomsContent() {
         render: (row: RoomRow) => {
           const r = row as Room;
           if (!r.isOutOfOrder || !r.outOfOrderReason) {
-            return <span className="text-sm text-gray-300">{'\u2014'}</span>;
+            return <span className="text-sm text-muted-foreground">{'\u2014'}</span>;
           }
-          return <span className="text-sm text-red-600">{r.outOfOrderReason}</span>;
+          return <span className="text-sm text-red-500">{r.outOfOrderReason}</span>;
         },
       },
       {
@@ -356,7 +356,7 @@ export default function RoomsContent() {
               e.stopPropagation();
               openEditDialog(row as Room);
             }}
-            className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-gray-200/50 hover:text-foreground"
             title="Edit room"
           >
             <Pencil className="h-4 w-4" />
@@ -372,10 +372,10 @@ export default function RoomsContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <DoorOpen className="h-5 w-5" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Rooms</h1>
+          <h1 className="text-2xl font-bold text-foreground">Rooms</h1>
         </div>
         <div className="flex items-center gap-3">
           {properties.length > 1 && (
@@ -411,7 +411,7 @@ export default function RoomsContent() {
           <button
             type="button"
             onClick={() => setStatusFilter('')}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             Clear filter
           </button>
@@ -448,20 +448,20 @@ export default function RoomsContent() {
               onClick={closeDialog}
             />
             {/* Panel */}
-            <div className="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+            <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Add Room</h2>
+                <h2 className="text-lg font-semibold text-foreground">Add Room</h2>
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {formError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {formError}
                 </div>
               )}
@@ -469,7 +469,7 @@ export default function RoomsContent() {
               <div className="space-y-4">
                 {/* Room Number */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Room Number <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -478,23 +478,23 @@ export default function RoomsContent() {
                     onChange={(e) => setFormRoomNumber(e.target.value)}
                     placeholder="e.g. 101"
                     maxLength={20}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     autoFocus
                   />
                 </div>
 
                 {/* Room Type */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Room Type <span className="text-red-500">*</span>
                   </label>
                   {roomTypesLoading ? (
-                    <div className="flex items-center gap-2 py-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Loading room types...
                     </div>
                   ) : roomTypes.length === 0 ? (
-                    <p className="py-2 text-sm text-gray-500">
+                    <p className="py-2 text-sm text-muted-foreground">
                       No room types found. Create a room type first.
                     </p>
                   ) : (
@@ -512,7 +512,7 @@ export default function RoomsContent() {
 
                 {/* Floor */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Floor
                   </label>
                   <input
@@ -521,7 +521,7 @@ export default function RoomsContent() {
                     onChange={(e) => setFormFloor(e.target.value)}
                     placeholder="e.g. 1st, Ground"
                     maxLength={20}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -531,7 +531,7 @@ export default function RoomsContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
                 >
                   Cancel
                 </button>
@@ -560,20 +560,20 @@ export default function RoomsContent() {
               onClick={closeEditDialog}
             />
             {/* Panel */}
-            <div className="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+            <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Edit Room</h2>
+                <h2 className="text-lg font-semibold text-foreground">Edit Room</h2>
                 <button
                   type="button"
                   onClick={closeEditDialog}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {editError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {editError}
                 </div>
               )}
@@ -581,7 +581,7 @@ export default function RoomsContent() {
               <div className="space-y-4">
                 {/* Room Number */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Room Number <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -590,23 +590,23 @@ export default function RoomsContent() {
                     onChange={(e) => setEditRoomNumber(e.target.value)}
                     placeholder="e.g. 101"
                     maxLength={20}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     autoFocus
                   />
                 </div>
 
                 {/* Room Type */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Room Type <span className="text-red-500">*</span>
                   </label>
                   {editRoomTypesLoading ? (
-                    <div className="flex items-center gap-2 py-2 text-sm text-gray-500">
+                    <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Loading room types...
                     </div>
                   ) : editRoomTypes.length === 0 ? (
-                    <p className="py-2 text-sm text-gray-500">
+                    <p className="py-2 text-sm text-muted-foreground">
                       No room types found.
                     </p>
                   ) : (
@@ -624,7 +624,7 @@ export default function RoomsContent() {
 
                 {/* Floor */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Floor
                   </label>
                   <input
@@ -633,7 +633,7 @@ export default function RoomsContent() {
                     onChange={(e) => setEditFloor(e.target.value)}
                     placeholder="e.g. 1st, Ground"
                     maxLength={20}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -643,7 +643,7 @@ export default function RoomsContent() {
                 <button
                   type="button"
                   onClick={closeEditDialog}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
                 >
                   Cancel
                 </button>

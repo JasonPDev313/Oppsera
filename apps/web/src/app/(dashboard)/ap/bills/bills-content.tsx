@@ -36,13 +36,13 @@ export default function BillsContent() {
       {summary && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[
-            { label: 'Total Outstanding', value: formatAccountingMoney(summary.totalOutstanding), color: 'text-gray-900' },
-            { label: 'Overdue', value: formatAccountingMoney(summary.overdueAmount), color: summary.overdueAmount > 0 ? 'text-red-600' : 'text-gray-900' },
-            { label: 'Drafts', value: String(summary.draftCount), color: 'text-gray-900' },
-            { label: 'Due This Week', value: String(summary.dueThisWeek), color: 'text-gray-900' },
+            { label: 'Total Outstanding', value: formatAccountingMoney(summary.totalOutstanding), color: 'text-foreground' },
+            { label: 'Overdue', value: formatAccountingMoney(summary.overdueAmount), color: summary.overdueAmount > 0 ? 'text-red-500' : 'text-foreground' },
+            { label: 'Drafts', value: String(summary.draftCount), color: 'text-foreground' },
+            { label: 'Due This Week', value: String(summary.dueThisWeek), color: 'text-foreground' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="rounded-lg border border-gray-200 bg-surface p-4">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
+            <div key={label} className="rounded-lg border border-border bg-surface p-4">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
               <p className={`mt-1 text-xl font-bold tabular-nums ${color}`}>{value}</p>
             </div>
           ))}
@@ -52,19 +52,19 @@ export default function BillsContent() {
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search bills..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-border py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
         <select
           value={filters.status ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value || undefined }))}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         >
           <option value="">All Statuses</option>
           <option value="draft">Draft</option>
@@ -73,12 +73,12 @@ export default function BillsContent() {
           <option value="paid">Paid</option>
           <option value="voided">Voided</option>
         </select>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"
             checked={filters.overdueOnly ?? false}
             onChange={(e) => setFilters((f) => ({ ...f, overdueOnly: e.target.checked || undefined }))}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
           />
           Overdue only
         </label>
@@ -88,7 +88,7 @@ export default function BillsContent() {
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
@@ -107,39 +107,39 @@ export default function BillsContent() {
       {!isLoading && bills.length > 0 && (
         <>
           {/* Desktop */}
-          <div className="hidden md:block overflow-hidden rounded-lg border border-gray-200 bg-surface">
+          <div className="hidden md:block overflow-hidden rounded-lg border border-border bg-surface">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Bill #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Vendor</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Bill Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Due Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Balance</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Bill #</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Vendor</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Bill Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Due Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Total</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Balance</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {bills.map((bill) => {
                   const isOverdue = bill.dueDate < today! && ['posted', 'partial'].includes(bill.status);
                   return (
-                    <tr key={bill.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+                    <tr key={bill.id} className="border-b border-border last:border-0 hover:bg-muted/50">
                       <td className="px-4 py-3 text-sm">
                         <Link href={`/ap/bills/${bill.id}`} className="font-medium text-indigo-600 hover:text-indigo-800">
                           {bill.billNumber}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{bill.vendorName ?? '—'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{bill.billDate}</td>
-                      <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+                      <td className="px-4 py-3 text-sm text-foreground">{bill.vendorName ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{bill.billDate}</td>
+                      <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-red-500 font-medium' : 'text-foreground'}`}>
                         {bill.dueDate}
                         {isOverdue && <AlertTriangle className="ml-1 inline h-3.5 w-3.5 text-red-500" />}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-900">
+                      <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">
                         {formatAccountingMoney(bill.totalAmount)}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-gray-900">
+                      <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-foreground">
                         {formatAccountingMoney(bill.balanceDue)}
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -158,19 +158,19 @@ export default function BillsContent() {
               <Link
                 key={bill.id}
                 href={`/ap/bills/${bill.id}`}
-                className="block rounded-lg border border-gray-200 bg-surface p-4 space-y-2 hover:border-gray-300"
+                className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-border"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-indigo-600">{bill.billNumber}</span>
                   <StatusBadge status={bill.status} />
                 </div>
-                <p className="text-sm text-gray-900">{bill.vendorName}</p>
-                <div className="flex justify-between text-sm text-gray-500">
+                <p className="text-sm text-foreground">{bill.vendorName}</p>
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{bill.billDate}</span>
                   <span>Due: {bill.dueDate}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Total: {formatAccountingMoney(bill.totalAmount)}</span>
+                  <span className="text-muted-foreground">Total: {formatAccountingMoney(bill.totalAmount)}</span>
                   <span className="font-medium">Balance: {formatAccountingMoney(bill.balanceDue)}</span>
                 </div>
               </Link>

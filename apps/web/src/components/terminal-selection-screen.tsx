@@ -8,7 +8,7 @@ import { useRoleSelection } from '@/hooks/use-role-selection';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 
 const selectClass =
-  'w-full rounded-lg border border-gray-300 bg-surface px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50';
+  'w-full rounded-lg border border-input bg-surface px-3 py-2.5 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50';
 
 export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
   const roleSelection = useRoleSelection();
@@ -56,8 +56,8 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
   if (roleSelection.isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-indigo-600" />
       </div>
     );
   }
@@ -65,14 +65,14 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
   // ── Error: Role fetch failed ─────────────────────────────────────
   if (roleSelection.error && phase === 'role') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-        <div className="w-full max-w-md rounded-xl border border-gray-200 bg-surface p-8 shadow-lg">
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 shadow-lg">
           <div className="mb-6 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-100">
-              <Shield className="h-6 w-6 text-red-600" />
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-red-500/10">
+              <Shield className="h-6 w-6 text-red-500" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Unable to Load Roles</h1>
-            <p className="mt-2 text-sm text-gray-500">{roleSelection.error}</p>
+            <h1 className="text-xl font-bold text-foreground">Unable to Load Roles</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{roleSelection.error}</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -85,7 +85,7 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
             <button
               type="button"
               onClick={() => setPhase('terminal')}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+              className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
             >
               Skip
             </button>
@@ -98,15 +98,15 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
   // ── Phase 1: Role Selection ──────────────────────────────────────
   if (showRolePhase) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-        <div className="w-full max-w-md rounded-xl border border-gray-200 bg-surface p-8 shadow-lg">
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 shadow-lg">
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600">
               <Shield className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-gray-900">Select Your Role</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <h1 className="text-xl font-bold text-foreground">Select Your Role</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               Choose the role you want to work under for this session
             </p>
           </div>
@@ -120,16 +120,16 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
                 onClick={() => roleSelection.setSelectedRoleId(role.roleId)}
                 className={`w-full rounded-lg border-2 px-4 py-3 text-left transition-all ${
                   roleSelection.selectedRoleId === role.roleId
-                    ? 'border-indigo-600 bg-indigo-50/50 ring-1 ring-indigo-600'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/50'
+                    ? 'border-indigo-600 bg-indigo-500/10 ring-1 ring-indigo-600'
+                    : 'border-border hover:border-gray-300 hover:bg-accent'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className="text-sm font-semibold text-foreground">
                       {role.roleName}
                     </div>
-                    <div className="mt-0.5 text-xs text-gray-500">
+                    <div className="mt-0.5 text-xs text-muted-foreground">
                       {role.scope === 'tenant'
                         ? 'All Locations'
                         : role.locationName ?? 'Specific Location'}
@@ -186,8 +186,8 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
   if (terminalLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-indigo-600" />
       </div>
     );
   }
@@ -195,20 +195,20 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
   const showVenues = venues.length > 0;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-md rounded-xl border border-gray-200 bg-surface p-8 shadow-lg">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 shadow-lg">
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600">
             <span className="text-lg font-bold text-white">O</span>
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Select Your Terminal</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-bold text-foreground">Select Your Terminal</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Choose your working location and terminal to get started
           </p>
           {/* Show selected role badge */}
           {roleSelection.selectedRole && (
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-400">
               <Shield className="h-3 w-3" />
               {roleSelection.selectedRole.roleName}
             </div>
@@ -229,11 +229,11 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
         {/* No profit centers — offer setup or skip */}
         {noProfitCentersExist && (
-          <div className="mb-6 rounded-lg border border-amber-300/50 bg-amber-50 p-4 text-center">
-            <p className="text-sm font-medium text-amber-800">
+          <div className="mb-6 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center">
+            <p className="text-sm font-medium text-amber-500">
               No profit centers or terminals have been configured yet.
             </p>
-            <p className="mt-1 text-xs text-amber-600">
+            <p className="mt-1 text-xs text-amber-500/70">
               Set up your locations and terminals to get started, or skip for now.
             </p>
             <div className="mt-3 flex gap-2 justify-center">
@@ -247,7 +247,7 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
               <button
                 type="button"
                 onClick={onSkip}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent"
               >
                 Skip for Now
               </button>
@@ -257,7 +257,7 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
         {/* Site (Location) */}
         <div className="mb-5">
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-gray-700">
+          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
             <MapPin className="h-4 w-4 text-indigo-600" />
             Location
           </label>
@@ -278,7 +278,7 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
         {/* Venue (only shown when site has children) */}
         {showVenues && (
           <div className="mb-5">
-            <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-gray-700">
+            <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
               <Building2 className="h-4 w-4 text-indigo-600" />
               Venue
             </label>
@@ -304,7 +304,7 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
         {/* Profit Center */}
         <div className="mb-5">
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-gray-700">
+          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
             <Store className="h-4 w-4 text-indigo-600" />
             Profit Center
           </label>
@@ -339,8 +339,8 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
                 <Plus className="h-3 w-3" />
                 Add a profit center
               </Link>
-              <span className="text-xs text-gray-400">or</span>
-              <button type="button" onClick={onSkip} className="text-xs font-medium text-gray-500 hover:text-gray-700">
+              <span className="text-xs text-muted-foreground">or</span>
+              <button type="button" onClick={onSkip} className="text-xs font-medium text-muted-foreground hover:text-foreground">
                 skip for now
               </button>
             </div>
@@ -349,7 +349,7 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
 
         {/* Terminal */}
         <div className="mb-8">
-          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-gray-700">
+          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-foreground">
             <Monitor className="h-4 w-4 text-indigo-600" />
             Terminal
           </label>
@@ -382,8 +382,8 @@ export function TerminalSelectionScreen({ onSkip }: { onSkip?: () => void }) {
                 <Plus className="h-3 w-3" />
                 Add a terminal
               </Link>
-              <span className="text-xs text-gray-400">or</span>
-              <button type="button" onClick={onSkip} className="text-xs font-medium text-gray-500 hover:text-gray-700">
+              <span className="text-xs text-muted-foreground">or</span>
+              <button type="button" onClick={onSkip} className="text-xs font-medium text-muted-foreground hover:text-foreground">
                 skip for now
               </button>
             </div>

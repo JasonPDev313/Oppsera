@@ -4,6 +4,7 @@ import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import { runCloseOrchestratorSchema } from '@oppsera/core/erp';
 import { runCloseOrchestrator, listCloseOrchestratorRuns } from '@oppsera/module-accounting';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -15,7 +16,7 @@ export const GET = withMiddleware(
       businessDateTo: url.searchParams.get('businessDateTo') ?? undefined,
       status: url.searchParams.get('status') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     };
 
     const result = await listCloseOrchestratorRuns(filters);

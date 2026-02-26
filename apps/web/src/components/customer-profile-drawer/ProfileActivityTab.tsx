@@ -142,11 +142,11 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
   if (error) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load activity data.</p>
+        <p className="text-sm text-red-500">Failed to load activity data.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -157,14 +157,14 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
   return (
     <div className="p-6">
       {/* Section toggle */}
-      <div className="mb-4 flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+      <div className="mb-4 flex rounded-lg border border-border bg-muted p-0.5">
         <button
           type="button"
           onClick={() => setActiveSection('visits')}
           className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
             activeSection === 'visits'
-              ? 'bg-surface text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           Visits ({visits.length})
@@ -174,8 +174,8 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
           onClick={() => setActiveSection('timeline')}
           className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
             activeSection === 'timeline'
-              ? 'bg-surface text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           Timeline ({activities.length})
@@ -192,16 +192,16 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
               {visits.map((visit) => (
                 <div
                   key={visit.id}
-                  className="rounded-lg border border-gray-200 p-3"
+                  className="rounded-lg border border-border p-3"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-2">
                       <LogIn className="mt-0.5 h-4 w-4 text-indigo-500" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-foreground">
                           {formatDate(visit.checkInAt)}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           Check-in: {formatTime(visit.checkInAt)}
                           {visit.checkOutAt && (
                             <> &middot; Check-out: {formatTime(visit.checkOutAt)}</>
@@ -220,13 +220,13 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
                     </div>
                   </div>
                   {visit.location && (
-                    <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-500">
+                    <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
                       <MapPin className="h-3 w-3" />
                       {visit.location}
                     </div>
                   )}
                   {visit.notes && (
-                    <p className="mt-1.5 text-xs text-gray-600">{visit.notes}</p>
+                    <p className="mt-1.5 text-xs text-muted-foreground">{visit.notes}</p>
                   )}
                 </div>
               ))}
@@ -235,7 +235,7 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
                   type="button"
                   onClick={loadMoreVisits}
                   disabled={loadingMore}
-                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
                 >
                   <ChevronDown className="h-4 w-4" />
                   {loadingMore ? 'Loading...' : 'Load more'}
@@ -253,25 +253,25 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
             <EmptyState title="No activity" description="No activity timeline found." />
           ) : (
             <>
-              <div className="relative ml-3 border-l-2 border-gray-200 pl-4">
+              <div className="relative ml-3 border-l-2 border-border pl-4">
                 {activities.map((activity) => {
                   const Icon =
                     ACTIVITY_ICONS[activity.activityType] ?? Activity;
                   return (
                     <div key={activity.id} className="relative pb-4">
-                      <div className="absolute -left-[1.375rem] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-gray-100">
-                        <Icon className="h-3 w-3 text-gray-500" />
+                      <div className="absolute -left-[1.375rem] top-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-muted">
+                        <Icon className="h-3 w-3 text-muted-foreground" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-foreground">
                           {activity.title}
                         </p>
                         {activity.details && (
-                          <p className="mt-0.5 text-xs text-gray-600">
+                          <p className="mt-0.5 text-xs text-muted-foreground">
                             {activity.details}
                           </p>
                         )}
-                        <p className="mt-0.5 text-xs text-gray-400">
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {formatDateTime(activity.createdAt)}
                           {activity.createdBy && <> &middot; by {activity.createdBy}</>}
                         </p>
@@ -285,7 +285,7 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
                   type="button"
                   onClick={loadMoreActivities}
                   disabled={loadingMore}
-                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
                 >
                   <ChevronDown className="h-4 w-4" />
                   {loadingMore ? 'Loading...' : 'Load more'}

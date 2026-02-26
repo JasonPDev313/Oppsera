@@ -129,15 +129,15 @@ export default function FrontDeskContent() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <DoorOpen className="h-5 w-5 text-gray-500" />
-          <h1 className="text-xl font-semibold text-gray-900">Front Desk</h1>
+          <DoorOpen className="h-5 w-5 text-muted-foreground" />
+          <h1 className="text-xl font-semibold text-foreground">Front Desk</h1>
         </div>
         <div className="flex items-center gap-2">
           {properties.length > 1 && (
             <select
               value={propertyId}
               onChange={(e) => setPropertyId(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-900"
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
             >
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -147,7 +147,7 @@ export default function FrontDeskContent() {
           <button
             onClick={refreshAll}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200/50 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-gray-200/50 disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -175,31 +175,31 @@ export default function FrontDeskContent() {
       {/* Loading skeleton while properties haven't loaded yet */}
       {isLoadingProperties ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : !propertyId && !propertiesError ? (
-        <div className="py-16 text-center text-sm text-gray-500">
+        <div className="py-16 text-center text-sm text-muted-foreground">
           No PMS property configured. Properties are auto-created from locations on first access.
         </div>
       ) : (
         /* Two-panel layout */
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Arrivals panel */}
-          <div className="rounded-lg border border-gray-200 bg-surface">
-            <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3">
+          <div className="rounded-lg border border-border bg-surface">
+            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
               <LogIn className="h-4 w-4 text-indigo-500" />
-              <h2 className="text-sm font-semibold text-gray-900">Arrivals</h2>
+              <h2 className="text-sm font-semibold text-foreground">Arrivals</h2>
               <span className="ml-auto rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-500">
                 {arrivals.length}
               </span>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-border">
               {isLoadingData && arrivals.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : arrivals.length === 0 ? (
-                <div className="py-8 text-center text-sm text-gray-500">
+                <div className="py-8 text-center text-sm text-muted-foreground">
                   No arrivals today.
                 </div>
               ) : (
@@ -207,12 +207,12 @@ export default function FrontDeskContent() {
                   <div key={r.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm font-medium text-foreground truncate">
                           {guestName(r)}
                         </span>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <BedDouble className="h-3 w-3" />
                           {r.roomNumber ?? 'Unassigned'} {r.roomTypeName ? `(${r.roomTypeName})` : ''}
@@ -242,21 +242,21 @@ export default function FrontDeskContent() {
           </div>
 
           {/* In-House panel */}
-          <div className="rounded-lg border border-gray-200 bg-surface">
-            <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3">
+          <div className="rounded-lg border border-border bg-surface">
+            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
               <LogOut className="h-4 w-4 text-blue-500" />
-              <h2 className="text-sm font-semibold text-gray-900">In-House</h2>
+              <h2 className="text-sm font-semibold text-foreground">In-House</h2>
               <span className="ml-auto rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-500">
                 {inHouse.length}
               </span>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-border">
               {isLoadingData && inHouse.length === 0 ? (
                 <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : inHouse.length === 0 ? (
-                <div className="py-8 text-center text-sm text-gray-500">
+                <div className="py-8 text-center text-sm text-muted-foreground">
                   No guests currently in-house.
                 </div>
               ) : (
@@ -264,12 +264,12 @@ export default function FrontDeskContent() {
                   <div key={r.id} className="flex items-center gap-3 px-4 py-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                        <span className="text-sm font-medium text-gray-900 truncate">
+                        <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm font-medium text-foreground truncate">
                           {guestName(r)}
                         </span>
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500">
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <BedDouble className="h-3 w-3" />
                           {r.roomNumber ?? '-'} {r.roomTypeName ? `(${r.roomTypeName})` : ''}

@@ -43,6 +43,7 @@ import {
   GripVertical,
   ArrowLeftRight,
   AlertTriangle,
+  Grid3X3,
 } from 'lucide-react';
 import { accountingSections } from './accounting-navigation';
 
@@ -181,6 +182,7 @@ export const navigation: NavItem[] = [
     children: [
       // Operations
       { name: 'Reservations', href: '/pms/calendar', icon: CalendarDays, group: 'Operations', requiredPermission: 'pms.reservations.view' },
+      { name: 'Utilization', href: '/pms/utilization', icon: Grid3X3, group: 'Operations', requiredPermission: 'pms.reports.view' },
       { name: 'Front Desk', href: '/pms/front-desk', icon: ConciergeBell, group: 'Operations', requiredPermission: 'pms.front_desk.check_in' },
       { name: 'Housekeeping', href: '/pms/housekeeping', icon: Brush, group: 'Operations', requiredPermission: 'pms.housekeeping.view' },
       { name: 'Maintenance', href: '/pms/maintenance', icon: Wrench, group: 'Operations', requiredPermission: 'pms.housekeeping.manage' },

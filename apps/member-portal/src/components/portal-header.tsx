@@ -18,14 +18,15 @@ export function PortalHeader() {
       {user && (
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-sm text-[var(--portal-text-muted)]">
-            <User className="h-4 w-4" />
+            <User className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">{user.email}</span>
           </div>
           <button
             onClick={logout}
+            aria-label="Sign Out"
             className="flex items-center gap-1 text-sm text-[var(--portal-text-muted)] hover:text-[var(--portal-text)] transition-colors"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">Sign Out</span>
           </button>
         </div>

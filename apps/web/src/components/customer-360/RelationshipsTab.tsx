@@ -55,7 +55,7 @@ function RelationshipSkeleton() {
   return (
     <div className="space-y-3">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-20 animate-pulse rounded-lg bg-gray-100" />
+        <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
       ))}
     </div>
   );
@@ -95,9 +95,9 @@ function EditRelationshipRow({
   };
 
   return (
-    <div className="rounded-lg border border-indigo-200 bg-indigo-50/20 p-4">
+    <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-900">
+        <span className="text-sm font-medium text-foreground">
           Edit: {rel.relatedCustomerName}
         </span>
         <div className="flex items-center gap-1">
@@ -113,7 +113,7 @@ function EditRelationshipRow({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100"
+            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
           >
             <X className="h-3 w-3" />
             Cancel
@@ -121,40 +121,40 @@ function EditRelationshipRow({
         </div>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"
             checked={isPrimary}
             onChange={(e) => setIsPrimary(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="rounded border-input text-indigo-600 focus:ring-indigo-500"
           />
           Primary contact
         </label>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Effective Date</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Effective Date</label>
           <input
             type="date"
             value={effectiveDate}
             onChange={(e) => setEffectiveDate(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Expiration Date</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Expiration Date</label>
           <input
             type="date"
             value={expirationDate}
             onChange={(e) => setExpirationDate(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium text-gray-600">Notes</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Notes</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
       </div>
@@ -198,18 +198,18 @@ function RelationshipRow({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4 transition-colors hover:border-gray-300">
+    <div className="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-input">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           {/* Avatar placeholder */}
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
-            <Users className="h-5 w-5 text-gray-400" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+            <Users className="h-5 w-5 text-muted-foreground" />
           </div>
 
           <div className="min-w-0">
             {/* Name + direction */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium text-foreground">
                 {rel.relatedCustomerName}
               </span>
               {rel.isPrimary && (
@@ -222,7 +222,7 @@ function RelationshipRow({
               <Badge variant="info">
                 {relationshipTypeLabel(rel.relationshipType)}
               </Badge>
-              <div className="flex items-center gap-1 text-xs text-gray-500">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <DirectionIcon className="h-3 w-3" />
                 {rel.direction === 'parent' ? 'Parent' : 'Child'}
               </div>
@@ -233,7 +233,7 @@ function RelationshipRow({
 
             {/* Dates */}
             {(rel.effectiveDate || rel.expirationDate) && (
-              <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+              <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                 {rel.effectiveDate && (
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
@@ -248,12 +248,12 @@ function RelationshipRow({
 
             {/* Notes */}
             {rel.notes && (
-              <p className="mt-1 text-xs text-gray-500">{rel.notes}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{rel.notes}</p>
             )}
 
             {/* Email */}
             {rel.relatedCustomerEmail && (
-              <p className="mt-0.5 text-xs text-gray-400">{rel.relatedCustomerEmail}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{rel.relatedCustomerEmail}</p>
             )}
           </div>
         </div>
@@ -263,7 +263,7 @@ function RelationshipRow({
           <button
             type="button"
             onClick={() => setIsEditing(true)}
-            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
             title="Edit"
           >
             <Edit3 className="h-3.5 w-3.5" />
@@ -272,7 +272,7 @@ function RelationshipRow({
             type="button"
             onClick={handleDelete}
             disabled={isLoading}
-            className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+            className="rounded p-1.5 text-muted-foreground hover:bg-red-500/100/10 hover:text-red-500 disabled:opacity-50"
             title="Remove"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -292,14 +292,14 @@ export default function RelationshipsTab({ customerId }: { customerId: string })
     <div className="space-y-4 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <Users className="h-4 w-4 text-gray-500" />
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Users className="h-4 w-4 text-muted-foreground" />
           Relationships
         </h3>
         <button
           type="button"
           onClick={() => mutate()}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <RefreshCw className="h-3 w-3" />
           Refresh
@@ -310,9 +310,9 @@ export default function RelationshipsTab({ customerId }: { customerId: string })
       {isLoading && !data ? (
         <RelationshipSkeleton />
       ) : error ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface px-6 py-12 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface px-6 py-12 text-center">
           <AlertTriangle className="mb-3 h-8 w-8 text-red-400" />
-          <p className="mb-4 text-sm text-gray-600">Failed to load relationships.</p>
+          <p className="mb-4 text-sm text-muted-foreground">Failed to load relationships.</p>
           <button
             type="button"
             onClick={() => mutate()}
@@ -333,7 +333,7 @@ export default function RelationshipsTab({ customerId }: { customerId: string })
             />
           ))}
           {(data?.relationships ?? []).length === 0 && (
-            <p className="py-8 text-center text-sm text-gray-400">
+            <p className="py-8 text-center text-sm text-muted-foreground">
               No relationships found
             </p>
           )}

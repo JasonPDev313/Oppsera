@@ -58,9 +58,9 @@ export function LocationsPane({
   };
 
   return (
-    <div className="flex flex-col rounded-lg border border-gray-200 bg-surface">
-      <div className="border-b border-gray-200 px-4 py-3">
-        <h3 className="text-sm font-semibold text-gray-900">Locations</h3>
+    <div className="flex flex-col rounded-lg border border-border bg-surface">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-foreground">Locations</h3>
       </div>
       <div className="flex-1 overflow-y-auto">
         {sites.map((site) => {
@@ -78,7 +78,7 @@ export function LocationsPane({
                     setExpandedSites((prev) => new Set([...prev, site.id]));
                   }
                 }}
-                className={`flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-gray-500/10 ${
+                className={`flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-muted0/10 ${
                   isSiteSelected ? 'bg-indigo-500/10' : ''
                 }`}
               >
@@ -89,7 +89,7 @@ export function LocationsPane({
                       e.stopPropagation();
                       toggleExpand(site.id);
                     }}
-                    className="shrink-0 rounded p-0.5 text-gray-400 hover:text-gray-600"
+                    className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-muted-foreground"
                   >
                     {isExpanded ? (
                       <ChevronDown className="h-3.5 w-3.5" />
@@ -100,8 +100,8 @@ export function LocationsPane({
                 ) : (
                   <span className="w-4.5 shrink-0" />
                 )}
-                <Building2 className="h-4 w-4 shrink-0 text-gray-400" />
-                <span className="truncate text-gray-900">{site.name}</span>
+                <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="truncate text-foreground">{site.name}</span>
               </div>
 
               {hasChildren && isExpanded &&
@@ -109,12 +109,12 @@ export function LocationsPane({
                   <div
                     key={venue.id}
                     onClick={() => onSelectVenue(venue.id)}
-                    className={`flex cursor-pointer items-center gap-2 py-2.5 pl-12 pr-4 text-sm transition-colors hover:bg-gray-500/10 ${
+                    className={`flex cursor-pointer items-center gap-2 py-2.5 pl-12 pr-4 text-sm transition-colors hover:bg-muted0/10 ${
                       selectedVenueId === venue.id ? 'bg-indigo-500/10' : ''
                     }`}
                   >
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                    <span className="truncate text-gray-900">{venue.name}</span>
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate text-foreground">{venue.name}</span>
                   </div>
                 ))}
             </div>
@@ -127,13 +127,13 @@ export function LocationsPane({
                 Failed to load locations: {error}
               </p>
             ) : (
-              <p className="text-gray-400">No locations found</p>
+              <p className="text-muted-foreground">No locations found</p>
             )}
           </div>
         )}
       </div>
-      <div className="border-t border-gray-200 px-4 py-3">
-        <p className="text-xs text-gray-400">
+      <div className="border-t border-border px-4 py-3">
+        <p className="text-xs text-muted-foreground">
           Manage locations in General Settings
         </p>
       </div>

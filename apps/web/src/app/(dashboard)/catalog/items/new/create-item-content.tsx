@@ -544,7 +544,7 @@ export default function CreateItemContent() {
             onClick={() => router.push('/catalog')}
             className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft aria-hidden="true" className="h-4 w-4" />
             Back to Items
           </button>
 
@@ -564,7 +564,7 @@ export default function CreateItemContent() {
                   className="group rounded-xl border border-gray-200 bg-surface p-6 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-100">
-                    <Icon className="h-5 w-5" />
+                    <Icon aria-hidden="true" className="h-5 w-5" />
                   </div>
                   <h3 className="text-sm font-semibold text-gray-900">{card.title}</h3>
                   <p className="mt-1 text-xs leading-relaxed text-gray-500">
@@ -591,7 +591,7 @@ export default function CreateItemContent() {
           onClick={() => router.push('/catalog')}
           className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft aria-hidden="true" className="h-4 w-4" />
           Back to Items
         </button>
 
@@ -703,7 +703,7 @@ export default function CreateItemContent() {
 
               {/* Tax info note */}
               <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-3">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+                <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
                 <p className="text-xs text-blue-700">
                   Tax groups are assigned per-location on the item detail page after creation.
                 </p>
@@ -987,7 +987,7 @@ function RetailFields({
             onClick={() => onShowOptionSetForm(true)}
             className="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-500"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus aria-hidden="true" className="h-3.5 w-3.5" />
             Add Option Set
           </button>
         </div>
@@ -1093,7 +1093,7 @@ function RetailFields({
 
       {/* Info note */}
       <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-3">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+        <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
         <p className="text-xs text-blue-700">
           Retail items are sold as 1 unit per line item.
         </p>
@@ -1151,7 +1151,7 @@ function ServiceFields({
 
       {/* Info note */}
       <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-3">
-        <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+        <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
         <p className="text-xs text-blue-700">
           Services are sold as 1 unit per line item.
         </p>
@@ -1228,7 +1228,7 @@ function PackageFields({
         onClick={() => onShowSearch(true)}
         className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"
       >
-        <Plus className="h-4 w-4" />
+        <Plus aria-hidden="true" className="h-4 w-4" />
         Add Component
       </button>
 

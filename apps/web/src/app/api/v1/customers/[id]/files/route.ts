@@ -7,6 +7,7 @@ import {
   uploadCustomerFile,
   uploadCustomerFileSchema,
 } from '@oppsera/module-customers';
+import { parseLimit } from '@/lib/api-params';
 
 function extractCustomerId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
@@ -20,9 +21,7 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const documentType = url.searchParams.get('documentType') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = url.searchParams.get('limit')
-      ? Number(url.searchParams.get('limit'))
-      : undefined;
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const result = await getCustomerFilesList({
       tenantId: ctx.tenantId,

@@ -25,7 +25,7 @@ export function UploadStep({ isLoading, onFileSelected }: UploadStepProps) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">Analyzing file...</p>
+        <p className="text-sm text-muted-foreground">Analyzing file...</p>
       </div>
     );
   }
@@ -46,12 +46,12 @@ export function UploadStep({ isLoading, onFileSelected }: UploadStepProps) {
       <ReassuranceBanner variant="prominent" />
 
       {/* Instructions */}
-      <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-5">
-        <h3 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+      <div className="rounded-lg bg-muted p-5">
+        <h3 className="font-medium text-foreground flex items-center gap-2">
           <FileText className="w-4 h-4" />
           What to upload
         </h3>
-        <ul className="mt-2 space-y-1.5 text-sm text-gray-600 dark:text-gray-400">
+        <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
           <li>Staff / employee export from your legacy POS, ERP, HR, or payroll system</li>
           <li>Must have a header row with column names</li>
           <li>Common columns: Name, Email, Username, Role, Location, Employee ID, PIN</li>

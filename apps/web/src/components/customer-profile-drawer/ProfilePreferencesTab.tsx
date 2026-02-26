@@ -65,11 +65,11 @@ export function ProfilePreferencesTab({ customerId }: ProfilePreferencesTabProps
   if (error) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load preferences.</p>
+        <p className="text-sm text-red-500">Failed to load preferences.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -101,26 +101,26 @@ export function ProfilePreferencesTab({ customerId }: ProfilePreferencesTabProps
     <div className="space-y-6 p-6">
       {Object.entries(grouped).map(([category, prefs]) => (
         <section key={category}>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {CATEGORY_LABELS[category] || category}
           </h3>
           <div className="space-y-2">
             {prefs.map((pref) => (
               <div
                 key={pref.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
               >
                 <div className="flex items-center gap-2">
                   {pref.source === 'inferred' ? (
                     <Sparkles className="h-4 w-4 text-blue-400" />
                   ) : (
-                    <UserCheck className="h-4 w-4 text-gray-400" />
+                    <UserCheck className="h-4 w-4 text-muted-foreground" />
                   )}
                   <div>
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-foreground">
                       <span className="font-medium">{pref.key}</span>
-                      <span className="mx-1.5 text-gray-400">:</span>
-                      <span className="text-gray-900">{pref.value}</span>
+                      <span className="mx-1.5 text-muted-foreground">:</span>
+                      <span className="text-foreground">{pref.value}</span>
                     </p>
                   </div>
                 </div>
@@ -133,7 +133,7 @@ export function ProfilePreferencesTab({ customerId }: ProfilePreferencesTabProps
                       </span>
                     )}
                   </Badge>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-muted-foreground">
                     {new Date(pref.updatedAt).toLocaleDateString('en-US', {
                       month: 'short',
                       day: 'numeric',

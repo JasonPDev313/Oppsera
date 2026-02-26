@@ -302,7 +302,7 @@ export default function GroupsContent() {
         key: 'name',
         header: 'Group Name',
         render: (row: GroupRow) => (
-          <span className="text-sm font-medium text-gray-900">
+          <span className="text-sm font-medium text-foreground">
             {(row as Group).name}
           </span>
         ),
@@ -312,7 +312,7 @@ export default function GroupsContent() {
         header: 'Type',
         width: '120px',
         render: (row: GroupRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {formatGroupType((row as Group).type)}
           </span>
         ),
@@ -321,7 +321,7 @@ export default function GroupsContent() {
         key: 'contactName',
         header: 'Contact',
         render: (row: GroupRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {(row as Group).contactName ?? '\u2014'}
           </span>
         ),
@@ -333,7 +333,7 @@ export default function GroupsContent() {
         render: (row: GroupRow) => {
           const g = row as Group;
           return (
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-foreground">
               {g.startDate} &ndash; {g.endDate}
             </span>
           );
@@ -354,7 +354,7 @@ export default function GroupsContent() {
         header: 'Blocked',
         width: '80px',
         render: (row: GroupRow) => (
-          <span className="text-sm text-gray-700 tabular-nums">
+          <span className="text-sm text-foreground tabular-nums">
             {(row as Group).roomsBlocked}
           </span>
         ),
@@ -364,7 +364,7 @@ export default function GroupsContent() {
         header: 'Picked Up',
         width: '90px',
         render: (row: GroupRow) => (
-          <span className="text-sm text-gray-700 tabular-nums">
+          <span className="text-sm text-foreground tabular-nums">
             {(row as Group).roomsPickedUp}
           </span>
         ),
@@ -377,10 +377,10 @@ export default function GroupsContent() {
           const pct = (row as Group).pickupPercentage;
           const color =
             pct >= 75
-              ? 'text-green-700'
+              ? 'text-green-500'
               : pct >= 50
-                ? 'text-amber-700'
-                : 'text-gray-700';
+                ? 'text-amber-500'
+                : 'text-foreground';
           return (
             <span className={`text-sm font-medium tabular-nums ${color}`}>
               {pct}%
@@ -402,10 +402,10 @@ export default function GroupsContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <Users className="h-5 w-5" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Groups</h1>
+          <h1 className="text-2xl font-bold text-foreground">Groups</h1>
         </div>
         <div className="flex items-center gap-3">
           {properties.length > 1 && (
@@ -440,7 +440,7 @@ export default function GroupsContent() {
           <button
             type="button"
             onClick={() => setSearch('')}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             Clear
           </button>
@@ -473,7 +473,7 @@ export default function GroupsContent() {
                 type="button"
                 onClick={handleLoadMore}
                 disabled={isLoadingMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isLoadingMore ? 'Loading...' : 'Load More'}
               </button>
@@ -492,26 +492,26 @@ export default function GroupsContent() {
               onClick={closeDialog}
             />
             {/* Panel */}
-            <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+            <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Create Group</h2>
+                <h2 className="text-lg font-semibold text-foreground">Create Group</h2>
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-gray-600"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {formError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {formError}
                 </div>
               )}
 
               {dialogDataLoading ? (
-                <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+                <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading...
                 </div>
@@ -519,7 +519,7 @@ export default function GroupsContent() {
                 <div className="space-y-4">
                   {/* Group Name */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                    <label className="mb-1 block text-sm font-medium text-foreground">
                       Group Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -527,14 +527,14 @@ export default function GroupsContent() {
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                       placeholder="e.g. Smith Wedding Party"
-                      className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       autoFocus
                     />
                   </div>
 
                   {/* Group Type */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                    <label className="mb-1 block text-sm font-medium text-foreground">
                       Type <span className="text-red-500">*</span>
                     </label>
                     <Select
@@ -547,34 +547,34 @@ export default function GroupsContent() {
 
                   {/* Contact Info */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Contact Name</label>
+                    <label className="mb-1 block text-sm font-medium text-foreground">Contact Name</label>
                     <input
                       type="text"
                       value={formContactName}
                       onChange={(e) => setFormContactName(e.target.value)}
                       placeholder="Jane Smith"
-                      className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Contact Email</label>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Contact Email</label>
                       <input
                         type="email"
                         value={formContactEmail}
                         onChange={(e) => setFormContactEmail(e.target.value)}
                         placeholder="jane@example.com"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Contact Phone</label>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Contact Phone</label>
                       <input
                         type="tel"
                         value={formContactPhone}
                         onChange={(e) => setFormContactPhone(e.target.value)}
                         placeholder="+1 555-0100"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
@@ -582,18 +582,18 @@ export default function GroupsContent() {
                   {/* Dates */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         Start Date <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="date"
                         value={formStartDate}
                         onChange={(e) => setFormStartDate(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         End Date <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -601,27 +601,27 @@ export default function GroupsContent() {
                         value={formEndDate}
                         onChange={(e) => setFormEndDate(e.target.value)}
                         min={formStartDate || undefined}
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
 
                   {/* Cutoff Date */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                    <label className="mb-1 block text-sm font-medium text-foreground">
                       Cutoff Date
                     </label>
                     <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-gray-400 shrink-0" />
+                      <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
                       <input
                         type="date"
                         value={formCutoffDate}
                         onChange={(e) => setFormCutoffDate(e.target.value)}
                         max={formStartDate || undefined}
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       Last date unbooked rooms in the block are released
                     </p>
                   </div>
@@ -629,9 +629,9 @@ export default function GroupsContent() {
                   {/* Rate Plan + Negotiated Rate */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Rate Plan</label>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Rate Plan</label>
                       {ratePlans.length === 0 ? (
-                        <p className="py-2 text-xs text-gray-400">
+                        <p className="py-2 text-xs text-muted-foreground">
                           None available
                         </p>
                       ) : (
@@ -647,7 +647,7 @@ export default function GroupsContent() {
                       )}
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Negotiated Rate ($)</label>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Negotiated Rate ($)</label>
                       <input
                         type="number"
                         step="0.01"
@@ -655,14 +655,14 @@ export default function GroupsContent() {
                         value={formNegotiatedRate}
                         onChange={(e) => setFormNegotiatedRate(e.target.value)}
                         placeholder="149.00"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
 
                   {/* Billing Type */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Billing Type</label>
+                    <label className="mb-1 block text-sm font-medium text-foreground">Billing Type</label>
                     <Select
                       options={BILLING_TYPE_OPTIONS}
                       value={formBillingType}
@@ -673,13 +673,13 @@ export default function GroupsContent() {
 
                   {/* Notes */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Notes</label>
+                    <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
                     <textarea
                       value={formNotes}
                       onChange={(e) => setFormNotes(e.target.value)}
                       placeholder="Optional notes about this group booking..."
                       rows={3}
-                      className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
@@ -690,7 +690,7 @@ export default function GroupsContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
                 >
                   Cancel
                 </button>

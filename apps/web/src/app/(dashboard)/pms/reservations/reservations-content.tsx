@@ -535,7 +535,7 @@ export default function ReservationsContent() {
         header: 'Confirmation #',
         width: '130px',
         render: (row: ReservationRow) => (
-          <span className="font-mono text-xs font-semibold text-gray-900">
+          <span className="font-mono text-xs font-semibold text-foreground">
             {shortId(row.id as string)}
           </span>
         ),
@@ -544,7 +544,7 @@ export default function ReservationsContent() {
         key: 'guest',
         header: 'Guest Name',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-900">
+          <span className="text-sm text-foreground">
             {guestName((row as Reservation).primaryGuestJson)}
           </span>
         ),
@@ -553,7 +553,7 @@ export default function ReservationsContent() {
         key: 'roomTypeName',
         header: 'Room Type',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {(row as Reservation).roomTypeName ?? '\u2014'}
           </span>
         ),
@@ -563,7 +563,7 @@ export default function ReservationsContent() {
         header: 'Room #',
         width: '80px',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {(row as Reservation).roomNumber ?? '\u2014'}
           </span>
         ),
@@ -573,7 +573,7 @@ export default function ReservationsContent() {
         header: 'Check-In',
         width: '110px',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">{(row as Reservation).checkInDate}</span>
+          <span className="text-sm text-foreground">{(row as Reservation).checkInDate}</span>
         ),
       },
       {
@@ -581,7 +581,7 @@ export default function ReservationsContent() {
         header: 'Check-Out',
         width: '110px',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">{(row as Reservation).checkOutDate}</span>
+          <span className="text-sm text-foreground">{(row as Reservation).checkOutDate}</span>
         ),
       },
       {
@@ -599,7 +599,7 @@ export default function ReservationsContent() {
         header: 'Nightly Rate',
         width: '110px',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {formatMoney((row as Reservation).nightlyRateCents)}
           </span>
         ),
@@ -618,10 +618,10 @@ export default function ReservationsContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <CalendarRange className="h-5 w-5" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Reservations</h1>
+          <h1 className="text-2xl font-bold text-foreground">Reservations</h1>
         </div>
         <div className="flex items-center gap-3">
           {properties.length > 1 && (
@@ -664,15 +664,15 @@ export default function ReservationsContent() {
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             placeholder="From"
           />
-          <span className="text-gray-400">&ndash;</span>
+          <span className="text-muted-foreground">&ndash;</span>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             placeholder="To"
           />
         </div>
@@ -680,7 +680,7 @@ export default function ReservationsContent() {
           <button
             type="button"
             onClick={clearFilters}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             Clear filters
           </button>
@@ -713,7 +713,7 @@ export default function ReservationsContent() {
                 type="button"
                 onClick={handleLoadMore}
                 disabled={isLoadingMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isLoadingMore ? 'Loading...' : 'Load More'}
               </button>
@@ -732,26 +732,26 @@ export default function ReservationsContent() {
               onClick={closeDialog}
             />
             {/* Panel */}
-            <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+            <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">New Reservation</h2>
+                <h2 className="text-lg font-semibold text-foreground">New Reservation</h2>
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {formError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {formError}
                 </div>
               )}
 
               {dialogDataLoading ? (
-                <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-500">
+                <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading...
                 </div>
@@ -759,22 +759,22 @@ export default function ReservationsContent() {
                 <div className="space-y-4">
                   {/* Customer Search */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Guest</label>
+                    <label className="mb-1 block text-sm font-medium text-foreground">Guest</label>
                     {selectedCustomer ? (
                       <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50/50 px-3 py-2">
                         <UserCheck className="h-4 w-4 text-indigo-600 shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-foreground truncate">
                             {selectedCustomer.displayName}
                           </p>
-                          <p className="text-xs text-gray-500 truncate">
+                          <p className="text-xs text-muted-foreground truncate">
                             {[selectedCustomer.email, selectedCustomer.phone].filter(Boolean).join(' \u00B7 ') || 'No contact info'}
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={handleClearCustomer}
-                          className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                          className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -782,21 +782,21 @@ export default function ReservationsContent() {
                     ) : (
                       <div ref={customerSearchRef} className="relative">
                         <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <input
                             type="text"
                             value={customerSearch}
                             onChange={(e) => setCustomerSearch(e.target.value)}
                             placeholder="Search existing customer or enter new guest below..."
-                            className="w-full rounded-lg border border-gray-300 bg-surface pl-9 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-lg border border-border bg-surface pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             autoFocus
                           />
                           {customerSearchLoading && (
-                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                           )}
                         </div>
                         {showCustomerDropdown && customerResults.length > 0 && (
-                          <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-surface shadow-lg max-h-48 overflow-y-auto">
+                          <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg max-h-48 overflow-y-auto">
                             {customerResults.map((c) => (
                               <button
                                 key={c.id}
@@ -804,10 +804,10 @@ export default function ReservationsContent() {
                                 onClick={() => handleSelectCustomer(c)}
                                 className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-200/50 first:rounded-t-lg last:rounded-b-lg"
                               >
-                                <UserPlus className="h-4 w-4 text-gray-400 shrink-0" />
+                                <UserPlus className="h-4 w-4 text-muted-foreground shrink-0" />
                                 <div className="min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate">{c.displayName}</p>
-                                  <p className="text-xs text-gray-500 truncate">
+                                  <p className="text-sm font-medium text-foreground truncate">{c.displayName}</p>
+                                  <p className="text-xs text-muted-foreground truncate">
                                     {[c.email, c.phone].filter(Boolean).join(' \u00B7 ') || c.type}
                                   </p>
                                 </div>
@@ -816,9 +816,9 @@ export default function ReservationsContent() {
                           </div>
                         )}
                         {showCustomerDropdown && customerResults.length === 0 && customerSearch.length >= 2 && !customerSearchLoading && (
-                          <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-surface shadow-lg px-3 py-3 text-center">
-                            <p className="text-sm text-gray-500">No customers found</p>
-                            <p className="text-xs text-gray-400 mt-1">Fill in guest details below to create a new guest</p>
+                          <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg px-3 py-3 text-center">
+                            <p className="text-sm text-muted-foreground">No customers found</p>
+                            <p className="text-xs text-muted-foreground mt-1">Fill in guest details below to create a new guest</p>
                           </div>
                         )}
                       </div>
@@ -828,7 +828,7 @@ export default function ReservationsContent() {
                   {/* Guest Name */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         First Name <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -836,11 +836,11 @@ export default function ReservationsContent() {
                         value={formFirstName}
                         onChange={(e) => setFormFirstName(e.target.value)}
                         placeholder="John"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         Last Name <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -848,7 +848,7 @@ export default function ReservationsContent() {
                         value={formLastName}
                         onChange={(e) => setFormLastName(e.target.value)}
                         placeholder="Doe"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
@@ -856,23 +856,23 @@ export default function ReservationsContent() {
                   {/* Guest Contact */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
                       <input
                         type="email"
                         value={formEmail}
                         onChange={(e) => setFormEmail(e.target.value)}
                         placeholder="john@example.com"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Phone</label>
                       <input
                         type="tel"
                         value={formPhone}
                         onChange={(e) => setFormPhone(e.target.value)}
                         placeholder="+1 555-0100"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
@@ -880,18 +880,18 @@ export default function ReservationsContent() {
                   {/* Dates */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         Check-In <span className="text-red-500">*</span>
                       </label>
                       <input
                         type="date"
                         value={formCheckIn}
                         onChange={(e) => setFormCheckIn(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         Check-Out <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -899,23 +899,23 @@ export default function ReservationsContent() {
                         value={formCheckOut}
                         onChange={(e) => setFormCheckOut(e.target.value)}
                         min={formCheckIn || undefined}
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
                   {computedNights > 0 && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {computedNights} night{computedNights !== 1 ? 's' : ''}
                     </p>
                   )}
 
                   {/* Room Type */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                    <label className="mb-1 block text-sm font-medium text-foreground">
                       Room Type <span className="text-red-500">*</span>
                     </label>
                     {roomTypes.length === 0 ? (
-                      <p className="py-2 text-sm text-gray-500">
+                      <p className="py-2 text-sm text-muted-foreground">
                         No room types found. Create a room type first.
                       </p>
                     ) : (
@@ -934,16 +934,16 @@ export default function ReservationsContent() {
                   {/* Room Assignment (optional) */}
                   {formRoomTypeId && (
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         Room (optional)
                       </label>
                       {roomsLoading ? (
-                        <div className="flex items-center gap-2 py-2 text-sm text-gray-500">
+                        <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
                           Loading rooms...
                         </div>
                       ) : rooms.length === 0 ? (
-                        <p className="py-2 text-xs text-gray-400">
+                        <p className="py-2 text-xs text-muted-foreground">
                           No rooms available for this type
                         </p>
                       ) : (
@@ -966,11 +966,11 @@ export default function ReservationsContent() {
                   {/* Rate Plan + Nightly Rate */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         Rate Plan
                       </label>
                       {ratePlans.length === 0 ? (
-                        <p className="py-2 text-xs text-gray-400">
+                        <p className="py-2 text-xs text-muted-foreground">
                           None available
                         </p>
                       ) : (
@@ -991,7 +991,7 @@ export default function ReservationsContent() {
                       )}
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">
+                      <label className="mb-1 block text-sm font-medium text-foreground">
                         Nightly Rate ($) {!formRatePlanId && <span className="text-red-500">*</span>}
                       </label>
                       <div className="relative">
@@ -1002,10 +1002,10 @@ export default function ReservationsContent() {
                           value={formNightlyRate}
                           onChange={(e) => setFormNightlyRate(e.target.value)}
                           placeholder={ratePlanBaseRate != null ? `${(ratePlanBaseRate / 100).toFixed(2)} (from plan)` : '125.00'}
-                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                         {isLoadingRate && (
-                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
                         )}
                       </div>
                     </div>
@@ -1016,12 +1016,12 @@ export default function ReservationsContent() {
                     </p>
                   )}
                   {ratePlanBaseRate != null && !formNightlyRate && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Using rate plan price: ${(ratePlanBaseRate / 100).toFixed(2)}/night
                     </p>
                   )}
                   {computedNights > 0 && (formNightlyRate ? parseFloat(formNightlyRate) > 0 : ratePlanBaseRate != null) && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       Subtotal: ${(computedNights * (formNightlyRate ? parseFloat(formNightlyRate) : (ratePlanBaseRate ?? 0) / 100)).toFixed(2)} ({computedNights} night{computedNights !== 1 ? 's' : ''} &times; ${(formNightlyRate ? parseFloat(formNightlyRate) : (ratePlanBaseRate ?? 0) / 100).toFixed(2)})
                     </p>
                   )}
@@ -1029,32 +1029,32 @@ export default function ReservationsContent() {
                   {/* Occupancy */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Adults</label>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Adults</label>
                       <input
                         type="number"
                         min="1"
                         max="20"
                         value={formAdults}
                         onChange={(e) => setFormAdults(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-700">Children</label>
+                      <label className="mb-1 block text-sm font-medium text-foreground">Children</label>
                       <input
                         type="number"
                         min="0"
                         max="20"
                         value={formChildren}
                         onChange={(e) => setFormChildren(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
 
                   {/* Source Type */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Source</label>
+                    <label className="mb-1 block text-sm font-medium text-foreground">Source</label>
                     <Select
                       options={SOURCE_TYPE_OPTIONS}
                       value={formSourceType}
@@ -1065,13 +1065,13 @@ export default function ReservationsContent() {
 
                   {/* Notes */}
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">Internal Notes</label>
+                    <label className="mb-1 block text-sm font-medium text-foreground">Internal Notes</label>
                     <textarea
                       value={formNotes}
                       onChange={(e) => setFormNotes(e.target.value)}
                       placeholder="Optional notes..."
                       rows={2}
-                      className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
@@ -1082,7 +1082,7 @@ export default function ReservationsContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
                 >
                   Cancel
                 </button>

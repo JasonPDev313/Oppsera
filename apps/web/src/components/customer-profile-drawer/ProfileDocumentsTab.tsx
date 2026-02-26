@@ -99,11 +99,11 @@ export function ProfileDocumentsTab({ customerId }: ProfileDocumentsTabProps) {
   if (error) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load documents.</p>
+        <p className="text-sm text-red-500">Failed to load documents.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -144,21 +144,21 @@ export function ProfileDocumentsTab({ customerId }: ProfileDocumentsTabProps) {
                 key={doc.id}
                 className={`flex items-center justify-between rounded-lg border px-3 py-3 ${
                   isExpired
-                    ? 'border-red-200 bg-red-50'
-                    : 'border-gray-200 bg-surface'
+                    ? 'border-red-500/30 bg-red-500/10'
+                    : 'border-border bg-surface'
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   <FileIcon
                     className={`h-5 w-5 shrink-0 ${
-                      isExpired ? 'text-red-400' : 'text-gray-400'
+                      isExpired ? 'text-red-400' : 'text-muted-foreground'
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-gray-900">
+                    <p className="truncate text-sm font-medium text-foreground">
                       {doc.name}
                     </p>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>{doc.documentType}</span>
                       <span>&middot;</span>
                       <span>{formatFileSize(doc.sizeBytes)}</span>
@@ -166,7 +166,7 @@ export function ProfileDocumentsTab({ customerId }: ProfileDocumentsTabProps) {
                       <span>{formatDate(doc.uploadedAt)}</span>
                     </div>
                     {doc.description && (
-                      <p className="mt-0.5 truncate text-xs text-gray-500">
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {doc.description}
                       </p>
                     )}
@@ -180,7 +180,7 @@ export function ProfileDocumentsTab({ customerId }: ProfileDocumentsTabProps) {
                     </Badge>
                   )}
                   {doc.expiresAt && !isExpired && (
-                    <span className="flex items-center gap-1 text-xs text-gray-400">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
                       Exp: {formatDate(doc.expiresAt)}
                     </span>
@@ -191,7 +191,7 @@ export function ProfileDocumentsTab({ customerId }: ProfileDocumentsTabProps) {
                   <button
                     type="button"
                     onClick={() => handleDownload(doc)}
-                    className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-muted-foreground"
                     title="Download"
                   >
                     <Download className="h-4 w-4" />

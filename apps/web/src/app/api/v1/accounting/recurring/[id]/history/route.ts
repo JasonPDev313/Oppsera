@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getRecurringTemplateHistory } from '@oppsera/module-accounting';
+import { parseLimit } from '@/lib/api-params';
 
 function extractId(request: NextRequest): string {
   const parts = request.nextUrl.pathname.split('/');
@@ -14,9 +15,7 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const id = extractId(request);
     const url = new URL(request.url);
-    const limit = url.searchParams.has('limit')
-      ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-      : 20;
+    const limit = parseLimit(url.searchParams.get('limit'), 100, 20);
 
     const result = await getRecurringTemplateHistory(ctx.tenantId, id, limit);
     return NextResponse.json({ data: result });

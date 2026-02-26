@@ -57,35 +57,35 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-surface shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
-            <GitMerge className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Merge Account</h2>
+            <GitMerge className="h-5 w-5 text-indigo-500" />
+            <h2 className="text-lg font-semibold text-foreground">Merge Account</h2>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         <div className="space-y-4 px-6 py-4">
           {/* Source */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase">Source (will be merged)</label>
-            <div className="mt-1 rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <p className="text-sm font-medium text-gray-900">
+            <label className="block text-xs font-medium text-muted-foreground uppercase">Source (will be merged)</label>
+            <div className="mt-1 rounded-lg border border-border bg-muted p-3">
+              <p className="text-sm font-medium text-foreground">
                 {sourceAccount.accountNumber} — {sourceAccount.name}
               </p>
-              <p className="text-xs capitalize text-gray-500">{sourceAccount.accountType}</p>
+              <p className="text-xs capitalize text-muted-foreground">{sourceAccount.accountType}</p>
             </div>
           </div>
 
           {/* Target */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 uppercase">Target (merge into)</label>
+            <label className="block text-xs font-medium text-muted-foreground uppercase">Target (merge into)</label>
             <select
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="">Select target account...</option>
               {eligibleTargets.map((a) => (
@@ -97,9 +97,9 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
           </div>
 
           {/* Warning */}
-          <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
-            <div className="text-xs text-amber-800">
+          <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+            <div className="text-xs text-amber-500">
               <p className="font-medium">This action cannot be undone.</p>
               <p className="mt-1">
                 All journal lines from <strong>{sourceAccount.accountNumber}</strong> will be reassigned
@@ -109,11 +109,11 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
+        <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>

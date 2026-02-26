@@ -121,16 +121,16 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <div
               className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium ${
                 i < step
-                  ? 'bg-green-500/15 text-green-600'
+                  ? 'bg-green-500/15 text-green-500'
                   : i === step
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-500/10 text-gray-400'
+                    : 'bg-muted text-muted-foreground'
               }`}
             >
               {i < step ? <CheckCircle className="h-5 w-5" /> : i + 1}
             </div>
             {i < STEPS.length - 1 && (
-              <div className={`h-0.5 w-8 ${i < step ? 'bg-green-500/40' : 'bg-gray-500/20'}`} />
+              <div className={`h-0.5 w-8 ${i < step ? 'bg-green-500/40' : 'bg-muted'}`} />
             )}
           </div>
         ))}
@@ -139,9 +139,9 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
       {/* Step Content */}
       {step === 0 && (
         <div className="text-center space-y-4">
-          <Landmark className="mx-auto h-16 w-16 text-indigo-600" />
-          <h2 className="text-xl font-semibold text-gray-900">Set Up Accounting</h2>
-          <p className="text-gray-500">
+          <Landmark className="mx-auto h-16 w-16 text-indigo-500" />
+          <h2 className="text-xl font-semibold text-foreground">Set Up Accounting</h2>
+          <p className="text-muted-foreground">
             We&apos;ll create a chart of accounts, configure default settings, and set up GL mappings
             so your sales automatically flow into your general ledger.
           </p>
@@ -157,8 +157,8 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
 
       {step === 1 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Choose a Template</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-foreground">Choose a Template</h2>
+          <p className="text-sm text-muted-foreground">
             Select the template that best matches your business. Accounts can be customized after setup.
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -170,12 +170,12 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
                 className={`rounded-lg border-2 p-4 text-left transition-colors ${
                   selectedTemplate === t.key
                     ? 'border-indigo-600 bg-indigo-500/10'
-                    : 'border-gray-500/20 hover:border-gray-500/40'
+                    : 'border-border hover:border-input'
                 }`}
               >
                 <span className="text-2xl">{t.icon}</span>
-                <h3 className="mt-2 text-sm font-semibold text-gray-900">{t.label}</h3>
-                <p className="mt-1 text-xs text-gray-500">{t.description}</p>
+                <h3 className="mt-2 text-sm font-semibold text-foreground">{t.label}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">{t.description}</p>
               </button>
             ))}
           </div>
@@ -183,7 +183,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <button
               type="button"
               onClick={() => setStep(0)}
-              className="rounded-lg border border-gray-500/30 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-500/10"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
               Back
             </button>
@@ -201,14 +201,14 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
 
       {step === 2 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Select Your State</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-foreground">Select Your State</h2>
+          <p className="text-sm text-muted-foreground">
             Choose your state to customize tax-related account names. You can skip this and edit later.
           </p>
           <select
             value={selectedState}
             onChange={(e) => setSelectedState(e.target.value)}
-            className="w-full rounded-lg border border-gray-500/30 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
             <option value="">Skip (leave as placeholder)</option>
             {US_STATES.map((s) => (
@@ -216,15 +216,15 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             ))}
           </select>
           {selectedState && (
-            <div className="rounded-lg border border-gray-500/20 bg-gray-500/5 p-3 text-sm text-gray-500">
-              Preview: <span className="font-medium text-gray-900">Sales Tax Payable - {selectedState}</span>
+            <div className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
+              Preview: <span className="font-medium text-foreground">Sales Tax Payable - {selectedState}</span>
             </div>
           )}
           <div className="flex justify-between pt-4">
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="rounded-lg border border-gray-500/30 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-500/10"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
               Back
             </button>
@@ -241,12 +241,12 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
 
       {step === 3 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Review Template</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-foreground">Review Template</h2>
+          <p className="text-sm text-muted-foreground">
             The <strong>{TEMPLATES.find((t) => t.key === selectedTemplate)?.label}</strong> template
             will create a standard chart of accounts including:
           </p>
-          <div className="rounded-lg border border-gray-500/20 bg-gray-500/5 p-4 space-y-2 text-sm text-gray-600">
+          <div className="rounded-lg border border-border bg-muted p-4 space-y-2 text-sm text-muted-foreground">
             <p>• Asset accounts (cash, bank, receivables, inventory)</p>
             <p>• Liability accounts (payables, tax payable, loans)</p>
             <p>• Equity accounts (retained earnings, owner&apos;s equity)</p>
@@ -254,18 +254,18 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <p>• Expense accounts (payroll, rent, utilities, supplies)</p>
           </div>
           {selectedState && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               State-specific accounts will be customized for <strong>{selectedState}</strong>.
             </p>
           )}
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             All accounts can be customized, added, or removed after setup.
           </p>
           <div className="flex justify-between pt-4">
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="rounded-lg border border-gray-500/30 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-500/10"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
               Back
             </button>
@@ -282,13 +282,13 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
 
       {step === 4 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Ready to Set Up</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-foreground">Ready to Set Up</h2>
+          <p className="text-sm text-muted-foreground">
             Click below to create your chart of accounts and configure default settings.
             This will also set up control accounts for AP, AR, and sales tax.
           </p>
           {errorDetail && (
-            <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-700">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-500">
               <p className="font-medium">Setup failed</p>
               <p className="mt-1 text-xs break-all">{errorDetail}</p>
             </div>
@@ -297,7 +297,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="rounded-lg border border-gray-500/30 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-500/10"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
               Back
             </button>
@@ -316,33 +316,33 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
       {step === 5 && (
         <div className="text-center space-y-4">
           <Sparkles className="mx-auto h-16 w-16 text-green-500" />
-          <h2 className="text-xl font-semibold text-gray-900">Accounting is Ready!</h2>
-          <p className="text-gray-500">
+          <h2 className="text-xl font-semibold text-foreground">Accounting is Ready!</h2>
+          <p className="text-muted-foreground">
             Your chart of accounts has been created. Here are some next steps:
           </p>
           <div className="mx-auto max-w-sm space-y-2">
             <Link
               href="/accounting/accounts"
               onClick={onComplete}
-              className="flex items-center gap-3 rounded-lg border border-gray-500/20 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-500/10"
+              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
-              <BookOpen className="h-5 w-5 text-gray-400" />
+              <BookOpen className="h-5 w-5 text-muted-foreground" />
               Review Chart of Accounts
             </Link>
             <Link
               href="/accounting/mappings"
               onClick={onComplete}
-              className="flex items-center gap-3 rounded-lg border border-gray-500/20 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-500/10"
+              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
-              <Settings2 className="h-5 w-5 text-gray-400" />
+              <Settings2 className="h-5 w-5 text-muted-foreground" />
               Configure GL Mappings
             </Link>
             <Link
               href="/accounting/settings"
               onClick={onComplete}
-              className="flex items-center gap-3 rounded-lg border border-gray-500/20 px-4 py-3 text-sm font-medium text-gray-600 hover:bg-gray-500/10"
+              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted"
             >
-              <Settings2 className="h-5 w-5 text-gray-400" />
+              <Settings2 className="h-5 w-5 text-muted-foreground" />
               Accounting Settings
             </Link>
           </div>

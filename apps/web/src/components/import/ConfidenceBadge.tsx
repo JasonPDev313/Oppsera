@@ -16,19 +16,19 @@ export function ConfidenceBadge({ confidence, method, showLabel = false, reasoni
   let label: string;
 
   if (method === 'manual') {
-    color = 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+    color = 'bg-blue-500/20 text-blue-500';
     label = 'Manual';
   } else if (method === 'unmapped' || pct === 0) {
-    color = 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400';
+    color = 'bg-muted text-muted-foreground';
     label = 'Unmapped';
   } else if (normalized >= 0.8) {
-    color = 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+    color = 'bg-green-500/20 text-green-500';
     label = 'High';
   } else if (normalized >= 0.5) {
-    color = 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+    color = 'bg-yellow-500/20 text-yellow-500';
     label = 'Medium';
   } else {
-    color = 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+    color = 'bg-red-500/20 text-red-500';
     label = 'Low';
   }
 

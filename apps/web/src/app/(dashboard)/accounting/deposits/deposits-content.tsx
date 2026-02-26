@@ -22,13 +22,13 @@ const STATUS_TABS = ['all', 'pending', 'prepared', 'deposited', 'reconciled'] as
 
 function StatusBadge({ status }: { status: string }) {
   const cfg: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-700',
-    prepared: 'bg-indigo-100 text-indigo-700',
-    deposited: 'bg-blue-100 text-blue-700',
-    reconciled: 'bg-green-100 text-green-700',
+    pending: 'bg-yellow-500/20 text-yellow-500',
+    prepared: 'bg-indigo-500/20 text-indigo-500',
+    deposited: 'bg-blue-500/20 text-blue-500',
+    reconciled: 'bg-green-500/20 text-green-500',
   };
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cfg[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cfg[status] ?? 'bg-muted text-muted-foreground'}`}>
       {status}
     </span>
   );
@@ -107,48 +107,48 @@ function PrepareDepositDialog({
         className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <button onClick={onClose} className="absolute right-4 top-4 text-gray-400 hover:text-gray-600">
+        <button onClick={onClose} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
           <X className="h-5 w-5" />
         </button>
 
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">Prepare Deposit Slip</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <h2 className="text-lg font-semibold text-foreground mb-1">Prepare Deposit Slip</h2>
+        <p className="text-sm text-muted-foreground mb-4">
           Count denominations and enter the bank deposit slip number.
         </p>
 
         {/* Slip Number */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Slip Number (optional)</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Slip Number (optional)</label>
           <input
             type="text"
             value={slipNumber}
             onChange={(e) => setSlipNumber(e.target.value)}
             placeholder="e.g. 000012345"
-            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
           />
         </div>
 
         {/* Denomination Grid */}
         <div className="grid grid-cols-2 gap-2 mb-4">
           {DENOMINATIONS.map((denom) => (
-            <div key={denom.key} className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
-              <span className="text-sm font-medium text-gray-700 w-12">{denom.label}</span>
+            <div key={denom.key} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+              <span className="text-sm font-medium text-foreground w-12">{denom.label}</span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => updateCount(denom.key, -1)}
-                  className="h-7 w-7 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm font-bold"
+                  className="h-7 w-7 rounded bg-muted text-muted-foreground hover:bg-accent text-sm font-bold"
                 >
                   −
                 </button>
                 <span className="w-10 text-center text-sm font-mono">{breakdown[denom.key]}</span>
                 <button
                   onClick={() => updateCount(denom.key, 1)}
-                  className="h-7 w-7 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm font-bold"
+                  className="h-7 w-7 rounded bg-muted text-muted-foreground hover:bg-accent text-sm font-bold"
                 >
                   +
                 </button>
               </div>
-              <span className="text-sm text-gray-500 text-right w-16 font-mono">
+              <span className="text-sm text-muted-foreground text-right w-16 font-mono">
                 {formatMoney(breakdown[denom.key] * denom.valueCents)}
               </span>
             </div>
@@ -156,17 +156,17 @@ function PrepareDepositDialog({
         </div>
 
         {/* Totals */}
-        <div className="rounded-lg bg-gray-50 p-3 mb-4 space-y-1">
+        <div className="rounded-lg bg-muted p-3 mb-4 space-y-1">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Expected</span>
+            <span className="text-muted-foreground">Expected</span>
             <span className="font-mono">{formatMoney(currentAmountCents)}</span>
           </div>
           <div className="flex justify-between text-sm font-semibold">
-            <span className="text-gray-900">Counted</span>
+            <span className="text-foreground">Counted</span>
             <span className="font-mono">{formatMoney(total)}</span>
           </div>
           {total !== currentAmountCents && (
-            <div className={`flex justify-between text-sm font-medium ${total > currentAmountCents ? 'text-blue-600' : 'text-red-600'}`}>
+            <div className={`flex justify-between text-sm font-medium ${total > currentAmountCents ? 'text-blue-500' : 'text-red-500'}`}>
               <span>Variance</span>
               <span className="font-mono">
                 {total > currentAmountCents ? '+' : ''}{formatMoney(total - currentAmountCents)}
@@ -178,7 +178,7 @@ function PrepareDepositDialog({
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -223,15 +223,15 @@ export default function DepositsContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Deposit Slips</h1>
-          <p className="mt-1 text-sm text-gray-500">Track cash deposits from daily close batches</p>
+          <h1 className="text-xl font-bold text-foreground">Deposit Slips</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Track cash deposits from daily close batches</p>
         </div>
         <div className="flex items-center gap-3">
           {locations.length > 1 && (
             <select
               value={locationFilter}
               onChange={(e) => setLocationFilter(e.target.value)}
-              className="rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm"
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
             >
               <option value="">All Locations</option>
               {locations.map((loc) => (
@@ -241,7 +241,7 @@ export default function DepositsContent() {
           )}
           <button
             onClick={() => refetch()}
-            className="rounded-lg border border-gray-300 p-2 text-gray-500 hover:bg-gray-50 transition-colors"
+            className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent transition-colors"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -249,15 +249,15 @@ export default function DepositsContent() {
       </div>
 
       {/* Status Tabs */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="flex gap-1 rounded-lg bg-muted p-1">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab}
             onClick={() => setStatusFilter(tab)}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
               statusFilter === tab
-                ? 'bg-surface text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-surface text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -269,37 +269,37 @@ export default function DepositsContent() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       ) : items.length === 0 ? (
-        <div className="rounded-lg border border-gray-200 bg-surface py-12 text-center">
-          <Banknote className="mx-auto h-8 w-8 text-gray-300 mb-3" />
-          <p className="text-sm text-gray-500">No deposit slips found</p>
+        <div className="rounded-lg border border-border bg-surface py-12 text-center">
+          <Banknote className="mx-auto h-8 w-8 text-muted-foreground mb-3" />
+          <p className="text-sm text-muted-foreground">No deposit slips found</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slip #</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Batches</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Type</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Slip #</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Batches</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-surface">
+            <tbody className="divide-y divide-border bg-surface">
               {items.map((d) => (
-                <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-900">{d.businessDate}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 capitalize">{d.depositType}</td>
-                  <td className="px-4 py-3 text-sm text-gray-900 text-right font-mono">{formatMoney(d.totalAmountCents)}</td>
+                <tr key={d.id} className="hover:bg-accent transition-colors">
+                  <td className="px-4 py-3 text-sm text-foreground">{d.businessDate}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{d.depositType}</td>
+                  <td className="px-4 py-3 text-sm text-foreground text-right font-mono">{formatMoney(d.totalAmountCents)}</td>
                   <td className="px-4 py-3"><StatusBadge status={d.status} /></td>
-                  <td className="px-4 py-3 text-sm text-gray-500 font-mono">{d.slipNumber ?? '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
+                  <td className="px-4 py-3 text-sm text-muted-foreground font-mono">{d.slipNumber ?? '-'}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
                     {d.retailCloseBatchIds.length > 0 && `${d.retailCloseBatchIds.length} retail`}
                     {d.retailCloseBatchIds.length > 0 && d.fnbCloseBatchId && ', '}
                     {d.fnbCloseBatchId && '1 F&B'}
@@ -310,7 +310,7 @@ export default function DepositsContent() {
                       {d.status === 'pending' && (
                         <button
                           onClick={() => openPrepareDialog(d.id, d.totalAmountCents)}
-                          className="flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 transition-colors"
+                          className="flex items-center gap-1 rounded-md bg-indigo-500/10 px-2 py-1 text-xs font-medium text-indigo-500 hover:bg-indigo-500/20 transition-colors"
                         >
                           <ClipboardCheck className="h-3 w-3" /> Prepare
                         </button>
@@ -319,7 +319,7 @@ export default function DepositsContent() {
                         <button
                           onClick={() => markDeposited.mutate(d.id)}
                           disabled={markDeposited.isPending}
-                          className="flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                          className="flex items-center gap-1 rounded-md bg-blue-500/10 px-2 py-1 text-xs font-medium text-blue-500 hover:bg-blue-500/20 transition-colors"
                         >
                           <ArrowUpRight className="h-3 w-3" /> Deposited
                         </button>
@@ -328,7 +328,7 @@ export default function DepositsContent() {
                         <button
                           onClick={() => reconcileDeposit.mutate(d.id)}
                           disabled={reconcileDeposit.isPending}
-                          className="flex items-center gap-1 rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-100 transition-colors"
+                          className="flex items-center gap-1 rounded-md bg-green-500/10 px-2 py-1 text-xs font-medium text-green-500 hover:bg-green-500/20 transition-colors"
                         >
                           <CheckCircle className="h-3 w-3" /> Reconcile
                         </button>

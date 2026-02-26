@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
 import { getModifierLocationHeatmap } from '@oppsera/module-reporting';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -19,7 +20,7 @@ export const GET = withMiddleware(
       dateFrom,
       dateTo,
       modifierGroupId: url.searchParams.get('modifierGroupId') ?? undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({ data: rows });

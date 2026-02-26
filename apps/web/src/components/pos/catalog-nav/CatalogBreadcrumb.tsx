@@ -29,17 +29,17 @@ export const CatalogBreadcrumb = memo(function CatalogBreadcrumb({
         return (
           <span key={`${segment.level}-${segment.id}`} className="flex items-center gap-1">
             {index > 0 && (
-              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
             )}
             {isLast ? (
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-foreground" aria-current="location">
                 {segment.name}
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => handleNavigate(segment.level)}
-                className="text-gray-500 transition-colors hover:text-indigo-600"
+                className="text-muted-foreground transition-colors hover:text-indigo-600"
               >
                 {segment.name}
               </button>

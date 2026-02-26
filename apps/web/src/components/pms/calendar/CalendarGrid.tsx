@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { useCalendarScroll } from './use-calendar-scroll';
 import {
   DndContext,
   DragOverlay,
@@ -69,6 +70,8 @@ interface CalendarGridProps {
   }) => void;
   onEmptyCellClick?: (roomId: string, date: string, roomTypeId: string) => void;
   onEmptyCellContextMenu?: (e: React.MouseEvent, roomId: string, date: string, roomTypeId: string) => void;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
 }
 
 // ── Main Grid Component ──────────────────────────────────────────
@@ -88,6 +91,8 @@ export default function CalendarGrid({
   onResize: _onResize,
   onEmptyCellClick,
   onEmptyCellContextMenu,
+  onNavigatePrev,
+  onNavigateNext,
 }: CalendarGridProps) {
   const router = useRouter();
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(new Set());
@@ -99,6 +104,11 @@ export default function CalendarGrid({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
+
+  const { containerRef, leftIndicatorRef, rightIndicatorRef } = useCalendarScroll({
+    onNavigatePrev,
+    onNavigateNext,
+  });
 
   // ── Computed data ───────────────────────────────────────────────
 
@@ -288,18 +298,35 @@ export default function CalendarGrid({
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="relative">
+        {/* Left edge scroll indicator */}
+        <div
+          ref={leftIndicatorRef}
+          className="pointer-events-none absolute left-0 top-0 bottom-0 z-30 flex w-10 items-center justify-center transition-opacity duration-150"
+          style={{ opacity: 0, background: 'linear-gradient(to right, rgba(99,102,241,0.3), transparent)' }}
+        >
+          <ChevronLeft className="h-5 w-5 text-indigo-600" />
+        </div>
+        {/* Right edge scroll indicator */}
+        <div
+          ref={rightIndicatorRef}
+          className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 flex w-10 items-center justify-center transition-opacity duration-150"
+          style={{ opacity: 0, background: 'linear-gradient(to left, rgba(99,102,241,0.3), transparent)' }}
+        >
+          <ChevronRight className="h-5 w-5 text-indigo-600" />
+        </div>
+        <div ref={containerRef} className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-surface">
-              <th className="sticky left-0 z-20 w-36 min-w-[144px] border-r border-b border-gray-200 bg-surface px-3 py-2 text-left text-xs font-medium text-gray-500">
+              <th className="sticky left-0 z-20 w-36 min-w-[144px] border-r border-b border-border bg-surface px-3 py-2 text-left text-xs font-medium text-muted-foreground">
                 Room
               </th>
               {dates.map((date) => (
                 <th
                   key={date}
-                  className={`${colWidth} border-b border-gray-200 px-1 py-2 text-center ${textSize} font-medium ${
-                    date === todayStr ? 'bg-indigo-50 text-indigo-700' : 'text-gray-500'
+                  className={`${colWidth} border-b border-border px-1 py-2 text-center ${textSize} font-medium ${
+                    date === todayStr ? 'bg-indigo-500/10 text-indigo-400' : 'text-muted-foreground'
                   }`}
                 >
                   <button onClick={() => onDateClick(date)} className="hover:underline">
@@ -339,15 +366,15 @@ export default function CalendarGrid({
 
             {/* Occupancy row */}
             <tr className="bg-surface">
-              <td className="sticky left-0 z-20 border-r border-gray-200 bg-surface px-3 py-1.5 text-xs font-medium text-gray-500">
+              <td className="sticky left-0 z-20 border-r border-border bg-surface px-3 py-1.5 text-xs font-medium text-muted-foreground">
                 Occupancy
               </td>
               {dates.map((date) => {
                 const occ = occupancyByDate[date];
                 const pct = occ ? (totalRooms > 0 ? Math.round((occ.occupied / totalRooms) * 100) : 0) : 0;
-                const color = pct >= 90 ? 'text-red-600 font-semibold' : pct >= 70 ? 'text-amber-600 font-medium' : 'text-gray-600';
+                const color = pct >= 90 ? 'text-red-600 font-semibold' : pct >= 70 ? 'text-amber-600 font-medium' : 'text-muted-foreground';
                 return (
-                  <td key={date} className={`px-1 py-1.5 text-center ${textSize} ${color} ${date === todayStr ? 'bg-indigo-50/50' : ''}`}>
+                  <td key={date} className={`px-1 py-1.5 text-center ${textSize} ${color} ${date === todayStr ? 'bg-indigo-500/5' : ''}`}>
                     {pct}%
                   </td>
                 );
@@ -355,6 +382,7 @@ export default function CalendarGrid({
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Tooltip */}
@@ -363,7 +391,7 @@ export default function CalendarGrid({
       {/* Drag overlay */}
       <DragOverlay>
         {activeSegment && (
-          <div className={`rounded-md ${STATUS_COLORS[activeSegment.status] ?? 'bg-gray-300 text-gray-900'} px-2 py-1 text-xs font-medium opacity-80 shadow-lg`}>
+          <div className={`rounded-md ${STATUS_COLORS[activeSegment.status] ?? 'bg-muted text-foreground'} px-2 py-1 text-xs font-medium opacity-80 shadow-lg`}>
             {activeSegment.guestName}
           </div>
         )}
@@ -419,11 +447,11 @@ function RoomTypeSection({
       <tr>
         <td
           colSpan={dates.length + 1}
-          className="sticky left-0 z-10 border-b border-gray-200 bg-gray-50/80 px-3 py-1.5"
+          className="sticky left-0 z-10 border-b border-border bg-muted/80 px-3 py-1.5"
         >
           <button
             onClick={() => onToggle(group.roomTypeId)}
-            className="flex items-center gap-2 text-xs font-semibold text-gray-700"
+            className="flex items-center gap-2 text-xs font-semibold text-foreground"
           >
             {isCollapsed ? (
               <ChevronRight className="h-3.5 w-3.5" />
@@ -431,7 +459,7 @@ function RoomTypeSection({
               <ChevronDown className="h-3.5 w-3.5" />
             )}
             {group.roomTypeName}
-            <span className="rounded-full bg-gray-200 px-1.5 text-[10px] font-medium text-gray-500">
+            <span className="rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
               {group.rooms.length}
             </span>
           </button>
@@ -507,12 +535,12 @@ function RoomRow({
 }) {
   return (
     <tr className="group">
-      <td className="sticky left-0 z-10 border-r border-b border-gray-200 bg-surface px-3 py-1.5">
+      <td className="sticky left-0 z-10 border-r border-b border-border bg-surface px-3 py-1.5">
         <div className="flex items-center gap-1.5">
-          <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${ROOM_STATUS_COLORS[room.status] ?? 'bg-gray-300'}`} />
-          <span className={`${textSize} font-medium text-gray-900`}>{room.roomNumber}</span>
+          <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${ROOM_STATUS_COLORS[room.status] ?? 'bg-muted'}`} />
+          <span className={`${textSize} font-medium text-foreground`}>{room.roomNumber}</span>
         </div>
-        {room.floor && <div className="text-[10px] text-gray-400 ml-3.5">Floor {room.floor}</div>}
+        {room.floor && <div className="text-[10px] text-muted-foreground ml-3.5">Floor {room.floor}</div>}
       </td>
       {dates.map((date) => {
         const bar = bars?.get(date);
@@ -593,9 +621,9 @@ function DateCell({
     <td
       ref={setNodeRef}
       colSpan={bar ? bar.span : 1}
-      className={`${colWidth} border-b border-gray-200 px-0.5 py-0.5 ${
-        date === todayStr ? 'bg-indigo-50/50' : ''
-      } ${isOver ? 'bg-green-100/50' : ''} ${isEmpty ? 'group/empty cursor-pointer hover:bg-gray-50/80' : ''}`}
+      className={`${colWidth} border-b border-border px-0.5 py-0.5 ${
+        date === todayStr ? 'bg-indigo-500/5' : ''
+      } ${isOver ? 'bg-green-500/10' : ''} ${isEmpty ? 'group/empty cursor-pointer hover:bg-muted/80' : ''}`}
       onClick={isEmpty ? () => onEmptyCellClick?.(roomId, date, roomTypeId) : undefined}
       onContextMenu={isEmpty ? (e) => { e.preventDefault(); onEmptyCellContextMenu?.(e, roomId, date, roomTypeId); } : undefined}
     >
@@ -613,7 +641,7 @@ function DateCell({
         />
       ) : oooBlock ? (
         <div
-          className="truncate rounded-md bg-gray-200 px-1 py-1 text-[10px] text-gray-500"
+          className="truncate rounded-md bg-muted px-1 py-1 text-[10px] text-muted-foreground"
           style={{
             backgroundImage: 'repeating-linear-gradient(135deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px)',
           }}
@@ -623,7 +651,7 @@ function DateCell({
         </div>
       ) : (
         <div className="flex h-full min-h-[28px] items-center justify-center opacity-0 transition-opacity group-hover/empty:opacity-100">
-          <Plus className="h-3.5 w-3.5 text-gray-300" />
+          <Plus className="h-3.5 w-3.5 text-muted-foreground" />
         </div>
       )}
     </td>
@@ -686,7 +714,7 @@ function ReservationBarCell({
       onMouseEnter={(e) => onShowTooltip(segment, e.clientX, e.clientY)}
       onMouseLeave={onHideTooltip}
       className={`group/bar relative flex w-full cursor-grab items-center truncate rounded-md ${barPadding} ${textSize} font-medium transition-opacity hover:opacity-90 ${
-        STATUS_COLORS[segment.status] ?? 'bg-gray-300 text-gray-900'
+        STATUS_COLORS[segment.status] ?? 'bg-muted text-foreground'
       } ${isDragging ? 'opacity-40' : ''}`}
     >
       {/* Arrival indicator */}

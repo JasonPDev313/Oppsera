@@ -22,11 +22,11 @@ interface DataQualityBadgeProps {
 // ── Constants ──────────────────────────────────────────────────────
 
 const GRADE_COLORS: Record<string, { bg: string; text: string; ring: string; bar: string }> = {
-  A: { bg: 'bg-emerald-100', text: 'text-emerald-700', ring: 'ring-emerald-300', bar: 'bg-emerald-500' },
-  B: { bg: 'bg-blue-100', text: 'text-blue-700', ring: 'ring-blue-300', bar: 'bg-blue-500' },
-  C: { bg: 'bg-yellow-100', text: 'text-yellow-700', ring: 'ring-yellow-300', bar: 'bg-yellow-500' },
-  D: { bg: 'bg-orange-100', text: 'text-orange-700', ring: 'ring-orange-300', bar: 'bg-orange-500' },
-  F: { bg: 'bg-red-100', text: 'text-red-700', ring: 'ring-red-300', bar: 'bg-red-500' },
+  A: { bg: 'bg-emerald-500/10', text: 'text-emerald-500', ring: 'ring-emerald-500/30', bar: 'bg-emerald-500' },
+  B: { bg: 'bg-blue-500/10', text: 'text-blue-500', ring: 'ring-blue-500/30', bar: 'bg-blue-500' },
+  C: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', ring: 'ring-yellow-500/30', bar: 'bg-yellow-500' },
+  D: { bg: 'bg-orange-500/10', text: 'text-orange-500', ring: 'ring-orange-500/30', bar: 'bg-orange-500' },
+  F: { bg: 'bg-red-500/10', text: 'text-red-500', ring: 'ring-red-500/30', bar: 'bg-red-500' },
 };
 
 // ── Component ──────────────────────────────────────────────────────

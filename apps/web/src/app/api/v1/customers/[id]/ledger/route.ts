@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getUnifiedLedger } from '@oppsera/module-customers';
+import { parseLimit } from '@/lib/api-params';
 
 function extractCustomerId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
@@ -23,9 +24,7 @@ export const GET = withMiddleware(
     const sourceModule = url.searchParams.get('sourceModule') ?? undefined;
     const locationId = url.searchParams.get('locationId') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = url.searchParams.get('limit')
-      ? Number(url.searchParams.get('limit'))
-      : undefined;
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const data = await getUnifiedLedger({
       tenantId: ctx.tenantId,

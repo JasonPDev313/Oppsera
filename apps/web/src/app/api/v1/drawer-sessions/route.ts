@@ -8,6 +8,7 @@ import {
   getActiveDrawerSession,
   getDrawerSessionHistory,
 } from '@oppsera/core/drawer-sessions';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/drawer-sessions
 // Query params: terminalId (required for ?active=true), locationId, dateFrom, dateTo, status, cursor, limit
@@ -35,7 +36,7 @@ export const GET = withMiddleware(
       dateTo: url.searchParams.get('dateTo') ?? undefined,
       status: (url.searchParams.get('status') as 'open' | 'closed') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });

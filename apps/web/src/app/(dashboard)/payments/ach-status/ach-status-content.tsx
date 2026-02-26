@@ -50,8 +50,8 @@ export default function AchStatusContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">ACH Status</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">ACH Status</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Monitor ACH payment origination, settlement, and returns
           </p>
         </div>
@@ -119,13 +119,13 @@ export default function AchStatusContent() {
       {summaryLoading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-border">
         <nav className="-mb-px flex gap-6">
           {tabs.map((t) => (
             <button
@@ -135,7 +135,7 @@ export default function AchStatusContent() {
               className={`whitespace-nowrap border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
                 tab === t.key
                   ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               {t.label}
@@ -181,13 +181,13 @@ function SummaryCard({
   color: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-center gap-3">
-        <div className={`rounded-lg p-2 ${SUMMARY_CARD_BG[color] ?? 'bg-gray-500/10'}`}>{icon}</div>
+        <div className={`rounded-lg p-2 ${SUMMARY_CARD_BG[color] ?? 'bg-muted0/10'}`}>{icon}</div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">{label}</p>
-          <p className="text-2xl font-bold text-gray-900">{count}</p>
-          <p className="text-sm text-gray-600">{amount}</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold text-foreground">{count}</p>
+          <p className="text-sm text-muted-foreground">{amount}</p>
         </div>
       </div>
     </div>
@@ -203,16 +203,16 @@ function OverviewTab() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       {/* Return Code Distribution */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-5">
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">Return Code Distribution</h3>
+      <div className="rounded-lg border border-border bg-surface p-5">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Return Code Distribution</h3>
         {distLoading ? (
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 animate-pulse rounded bg-gray-100" />
+              <div key={i} className="h-8 animate-pulse rounded bg-muted" />
             ))}
           </div>
         ) : distribution.length === 0 ? (
-          <p className="text-sm text-gray-400">No returns recorded</p>
+          <p className="text-sm text-muted-foreground">No returns recorded</p>
         ) : (
           <div className="space-y-3">
             {distribution.map((d) => {
@@ -221,16 +221,16 @@ function OverviewTab() {
               return (
                 <div key={d.returnCode}>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="font-mono font-medium text-gray-900">{d.returnCode}</span>
-                    <span className="text-gray-500">{d.count}</span>
+                    <span className="font-mono font-medium text-foreground">{d.returnCode}</span>
+                    <span className="text-muted-foreground">{d.count}</span>
                   </div>
-                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-gray-100">
+                  <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
                     <div
                       className="h-full rounded-full bg-red-400"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <p className="mt-0.5 text-xs text-gray-400">{d.returnReason}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{d.returnReason}</p>
                 </div>
               );
             })}
@@ -239,34 +239,34 @@ function OverviewTab() {
       </div>
 
       {/* Recent Settlement Activity */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-5">
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">Settlement Activity (Last 30 Days)</h3>
+      <div className="rounded-lg border border-border bg-surface p-5">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Settlement Activity (Last 30 Days)</h3>
         {settLoading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-6 animate-pulse rounded bg-gray-100" />
+              <div key={i} className="h-6 animate-pulse rounded bg-muted" />
             ))}
           </div>
         ) : settlement.length === 0 ? (
-          <p className="text-sm text-gray-400">No settlement data yet</p>
+          <p className="text-sm text-muted-foreground">No settlement data yet</p>
         ) : (
           <div className="space-y-2">
-            <div className="grid grid-cols-4 text-xs font-medium uppercase tracking-wider text-gray-500">
+            <div className="grid grid-cols-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <span>Date</span>
               <span className="text-right">Settled</span>
               <span className="text-right">Returned</span>
               <span className="text-right">Net</span>
             </div>
             {settlement.slice(0, 15).map((s) => (
-              <div key={s.date} className="grid grid-cols-4 border-t border-gray-100 py-1.5 text-sm">
-                <span className="text-gray-700">{formatDate(s.date)}</span>
+              <div key={s.date} className="grid grid-cols-4 border-t border-border py-1.5 text-sm">
+                <span className="text-foreground">{formatDate(s.date)}</span>
                 <span className="text-right font-medium text-green-500">
                   {formatCents(s.settledAmountCents)}
                 </span>
                 <span className="text-right font-medium text-red-500">
                   {s.returnedAmountCents > 0 ? `-${formatCents(s.returnedAmountCents)}` : '—'}
                 </span>
-                <span className="text-right font-medium text-gray-900">
+                <span className="text-right font-medium text-foreground">
                   {formatCents(s.settledAmountCents - s.returnedAmountCents)}
                 </span>
               </div>
@@ -287,7 +287,7 @@ function PendingTab() {
     return (
       <div className="space-y-2">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />
+          <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
         ))}
       </div>
     );
@@ -295,29 +295,29 @@ function PendingTab() {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-gray-300 py-12">
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12">
         <CheckCircle2 className="h-8 w-8 text-green-400" />
-        <p className="text-sm font-medium text-gray-600">No pending ACH payments</p>
-        <p className="text-xs text-gray-400">All ACH payments have been settled or returned.</p>
+        <p className="text-sm font-medium text-muted-foreground">No pending ACH payments</p>
+        <p className="text-xs text-muted-foreground">All ACH payments have been settled or returned.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface">
+      <table className="min-w-full divide-y divide-border">
+        <thead className="bg-muted">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Amount</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Account</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">SEC Code</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Created</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Account</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">SEC Code</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Created</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-border">
           {items.map((item) => (
-            <tr key={item.id} className="hover:bg-gray-200/50">
+            <tr key={item.id} className="hover:bg-accent">
               <td className="whitespace-nowrap px-4 py-3">
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -329,16 +329,16 @@ function PendingTab() {
                   {item.achSettlementStatus === 'originated' ? 'In Transit' : 'Pending'}
                 </span>
               </td>
-              <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+              <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
                 {formatCents(item.amountCents)}
               </td>
-              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
                 {item.bankLast4 ? `••••${item.bankLast4}` : '—'}
               </td>
-              <td className="whitespace-nowrap px-4 py-3 text-xs font-mono text-gray-500">
+              <td className="whitespace-nowrap px-4 py-3 text-xs font-mono text-muted-foreground">
                 {item.achSecCode ?? '—'}
               </td>
-              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
                 {formatDate(item.createdAt)}
               </td>
             </tr>
@@ -346,7 +346,7 @@ function PendingTab() {
         </tbody>
       </table>
       {meta.hasMore && (
-        <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 text-center text-xs text-gray-500">
+        <div className="border-t border-border bg-muted px-4 py-3 text-center text-xs text-muted-foreground">
           Showing {items.length} items — more available
         </div>
       )}
@@ -363,7 +363,7 @@ function ReturnsTab() {
     return (
       <div className="space-y-2">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />
+          <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
         ))}
       </div>
     );
@@ -371,39 +371,39 @@ function ReturnsTab() {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-gray-300 py-12">
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12">
         <CheckCircle2 className="h-8 w-8 text-green-400" />
-        <p className="text-sm font-medium text-gray-600">No ACH returns</p>
-        <p className="text-xs text-gray-400">No bank rejections have been recorded.</p>
+        <p className="text-sm font-medium text-muted-foreground">No ACH returns</p>
+        <p className="text-xs text-muted-foreground">No bank rejections have been recorded.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface">
+      <table className="min-w-full divide-y divide-border">
+        <thead className="bg-muted">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Return Code</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Reason</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Amount</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Return Date</th>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Return Code</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Reason</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Amount</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Return Date</th>
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-border">
           {items.map((item) => (
-            <tr key={item.id} className="hover:bg-gray-200/50">
+            <tr key={item.id} className="hover:bg-accent">
               <td className="whitespace-nowrap px-4 py-3">
                 <span className="inline-flex items-center rounded bg-red-500/10 px-2 py-0.5 font-mono text-xs font-medium text-red-500">
                   {item.returnCode}
                 </span>
               </td>
-              <td className="px-4 py-3 text-sm text-gray-700">{item.returnReason}</td>
-              <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+              <td className="px-4 py-3 text-sm text-foreground">{item.returnReason}</td>
+              <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
                 {formatCents(item.originalAmountCents)}
               </td>
-              <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
+              <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
                 {formatDate(item.returnDate)}
               </td>
               <td className="whitespace-nowrap px-4 py-3">
@@ -412,7 +412,7 @@ function ReturnsTab() {
                     Resolved
                   </span>
                 ) : item.isAdministrative ? (
-                  <span className="inline-flex items-center rounded-full bg-gray-500/10 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                  <span className="inline-flex items-center rounded-full bg-muted0/10 px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                     Administrative
                   </span>
                 ) : (
@@ -426,7 +426,7 @@ function ReturnsTab() {
         </tbody>
       </table>
       {meta.hasMore && (
-        <div className="border-t border-gray-200 bg-gray-50 px-4 py-3 text-center text-xs text-gray-500">
+        <div className="border-t border-border bg-muted px-4 py-3 text-center text-xs text-muted-foreground">
           Showing {items.length} items — more available
         </div>
       )}
@@ -443,7 +443,7 @@ function SettlementTab() {
     return (
       <div className="space-y-2">
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} className="h-8 animate-pulse rounded bg-gray-100" />
+          <div key={i} className="h-8 animate-pulse rounded bg-muted" />
         ))}
       </div>
     );
@@ -451,10 +451,10 @@ function SettlementTab() {
 
   if (settlement.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-gray-300 py-12">
-        <Landmark className="h-8 w-8 text-gray-300" />
-        <p className="text-sm font-medium text-gray-600">No settlement data</p>
-        <p className="text-xs text-gray-400">ACH settlement data will appear here after the first funding poll.</p>
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border py-12">
+        <Landmark className="h-8 w-8 text-muted-foreground" />
+        <p className="text-sm font-medium text-muted-foreground">No settlement data</p>
+        <p className="text-xs text-muted-foreground">ACH settlement data will appear here after the first funding poll.</p>
       </div>
     );
   }
@@ -466,52 +466,52 @@ function SettlementTab() {
     <div className="space-y-4">
       {/* Totals */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Total Settled</p>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Settled</p>
           <p className="mt-1 text-xl font-bold text-green-500">{formatCents(totalSettled)}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Total Returned</p>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total Returned</p>
           <p className="mt-1 text-xl font-bold text-red-500">{formatCents(totalReturned)}</p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-gray-500">Net ACH</p>
-          <p className="mt-1 text-xl font-bold text-gray-900">{formatCents(totalSettled - totalReturned)}</p>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Net ACH</p>
+          <p className="mt-1 text-xl font-bold text-foreground">{formatCents(totalSettled - totalReturned)}</p>
         </div>
       </div>
 
       {/* Daily table */}
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Settled</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Settled Amt</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Returned</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Returned Amt</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Net</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Date</th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Settled</th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Settled Amt</th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Returned</th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Returned Amt</th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Net</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border">
             {settlement.map((s) => (
-              <tr key={s.date} className="hover:bg-gray-200/50">
-                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+              <tr key={s.date} className="hover:bg-accent">
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
                   {formatDate(s.date)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-600">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-muted-foreground">
                   {s.settledCount}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-green-500">
                   {formatCents(s.settledAmountCents)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-600">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-muted-foreground">
                   {s.returnedCount}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-red-500">
                   {s.returnedAmountCents > 0 ? formatCents(s.returnedAmountCents) : '—'}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-bold text-gray-900">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-bold text-foreground">
                   {formatCents(s.settledAmountCents - s.returnedAmountCents)}
                 </td>
               </tr>

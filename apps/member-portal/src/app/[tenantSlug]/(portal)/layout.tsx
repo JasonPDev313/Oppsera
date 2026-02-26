@@ -18,9 +18,10 @@ export default async function PortalLayout({ children, params }: PortalLayoutPro
 
   return (
     <div className="min-h-screen flex flex-col">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <PortalHeader />
       <PortalNav />
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {children}
       </main>
     </div>

@@ -46,7 +46,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed right-4 top-4 z-[100] flex flex-col gap-2">
+      <div role="status" aria-live="polite" aria-atomic="true" className="fixed right-4 top-4 z-[100] flex flex-col gap-2">
         {toasts.map((t) => (
           <ToastCard key={t.id} item={t} onDismiss={() => removeToast(t.id)} />
         ))}
@@ -57,20 +57,20 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 const typeStyles = {
   success: {
-    bg: 'bg-green-50 border-green-200',
-    text: 'text-green-800',
+    bg: 'bg-green-500/10 border-green-500/30',
+    text: 'text-green-500',
     Icon: CheckCircle,
     iconClass: 'text-green-500',
   },
   error: {
-    bg: 'bg-red-50 border-red-200',
-    text: 'text-red-800',
+    bg: 'bg-red-500/10 border-red-500/30',
+    text: 'text-red-500',
     Icon: XCircle,
     iconClass: 'text-red-500',
   },
   info: {
-    bg: 'bg-blue-50 border-blue-200',
-    text: 'text-blue-800',
+    bg: 'bg-blue-500/10 border-blue-500/30',
+    text: 'text-blue-500',
     Icon: Info,
     iconClass: 'text-blue-500',
   },
@@ -82,14 +82,18 @@ function ToastCard({ item, onDismiss }: { item: ToastItem; onDismiss: () => void
     <div
       className={`flex w-80 items-start gap-3 rounded-lg border p-4 shadow-lg ${style.bg}`}
     >
-      <style.Icon className={`h-5 w-5 shrink-0 ${style.iconClass}`} />
-      <p className={`flex-1 text-sm ${style.text}`}>{item.message}</p>
+      <style.Icon className={`h-5 w-5 shrink-0 ${style.iconClass}`} aria-hidden="true" />
+      <p className={`flex-1 text-sm ${style.text}`}>
+        <span className="sr-only">{item.type === 'success' ? 'Success:' : item.type === 'error' ? 'Error:' : 'Info:'} </span>
+        {item.message}
+      </p>
       <button
         type="button"
         onClick={onDismiss}
+        aria-label="Dismiss notification"
         className="shrink-0 text-gray-400 hover:text-gray-600"
       >
-        <X className="h-4 w-4" />
+        <X className="h-4 w-4" aria-hidden="true" />
       </button>
     </div>
   );

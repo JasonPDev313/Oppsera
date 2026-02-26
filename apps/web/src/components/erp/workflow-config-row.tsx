@@ -65,7 +65,7 @@ function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-        checked ? 'bg-indigo-600' : 'bg-gray-200'
+        checked ? 'bg-indigo-600' : 'bg-muted-foreground/30'
       }`}
     >
       <span
@@ -98,28 +98,28 @@ export function WorkflowConfigRow({
 
   return (
     <div className={`flex items-center gap-4 rounded-lg border px-4 py-3 ${
-      isComingSoon ? 'border-gray-100 bg-gray-50/50' : 'border-gray-200'
+      isComingSoon ? 'border-border/50 bg-muted/50' : 'border-border'
     }`}>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className={`text-sm font-medium ${isComingSoon ? 'text-gray-400' : 'text-gray-900'}`}>
+          <p className={`text-sm font-medium ${isComingSoon ? 'text-muted-foreground' : 'text-foreground'}`}>
             {info.name}
           </p>
           {isProtected && !isComingSoon && (
-            <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-700" title="Protected workflow — auto mode cannot be disabled for SMB">
+            <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-medium text-amber-500" title="Protected workflow — auto mode cannot be disabled for SMB">
               <Lock className="h-3 w-3" />
               Protected
             </span>
           )}
           {isComingSoon && (
-            <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-xs font-medium text-indigo-600">
+            <span className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-xs font-medium text-indigo-500">
               <Clock className="h-3 w-3" />
               Coming Soon
             </span>
           )}
         </div>
         {info.description && (
-          <p className={`mt-0.5 text-xs ${isComingSoon ? 'text-gray-400' : 'text-gray-500'}`}>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {info.description}
           </p>
         )}
@@ -127,7 +127,7 @@ export function WorkflowConfigRow({
 
       <div className="flex items-center gap-6">
         <div className="flex flex-col items-center gap-1">
-          <span className={`text-xs font-medium ${isComingSoon ? 'text-gray-300' : 'text-gray-500'}`}>Auto</span>
+          <span className={`text-xs font-medium ${isComingSoon ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>Auto</span>
           <Toggle
             checked={isComingSoon ? false : autoMode}
             disabled={disabled || (isProtected && autoMode)}
@@ -135,7 +135,7 @@ export function WorkflowConfigRow({
           />
         </div>
         <div className="flex flex-col items-center gap-1">
-          <span className={`text-xs font-medium ${isComingSoon ? 'text-gray-300' : 'text-gray-500'}`}>Approval</span>
+          <span className={`text-xs font-medium ${isComingSoon ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>Approval</span>
           <Toggle
             checked={isComingSoon ? false : approvalRequired}
             disabled={disabled}
@@ -143,7 +143,7 @@ export function WorkflowConfigRow({
           />
         </div>
         <div className="flex flex-col items-center gap-1">
-          <span className={`text-xs font-medium ${isComingSoon ? 'text-gray-300' : 'text-gray-500'}`}>Visible</span>
+          <span className={`text-xs font-medium ${isComingSoon ? 'text-muted-foreground/60' : 'text-muted-foreground'}`}>Visible</span>
           <Toggle
             checked={isComingSoon ? false : userVisible}
             disabled={disabled}

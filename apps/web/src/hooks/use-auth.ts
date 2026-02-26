@@ -69,12 +69,19 @@ function loadImpersonationFromStorage(): ImpersonationState | null {
   }
 }
 
+// Module-level logout promise — shared across all useAuth instances so that
+// concurrent callers (auth layout effect, signup page, dashboard button) never
+// run logout in parallel.  The first caller starts the operation; subsequent
+// callers await the same promise.
+let _logoutPromise: Promise<void> | null = null;
+
 export function useAuth() {
   const [user, setUser] = useState<AuthUserProfile | null>(null);
   const [tenant, setTenant] = useState<TenantProfile | null>(null);
   const [locations, setLocations] = useState<LocationProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [impersonation, setImpersonation] = useState<ImpersonationState | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const retryCount = useRef(0);
 
@@ -187,22 +194,41 @@ export function useAuth() {
   }, []);
 
   const logout = useCallback(async () => {
+    // Deduplicate: if a logout is already running, await it instead of
+    // starting a second one.  This prevents the race where a concurrent
+    // logout's clearTokens() wipes tokens set by a login() that started
+    // between the two logout calls.
+    if (_logoutPromise) {
+      await _logoutPromise;
+      return;
+    }
+
+    setIsLoggingOut(true);
+    _logoutPromise = (async () => {
+      try {
+        await apiFetch('/api/v1/auth/logout', { method: 'POST' });
+      } catch {
+        // Best effort
+      }
+      clearTokens();
+      sessionStorage.removeItem(IMPERSONATION_STORAGE_KEY);
+      // Clear ALL terminal session state so next login forces role/terminal selection
+      for (const key of ALL_TERMINAL_KEYS) {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+      }
+      setUser(null);
+      setTenant(null);
+      setLocations([]);
+      setImpersonation(null);
+    })();
+
     try {
-      await apiFetch('/api/v1/auth/logout', { method: 'POST' });
-    } catch {
-      // Best effort
+      await _logoutPromise;
+    } finally {
+      _logoutPromise = null;
+      setIsLoggingOut(false);
     }
-    clearTokens();
-    sessionStorage.removeItem(IMPERSONATION_STORAGE_KEY);
-    // Clear ALL terminal session state so next login forces role/terminal selection
-    for (const key of ALL_TERMINAL_KEYS) {
-      localStorage.removeItem(key);
-      sessionStorage.removeItem(key);
-    }
-    setUser(null);
-    setTenant(null);
-    setLocations([]);
-    setImpersonation(null);
   }, []);
 
   const exitImpersonation = useCallback(async () => {
@@ -235,6 +261,7 @@ export function useAuth() {
     logout,
     fetchMe,
     isLoading,
+    isLoggingOut,
     isAuthenticated: !!user,
     needsOnboarding: !!user && !tenant,
     impersonation,

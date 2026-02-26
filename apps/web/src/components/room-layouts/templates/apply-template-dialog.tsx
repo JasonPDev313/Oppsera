@@ -50,20 +50,20 @@ export function ApplyTemplateDialog({ roomId, onClose, onApplied }: ApplyTemplat
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Apply Template</h2>
-          <button onClick={onClose} className="rounded p-1 text-gray-400 hover:bg-gray-200/50">
+          <h2 className="text-lg font-semibold text-foreground">Apply Template</h2>
+          <button onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-accent">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="flex items-start gap-3 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-4">
-          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600" />
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-500" />
           <div>
-            <p className="text-sm font-medium text-yellow-700">
+            <p className="text-sm font-medium text-yellow-500">
               This will replace your current draft
             </p>
-            <p className="mt-1 text-sm text-yellow-600">
-              Applying &ldquo;{selected?.name}&rdquo; will replace all objects in your current draft with the template layout.
+            <p className="mt-1 text-sm text-yellow-500">
+          Applying &ldquo;{selected?.name}&rdquo; will replace all objects in your current draft with the template layout.
               This action can be undone with version history.
             </p>
           </div>
@@ -72,7 +72,7 @@ export function ApplyTemplateDialog({ roomId, onClose, onApplied }: ApplyTemplat
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={() => setStep('select')}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Back
           </button>

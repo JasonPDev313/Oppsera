@@ -10,6 +10,7 @@ export type { CachedQueryResult, QueryCacheStats } from './query-cache';
 
 export {
   getFromLLMCache,
+  getStaleFromLLMCache,
   setInLLMCache,
   invalidateLLMCache,
   getLLMCacheStats,
@@ -24,6 +25,8 @@ export {
   getSemanticRateLimitStatus,
   resetSemanticRateLimiter,
   getTrackedTenantsCount,
+  setAdaptiveBackoffLevel,
+  getAdaptiveBackoffLevel,
 } from './semantic-rate-limiter';
 
 export type { RateLimitConfig, RateLimitResult } from './semantic-rate-limiter';

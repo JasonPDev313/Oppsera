@@ -72,14 +72,14 @@ export function PosIntegrationStatus() {
       <div
         className={`flex items-center gap-3 rounded-lg border px-4 py-3 ${
           isEnabled
-            ? 'border-green-200 bg-green-50 text-green-800'
-            : 'border-gray-200 bg-gray-50 text-gray-700'
+            ? 'border-green-500/30 bg-green-500/10 text-green-500'
+            : 'border-border bg-muted text-foreground'
         }`}
       >
         {isEnabled ? (
-          <Zap className="h-5 w-5 shrink-0 text-green-600" />
+          <Zap className="h-5 w-5 shrink-0 text-green-500" />
         ) : (
-          <Activity className="h-5 w-5 shrink-0 text-gray-400" />
+          <Activity className="h-5 w-5 shrink-0 text-muted-foreground" />
         )}
         <div className="flex-1">
           <p className="font-medium">
@@ -101,10 +101,10 @@ export function PosIntegrationStatus() {
 
       {/* Mapping Coverage */}
       {coverage && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-5">
+        <div className="rounded-lg border border-border bg-surface p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">Mapping Coverage</h3>
-            <span className="text-sm font-bold text-gray-900">{coverage.overallPercentage}%</span>
+            <h3 className="text-sm font-semibold text-foreground">Mapping Coverage</h3>
+            <span className="text-sm font-bold text-foreground">{coverage.overallPercentage}%</span>
           </div>
           <div className="space-y-2">
             <MappingRow label="Departments" mapped={coverage.departments.mapped} total={coverage.departments.total} />
@@ -114,7 +114,7 @@ export function PosIntegrationStatus() {
           {coverage.overallPercentage < 100 && (
             <Link
               href="/accounting/mappings"
-              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-indigo-500 hover:text-indigo-500"
             >
               Complete mappings <ArrowRight className="h-3 w-3" />
             </Link>
@@ -126,7 +126,7 @@ export function PosIntegrationStatus() {
       {unmappedCount && unmappedCount !== '0' && (
         <Link
           href="/accounting/mappings"
-          className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 hover:bg-amber-100"
+          className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-500 hover:bg-amber-500/20"
         >
           <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
           <span>
@@ -136,25 +136,25 @@ export function PosIntegrationStatus() {
       )}
 
       {/* Recent POS GL Entries */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-5">
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Recent POS Journal Entries</h3>
+      <div className="rounded-lg border border-border bg-surface p-5">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">Recent POS Journal Entries</h3>
         {recentEntries && recentEntries.length > 0 ? (
           <div className="space-y-2">
             {recentEntries.map((entry) => (
               <Link
                 key={entry.id}
                 href={`/accounting/journals/${entry.id}`}
-                className="flex items-center gap-3 rounded border border-gray-100 px-3 py-2 text-sm hover:bg-gray-50"
+                className="flex items-center gap-3 rounded border border-border px-3 py-2 text-sm hover:bg-muted"
               >
-                <span className="font-mono text-gray-500">#{entry.journalNumber}</span>
-                <span className="flex-1 truncate text-gray-600">{entry.sourceReferenceId}</span>
-                <span className="tabular-nums text-gray-700">{formatAccountingMoney(entry.totalAmount)}</span>
-                <span className="text-gray-400">{entry.businessDate}</span>
+                <span className="font-mono text-muted-foreground">#{entry.journalNumber}</span>
+                <span className="flex-1 truncate text-muted-foreground">{entry.sourceReferenceId}</span>
+                <span className="tabular-nums text-foreground">{formatAccountingMoney(entry.totalAmount)}</span>
+                <span className="text-muted-foreground">{entry.businessDate}</span>
               </Link>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500">No POS entries recorded yet.</p>
+          <p className="text-sm text-muted-foreground">No POS entries recorded yet.</p>
         )}
       </div>
     </div>
@@ -169,8 +169,8 @@ function MappingRow({ label, mapped, total }: { label: string; mapped: number; t
   return (
     <div className="flex items-center gap-3 text-sm">
       <Icon className={`h-4 w-4 ${iconColor}`} />
-      <span className="flex-1 text-gray-600">{label}</span>
-      <span className="tabular-nums text-gray-500">
+      <span className="flex-1 text-muted-foreground">{label}</span>
+      <span className="tabular-nums text-muted-foreground">
         {mapped}/{total}
       </span>
     </div>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getItemsBySubDepartment } from '@oppsera/module-accounting';
+import { parseLimit } from '@/lib/api-params';
 
 function extractSubDepartmentId(request: NextRequest): string {
   const url = new URL(request.url);
@@ -16,9 +17,7 @@ export const GET = withMiddleware(
     const subDepartmentId = extractSubDepartmentId(request);
     const url = new URL(request.url);
     const cursor = url.searchParams.get('cursor') || null;
-    const limit = url.searchParams.has('limit')
-      ? Math.min(Number(url.searchParams.get('limit')), 100)
-      : 50;
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const result = await getItemsBySubDepartment({
       tenantId: ctx.tenantId,

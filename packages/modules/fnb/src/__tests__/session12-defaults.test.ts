@@ -50,12 +50,12 @@ describe('FNB_SETTINGS_DEFAULTS', () => {
     expect(Object.keys(FNB_SETTINGS_DEFAULTS.fnb_hardware)).toHaveLength(4);
   });
 
-  it('total settings across all modules is 66', () => {
+  it('total settings across all modules is 79', () => {
     let total = 0;
     for (const key of FNB_SETTINGS_MODULE_KEYS) {
       total += Object.keys(FNB_SETTINGS_DEFAULTS[key]).length;
     }
-    expect(total).toBe(66);
+    expect(total).toBe(79);
   });
 });
 

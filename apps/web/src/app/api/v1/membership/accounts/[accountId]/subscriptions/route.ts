@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
+import { parseLimit } from '@/lib/api-params';
 import {
   listSubscriptions,
   assignPlan,
@@ -18,9 +19,7 @@ export const GET = withMiddleware(
       membershipAccountId: accountId,
       status: url.searchParams.get('status') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit')
-        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({

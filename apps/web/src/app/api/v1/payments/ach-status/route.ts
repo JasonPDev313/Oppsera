@@ -8,6 +8,7 @@ import {
   getAchReturnDistribution,
   getAchSettlementByDate,
 } from '@oppsera/module-payments';
+import { parseLimit } from '@/lib/api-params';
 
 /**
  * GET /api/v1/payments/ach-status
@@ -27,7 +28,7 @@ export const GET = withMiddleware(
     const dateTo = url.searchParams.get('dateTo') ?? undefined;
     const locationId = url.searchParams.get('locationId') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined;
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const baseInput = { tenantId: ctx.tenantId, dateFrom, dateTo, locationId };
 
@@ -64,5 +65,5 @@ export const GET = withMiddleware(
         );
     }
   },
-  { entitlement: 'payments', permission: 'payments.settings.manage' },
+  { entitlement: 'payments', permission: 'settings.view' },
 );

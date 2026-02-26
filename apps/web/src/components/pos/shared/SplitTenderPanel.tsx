@@ -28,9 +28,9 @@ function todayBusinessDate(): string {
 type TenderType = 'cash' | 'card' | 'check';
 
 const TENDER_OPTIONS: { type: TenderType; label: string; icon: typeof Banknote; color: string }[] = [
-  { type: 'cash', label: 'Cash', icon: Banknote, color: 'text-green-600 bg-green-50 border-green-200 hover:bg-green-100' },
-  { type: 'card', label: 'Card', icon: CreditCard, color: 'text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100' },
-  { type: 'check', label: 'Check', icon: FileText, color: 'text-purple-600 bg-purple-50 border-purple-200 hover:bg-purple-100' },
+  { type: 'cash', label: 'Cash', icon: Banknote, color: 'text-green-600 bg-green-500/10 border-green-500/30 hover:bg-green-500/20' },
+  { type: 'card', label: 'Card', icon: CreditCard, color: 'text-blue-600 bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20' },
+  { type: 'check', label: 'Check', icon: FileText, color: 'text-purple-600 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20' },
 ];
 
 type PanelStep = 'summary' | 'pick-type' | 'enter-amount';
@@ -221,29 +221,30 @@ export function SplitTenderPanel({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="split-tender-dialog-title">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/50" onClick={onCancel} />
 
       {/* Panel */}
       <div className="relative flex w-full max-w-lg flex-col rounded-2xl bg-surface shadow-xl" style={{ maxHeight: '90vh' }}>
         {/* ── Header ─────────────────────────────────────────── */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Split Payment</h2>
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 id="split-tender-dialog-title" className="text-lg font-semibold text-foreground">Split Payment</h2>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:scale-[0.97]"
+            aria-label="Close"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         {/* ── Order Total Bar ────────────────────────────────── */}
-        <div className="border-b border-gray-200 bg-gray-50 px-6 py-3">
+        <div className="border-b border-border bg-muted px-6 py-3">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-600">Order Total</span>
-            <span className="font-semibold text-gray-900">{formatMoney(order.total)}</span>
+            <span className="text-muted-foreground">Order Total</span>
+            <span className="font-semibold text-foreground">{formatMoney(order.total)}</span>
           </div>
         </div>
 
@@ -256,7 +257,7 @@ export function SplitTenderPanel({
               {/* Recorded tenders list */}
               {tenders.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Payments Recorded
                   </p>
                   {tenders.map((t, idx) => {
@@ -266,20 +267,20 @@ export function SplitTenderPanel({
                     return (
                       <div
                         key={t.id}
-                        className="flex items-center gap-3 rounded-lg border border-gray-200 px-4 py-3"
+                        className="flex items-center gap-3 rounded-lg border border-border px-4 py-3"
                       >
-                        <Icon className="h-4 w-4 text-gray-500 shrink-0" />
+                        <Icon className="h-4 w-4 text-muted-foreground shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900">
+                          <p className="text-sm font-medium text-foreground">
                             {TENDER_TYPE_LABELS[t.tenderType] ?? t.tenderType} #{idx + 1}
                           </p>
                           {t.tenderType === 'cash' && t.changeGiven > 0 && (
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               Given: {formatMoney(t.amountGiven)} / Change: {formatMoney(t.changeGiven)}
                             </p>
                           )}
                         </div>
-                        <span className="text-sm font-semibold text-gray-900 shrink-0">
+                        <span className="text-sm font-semibold text-foreground shrink-0">
                           {formatMoney(t.amount)}
                         </span>
                       </div>
@@ -287,8 +288,8 @@ export function SplitTenderPanel({
                   })}
 
                   {/* Running total */}
-                  <div className="flex items-center justify-between border-t border-gray-200 pt-2 px-1">
-                    <span className="text-sm text-gray-600">Total Paid</span>
+                  <div className="flex items-center justify-between border-t border-border pt-2 px-1">
+                    <span className="text-sm text-muted-foreground">Total Paid</span>
                     <span className="text-sm font-semibold text-green-600">
                       {formatMoney(totalTendered)}
                     </span>
@@ -297,9 +298,9 @@ export function SplitTenderPanel({
               )}
 
               {tenders.length === 0 && !isLoading && (
-                <div className="rounded-lg border border-dashed border-gray-300 py-8 text-center">
-                  <p className="text-sm text-gray-500">No payments recorded yet</p>
-                  <p className="mt-1 text-xs text-gray-400">
+                <div className="rounded-lg border border-dashed border-input py-8 text-center">
+                  <p className="text-sm text-muted-foreground">No payments recorded yet</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Add payments to split this order across multiple tenders
                   </p>
                 </div>
@@ -307,16 +308,16 @@ export function SplitTenderPanel({
 
               {isLoading && (
                 <div className="py-8 text-center">
-                  <p className="text-sm text-gray-500">Loading payments...</p>
+                  <p className="text-sm text-muted-foreground">Loading payments...</p>
                 </div>
               )}
 
               {/* Remaining balance */}
-              <div className="rounded-xl bg-gray-50 p-4 text-center">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <div className="rounded-xl bg-muted p-4 text-center">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Remaining Balance
                 </p>
-                <p className={`mt-1 text-3xl font-bold ${isFullyPaid ? 'text-green-600' : 'text-gray-900'}`}>
+                <p className={`mt-1 text-3xl font-bold ${isFullyPaid ? 'text-green-600' : 'text-foreground'}`}>
                   {isFullyPaid ? '$0.00' : formatMoney(remaining)}
                 </p>
               </div>
@@ -326,7 +327,7 @@ export function SplitTenderPanel({
                 <button
                   type="button"
                   onClick={() => setStep('pick-type')}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100 active:scale-[0.97]"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm font-semibold text-indigo-400 transition-colors hover:bg-indigo-500/20 active:scale-[0.97]"
                 >
                   <Plus className="h-4 w-4" />
                   Add Payment
@@ -338,7 +339,7 @@ export function SplitTenderPanel({
           {/* == Step: PICK TYPE == */}
           {step === 'pick-type' && (
             <div className="space-y-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Select Payment Method
               </p>
               {TENDER_OPTIONS.map(({ type, label, icon: Icon, color }) => (
@@ -355,7 +356,7 @@ export function SplitTenderPanel({
               <button
                 type="button"
                 onClick={handleBackToSummary}
-                className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 active:scale-[0.97]"
+                className="w-full rounded-lg border border-input px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent active:scale-[0.97]"
               >
                 Back
               </button>
@@ -370,18 +371,18 @@ export function SplitTenderPanel({
                 {selectedType === 'cash' && <Banknote className="h-5 w-5 text-green-600" />}
                 {selectedType === 'card' && <CreditCard className="h-5 w-5 text-blue-600" />}
                 {selectedType === 'check' && <FileText className="h-5 w-5 text-purple-600" />}
-                <span className="text-sm font-semibold text-gray-900 capitalize">
+                <span className="text-sm font-semibold text-foreground capitalize">
                   {selectedType} Payment
                 </span>
-                <span className="ml-auto text-xs text-gray-500">
+                <span className="ml-auto text-xs text-muted-foreground">
                   Remaining: {formatMoney(remaining)}
                 </span>
               </div>
 
               {/* Amount display */}
-              <div className="rounded-xl border border-gray-200 p-3 text-center">
-                <p className="text-xs font-medium text-gray-500 mb-1">Amount</p>
-                <p className="text-2xl font-bold text-gray-900">${amount || '0.00'}</p>
+              <div className="rounded-xl border border-border p-3 text-center">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Amount</p>
+                <p className="text-2xl font-bold text-foreground">${amount || '0.00'}</p>
                 {selectedType === 'cash' && amountCents > remaining && remaining > 0 && (
                   <p className="mt-1 text-sm font-semibold text-green-600">
                     Change: {formatMoney(amountCents - remaining)}
@@ -397,7 +398,7 @@ export function SplitTenderPanel({
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setAmount((remaining / 100).toFixed(2))}
-                className="w-full rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 active:scale-[0.97] disabled:opacity-50"
+                className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-2.5 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 active:scale-[0.97] disabled:opacity-50"
               >
                 Exact Amount  {formatMoney(remaining)}
               </button>
@@ -408,7 +409,7 @@ export function SplitTenderPanel({
                   type="button"
                   onClick={handleBackToSummary}
                   disabled={isSubmitting}
-                  className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 active:scale-[0.97] disabled:opacity-50"
+                  className="flex-1 rounded-lg border border-input px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent active:scale-[0.97] disabled:opacity-50"
                 >
                   Back
                 </button>
@@ -416,7 +417,7 @@ export function SplitTenderPanel({
                   type="button"
                   onClick={handleSubmitTender}
                   disabled={isSubmitting || amountCents <= 0}
-                  className="flex-[2] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-indigo-300"
+                  className="flex-[2] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-indigo-600/50"
                 >
                   {isSubmitting
                     ? 'Processing...'
@@ -428,11 +429,11 @@ export function SplitTenderPanel({
         </div>
 
         {/* ── Footer ─────────────────────────────────────────── */}
-        <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
+        <div className="flex gap-3 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 active:scale-[0.97]"
+            className="flex-1 rounded-lg border border-input px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent active:scale-[0.97]"
           >
             Cancel
           </button>
@@ -440,7 +441,7 @@ export function SplitTenderPanel({
             type="button"
             onClick={onComplete}
             disabled={!isFullyPaid}
-            className="flex-[2] flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-green-300"
+            className="flex-[2] flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-green-600/50"
           >
             <Check className="h-4 w-4" />
             Complete

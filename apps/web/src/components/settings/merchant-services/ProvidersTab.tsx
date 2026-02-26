@@ -54,13 +54,13 @@ export default function ProvidersTab({
   );
 
   if (isLoading) {
-    return <div className="py-12 text-center text-gray-400">Loading providers...</div>;
+    return <div className="py-12 text-center text-muted-foreground">Loading providers...</div>;
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium text-gray-900">Payment Providers</h2>
+        <h2 className="text-lg font-medium text-foreground">Payment Providers</h2>
         <button
           onClick={() => setShowAddProvider(true)}
           className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
@@ -70,10 +70,10 @@ export default function ProvidersTab({
       </div>
 
       {providers.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-          <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
-          <p className="mt-4 text-sm font-medium text-gray-900">No payment providers configured</p>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="rounded-lg border-2 border-dashed border-input p-12 text-center">
+          <CreditCard className="mx-auto h-12 w-12 text-muted-foreground" />
+          <p className="mt-4 text-sm font-medium text-foreground">No payment providers configured</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             Add a payment provider like CardPointe to start processing card payments.
           </p>
           <button
@@ -91,20 +91,20 @@ export default function ProvidersTab({
               className={`cursor-pointer rounded-lg border p-4 transition-shadow hover:shadow-md ${
                 selectedProviderId === p.id
                   ? 'border-indigo-500 ring-1 ring-indigo-500'
-                  : 'border-gray-200'
+                  : 'border-border'
               }`}
               onClick={() => handleSelect(p)}
             >
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-gray-900">{p.displayName}</h3>
+                    <h3 className="font-medium text-foreground">{p.displayName}</h3>
                     {p.isActive ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-500">
                         <CheckCircle2 className="h-3 w-3" /> Active
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         <XCircle className="h-3 w-3" /> Inactive
                       </span>
                     )}
@@ -114,21 +114,21 @@ export default function ProvidersTab({
                       </span>
                     )}
                   </div>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Code: <code className="text-xs">{p.code}</code> &middot; Type: {p.providerType}
                   </p>
                 </div>
                 <div className="relative">
                   <button
                     onClick={(e) => e.stopPropagation()}
-                    className="rounded p-1 hover:bg-gray-100"
+                    className="rounded p-1 hover:bg-muted"
                   >
-                    <MoreVertical className="h-4 w-4 text-gray-400" />
+                    <MoreVertical className="h-4 w-4 text-muted-foreground" />
                   </button>
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center gap-4 text-sm text-gray-500">
+              <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Key className="h-3.5 w-3.5" />
                   {p.hasCredentials ? 'Credentials saved' : 'No credentials'}
@@ -146,7 +146,7 @@ export default function ProvidersTab({
                     setSelectedProviderId(p.id);
                     setShowCredentials(true);
                   }}
-                  className="rounded border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
                 >
                   <Shield className="mr-1 inline-block h-3 w-3" />
                   Credentials
@@ -164,7 +164,7 @@ export default function ProvidersTab({
                     );
                   }}
                   disabled={mutations.testConnection.isPending || !p.hasCredentials}
-                  className="rounded border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
                 >
                   {mutations.testConnection.isPending ? (
                     <Loader2 className="mr-1 inline-block h-3 w-3 animate-spin" />
@@ -178,7 +178,7 @@ export default function ProvidersTab({
                     e.stopPropagation();
                     mutations.updateProvider.mutate({ providerId: p.id, isActive: !p.isActive });
                   }}
-                  className="rounded border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
                 >
                   {p.isActive ? 'Deactivate' : 'Activate'}
                 </button>
@@ -189,8 +189,8 @@ export default function ProvidersTab({
                 <div
                   className={`mt-2 flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium ${
                     testResult.success
-                      ? 'bg-green-50 text-green-700'
-                      : 'bg-red-50 text-red-700'
+                      ? 'bg-green-500/10 text-green-500'
+                      : 'bg-red-500/10 text-red-500'
                   }`}
                 >
                   {testResult.success ? (
@@ -261,46 +261,46 @@ function CredentialsDialogWrapper({
 
   return (
     <DialogOverlay onClose={onClose}>
-      <h3 className="text-lg font-semibold text-gray-900">
+      <h3 className="text-lg font-semibold text-foreground">
         {providerCode === 'cardpointe' ? 'CardPointe' : providerCode} Credentials
       </h3>
 
-      {isLoading && <p className="mt-2 text-sm text-gray-400">Loading...</p>}
+      {isLoading && <p className="mt-2 text-sm text-muted-foreground">Loading...</p>}
 
       {hasExisting && (
-        <div className="mt-3 rounded-md bg-green-50 p-3 text-sm text-green-700">
+        <div className="mt-3 rounded-md bg-green-500/10 p-3 text-sm text-green-500">
           Credentials are saved. Enter new values to update, or test the existing connection.
         </div>
       )}
 
       <div className="mt-4 space-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Site (Merchant ID)</label>
+          <label className="block text-sm font-medium text-foreground">Site (Merchant ID)</label>
           <input
             type="text"
             value={site}
             onChange={(e) => setSite(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+            className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
             placeholder="fts"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">API Username</label>
+          <label className="block text-sm font-medium text-foreground">API Username</label>
           <input
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+            className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
             placeholder="testing"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">API Password</label>
+          <label className="block text-sm font-medium text-foreground">API Password</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+            className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
             placeholder="testing123"
           />
         </div>
@@ -309,9 +309,9 @@ function CredentialsDialogWrapper({
             type="checkbox"
             checked={isSandbox}
             onChange={(e) => setIsSandbox(e.target.checked)}
-            className="rounded border-gray-300"
+            className="rounded border-input"
           />
-          <span className="text-gray-700">Sandbox / Test Mode</span>
+          <span className="text-foreground">Sandbox / Test Mode</span>
         </label>
       </div>
 
@@ -319,8 +319,8 @@ function CredentialsDialogWrapper({
         <div
           className={`mt-3 rounded-md p-3 text-sm ${
             mutations.testConnection.data.success
-              ? 'bg-green-50 text-green-700'
-              : 'bg-red-50 text-red-700'
+              ? 'bg-green-500/10 text-green-500'
+              : 'bg-red-500/10 text-red-500'
           }`}
         >
           {mutations.testConnection.data.success
@@ -338,7 +338,7 @@ function CredentialsDialogWrapper({
             })
           }
           disabled={mutations.testConnection.isPending || !site || !username || !password}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
         >
           {mutations.testConnection.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -350,7 +350,7 @@ function CredentialsDialogWrapper({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -391,8 +391,8 @@ function AddProviderDialog({
 
   return (
     <DialogOverlay onClose={onClose}>
-      <h3 className="text-lg font-semibold text-gray-900">Add Payment Provider</h3>
-      <p className="mt-1 text-sm text-gray-500">
+      <h3 className="text-lg font-semibold text-foreground">Add Payment Provider</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
         Select a payment processor to integrate with your business.
       </p>
       <div className="mt-4 space-y-2">
@@ -405,27 +405,27 @@ function AddProviderDialog({
               disabled={!option.available || alreadyAdded}
               className={`flex w-full items-center justify-between rounded-lg border p-3 text-left transition-colors ${
                 selected === option.code
-                  ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500'
+                  ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500'
                   : option.available && !alreadyAdded
-                    ? 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                    : 'border-gray-100 bg-gray-50 opacity-60'
+                    ? 'border-border hover:border-input hover:bg-muted'
+                    : 'border-border bg-muted opacity-60'
               }`}
             >
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-900">{option.displayName}</span>
+                  <span className="text-sm font-medium text-foreground">{option.displayName}</span>
                   {option.recommended && (
-                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                    <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-500">
                       Recommended
                     </span>
                   )}
                   {alreadyAdded && (
-                    <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600">
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                       Already added
                     </span>
                   )}
                 </div>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   {option.providerType === 'both'
                     ? 'Online + In-person'
                     : option.providerType === 'gateway'
@@ -434,7 +434,7 @@ function AddProviderDialog({
                 </span>
               </div>
               {!option.available && (
-                <span className="rounded-full bg-gray-200 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                   Coming Soon
                 </span>
               )}
@@ -445,7 +445,7 @@ function AddProviderDialog({
       <div className="mt-6 flex justify-end gap-3">
         <button
           onClick={onClose}
-          className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
         >
           Cancel
         </button>

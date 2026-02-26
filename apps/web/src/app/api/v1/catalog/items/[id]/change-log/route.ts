@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getItemChangeLog } from '@oppsera/module-catalog';
+import { parseLimit } from '@/lib/api-params';
 
 function extractItemId(request: NextRequest): string {
   const url = new URL(request.url);
@@ -20,9 +21,7 @@ export const GET = withMiddleware(
       tenantId: ctx.tenantId,
       itemId,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit')
-        ? Number(url.searchParams.get('limit'))
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
       dateFrom: url.searchParams.get('dateFrom') ?? undefined,
       dateTo: url.searchParams.get('dateTo') ?? undefined,
       actionType: url.searchParams.get('actionType') ?? undefined,

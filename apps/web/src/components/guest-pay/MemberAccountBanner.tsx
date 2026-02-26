@@ -11,7 +11,7 @@ interface MemberAccountBannerProps {
  */
 export function MemberAccountBanner({ displayName, onChargeToAccount }: MemberAccountBannerProps) {
   return (
-    <div className="mx-4 mb-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3">
+    <div className="mx-4 mb-4 rounded-xl bg-green-500/10 border border-green-500/30 px-4 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-7 w-7 shrink-0 rounded-full bg-green-600 flex items-center justify-center">
@@ -19,7 +19,7 @@ export function MemberAccountBanner({ displayName, onChargeToAccount }: MemberAc
               {displayName.charAt(0).toUpperCase()}
             </span>
           </div>
-          <p className="text-sm font-medium text-green-800 truncate">
+          <p className="text-sm font-medium text-green-500 truncate">
             Welcome back, {displayName}
           </p>
         </div>

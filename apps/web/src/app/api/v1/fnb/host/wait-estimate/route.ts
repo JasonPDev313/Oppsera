@@ -21,5 +21,5 @@ export const GET = withMiddleware(
 
     return NextResponse.json({ data });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.host.view' },
 );

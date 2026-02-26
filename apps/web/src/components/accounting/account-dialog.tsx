@@ -158,11 +158,11 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             {isEdit ? 'Edit Account' : 'New Account'}
           </h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -173,7 +173,7 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
                 type="text"
                 value={form.accountNumber}
                 onChange={(e) => setForm((f) => ({ ...f, accountNumber: e.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 placeholder="e.g. 1010"
               />
             </FormField>
@@ -191,13 +191,13 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
               type="text"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               placeholder="e.g. Cash on Hand"
             />
           </FormField>
 
           <FormField label="Normal Balance">
-            <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 capitalize">
+            <div className="rounded-lg border border-border bg-muted px-3 py-2 text-sm text-muted-foreground capitalize">
               {normalBalance}
             </div>
           </FormField>
@@ -216,21 +216,21 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               placeholder="Optional description..."
             />
           </FormField>
 
           {/* Control Account */}
-          <div className="space-y-3 rounded-lg border border-gray-200 p-4">
+          <div className="space-y-3 rounded-lg border border-border p-4">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 checked={form.isControlAccount}
                 onChange={(e) => setForm((f) => ({ ...f, isControlAccount: e.target.checked }))}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500"
               />
-              <span className="text-sm font-medium text-gray-700">Control Account</span>
+              <span className="text-sm font-medium text-foreground">Control Account</span>
             </label>
             {form.isControlAccount && (
               <FormField label="Control Account Type" required error={errors.controlAccountType}>
@@ -251,10 +251,10 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
                 type="checkbox"
                 checked={form.isContraAccount}
                 onChange={(e) => setForm((f) => ({ ...f, isContraAccount: e.target.checked }))}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500"
               />
-              <span className="text-sm font-medium text-gray-700">Contra Account</span>
-              <span className="text-xs text-gray-400">(displays as deduction in financial statements)</span>
+              <span className="text-sm font-medium text-foreground">Contra Account</span>
+              <span className="text-xs text-muted-foreground">(displays as deduction in financial statements)</span>
             </label>
           )}
 
@@ -264,9 +264,9 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
               type="checkbox"
               checked={form.allowManualPosting}
               onChange={(e) => setForm((f) => ({ ...f, allowManualPosting: e.target.checked }))}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500"
             />
-            <span className="text-sm font-medium text-gray-700">Allow Manual Posting</span>
+            <span className="text-sm font-medium text-foreground">Allow Manual Posting</span>
           </label>
         </div>
 
@@ -275,7 +275,7 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>

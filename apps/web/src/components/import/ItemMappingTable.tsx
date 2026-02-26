@@ -34,7 +34,7 @@ export function ItemMappingTable({ mappings, onChange }: ItemMappingTableProps) 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 text-left dark:border-gray-700">
+            <tr className="border-b border-border text-left">
               <th className="px-3 py-2 font-medium">Legacy Item</th>
               <th className="px-3 py-2 font-medium">SKU</th>
               <th className="px-3 py-2 font-medium">Occurrences</th>
@@ -45,13 +45,13 @@ export function ItemMappingTable({ mappings, onChange }: ItemMappingTableProps) 
           </thead>
           <tbody>
             {displayed.map((m) => (
-              <tr key={m.id} className="border-b border-gray-100 dark:border-gray-800">
+              <tr key={m.id} className="border-b border-border">
                 <td className="max-w-[200px] truncate px-3 py-2">{m.legacyItemName}</td>
-                <td className="px-3 py-2 font-mono text-xs text-gray-500">
+                <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                   {m.legacyItemSku ?? '-'}
                 </td>
-                <td className="px-3 py-2 text-gray-500">{m.occurrenceCount.toLocaleString()}</td>
-                <td className="px-3 py-2 text-gray-500">{formatCents(m.totalRevenueCents)}</td>
+                <td className="px-3 py-2 text-muted-foreground">{m.occurrenceCount.toLocaleString()}</td>
+                <td className="px-3 py-2 text-muted-foreground">{formatCents(m.totalRevenueCents)}</td>
                 <td className="px-3 py-2">
                   <MappingDropdown
                     value={m.strategy}
@@ -65,8 +65,8 @@ export function ItemMappingTable({ mappings, onChange }: ItemMappingTableProps) 
                     onClick={() => onChange(m.id, { isConfirmed: !m.isConfirmed })}
                     className={`rounded p-1 ${
                       m.isConfirmed
-                        ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30'
-                        : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        ? 'text-green-500 hover:bg-green-500/10'
+                        : 'text-muted-foreground hover:bg-accent'
                     }`}
                   >
                     {m.isConfirmed ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
@@ -79,13 +79,13 @@ export function ItemMappingTable({ mappings, onChange }: ItemMappingTableProps) 
       </div>
 
       {remaining > 0 && (
-        <p className="text-center text-xs text-gray-500">
+        <p className="text-center text-xs text-muted-foreground">
           Showing top 50 items by revenue. {remaining} additional items will use their auto-detected strategy.
         </p>
       )}
 
       {mappings.length === 0 && (
-        <p className="py-6 text-center text-sm text-gray-500">
+        <p className="py-6 text-center text-sm text-muted-foreground">
           No item columns detected. You can skip this step.
         </p>
       )}

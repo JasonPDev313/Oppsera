@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useId } from 'react';
 import { ChevronDown, X, Search } from 'lucide-react';
 
 export interface SelectOption {
@@ -28,6 +28,7 @@ export function Select({
   className = '',
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const listboxId = useId();
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const showSearch = options.length >= 6;
@@ -48,6 +49,7 @@ export function Select({
   }, []);
 
   useEffect(() => {
+    if (!isOpen) return;
     const handleClick = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         handleClose();
@@ -62,7 +64,7 @@ export function Select({
       document.removeEventListener('mousedown', handleClick);
       document.removeEventListener('keydown', handleKey);
     };
-  }, [handleClose]);
+  }, [isOpen, handleClose]);
 
   const toggleOption = (optionValue: string) => {
     if (multiple) {
@@ -96,10 +98,14 @@ export function Select({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm focus:ring-2 focus:outline-none ${
+        role="combobox"
+        aria-expanded={isOpen}
+        aria-haspopup="listbox"
+        aria-controls={listboxId}
+        className={`flex w-full items-center justify-between rounded-lg border bg-surface px-3 py-2 text-left text-sm focus:ring-2 focus:outline-none ${
           error
-            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-            : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+            ? 'border-red-500/40 focus:border-red-500 focus:ring-red-500'
+            : 'border-input focus:border-indigo-500 focus:ring-indigo-500'
         }`}
       >
         <span className="flex flex-1 flex-wrap gap-1">
@@ -109,12 +115,13 @@ export function Select({
                 return (
                   <span
                     key={v}
-                    className="inline-flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-xs font-medium text-indigo-700"
+                    className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-1.5 py-0.5 text-xs font-medium text-indigo-400"
                   >
                     {opt?.label}
                     <span
                       role="button"
                       tabIndex={0}
+                      aria-label={`Remove ${opt?.label}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         removeTag(v);
@@ -127,50 +134,50 @@ export function Select({
                       }}
                       className="text-indigo-400 hover:text-indigo-600"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3 w-3" aria-hidden="true" />
                     </span>
                   </span>
                 );
               })
             : (
-                <span className={selectedValues.length === 0 ? 'text-gray-400' : 'text-gray-900'}>
+                <span className={selectedValues.length === 0 ? 'text-muted-foreground' : 'text-foreground'}>
                   {displayText()}
                 </span>
               )}
         </span>
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-gray-400" />
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>
 
       {isOpen && (
-        <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-surface shadow-lg">
+        <div className="absolute z-20 mt-1 w-full rounded-lg border border-border bg-surface shadow-lg">
           {showSearch && (
-            <div className="border-b border-gray-100 p-2">
+            <div className="border-b border-border p-2">
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Filter..."
-                  className="w-full rounded border border-gray-200 py-1 pl-7 pr-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded border border-border bg-surface py-1 pl-7 pr-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   autoFocus
                 />
               </div>
             </div>
           )}
-          <ul className="max-h-60 overflow-auto py-1">
+          <ul role="listbox" id={listboxId} className="max-h-60 overflow-auto py-1">
             {filtered.length === 0 && (
-              <li className="px-3 py-2 text-sm text-gray-500">No options</li>
+              <li className="px-3 py-2 text-sm text-muted-foreground">No options</li>
             )}
             {filtered.map((opt) => {
               const isSelected = selectedValues.includes(opt.value);
               return (
-                <li key={opt.value}>
+                <li key={opt.value} role="option" aria-selected={isSelected}>
                   <button
                     type="button"
                     onClick={() => toggleOption(opt.value)}
-                    className={`flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${
-                      isSelected ? 'bg-indigo-50 text-indigo-700' : 'text-gray-900'
+                    className={`flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-accent ${
+                      isSelected ? 'bg-indigo-500/10 text-indigo-400' : 'text-foreground'
                     }`}
                   >
                     {multiple && (
@@ -178,7 +185,7 @@ export function Select({
                         className={`mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                           isSelected
                             ? 'border-indigo-600 bg-indigo-600 text-white'
-                            : 'border-gray-300'
+                            : 'border-border'
                         }`}
                       >
                         {isSelected && (

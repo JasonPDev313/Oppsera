@@ -28,7 +28,7 @@ export function AccountFilterBar({
         placeholder="Search accounts..."
         className="w-64"
       />
-      <div className="flex items-center gap-1 rounded-lg border border-gray-200 p-0.5">
+      <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
         {(['active', 'inactive', 'all'] as const).map((s) => (
           <button
             key={s}
@@ -36,8 +36,8 @@ export function AccountFilterBar({
             onClick={() => onStatusFilterChange(s)}
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               statusFilter === s
-                ? 'bg-indigo-50 text-indigo-700'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-indigo-500/10 text-indigo-500'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -47,7 +47,7 @@ export function AccountFilterBar({
       <button
         type="button"
         onClick={onToggleViewMode}
-        className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:text-gray-900"
+        className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
       >
         {viewMode === 'flat' ? <List className="h-3.5 w-3.5" /> : <FolderTree className="h-3.5 w-3.5" />}
         {viewMode === 'flat' ? 'Flat List' : 'Tree View'}

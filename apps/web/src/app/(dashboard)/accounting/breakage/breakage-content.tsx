@@ -45,17 +45,17 @@ function ReviewDialog({
 
         <div className="space-y-3 mb-4">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Voucher</span>
+            <span className="text-muted-foreground">Voucher</span>
             <span className="font-medium">{item.voucherNumber}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Amount</span>
+            <span className="text-muted-foreground">Amount</span>
             <span className="font-medium">
               {formatAccountingMoney(item.amountCents / 100)}
             </span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Expired</span>
+            <span className="text-muted-foreground">Expired</span>
             <span className="font-medium">
               {new Date(item.expiredAt).toLocaleDateString()}
             </span>
@@ -63,7 +63,7 @@ function ReviewDialog({
         </div>
 
         <div className="mb-4">
-          <label className="mb-1.5 block text-sm font-medium text-gray-500">
+          <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
             Notes (optional)
           </label>
           <textarea
@@ -71,7 +71,7 @@ function ReviewDialog({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Reason for approval or decline..."
             rows={3}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
           />
         </div>
 
@@ -79,7 +79,7 @@ function ReviewDialog({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-100/50"
+            className="flex-1 rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
           >
             Cancel
           </button>
@@ -87,7 +87,7 @@ function ReviewDialog({
             type="button"
             onClick={() => handleAction('decline')}
             disabled={isSubmitting}
-            className="flex-1 rounded-lg border border-red-500/40 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+            className="flex-1 rounded-lg border border-red-500/40 px-4 py-2.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 disabled:opacity-50"
           >
             Decline
           </button>
@@ -108,9 +108,9 @@ function ReviewDialog({
 function StatusBadge({ status }: { status: BreakageReviewStatus }) {
   const config = BREAKAGE_STATUS_CONFIG[status];
   const colors: Record<string, string> = {
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    success: 'bg-green-50 text-green-700 border-green-200',
-    error: 'bg-red-50 text-red-700 border-red-200',
+    warning: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
+    success: 'bg-green-500/10 text-green-500 border-green-500/30',
+    error: 'bg-red-500/10 text-red-500 border-red-500/30',
   };
   return (
     <span
@@ -155,30 +155,30 @@ export default function BreakageContent() {
     >
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-surface p-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
-            <Clock className="h-5 w-5 text-amber-600" />
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
+            <Clock className="h-5 w-5 text-amber-500" />
           </div>
           <div>
             <p className="text-2xl font-semibold">{stats.pendingCount}</p>
-            <p className="text-xs text-gray-500">Pending Reviews</p>
+            <p className="text-xs text-muted-foreground">Pending Reviews</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-surface p-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
-            <DollarSign className="h-5 w-5 text-indigo-600" />
+        <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/20">
+            <DollarSign className="h-5 w-5 text-indigo-500" />
           </div>
           <div>
             <p className="text-2xl font-semibold">
               {formatAccountingMoney(stats.pendingAmountCents / 100)}
             </p>
-            <p className="text-xs text-gray-500">Pending Amount</p>
+            <p className="text-xs text-muted-foreground">Pending Amount</p>
           </div>
         </div>
       </div>
 
       {/* Status tabs */}
-      <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-surface p-1">
+      <div className="flex items-center gap-1 rounded-lg border border-border bg-surface p-1">
         {STATUS_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -187,7 +187,7 @@ export default function BreakageContent() {
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               statusFilter === tab.value
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100/50'
+                : 'text-muted-foreground hover:bg-accent'
             }`}
           >
             {tab.label}
@@ -196,44 +196,44 @@ export default function BreakageContent() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Voucher
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Amount
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Expired
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Status
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Reviewed
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-surface">
+          <tbody className="divide-y divide-border bg-surface">
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   {Array.from({ length: 6 }).map((_, j) => (
                     <td key={j} className="px-4 py-3">
-                      <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
+                      <div className="h-4 w-20 animate-pulse rounded bg-muted" />
                     </td>
                   ))}
                 </tr>
               ))
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-gray-500">
+                <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
                   {statusFilter === 'pending' ? (
                     <div className="flex flex-col items-center gap-2">
                       <Check className="h-8 w-8 text-green-500" />
@@ -246,18 +246,18 @@ export default function BreakageContent() {
               </tr>
             ) : (
               items.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                <tr key={item.id} className="hover:bg-accent transition-colors">
                   <td className="px-4 py-3 text-sm font-medium">{item.voucherNumber}</td>
                   <td className="px-4 py-3 text-right text-sm font-mono">
                     {formatAccountingMoney(item.amountCents / 100)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
                     {new Date(item.expiredAt).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={item.status} />
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
+                  <td className="px-4 py-3 text-sm text-muted-foreground">
                     {item.reviewedAt
                       ? new Date(item.reviewedAt).toLocaleDateString()
                       : '—'}
@@ -267,14 +267,14 @@ export default function BreakageContent() {
                       <button
                         type="button"
                         onClick={() => setReviewItem(item)}
-                        className="inline-flex items-center gap-1 rounded-md border border-indigo-500/40 px-2.5 py-1 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-500/10"
+                        className="inline-flex items-center gap-1 rounded-md border border-indigo-500/40 px-2.5 py-1 text-xs font-medium text-indigo-500 transition-colors hover:bg-indigo-500/10"
                       >
                         Review
                       </button>
                     ) : item.glJournalEntryId ? (
-                      <span className="text-xs text-gray-400">GL Posted</span>
+                      <span className="text-xs text-muted-foreground">GL Posted</span>
                     ) : (
-                      <span className="text-xs text-gray-400">—</span>
+                      <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
                 </tr>
@@ -292,7 +292,7 @@ export default function BreakageContent() {
             onClick={() => {
               /* cursor pagination would go here — for now the initial load is sufficient */
             }}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium transition-colors hover:bg-gray-100/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-accent"
           >
             Load More
           </button>

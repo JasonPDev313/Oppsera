@@ -70,19 +70,19 @@ export function ValueMappingStep({
       {/* Skip warning banner */}
       {(rolesAtRisk || locationsAtRisk) && (
         <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 space-y-1.5">
-          <p className="text-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2">
+          <p className="text-sm font-medium text-red-500 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             Some rows will be skipped during import
           </p>
           {rolesAtRisk && (
-            <p className="text-sm text-red-600 dark:text-red-400 ml-6">
+            <p className="text-sm text-red-500 ml-6">
               {unmappedRoles} unmapped role{unmappedRoles === 1 ? '' : 's'} with no default fallback
               &mdash; rows with these roles will be <strong>skipped</strong>.
               Set a default role below or map each role to fix this.
             </p>
           )}
           {locationsAtRisk && (
-            <p className="text-sm text-red-600 dark:text-red-400 ml-6">
+            <p className="text-sm text-red-500 ml-6">
               {unmappedLocations} unmapped location{unmappedLocations === 1 ? '' : 's'} with no default fallback
               &mdash; rows with these locations will be <strong>skipped</strong>.
               Check a default location below or map each location to fix this.
@@ -93,13 +93,13 @@ export function ValueMappingStep({
 
       {/* ── Role Mappings ── */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+        <h2 className="text-lg font-semibold text-foreground mb-1">
           Role Mapping
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Map each legacy role to an OppsEra system role.
           {unmappedRoles > 0 && (
-            <span className="ml-2 text-yellow-600 dark:text-yellow-400">
+            <span className="ml-2 text-yellow-500">
               ({unmappedRoles} unmapped)
             </span>
           )}
@@ -111,17 +111,17 @@ export function ValueMappingStep({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
-                  <th className="pb-2 pr-4 font-medium text-gray-500 dark:text-gray-400">Legacy Role</th>
-                  <th className="pb-2 pr-4 font-medium text-gray-500 dark:text-gray-400 w-64">OppsEra Role</th>
-                  <th className="pb-2 font-medium text-gray-500 dark:text-gray-400 w-16 text-center">Status</th>
+                <tr className="border-b border-border text-left">
+                  <th className="pb-2 pr-4 font-medium text-muted-foreground">Legacy Role</th>
+                  <th className="pb-2 pr-4 font-medium text-muted-foreground w-64">OppsEra Role</th>
+                  <th className="pb-2 font-medium text-muted-foreground w-16 text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tbody className="divide-y divide-border">
                 {valueMappings.roles.map((rm, idx) => (
                   <tr key={idx}>
                     <td className="py-2.5 pr-4">
-                      <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                      <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
                         {rm.legacyValue}
                       </span>
                     </td>
@@ -129,7 +129,7 @@ export function ValueMappingStep({
                       <select
                         value={rm.oppsEraRoleId ?? ''}
                         onChange={(e) => handleRoleMapping(idx, e.target.value || null)}
-                        className="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1.5 text-sm"
+                        className="w-full rounded border border-input bg-surface text-foreground px-2 py-1.5 text-sm"
                       >
                         <option value="">— Not mapped —</option>
                         {context.roles.map((r) => (
@@ -153,13 +153,13 @@ export function ValueMappingStep({
         )}
 
         {/* Default role fallback */}
-        <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+        <div className="mt-4 p-3 rounded-lg bg-muted">
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-gray-600 dark:text-gray-400 whitespace-nowrap">Default role for unmapped:</span>
+            <span className="text-muted-foreground whitespace-nowrap">Default role for unmapped:</span>
             <select
               value={defaultRoleId ?? ''}
               onChange={(e) => onDefaultRoleIdChange(e.target.value || null)}
-              className="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 text-sm"
+              className="rounded border border-input bg-surface text-foreground px-2 py-1 text-sm"
             >
               <option value="">— None (will error) —</option>
               {context.roles.map((r) => (
@@ -172,13 +172,13 @@ export function ValueMappingStep({
 
       {/* ── Location Mappings ── */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+        <h2 className="text-lg font-semibold text-foreground mb-1">
           Location Mapping
         </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Map each legacy location to one or more OppsEra locations.
           {unmappedLocations > 0 && (
-            <span className="ml-2 text-yellow-600 dark:text-yellow-400">
+            <span className="ml-2 text-yellow-500">
               ({unmappedLocations} unmapped)
             </span>
           )}
@@ -189,9 +189,9 @@ export function ValueMappingStep({
         ) : (
           <div className="space-y-3">
             {valueMappings.locations.map((lm, idx) => (
-              <div key={idx} className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+              <div key={idx} className="rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                  <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
                     {lm.legacyValue}
                   </span>
                   {lm.oppsEraLocationIds.length > 0
@@ -208,7 +208,7 @@ export function ValueMappingStep({
                         onChange={() => toggleLocation(idx, loc.id)}
                         className="rounded border-gray-300 text-indigo-600"
                       />
-                      <span className="text-gray-700 dark:text-gray-300">
+                      <span className="text-foreground">
                         {loc.name}
                         <span className="text-gray-400 ml-1">({loc.location_type})</span>
                       </span>
@@ -221,8 +221,8 @@ export function ValueMappingStep({
         )}
 
         {/* Default location fallback */}
-        <div className="mt-4 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Default locations for unmapped rows:</p>
+        <div className="mt-4 p-3 rounded-lg bg-muted">
+          <p className="text-sm text-muted-foreground mb-2">Default locations for unmapped rows:</p>
           <div className="flex flex-wrap gap-2">
             {context.locations.map((loc) => (
               <label key={loc.id} className="flex items-center gap-1.5 text-xs">
@@ -232,7 +232,7 @@ export function ValueMappingStep({
                   onChange={() => toggleDefaultLocation(loc.id)}
                   className="rounded border-gray-300 text-indigo-600"
                 />
-                <span className="text-gray-700 dark:text-gray-300">{loc.name}</span>
+                <span className="text-foreground">{loc.name}</span>
               </label>
             ))}
           </div>
@@ -240,10 +240,10 @@ export function ValueMappingStep({
       </section>
 
       {/* Footer */}
-      <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex justify-between pt-4 border-t border-border">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+          className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="w-4 h-4" />
           Back

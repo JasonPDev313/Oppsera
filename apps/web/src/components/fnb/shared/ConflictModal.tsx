@@ -24,6 +24,9 @@ export function ConflictModal({
     <div
       className="fixed inset-0 flex items-center justify-center"
       style={{ zIndex: 'var(--fnb-z-modal, 50)' }}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="conflict-modal-title"
     >
       {/* Backdrop */}
       <div
@@ -49,7 +52,7 @@ export function ConflictModal({
             <AlertTriangle className="h-5 w-5" style={{ color: 'var(--fnb-status-check-presented)' }} />
           </div>
           <div>
-            <h3 className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
+            <h3 id="conflict-modal-title" className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
               Conflict Detected
             </h3>
             <p className="text-xs mt-0.5" style={{ color: 'var(--fnb-text-muted)' }}>

@@ -11,6 +11,7 @@ import type {
   CalendarDayData,
   CalendarFilters,
   ViewRange,
+  ViewMode,
   OccupancyByDate,
 } from '@/components/pms/calendar/types';
 import {
@@ -23,6 +24,7 @@ import CalendarToolbar from '@/components/pms/calendar/CalendarToolbar';
 import CalendarLegend from '@/components/pms/calendar/CalendarLegend';
 import CalendarStatsBar from '@/components/pms/calendar/CalendarStatsBar';
 import CalendarGrid from '@/components/pms/calendar/CalendarGrid';
+import CondensedView from '@/components/pms/calendar/CondensedView';
 import DayView from '@/components/pms/calendar/DayView';
 import UnassignedPanel from '@/components/pms/calendar/UnassignedPanel';
 import ReservationContextMenu from '@/components/pms/calendar/ReservationContextMenu';
@@ -43,13 +45,16 @@ export default function CalendarContent() {
   const { locations } = useAuthContext();
 
   // ── Page-level view (calendar vs list) ─────────────────────────
-  const [pageView, setPageView] = useState<'calendar' | 'list'>(() => {
+  const [pageView, setPageView] = useState<'quick' | 'calendar' | 'list'>(() => {
     if (typeof window !== 'undefined') {
       const param = new URLSearchParams(window.location.search).get('view');
       if (param === 'list') return 'list';
-      return (localStorage.getItem('pms_view_mode') as 'calendar' | 'list') ?? 'calendar';
+      if (param === 'calendar') return 'calendar';
+      const stored = localStorage.getItem('pms_view_mode');
+      if (stored === 'list' || stored === 'calendar' || stored === 'quick') return stored;
+      return 'quick';
     }
-    return 'calendar';
+    return 'quick';
   });
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [createPrefill, setCreatePrefill] = useState<{
@@ -63,7 +68,7 @@ export default function CalendarContent() {
   }, [pageView]);
 
   // ── State ───────────────────────────────────────────────────────
-  const [viewMode, setViewMode] = useState<'grid' | 'day'>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [viewRange, setViewRange] = useState<ViewRange>(7);
   const [properties, setProperties] = useState<Property[]>([]);
   const [propertyId, setPropertyId] = useState('');
@@ -122,9 +127,10 @@ export default function CalendarContent() {
   }, [propertyId, weekStart]);
 
   useEffect(() => {
-    if (viewMode !== 'grid') return;
-    fetchGrid();
-  }, [fetchGrid, viewMode]);
+    if (pageView === 'quick' || (pageView === 'calendar' && viewMode === 'grid')) {
+      fetchGrid();
+    }
+  }, [fetchGrid, pageView, viewMode]);
 
   // ── Fetch day data ─────────────────────────────────────────────
   const fetchDay = useCallback(async (silent = false) => {
@@ -143,18 +149,20 @@ export default function CalendarContent() {
   }, [propertyId, selectedDate]);
 
   useEffect(() => {
-    if (viewMode !== 'day') return;
-    fetchDay();
-  }, [fetchDay, viewMode]);
+    if (pageView === 'calendar' && viewMode === 'day') {
+      fetchDay();
+    }
+  }, [fetchDay, pageView, viewMode]);
 
   // ── Auto-refresh (60s) ────────────────────────────────────────
   useEffect(() => {
+    if (pageView === 'list') return;
     const interval = setInterval(() => {
-      if (viewMode === 'grid') fetchGrid(true);
-      else fetchDay(true);
+      if (pageView === 'quick' || (pageView === 'calendar' && viewMode === 'grid')) fetchGrid(true);
+      else if (pageView === 'calendar' && viewMode === 'day') fetchDay(true);
     }, 60_000);
     return () => clearInterval(interval);
-  }, [viewMode, fetchGrid, fetchDay]);
+  }, [pageView, viewMode, fetchGrid, fetchDay]);
 
   // ── Keyboard shortcuts ────────────────────────────────────────
   useEffect(() => {
@@ -192,8 +200,11 @@ export default function CalendarContent() {
   }); // intentionally no deps — uses latest closures
 
   // ── Navigation ─────────────────────────────────────────────────
+  // Week-based nav for Quick View and Calendar grid; day-based for Calendar day
+  const usesWeekNav = pageView === 'quick' || (pageView === 'calendar' && viewMode === 'grid');
+
   const onPrev = useCallback(() => {
-    if (viewMode === 'grid') {
+    if (usesWeekNav) {
       setWeekStart((prev) => {
         const d = new Date(prev);
         d.setDate(d.getDate() - viewRange);
@@ -206,10 +217,10 @@ export default function CalendarContent() {
         return formatDate(d);
       });
     }
-  }, [viewMode, viewRange]);
+  }, [usesWeekNav, viewRange]);
 
   const onNext = useCallback(() => {
-    if (viewMode === 'grid') {
+    if (usesWeekNav) {
       setWeekStart((prev) => {
         const d = new Date(prev);
         d.setDate(d.getDate() + viewRange);
@@ -222,27 +233,36 @@ export default function CalendarContent() {
         return formatDate(d);
       });
     }
-  }, [viewMode, viewRange]);
+  }, [usesWeekNav, viewRange]);
 
   const goToToday = useCallback(() => {
-    if (viewMode === 'grid') setWeekStart(getMonday(new Date()));
+    if (usesWeekNav) setWeekStart(getMonday(new Date()));
     else setSelectedDate(formatDate(new Date()));
-  }, [viewMode]);
+  }, [usesWeekNav]);
+
+  const handleDateJump = useCallback((dateStr: string) => {
+    const d = new Date(`${dateStr}T00:00:00`);
+    if (usesWeekNav) {
+      setWeekStart(getMonday(d));
+    } else {
+      setSelectedDate(dateStr);
+    }
+  }, [usesWeekNav]);
 
   // ── Grid date range ────────────────────────────────────────────
   const dates = useMemo(() => getDateRange(weekStart, viewRange), [weekStart, viewRange]);
 
   // ── Aggregate stats for stats bar ─────────────────────────────
   const aggregateOccupancy = useMemo((): OccupancyByDate | null => {
-    if (viewMode === 'day') return dayData?.occupancy ?? null;
+    if (pageView === 'calendar' && viewMode === 'day') return dayData?.occupancy ?? null;
+    // Quick View + Calendar grid both use weekData
     if (!weekData) return null;
     const todayStr = formatDate(new Date());
     const todayOcc = weekData.meta.occupancyByDate[todayStr];
     if (todayOcc) return todayOcc;
-    // Fall back to first date in range
     const first = dates[0];
     return first ? weekData.meta.occupancyByDate[first] ?? null : null;
-  }, [viewMode, weekData, dayData, dates]);
+  }, [pageView, viewMode, weekData, dayData, dates]);
 
   // ── Mutations ──────────────────────────────────────────────────
   const handleMove = useCallback(
@@ -338,8 +358,8 @@ export default function CalendarContent() {
           method: 'POST',
           body: JSON.stringify({ roomId: contextMenu.roomId, version: contextMenu.version }),
         });
-        if (viewMode === 'grid') fetchGrid(true);
-        else fetchDay(true);
+        if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) fetchGrid(true);
+        else if (pageView === 'calendar' && viewMode === 'day') fetchDay(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Check-in failed');
       } finally {
@@ -347,7 +367,7 @@ export default function CalendarContent() {
         setContextMenu(null);
       }
     },
-    [contextMenu, viewMode, fetchGrid, fetchDay, router],
+    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router],
   );
 
   const handleCheckOut = useCallback(
@@ -362,8 +382,8 @@ export default function CalendarContent() {
           method: 'POST',
           body: JSON.stringify({ version: contextMenu.version }),
         });
-        if (viewMode === 'grid') fetchGrid(true);
-        else fetchDay(true);
+        if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) fetchGrid(true);
+        else if (pageView === 'calendar' && viewMode === 'day') fetchDay(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Check-out failed');
       } finally {
@@ -371,7 +391,7 @@ export default function CalendarContent() {
         setContextMenu(null);
       }
     },
-    [contextMenu, viewMode, fetchGrid, fetchDay, router],
+    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router],
   );
 
   const handleCancel = useCallback(
@@ -386,8 +406,8 @@ export default function CalendarContent() {
           method: 'POST',
           body: JSON.stringify({ reason: 'Cancelled from calendar', version: contextMenu.version }),
         });
-        if (viewMode === 'grid') fetchGrid(true);
-        else fetchDay(true);
+        if (pageView === 'quick' || (pageView === 'calendar' && viewMode !== 'day')) fetchGrid(true);
+        else if (pageView === 'calendar' && viewMode === 'day') fetchDay(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Cancel failed');
       } finally {
@@ -395,12 +415,13 @@ export default function CalendarContent() {
         setContextMenu(null);
       }
     },
-    [contextMenu, viewMode, fetchGrid, fetchDay, router],
+    [contextMenu, pageView, viewMode, fetchGrid, fetchDay, router],
   );
 
   // ── Date click (grid header -> day view) ──────────────────────
   const handleDateClick = useCallback((date: string) => {
     setSelectedDate(date);
+    setPageView('calendar');
     setViewMode('day');
   }, []);
 
@@ -451,44 +472,47 @@ export default function CalendarContent() {
 
   const handleCreateSuccess = useCallback(() => {
     setShowCreateDialog(false);
-    if (pageView === 'calendar') {
-      if (viewMode === 'grid') fetchGrid(true);
-      else fetchDay(true);
+    if (pageView === 'quick') {
+      fetchGrid(true);
+    } else if (pageView === 'calendar') {
+      if (viewMode === 'day') fetchDay(true);
+      else fetchGrid(true);
     } else {
       setListRefreshKey((k) => k + 1);
     }
   }, [pageView, viewMode, fetchGrid, fetchDay]);
 
   // ── Derived data ───────────────────────────────────────────────
-  const currentRooms = viewMode === 'grid' ? (weekData?.rooms ?? []) : (dayData?.rooms ?? []);
-  const currentSegments = viewMode === 'grid' ? (weekData?.segments ?? []) : (dayData?.segments ?? []);
-  const unassigned = viewMode === 'grid' ? (weekData?.unassigned ?? []) : (dayData?.unassigned ?? []);
+  const usesDayData = pageView === 'calendar' && viewMode === 'day';
+  const currentRooms = usesDayData ? (dayData?.rooms ?? []) : (weekData?.rooms ?? []);
+  const currentSegments = usesDayData ? (dayData?.segments ?? []) : (weekData?.segments ?? []);
+  const unassigned = usesDayData ? (dayData?.unassigned ?? []) : (weekData?.unassigned ?? []);
 
   return (
-    <div className="space-y-3 print:space-y-2">
+    <div className={`flex flex-col gap-3 print:gap-2${pageView === 'quick' ? ' h-full' : ''}`}>
       {/* Header */}
       <div className="flex items-center gap-3 print:hidden">
-        <CalendarDays className="h-5 w-5 text-gray-500" />
-        <h1 className="text-xl font-semibold text-gray-900">Reservations</h1>
+        <CalendarDays className="h-5 w-5 text-muted-foreground" />
+        <h1 className="text-xl font-semibold text-foreground">Reservations</h1>
       </div>
 
       {/* POS config row (collapsible later) */}
-      <div className="grid grid-cols-1 gap-2 rounded-lg border border-gray-200 bg-surface p-3 md:grid-cols-2 print:hidden">
-        <label className="text-xs text-gray-600">
+      <div className="grid grid-cols-1 gap-2 rounded-lg border border-border bg-surface p-3 md:grid-cols-2 print:hidden">
+        <label className="text-xs text-muted-foreground">
           POS Terminal ID
           <input
             value={terminalId}
             onChange={(e) => setTerminalId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-gray-900"
+            className="mt-1 w-full rounded-md border border-border px-2 py-1.5 text-sm text-foreground"
             placeholder="POS-01"
           />
         </label>
-        <label className="text-xs text-gray-600">
+        <label className="text-xs text-muted-foreground">
           Reservation Charge Catalog Item ID
           <input
             value={reservationCatalogItemId}
             onChange={(e) => setReservationCatalogItemId(e.target.value)}
-            className="mt-1 w-full rounded-md border border-gray-200 px-2 py-1.5 text-sm text-gray-900"
+            className="mt-1 w-full rounded-md border border-border px-2 py-1.5 text-sm text-foreground"
             placeholder="catalog item id"
           />
         </label>
@@ -505,6 +529,7 @@ export default function CalendarContent() {
         onPrev={onPrev}
         onNext={onNext}
         onToday={goToToday}
+        onDateJump={handleDateJump}
         properties={properties}
         propertyId={propertyId}
         onPropertyChange={setPropertyId}
@@ -520,33 +545,62 @@ export default function CalendarContent() {
         onNewReservation={handleNewReservation}
       />
 
-      {/* Calendar view */}
-      {pageView === 'calendar' && (
+      {/* Shared: Legend + Stats bar + Loading/Error (Quick View + Calendar) */}
+      {pageView !== 'list' && (
         <>
-          {/* Legend */}
           <CalendarLegend visible={showLegend} />
 
-          {/* Stats bar */}
           <CalendarStatsBar
-            totalRooms={viewMode === 'grid' ? (weekData?.meta.totalRooms ?? 0) : (dayData?.rooms.length ?? 0)}
+            totalRooms={usesDayData ? (dayData?.rooms.length ?? 0) : (weekData?.meta.totalRooms ?? 0)}
             occupancy={aggregateOccupancy}
             lastUpdatedAt={lastUpdatedRef.current}
           />
 
-          {/* Loading */}
           {isLoading && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
           )}
 
-          {/* Error */}
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">{error}</div>
+          )}
+        </>
+      )}
+
+      {/* Quick View (default) — fills remaining viewport height */}
+      {pageView === 'quick' && !isLoading && !error && weekData && (
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <CondensedView
+            rooms={weekData.rooms}
+            segments={weekData.segments}
+            dates={dates}
+            onSelectDate={(date, roomTypeId) => {
+              setCreatePrefill({ checkIn: date, checkOut: computeCheckOut(date), roomTypeId });
+              setShowCreateDialog(true);
+            }}
+          />
+
+          {unassigned.length > 0 && (
+            <UnassignedPanel
+              reservations={unassigned}
+              onClickReservation={(id) => router.push(`/pms/reservations/${id}`)}
+              onContextMenu={(e, id, status) => {
+                e.preventDefault();
+                handleContextMenu({ x: e.clientX, y: e.clientY, reservationId: id, status, confirmationNumber: null });
+              }}
+            />
           )}
 
+          {weekData.rooms.length === 0 && <EmptyState />}
+        </div>
+      )}
+
+      {/* Calendar view (grid + day sub-modes) */}
+      {pageView === 'calendar' && !isLoading && !error && (
+        <>
           {/* Grid view */}
-          {!isLoading && !error && viewMode === 'grid' && weekData && (
+          {viewMode === 'grid' && weekData && (
             <CalendarGrid
               rooms={weekData.rooms}
               segments={weekData.segments}
@@ -562,11 +616,13 @@ export default function CalendarContent() {
               onResize={handleResize}
               onEmptyCellClick={handleEmptyCellClick}
               onEmptyCellContextMenu={handleEmptyCellContextMenu}
+              onNavigatePrev={onPrev}
+              onNavigateNext={onNext}
             />
           )}
 
           {/* Day view */}
-          {!isLoading && !error && viewMode === 'day' && dayData && (
+          {viewMode === 'day' && dayData && (
             <DayView
               rooms={dayData.rooms}
               segments={dayData.segments}
@@ -579,7 +635,7 @@ export default function CalendarContent() {
           )}
 
           {/* Unassigned panel */}
-          {!isLoading && !error && unassigned.length > 0 && (
+          {unassigned.length > 0 && (
             <UnassignedPanel
               reservations={unassigned}
               onClickReservation={(id) => router.push(`/pms/reservations/${id}`)}
@@ -591,12 +647,8 @@ export default function CalendarContent() {
           )}
 
           {/* Empty states */}
-          {!isLoading && !error && viewMode === 'grid' && weekData?.rooms.length === 0 && (
-            <EmptyState />
-          )}
-          {!isLoading && !error && viewMode === 'day' && dayData?.rooms.length === 0 && (
-            <EmptyState />
-          )}
+          {viewMode === 'grid' && weekData?.rooms.length === 0 && <EmptyState />}
+          {viewMode === 'day' && dayData?.rooms.length === 0 && <EmptyState />}
         </>
       )}
 
@@ -641,7 +693,7 @@ export default function CalendarContent() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+    <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
       <CalendarDays className="mb-2 h-10 w-10 text-gray-300" />
       <p className="text-sm">No rooms found for this property.</p>
     </div>

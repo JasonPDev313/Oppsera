@@ -130,11 +130,11 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
         <div className="grid grid-cols-2 gap-3">
           {/* Sale Price */}
           <div>
-            <label htmlFor="edit-price" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-price" className="mb-1 block text-xs font-medium text-foreground">
               Sale Price <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
               <input
                 id="edit-price"
                 type="number"
@@ -142,18 +142,18 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                 min="0"
                 value={form.defaultPrice}
                 onChange={(e) => onUpdate({ defaultPrice: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 bg-surface py-2 pl-7 pr-3 text-sm text-right focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-lg border border-input bg-surface py-2 pl-7 pr-3 text-sm text-right focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
           </div>
 
           {/* Cost */}
           <div>
-            <label htmlFor="edit-cost" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-cost" className="mb-1 block text-xs font-medium text-foreground">
               Item Cost
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
               <input
                 id="edit-cost"
                 type="number"
@@ -165,7 +165,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                 className={`w-full rounded-lg border bg-surface py-2 pl-7 pr-3 text-sm text-right focus:outline-none focus:ring-2 ${
                   costWarning
                     ? 'border-amber-400 focus:border-amber-500 focus:ring-amber-500/20'
-                    : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500/20'
+                    : 'border-input focus:border-indigo-500 focus:ring-indigo-500/20'
                 }`}
               />
             </div>
@@ -174,10 +174,10 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
 
         {/* Margin display */}
         {margin !== null && (
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span>Margin:</span>
             <span className={`font-medium ${
-              Number(margin) < 0 ? 'text-red-600' : Number(margin) < 20 ? 'text-amber-600' : 'text-green-600'
+              Number(margin) < 0 ? 'text-red-500' : Number(margin) < 20 ? 'text-amber-500' : 'text-green-500'
             }`}>
               {margin}%
             </span>
@@ -186,24 +186,24 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
 
         {/* Warnings */}
         {costWarning && (
-          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             Cost exceeds sale price — this item will sell at a loss
           </div>
         )}
         {freeWarning && (
-          <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-500">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
             Sale price is $0.00 — this item is free
           </div>
         )}
 
         {/* Pricing Schedules */}
-        <div className="border-t border-gray-100 pt-3">
+        <div className="border-t border-border pt-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Calendar className="h-3.5 w-3.5 text-gray-400" />
-              <span className="text-xs font-medium text-gray-700">Pricing Schedules</span>
+              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-medium text-foreground">Pricing Schedules</span>
               {schedules.length > 0 && (
                 <Badge variant="default" className="text-[10px]">{schedules.length}</Badge>
               )}
@@ -225,15 +225,15 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                 <div
                   key={sched.id}
                   className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
-                    sched.isActive ? 'border-gray-200 bg-gray-50' : 'border-gray-100 bg-gray-50 opacity-50'
+                    sched.isActive ? 'border-border bg-muted' : 'border-border bg-muted opacity-50'
                   }`}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">${sched.overridePrice}</span>
+                      <span className="text-sm font-semibold text-foreground">${sched.overridePrice}</span>
                       {!sched.isActive && <Badge variant="default" className="text-[10px]">Inactive</Badge>}
                     </div>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-[11px] text-muted-foreground">
                       {sched.startDate}{sched.endDate ? ` — ${sched.endDate}` : ''}
                       {sched.startTime ? ` ${sched.startTime}` : ''}
                       {sched.endTime ? `–${sched.endTime}` : ''}
@@ -244,7 +244,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                     <button
                       type="button"
                       onClick={() => toggleScheduleActive(sched.id)}
-                      className="rounded p-1 text-gray-400 hover:text-gray-600"
+                      className="rounded p-1 text-muted-foreground hover:text-muted-foreground"
                       title={sched.isActive ? 'Deactivate' : 'Activate'}
                     >
                       <span className="text-[10px] font-medium">{sched.isActive ? 'ON' : 'OFF'}</span>
@@ -252,7 +252,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                     <button
                       type="button"
                       onClick={() => removeSchedule(sched.id)}
-                      className="rounded p-1 text-gray-400 hover:text-red-500"
+                      className="rounded p-1 text-muted-foreground hover:text-red-500"
                       title="Remove schedule"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -265,49 +265,49 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
 
           {/* New schedule form */}
           {showScheduleForm && (
-            <div className="mt-2 space-y-2 rounded-lg border border-indigo-200 bg-indigo-50/30 p-3">
+            <div className="mt-2 space-y-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-0.5 block text-[11px] text-gray-600">Start Date</label>
+                  <label className="mb-0.5 block text-[11px] text-muted-foreground">Start Date</label>
                   <input
                     type="date"
                     value={newSchedule.startDate}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, startDate: e.target.value }))}
-                    className="w-full rounded border border-gray-300 bg-surface px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded border border-input bg-surface px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="mb-0.5 block text-[11px] text-gray-600">End Date</label>
+                  <label className="mb-0.5 block text-[11px] text-muted-foreground">End Date</label>
                   <input
                     type="date"
                     value={newSchedule.endDate}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, endDate: e.target.value }))}
-                    className="w-full rounded border border-gray-300 bg-surface px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded border border-input bg-surface px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-0.5 block text-[11px] text-gray-600">Start Time</label>
+                  <label className="mb-0.5 block text-[11px] text-muted-foreground">Start Time</label>
                   <input
                     type="time"
                     value={newSchedule.startTime}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, startTime: e.target.value }))}
-                    className="w-full rounded border border-gray-300 bg-surface px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded border border-input bg-surface px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="mb-0.5 block text-[11px] text-gray-600">End Time</label>
+                  <label className="mb-0.5 block text-[11px] text-muted-foreground">End Time</label>
                   <input
                     type="time"
                     value={newSchedule.endTime}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, endTime: e.target.value }))}
-                    className="w-full rounded border border-gray-300 bg-surface px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded border border-input bg-surface px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
               <div>
-                <label className="mb-0.5 block text-[11px] text-gray-600">Days of Week</label>
+                <label className="mb-0.5 block text-[11px] text-muted-foreground">Days of Week</label>
                 <div className="flex gap-1">
                   {DAYS_OF_WEEK.map((day) => (
                     <button
@@ -317,7 +317,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                       className={`h-7 w-7 rounded-full text-xs font-medium transition-colors ${
                         newSchedule.days.includes(day.key)
                           ? 'bg-indigo-600 text-white'
-                          : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                          : 'bg-muted text-muted-foreground hover:bg-accent'
                       }`}
                     >
                       {day.label}
@@ -326,9 +326,9 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                 </div>
               </div>
               <div>
-                <label className="mb-0.5 block text-[11px] text-gray-600">Override Price</label>
+                <label className="mb-0.5 block text-[11px] text-muted-foreground">Override Price</label>
                 <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">$</span>
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
                   <input
                     type="number"
                     step="0.01"
@@ -336,7 +336,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                     value={newSchedule.overridePrice}
                     onChange={(e) => setNewSchedule((p) => ({ ...p, overridePrice: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full rounded border border-gray-300 bg-surface py-1.5 pl-5 pr-2 text-xs text-right focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded border border-input bg-surface py-1.5 pl-5 pr-2 text-xs text-right focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -344,7 +344,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                 <button
                   type="button"
                   onClick={() => setShowScheduleForm(false)}
-                  className="rounded px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+                  className="rounded px-3 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
                 >
                   Cancel
                 </button>
@@ -362,7 +362,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
         </div>
 
         {/* Price Includes Tax toggle */}
-        <div className="border-t border-gray-100 pt-3">
+        <div className="border-t border-border pt-3">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -370,9 +370,9 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
               onChange={(e) => onUpdate({ priceIncludesTax: e.target.checked })}
               className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
-            <span className="text-xs font-medium text-gray-700">Price Includes Tax</span>
+            <span className="text-xs font-medium text-foreground">Price Includes Tax</span>
           </label>
-          <p className="mt-1 ml-6 text-[11px] text-gray-400">
+          <p className="mt-1 ml-6 text-[11px] text-muted-foreground">
             {form.priceIncludesTax
               ? 'The sale price already includes tax — tax will be extracted at checkout'
               : 'Tax will be added on top of the sale price at checkout'}
@@ -380,38 +380,38 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
         </div>
 
         {/* Tax Price Display */}
-        <div className="border-t border-gray-100 pt-3">
+        <div className="border-t border-border pt-3">
           {totalTaxRate > 0 ? (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-700">Tax Calculation</span>
+                <span className="text-xs font-medium text-foreground">Tax Calculation</span>
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${
                   effectiveMode === 'inclusive'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-green-100 text-green-700'
+                    ? 'bg-blue-500/20 text-blue-500'
+                    : 'bg-green-500/20 text-green-500'
                 }`}>
                   {effectiveMode === 'inclusive' ? 'Tax Inclusive' : 'Tax Exclusive'}
                 </span>
               </div>
               {effectiveMode === 'inclusive' && basePrice && (
-                <div className="mt-1.5 rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2">
+                <div className="mt-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Base price</span>
-                    <span className="font-semibold text-gray-900">${basePrice}</span>
+                    <span className="text-muted-foreground">Base price</span>
+                    <span className="font-semibold text-foreground">${basePrice}</span>
                   </div>
-                  <div className="mt-0.5 flex items-center justify-between text-[11px] text-gray-500">
+                  <div className="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground">
                     <span>{(totalTaxRate * 100).toFixed(2)}% tax included</span>
                     <span>${(price - parseFloat(basePrice)).toFixed(2)} tax</span>
                   </div>
                 </div>
               )}
               {effectiveMode === 'exclusive' && afterTaxPrice && (
-                <div className="mt-1.5 rounded-lg border border-green-100 bg-green-50/50 px-3 py-2">
+                <div className="mt-1.5 rounded-lg border border-green-500/20 bg-green-500/10 px-3 py-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-600">Customer pays</span>
-                    <span className="font-semibold text-gray-900">${afterTaxPrice}</span>
+                    <span className="text-muted-foreground">Customer pays</span>
+                    <span className="font-semibold text-foreground">${afterTaxPrice}</span>
                   </div>
-                  <div className="mt-0.5 flex items-center justify-between text-[11px] text-gray-500">
+                  <div className="mt-0.5 flex items-center justify-between text-[11px] text-muted-foreground">
                     <span>{(totalTaxRate * 100).toFixed(2)}% tax added</span>
                     <span>${(parseFloat(afterTaxPrice) - price).toFixed(2)} tax</span>
                   </div>
@@ -419,7 +419,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
               )}
             </>
           ) : (
-            <p className="text-[11px] text-gray-400">
+            <p className="text-[11px] text-muted-foreground">
               No tax groups assigned — assign in Tax section to see price breakdown
             </p>
           )}

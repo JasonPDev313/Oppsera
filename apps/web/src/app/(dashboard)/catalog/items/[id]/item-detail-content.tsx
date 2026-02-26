@@ -417,7 +417,7 @@ export default function ItemDetailPage() {
         onClick={() => router.push('/catalog')}
         className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back to Items
       </button>
 
@@ -433,7 +433,7 @@ export default function ItemDetailPage() {
             onClick={() => setShowHistory(true)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
-            <History className="h-4 w-4" />
+            <History className="h-4 w-4" aria-hidden="true" />
             History
           </button>
           <button
@@ -441,7 +441,7 @@ export default function ItemDetailPage() {
             onClick={() => router.push(`/catalog/items/${itemId}/edit`)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
-            <Edit className="h-4 w-4" />
+            <Edit className="h-4 w-4" aria-hidden="true" />
             Edit
           </button>
           {!item.archivedAt ? (
@@ -450,7 +450,7 @@ export default function ItemDetailPage() {
               onClick={() => setShowDeactivate(true)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
-              <Power className="h-4 w-4" />
+              <Power className="h-4 w-4" aria-hidden="true" />
               Deactivate
             </button>
           ) : (
@@ -459,7 +459,7 @@ export default function ItemDetailPage() {
               onClick={() => setShowReactivate(true)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-green-500/40 px-4 py-2 text-sm font-medium text-green-600 transition-colors hover:bg-green-500/10 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
               Reactivate
             </button>
           )}

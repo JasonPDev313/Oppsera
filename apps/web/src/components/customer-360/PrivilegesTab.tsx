@@ -75,7 +75,7 @@ function scopeVariant(scope: string): string {
 // ── Skeleton ────────────────────────────────────────────────────
 
 function SkeletonCard() {
-  return <div className="h-24 animate-pulse rounded-lg bg-gray-100" />;
+  return <div className="h-24 animate-pulse rounded-lg bg-muted" />;
 }
 
 // ── Privilege Row ───────────────────────────────────────────────
@@ -85,15 +85,15 @@ function PrivilegeRow({ privilege }: { privilege: PrivilegeExtendedEntry }) {
   const isExpired = privilege.expiresAt && new Date(privilege.expiresAt) < new Date();
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface">
+    <div className="rounded-lg border border-border bg-surface">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-3 text-left hover:bg-gray-50/50"
+        className="flex w-full items-center justify-between p-3 text-left hover:bg-muted/50"
       >
         <div className="flex items-center gap-3">
           <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-            privilege.isActive && !isExpired ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'
+            privilege.isActive && !isExpired ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
           }`}>
             {privilege.isActive && !isExpired ? (
               <CheckCircle className="h-4 w-4" />
@@ -103,7 +103,7 @@ function PrivilegeRow({ privilege }: { privilege: PrivilegeExtendedEntry }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900">
+              <span className="text-sm font-medium text-foreground">
                 {privilege.privilegeType.replace(/_/g, ' ')}
               </span>
               <Badge variant={privilege.isActive && !isExpired ? 'success' : 'neutral'}>
@@ -111,56 +111,56 @@ function PrivilegeRow({ privilege }: { privilege: PrivilegeExtendedEntry }) {
               </Badge>
             </div>
             {privilege.reason && (
-              <div className="text-xs text-gray-500">{privilege.reason}</div>
+              <div className="text-xs text-muted-foreground">{privilege.reason}</div>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           {privilege.expiresAt && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-muted-foreground">
               Expires {formatDate(privilege.expiresAt)}
             </span>
           )}
           {expanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-400" />
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 p-3">
+        <div className="border-t border-border p-3">
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
             <div>
-              <span className="text-gray-500">Effective</span>
-              <div className="font-medium text-gray-900">
+              <span className="text-muted-foreground">Effective</span>
+              <div className="font-medium text-foreground">
                 {privilege.effectiveDate ? formatDate(privilege.effectiveDate) : 'Immediate'}
               </div>
             </div>
             <div>
-              <span className="text-gray-500">Expiration</span>
-              <div className="font-medium text-gray-900">
+              <span className="text-muted-foreground">Expiration</span>
+              <div className="font-medium text-foreground">
                 {privilege.expirationDate ? formatDate(privilege.expirationDate) : 'None'}
               </div>
             </div>
             <div>
-              <span className="text-gray-500">Expires At</span>
-              <div className="font-medium text-gray-900">
+              <span className="text-muted-foreground">Expires At</span>
+              <div className="font-medium text-foreground">
                 {privilege.expiresAt ? formatDate(privilege.expiresAt) : 'Never'}
               </div>
             </div>
             <div>
-              <span className="text-gray-500">Notes</span>
-              <div className="font-medium text-gray-900">
+              <span className="text-muted-foreground">Notes</span>
+              <div className="font-medium text-foreground">
                 {privilege.notes || '-'}
               </div>
             </div>
           </div>
           {Object.keys(privilege.value).length > 0 && (
             <div className="mt-3">
-              <span className="text-xs font-medium text-gray-500">Value</span>
-              <pre className="mt-1 overflow-x-auto rounded-md bg-gray-50 p-2 text-xs text-gray-700">
+              <span className="text-xs font-medium text-muted-foreground">Value</span>
+              <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 text-xs text-foreground">
                 {JSON.stringify(privilege.value, null, 2)}
               </pre>
             </div>
@@ -177,63 +177,63 @@ function DiscountRuleRow({ rule }: { rule: ApplicableDiscountRule }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface">
+    <div className="rounded-lg border border-border bg-surface">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-3 text-left hover:bg-gray-50/50"
+        className="flex w-full items-center justify-between p-3 text-left hover:bg-muted/50"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600">
             <Tag className="h-4 w-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900">{rule.name}</span>
+              <span className="text-sm font-medium text-foreground">{rule.name}</span>
               <Badge variant={scopeVariant(rule.scopeType) as any} className="text-[10px]">
                 {scopeLabel(rule.scopeType)}
               </Badge>
-              <span className="text-xs text-gray-400">Priority: {rule.priority}</span>
+              <span className="text-xs text-muted-foreground">Priority: {rule.priority}</span>
             </div>
             {rule.description && (
-              <div className="text-xs text-gray-500">{rule.description}</div>
+              <div className="text-xs text-muted-foreground">{rule.description}</div>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           {rule.expirationDate && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-muted-foreground">
               Until {formatDate(rule.expirationDate)}
             </span>
           )}
           {expanded ? (
-            <ChevronUp className="h-4 w-4 text-gray-400" />
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           )}
         </div>
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 p-3">
+        <div className="border-t border-border p-3">
           <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
             <div>
-              <span className="text-gray-500">Effective</span>
-              <div className="font-medium text-gray-900">
+              <span className="text-muted-foreground">Effective</span>
+              <div className="font-medium text-foreground">
                 {rule.effectiveDate ? formatDate(rule.effectiveDate) : 'Always'}
               </div>
             </div>
             <div>
-              <span className="text-gray-500">Expires</span>
-              <div className="font-medium text-gray-900">
+              <span className="text-muted-foreground">Expires</span>
+              <div className="font-medium text-foreground">
                 {rule.expirationDate ? formatDate(rule.expirationDate) : 'Never'}
               </div>
             </div>
           </div>
           {Object.keys(rule.ruleJson).length > 0 && (
             <div className="mt-3">
-              <span className="text-xs font-medium text-gray-500">Rule Definition</span>
-              <pre className="mt-1 overflow-x-auto rounded-md bg-gray-50 p-2 text-xs text-gray-700">
+              <span className="text-xs font-medium text-muted-foreground">Rule Definition</span>
+              <pre className="mt-1 overflow-x-auto rounded-md bg-muted p-2 text-xs text-foreground">
                 {JSON.stringify(rule.ruleJson, null, 2)}
               </pre>
             </div>
@@ -265,7 +265,7 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
 
   if (error) {
     return (
-      <div className="flex h-64 flex-col items-center justify-center gap-2 p-6 text-gray-400">
+      <div className="flex h-64 flex-col items-center justify-center gap-2 p-6 text-muted-foreground">
         <AlertTriangle className="h-8 w-8" />
         <p className="text-sm">Failed to load privileges</p>
       </div>
@@ -288,16 +288,16 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
           onClick={() => setSection('privileges')}
           className={`rounded-lg border p-4 text-left transition-colors ${
             section === 'privileges'
-              ? 'border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200'
-              : 'border-gray-200 bg-surface hover:border-gray-300'
+              ? 'border-indigo-500/30 bg-indigo-500/10 ring-1 ring-indigo-500/30'
+              : 'border-border bg-surface hover:border-input'
           }`}
         >
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Shield className="h-4 w-4" />
             Privileges
           </div>
-          <div className="mt-1 text-xl font-bold text-gray-900">{activePrivileges.length}</div>
-          <div className="text-xs text-gray-500">
+          <div className="mt-1 text-xl font-bold text-foreground">{activePrivileges.length}</div>
+          <div className="text-xs text-muted-foreground">
             {inactivePrivileges.length} inactive
           </div>
         </button>
@@ -306,18 +306,18 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
           onClick={() => setSection('stored_value')}
           className={`rounded-lg border p-4 text-left transition-colors ${
             section === 'stored_value'
-              ? 'border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200'
-              : 'border-gray-200 bg-surface hover:border-gray-300'
+              ? 'border-indigo-500/30 bg-indigo-500/10 ring-1 ring-indigo-500/30'
+              : 'border-border bg-surface hover:border-input'
           }`}
         >
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Wallet className="h-4 w-4" />
             Stored Value
           </div>
-          <div className="mt-1 text-xl font-bold text-gray-900">
+          <div className="mt-1 text-xl font-bold text-foreground">
             {formatMoney(storedValueSummary.totalBalanceCents)}
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-muted-foreground">
             {storedValueSummary.totalInstruments} instrument{storedValueSummary.totalInstruments !== 1 ? 's' : ''}
           </div>
         </button>
@@ -326,16 +326,16 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
           onClick={() => setSection('discounts')}
           className={`rounded-lg border p-4 text-left transition-colors ${
             section === 'discounts'
-              ? 'border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200'
-              : 'border-gray-200 bg-surface hover:border-gray-300'
+              ? 'border-indigo-500/30 bg-indigo-500/10 ring-1 ring-indigo-500/30'
+              : 'border-border bg-surface hover:border-input'
           }`}
         >
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Tag className="h-4 w-4" />
             Discount Rules
           </div>
-          <div className="mt-1 text-xl font-bold text-gray-900">{applicableRules.length}</div>
-          <div className="text-xs text-gray-500">
+          <div className="mt-1 text-xl font-bold text-foreground">{applicableRules.length}</div>
+          <div className="text-xs text-muted-foreground">
             {discountRuleCount} customer-specific
           </div>
         </button>
@@ -344,12 +344,12 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
       {/* Privileges Section */}
       {section === 'privileges' && (
         <div className="space-y-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Shield className="h-4 w-4 text-indigo-600" />
             Customer Privileges
           </h3>
           {privileges.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 text-gray-400">
+            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-muted-foreground">
               <Shield className="h-6 w-6" />
               <p className="text-sm">No privileges assigned</p>
             </div>
@@ -360,7 +360,7 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
               ))}
               {inactivePrivileges.length > 0 && (
                 <>
-                  <h4 className="mt-4 text-xs font-medium text-gray-400">Inactive Privileges</h4>
+                  <h4 className="mt-4 text-xs font-medium text-muted-foreground">Inactive Privileges</h4>
                   {inactivePrivileges.map((p) => (
                     <PrivilegeRow key={p.id} privilege={p} />
                   ))}
@@ -374,12 +374,12 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
       {/* Stored Value Summary Section */}
       {section === 'stored_value' && (
         <div className="space-y-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Wallet className="h-4 w-4 text-indigo-600" />
             Stored Value Summary
           </h3>
           {storedValueSummary.byType.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 text-gray-400">
+            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-muted-foreground">
               <Gift className="h-6 w-6" />
               <p className="text-sm">No active stored value instruments</p>
             </div>
@@ -388,35 +388,35 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
               {storedValueSummary.byType.map((svType) => (
                 <div
                   key={svType.instrumentType}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface p-4"
+                  className="flex items-center justify-between rounded-lg border border-border bg-surface p-4"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
                       <CreditCard className="h-5 w-5" />
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-foreground">
                         {INSTRUMENT_TYPE_LABELS[svType.instrumentType] ?? svType.instrumentType}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-muted-foreground">
                         {svType.count} active instrument{svType.count !== 1 ? 's' : ''}
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className="text-sm font-semibold text-foreground">
                       {formatMoney(svType.balanceCents)}
                     </div>
                   </div>
                 </div>
               ))}
-              <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
+              <div className="flex items-center justify-between rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
                 <span className="text-sm font-medium text-indigo-900">Total Balance</span>
                 <span className="text-lg font-bold text-indigo-900">
                   {formatMoney(storedValueSummary.totalBalanceCents)}
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 For detailed instrument management, switch to the Stored Value tab.
               </p>
             </div>
@@ -427,12 +427,12 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
       {/* Discount Rules Section */}
       {section === 'discounts' && (
         <div className="space-y-4">
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Tag className="h-4 w-4 text-indigo-600" />
             Applicable Discount Rules
           </h3>
           {applicableRules.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 text-gray-400">
+            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-muted-foreground">
               <Tag className="h-6 w-6" />
               <p className="text-sm">No applicable discount rules</p>
             </div>

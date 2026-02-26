@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { eq, and, desc, lt } from 'drizzle-orm';
 import { z } from 'zod';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, semanticEmbedTokens } from '@oppsera/db';
+import { parseLimit } from '@/lib/api-params';
 import { generateUlid, ValidationError } from '@oppsera/shared';
 
 // ── Validation ────────────────────────────────────────────────────
@@ -37,7 +38,7 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
     const activeOnly = url.searchParams.get('activeOnly') !== 'false';
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 100);
+    const limit = parseLimit(url.searchParams.get('limit'));
     const cursor = url.searchParams.get('cursor') ?? undefined;
 
     const conditions = [

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hostSettingsSchema } from './services/host-settings';
 
 // ── Enums ───────────────────────────────────────────────────────
 
@@ -1553,6 +1554,7 @@ export const FNB_SETTINGS_MODULE_KEYS = [
   'fnb_accounting',
   'fnb_receipts',
   'fnb_hardware',
+  'fnb_host',
 ] as const;
 
 export type FnbSettingsModuleKey = (typeof FNB_SETTINGS_MODULE_KEYS)[number];
@@ -1679,6 +1681,7 @@ export const FNB_SETTINGS_SCHEMAS = {
   fnb_accounting: fnbAccountingSettingsSchema,
   fnb_receipts: fnbReceiptsSettingsSchema,
   fnb_hardware: fnbHardwareSettingsSchema,
+  fnb_host: hostSettingsSchema,
 } as const;
 
 // ── Commands ──────────────────────────────────────────────────────

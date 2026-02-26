@@ -39,5 +39,5 @@ export const POST = withMiddleware(
     const result = await assignDevice(ctx, parsed.data);
     return NextResponse.json({ data: result }, { status: 201 });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );

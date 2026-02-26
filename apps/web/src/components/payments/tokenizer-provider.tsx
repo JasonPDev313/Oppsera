@@ -64,7 +64,7 @@ export function TokenizerProvider({
 
   // Unknown provider — graceful fallback
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700">
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center text-sm text-amber-500">
       Payment provider &ldquo;{config.providerCode}&rdquo; is not yet supported for online card entry.
     </div>
   );

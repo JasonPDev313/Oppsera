@@ -96,10 +96,10 @@ const CATEGORY_ICONS: Record<string, typeof Heart> = {
 };
 
 const FLAG_SEVERITY_COLORS: Record<string, string> = {
-  critical: 'bg-red-100 text-red-800 border-red-200',
-  high: 'bg-orange-100 text-orange-800 border-orange-200',
-  medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-  low: 'bg-blue-100 text-blue-800 border-blue-200',
+  critical: 'bg-red-500/20 text-red-500 border-red-500/30',
+  high: 'bg-orange-500/20 text-orange-500 border-orange-500/30',
+  medium: 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30',
+  low: 'bg-blue-500/20 text-blue-500 border-blue-500/30',
 };
 
 function consentStatusVariant(status: string): string {
@@ -115,7 +115,7 @@ function consentStatusVariant(status: string): string {
 // ── Skeleton ────────────────────────────────────────────────────
 
 function SkeletonCard() {
-  return <div className="h-20 animate-pulse rounded-lg bg-gray-100" />;
+  return <div className="h-20 animate-pulse rounded-lg bg-muted" />;
 }
 
 // ── Main Tab ────────────────────────────────────────────────────
@@ -243,7 +243,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
   return (
     <div className="space-y-6 p-6">
       {/* Section Tabs */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="flex gap-1 rounded-lg bg-muted p-1">
         {[
           { key: 'preferences' as const, label: 'Preferences', icon: Settings },
           { key: 'flags' as const, label: `Service Flags (${activeFlags.length})`, icon: AlertTriangle },
@@ -255,8 +255,8 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
             onClick={() => setSection(key)}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
               section === key
-                ? 'bg-surface text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-surface text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Icon className="h-3.5 w-3.5" />
@@ -269,7 +269,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
       {section === 'preferences' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-900">Customer Preferences</h3>
+            <h3 className="text-sm font-semibold text-foreground">Customer Preferences</h3>
             <button
               type="button"
               onClick={() => setShowAddPref(!showAddPref)}
@@ -282,14 +282,14 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
 
           {/* Add form */}
           {showAddPref && (
-            <div className="rounded-lg border border-gray-200 bg-surface p-4">
+            <div className="rounded-lg border border-border bg-surface p-4">
               <div className="grid gap-3 sm:grid-cols-3">
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">Category</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Category</label>
                   <select
                     value={newPrefCategory}
                     onChange={(e) => setNewPrefCategory(e.target.value)}
-                    className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     {PREFERENCE_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>{CATEGORY_LABELS[cat] ?? cat}</option>
@@ -297,23 +297,23 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">Key</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Key</label>
                   <input
                     type="text"
                     value={newPrefKey}
                     onChange={(e) => setNewPrefKey(e.target.value)}
                     placeholder="e.g., favorite_drink"
-                    className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-gray-600">Value</label>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Value</label>
                   <input
                     type="text"
                     value={newPrefValue}
                     onChange={(e) => setNewPrefValue(e.target.value)}
                     placeholder="e.g., Arnold Palmer"
-                    className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </div>
@@ -321,7 +321,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                 <button
                   type="button"
                   onClick={() => setShowAddPref(false)}
-                  className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
@@ -339,7 +339,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
 
           {/* Preferences by category */}
           {allCategories.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 text-gray-400">
+            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-muted-foreground">
               <Settings className="h-6 w-6" />
               <p className="text-sm">No preferences set</p>
             </div>
@@ -349,10 +349,10 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                 const prefs = allPrefs[category] ?? [];
                 const Icon = CATEGORY_ICONS[category] ?? Settings;
                 return (
-                  <div key={category} className="rounded-lg border border-gray-200 bg-surface">
-                    <div className="flex items-center gap-2 border-b border-gray-100 p-3">
-                      <Icon className="h-4 w-4 text-gray-500" />
-                      <h4 className="text-xs font-semibold text-gray-700">
+                  <div key={category} className="rounded-lg border border-border bg-surface">
+                    <div className="flex items-center gap-2 border-b border-border p-3">
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      <h4 className="text-xs font-semibold text-foreground">
                         {CATEGORY_LABELS[category] ?? category}
                       </h4>
                       <Badge variant="neutral" className="text-[10px]">{prefs.length}</Badge>
@@ -362,15 +362,15 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                         <div key={pref.id} className="flex items-center justify-between px-3 py-2">
                           <div className="flex items-center gap-4">
                             <div>
-                              <span className="text-xs font-medium text-gray-700">
+                              <span className="text-xs font-medium text-foreground">
                                 {pref.key.replace(/_/g, ' ')}
                               </span>
-                              <span className="ml-2 text-xs text-gray-900">{pref.value}</span>
+                              <span className="ml-2 text-xs text-foreground">{pref.value}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <Badge variant="neutral" className="text-[10px]">{pref.source}</Badge>
                               {pref.confidencePercent != null && (
-                                <span className="text-[10px] text-gray-400">
+                                <span className="text-[10px] text-muted-foreground">
                                   {pref.confidencePercent}%
                                 </span>
                               )}
@@ -379,7 +379,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                           <button
                             type="button"
                             onClick={() => handleDeletePreference(pref.id)}
-                            className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                            className="rounded p-1 text-muted-foreground hover:bg-red-500/100/10 hover:text-red-500"
                             title="Remove preference"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -398,9 +398,9 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
       {/* Service Flags Section */}
       {section === 'flags' && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-900">Service Flags</h3>
+          <h3 className="text-sm font-semibold text-foreground">Service Flags</h3>
           {flags.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 text-gray-400">
+            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-muted-foreground">
               <AlertTriangle className="h-6 w-6" />
               <p className="text-sm">No service flags</p>
             </div>
@@ -411,8 +411,8 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                   key={flag.id}
                   className={`flex items-center justify-between rounded-lg border p-3 ${
                     flag.isActive
-                      ? FLAG_SEVERITY_COLORS[flag.severity] ?? 'bg-gray-100 text-gray-800 border-gray-200'
-                      : 'bg-gray-50 text-gray-400 border-gray-200'
+                      ? FLAG_SEVERITY_COLORS[flag.severity] ?? 'bg-muted text-gray-800 border-border'
+                      : 'bg-muted text-muted-foreground border-border'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -445,9 +445,9 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
       {/* Consents Section */}
       {section === 'consents' && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-900">Consent Records</h3>
+          <h3 className="text-sm font-semibold text-foreground">Consent Records</h3>
           {consents.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 text-gray-400">
+            <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border text-muted-foreground">
               <Shield className="h-6 w-6" />
               <p className="text-sm">No consent records</p>
             </div>
@@ -455,7 +455,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-gray-200 text-left text-gray-500">
+                  <tr className="border-b border-border text-left text-muted-foreground">
                     <th className="pb-2 pr-4 font-medium">Type</th>
                     <th className="pb-2 pr-4 font-medium">Status</th>
                     <th className="pb-2 pr-4 font-medium">Channel</th>
@@ -467,7 +467,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                 <tbody>
                   {consents.map((consent) => (
                     <tr key={consent.id} className="border-b border-gray-50">
-                      <td className="py-2 pr-4 font-medium text-gray-900">
+                      <td className="py-2 pr-4 font-medium text-foreground">
                         {consent.consentType.replace(/_/g, ' ')}
                       </td>
                       <td className="py-2 pr-4">
@@ -475,14 +475,14 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                           {consent.status}
                         </Badge>
                       </td>
-                      <td className="py-2 pr-4 text-gray-600">{consent.channel ?? '-'}</td>
-                      <td className="py-2 pr-4 text-gray-600">
+                      <td className="py-2 pr-4 text-muted-foreground">{consent.channel ?? '-'}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">
                         {consent.grantedAt ? formatDate(consent.grantedAt) : '-'}
                       </td>
-                      <td className="py-2 pr-4 text-gray-600">
+                      <td className="py-2 pr-4 text-muted-foreground">
                         {consent.revokedAt ? formatDate(consent.revokedAt) : '-'}
                       </td>
-                      <td className="py-2 text-gray-600">
+                      <td className="py-2 text-muted-foreground">
                         {consent.expiresAt ? formatDate(consent.expiresAt) : 'Never'}
                       </td>
                     </tr>

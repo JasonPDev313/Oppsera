@@ -16,7 +16,7 @@ const EVENT_TYPES: Array<{
   { type: 'paid_in', label: 'Paid In', icon: ArrowDownCircle, color: 'text-green-600', requiresAmount: true },
   { type: 'paid_out', label: 'Paid Out', icon: ArrowUpCircle, color: 'text-red-600', requiresAmount: true },
   { type: 'cash_drop', label: 'Cash Drop', icon: DollarSign, color: 'text-blue-600', requiresAmount: true },
-  { type: 'no_sale', label: 'No Sale', icon: Ban, color: 'text-gray-600', requiresAmount: false },
+  { type: 'no_sale', label: 'No Sale', icon: Ban, color: 'text-muted-foreground', requiresAmount: false },
 ];
 
 interface DrawerEventDialogProps {
@@ -84,14 +84,14 @@ export function DrawerEventDialog({
   const canSubmit = !currentConfig.requiresAmount || (amountDollars !== null && amountDollars > 0);
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="drawer-event-dialog-title">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         ref={contentRef}
         className="relative z-10 w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Drawer Event</h2>
+          <h2 id="drawer-event-dialog-title" className="text-lg font-semibold">Drawer Event</h2>
           <button
             type="button"
             onClick={onClose}
@@ -114,11 +114,11 @@ export function DrawerEventDialog({
                   onClick={() => setSelectedType(evt.type)}
                   className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors ${
                     isSelected
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      ? 'border-indigo-500 bg-indigo-500/10 text-indigo-400'
+                      : 'border-border hover:bg-accent'
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${isSelected ? 'text-indigo-600' : evt.color}`} />
+                  <Icon className={`h-4 w-4 ${isSelected ? 'text-indigo-400' : evt.color}`} />
                   {evt.label}
                 </button>
               );
@@ -128,7 +128,7 @@ export function DrawerEventDialog({
           {/* Amount input (only for paid_in, paid_out, cash_drop) */}
           {currentConfig.requiresAmount && (
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-500">Amount</label>
+              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Amount</label>
               <CurrencyInput
                 value={amountDollars}
                 onChange={setAmountDollars}
@@ -141,23 +141,23 @@ export function DrawerEventDialog({
           {isCashDrop && (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-500">Bag ID</label>
+                <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Bag ID</label>
                 <input
                   type="text"
                   value={bagId}
                   onChange={(e) => setBagId(e.target.value)}
                   placeholder="BAG-001"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
+                  className="w-full rounded-lg border border-input px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
                 />
               </div>
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-500">Seal #</label>
+                <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Seal #</label>
                 <input
                   type="text"
                   value={sealNumber}
                   onChange={(e) => setSealNumber(e.target.value)}
                   placeholder="SEAL-001"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
+                  className="w-full rounded-lg border border-input px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
                 />
               </div>
             </div>
@@ -165,7 +165,7 @@ export function DrawerEventDialog({
 
           {/* Reason */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-500">
+            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
               Reason {currentConfig.requiresAmount ? '' : '(optional)'}
             </label>
             <input
@@ -173,7 +173,7 @@ export function DrawerEventDialog({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="Enter reason..."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
             />
           </div>
 
@@ -181,7 +181,7 @@ export function DrawerEventDialog({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-100/50"
+              className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
             >
               Cancel
             </button>

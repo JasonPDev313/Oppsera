@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getUnmatchedTenders } from '@oppsera/module-accounting';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -13,9 +14,7 @@ export const GET = withMiddleware(
       locationId: url.searchParams.get('locationId') ?? undefined,
       tenderType: url.searchParams.get('tenderType') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit')
-        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     return NextResponse.json({
       data: result.items,

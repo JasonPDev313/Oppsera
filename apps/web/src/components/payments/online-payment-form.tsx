@@ -87,10 +87,10 @@ export function OnlinePaymentForm({
     <div className="space-y-4">
       {/* Amount display */}
       {showAmount && (
-        <div className="rounded-xl bg-gray-50 px-4 py-3">
+        <div className="rounded-xl bg-muted px-4 py-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-600">{amountLabel}</span>
-            <span className="text-xl font-bold text-gray-900">
+            <span className="text-sm font-medium text-muted-foreground">{amountLabel}</span>
+            <span className="text-xl font-bold text-foreground">
               ${(amountCents / 100).toFixed(2)}
             </span>
           </div>
@@ -100,10 +100,10 @@ export function OnlinePaymentForm({
       {/* Card input iframe */}
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <CreditCard className="h-4 w-4 text-gray-500" />
-          <span className="text-sm font-medium text-gray-700">Card Details</span>
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground">Card Details</span>
         </div>
-        <div className="rounded-xl border border-gray-200 overflow-hidden">
+        <div className="rounded-xl border border-border overflow-hidden">
           <CardPointeIframeTokenizer
             site={site}
             iframeUrl={iframeUrl}
@@ -128,9 +128,9 @@ export function OnlinePaymentForm({
 
       {/* Error display */}
       {displayError && (
-        <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+        <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
           <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-          <p className="text-sm text-red-700">{displayError}</p>
+          <p className="text-sm text-red-500">{displayError}</p>
         </div>
       )}
 

@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api-client';
 import { ApiError } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuthContext();
@@ -17,13 +16,11 @@ export default function SignupPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Legacy ?fresh=1 support — the auth layout now auto-clears stale
-  // sessions when visiting /signup, so this is kept for backward compat only.
-  useEffect(() => {
-    if (searchParams.get('fresh') === '1') {
-      auth.logout();
-    }
-  }, []);
+  // The auth layout already handles stale-session clearing when visiting
+  // /signup.  The old ?fresh=1 param is no longer needed — the layout
+  // calls logout() automatically.  We still read searchParams to suppress
+  // the "unused" warning but take no action.
+  void searchParams;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,10 +29,7 @@ export default function SignupPage() {
 
     try {
       // Create the account
-      await apiFetch('/api/v1/auth/signup', {
-        method: 'POST',
-        body: JSON.stringify({ email, password, name }),
-      });
+      await auth.signup(email, password, name);
 
       // Auto-login so the user goes straight to onboarding
       const { needsOnboarding } = await auth.login(email, password);
@@ -114,7 +108,7 @@ export default function SignupPage() {
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || auth.isLoggingOut}
           className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
         >
           {isLoading ? 'Creating account...' : 'Get Started'}
@@ -128,5 +122,13 @@ export default function SignupPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

@@ -22,7 +22,7 @@ export function BringYourDataHero({
   if (variant === 'compact') {
     return (
       <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 px-4 py-3">
-        <p className="text-sm text-indigo-700 dark:text-indigo-300">
+        <p className="text-sm text-indigo-500">
           <Sparkles className="mr-1.5 inline-block h-4 w-4" />
           Bring your data with you — we auto-match columns and show a preview before anything changes.
         </p>
@@ -32,10 +32,10 @@ export function BringYourDataHero({
 
   return (
     <div className="space-y-3">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+      <h2 className="text-2xl font-bold text-foreground">
         Bring Your Data With You
       </h2>
-      <p className="text-sm text-gray-500 dark:text-gray-400">
+      <p className="text-sm text-muted-foreground">
         Moving from another system? We make it easy to import your existing data.
       </p>
       {!hideBullets && (
@@ -48,7 +48,7 @@ export function BringYourDataHero({
                 className="flex items-start gap-2.5 rounded-lg bg-gray-500/5 px-3 py-2.5"
               >
                 <Icon className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{b.text}</span>
+                <span className="text-sm text-foreground">{b.text}</span>
               </li>
             );
           })}

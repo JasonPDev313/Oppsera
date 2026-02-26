@@ -94,9 +94,9 @@ function formatPct(pct: number): string {
 }
 
 function occupancyColor(pct: number): string {
-  if (pct < 60) return 'bg-green-100 text-green-700';
-  if (pct <= 85) return 'bg-amber-100 text-amber-700';
-  return 'bg-red-100 text-red-700';
+  if (pct < 60) return 'bg-green-500/20 text-green-500';
+  if (pct <= 85) return 'bg-amber-500/20 text-amber-500';
+  return 'bg-red-500/20 text-red-500';
 }
 
 // ── KPI Card ────────────────────────────────────────────────────
@@ -113,7 +113,7 @@ function KpiCard({
   icon: React.ElementType;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
+    <div className="rounded-lg border border-border bg-surface px-4 py-3">
       <div className="flex items-center gap-3">
         <div
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}
@@ -121,8 +121,8 @@ function KpiCard({
           <Icon className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-gray-500">{label}</p>
-          <p className="mt-0.5 text-lg font-semibold text-gray-900">{value}</p>
+          <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="mt-0.5 text-lg font-semibold text-foreground">{value}</p>
         </div>
       </div>
     </div>
@@ -137,11 +137,11 @@ function TabSkeleton({ rows = 4 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <div
           key={i}
-          className="flex items-center gap-4 rounded-lg border border-gray-100 bg-surface p-4"
+          className="flex items-center gap-4 rounded-lg border border-border bg-surface p-4"
         >
-          <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
-          <div className="h-4 w-48 animate-pulse rounded bg-gray-100" />
-          <div className="h-4 w-20 animate-pulse rounded bg-gray-100" />
+          <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-20 animate-pulse rounded bg-muted" />
         </div>
       ))}
     </div>
@@ -152,10 +152,10 @@ function TabSkeleton({ rows = 4 }: { rows?: number }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-      <BedDouble className="h-12 w-12 text-gray-300" />
-      <h3 className="mt-4 text-sm font-semibold text-gray-900">No data</h3>
-      <p className="mt-1 text-sm text-gray-500">{message}</p>
+    <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+      <BedDouble className="h-12 w-12 text-muted-foreground" />
+      <h3 className="mt-4 text-sm font-semibold text-foreground">No data</h3>
+      <p className="mt-1 text-sm text-muted-foreground">{message}</p>
     </div>
   );
 }
@@ -203,10 +203,10 @@ function OverviewTab({
         {Array.from({ length: 8 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-lg border border-gray-200 bg-surface px-4 py-3"
+            className="rounded-lg border border-border bg-surface px-4 py-3"
           >
-            <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
-            <div className="mt-2 h-6 w-16 animate-pulse rounded bg-gray-100" />
+            <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+            <div className="mt-2 h-6 w-16 animate-pulse rounded bg-muted" />
           </div>
         ))}
       </div>
@@ -221,11 +221,11 @@ function OverviewTab({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">
+      <h2 className="text-lg font-semibold text-foreground">
         Manager Flash Report &mdash; {data.businessDate}
       </h2>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
+        <div className="rounded-lg border border-border bg-surface px-4 py-3">
           <div className="flex items-center gap-3">
             <div
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${occupancyColor(data.occupancyPct)}`}
@@ -233,13 +233,13 @@ function OverviewTab({
               <BedDouble className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-gray-500">
+              <p className="truncate text-xs font-medium text-muted-foreground">
                 Occupancy
               </p>
-              <p className="mt-0.5 text-lg font-semibold text-gray-900">
+              <p className="mt-0.5 text-lg font-semibold text-foreground">
                 {formatPct(data.occupancyPct)}
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 {data.roomsOccupied} / {data.totalRooms} rooms
               </p>
             </div>
@@ -248,43 +248,43 @@ function OverviewTab({
         <KpiCard
           label="ADR"
           value={formatCents(data.adrCents)}
-          color="bg-indigo-100 text-indigo-600"
+          color="bg-indigo-500/20 text-indigo-500"
           icon={TrendingUp}
         />
         <KpiCard
           label="RevPAR"
           value={formatCents(data.revParCents)}
-          color="bg-purple-100 text-purple-600"
+          color="bg-purple-500/20 text-purple-500"
           icon={DollarSign}
         />
         <KpiCard
           label="Room Revenue"
           value={formatCents(data.roomRevenueCents)}
-          color="bg-emerald-100 text-emerald-600"
+          color="bg-emerald-500/20 text-emerald-500"
           icon={DollarSign}
         />
         <KpiCard
           label="Arrivals"
           value={data.arrivals}
-          color="bg-blue-100 text-blue-600"
+          color="bg-blue-500/20 text-blue-500"
           icon={LogIn}
         />
         <KpiCard
           label="Departures"
           value={data.departures}
-          color="bg-orange-100 text-orange-600"
+          color="bg-orange-500/20 text-orange-500"
           icon={LogOut}
         />
         <KpiCard
           label="Stayovers"
           value={data.stayovers}
-          color="bg-gray-100 text-gray-600"
+          color="bg-muted text-muted-foreground"
           icon={Users}
         />
         <KpiCard
           label="OOO Rooms"
           value={data.oooRooms}
-          color="bg-red-100 text-red-600"
+          color="bg-red-500/20 text-red-500"
           icon={Ban}
         />
       </div>
@@ -343,51 +343,51 @@ function RevenueTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-foreground">
           Revenue by Room Type
         </h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Total: {formatCents(totalRevenue)} &middot; {totalNights} room nights
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Room Type
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Room Nights
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Revenue
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 ADR
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Occupancy
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-surface">
+          <tbody className="divide-y divide-border bg-surface">
             {data.map((row) => (
               <tr key={row.roomTypeId}>
-                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
                   {row.roomTypeName}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                   {row.roomNights}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                   {formatCents(row.revenueCents)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                   {formatCents(row.adrCents)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                   <span
                     className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${occupancyColor(row.occupancyPct)}`}
                   >
@@ -453,56 +453,56 @@ function OperationsTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-foreground">
           No-Show Report
         </h2>
         <div className="text-right">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {data.length} no-show{data.length !== 1 ? 's' : ''}
           </p>
-          <p className="text-sm font-medium text-red-600">
+          <p className="text-sm font-medium text-red-500">
             Lost revenue: {formatCents(totalLost)}
           </p>
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Guest
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Room Type
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Check-in Date
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Nightly Rate
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Lost Revenue
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-surface">
+          <tbody className="divide-y divide-border bg-surface">
             {data.map((row) => (
               <tr key={row.reservationId}>
-                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
                   {row.guestName}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-foreground">
                   {row.roomTypeName}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-foreground">
                   {row.checkInDate}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                   {formatCents(row.nightlyRateCents)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-red-600">
+                <td className="whitespace-nowrap px-4 py-3 text-right text-sm font-medium text-red-500">
                   {formatCents(row.lostRevenueCents)}
                 </td>
               </tr>
@@ -564,62 +564,62 @@ function HousekeepingTab({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-foreground">
           Housekeeping Productivity
         </h2>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           {totalRoomsCleaned} rooms cleaned by {data.length} housekeeper
           {data.length !== 1 ? 's' : ''}
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Housekeeper
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Rooms Cleaned
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Avg Min / Room
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Total Time
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Inspection Pass Rate
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 bg-surface">
+          <tbody className="divide-y divide-border bg-surface">
             {data.map((row) => {
               const hours = Math.floor(row.totalMinutes / 60);
               const mins = row.totalMinutes % 60;
               return (
                 <tr key={row.housekeeperId}>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
                     {row.housekeeperName}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                     {row.roomsCleaned}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                     {row.avgMinutesPerRoom.toFixed(1)} min
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                     {hours}h {mins}m
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-gray-700">
+                  <td className="whitespace-nowrap px-4 py-3 text-right text-sm text-foreground">
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         row.inspectionPassRate >= 95
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-green-500/20 text-green-500'
                           : row.inspectionPassRate >= 80
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-red-100 text-red-700'
+                            ? 'bg-amber-500/20 text-amber-500'
+                            : 'bg-red-500/20 text-red-500'
                       }`}
                     >
                       {formatPct(row.inspectionPassRate)}
@@ -687,12 +687,12 @@ export default function ReportsContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <BarChart3 className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">PMS Reports</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-2xl font-bold text-foreground">PMS Reports</h1>
+            <p className="text-sm text-muted-foreground">
               Property performance, revenue, operations, and housekeeping
             </p>
           </div>
@@ -701,7 +701,7 @@ export default function ReportsContent() {
         <button
           type="button"
           onClick={handleRefresh}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
@@ -712,7 +712,7 @@ export default function ReportsContent() {
       <div className="flex flex-wrap items-end gap-3">
         {properties.length > 1 && (
           <div className="w-full sm:w-56">
-            <label className="mb-1 block text-xs font-medium text-gray-500">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Property
             </label>
             <Select
@@ -726,32 +726,32 @@ export default function ReportsContent() {
         {activeTab !== 'overview' && (
           <>
             <div className="w-full sm:w-44">
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 Start Date
               </label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="block w-full rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div className="w-full sm:w-44">
-              <label className="mb-1 block text-xs font-medium text-gray-500">
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 End Date
               </label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="block w-full rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </>
         )}
         {activeTab === 'overview' && (
           <div className="w-full sm:w-44">
-            <label className="mb-1 block text-xs font-medium text-gray-500">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Business Date
             </label>
             <input
@@ -761,14 +761,14 @@ export default function ReportsContent() {
                 setStartDate(e.target.value);
                 setEndDate(e.target.value);
               }}
-              className="block w-full rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-border">
         <nav className="-mb-px flex gap-6 overflow-x-auto">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -779,8 +779,8 @@ export default function ReportsContent() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 whitespace-nowrap border-b-2 pb-3 text-sm font-medium transition-colors ${
                   activeTab === tab.id
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    ? 'border-indigo-500 text-indigo-500'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
                 }`}
               >
                 <Icon className="h-4 w-4" />

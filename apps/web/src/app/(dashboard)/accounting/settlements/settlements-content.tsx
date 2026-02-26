@@ -56,15 +56,15 @@ export default function SettlementsContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Card Settlements</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Card Settlements</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Track card processor settlements, match to tenders, and post to GL
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowImportDialog(true)}
-            className="flex items-center gap-2 rounded-md bg-surface px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 hover:bg-gray-50"
+            className="flex items-center gap-2 rounded-md bg-surface px-3 py-2 text-sm font-medium text-foreground border border-border hover:bg-accent"
           >
             <Upload className="h-4 w-4" />
             Import CSV
@@ -82,7 +82,7 @@ export default function SettlementsContent() {
       </div>
 
       {/* Status Tabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-border">
         {(['all', 'pending', 'matched', 'posted', 'disputed'] as const).map((tab) => (
           <button
             key={tab}
@@ -90,7 +90,7 @@ export default function SettlementsContent() {
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${
               statusFilter === tab
                 ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
             }`}
           >
             {tab === 'all' ? 'All' : SETTLEMENT_STATUS_CONFIG[tab]?.label ?? tab}
@@ -102,14 +102,14 @@ export default function SettlementsContent() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+            <div key={i} className="h-16 bg-muted rounded animate-pulse" />
           ))}
         </div>
       ) : items.length === 0 ? (
         <div className="text-center py-12">
-          <CreditCard className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No settlements</h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <CreditCard className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-2 text-sm font-medium text-foreground">No settlements</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             Import a CSV from your card processor to get started.
           </p>
           <button
@@ -122,21 +122,21 @@ export default function SettlementsContent() {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Processor</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Batch</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Gross</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Fees</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Net</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Matching</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Processor</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Batch</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Gross</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Fees</th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Net</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Matching</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-surface">
+            <tbody className="divide-y divide-border bg-surface">
               {items.map((settlement) => (
                 <SettlementRow
                   key={settlement.id}
@@ -175,9 +175,9 @@ export default function SettlementsContent() {
 
 function SummaryCard({ label, value, negative }: { label: string; value: string; negative?: boolean }) {
   return (
-    <div className="bg-surface rounded-lg border border-gray-200 p-4">
-      <p className="text-xs font-medium text-gray-500 uppercase">{label}</p>
-      <p className={`text-lg font-semibold mt-1 ${negative ? 'text-red-600' : 'text-gray-900'}`}>
+    <div className="bg-surface rounded-lg border border-border p-4">
+      <p className="text-xs font-medium text-muted-foreground uppercase">{label}</p>
+      <p className={`text-lg font-semibold mt-1 ${negative ? 'text-red-500' : 'text-foreground'}`}>
         {value}
       </p>
     </div>
@@ -204,30 +204,30 @@ function SettlementRow({
       : 0;
 
   return (
-    <tr className="hover:bg-gray-50 cursor-pointer" onClick={onSelect}>
-      <td className="px-4 py-3 text-sm text-gray-900">{settlement.settlementDate}</td>
-      <td className="px-4 py-3 text-sm text-gray-900">{settlement.processorName}</td>
-      <td className="px-4 py-3 text-sm text-gray-500 font-mono">
+    <tr className="hover:bg-accent cursor-pointer" onClick={onSelect}>
+      <td className="px-4 py-3 text-sm text-foreground">{settlement.settlementDate}</td>
+      <td className="px-4 py-3 text-sm text-foreground">{settlement.processorName}</td>
+      <td className="px-4 py-3 text-sm text-muted-foreground font-mono">
         {settlement.processorBatchId ?? '—'}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-900 text-right">
+      <td className="px-4 py-3 text-sm text-foreground text-right">
         {formatAccountingMoney(settlement.grossAmount)}
       </td>
-      <td className="px-4 py-3 text-sm text-red-600 text-right">
+      <td className="px-4 py-3 text-sm text-red-500 text-right">
         {settlement.feeAmount > 0 ? formatAccountingMoney(settlement.feeAmount) : '—'}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-900 text-right font-medium">
+      <td className="px-4 py-3 text-sm text-foreground text-right font-medium">
         {formatAccountingMoney(settlement.netAmount)}
       </td>
       <td className="px-4 py-3 text-center">
         <div className="flex items-center justify-center gap-1">
-          <div className="w-16 bg-gray-200 rounded-full h-1.5">
+          <div className="w-16 bg-muted rounded-full h-1.5">
             <div
               className={`h-1.5 rounded-full ${matchPercent === 100 ? 'bg-green-500' : 'bg-amber-500'}`}
               style={{ width: `${matchPercent}%` }}
             />
           </div>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             {settlement.matchedLines}/{settlement.totalLines}
           </span>
         </div>
@@ -240,14 +240,14 @@ function SettlementRow({
           {settlement.status === 'matched' && (
             <button
               onClick={onPost}
-              className="text-xs px-2 py-1 rounded bg-green-50 text-green-700 hover:bg-green-100 font-medium"
+              className="text-xs px-2 py-1 rounded bg-green-500/10 text-green-500 hover:bg-green-500/20 font-medium"
             >
               Post
             </button>
           )}
           <button
             onClick={onSelect}
-            className="text-xs px-2 py-1 rounded bg-gray-50 text-gray-700 hover:bg-gray-100"
+            className="text-xs px-2 py-1 rounded bg-muted text-foreground hover:bg-accent"
           >
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
@@ -259,11 +259,11 @@ function SettlementRow({
 
 function StatusBadge({ status: _status, config }: { status: string; config: { label: string; variant: string } }) {
   const colors: Record<string, string> = {
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    info: 'bg-blue-50 text-blue-700 border-blue-200',
-    success: 'bg-green-50 text-green-700 border-green-200',
-    error: 'bg-red-50 text-red-700 border-red-200',
-    neutral: 'bg-gray-50 text-gray-700 border-gray-200',
+    warning: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
+    info: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+    success: 'bg-green-500/10 text-green-500 border-green-500/30',
+    error: 'bg-red-500/10 text-red-500 border-red-500/30',
+    neutral: 'bg-muted text-foreground border-border',
   };
 
   return (

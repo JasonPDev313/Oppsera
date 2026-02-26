@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { withTenant, customers, membershipMembers } from '@oppsera/db';
+import { parseLimit } from '@/lib/api-params';
 import { eq, and } from 'drizzle-orm';
 import { listStatements } from '@oppsera/module-membership';
 
@@ -52,9 +53,7 @@ export const GET = withMiddleware(
       membershipAccountId: accountId,
       status: url.searchParams.get('status') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit')
-        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({

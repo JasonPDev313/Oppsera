@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';

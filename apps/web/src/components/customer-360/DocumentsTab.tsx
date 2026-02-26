@@ -110,20 +110,20 @@ function FileCard({
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4 transition-colors hover:border-gray-300">
+    <div className="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-input">
       <div className="flex items-start gap-3">
         {/* File icon */}
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">
-          <FileIcon className="h-5 w-5 text-gray-500" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <FileIcon className="h-5 w-5 text-muted-foreground" />
         </div>
 
         {/* Content */}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-gray-900">{file.name}</p>
+              <p className="truncate text-sm font-medium text-foreground">{file.name}</p>
               {file.description && (
-                <p className="mt-0.5 truncate text-xs text-gray-500">{file.description}</p>
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">{file.description}</p>
               )}
             </div>
             {/* Actions */}
@@ -132,7 +132,7 @@ function FileCard({
                 href={`/storage/${file.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
                 title="Download"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -141,7 +141,7 @@ function FileCard({
                 type="button"
                 onClick={handleDelete}
                 disabled={isLoading}
-                className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                className="rounded p-1.5 text-muted-foreground hover:bg-red-500/100/10 hover:text-red-500 disabled:opacity-50"
                 title="Delete"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -154,27 +154,27 @@ function FileCard({
             <Badge variant={docTypeVariant(file.documentType)}>
               {docTypeLabel(file.documentType)}
             </Badge>
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <HardDrive className="h-3 w-3" />
               {formatFileSize(file.sizeBytes)}
             </span>
-            <span className="flex items-center gap-1 text-xs text-gray-400">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Calendar className="h-3 w-3" />
               {formatDate(file.uploadedAt)}
             </span>
             {file.version > 1 && (
-              <span className="text-xs text-gray-400">v{file.version}</span>
+              <span className="text-xs text-muted-foreground">v{file.version}</span>
             )}
           </div>
 
           {/* Tags */}
           {file.tagsJson && file.tagsJson.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-1">
-              <Tag className="h-3 w-3 text-gray-400" />
+              <Tag className="h-3 w-3 text-muted-foreground" />
               {file.tagsJson.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600"
+                  className="inline-flex rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
                 >
                   {tag}
                 </span>
@@ -184,7 +184,7 @@ function FileCard({
 
           {/* Expiration warning */}
           {file.expiresAt && (
-            <p className="mt-1 text-xs text-amber-600">
+            <p className="mt-1 text-xs text-amber-500">
               Expires: {formatDate(file.expiresAt)}
             </p>
           )}
@@ -241,7 +241,7 @@ function UploadForm({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-surface px-4 py-3 text-sm font-medium text-gray-500 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input bg-surface px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-indigo-500/30 hover:text-indigo-600"
       >
         <Upload className="h-4 w-4" />
         Upload Document
@@ -250,13 +250,13 @@ function UploadForm({
   }
 
   return (
-    <div className="rounded-lg border border-indigo-200 bg-surface p-4">
+    <div className="rounded-lg border border-indigo-500/30 bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-gray-900">Upload Document</h4>
+        <h4 className="text-sm font-semibold text-foreground">Upload Document</h4>
         <button
           type="button"
           onClick={() => setIsOpen(false)}
-          className="rounded p-1 text-gray-400 hover:text-gray-600"
+          className="rounded p-1 text-muted-foreground hover:text-muted-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -265,11 +265,11 @@ function UploadForm({
       <div className="space-y-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Document Type</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Document Type</label>
             <select
               value={documentType}
               onChange={(e) => setDocumentType(e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               {DOCUMENT_TYPE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -277,46 +277,46 @@ function UploadForm({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Name</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Document name..."
-              className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Description (optional)</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Description (optional)</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Brief description..."
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Tags (comma-separated)</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Tags (comma-separated)</label>
             <input
               type="text"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder="tag1, tag2..."
-              className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-600">Expires (optional)</label>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Expires (optional)</label>
             <input
               type="date"
               value={expiresAt}
               onChange={(e) => setExpiresAt(e.target.value)}
-              className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
@@ -346,14 +346,14 @@ export default function DocumentsTab({ customerId }: { customerId: string }) {
     <div className="space-y-4 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <FileText className="h-4 w-4 text-gray-500" />
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <FileText className="h-4 w-4 text-muted-foreground" />
           Documents
         </h3>
         <button
           type="button"
           onClick={() => mutate()}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <RefreshCw className="h-3 w-3" />
           Refresh
@@ -367,13 +367,13 @@ export default function DocumentsTab({ customerId }: { customerId: string }) {
       {isLoading && !data ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface px-6 py-12 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface px-6 py-12 text-center">
           <AlertTriangle className="mb-3 h-8 w-8 text-red-400" />
-          <p className="mb-4 text-sm text-gray-600">Failed to load documents.</p>
+          <p className="mb-4 text-sm text-muted-foreground">Failed to load documents.</p>
           <button
             type="button"
             onClick={() => mutate()}
@@ -394,7 +394,7 @@ export default function DocumentsTab({ customerId }: { customerId: string }) {
             />
           ))}
           {(data?.items ?? []).length === 0 && (
-            <div className="col-span-full py-8 text-center text-sm text-gray-400">
+            <div className="col-span-full py-8 text-center text-sm text-muted-foreground">
               No documents uploaded yet
             </div>
           )}

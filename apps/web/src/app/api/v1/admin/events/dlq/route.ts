@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listDeadLetters } from '@oppsera/core/events';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -17,7 +18,7 @@ export const GET = withMiddleware(
     const eventType = url.searchParams.get('eventType') ?? undefined;
     const consumerName = url.searchParams.get('consumerName') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = parseInt(url.searchParams.get('limit') ?? '50', 10);
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const result = await listDeadLetters({
       tenantId: ctx.tenantId,

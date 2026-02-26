@@ -68,7 +68,7 @@ export function GuestPayConfirmation({
         <CheckCircle className="h-20 w-20 text-green-500" />
       </div>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">
+      <h1 className="text-2xl font-bold text-foreground mb-2">
         {isMemberCharge && memberName
           ? `Charged to ${memberName}'s Account`
           : 'Payment Confirmed'}
@@ -79,16 +79,16 @@ export function GuestPayConfirmation({
       </div>
 
       {tipCents > 0 && (
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Includes ${(tipCents / 100).toFixed(2)} tip — thank you!
         </p>
       )}
 
-      <div className="rounded-2xl bg-green-50 border border-green-200 px-6 py-4 text-center max-w-xs mb-6">
-        <p className="text-sm font-medium text-green-800">
+      <div className="rounded-2xl bg-green-500/10 border border-green-500/30 px-6 py-4 text-center max-w-xs mb-6">
+        <p className="text-sm font-medium text-green-500">
           Your server has been notified.
         </p>
-        <p className="text-xs text-green-600 mt-1">
+        <p className="text-xs text-green-500/80 mt-1">
           {isMemberCharge ? 'Your statement will be updated.' : 'You may close this page.'}
         </p>
       </div>
@@ -96,12 +96,12 @@ export function GuestPayConfirmation({
       {/* Full itemized receipt */}
       {receiptLoading ? (
         <div className="w-full max-w-sm">
-          <div className="rounded-2xl bg-gray-50 border border-gray-200 p-6 animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/2 mx-auto mb-4" />
+          <div className="rounded-2xl bg-muted border border-border p-6 animate-pulse">
+            <div className="h-4 bg-muted-foreground/20 rounded w-1/2 mx-auto mb-4" />
             <div className="space-y-2">
-              <div className="h-3 bg-gray-200 rounded w-full" />
-              <div className="h-3 bg-gray-200 rounded w-3/4" />
-              <div className="h-3 bg-gray-200 rounded w-5/6" />
+              <div className="h-3 bg-muted-foreground/20 rounded w-full" />
+              <div className="h-3 bg-muted-foreground/20 rounded w-3/4" />
+              <div className="h-3 bg-muted-foreground/20 rounded w-5/6" />
             </div>
           </div>
         </div>
@@ -125,7 +125,7 @@ export function GuestPayConfirmation({
       ) : null}
 
       {restaurantName && (
-        <p className="mt-8 text-xs text-gray-400 print:mt-4">
+        <p className="mt-8 text-xs text-muted-foreground print:mt-4">
           Thank you for dining at {restaurantName}
         </p>
       )}

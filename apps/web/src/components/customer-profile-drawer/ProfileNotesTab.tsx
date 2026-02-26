@@ -110,11 +110,11 @@ export function ProfileNotesTab({ customerId }: ProfileNotesTabProps) {
   if (error || !data) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load notes.</p>
+        <p className="text-sm text-red-500">Failed to load notes.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -127,14 +127,14 @@ export function ProfileNotesTab({ customerId }: ProfileNotesTabProps) {
   return (
     <div className="p-6">
       {/* Section toggle */}
-      <div className="mb-4 flex rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+      <div className="mb-4 flex rounded-lg border border-border bg-muted p-0.5">
         <button
           type="button"
           onClick={() => setActiveSection('notes')}
           className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
             activeSection === 'notes'
-              ? 'bg-surface text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           Notes ({staffNotes.length})
@@ -144,8 +144,8 @@ export function ProfileNotesTab({ customerId }: ProfileNotesTabProps) {
           onClick={() => setActiveSection('incidents')}
           className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
             activeSection === 'incidents'
-              ? 'bg-surface text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           Incidents ({incidents.length})
@@ -156,13 +156,13 @@ export function ProfileNotesTab({ customerId }: ProfileNotesTabProps) {
       {activeSection === 'notes' && (
         <div className="space-y-4">
           {/* Add note form */}
-          <div className="rounded-lg border border-gray-200 p-3">
+          <div className="rounded-lg border border-border p-3">
             <textarea
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}
               placeholder="Add a note..."
               rows={3}
-              className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full resize-none rounded-md border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
             <div className="mt-2 flex justify-end">
               <button
@@ -189,13 +189,13 @@ export function ProfileNotesTab({ customerId }: ProfileNotesTabProps) {
               {staffNotes.map((note) => (
                 <div
                   key={note.id}
-                  className="rounded-lg border border-gray-200 p-3"
+                  className="rounded-lg border border-border p-3"
                 >
-                  <p className="text-sm font-medium text-gray-900">{note.title}</p>
+                  <p className="text-sm font-medium text-foreground">{note.title}</p>
                   {note.details && (
-                    <p className="mt-1 text-sm text-gray-600">{note.details}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{note.details}</p>
                   )}
-                  <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+                  <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {formatDate(note.createdAt)}
@@ -227,7 +227,7 @@ export function ProfileNotesTab({ customerId }: ProfileNotesTabProps) {
             incidents.map((incident) => (
               <div
                 key={incident.id}
-                className="rounded-lg border border-gray-200 p-3"
+                className="rounded-lg border border-border p-3"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-2">
@@ -241,11 +241,11 @@ export function ProfileNotesTab({ customerId }: ProfileNotesTabProps) {
                       }`}
                     />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-foreground">
                         {incident.subject}
                       </p>
                       {incident.description && (
-                        <p className="mt-0.5 text-xs text-gray-600">
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {incident.description}
                         </p>
                       )}
@@ -264,26 +264,26 @@ export function ProfileNotesTab({ customerId }: ProfileNotesTabProps) {
                     </Badge>
                   </div>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                   <span>{formatDate(incident.createdAt)}</span>
                   <span>Type: {incident.incidentType}</span>
                   {incident.reportedBy && <span>By: {incident.reportedBy}</span>}
                   {incident.compensationCents !== null &&
                     incident.compensationCents > 0 && (
-                      <span className="font-medium text-green-600">
+                      <span className="font-medium text-green-500">
                         Comp: {formatCurrency(incident.compensationCents)}
                         {incident.compensationType && ` (${incident.compensationType})`}
                       </span>
                     )}
                 </div>
                 {incident.resolution && (
-                  <div className="mt-2 rounded border border-green-100 bg-green-50 px-2 py-1">
+                  <div className="mt-2 rounded border border-green-100 bg-green-500/10 px-2 py-1">
                     <p className="text-xs text-green-800">
                       <span className="font-medium">Resolution:</span>{' '}
                       {incident.resolution}
                     </p>
                     {incident.resolvedBy && incident.resolvedAt && (
-                      <p className="mt-0.5 text-xs text-green-600">
+                      <p className="mt-0.5 text-xs text-green-500">
                         Resolved by {incident.resolvedBy} on{' '}
                         {formatDate(incident.resolvedAt)}
                       </p>

@@ -28,17 +28,17 @@ const STATUS_OPTIONS = [
 ];
 
 const TYPE_BADGES: Record<string, { label: string; className: string }> = {
-  manual: { label: 'Manual', className: 'bg-blue-100 text-blue-700' },
-  scheduled: { label: 'Scheduled', className: 'bg-purple-100 text-purple-700' },
-  pre_restore: { label: 'Pre-Restore', className: 'bg-yellow-100 text-yellow-700' },
+  manual: { label: 'Manual', className: 'bg-blue-500/10 text-blue-500' },
+  scheduled: { label: 'Scheduled', className: 'bg-purple-500/10 text-purple-500' },
+  pre_restore: { label: 'Pre-Restore', className: 'bg-yellow-500/10 text-yellow-500' },
 };
 
 const STATUS_BADGES: Record<string, { className: string }> = {
-  pending: { className: 'bg-gray-100 text-gray-600' },
-  in_progress: { className: 'bg-blue-100 text-blue-700' },
-  completed: { className: 'bg-green-100 text-green-700' },
-  failed: { className: 'bg-red-100 text-red-700' },
-  expired: { className: 'bg-yellow-100 text-yellow-700' },
+  pending: { className: 'bg-slate-500/10 text-slate-400' },
+  in_progress: { className: 'bg-blue-500/10 text-blue-500' },
+  completed: { className: 'bg-green-500/10 text-green-500' },
+  failed: { className: 'bg-red-500/10 text-red-500' },
+  expired: { className: 'bg-yellow-500/10 text-yellow-500' },
 };
 
 function formatBytes(bytes: number | null): string {
@@ -210,8 +210,8 @@ export default function BackupsPage() {
             </thead>
             <tbody className="divide-y divide-slate-700">
               {items.map((backup) => {
-                const typeBadge = TYPE_BADGES[backup.type] ?? { label: backup.type, className: 'bg-gray-100 text-gray-600' };
-                const statusBadge = STATUS_BADGES[backup.status] ?? { className: 'bg-gray-100 text-gray-600' };
+                const typeBadge = TYPE_BADGES[backup.type] ?? { label: backup.type, className: 'bg-slate-500/10 text-slate-400' };
+                const statusBadge = STATUS_BADGES[backup.status] ?? { className: 'bg-slate-500/10 text-slate-400' };
                 return (
                   <tr key={backup.id} className="hover:bg-slate-700/50 transition-colors">
                     <td className="px-4 py-3">

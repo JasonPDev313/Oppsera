@@ -6,6 +6,7 @@ import {
   addVendorCatalogItem,
   addVendorCatalogItemSchema,
 } from '@oppsera/module-inventory';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -19,7 +20,7 @@ export const GET = withMiddleware(
       search: url.searchParams.get('search') ?? undefined,
       isActive: url.searchParams.get('isActive') === 'false' ? false : url.searchParams.get('isActive') === 'true' ? true : undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     return NextResponse.json({
       data: result.items,

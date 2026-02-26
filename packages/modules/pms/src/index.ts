@@ -465,6 +465,9 @@ export {
   listLoyaltyPrograms,
   getLoyaltyMember,
   listLoyaltyTransactions,
+  // Utilization Grid
+  getUtilizationGrid,
+  getUtilizationGridByRoom,
 } from './queries';
 
 export type {
@@ -564,6 +567,13 @@ export type {
   LoyaltyMemberDetail,
   LoyaltyTransactionItem,
   ListLoyaltyTransactionsResult,
+  // Utilization Grid
+  UtilizationGridResponse,
+  UtilizationRoomType,
+  UtilizationCell,
+  UtilizationByRoomResponse,
+  UtilizationRoom,
+  UtilizationRoomCell,
 } from './queries';
 
 // Background Jobs

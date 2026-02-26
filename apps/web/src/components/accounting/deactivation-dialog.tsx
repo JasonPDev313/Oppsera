@@ -41,24 +41,24 @@ export function DeactivationDialog({ open, onClose, account, onSuccess }: Deacti
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-surface shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Deactivate Account</h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 className="text-lg font-semibold text-foreground">Deactivate Account</h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         <div className="space-y-4 px-6 py-4">
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="text-sm font-medium text-gray-900">
+          <div className="rounded-lg border border-border bg-muted p-3">
+            <p className="text-sm font-medium text-foreground">
               {account.accountNumber} — {account.name}
             </p>
-            <p className="text-xs capitalize text-gray-500">{account.accountType}</p>
+            <p className="text-xs capitalize text-muted-foreground">{account.accountType}</p>
           </div>
 
-          <div className="flex gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
-            <div className="text-xs text-amber-800">
+          <div className="flex gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+            <div className="text-xs text-amber-500">
               <p className="font-medium">Deactivating this account will:</p>
               <ul className="mt-1 list-disc pl-4 space-y-0.5">
                 <li>Hide it from new journal entry account pickers</li>
@@ -70,11 +70,11 @@ export function DeactivationDialog({ open, onClose, account, onSuccess }: Deacti
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
+        <div className="flex justify-end gap-2 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>

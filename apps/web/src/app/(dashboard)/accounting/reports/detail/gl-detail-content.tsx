@@ -49,7 +49,7 @@ export default function GLDetailContent() {
               params.set('format', 'csv');
               window.open(`/api/v1/accounting/reports/detail?${params.toString()}`, '_blank');
             }}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -60,25 +60,25 @@ export default function GLDetailContent() {
       {/* Controls */}
       <div className="flex flex-wrap items-end gap-4">
         <div className="w-72">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Account</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Account</label>
           <AccountPicker value={accountId} onChange={setAccountId} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">From</label>
+          <label className="block text-sm font-medium text-foreground mb-1">From</label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
+          <label className="block text-sm font-medium text-foreground mb-1">To</label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
       </div>
@@ -95,42 +95,42 @@ export default function GLDetailContent() {
       {accountId && isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
 
       {/* Table */}
       {accountId && !isLoading && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           {/* Desktop */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Journal #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Source</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Memo</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Debit</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Credit</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Balance</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Journal #</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Memo</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Debit</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Credit</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Balance</th>
                 </tr>
               </thead>
               <tbody>
                 {/* Opening balance */}
-                <tr className="border-b border-gray-200 bg-blue-50/50">
-                  <td colSpan={6} className="px-4 py-2 text-sm font-medium text-gray-700">
+                <tr className="border-b border-border bg-blue-500/10">
+                  <td colSpan={6} className="px-4 py-2 text-sm font-medium text-foreground">
                     Opening Balance
                   </td>
-                  <td className="px-4 py-2 text-right text-sm font-semibold tabular-nums text-gray-900">
+                  <td className="px-4 py-2 text-right text-sm font-semibold tabular-nums text-foreground">
                     {formatAccountingMoney(meta.openingBalance)}
                   </td>
                 </tr>
 
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
                       No transactions found for this period.
                     </td>
                   </tr>
@@ -139,26 +139,26 @@ export default function GLDetailContent() {
                 {rows.map((row, i) => {
                   const badge = SOURCE_MODULE_BADGES[row.sourceModule];
                   return (
-                    <tr key={`${row.journalId}-${i}`} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
-                      <td className="px-4 py-2.5 text-sm text-gray-700">{row.date}</td>
+                    <tr key={`${row.journalId}-${i}`} className="border-b border-border last:border-0 hover:bg-muted/50">
+                      <td className="px-4 py-2.5 text-sm text-foreground">{row.date}</td>
                       <td className="px-4 py-2.5 text-sm">
-                        <Link href={`/accounting/journals/${row.journalId}`} className="text-indigo-600 hover:text-indigo-800">
+                        <Link href={`/accounting/journals/${row.journalId}`} className="text-indigo-600 hover:text-indigo-500">
                           #{row.journalNumber}
                         </Link>
                       </td>
                       <td className="px-4 py-2.5 text-sm">
-                        <span className="text-xs text-gray-500">{badge?.label ?? row.sourceModule}</span>
+                        <span className="text-xs text-muted-foreground">{badge?.label ?? row.sourceModule}</span>
                       </td>
-                      <td className="px-4 py-2.5 text-sm text-gray-500 max-w-[200px] truncate">
+                      <td className="px-4 py-2.5 text-sm text-muted-foreground max-w-[200px] truncate">
                         {row.memo ?? '—'}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-sm tabular-nums text-gray-900">
+                      <td className="px-4 py-2.5 text-right text-sm tabular-nums text-foreground">
                         {row.debit > 0 ? formatAccountingMoney(row.debit) : ''}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-sm tabular-nums text-gray-900">
+                      <td className="px-4 py-2.5 text-right text-sm tabular-nums text-foreground">
                         {row.credit > 0 ? formatAccountingMoney(row.credit) : ''}
                       </td>
-                      <td className="px-4 py-2.5 text-right text-sm font-medium tabular-nums text-gray-900">
+                      <td className="px-4 py-2.5 text-right text-sm font-medium tabular-nums text-foreground">
                         {formatAccountingMoney(row.runningBalance)}
                       </td>
                     </tr>
@@ -166,11 +166,11 @@ export default function GLDetailContent() {
                 })}
 
                 {/* Closing balance */}
-                <tr className="border-t-2 border-gray-300 bg-blue-50/50">
-                  <td colSpan={6} className="px-4 py-2 text-sm font-medium text-gray-700">
+                <tr className="border-t-2 border-border bg-blue-500/10">
+                  <td colSpan={6} className="px-4 py-2 text-sm font-medium text-foreground">
                     Closing Balance
                   </td>
-                  <td className="px-4 py-2 text-right text-sm font-bold tabular-nums text-gray-900">
+                  <td className="px-4 py-2 text-right text-sm font-bold tabular-nums text-foreground">
                     {formatAccountingMoney(meta.closingBalance)}
                   </td>
                 </tr>
@@ -180,29 +180,29 @@ export default function GLDetailContent() {
 
           {/* Mobile */}
           <div className="space-y-3 p-4 md:hidden">
-            <div className="flex justify-between rounded-lg bg-blue-50 p-2 text-sm">
-              <span className="font-medium text-gray-700">Opening Balance</span>
+            <div className="flex justify-between rounded-lg bg-blue-500/10 p-2 text-sm">
+              <span className="font-medium text-foreground">Opening Balance</span>
               <span className="font-semibold tabular-nums">{formatAccountingMoney(meta.openingBalance)}</span>
             </div>
             {rows.map((row, i) => (
-              <div key={`${row.journalId}-${i}`} className="rounded-lg border border-gray-100 p-3 space-y-1">
+              <div key={`${row.journalId}-${i}`} className="rounded-lg border border-border p-3 space-y-1">
                 <div className="flex items-center justify-between">
                   <Link href={`/accounting/journals/${row.journalId}`} className="text-sm font-medium text-indigo-600">
                     #{row.journalNumber}
                   </Link>
-                  <span className="text-xs text-gray-500">{row.date}</span>
+                  <span className="text-xs text-muted-foreground">{row.date}</span>
                 </div>
-                {row.memo && <p className="text-xs text-gray-500 truncate">{row.memo}</p>}
+                {row.memo && <p className="text-xs text-muted-foreground truncate">{row.memo}</p>}
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">
+                  <span className="text-muted-foreground">
                     {row.debit > 0 ? `DR ${formatAccountingMoney(row.debit)}` : `CR ${formatAccountingMoney(row.credit)}`}
                   </span>
                   <span className="font-medium tabular-nums">{formatAccountingMoney(row.runningBalance)}</span>
                 </div>
               </div>
             ))}
-            <div className="flex justify-between rounded-lg bg-blue-50 p-2 text-sm">
-              <span className="font-bold text-gray-700">Closing Balance</span>
+            <div className="flex justify-between rounded-lg bg-blue-500/10 p-2 text-sm">
+              <span className="font-bold text-foreground">Closing Balance</span>
               <span className="font-bold tabular-nums">{formatAccountingMoney(meta.closingBalance)}</span>
             </div>
           </div>

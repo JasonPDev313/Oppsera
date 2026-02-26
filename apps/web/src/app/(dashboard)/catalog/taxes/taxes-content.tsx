@@ -182,7 +182,7 @@ function TaxRatesTab() {
           onClick={() => setShowAdd(true)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
         >
-          <Plus className="h-4 w-4" />
+          <Plus aria-hidden="true" className="h-4 w-4" />
           Add Rate
         </button>
       </div>
@@ -623,7 +623,7 @@ function TaxGroupsTab() {
               onClick={() => setShowCreate(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
             >
-              <Plus className="h-4 w-4" />
+              <Plus aria-hidden="true" className="h-4 w-4" />
               Add Tax Group
             </button>
           </div>

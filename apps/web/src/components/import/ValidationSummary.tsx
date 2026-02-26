@@ -44,21 +44,21 @@ export function ValidationSummary({ job, errors, errorCount }: ValidationSummary
         {hasErrors ? (
           <>
             <XCircle className="h-5 w-5 text-red-500" />
-            <span className="text-sm font-medium text-red-600">
+            <span className="text-sm font-medium text-red-500">
               {errorCount.error} error{errorCount.error !== 1 ? 's' : ''} found
             </span>
           </>
         ) : hasWarnings ? (
           <>
             <AlertTriangle className="h-5 w-5 text-yellow-500" />
-            <span className="text-sm font-medium text-yellow-600">
+            <span className="text-sm font-medium text-yellow-500">
               {errorCount.warning} warning{errorCount.warning !== 1 ? 's' : ''} — review recommended
             </span>
           </>
         ) : (
           <>
             <CheckCircle2 className="h-5 w-5 text-green-500" />
-            <span className="text-sm font-medium text-green-600">All checks passed</span>
+            <span className="text-sm font-medium text-green-500">All checks passed</span>
           </>
         )}
       </div>
@@ -72,13 +72,13 @@ export function ValidationSummary({ job, errors, errorCount }: ValidationSummary
               {e.severity === 'warning' && <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-yellow-500" />}
               {e.severity === 'info' && <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />}
               <span>
-                <span className="font-mono text-xs text-gray-500">Row {e.rowNumber}:</span>{' '}
+                <span className="font-mono text-xs text-muted-foreground">Row {e.rowNumber}:</span>{' '}
                 {e.message}
               </span>
             </div>
           ))}
           {errors.length > 50 && (
-            <p className="pt-2 text-center text-xs text-gray-500">
+            <p className="pt-2 text-center text-xs text-muted-foreground">
               Showing first 50 of {errors.length} issues
             </p>
           )}
@@ -90,8 +90,8 @@ export function ValidationSummary({ job, errors, errorCount }: ValidationSummary
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-      <p className="text-xs text-gray-500">{label}</p>
+    <div className="rounded-lg border border-border p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-lg font-semibold">{value}</p>
     </div>
   );

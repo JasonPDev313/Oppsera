@@ -21,15 +21,16 @@ export const CategoryRail = memo(function CategoryRail({
   );
 
   return (
-    <div className="w-48 shrink-0 overflow-y-auto border-r border-gray-200 bg-gray-50">
+    <nav aria-label="Categories" className="w-48 shrink-0 overflow-y-auto border-r border-border bg-muted">
       {/* "All" item */}
       <button
         type="button"
+        aria-current={selectedId === null ? 'true' : undefined}
         onClick={() => handleSelect(null)}
         className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all active:scale-[0.97] ${
           selectedId === null
-            ? 'border-l-2 border-indigo-600 bg-indigo-50 text-indigo-600'
-            : 'border-l-2 border-transparent text-gray-700 hover:bg-gray-100'
+            ? 'border-l-2 border-indigo-600 bg-indigo-500/10 text-indigo-400'
+            : 'border-l-2 border-transparent text-foreground hover:bg-accent'
         }`}
       >
         All
@@ -44,13 +45,14 @@ export const CategoryRail = memo(function CategoryRail({
           <button
             key={cat.id}
             type="button"
+            aria-current={isActive ? 'true' : undefined}
             onClick={() => handleSelect(cat.id)}
             className={`w-full text-left px-4 py-2.5 text-sm font-medium transition-all active:scale-[0.97] ${
               isActive
                 ? hasColor
-                  ? 'bg-indigo-50 text-indigo-600'
-                  : 'border-l-2 border-indigo-600 bg-indigo-50 text-indigo-600'
-                : 'border-l-2 border-transparent text-gray-700 hover:bg-gray-100'
+                  ? 'bg-indigo-500/10 text-indigo-400'
+                  : 'border-l-2 border-indigo-600 bg-indigo-500/10 text-indigo-400'
+                : 'border-l-2 border-transparent text-foreground hover:bg-accent'
             }`}
             style={
               isActive && hasColor
@@ -62,6 +64,6 @@ export const CategoryRail = memo(function CategoryRail({
           </button>
         );
       })}
-    </div>
+    </nav>
   );
 });

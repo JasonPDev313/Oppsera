@@ -9,15 +9,57 @@ import type {
   ContentBlockData,
   ContentBlockKey,
 } from '@oppsera/shared';
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+
+// ── Tax ID Encryption (AES-256-GCM) ─────────────────────────────
+
+const TAX_ID_ALGO = 'aes-256-gcm';
+const TAX_ID_IV_LEN = 16;
+const TAX_ID_TAG_LEN = 16;
+
+function getSensitiveDataKey(): Buffer | null {
+  const key = process.env.SENSITIVE_DATA_ENCRYPTION_KEY ?? process.env.PAYMENT_ENCRYPTION_KEY;
+  if (!key) return null;
+  if (key.length === 64) return Buffer.from(key, 'hex');
+  if (key.length === 44) return Buffer.from(key, 'base64');
+  return null;
+}
+
+function encryptTaxId(plaintext: string): string {
+  const key = getSensitiveDataKey();
+  if (!key) return plaintext; // graceful fallback — dev without key
+  const iv = randomBytes(TAX_ID_IV_LEN);
+  const cipher = createCipheriv(TAX_ID_ALGO, key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, encrypted]).toString('base64');
+}
+
+function decryptTaxId(blob: string): string {
+  const key = getSensitiveDataKey();
+  if (!key) return blob; // fallback — stored unencrypted or no key
+  try {
+    const packed = Buffer.from(blob, 'base64');
+    if (packed.length < TAX_ID_IV_LEN + TAX_ID_TAG_LEN + 1) return blob; // not encrypted
+    const iv = packed.subarray(0, TAX_ID_IV_LEN);
+    const tag = packed.subarray(TAX_ID_IV_LEN, TAX_ID_IV_LEN + TAX_ID_TAG_LEN);
+    const ciphertext = packed.subarray(TAX_ID_IV_LEN + TAX_ID_TAG_LEN);
+    const decipher = createDecipheriv(TAX_ID_ALGO, key, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+  } catch {
+    return blob; // stored before encryption was enabled
+  }
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 
 function maskTaxId(encrypted: string | null): string | null {
   if (!encrypted) return null;
-  // Show last 4 chars, mask the rest
-  const len = encrypted.length;
-  if (len <= 4) return encrypted;
-  return '\u2022'.repeat(len - 4) + encrypted.slice(-4);
+  const plain = decryptTaxId(encrypted);
+  const len = plain.length;
+  if (len <= 4) return plain;
+  return '\u2022'.repeat(len - 4) + plain.slice(-4);
 }
 
 function mapRowToData(row: typeof tenantBusinessInfo.$inferSelect): BusinessInfoData {
@@ -130,6 +172,38 @@ export async function getContentBlocks(tenantId: string): Promise<ContentBlockDa
   });
 }
 
+/**
+ * Combined query — fetches business info + content blocks in a single withTenant call.
+ * Saves one full DB round-trip vs calling getBusinessInfo + getContentBlocks separately.
+ */
+export async function getBusinessInfoAll(tenantId: string): Promise<{
+  info: BusinessInfoData;
+  blocks: ContentBlockData[];
+}> {
+  return withTenant(tenantId, async (tx) => {
+    const [infoRows, blockRows] = await Promise.all([
+      tx
+        .select()
+        .from(tenantBusinessInfo)
+        .where(eq(tenantBusinessInfo.tenantId, tenantId))
+        .limit(1),
+      tx
+        .select()
+        .from(tenantContentBlocks)
+        .where(eq(tenantContentBlocks.tenantId, tenantId)),
+    ]);
+
+    const info = infoRows.length === 0 ? EMPTY_DATA : mapRowToData(infoRows[0]!);
+    const blocks = blockRows.map((r) => ({
+      blockKey: r.blockKey as ContentBlockKey,
+      content: r.content,
+      updatedAt: r.updatedAt?.toISOString() ?? null,
+    }));
+
+    return { info, blocks };
+  });
+}
+
 // ── Commands ─────────────────────────────────────────────────────
 
 export async function updateBusinessInfo(
@@ -178,7 +252,7 @@ export async function updateBusinessInfo(
     if (input.industryType !== undefined) values.industryType = input.industryType;
     if (input.businessHours !== undefined) values.businessHours = input.businessHours;
     if (input.yearEstablished !== undefined) values.yearEstablished = input.yearEstablished;
-    if (input.taxId !== undefined) values.taxIdEncrypted = input.taxId; // TODO: encrypt before storing
+    if (input.taxId !== undefined && input.taxId !== null) values.taxIdEncrypted = encryptTaxId(input.taxId);
     if (input.photoGallery !== undefined) values.photoGallery = input.photoGallery;
     if (input.promoVideoUrl !== undefined) values.promoVideoUrl = input.promoVideoUrl;
 

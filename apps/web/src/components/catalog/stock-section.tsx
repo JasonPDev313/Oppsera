@@ -39,10 +39,10 @@ function formatDateTime(dateStr: string): string {
 }
 
 function getStockColor(item: InventoryItem): string {
-  if (item.onHand < 0) return 'text-red-600';
+  if (item.onHand < 0) return 'text-red-500';
   const reorderPoint = item.reorderPoint ? parseFloat(item.reorderPoint) : null;
-  if (reorderPoint !== null && item.onHand <= reorderPoint) return 'text-amber-600';
-  return 'text-green-600';
+  if (reorderPoint !== null && item.onHand <= reorderPoint) return 'text-amber-500';
+  return 'text-green-500';
 }
 
 function getStatusBadge(status: string) {
@@ -127,7 +127,7 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
       key: 'createdAt',
       header: 'Date',
       render: (row: MovementRow) => (
-        <span className="text-sm text-gray-600">{formatDateTime(row.createdAt)}</span>
+        <span className="text-sm text-muted-foreground">{formatDateTime(row.createdAt)}</span>
       ),
     },
     {
@@ -142,7 +142,7 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
         const delta = parseFloat(row.quantityDelta);
         const isPositive = delta > 0;
         return (
-          <span className={`font-semibold ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          <span className={`font-semibold ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
             {isPositive ? '+' : ''}{formatQty(delta)}
           </span>
         );
@@ -152,14 +152,14 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
       key: 'unitCost',
       header: 'Cost',
       render: (row: MovementRow) => (
-        <span className="text-sm text-gray-500">{formatCurrency(row.unitCost)}</span>
+        <span className="text-sm text-muted-foreground">{formatCurrency(row.unitCost)}</span>
       ),
     },
     {
       key: 'referenceType',
       header: 'Reference',
       render: (row: MovementRow) => (
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-muted-foreground">
           {row.referenceType ? `${row.referenceType}` : '\u2014'}
         </span>
       ),
@@ -168,7 +168,7 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
       key: 'reason',
       header: 'Reason',
       render: (row: MovementRow) => (
-        <span className="text-sm text-gray-500">{row.reason || '\u2014'}</span>
+        <span className="text-sm text-muted-foreground">{row.reason || '\u2014'}</span>
       ),
     },
     {
@@ -182,7 +182,7 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
       key: 'employeeId',
       header: 'Employee',
       render: (row: MovementRow) => (
-        <span className="text-sm text-gray-500">{row.employeeId || '\u2014'}</span>
+        <span className="text-sm text-muted-foreground">{row.employeeId || '\u2014'}</span>
       ),
     },
   ], []);
@@ -190,9 +190,9 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
   // Don't render at all if item is not trackable
   if (!isTrackable) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
-        <h2 className="text-base font-semibold text-gray-900">Inventory</h2>
-        <p className="mt-2 text-sm text-gray-500">Inventory tracking is disabled for this item.</p>
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="text-base font-semibold text-foreground">Inventory</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Inventory tracking is disabled for this item.</p>
       </div>
     );
   }
@@ -200,9 +200,9 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
   return (
     <>
       {/* Stock header with location selector and actions */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-base font-semibold text-gray-900">Stock</h2>
+          <h2 className="text-base font-semibold text-foreground">Stock</h2>
           <div className="flex flex-wrap items-center gap-3">
             {locations.length > 1 && (
               <Select
@@ -226,7 +226,7 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
                 <button
                   type="button"
                   onClick={() => setShowAdjust(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-input px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" />
                   Adjust
@@ -249,41 +249,41 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
             <LoadingSpinner size="sm" />
           </div>
         ) : !invItem ? (
-          <p className="mt-4 text-sm text-gray-500">
+          <p className="mt-4 text-sm text-muted-foreground">
             No inventory record at this location. Stock records are auto-created when this product is sold or received here.
           </p>
         ) : (
           <>
             {/* Stats cards */}
             <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-              <div className="rounded-lg border border-gray-200 bg-surface p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">On Hand</p>
+              <div className="rounded-lg border border-border bg-surface p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">On Hand</p>
                 <p className={`mt-1 text-2xl font-bold ${getStockColor(invItem)}`}>
                   {formatQty(invItem.onHand)}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-400">{invItem.baseUnit}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{invItem.baseUnit}</p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-surface p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Reorder Point</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">
+              <div className="rounded-lg border border-border bg-surface p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Reorder Point</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">
                   {invItem.reorderPoint ? formatQty(invItem.reorderPoint) : '\u2014'}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-400">{invItem.baseUnit}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{invItem.baseUnit}</p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-surface p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Par Level</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">
+              <div className="rounded-lg border border-border bg-surface p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Par Level</p>
+                <p className="mt-1 text-2xl font-bold text-foreground">
                   {invItem.parLevel ? formatQty(invItem.parLevel) : '\u2014'}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-400">{invItem.baseUnit}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{invItem.baseUnit}</p>
               </div>
-              <div className="rounded-lg border border-gray-200 bg-surface p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Costing Method</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900 capitalize">
+              <div className="rounded-lg border border-border bg-surface p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Costing Method</p>
+                <p className="mt-1 text-2xl font-bold text-foreground capitalize">
                   {invItem.costingMethod}
                 </p>
                 {invItem.standardCost && (
-                  <p className="mt-0.5 text-xs text-gray-400">
+                  <p className="mt-0.5 text-xs text-muted-foreground">
                     Standard: {formatCurrency(invItem.standardCost)}
                   </p>
                 )}
@@ -305,9 +305,9 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
 
       {/* Movement History */}
       {invItem && (
-        <div className="rounded-lg border border-gray-200 bg-surface">
-          <div className="border-b border-gray-200 px-6 py-4">
-            <h2 className="text-base font-semibold text-gray-900">Movement History</h2>
+        <div className="rounded-lg border border-border bg-surface">
+          <div className="border-b border-border px-6 py-4">
+            <h2 className="text-base font-semibold text-foreground">Movement History</h2>
           </div>
           <div className="p-6">
             <DataTable
@@ -321,7 +321,7 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
                 <button
                   type="button"
                   onClick={loadMoreMovements}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                 >
                   Load More
                 </button>
@@ -368,10 +368,10 @@ function DetailRow({
   value: string | React.ReactNode;
 }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-gray-100 py-2">
-      <span className="text-sm font-medium text-gray-500">{label}</span>
+    <div className="flex items-baseline justify-between border-b border-border py-2">
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
       {typeof value === 'string' ? (
-        <span className="text-sm text-gray-900">{value}</span>
+        <span className="text-sm text-foreground">{value}</span>
       ) : (
         value
       )}

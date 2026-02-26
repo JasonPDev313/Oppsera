@@ -19,9 +19,9 @@ interface CoaHealthReport {
 }
 
 const STATUS_CONFIG = {
-  healthy: { icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200', label: 'Healthy' },
-  warning: { icon: AlertTriangle, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', label: 'Warnings Found' },
-  error: { icon: XCircle, color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', label: 'Issues Detected' },
+  healthy: { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10', border: 'border-green-500/30', label: 'Healthy' },
+  warning: { icon: AlertTriangle, color: 'text-amber-500', bg: 'bg-amber-500/10', border: 'border-amber-500/30', label: 'Warnings Found' },
+  error: { icon: XCircle, color: 'text-red-500', bg: 'bg-red-500/10', border: 'border-red-500/30', label: 'Issues Detected' },
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -62,7 +62,7 @@ export default function HealthContent() {
           type="button"
           onClick={fetchHealth}
           disabled={isLoading}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh
@@ -72,7 +72,7 @@ export default function HealthContent() {
       {isLoading && !report ? (
         <div className="space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={`skeleton-${i}`} className="h-20 animate-pulse rounded-lg bg-gray-100" />
+            <div key={`skeleton-${i}`} className="h-20 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       ) : report ? (
@@ -85,7 +85,7 @@ export default function HealthContent() {
                 <h3 className={`text-lg font-semibold ${statusConfig?.color}`}>
                   {statusConfig?.label}
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {report.activeAccounts} active of {report.totalAccounts} total accounts
                 </p>
               </div>
@@ -95,9 +95,9 @@ export default function HealthContent() {
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
             {Object.entries(TYPE_LABELS).map(([type, label]) => (
-              <div key={type} className="rounded-lg border border-gray-200 p-3">
-                <p className="text-xs font-medium text-gray-500">{label}</p>
-                <p className="mt-1 text-2xl font-semibold text-gray-900">
+              <div key={type} className="rounded-lg border border-border p-3">
+                <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                <p className="mt-1 text-2xl font-semibold text-foreground">
                   {report.accountDistribution[type] ?? 0}
                 </p>
               </div>
@@ -106,13 +106,13 @@ export default function HealthContent() {
 
           {/* Errors */}
           {report.errors.length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-              <h4 className="text-sm font-medium text-red-800">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+              <h4 className="text-sm font-medium text-red-500">
                 {report.errorCount} Error{report.errorCount !== 1 ? 's' : ''}
               </h4>
               <ul className="mt-2 space-y-1">
                 {report.errors.map((e, i) => (
-                  <li key={i} className="text-sm text-red-700">{e.message}</li>
+                  <li key={i} className="text-sm text-red-500">{e.message}</li>
                 ))}
               </ul>
             </div>
@@ -120,13 +120,13 @@ export default function HealthContent() {
 
           {/* Warnings */}
           {report.warnings.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <h4 className="text-sm font-medium text-amber-800">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+              <h4 className="text-sm font-medium text-amber-500">
                 {report.warningCount} Warning{report.warningCount !== 1 ? 's' : ''}
               </h4>
               <ul className="mt-2 space-y-1">
                 {report.warnings.map((w, i) => (
-                  <li key={i} className="text-sm text-amber-700">{w.message}</li>
+                  <li key={i} className="text-sm text-amber-500">{w.message}</li>
                 ))}
               </ul>
             </div>
@@ -134,18 +134,18 @@ export default function HealthContent() {
 
           {/* Additional Info */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div className="rounded-lg border border-gray-200 p-3">
-              <p className="text-xs font-medium text-gray-500">Fallback Accounts</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900">{report.fallbackCount}</p>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-medium text-muted-foreground">Fallback Accounts</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">{report.fallbackCount}</p>
             </div>
-            <div className="rounded-lg border border-gray-200 p-3">
-              <p className="text-xs font-medium text-gray-500">System Accounts</p>
-              <p className="mt-1 text-xl font-semibold text-gray-900">{report.systemAccountCount}</p>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs font-medium text-muted-foreground">System Accounts</p>
+              <p className="mt-1 text-xl font-semibold text-foreground">{report.systemAccountCount}</p>
             </div>
           </div>
         </div>
       ) : (
-        <p className="text-sm text-gray-500">Unable to load health report.</p>
+        <p className="text-sm text-muted-foreground">Unable to load health report.</p>
       )}
     </AccountingPageShell>
   );

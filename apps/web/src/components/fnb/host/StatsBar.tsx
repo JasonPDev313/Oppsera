@@ -34,32 +34,22 @@ interface StatItemProps {
   icon: LucideIcon;
   value: number | string;
   label: string;
-  color?: string;
+  iconBg?: string;
+  iconColor?: string;
+  valueColor?: string;
 }
 
-function StatItem({ icon: Icon, value, label, color }: StatItemProps) {
+function StatItem({ icon: Icon, value, label, iconBg = 'bg-muted', iconColor = 'text-muted-foreground', valueColor = 'text-foreground' }: StatItemProps) {
   return (
-    <div className="flex items-center gap-2 min-w-0">
-      <div
-        className="flex items-center justify-center h-7 w-7 rounded-md shrink-0"
-        style={{ backgroundColor: `color-mix(in srgb, ${color ?? 'var(--fnb-text-muted)'} 12%, transparent)` }}
-      >
-        <Icon size={14} style={{ color: color ?? 'var(--fnb-text-muted)' }} />
+    <div className="flex items-center gap-2.5 min-w-0">
+      <div className={`flex items-center justify-center h-8 w-8 rounded-lg shrink-0 ${iconBg}`}>
+        <Icon size={15} className={iconColor} />
       </div>
       <div className="min-w-0">
-        <div
-          className="text-sm font-bold leading-none tabular-nums"
-          style={{
-            color: color ?? 'var(--fnb-text-primary)',
-            fontFamily: 'var(--fnb-font-mono)',
-          }}
-        >
+        <div className={`text-[15px] font-bold leading-none tabular-nums tracking-tight ${valueColor}`}>
           {value}
         </div>
-        <div
-          className="text-[9px] font-semibold uppercase tracking-wide leading-tight mt-0.5 truncate"
-          style={{ color: 'var(--fnb-text-muted)' }}
-        >
+        <div className="text-[9px] font-semibold uppercase tracking-wider leading-tight mt-0.5 text-muted-foreground truncate">
           {label}
         </div>
       </div>
@@ -67,73 +57,90 @@ function StatItem({ icon: Icon, value, label, color }: StatItemProps) {
   );
 }
 
+function Divider() {
+  return <div className="w-px h-7 shrink-0 bg-border" />;
+}
+
 export function StatsBar({ stats, tableSummary }: StatsBarProps) {
+  const hasWaiting = stats != null && stats.currentWaiting > 0;
+  const hasDirty = tableSummary != null && tableSummary.dirty > 0;
+
   return (
-    <div className="flex items-stretch gap-2">
+    <div className="flex items-stretch gap-3">
       {/* Guest Metrics Group */}
       <div
-        className="flex items-center gap-4 px-4 py-2.5 rounded-lg flex-1"
-        style={{
-          backgroundColor: 'var(--fnb-bg-surface)',
-          border: 'var(--fnb-border-subtle)',
-        }}
+        className="flex items-center gap-5 px-5 py-3 rounded-xl flex-1 bg-card border border-border shadow-sm"
+        role="status"
+        aria-live="polite"
+        aria-label="Guest metrics"
       >
-        <StatItem icon={Users} value={stats?.totalCoversToday ?? 0} label="Covers" />
-
-        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
-
+        <StatItem
+          icon={Users}
+          value={stats?.totalCoversToday ?? 0}
+          label="Covers"
+          iconBg="bg-indigo-500/10"
+          iconColor="text-indigo-600"
+        />
+        <Divider />
         <StatItem
           icon={Clock}
           value={stats?.currentWaiting ?? 0}
           label="Waiting"
-          color={stats && stats.currentWaiting > 0 ? 'var(--fnb-warning)' : undefined}
+          iconBg={hasWaiting ? 'bg-amber-500/10' : 'bg-muted'}
+          iconColor={hasWaiting ? 'text-amber-500' : 'text-muted-foreground'}
+          valueColor={hasWaiting ? 'text-amber-500' : 'text-foreground'}
         />
-
-        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
-
-        <StatItem icon={Timer} value={stats ? `${stats.avgWaitMinutes}m` : '0m'} label="Avg Wait" />
+        <Divider />
+        <StatItem
+          icon={Timer}
+          value={stats ? `${stats.avgWaitMinutes}m` : '0m'}
+          label="Avg Wait"
+          iconBg="bg-muted"
+          iconColor="text-muted-foreground"
+        />
       </div>
 
       {/* Table Metrics Group */}
       <div
-        className="flex items-center gap-4 px-4 py-2.5 rounded-lg flex-1"
-        style={{
-          backgroundColor: 'var(--fnb-bg-surface)',
-          border: 'var(--fnb-border-subtle)',
-        }}
+        className="flex items-center gap-5 px-5 py-3 rounded-xl flex-1 bg-card border border-border shadow-sm"
+        role="status"
+        aria-live="polite"
+        aria-label="Table metrics"
       >
         <StatItem
           icon={LayoutGrid}
           value={tableSummary?.available ?? 0}
           label="Open"
-          color="var(--fnb-status-available)"
+          iconBg="bg-emerald-500/10"
+          iconColor="text-emerald-500"
+          valueColor="text-emerald-600"
         />
-
-        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
-
+        <Divider />
         <StatItem
           icon={Check}
           value={tableSummary?.seated ?? 0}
           label="Seated"
-          color="var(--fnb-status-seated)"
+          iconBg="bg-blue-500/10"
+          iconColor="text-blue-500"
+          valueColor="text-blue-600"
         />
-
-        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
-
+        <Divider />
         <StatItem
           icon={Calendar}
           value={tableSummary?.reserved ?? 0}
           label="Reserved"
-          color="var(--fnb-status-reserved)"
+          iconBg="bg-violet-500/10"
+          iconColor="text-violet-500"
+          valueColor="text-violet-600"
         />
-
-        <div className="w-px h-6 shrink-0" style={{ backgroundColor: 'var(--fnb-text-disabled)' }} />
-
+        <Divider />
         <StatItem
           icon={Droplets}
           value={tableSummary?.dirty ?? 0}
           label="Dirty"
-          color={tableSummary && tableSummary.dirty > 0 ? 'var(--fnb-danger)' : undefined}
+          iconBg={hasDirty ? 'bg-red-500/10' : 'bg-muted'}
+          iconColor={hasDirty ? 'text-red-500' : 'text-muted-foreground'}
+          valueColor={hasDirty ? 'text-red-500' : 'text-foreground'}
         />
       </div>
     </div>

@@ -109,14 +109,14 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
 
       {/* Dialog */}
-      <div className="relative mx-4 w-full max-w-lg rounded-xl border border-gray-200 bg-surface shadow-2xl">
+      <div className="relative mx-4 w-full max-w-lg rounded-xl border border-border bg-surface shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Add Custom Payment Type</h2>
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 className="text-lg font-semibold text-foreground">Add Custom Payment Type</h2>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 hover:text-muted-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -127,36 +127,36 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
           {/* Name + Code */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="e.g. Stripe Terminal"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Code</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Code</label>
               <input
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                 placeholder="e.g. stripe_terminal"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm font-mono text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
               />
-              <p className="mt-0.5 text-xs text-gray-400">Lowercase letters, numbers, underscores</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Lowercase letters, numbers, underscores</p>
             </div>
           </div>
 
           {/* Category + Posting Mode */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Category</label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
               >
                 {CATEGORY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -164,17 +164,17 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Posting Mode</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Posting Mode</label>
               <select
                 value={postingMode}
                 onChange={(e) => setPostingMode(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
               >
                 {POSTING_MODE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              <p className="mt-0.5 text-xs text-gray-400">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {POSTING_MODE_OPTIONS.find((o) => o.value === postingMode)?.description}
               </p>
             </div>
@@ -182,12 +182,12 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
 
           {/* Default Accounts based on posting mode */}
           <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">Default Accounts</label>
+            <label className="block text-sm font-medium text-foreground">Default Accounts</label>
 
             {postingMode === 'clearing' && (
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500 w-28 shrink-0">Clearing</span>
+                  <span className="text-xs text-muted-foreground w-28 shrink-0">Clearing</span>
                   <AccountPicker
                     value={defaultClearingAccountId}
                     onChange={setDefaultClearingAccountId}
@@ -198,7 +198,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500 w-28 shrink-0">Processing Fee</span>
+                  <span className="text-xs text-muted-foreground w-28 shrink-0">Processing Fee</span>
                   <AccountPicker
                     value={defaultFeeAccountId}
                     onChange={setDefaultFeeAccountId}
@@ -214,7 +214,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
             {postingMode === 'direct_bank' && (
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500 w-28 shrink-0">Bank Account</span>
+                  <span className="text-xs text-muted-foreground w-28 shrink-0">Bank Account</span>
                   <AccountPicker
                     value={defaultBankAccountId}
                     onChange={setDefaultBankAccountId}
@@ -225,7 +225,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
                   />
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500 w-28 shrink-0">Processing Fee</span>
+                  <span className="text-xs text-muted-foreground w-28 shrink-0">Processing Fee</span>
                   <AccountPicker
                     value={defaultFeeAccountId}
                     onChange={setDefaultFeeAccountId}
@@ -241,7 +241,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
             {postingMode === 'non_cash' && (
               <div className="space-y-2">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-500 w-28 shrink-0">Expense Account</span>
+                  <span className="text-xs text-muted-foreground w-28 shrink-0">Expense Account</span>
                   <AccountPicker
                     value={defaultExpenseAccountId}
                     onChange={setDefaultExpenseAccountId}
@@ -262,9 +262,9 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
                 type="checkbox"
                 checked={requiresReference}
                 onChange={(e) => setRequiresReference(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500"
               />
-              <span className="text-sm text-gray-700">Requires external reference number</span>
+              <span className="text-sm text-foreground">Requires external reference number</span>
             </label>
             {requiresReference && (
               <input
@@ -272,18 +272,18 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
                 value={referenceLabel}
                 onChange={(e) => setReferenceLabel(e.target.value)}
                 placeholder="Label (e.g. External Receipt #)"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-surface"
               />
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>

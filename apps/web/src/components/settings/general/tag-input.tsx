@@ -54,13 +54,13 @@ export function TagInput({
   return (
     <div className="relative">
       <div
-        className={`flex flex-wrap items-center gap-1.5 rounded-md border border-gray-300 bg-surface px-2 py-1.5 transition-colors focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
+        className={`flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-surface px-2 py-1.5 transition-colors focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}
         onClick={() => inputRef.current?.focus()}
       >
         {value.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800"
+            className="inline-flex items-center gap-1 rounded-full bg-indigo-500/20 px-2.5 py-0.5 text-xs font-medium text-indigo-500"
           >
             {tag}
             {!disabled && (
@@ -91,18 +91,18 @@ export function TagInput({
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             placeholder={value.length === 0 ? placeholder : ''}
             disabled={disabled}
-            className="min-w-[120px] flex-1 border-none bg-transparent py-1 text-sm outline-none placeholder:text-gray-400"
+            className="min-w-[120px] flex-1 border-none bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
           />
         )}
       </div>
 
       {showSuggestions && input && filteredSuggestions.length > 0 && (
-        <div className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-md border border-gray-200 bg-surface shadow-lg">
+        <div className="absolute z-10 mt-1 max-h-40 w-full overflow-auto rounded-md border border-border bg-surface shadow-lg">
           {filteredSuggestions.slice(0, 8).map((s) => (
             <button
               key={s}
               type="button"
-              className="w-full px-3 py-1.5 text-left text-sm hover:bg-gray-100/60"
+              className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted/60"
               onMouseDown={(e) => {
                 e.preventDefault();
                 addTag(s);
@@ -115,7 +115,7 @@ export function TagInput({
       )}
 
       {value.length >= maxTags && (
-        <p className="mt-1 text-xs text-amber-600">Maximum of {maxTags} tags reached</p>
+        <p className="mt-1 text-xs text-amber-500">Maximum of {maxTags} tags reached</p>
       )}
     </div>
   );

@@ -64,8 +64,8 @@ export function CompVoidModal({ open, onClose, lines, onComp, onVoid, disabled }
           <h3 className="text-sm font-bold" style={{ color: 'var(--fnb-text-primary)' }}>
             Comp / Void Items
           </h3>
-          <button type="button" onClick={onClose} className="p-1 rounded hover:opacity-80" style={{ color: 'var(--fnb-text-muted)' }}>
-            <X className="h-4 w-4" />
+          <button type="button" onClick={onClose} aria-label="Close" className="p-1 rounded hover:opacity-80" style={{ color: 'var(--fnb-text-muted)' }}>
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 

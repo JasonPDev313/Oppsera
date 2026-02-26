@@ -200,11 +200,11 @@ export default function RatePlansContent() {
         header: 'Rate Plan',
         render: (row: RatePlanRow) => (
           <div>
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-foreground">
               {(row as RatePlan).name}
             </span>
             {(row as RatePlan).code && (
-              <span className="ml-2 text-xs text-gray-400">
+              <span className="ml-2 text-xs text-muted-foreground">
                 {(row as RatePlan).code}
               </span>
             )}
@@ -223,7 +223,7 @@ export default function RatePlansContent() {
         render: (row: RatePlanRow) => {
           const cents = (row as RatePlan).defaultNightlyRateCents;
           return (
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-foreground">
               {cents != null ? `$${(cents / 100).toFixed(2)}` : '\u2014'}
             </span>
           );
@@ -233,7 +233,7 @@ export default function RatePlansContent() {
         key: 'description',
         header: 'Description',
         render: (row: RatePlanRow) => (
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-muted-foreground">
             {(row as RatePlan).description ?? '\u2014'}
           </span>
         ),
@@ -253,7 +253,7 @@ export default function RatePlansContent() {
         header: 'Updated',
         width: '130px',
         render: (row: RatePlanRow) => (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {formatDate((row as RatePlan).updatedAt)}
           </span>
         ),
@@ -272,12 +272,12 @@ export default function RatePlansContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <Tag className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Rate Plans</h1>
-            <p className="text-sm text-gray-500">Manage pricing and rate plans</p>
+            <h1 className="text-2xl font-bold text-foreground">Rate Plans</h1>
+            <p className="text-sm text-muted-foreground">Manage pricing and rate plans</p>
           </div>
         </div>
 
@@ -304,10 +304,10 @@ export default function RatePlansContent() {
 
       {/* Rate Plans Table */}
       {!isLoading && ratePlans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-          <DollarSign className="h-12 w-12 text-gray-300" />
-          <h3 className="mt-4 text-sm font-semibold text-gray-900">No rate plans</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+          <DollarSign className="h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 text-sm font-semibold text-foreground">No rate plans</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             Create your first rate plan to start pricing rooms.
           </p>
           <button
@@ -332,7 +332,7 @@ export default function RatePlansContent() {
               <button
                 type="button"
                 onClick={() => fetchRatePlans(true)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Load More
               </button>
@@ -349,22 +349,22 @@ export default function RatePlansContent() {
               className="absolute inset-0 bg-black/40"
               onClick={closeDialog}
             />
-            <div className="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+            <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-foreground">
                   New Rate Plan
                 </h2>
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {formError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {formError}
                 </div>
               )}
@@ -372,7 +372,7 @@ export default function RatePlansContent() {
               <div className="space-y-4">
                 {/* Property (read-only for single property) */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Property
                   </label>
                   {properties.length > 1 ? (
@@ -384,7 +384,7 @@ export default function RatePlansContent() {
                       className="w-full"
                     />
                   ) : (
-                    <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    <div className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground">
                       {properties[0]?.name ?? 'Loading...'}
                     </div>
                   )}
@@ -392,7 +392,7 @@ export default function RatePlansContent() {
 
                 {/* Code */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Code <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -401,17 +401,17 @@ export default function RatePlansContent() {
                     onChange={(e) => setFormCode(e.target.value.toUpperCase())}
                     placeholder="e.g. RACK, WKND, PROMO"
                     maxLength={20}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     autoFocus
                   />
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Short code for this rate plan (e.g. RACK, WKND, PROMO)
                   </p>
                 </div>
 
                 {/* Name */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -420,13 +420,13 @@ export default function RatePlansContent() {
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="e.g. Rack Rate, Weekend Special"
                     maxLength={100}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Description
                   </label>
                   <input
@@ -434,13 +434,13 @@ export default function RatePlansContent() {
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     placeholder="e.g. Standard published rate"
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 {/* Default Nightly Rate */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Default Nightly Rate ($)
                   </label>
                   <input
@@ -450,20 +450,20 @@ export default function RatePlansContent() {
                     value={formDefaultRate}
                     onChange={(e) => setFormDefaultRate(e.target.value)}
                     placeholder="e.g. 125.00"
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Fallback rate when no date-specific pricing is set
                   </p>
                 </div>
 
                 {/* Is Default */}
-                <label className="flex items-center gap-2 text-sm text-gray-700">
+                <label className="flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
                     checked={formIsDefault}
                     onChange={(e) => setFormIsDefault(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-border text-indigo-500 focus:ring-indigo-500"
                   />
                   Set as default rate plan for this property
                 </label>
@@ -474,7 +474,7 @@ export default function RatePlansContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
                 >
                   Cancel
                 </button>

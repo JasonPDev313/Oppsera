@@ -34,17 +34,21 @@ export const DepartmentTabs = memo(function DepartmentTabs({
   return (
     <div
       ref={scrollRef}
+      role="tablist"
+      aria-label="Departments"
       className="flex gap-2 overflow-x-auto scrollbar-hide"
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
       {/* "All" tab */}
       <button
         type="button"
+        role="tab"
+        aria-selected={selectedId === null}
         onClick={() => handleSelect(null)}
         className={`shrink-0 rounded-full font-medium transition-all active:scale-[0.97] ${tabPadding} ${
           selectedId === null
             ? 'bg-indigo-600 text-white shadow-sm'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            : 'bg-muted text-foreground hover:bg-accent'
         }`}
         style={{ fontSize: tabFontSize }}
       >
@@ -61,6 +65,8 @@ export const DepartmentTabs = memo(function DepartmentTabs({
           <button
             key={dept.id}
             type="button"
+            role="tab"
+            aria-selected={isActive}
             onClick={() => handleSelect(dept.id)}
             className={`shrink-0 whitespace-nowrap rounded-full font-medium transition-all active:scale-[0.97] ${tabPadding} ${
               isActive
@@ -68,8 +74,8 @@ export const DepartmentTabs = memo(function DepartmentTabs({
                   ? 'shadow-sm'
                   : 'bg-indigo-600 text-white shadow-sm'
                 : hasColor
-                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-muted text-foreground hover:bg-accent'
+                  : 'bg-muted text-foreground hover:bg-accent'
             }`}
             style={
               isActive && hasColor

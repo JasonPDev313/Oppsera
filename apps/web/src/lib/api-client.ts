@@ -115,9 +115,9 @@ function getActiveRoleId(): string | null {
 // trip it (needs sustained failures across multiple load attempts).
 const _failureTimestamps: number[] = [];
 let _circuitOpenUntil = 0;
-const CIRCUIT_WINDOW = 15_000;   // 15s sliding window
-const CIRCUIT_THRESHOLD = 15;    // failures within window to trip (was 5)
-const CIRCUIT_COOLDOWN = 5_000;  // 5s cooldown when tripped (was 10s)
+const CIRCUIT_WINDOW = 30_000;   // 30s sliding window
+const CIRCUIT_THRESHOLD = 20;    // failures within window to trip
+const CIRCUIT_COOLDOWN = 8_000;  // 8s cooldown when tripped
 
 function pruneOldFailures() {
   const cutoff = Date.now() - CIRCUIT_WINDOW;
@@ -189,6 +189,12 @@ export async function apiFetch<T = unknown>(
     }
   }
 
+  // Auth paths (/auth/login, /auth/signup, /auth/logout, /auth/refresh) are
+  // excluded from circuit breaker failure counting.  A logout→signup transition
+  // can produce several rapid 401s/errors that are normal and expected — they
+  // should never trip the breaker and block unrelated API calls for all users.
+  const isAuthPath = path.includes('/auth/');
+
   let response: Response;
   try {
     response = await fetch(path, {
@@ -201,7 +207,7 @@ export async function apiFetch<T = unknown>(
       throw fetchErr;
     }
     // "Failed to fetch" = network-level failure (server unreachable, CORS, CSP, etc.)
-    recordFailure();
+    if (!isAuthPath) recordFailure();
     console.error('[apiFetch] Network error:', {
       path,
       method,
@@ -237,11 +243,12 @@ export async function apiFetch<T = unknown>(
     }
   }
 
-  // Track 5xx failures for circuit breaker
-  if (response.status >= 500) {
+  // Track 5xx failures for circuit breaker — skip auth paths so that
+  // logout/signup/refresh errors never trip the breaker for real API calls.
+  if (response.status >= 500 && !isAuthPath) {
     recordFailure();
-  } else {
-    // Successful response resets the circuit breaker
+  } else if (!isAuthPath && response.status < 500) {
+    // Successful non-auth response resets the circuit breaker
     resetCircuit();
   }
 

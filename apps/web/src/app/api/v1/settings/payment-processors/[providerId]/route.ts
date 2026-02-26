@@ -27,5 +27,5 @@ export const PATCH = withMiddleware(
     const result = await updateProvider(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );

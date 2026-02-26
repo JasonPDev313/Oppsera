@@ -15,6 +15,7 @@ import {
   db,
   tenants,
   locations,
+  users,
   memberships,
   roles,
   rolePermissions,
@@ -26,6 +27,8 @@ import {
   taxGroups,
   taxGroupRates,
   tags,
+  terminalLocations,
+  terminals,
   erpWorkflowConfigs,
   erpWorkflowConfigChangeLog,
   accountingSettings,
@@ -193,13 +196,15 @@ export const POST = withMiddleware(
         businessVertical: isEnterprise ? 'general' : businessType,
       }).returning();
 
-      // 4. Create location
+      // 4. Create location (site — top of hierarchy)
       const locationId = generateUlid();
       await tx.insert(locations).values({
         id: locationId,
         tenantId,
         name: locationName,
         timezone,
+        locationType: 'site',
+        parentLocationId: null,
         addressLine1: address,
         city,
         state,
@@ -208,13 +213,42 @@ export const POST = withMiddleware(
         isActive: true,
       }).returning();
 
-      // 5. Create membership
+      // 4b. Create default profit center + terminal so POS is usable immediately
+      const profitCenterId = generateUlid();
+      await tx.insert(terminalLocations).values({
+        id: profitCenterId,
+        tenantId,
+        locationId,
+        title: 'Default',
+        code: 'DEFAULT',
+        description: 'Default profit center',
+        isActive: true,
+        sortOrder: 0,
+      }).returning();
+
+      const terminalId = generateUlid();
+      await tx.insert(terminals).values({
+        id: terminalId,
+        tenantId,
+        terminalLocationId: profitCenterId,
+        locationId,
+        title: 'Terminal 1',
+        terminalNumber: 1,
+        isActive: true,
+      }).returning();
+
+      // 5. Create membership + link user to tenant
       await tx.insert(memberships).values({
         id: generateUlid(),
         tenantId,
         userId: ctx.user.id,
         status: 'active',
       }).returning();
+
+      // Set tenant_id on the user record so admin queries can count users per tenant
+      await tx.update(users)
+        .set({ tenantId })
+        .where(eq(users.id, ctx.user.id));
 
       // 6. Create system roles with permissions
       let ownerRoleId = '';

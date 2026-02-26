@@ -21,7 +21,7 @@ export function ImportProgressBar({ progress, onCancel }: ImportProgressBarProps
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-        <p className="mt-3 text-sm text-gray-500">Starting import...</p>
+        <p className="mt-3 text-sm text-muted-foreground">Starting import...</p>
       </div>
     );
   }
@@ -36,7 +36,7 @@ export function ImportProgressBar({ progress, onCancel }: ImportProgressBarProps
           <span className="font-medium">Importing...</span>
           <span>{pct}%</span>
         </div>
-        <div className="h-3 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+        <div className="h-3 overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-indigo-600 transition-all duration-300"
             style={{ width: `${pct}%` }}
@@ -58,7 +58,7 @@ export function ImportProgressBar({ progress, onCancel }: ImportProgressBarProps
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+            className="rounded-md border border-red-500/30 px-4 py-2 text-sm text-red-500 hover:bg-red-500/10"
           >
             Cancel Import
           </button>
@@ -70,7 +70,7 @@ export function ImportProgressBar({ progress, onCancel }: ImportProgressBarProps
 
 function StatCard({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+    <div className="rounded-lg border border-border p-3">
       <p className="text-xs text-gray-500">{label}</p>
       <p className={`mt-1 text-lg font-semibold ${warn ? 'text-red-600' : ''}`}>{value}</p>
     </div>

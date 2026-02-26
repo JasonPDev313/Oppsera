@@ -4004,3 +4004,124 @@ export function useFrontDesk(propertyId: string | null) {
     refetch: result.refetch,
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Utilization Grid
+// ═══════════════════════════════════════════════════════════════════
+
+export interface UtilizationRoomType {
+  id: string;
+  name: string;
+  code: string;
+  maxOccupancy: number;
+  sortOrder: number;
+  totalRooms: number;
+}
+
+export interface UtilizationCell {
+  date: string;
+  roomTypeId: string;
+  totalRooms: number;
+  occupied: number;
+  blocked: number;
+  available: number;
+  availablePct: number;
+}
+
+export interface UtilizationGridData {
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+  roomTypes: UtilizationRoomType[];
+  cells: UtilizationCell[];
+  meta: { totalPropertyRooms: number; lastUpdatedAt: string };
+}
+
+export function usePmsUtilization(
+  propertyId: string | null,
+  startDate: string | null,
+  endDate: string | null,
+  enabled = true,
+) {
+  const result = useQuery({
+    queryKey: ['pms-utilization', propertyId, startDate, endDate],
+    queryFn: ({ signal }) => {
+      const qs = buildQueryString({ propertyId, startDate, endDate });
+      return apiFetch<{ data: UtilizationGridData }>(
+        `/api/v1/pms/utilization${qs}`,
+        { signal },
+      ).then((r) => r.data);
+    },
+    enabled: enabled && !!propertyId && !!startDate && !!endDate,
+    staleTime: 60_000,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Utilization Grid — By Room
+// ═══════════════════════════════════════════════════════════════════
+
+export interface UtilizationRoomData {
+  id: string;
+  roomNumber: string;
+  roomTypeId: string;
+  roomTypeName: string;
+  roomTypeCode: string;
+  floor: number | null;
+  status: string;
+  viewType: string | null;
+  sortOrder: number;
+}
+
+export interface UtilizationRoomCellData {
+  date: string;
+  roomId: string;
+  isOccupied: boolean;
+  isBlocked: boolean;
+  isAvailable: boolean;
+  guestName: string | null;
+  reservationId: string | null;
+}
+
+export interface UtilizationByRoomGridData {
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+  rooms: UtilizationRoomData[];
+  cells: UtilizationRoomCellData[];
+  meta: { totalRooms: number; lastUpdatedAt: string };
+}
+
+export function usePmsUtilizationByRoom(
+  propertyId: string | null,
+  startDate: string | null,
+  endDate: string | null,
+  enabled = true,
+) {
+  const result = useQuery({
+    queryKey: ['pms-utilization-by-room', propertyId, startDate, endDate],
+    queryFn: ({ signal }) => {
+      const qs = buildQueryString({ propertyId, startDate, endDate, view: 'room' });
+      return apiFetch<{ data: UtilizationByRoomGridData }>(
+        `/api/v1/pms/utilization${qs}`,
+        { signal },
+      ).then((r) => r.data);
+    },
+    enabled: enabled && !!propertyId && !!startDate && !!endDate,
+    staleTime: 60_000,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    mutate: result.refetch,
+  };
+}

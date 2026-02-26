@@ -82,10 +82,10 @@ export function ClassificationsPanel({ open, onClose }: ClassificationsPanelProp
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md overflow-y-auto bg-surface shadow-xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-surface px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Classifications</h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-6 py-4">
+          <h2 className="text-lg font-semibold text-foreground">Classifications</h2>
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -95,13 +95,13 @@ export function ClassificationsPanel({ open, onClose }: ClassificationsPanelProp
             return (
               <div key={type}>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-700">
+                  <h3 className="text-sm font-semibold text-foreground">
                     {ACCOUNT_TYPE_LABELS[type]}
                   </h3>
                   <button
                     type="button"
                     onClick={() => { setAddingType(type); setNewName(''); }}
-                    className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                    className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
                   >
                     <Plus className="inline h-3.5 w-3.5" /> Add
                   </button>
@@ -109,8 +109,8 @@ export function ClassificationsPanel({ open, onClose }: ClassificationsPanelProp
 
                 <div className="space-y-1">
                   {items.map((c) => (
-                    <div key={c.id} className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2">
-                      <GripVertical className="h-4 w-4 shrink-0 text-gray-300" />
+                    <div key={c.id} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+                      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
                       {editingId === c.id ? (
                         <input
                           type="text"
@@ -121,23 +121,23 @@ export function ClassificationsPanel({ open, onClose }: ClassificationsPanelProp
                             if (e.key === 'Enter') handleSaveEdit(c.id);
                             if (e.key === 'Escape') setEditingId(null);
                           }}
-                          className="flex-1 rounded border border-indigo-300 px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          className="flex-1 rounded border border-indigo-500/30 px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                           autoFocus
                         />
                       ) : (
                         <span
-                          className="flex-1 cursor-pointer text-sm text-gray-700 hover:text-gray-900"
+                          className="flex-1 cursor-pointer text-sm text-foreground hover:text-foreground"
                           onClick={() => { setEditingId(c.id); setEditName(c.name); }}
                         >
                           {c.name}
                         </span>
                       )}
-                      <span className="text-xs text-gray-400">#{c.sortOrder}</span>
+                      <span className="text-xs text-muted-foreground">#{c.sortOrder}</span>
                     </div>
                   ))}
 
                   {addingType === type && (
-                    <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50/50 px-3 py-2">
+                    <div className="flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2">
                       <input
                         type="text"
                         value={newName}
@@ -147,7 +147,7 @@ export function ClassificationsPanel({ open, onClose }: ClassificationsPanelProp
                           if (e.key === 'Escape') setAddingType(null);
                         }}
                         placeholder="Classification name..."
-                        className="flex-1 rounded border border-gray-300 px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                        className="flex-1 rounded border border-input px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         autoFocus
                       />
                       <button
@@ -161,7 +161,7 @@ export function ClassificationsPanel({ open, onClose }: ClassificationsPanelProp
                   )}
 
                   {items.length === 0 && addingType !== type && (
-                    <p className="py-2 text-center text-xs text-gray-400">
+                    <p className="py-2 text-center text-xs text-muted-foreground">
                       No classifications
                     </p>
                   )}

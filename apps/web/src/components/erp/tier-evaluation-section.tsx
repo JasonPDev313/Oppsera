@@ -68,7 +68,7 @@ function ProgressBar({ current, threshold }: { current: number; threshold: numbe
   const pct = Math.min(100, Math.round((current / threshold) * 100));
 
   return (
-    <div className="mt-1.5 h-1.5 w-full rounded-full bg-gray-200">
+    <div className="mt-1.5 h-1.5 w-full rounded-full bg-muted">
       <div
         className={`h-full rounded-full transition-all ${pct >= 100 ? 'bg-green-500' : 'bg-indigo-500'}`}
         style={{ width: `${pct}%` }}
@@ -81,19 +81,19 @@ function MetricProgressCard({ metric }: { metric: MetricProgress }) {
   const pct = metric.threshold > 0 ? Math.min(100, Math.round((metric.current / metric.threshold) * 100)) : null;
 
   return (
-    <div className="rounded-lg border border-gray-200 p-3">
+    <div className="rounded-lg border border-border p-3">
       <div className="flex items-baseline justify-between">
-        <p className="text-xs text-gray-500">{metric.label}</p>
+        <p className="text-xs text-muted-foreground">{metric.label}</p>
         {pct !== null && (
-          <span className={`text-xs font-medium ${pct >= 100 ? 'text-green-600' : 'text-gray-400'}`}>
+          <span className={`text-xs font-medium ${pct >= 100 ? 'text-green-500' : 'text-muted-foreground'}`}>
             {pct}%
           </span>
         )}
       </div>
-      <p className="mt-1 text-lg font-semibold text-gray-900">{metric.format(metric.current)}</p>
+      <p className="mt-1 text-lg font-semibold text-foreground">{metric.format(metric.current)}</p>
       {metric.threshold > 0 && (
         <>
-          <p className="text-xs text-gray-400">of {metric.format(metric.threshold)}</p>
+          <p className="text-xs text-muted-foreground">of {metric.format(metric.threshold)}</p>
           <ProgressBar current={metric.current} threshold={metric.threshold} />
         </>
       )}
@@ -119,17 +119,17 @@ export function TierEvaluationSection({
   const nextTier = NEXT_TIER[currentTier] ?? null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-6">
+    <div className="rounded-lg border border-border bg-surface p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Tier Evaluation</h3>
-          <p className="mt-0.5 text-xs text-gray-500">
+          <h3 className="text-sm font-semibold text-foreground">Tier Evaluation</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {nextTier
               ? `Check if your business metrics qualify for ${nextTier === 'MID_MARKET' ? 'Mid-Market' : 'Enterprise'}.`
               : 'You are on the highest tier.'}
           </p>
           {tierLastEvaluatedAt && (
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Last evaluated: {new Date(tierLastEvaluatedAt).toLocaleDateString()}
             </p>
           )}
@@ -151,7 +151,7 @@ export function TierEvaluationSection({
 
       {tierOverride && (
         <div className="mt-3 rounded-lg bg-amber-500/10 border border-amber-500/30 px-3 py-2">
-          <p className="text-xs text-amber-700">
+          <p className="text-xs text-amber-500">
             Your tier was manually overridden. Evaluation will show the recommended tier but won&apos;t auto-apply.
           </p>
         </div>
@@ -175,7 +175,7 @@ export function TierEvaluationSection({
             }`}
           >
             <div className="flex flex-wrap items-center gap-3">
-              <span className="text-sm font-medium text-gray-900">Recommended:</span>
+              <span className="text-sm font-medium text-foreground">Recommended:</span>
               <TierBadge tier={evaluation.recommendedTier} size="lg" />
 
               {evaluation.shouldUpgrade ? (
@@ -188,7 +188,7 @@ export function TierEvaluationSection({
                   <ArrowRight className="h-4 w-4" />
                 </button>
               ) : (
-                <span className="ml-auto text-sm text-green-700">No change needed</span>
+                <span className="ml-auto text-sm text-green-500">No change needed</span>
               )}
             </div>
           </div>

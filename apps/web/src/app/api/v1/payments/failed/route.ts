@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listFailedPayments, getFailedPaymentCounts } from '@oppsera/module-payments';
+import { parseLimit } from '@/lib/api-params';
 
 /**
  * GET /api/v1/payments/failed
@@ -24,9 +25,7 @@ export const GET = withMiddleware(
       customerId: url.searchParams.get('customerId') ?? undefined,
       locationId: url.searchParams.get('locationId') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit')
-        ? parseInt(url.searchParams.get('limit')!, 10)
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({

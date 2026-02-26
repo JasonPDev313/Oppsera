@@ -107,17 +107,17 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Recall Order</h3>
-            <p className="mt-0.5 text-sm text-gray-500">
+            <h3 className="text-lg font-semibold text-foreground">Recall Order</h3>
+            <p className="mt-0.5 text-sm text-muted-foreground">
               {heldOrderCount} held {heldOrderCount === 1 ? 'order' : 'orders'}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-600"
+            className="rounded-md p-1 text-gray-400 hover:text-muted-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -127,8 +127,8 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
         <div className="max-h-[50vh] overflow-y-auto px-6 py-4">
           {heldOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8">
-              <History className="h-10 w-10 text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">
+              <History aria-hidden="true" className="h-10 w-10 text-gray-300" />
+              <p className="mt-3 text-sm text-muted-foreground">
                 No held orders found for this terminal
               </p>
               <p className="mt-1 text-xs text-gray-400">
@@ -142,19 +142,19 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
                   key={held.id}
                   type="button"
                   onClick={() => onRecall(held.id)}
-                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-50"
+                  className="flex w-full items-center justify-between rounded-lg border border-border px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-500/10"
                 >
                   <div>
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {held.orderNumber}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {held.itemCount} {held.itemCount === 1 ? 'item' : 'items'} &middot;{' '}
                       {held.heldBy}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {formatMoney(held.total)}
                     </p>
                     <p className="text-xs text-gray-400">
@@ -171,11 +171,11 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end border-t border-gray-200 px-6 py-4">
+        <div className="flex justify-end border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Cancel
           </button>
@@ -764,7 +764,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       <div className="flex flex-1 overflow-hidden">
         {/* ── LEFT PANEL ──────────────────────────────────────────── */}
         <div
-          className={`relative flex flex-col border-r border-gray-200 bg-surface ${posView === 'payment' ? 'pointer-events-none' : ''}`}
+          className={`relative flex flex-col border-r border-border bg-surface ${posView === 'payment' ? 'pointer-events-none' : ''}`}
           style={{ width: leftPct }}
         >
           {/* Dim overlay when in payment mode */}
@@ -772,7 +772,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
             <div className="absolute inset-0 z-10 bg-black/5" />
           )}
           {/* Search bar — flashes green/red on barcode scan */}
-          <div className={`shrink-0 border-b border-gray-100 px-4 py-3 ${
+          <div className={`shrink-0 border-b border-border px-4 py-3 ${
             scanFeedback === 'success' ? 'scan-flash-success' :
             scanFeedback === 'error' ? 'scan-flash-error' : ''
           }`}>
@@ -785,14 +785,14 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           </div>
 
           {/* View mode toggle: Catalog vs Quick Menu */}
-          <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-4 py-2">
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2">
             <button
               type="button"
               onClick={() => setViewMode('catalog')}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 viewMode === 'catalog'
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
               All Items
@@ -803,7 +803,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 viewMode === 'quick'
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
               Hot Sellers
@@ -814,23 +814,23 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                 viewMode === 'tools'
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
-              <Wrench className="h-3.5 w-3.5" />
+              <Wrench aria-hidden="true" className="h-3.5 w-3.5" />
               Tools
             </button>
 
             {/* Spacer + Grid/List toggle */}
             <div className="flex-1" />
-            <div className="flex items-center gap-0.5 rounded-lg bg-gray-100 p-0.5">
+            <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
               <button
                 type="button"
                 onClick={() => handleCatalogViewModeChange('grid')}
                 className={`rounded-md p-1.5 transition-colors ${
                   catalogViewMode === 'grid'
-                    ? 'bg-surface text-gray-900 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
+                    ? 'bg-surface text-foreground shadow-sm'
+                    : 'text-gray-400 hover:text-muted-foreground'
                 }`}
                 title="Grid view"
               >
@@ -841,8 +841,8 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 onClick={() => handleCatalogViewModeChange('list')}
                 className={`rounded-md p-1.5 transition-colors ${
                   catalogViewMode === 'list'
-                    ? 'bg-surface text-gray-900 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-600'
+                    ? 'bg-surface text-foreground shadow-sm'
+                    : 'text-gray-400 hover:text-muted-foreground'
                 }`}
                 title="List view"
               >
@@ -884,9 +884,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     <button
                       type="button"
                       onClick={() => setShowQuickMenuEditor(true)}
-                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Pencil aria-hidden="true" className="h-3 w-3" />
                       Edit Grid
                     </button>
                   </div>
@@ -928,7 +928,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
             /* ── Catalog View ──────────────────────────────────────── */
             <>
               {/* Department tabs */}
-              <div className="shrink-0 border-b border-gray-100 px-4 py-2">
+              <div className="shrink-0 border-b border-border px-4 py-2">
                 <DepartmentTabs
                   departments={catalog.departments}
                   selectedId={catalog.nav.departmentId}
@@ -939,7 +939,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
               {/* Sub-department tabs (conditional) */}
               {catalog.currentSubDepartments.length > 0 && (
-                <div className="shrink-0 border-b border-gray-100 px-4 py-2">
+                <div className="shrink-0 border-b border-border px-4 py-2">
                   <SubDepartmentTabs
                     departments={catalog.currentSubDepartments}
                     selectedId={catalog.nav.subDepartmentId}
@@ -979,7 +979,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   ) : (
                     <>
                       {catalog.searchQuery.trim() && (
-                        <p className="mb-3 text-sm text-gray-500">
+                        <p className="mb-3 text-sm text-muted-foreground">
                           {displayItems.length} result{displayItems.length !== 1 ? 's' : ''}{' '}
                           for &ldquo;{catalog.searchQuery}&rdquo;
                         </p>
@@ -988,8 +988,8 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                       {/* Recent items header when showing default view */}
                       {showRecentDefault && (
                         <div className="mb-3 flex items-center justify-between">
-                          <p className="text-sm font-medium text-gray-500">
-                            <History className="mr-1 inline h-3.5 w-3.5" />
+                          <p className="text-sm font-medium text-muted-foreground">
+                            <History aria-hidden="true" className="mr-1 inline h-3.5 w-3.5" />
                             Recent Items
                           </p>
                           <button
@@ -1011,7 +1011,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                           </p>
                         </div>
                       ) : catalogViewMode === 'list' ? (
-                        <div className="divide-y divide-gray-100">
+                        <div className="divide-y divide-border">
                           {displayItems.map((item) => (
                             <ItemListRow key={item.id} item={item} onTap={handleItemTap} />
                           ))}
@@ -1054,7 +1054,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
             /* ── ORDER VIEW (Cart + actions) ───────────────────────── */
             <>
               {/* Customer attachment */}
-              <div className="shrink-0 border-b border-gray-200 px-4 py-3">
+              <div className="shrink-0 border-b border-border px-4 py-3">
                 <CustomerAttachment
                   customerId={pos.currentOrder?.customerId ?? null}
                   customerName={pos.currentOrder?.customerName ?? null}
@@ -1084,16 +1084,16 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
               <CartTotals order={pos.currentOrder} />
 
               {/* Action buttons: Discount + Charges + Tax Exempt (permission-gated) */}
-              <div className="shrink-0 border-t border-gray-200 px-4 py-2">
+              <div className="shrink-0 border-t border-border px-4 py-2">
                 <div className="flex gap-2">
                   {posPerms.discount && (
                     <button
                       type="button"
                       onClick={() => setShowDiscountDialog(true)}
                       disabled={!hasItems}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <DollarSign className="h-4 w-4" />
+                      <DollarSign aria-hidden="true" className="h-4 w-4" />
                       Discount
                     </button>
                   )}
@@ -1102,9 +1102,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                       type="button"
                       onClick={() => setShowServiceChargeDialog(true)}
                       disabled={!hasItems}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      <Receipt className="h-4 w-4" />
+                      <Receipt aria-hidden="true" className="h-4 w-4" />
                       Service Charge
                     </button>
                   )}
@@ -1121,10 +1121,10 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                       pos.currentOrder?.taxExempt
                         ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                        : 'border-border text-foreground hover:bg-accent'
                     }`}
                   >
-                    <ShieldOff className="h-4 w-4" />
+                    <ShieldOff aria-hidden="true" className="h-4 w-4" />
                     {pos.currentOrder?.taxExempt ? 'Tax Exempt ✓' : 'Tax Exempt'}
                   </button>
                 </div>
@@ -1141,10 +1141,10 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-base font-semibold transition-colors disabled:cursor-not-allowed ${
                       hasFnbItems && hasItems && !isOrderPlaced
                         ? 'bg-amber-500 text-white hover:bg-amber-600 disabled:bg-amber-300'
-                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40'
+                        : 'border border-border text-foreground hover:bg-accent disabled:opacity-40'
                     }`}
                   >
-                    <Send className="h-4 w-4" />
+                    <Send aria-hidden="true" className="h-4 w-4" />
                     {isOrderPlaced ? 'Sent' : 'Send'}
                   </button>
 
@@ -1166,23 +1166,23 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           )}
 
           {/* Hold / Recall / Void row */}
-          <div className="shrink-0 border-t border-gray-100 px-4 py-2">
+          <div className="shrink-0 border-t border-border px-4 py-2">
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={handleHoldOrder}
                 disabled={!hasItems}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-2 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <Pause className="h-4 w-4" />
+                <Pause aria-hidden="true" className="h-4 w-4" />
                 Hold
               </button>
               <button
                 type="button"
                 onClick={() => setShowRecallDialog(true)}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-gray-300 px-2 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border px-2 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
               >
-                <History className="h-4 w-4" />
+                <History aria-hidden="true" className="h-4 w-4" />
                 Recall
                 {pos.heldOrderCount > 0 && (
                   <Badge variant="indigo" className="ml-1 text-[10px]">
@@ -1205,7 +1205,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 disabled={!pos.currentOrder}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-2 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <Ban className="h-4 w-4" />
+                <Ban aria-hidden="true" className="h-4 w-4" />
                 Void
               </button>
             </div>
@@ -1214,14 +1214,14 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       </div>
 
       {/* ── Footer Bar ─────────────────────────────────────────────── */}
-      <div className="flex shrink-0 items-center gap-2 border-t border-gray-200 bg-gray-50 px-4 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-t border-border bg-muted px-4 py-2">
         {posPerms.cashDrawer && (
           <button
             type="button"
             onClick={() => shift.openDrawer()}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
           >
-            <Unlock className="h-3.5 w-3.5" />
+            <Unlock aria-hidden="true" className="h-3.5 w-3.5" />
             Open Drawer
           </button>
         )}
@@ -1229,9 +1229,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           <button
             type="button"
             onClick={() => shift.recordNoSale()}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
           >
-            <XCircle className="h-3.5 w-3.5" />
+            <XCircle aria-hidden="true" className="h-3.5 w-3.5" />
             No Sale
           </button>
         )}
@@ -1240,27 +1240,27 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
             type="button"
             onClick={() => setShowDrawerEventDialog(true)}
             disabled={!shift.isOpen}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Banknote className="h-3.5 w-3.5" />
+            <Banknote aria-hidden="true" className="h-3.5 w-3.5" />
             Cash Mgmt
           </button>
         )}
         <button
           type="button"
           onClick={() => setShowReceiptPreview(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
         >
-          <Printer className="h-3.5 w-3.5" />
+          <Printer aria-hidden="true" className="h-3.5 w-3.5" />
           Reprint
         </button>
         {posPerms.returns && (
           <button
             type="button"
             onClick={() => setShowReturnDialog(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
           >
-            <RotateCcw className="h-3.5 w-3.5" />
+            <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
             Return
           </button>
         )}
@@ -1272,7 +1272,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         <button
           type="button"
           onClick={() => setShowSettings(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent"
           title="POS Settings"
         >
           <Settings className="h-3.5 w-3.5" />
@@ -1294,7 +1294,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 onClick={() => setShowShiftEndConfirm(true)}
                 className="flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
               >
-                <LogOut className="h-3.5 w-3.5" />
+                <LogOut aria-hidden="true" className="h-3.5 w-3.5" />
                 End Shift
               </button>
             )}
@@ -1336,30 +1336,30 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setPackageItem(null)} />
             <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
-              <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
+              <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
+                <h3 className="text-lg font-semibold text-foreground">
                   {packageItem.name}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setPackageItem(null)}
-                  className="rounded-md p-1 text-gray-400 hover:text-gray-600"
+                  className="rounded-md p-1 text-gray-400 hover:text-muted-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
               <div className="px-6 py-4">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   Package price: <span className="font-semibold">{formatMoney(packageItem.price)}</span>
                 </p>
                 {packageItem.metadata &&
                   (packageItem.metadata as { packageComponents?: Array<{ itemName: string; qty: number }> }).packageComponents && (
                     <div className="mt-3">
-                      <p className="text-sm font-medium text-gray-700">Includes:</p>
+                      <p className="text-sm font-medium text-foreground">Includes:</p>
                       <ul className="mt-1 space-y-1">
                         {((packageItem.metadata as { packageComponents?: Array<{ itemName: string; qty: number }> }).packageComponents ?? []).map(
                           (comp, idx) => (
-                            <li key={idx} className="text-sm text-gray-500">
+                            <li key={idx} className="text-sm text-muted-foreground">
                               {comp.qty}x {comp.itemName}
                             </li>
                           ),
@@ -1368,11 +1368,11 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     </div>
                   )}
               </div>
-              <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setPackageItem(null)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                 >
                   Cancel
                 </button>
@@ -1421,14 +1421,14 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/50" onClick={() => setShowVoidConfirm(false)} />
             <div className="relative w-full max-w-sm rounded-lg bg-surface shadow-xl">
-              <div className="border-b border-gray-200 px-6 pt-6 pb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Void Order</h3>
-                <p className="mt-1 text-sm text-gray-500">
+              <div className="border-b border-border px-6 pt-6 pb-4">
+                <h3 className="text-lg font-semibold text-foreground">Void Order</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
                   This will void order {pos.currentOrder?.orderNumber}. This action cannot be undone.
                 </p>
               </div>
               <div className="px-6 py-4">
-                <label htmlFor="void-reason" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="void-reason" className="block text-sm font-medium text-foreground">
                   Reason
                 </label>
                 <input
@@ -1437,18 +1437,18 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}
                   placeholder="e.g., Customer changed mind"
-                  className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   autoFocus
                 />
               </div>
-              <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+              <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
                 <button
                   type="button"
                   onClick={() => {
                     setVoidReason('');
                     setShowVoidConfirm(false);
                   }}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                 >
                   Cancel
                 </button>

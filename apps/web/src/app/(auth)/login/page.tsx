@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api-client';
 import { ApiError } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const auth = useAuthContext();
@@ -17,13 +17,10 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
-  // If arriving with ?fresh=1, clear any stale session so the user can
-  // sign in with a different account (e.g., stuck incomplete onboarding).
-  useEffect(() => {
-    if (searchParams.get('fresh') === '1') {
-      auth.logout();
-    }
-  }, []);
+  // Legacy ?fresh=1 support is no longer needed — the auth layout handles
+  // stale-session clearing automatically.  We still read searchParams to
+  // suppress the "unused" warning but take no action.
+  void searchParams;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -149,5 +146,13 @@ export default function LoginPage() {
         </Link>
       </p>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

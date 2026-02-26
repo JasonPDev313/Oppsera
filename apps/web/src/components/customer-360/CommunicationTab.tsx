@@ -78,11 +78,11 @@ function CommunicationItem({ entry }: { entry: CommunicationEntry }) {
   const DirectionIcon = isInbound ? ArrowDownLeft : ArrowUpRight;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4 transition-colors hover:border-gray-300">
+    <div className="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-input">
       <div className="flex items-start gap-3">
         {/* Channel icon */}
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100">
-          <ChannelIcon className="h-4 w-4 text-gray-500" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
+          <ChannelIcon className="h-4 w-4 text-muted-foreground" />
         </div>
 
         {/* Content */}
@@ -90,13 +90,13 @@ function CommunicationItem({ entry }: { entry: CommunicationEntry }) {
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2">
               <Badge variant={channelInfo.color}>{channelInfo.label}</Badge>
-              <div className="flex items-center gap-1 text-xs text-gray-500">
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <DirectionIcon className="h-3 w-3" />
                 {isInbound ? 'Inbound' : 'Outbound'}
               </div>
             </div>
             <span
-              className="shrink-0 text-xs text-gray-400"
+              className="shrink-0 text-xs text-muted-foreground"
               title={entry.sentAt ? formatDateTime(entry.sentAt) : formatDateTime(entry.createdAt)}
             >
               {formatRelativeTime(entry.sentAt ?? entry.createdAt)}
@@ -104,14 +104,14 @@ function CommunicationItem({ entry }: { entry: CommunicationEntry }) {
           </div>
 
           {entry.subject && (
-            <p className="mt-1 text-sm font-medium text-gray-900">{entry.subject}</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{entry.subject}</p>
           )}
 
           {entry.body && (
-            <p className="mt-1 text-sm text-gray-600 line-clamp-3">{entry.body}</p>
+            <p className="mt-1 text-sm text-muted-foreground line-clamp-3">{entry.body}</p>
           )}
 
-          <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
+          <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
             <Badge variant={entry.status === 'sent' ? 'success' : entry.status === 'failed' ? 'error' : 'neutral'}>
               {entry.status}
             </Badge>
@@ -160,7 +160,7 @@ function ComposeForm({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-surface px-4 py-3 text-sm font-medium text-gray-500 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input bg-surface px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:border-indigo-500/30 hover:text-indigo-600"
       >
         <Send className="h-4 w-4" />
         Compose Message
@@ -169,13 +169,13 @@ function ComposeForm({
   }
 
   return (
-    <div className="rounded-lg border border-indigo-200 bg-surface p-4">
+    <div className="rounded-lg border border-indigo-500/30 bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-gray-900">New Message</h4>
+        <h4 className="text-sm font-semibold text-foreground">New Message</h4>
         <button
           type="button"
           onClick={() => setIsOpen(false)}
-          className="text-xs text-gray-400 hover:text-gray-600"
+          className="text-xs text-muted-foreground hover:text-muted-foreground"
         >
           Cancel
         </button>
@@ -184,11 +184,11 @@ function ComposeForm({
       <div className="space-y-3">
         {/* Channel selector */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Channel</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Channel</label>
           <select
             value={channel}
             onChange={(e) => setChannel(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
             <option value="internal_note">Internal Note</option>
             <option value="email">Email</option>
@@ -199,25 +199,25 @@ function ComposeForm({
 
         {/* Subject (optional) */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Subject (optional)</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Subject (optional)</label>
           <input
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Enter subject..."
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-foreground placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
         {/* Body */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-600">Message</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Message</label>
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Write your message..."
             rows={4}
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
@@ -250,17 +250,17 @@ export default function CommunicationTab({ customerId }: { customerId: string })
     <div className="space-y-4 p-6">
       {/* Header + Filter */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-          <MessageSquare className="h-4 w-4 text-gray-500" />
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <MessageSquare className="h-4 w-4 text-muted-foreground" />
           Communications
         </h3>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5">
-            <Filter className="h-3.5 w-3.5 text-gray-400" />
+            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
             <select
               value={channelFilter}
               onChange={(e) => setChannelFilter(e.target.value)}
-              className="rounded-md border border-gray-300 bg-surface px-2 py-1 text-xs text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="rounded-md border border-input bg-surface px-2 py-1 text-xs text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               {CHANNEL_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -270,7 +270,7 @@ export default function CommunicationTab({ customerId }: { customerId: string })
           <button
             type="button"
             onClick={() => mutate()}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <RefreshCw className="h-3 w-3" />
             Refresh
@@ -285,13 +285,13 @@ export default function CommunicationTab({ customerId }: { customerId: string })
       {isLoading && !data ? (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface px-6 py-12 text-center">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface px-6 py-12 text-center">
           <AlertTriangle className="mb-3 h-8 w-8 text-red-400" />
-          <p className="mb-4 text-sm text-gray-600">Failed to load communications.</p>
+          <p className="mb-4 text-sm text-muted-foreground">Failed to load communications.</p>
           <button
             type="button"
             onClick={() => mutate()}
@@ -308,7 +308,7 @@ export default function CommunicationTab({ customerId }: { customerId: string })
               <CommunicationItem key={entry.id} entry={entry} />
             ))}
             {(data?.items ?? []).length === 0 && (
-              <p className="py-8 text-center text-sm text-gray-400">
+              <p className="py-8 text-center text-sm text-muted-foreground">
                 No communications recorded yet
               </p>
             )}
@@ -319,7 +319,7 @@ export default function CommunicationTab({ customerId }: { customerId: string })
               <button
                 type="button"
                 onClick={() => mutate()}
-                className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
               >
                 <ChevronDown className="h-4 w-4" />
                 Load more

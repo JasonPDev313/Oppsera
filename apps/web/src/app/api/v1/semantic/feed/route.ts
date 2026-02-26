@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { eq, and, desc } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
+import { parseLimit } from '@/lib/api-params';
 import {
   db,
   sql,
@@ -24,7 +25,7 @@ import {
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '10', 10), 50);
+    const limit = parseLimit(url.searchParams.get('limit'), 50, 10);
     const todayStr = new Date().toISOString().split('T')[0]!;
 
     // Fetch user preferences for personalization

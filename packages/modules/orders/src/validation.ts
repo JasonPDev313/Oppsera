@@ -13,7 +13,10 @@ export const openOrderSchema = z.object({
   terminalId: z.string().min(1).optional(),
   employeeId: z.string().min(1).optional(),
   shiftId: z.string().min(1).optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional().refine(
+    (m) => !m || Object.keys(m).length <= 50,
+    { message: 'metadata must have at most 50 keys' },
+  ),
 });
 export type OpenOrderInput = z.input<typeof openOrderSchema>;
 
@@ -39,6 +42,11 @@ export const addLineItemSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 export type AddLineItemInput = z.input<typeof addLineItemSchema>;
+
+export const addLineItemsBatchSchema = z.object({
+  items: z.array(addLineItemSchema).min(1).max(50),
+});
+export type AddLineItemsBatchInput = z.input<typeof addLineItemsBatchSchema>;
 
 export const removeLineItemSchema = z.object({
   ...idempotencyMixin,

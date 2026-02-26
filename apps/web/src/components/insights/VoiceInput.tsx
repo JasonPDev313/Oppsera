@@ -243,7 +243,7 @@ export function VoiceInput({ onTranscript, disabled, className }: VoiceInputProp
         <button
           type="button"
           disabled
-          className="p-2 rounded-full text-gray-300 cursor-not-allowed"
+          className="p-2 rounded-full text-muted-foreground/50 cursor-not-allowed"
           title="Voice input not supported in this browser"
           aria-label="Voice input not supported"
         >
@@ -262,7 +262,7 @@ export function VoiceInput({ onTranscript, disabled, className }: VoiceInputProp
         className={`p-2 rounded-full transition-colors ${
           isRecording
             ? 'bg-red-500/10 text-red-500 animate-pulse'
-            : 'text-gray-500 hover:bg-gray-200/50 hover:text-gray-700'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         title={isRecording ? 'Stop recording' : 'Start voice input'}
         aria-label={isRecording ? 'Stop recording' : 'Start voice input'}

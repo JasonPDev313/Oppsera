@@ -1,4 +1,5 @@
 import type { FnbSettingsModuleKey } from '../validation';
+import { getDefaultHostSettings } from '../services/host-settings';
 
 /**
  * Hardcoded default values for every F&B settings module.
@@ -118,6 +119,7 @@ export const FNB_SETTINGS_DEFAULTS: Record<FnbSettingsModuleKey, Record<string, 
   fnb_accounting: FNB_ACCOUNTING_DEFAULTS,
   fnb_receipts: FNB_RECEIPTS_DEFAULTS,
   fnb_hardware: FNB_HARDWARE_DEFAULTS,
+  fnb_host: getDefaultHostSettings() as unknown as Record<string, unknown>,
 };
 
 /** Get default value for a specific setting key within a module */

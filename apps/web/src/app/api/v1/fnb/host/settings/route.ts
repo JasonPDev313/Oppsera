@@ -1,43 +1,74 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
-import { ValidationError } from '@oppsera/shared';
 import {
-  getHostSettings,
-  updateHostSettings,
-  updateHostSettingsSchema,
+  hostSettingsSchema,
+  getDefaultHostSettings,
+  mergeHostSettings,
+  getFnbSettings,
+  updateFnbSettings,
 } from '@oppsera/module-fnb';
 
 export const GET = withMiddleware(
   async (req: NextRequest, ctx) => {
     const url = new URL(req.url);
-    const locationId = url.searchParams.get('locationId') || ctx.locationId || '';
+    const locationId = url.searchParams.get('locationId') || undefined;
 
-    const data = await getHostSettings(ctx.tenantId, locationId);
+    const result = await getFnbSettings({
+      tenantId: ctx.tenantId,
+      moduleKey: 'fnb_host',
+      locationId,
+    });
 
-    return NextResponse.json({ data });
+    const stored = result?.settings as Record<string, unknown> | undefined;
+    if (!stored || Object.keys(stored).length === 0) {
+      return NextResponse.json({ data: getDefaultHostSettings() });
+    }
+
+    const merged = hostSettingsSchema.parse(stored);
+    return NextResponse.json({ data: merged });
   },
-  { entitlement: 'pos_fnb', permission: 'pos_fnb.floor_plan.view' },
+  { entitlement: 'pos_fnb', permission: 'pos_fnb.settings.view' },
 );
 
 export const PATCH = withMiddleware(
   async (req: NextRequest, ctx) => {
     const body = await req.json();
-    const parsed = updateHostSettingsSchema.safeParse(body);
-    if (!parsed.success) {
-      throw new ValidationError(
-        'Invalid host settings',
-        parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+    const url = new URL(req.url);
+    const locationId = url.searchParams.get('locationId') || undefined;
+
+    const existing = await getFnbSettings({
+      tenantId: ctx.tenantId,
+      moduleKey: 'fnb_host',
+      locationId,
+    });
+
+    const current = existing?.settings && Object.keys(existing.settings).length > 0
+      ? hostSettingsSchema.parse(existing.settings)
+      : getDefaultHostSettings();
+
+    // Validate the partial update against the schema (strip unknown keys)
+    const partialParsed = hostSettingsSchema.partial().safeParse(body);
+    if (!partialParsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'Invalid settings', details: partialParsed.error.issues } },
+        { status: 400 },
       );
     }
 
-    const result = await updateHostSettings(ctx, parsed.data as any);
+    const merged = mergeHostSettings(current, partialParsed.data);
 
-    return NextResponse.json({ data: result });
+    await updateFnbSettings(ctx, {
+      moduleKey: 'fnb_host',
+      locationId,
+      settings: merged as unknown as Record<string, unknown>,
+    });
+
+    return NextResponse.json({ data: merged });
   },
   {
     entitlement: 'pos_fnb',
-    permission: 'pos_fnb.floor_plan.manage',
+    permission: 'pos_fnb.settings.manage',
     writeAccess: true,
   },
 );

@@ -30,15 +30,15 @@ export function PaymentMethodCapture({
 }: PaymentMethodCaptureProps) {
   if (isConfigLoading) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-gray-200">
-        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+      <div className="flex h-32 items-center justify-center rounded-lg border border-border">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (configError) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700">
+      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-center text-sm text-red-500">
         {configError}
       </div>
     );
@@ -46,7 +46,7 @@ export function PaymentMethodCapture({
 
   if (!config) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center text-sm text-gray-500">
+      <div className="rounded-lg border border-border bg-muted p-4 text-center text-sm text-muted-foreground">
         Card payments are not configured.
       </div>
     );
@@ -67,7 +67,7 @@ export function PaymentMethodCapture({
   }
 
   return (
-    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700">
+    <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-center text-sm text-amber-500">
       Card payments are not available at this time.
     </div>
   );

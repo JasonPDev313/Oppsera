@@ -36,10 +36,10 @@ interface PaymentPanelProps {
 // ── Tender Type Selector ──────────────────────────────────────────
 
 const TENDER_TYPES: { type: TenderType; label: string; icon: typeof Banknote; color: string }[] = [
-  { type: 'cash', label: 'Cash', icon: Banknote, color: 'text-green-600 bg-green-50 border-green-200 hover:bg-green-100' },
-  { type: 'card', label: 'Card', icon: CreditCard, color: 'text-indigo-600 bg-indigo-50 border-indigo-200 hover:bg-indigo-100' },
-  { type: 'check', label: 'Check', icon: FileText, color: 'text-blue-600 bg-blue-50 border-blue-200 hover:bg-blue-100' },
-  { type: 'voucher', label: 'Voucher', icon: Ticket, color: 'text-amber-600 bg-amber-50 border-amber-200 hover:bg-amber-100' },
+  { type: 'cash', label: 'Cash', icon: Banknote, color: 'text-green-500 bg-green-500/10 border-green-500/30 hover:bg-green-500/20' },
+  { type: 'card', label: 'Card', icon: CreditCard, color: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20' },
+  { type: 'check', label: 'Check', icon: FileText, color: 'text-blue-500 bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20' },
+  { type: 'voucher', label: 'Voucher', icon: Ticket, color: 'text-amber-500 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20' },
 ];
 
 // ── Quick Cash Amounts ────────────────────────────────────────────
@@ -289,7 +289,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Remaining balance */}
-        <div className="rounded-xl bg-gray-50 p-4 text-center">
+        <div className="rounded-xl bg-muted p-4 text-center">
           <p className="text-xs font-medium uppercase text-gray-500">
             {tenderSummary && tenderSummary.summary.totalTendered > 0 ? 'Remaining' : 'Total Due'}
           </p>
@@ -370,7 +370,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
                   const current = Math.round(parseFloat(prev || '0') * 100);
                   return ((current + cents) / 100).toFixed(2);
                 })}
-                className="rounded-lg border border-gray-200 px-2 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 active:scale-[0.97] disabled:opacity-40"
+                className="rounded-lg border border-border px-2 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent active:scale-[0.97] disabled:opacity-40"
               >
                 +{formatMoney(cents)}
               </button>
@@ -383,7 +383,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           type="button"
           disabled={isSubmitting}
           onClick={() => handleSubmit(remaining)}
-          className="w-full rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 active:scale-[0.97] disabled:opacity-50"
+          className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 active:scale-[0.97] disabled:opacity-50"
         >
           {isSubmitting ? 'Processing...' : `Pay Exact — ${formatMoney(remaining)}`}
         </button>
@@ -410,8 +410,8 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
                       onClick={() => setTipAmount(isSelected ? '' : tipVal)}
                       className={`flex-1 rounded-lg border py-1.5 text-xs font-semibold transition-colors active:scale-[0.97] ${
                         isSelected
-                          ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-500'
+                          : 'border-border text-muted-foreground hover:bg-accent'
                       }`}
                     >
                       {pct}%
@@ -421,7 +421,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
                 <button
                   type="button"
                   onClick={() => setTipAmount('')}
-                  className="flex-1 rounded-lg border border-gray-200 py-1.5 text-xs font-semibold text-gray-400 transition-colors hover:bg-gray-50 active:scale-[0.97]"
+                  className="flex-1 rounded-lg border border-border py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent active:scale-[0.97]"
                 >
                   None
                 </button>
@@ -449,7 +449,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 active:scale-[0.97]"
+          className="flex-1 rounded-lg border border-input px-4 py-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent active:scale-[0.97]"
         >
           Cancel
         </button>

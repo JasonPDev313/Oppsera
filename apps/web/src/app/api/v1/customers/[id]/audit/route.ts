@@ -7,6 +7,7 @@ import {
   recordCustomerAuditEntry,
   recordCustomerAuditEntrySchema,
 } from '@oppsera/module-customers';
+import { parseLimit } from '@/lib/api-params';
 
 function extractCustomerId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
@@ -24,9 +25,7 @@ export const GET = withMiddleware(
     const dateTo = url.searchParams.get('dateTo') ?? undefined;
     const action = url.searchParams.get('action') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = url.searchParams.get('limit')
-      ? Number(url.searchParams.get('limit'))
-      : undefined;
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const data = await getCustomerAuditTrail({
       tenantId: ctx.tenantId,

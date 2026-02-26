@@ -92,8 +92,8 @@ export default function CogsContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Cost of Goods Sold</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-semibold text-foreground">Cost of Goods Sold</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage COGS posting mode and periodic calculations.
           </p>
         </div>
@@ -110,12 +110,12 @@ export default function CogsContent() {
       </div>
 
       {/* Mode explanation */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
-        <p className="text-sm text-gray-700">
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <p className="text-sm text-foreground">
           <span className="font-medium">Current mode:</span>{' '}
           {COGS_MODE_CONFIG[currentMode].description}.
           {currentMode === 'periodic' && settings?.periodicCogsLastCalculatedDate && (
-            <span className="ml-2 text-gray-500">
+            <span className="ml-2 text-muted-foreground">
               Last calculated through: {settings.periodicCogsLastCalculatedDate}
             </span>
           )}
@@ -126,27 +126,27 @@ export default function CogsContent() {
       {currentMode === 'periodic' && (
         <>
           {/* Period selector + Calculate */}
-          <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-surface p-4 sm:flex-row sm:items-end">
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-gray-500">Period Start</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Period Start</label>
               <input
                 type="date"
                 value={periodStart}
                 onChange={(e) => setPeriodStart(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-gray-500">Period End</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Period End</label>
               <input
                 type="date"
                 value={periodEnd}
                 onChange={(e) => setPeriodEnd(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div className="flex-1">
-              <label className="mb-1 block text-xs font-medium text-gray-500">Location</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Location</label>
               <Select
                 options={locationOptions}
                 value={locationId}
@@ -167,32 +167,32 @@ export default function CogsContent() {
 
           {/* Comparison card */}
           {comparison && (
-            <div className="rounded-lg border border-gray-200 bg-surface p-4">
+            <div className="rounded-lg border border-border bg-surface p-4">
               <div className="flex items-center gap-2 mb-3">
-                <ArrowRightLeft className="h-4 w-4 text-gray-400" />
-                <h3 className="text-sm font-semibold text-gray-900">Perpetual vs Periodic Comparison</h3>
+                <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">Perpetual vs Periodic Comparison</h3>
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                 <div>
-                  <p className="text-xs text-gray-500">Perpetual COGS</p>
-                  <p className="text-lg font-semibold text-gray-900">
+                  <p className="text-xs text-muted-foreground">Perpetual COGS</p>
+                  <p className="text-lg font-semibold text-foreground">
                     {formatAccountingMoney(comparison.perpetualCogsDollars)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Periodic COGS</p>
-                  <p className="text-lg font-semibold text-gray-900">
+                  <p className="text-xs text-muted-foreground">Periodic COGS</p>
+                  <p className="text-lg font-semibold text-foreground">
                     {comparison.periodicCogsDollars
                       ? formatAccountingMoney(comparison.periodicCogsDollars)
                       : '—'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Variance</p>
+                  <p className="text-xs text-muted-foreground">Variance</p>
                   <p className={`text-lg font-semibold ${
                     comparison.varianceDollars && Number(comparison.varianceDollars) !== 0
-                      ? 'text-amber-600'
-                      : 'text-gray-900'
+                      ? 'text-amber-500'
+                      : 'text-foreground'
                   }`}>
                     {comparison.varianceDollars
                       ? formatAccountingMoney(comparison.varianceDollars)
@@ -200,8 +200,8 @@ export default function CogsContent() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-500">Variance %</p>
-                  <p className="text-lg font-semibold text-gray-900">
+                  <p className="text-xs text-muted-foreground">Variance %</p>
+                  <p className="text-lg font-semibold text-foreground">
                     {comparison.variancePercent ? `${comparison.variancePercent}%` : '—'}
                   </p>
                 </div>
@@ -218,14 +218,14 @@ export default function CogsContent() {
 
           {!isLoading && calculations.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-gray-900">Calculations</h3>
+              <h3 className="text-sm font-semibold text-foreground">Calculations</h3>
               <DataTable
                 columns={[
                   {
                     key: 'periodStart',
                     header: 'Period',
                     render: (row) => (
-                      <span className="text-sm text-gray-900">
+                      <span className="text-sm text-foreground">
                         {String(row.periodStart)} – {String(row.periodEnd)}
                       </span>
                     ),
@@ -258,7 +258,7 @@ export default function CogsContent() {
                     key: 'cogsDollars',
                     header: 'COGS',
                     render: (row) => (
-                      <span className="font-semibold text-gray-900">
+                      <span className="font-semibold text-foreground">
                         {formatAccountingMoney(String(row.cogsDollars))}
                       </span>
                     ),
@@ -278,7 +278,7 @@ export default function CogsContent() {
                           Post to GL
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-muted-foreground">
                           JE: {String(row.glJournalEntryId ?? '').slice(0, 8)}...
                         </span>
                       ),
@@ -292,10 +292,10 @@ export default function CogsContent() {
           )}
 
           {!isLoading && calculations.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
-              <Calculator className="h-10 w-10 text-gray-300" />
-              <p className="mt-3 text-sm text-gray-500">No periodic COGS calculations yet</p>
-              <p className="mt-1 text-xs text-gray-400">
+            <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+              <Calculator className="h-10 w-10 text-muted-foreground" />
+              <p className="mt-3 text-sm text-muted-foreground">No periodic COGS calculations yet</p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 Select a period above and click &quot;Calculate COGS&quot; to get started.
               </p>
             </div>
@@ -305,13 +305,13 @@ export default function CogsContent() {
 
       {/* Info card for other modes */}
       {currentMode === 'perpetual' && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
-          <h3 className="text-sm font-semibold text-blue-900">Perpetual COGS Active</h3>
-          <p className="mt-1 text-sm text-blue-700">
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
+          <h3 className="text-sm font-semibold text-blue-500">Perpetual COGS Active</h3>
+          <p className="mt-1 text-sm text-blue-500">
             COGS is automatically posted per-tender at the time of each sale. Each tender records a proportional share
             of cost of goods sold based on the item costs in the order. No manual calculation is needed.
           </p>
-          <p className="mt-2 text-sm text-blue-700">
+          <p className="mt-2 text-sm text-blue-500">
             To switch to periodic COGS, go to{' '}
             <a href="/accounting/settings" className="font-medium underline">
               Accounting Settings
@@ -322,9 +322,9 @@ export default function CogsContent() {
       )}
 
       {currentMode === 'disabled' && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-          <h3 className="text-sm font-semibold text-gray-700">COGS Posting Disabled</h3>
-          <p className="mt-1 text-sm text-gray-600">
+        <div className="rounded-lg border border-border bg-muted p-4">
+          <h3 className="text-sm font-semibold text-foreground">COGS Posting Disabled</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             No cost of goods sold is being recorded in the general ledger. To enable COGS posting, go to{' '}
             <a href="/accounting/settings" className="font-medium underline">
               Accounting Settings

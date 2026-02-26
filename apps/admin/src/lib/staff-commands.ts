@@ -6,7 +6,7 @@ import {
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { generateUlid } from '@oppsera/shared';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { AdminSession } from './auth';
 import { logAdminAudit, sanitizeSnapshot } from './admin-audit';
 import { invalidateAdminPermissionCache } from './admin-permissions';

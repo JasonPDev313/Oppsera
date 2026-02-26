@@ -122,14 +122,14 @@ export default function AuditContent() {
 
       {/* Per-Category Breakdown */}
       {coverage && coverage.items.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-5">
-          <h3 className="mb-3 text-sm font-semibold text-gray-700">Coverage by Category</h3>
+        <div className="rounded-lg border border-border bg-surface p-5">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Coverage by Category</h3>
           <div className="space-y-2">
             {coverage.items.map((item) => (
               <div key={item.category} className="flex items-center gap-4">
-                <span className="w-40 text-sm text-gray-600">{item.label}</span>
+                <span className="w-40 text-sm text-muted-foreground">{item.label}</span>
                 <div className="flex-1">
-                  <div className="h-2 rounded-full bg-gray-100">
+                  <div className="h-2 rounded-full bg-muted">
                     <div
                       className={`h-full rounded-full transition-all ${
                         item.coveragePercent >= 95
@@ -142,11 +142,11 @@ export default function AuditContent() {
                     />
                   </div>
                 </div>
-                <span className="w-16 text-right text-xs tabular-nums text-gray-500">
+                <span className="w-16 text-right text-xs tabular-nums text-muted-foreground">
                   {item.coveragePercent}%
                 </span>
                 {item.gapCount > 0 && (
-                  <span className="text-xs text-red-600">{item.gapCount} gaps</span>
+                  <span className="text-xs text-red-500">{item.gapCount} gaps</span>
                 )}
               </div>
             ))}
@@ -157,29 +157,29 @@ export default function AuditContent() {
       {/* Filter Bar */}
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">From</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => { setDateFrom(e.target.value); refresh(); }}
-            className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+            className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">To</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => { setDateTo(e.target.value); refresh(); }}
-            className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+            className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Action</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Action</label>
           <select
             value={actionPrefix}
             onChange={(e) => { setActionPrefix(e.target.value); refresh(); }}
-            className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+            className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
           >
             {ACTION_PREFIXES.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -187,11 +187,11 @@ export default function AuditContent() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-500">Entity</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Entity</label>
           <select
             value={entityType}
             onChange={(e) => { setEntityType(e.target.value); refresh(); }}
-            className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+            className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
           >
             {ENTITY_TYPES.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -199,49 +199,49 @@ export default function AuditContent() {
           </select>
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-500">Search Entity ID</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Search Entity ID</label>
           <div className="relative">
-            <Search className="absolute left-2.5 top-2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && refresh()}
               placeholder="Entity ID..."
-              className="w-full rounded-md border border-gray-300 bg-surface py-1.5 pl-8 pr-3 text-sm"
+              className="w-full rounded-md border border-border bg-surface py-1.5 pl-8 pr-3 text-sm"
             />
           </div>
         </div>
       </div>
 
       {/* Audit Entries Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
+            <tr className="border-b border-border bg-muted">
               <th className="w-8 px-3 py-2" />
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Timestamp</th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">User</th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Action</th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Entity</th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Amount</th>
-              <th className="px-3 py-2 text-left font-medium text-gray-600">Terminal</th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Timestamp</th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground">User</th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Action</th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Entity</th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Amount</th>
+              <th className="px-3 py-2 text-left font-medium text-muted-foreground">Terminal</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border">
             {isLoading && entries.length === 0 && (
               Array.from({ length: 8 }).map((_, i) => (
                 <tr key={i}>
                   <td colSpan={7} className="px-3 py-3">
-                    <div className="h-4 animate-pulse rounded bg-gray-100" />
+                    <div className="h-4 animate-pulse rounded bg-muted" />
                   </td>
                 </tr>
               ))
             )}
             {!isLoading && entries.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-12 text-center text-gray-400">
-                  <FileSpreadsheet className="mx-auto h-8 w-8 text-gray-300" />
+                <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
+                  <FileSpreadsheet className="mx-auto h-8 w-8 text-muted-foreground" />
                   <p className="mt-2">No audit entries found for this filter</p>
                 </td>
               </tr>
@@ -257,23 +257,23 @@ export default function AuditContent() {
               return (
                 <Fragment key={entry.id}>
                   <tr
-                    className="cursor-pointer transition-colors hover:bg-gray-50"
+                    className="cursor-pointer transition-colors hover:bg-accent"
                     onClick={() => toggleExpand(entry.id)}
                   >
                     <td className="px-3 py-2">
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       )}
                     </td>
-                    <td className="px-3 py-2 text-xs tabular-nums text-gray-500">
+                    <td className="px-3 py-2 text-xs tabular-nums text-muted-foreground">
                       {new Date(entry.createdAt).toLocaleString()}
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-1.5">
-                        <User className="h-3.5 w-3.5 text-gray-400" />
-                        <span className="text-xs text-gray-600">
+                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
                           {entry.actorType === 'system' ? 'System' : entry.actorUserId?.slice(0, 8) ?? '—'}
                         </span>
                       </div>
@@ -282,51 +282,51 @@ export default function AuditContent() {
                       <ActionBadge action={entry.action} />
                     </td>
                     <td className="px-3 py-2">
-                      <span className="text-xs text-gray-500">{entry.entityType}</span>
-                      <span className="ml-1 font-mono text-xs text-gray-400">{entry.entityId.slice(0, 12)}</span>
+                      <span className="text-xs text-muted-foreground">{entry.entityType}</span>
+                      <span className="ml-1 font-mono text-xs text-muted-foreground">{entry.entityId.slice(0, 12)}</span>
                     </td>
-                    <td className="px-3 py-2 tabular-nums text-xs text-gray-700">
+                    <td className="px-3 py-2 tabular-nums text-xs text-foreground">
                       {amountCents != null
                         ? `$${(amountCents / 100).toFixed(2)}`
                         : amountDollars != null
                           ? `$${Number(amountDollars).toFixed(2)}`
                           : '—'}
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-500">
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
                       {terminalId ?? '—'}
                     </td>
                   </tr>
                   {isExpanded && (
                     <tr>
-                      <td colSpan={7} className="bg-gray-50 px-6 py-3">
+                      <td colSpan={7} className="bg-muted px-6 py-3">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                           <div>
-                            <h4 className="mb-1 text-xs font-semibold text-gray-500">Full Details</h4>
+                            <h4 className="mb-1 text-xs font-semibold text-muted-foreground">Full Details</h4>
                             <dl className="space-y-1 text-xs">
                               <div className="flex gap-2">
-                                <dt className="font-medium text-gray-500">ID:</dt>
-                                <dd className="font-mono text-gray-700">{entry.id}</dd>
+                                <dt className="font-medium text-muted-foreground">ID:</dt>
+                                <dd className="font-mono text-foreground">{entry.id}</dd>
                               </div>
                               <div className="flex gap-2">
-                                <dt className="font-medium text-gray-500">Entity ID:</dt>
-                                <dd className="font-mono text-gray-700">{entry.entityId}</dd>
+                                <dt className="font-medium text-muted-foreground">Entity ID:</dt>
+                                <dd className="font-mono text-foreground">{entry.entityId}</dd>
                               </div>
                               <div className="flex gap-2">
-                                <dt className="font-medium text-gray-500">Actor:</dt>
-                                <dd className="text-gray-700">
+                                <dt className="font-medium text-muted-foreground">Actor:</dt>
+                                <dd className="text-foreground">
                                   {entry.actorUserId ?? 'system'} ({entry.actorType})
                                 </dd>
                               </div>
                               {managerApprover && (
                                 <div className="flex gap-2">
-                                  <dt className="font-medium text-gray-500">Manager Approver:</dt>
-                                  <dd className="text-gray-700">{managerApprover}</dd>
+                                  <dt className="font-medium text-muted-foreground">Manager Approver:</dt>
+                                  <dd className="text-foreground">{managerApprover}</dd>
                                 </div>
                               )}
                               {entry.locationId && (
                                 <div className="flex gap-2">
-                                  <dt className="font-medium text-gray-500">Location:</dt>
-                                  <dd className="font-mono text-gray-700">{entry.locationId}</dd>
+                                  <dt className="font-medium text-muted-foreground">Location:</dt>
+                                  <dd className="font-mono text-foreground">{entry.locationId}</dd>
                                 </div>
                               )}
                             </dl>
@@ -335,15 +335,15 @@ export default function AuditContent() {
                             <div>
                               {entry.changes && Object.keys(entry.changes).length > 0 && (
                                 <>
-                                  <h4 className="mb-1 text-xs font-semibold text-gray-500">Changes</h4>
+                                  <h4 className="mb-1 text-xs font-semibold text-muted-foreground">Changes</h4>
                                   <dl className="space-y-1 text-xs">
                                     {Object.entries(entry.changes).map(([field, diff]) => (
                                       <div key={field} className="flex gap-2">
-                                        <dt className="font-medium text-gray-500">{field}:</dt>
-                                        <dd className="text-gray-700">
+                                        <dt className="font-medium text-muted-foreground">{field}:</dt>
+                                        <dd className="text-foreground">
                                           <span className="text-red-500 line-through">{String(diff.old)}</span>
                                           {' → '}
-                                          <span className="text-green-600">{String(diff.new)}</span>
+                                          <span className="text-green-500">{String(diff.new)}</span>
                                         </dd>
                                       </div>
                                     ))}
@@ -352,8 +352,8 @@ export default function AuditContent() {
                               )}
                               {entry.metadata && Object.keys(entry.metadata).length > 0 && (
                                 <>
-                                  <h4 className="mb-1 mt-2 text-xs font-semibold text-gray-500">Metadata</h4>
-                                  <pre className="max-h-32 overflow-auto rounded bg-gray-100 p-2 text-xs text-gray-700">
+                                  <h4 className="mb-1 mt-2 text-xs font-semibold text-muted-foreground">Metadata</h4>
+                                  <pre className="max-h-32 overflow-auto rounded bg-muted p-2 text-xs text-foreground">
                                     {JSON.stringify(entry.metadata, null, 2)}
                                   </pre>
                                 </>
@@ -376,7 +376,7 @@ export default function AuditContent() {
         <div className="flex justify-center">
           <button
             onClick={loadMore}
-            className="rounded-md border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-md border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Load more
           </button>
@@ -401,12 +401,12 @@ function CoverageCard({
 }) {
   const borderColor =
     status === 'good'
-      ? 'border-green-200'
+      ? 'border-green-500/30'
       : status === 'warning'
-        ? 'border-amber-200'
+        ? 'border-amber-500/30'
         : status === 'error'
-          ? 'border-red-200'
-          : 'border-gray-200';
+          ? 'border-red-500/30'
+          : 'border-border';
   const iconColor =
     status === 'good'
       ? 'text-green-500'
@@ -414,7 +414,7 @@ function CoverageCard({
         ? 'text-amber-500'
         : status === 'error'
           ? 'text-red-500'
-          : 'text-gray-400';
+          : 'text-muted-foreground';
 
   return (
     <div className={`rounded-lg border ${borderColor} bg-surface p-4`}>
@@ -423,10 +423,10 @@ function CoverageCard({
         {status === 'warning' && <AlertTriangle className={`h-4 w-4 ${iconColor}`} />}
         {status === 'error' && <AlertTriangle className={`h-4 w-4 ${iconColor}`} />}
         {status === 'neutral' && <Clock className={`h-4 w-4 ${iconColor}`} />}
-        <span className="text-xs font-medium text-gray-500">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
-      <p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{value}</p>
-      <p className="mt-0.5 text-xs text-gray-500">{detail}</p>
+      <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{value}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{detail}</p>
     </div>
   );
 }
@@ -434,15 +434,15 @@ function CoverageCard({
 function ActionBadge({ action }: { action: string }) {
   const prefix = action.split('.')[0];
   const colors: Record<string, string> = {
-    accounting: 'bg-indigo-50 text-indigo-700',
-    payment: 'bg-green-50 text-green-700',
-    order: 'bg-blue-50 text-blue-700',
-    ap: 'bg-purple-50 text-purple-700',
-    ar: 'bg-orange-50 text-orange-700',
-    inventory: 'bg-teal-50 text-teal-700',
-    catalog: 'bg-gray-100 text-gray-700',
+    accounting: 'bg-indigo-500/10 text-indigo-500',
+    payment: 'bg-green-500/10 text-green-500',
+    order: 'bg-blue-500/10 text-blue-500',
+    ap: 'bg-purple-500/10 text-purple-500',
+    ar: 'bg-orange-500/10 text-orange-500',
+    inventory: 'bg-teal-500/10 text-teal-500',
+    catalog: 'bg-muted text-muted-foreground',
   };
-  const colorClass = colors[prefix ?? ''] ?? 'bg-gray-100 text-gray-700';
+  const colorClass = colors[prefix ?? ''] ?? 'bg-muted text-muted-foreground';
 
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${colorClass}`}>

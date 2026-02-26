@@ -8,6 +8,7 @@ import {
   createTipPayoutSchema,
   listTipPayoutsSchema,
 } from '@oppsera/module-accounting';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -19,7 +20,7 @@ export const GET = withMiddleware(
       businessDateTo: searchParams.get('businessDateTo') || undefined,
       status: searchParams.get('status') || undefined,
       cursor: searchParams.get('cursor') || undefined,
-      limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined,
+      limit: parseLimit(searchParams.get('limit')),
     });
 
     if (!parsed.success) {

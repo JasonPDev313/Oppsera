@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listReceipts, createDraftReceipt, createReceiptSchema } from '@oppsera/module-inventory';
+import { parseLimit } from '@/lib/api-params';
 import { db, locations } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 
@@ -22,7 +23,7 @@ export const GET = withMiddleware(
       status: url.searchParams.get('status') ?? undefined,
       vendorId: url.searchParams.get('vendorId') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     return NextResponse.json({
       data: result.items,

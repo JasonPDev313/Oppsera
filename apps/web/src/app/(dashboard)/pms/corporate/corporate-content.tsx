@@ -348,20 +348,20 @@ export default function CorporateContent() {
 
   // ── Input class ─────────────────────────────────────────────────
   const inputCls =
-    'w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500';
-  const labelCls = 'mb-1 block text-sm font-medium text-gray-700';
+    'w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500';
+  const labelCls = 'mb-1 block text-sm font-medium text-foreground';
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Corporate Accounts</h1>
-            <p className="text-sm text-gray-500">Manage corporate billing and discount accounts</p>
+            <h1 className="text-2xl font-bold text-foreground">Corporate Accounts</h1>
+            <p className="text-sm text-muted-foreground">Manage corporate billing and discount accounts</p>
           </div>
         </div>
 
@@ -370,7 +370,7 @@ export default function CorporateContent() {
             <select
               value={selectedPropertyId}
               onChange={(e) => setSelectedPropertyId(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm text-gray-900"
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground"
             >
               {propertyOptions.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -391,23 +391,23 @@ export default function CorporateContent() {
       {/* Search & Filter Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by company name..."
-            className="w-full rounded-lg border border-gray-200 bg-surface py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
           />
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-gray-200 p-0.5">
+        <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
           <button
             type="button"
             onClick={() => setShowActive(true)}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               showActive
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-200/50'
+                : 'text-muted-foreground hover:bg-gray-200/50'
             }`}
           >
             Active
@@ -418,7 +418,7 @@ export default function CorporateContent() {
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               !showActive
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-200/50'
+                : 'text-muted-foreground hover:bg-gray-200/50'
             }`}
           >
             Inactive
@@ -428,48 +428,48 @@ export default function CorporateContent() {
 
       {/* Error banner */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
           {error}
         </div>
       )}
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-lg border border-border">
         <table className="w-full min-w-[900px] border-collapse">
           <thead>
             <tr className="bg-surface">
-              <th className="border-b border-gray-200 px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                 Company
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                 Contact
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                 Billing Type
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-right text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">
                 Discount %
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-right text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-right text-xs font-medium text-muted-foreground">
                 Credit Limit
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-left text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-left text-xs font-medium text-muted-foreground">
                 AR Status
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-center text-xs font-medium text-gray-500">
+              <th className="border-b border-border px-4 py-2.5 text-center text-xs font-medium text-muted-foreground">
                 Active
               </th>
-              <th className="border-b border-gray-200 px-4 py-2.5 text-right text-xs font-medium text-gray-500 w-12" />
+              <th className="border-b border-border px-4 py-2.5 text-right text-xs font-medium text-muted-foreground w-12" />
             </tr>
           </thead>
           <tbody>
             {!isLoading && accounts.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-16 text-center">
-                  <div className="flex flex-col items-center text-gray-500">
-                    <Building2 className="mb-3 h-10 w-10 text-gray-300" />
-                    <p className="text-sm font-medium text-gray-900">No corporate accounts</p>
-                    <p className="mt-1 text-sm text-gray-500">
+                  <div className="flex flex-col items-center text-muted-foreground">
+                    <Building2 className="mb-3 h-10 w-10 text-muted-foreground" />
+                    <p className="text-sm font-medium text-foreground">No corporate accounts</p>
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {searchTerm ? 'No accounts match your search.' : 'Create your first corporate account to get started.'}
                     </p>
                     {!searchTerm && (
@@ -494,60 +494,60 @@ export default function CorporateContent() {
                   key={a.id}
                   className="transition-colors hover:bg-gray-200/30"
                 >
-                  <td className="border-b border-gray-100 px-4 py-3">
-                    <span className="text-sm font-medium text-gray-900">{a.companyName}</span>
+                  <td className="border-b border-border px-4 py-3">
+                    <span className="text-sm font-medium text-foreground">{a.companyName}</span>
                   </td>
-                  <td className="border-b border-gray-100 px-4 py-3">
+                  <td className="border-b border-border px-4 py-3">
                     {a.contactName ? (
                       <div>
-                        <span className="text-sm text-gray-700">{a.contactName}</span>
+                        <span className="text-sm text-foreground">{a.contactName}</span>
                         {a.contactEmail && (
-                          <span className="ml-2 text-xs text-gray-400">{a.contactEmail}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{a.contactEmail}</span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-sm text-gray-400">{'\u2014'}</span>
+                      <span className="text-sm text-muted-foreground">{'\u2014'}</span>
                     )}
                   </td>
-                  <td className="border-b border-gray-100 px-4 py-3">
+                  <td className="border-b border-border px-4 py-3">
                     <Badge variant={bt.variant}>
                       <BtIcon className="mr-1 h-3 w-3" />
                       {bt.label}
                     </Badge>
                   </td>
-                  <td className="border-b border-gray-100 px-4 py-3 text-right">
-                    <span className="text-sm text-gray-700">
+                  <td className="border-b border-border px-4 py-3 text-right">
+                    <span className="text-sm text-foreground">
                       {a.negotiatedDiscountPercent != null ? `${a.negotiatedDiscountPercent}%` : '\u2014'}
                     </span>
                   </td>
-                  <td className="border-b border-gray-100 px-4 py-3 text-right">
-                    <span className="text-sm text-gray-700">{formatCents(a.creditLimitCents)}</span>
+                  <td className="border-b border-border px-4 py-3 text-right">
+                    <span className="text-sm text-foreground">{formatCents(a.creditLimitCents)}</span>
                   </td>
-                  <td className="border-b border-gray-100 px-4 py-3">
+                  <td className="border-b border-border px-4 py-3">
                     {a.arAccountStatus ? (
                       <Badge variant={a.arAccountStatus === 'current' ? 'success' : a.arAccountStatus === 'overdue' ? 'error' : 'neutral'}>
                         {a.arAccountStatus}
                       </Badge>
                     ) : (
-                      <span className="text-sm text-gray-400">{'\u2014'}</span>
+                      <span className="text-sm text-muted-foreground">{'\u2014'}</span>
                     )}
                   </td>
-                  <td className="border-b border-gray-100 px-4 py-3 text-center">
+                  <td className="border-b border-border px-4 py-3 text-center">
                     <span
                       className={`inline-block h-2.5 w-2.5 rounded-full ${
-                        a.isActive ? 'bg-green-500' : 'bg-gray-300'
+                        a.isActive ? 'bg-green-500' : 'bg-muted-foreground/50'
                       }`}
                       title={a.isActive ? 'Active' : 'Inactive'}
                     />
                   </td>
-                  <td className="border-b border-gray-100 px-4 py-3 text-right">
+                  <td className="border-b border-border px-4 py-3 text-right">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         openEdit(a);
                       }}
-                      className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-200/50 hover:text-gray-600"
+                      className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-gray-200/50 hover:text-muted-foreground"
                       title="Edit account"
                     >
                       <Pencil className="h-4 w-4" />
@@ -563,7 +563,7 @@ export default function CorporateContent() {
       {/* Loading indicator */}
       {isLoading && (
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       )}
 
@@ -573,7 +573,7 @@ export default function CorporateContent() {
           <button
             type="button"
             onClick={loadMore}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-gray-200/50"
           >
             Load more
           </button>
@@ -590,22 +590,22 @@ export default function CorporateContent() {
               onClick={closeDialog}
             />
             {/* Panel */}
-            <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+            <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-foreground">
                   {editingAccount ? 'Edit Corporate Account' : 'New Corporate Account'}
                 </h2>
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {formError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {formError}
                 </div>
               )}
@@ -781,7 +781,7 @@ export default function CorporateContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
                 >
                   Cancel
                 </button>

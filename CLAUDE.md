@@ -920,6 +920,17 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - `0191_member_portal_passwords.sql`: password_hash on customer_auth_accounts
   - `0192_guest_pay_receipt_emailed.sql`: receipt_emailed_at on guest_pay_sessions
   - `0193_tenant_business_info.sql`: tenant_business_info + tenant_content_blocks tables with RLS
+- **Migrations 0197–0206** (Session 2026-02-25–26):
+  - `0197_semantic_narrative_config.sql`: semantic_narrative_config table for editable OPPS ERA LENS templates
+  - `0198_impersonation_phase1a.sql`: admin_impersonation_sessions refinements, impersonation_policies, impersonation_activity_log tables
+  - `0199_superadmin_phase1b.sql`: feature_flags, feature_flag_overrides, admin_module_assignments tables
+  - `0200_pms_guest_customer_index.sql`: index on pms_guests(tenant_id, customer_id) for cross-module lookups
+  - `0201_performance_indexes.sql`: covering indexes for order placement, tender recording, catalog POS queries
+  - `0202_housekeeper_management.sql`: pms_housekeepers_staff table, front desk assignment columns, housekeeper display fields
+  - `0203_usage_tracking.sql`: usage_events + usage_action_items tables for platform analytics
+  - `0204_gl_transaction_type_mappings.sql`: indexes on gl_transaction_types for mapping coverage queries
+  - `0205_auth_hot_path_indexes.sql`: covering indexes for auth, permissions, entitlements, locations
+  - `0206_host_module_v2.sql`: fnb_reservations, fnb_waitlist_entries, fnb_table_turn_log, fnb_guest_notifications tables with RLS
 - **Tenant Business Info & Content Blocks** (Session 2026-02-24):
   - **2 new tables**: `tenant_business_info` (one row per tenant — identity, operations, online presence, advanced metadata), `tenant_content_blocks` (keyed content blocks: about, services_events, promotions, team)
   - **Schema**: `packages/db/src/schema/business-info.ts`, Migration: `0193_tenant_business_info.sql`
@@ -1003,11 +1014,126 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **ReservationTimeline**: Tailwind-ified from inline styles, compact card layout, metadata chips, green primary "Check In" button
   - **CoverBalance/RotationQueue**: minor refinements, "Advance" button with SkipForward icon, blue accent for "next" server
   - **Host layout**: 42/58 split (was 50/50), reduced padding, `overflow-hidden` root
+- **Host Module V2** (Sessions HOST-01 through HOST-08):
+  - **Schema**: 4 tables (fnb_reservations enhanced, fnb_waitlist_entries enhanced, fnb_table_turn_log, fnb_guest_notifications) in packages/db/src/schema/fnb.ts
+  - **Validation**: validation-host.ts with reservation state machine, Zod schemas
+  - **15 commands**: createReservation, updateReservation, confirmReservation, checkInReservation, seatReservation, completeReservation, cancelReservation, markNoShow, addToWaitlist, updateWaitlistEntry, notifyWaitlistParty, seatFromWaitlist, removeFromWaitlist, recordTableTurn, sendGuestNotification
+  - **12 queries**: listReservations, getReservation, getUpcomingReservations, listWaitlist, getWaitlistEntry, getWaitlistStats, getHostDashboardMetrics, getTableTurnStats, getPreShiftReport, getHostAnalytics, estimateWaitTime, suggestTables
+  - **Services**: wait-time-estimator.ts (weighted algorithm), table-assigner.ts (4-factor scoring), notification-service.ts (Twilio + Console providers), notification-templates.ts, host-settings.ts
+  - **~29 API routes** under /api/v1/fnb/host/
+  - **3 public routes** under /api/v1/fnb/host/guest/ (waitlist status, join, update)
+  - **Events**: 9 event types (reservation CRUD, waitlist lifecycle, table turns)
+  - **2 consumers**: tab.closed → table status, table.turn_completed → turn log
+  - **Frontend**: HostStandLayout (380px/1fr grid), HostTopBar (live clock, meal period pills, stats), HostLeftPanel (waitlist/reservation/pre-shift tabs), WaitlistCardList/Card, ReservationCardList/Card, PreShiftPanel, HostFloorMap (Konva viewer + status overlay), HostGridView, TablePopover, AddWalkInModal, NewReservationModal, DragSeatingController, TableContextMenu, RoomTabBar, FloorMapLegend, SeatConfirmDialog, HostAnalyticsDashboard (5 KPIs + 5 charts), PreShiftReportFull, NotificationCenter, NotificationComposer, GuestWaitlistPage, GuestWaitlistJoinPage, QrCodeDisplay, HostSettingsPanel
+  - **Hooks**: useHostReservations, useHostWaitlist, useHostDashboard, useHostPreShift, useTableStatus (5s poll), useWaitTimeEstimate, useTableSuggestions, useReservationActions, useWaitlistActions, useNotificationActions, useHostAnalytics, usePreShiftReportFull
+  - **Permissions**: fnb.host.view, fnb.host.manage, fnb.host.notifications, fnb.host.analytics
+  - **Settings**: 25+ configurable options (reservations, waitlist, notifications, estimation, guest self-service, display) via host-settings.ts Zod schema with deep merge
+  - **136 tests** across host-stand.test.ts (93 tests: API contracts, KPI computations, chart data, pre-shift reports, date range, moving average) and host-integration.test.ts (43 tests: reservation lifecycle, waitlist lifecycle, no-show handling, cancellation, estimation, edge cases, settings schema, notifications, table transitions, position queue)
 - **AI Tools Hub Page** (Session 2026-02-25):
   - `/insights/ai-tools` — unified 7-tab hub lazy-loading content from sibling insight sub-pages via `next/dynamic` with `embedded` prop
+- **Production Resilience & Performance** (Sessions 2026-02-25–26):
+  - **Multi-session auth fix**: `signOut()` was calling `admin.signOut(userId, 'global')` which revoked ALL user sessions across all devices. Fixed to use JWT with `'local'` scope — only current session revoked. Added cross-tab refresh token coordination (Supabase rotates tokens, racing tabs share winner's tokens via localStorage).
+  - **Circuit breaker on `apiFetch`**: after 15 failures in 30s, short-circuits for 5s with `SERVICE_UNAVAILABLE` instead of hammering backend with retry storms. Sliding window replaces fixed-count threshold.
+  - **DB pool tuning**: default `max: 3→2` per Vercel instance (halves total connections), added `connect_timeout: 10s` to prevent 30s hangs on pool exhaustion, `idle_timeout: 20s`, `max_lifetime: 300s`.
+  - **Auth adapter combined query**: membership + tenant lookup merged into single JOIN query (saves 1 DB round-trip per validateToken). Auth user cache: 200→2000 entries, TTL 60s→120s.
+  - **Cache scaling**: permission cache 1K→5K entries, location cache 500→2K entries, entitlement cache 500→2K entries, semantic query cache 200→500 entries. All caches use proper LRU eviction with batch cleanup.
+  - **Unbounded Map fixes (memory leak prevention)**: ERP workflow cache (1K max + LRU + 30s cleanup timer), semantic rate limiter (2K max + LRU + 60s cleanup), auth rate limiter (O(1) Map-order eviction).
+  - **Event bus resilience**: 30s handler timeout + concurrency limit (10) to prevent DB pool exhaustion. `Promise.allSettled` for deferred consumers (one failure won't crash all).
+  - **POS payment race condition fixes**: eliminated triple race in cash payment flow — PaymentPanel was firing place-and-pay with `amountGiven=0` on mount creating ghost 0-cent tenders. `recordTenderSchema.amountGiven` min changed from 0 to 1. Removed preemptive placeOrder from handlePayClick and PaymentPanel mount — place-and-pay handles open orders atomically. Moved event enrichment queries out of FOR UPDATE transaction.
+  - **Cold start parallelization**: `instrumentation.ts` uses `Promise.all` for 10 critical-path module imports (was sequential await). Non-critical consumers (golf, PMS, F&B reporting, advanced GL) deferred to background.
+  - **Lightweight health endpoint**: `GET /api/health/light` returns immediately without DB check (for load balancers/uptime monitors).
+  - **Frontend permission caching**: `usePermissions` (30s module-level cache), `useEntitlements` (60s cache). Uses `usePermissionsContext()` from `PermissionsProvider` instead of independent calls.
+  - **Settings page lazy-loading**: RolesTab, ModulesTab, DashboardSettingsTab, AuditLogTab, UserManagementTab all lazy-loaded via `next/dynamic`. `/settings` redirect changed from client-side to server-side `redirect()`.
+  - **Covering indexes** (migration 0205): `idx_memberships_user_status_created INCLUDE(tenant_id)`, `idx_entitlements_tenant_module INCLUDE(access_mode, expires_at)`, `idx_role_permissions_role_permission INCLUDE(permission)`, `idx_locations_tenant_active INCLUDE(is_active)`, `idx_erp_workflow_configs_tenant`.
+  - **Vercel Pro cron**: upgraded from daily to every 15 minutes.
+  - **CI timeout**: increased from 10 to 20 minutes for full pipeline.
+- **Usage Analytics & Action Items Engine** (Session 2026-02-25):
+  - **Schema**: 3 new tables (`rm_usage_events`, `rm_usage_daily`, `rm_usage_module_daily`) in `packages/db/src/schema/usage-tracking.ts`. Migration 0203.
+  - **Usage tracker**: `packages/core/src/usage/tracker.ts` — batched event recording with `db.transaction()` (fixed connection poisoning from manual BEGIN/COMMIT), table-existence check (skips flush if migration 0203 not run), buffer discard when tables missing.
+  - **Workflow registry**: `packages/core/src/usage/workflow-registry.ts` — tracks module usage patterns across tenants.
+  - **Action items engine**: `packages/core/src/usage/action-item-engine.ts` — generates prioritized action items from usage data (module adoption, stale configs, error trends).
+  - **4 platform queries**: `getPlatformDashboard`, `getModuleAnalytics`, `getTenantUsage`, `getActionItems` in `packages/core/src/usage/queries/`.
+  - **Admin analytics dashboard**: `/analytics` page with module usage tracking, action items, export. Sub-pages: `/analytics/actions`, `/analytics/modules/[moduleKey]`.
+  - **6 admin API routes**: dashboard, modules list, module detail, tenant usage, action items (list + generate), export.
+  - **Hook**: `useAnalytics()` in `apps/admin/src/hooks/use-analytics.ts`.
+  - **Middleware integration**: `withMiddleware` records usage events per API call (fire-and-forget).
+- **API Route Consolidation** (Session 2026-02-25):
+  - **43 sibling action routes consolidated into 14 dynamic `[action]` handlers** — reduces API route file count by 29 (43 deleted, 14 created) for faster cold-start parse time. All URLs preserved, no frontend changes needed.
+  - **Modules consolidated**: Accounting (GL accounts, journals, bank-rec, deposits, settlements: 15→5), F&B (close-batch, tabs, kitchen tickets, tables, payment sessions, preauth: 18→6), Customers (financial accounts, stored value: 7→2), PMS (reservation lifecycle with per-action permission checks: 5→1).
+  - **Pattern**: `[id]/[action]/route.ts` dispatches based on `action` URL param via switch statement. Each action branch has its own permission check.
+- **PMS Housekeeping Staff Management** (Session 2026-02-25):
+  - **3 API routes**: `POST /api/v1/pms/housekeepers/create-with-user` (create user + housekeeper in one call), `POST /api/v1/pms/housekeepers/from-user` (link existing user), `GET /api/v1/pms/housekeepers/available-users` (users not yet linked).
+  - **Frontend**: housekeeping staff content page (`/pms/housekeeping-staff`), `CreateHousekeeperUserDialog`, `LinkUserDialog`.
+  - **Migration 0202**: `housekeeper_management.sql` — adds user_id FK, availability/phone/skills columns to housekeepers.
+  - **PMS front desk**: `GET /api/v1/pms/front-desk` route with React Query hooks (`useProperties`, `useFrontDesk`, `usePmsMutations`), error state display.
+- **SuperAdmin Phase 1B** (Session 2026-02-25):
+  - **Migration 0199**: `superadmin_phase1b.sql` — feature flags tables (`feature_flag_definitions`, `tenant_feature_flags`), admin search/timeline extensions.
+  - **Feature flags schema**: `packages/db/src/schema/feature-flags.ts` — `featureFlagDefinitions` (system-wide flag registry) + `tenantFeatureFlags` (per-tenant overrides with value JSONB).
+  - **Feature flags admin UI**: `FeatureFlagsPanel` component, `useFeatureFlags()` hook, API routes (`GET/POST /api/v1/feature-flags/definitions`, `GET/PATCH /api/v1/tenants/[id]/feature-flags/[flagKey]`).
+  - **Module matrix**: `GET /api/v1/modules/matrix` — cross-tenant module adoption grid, `/modules` admin page.
+  - **Admin user management API**: `GET/PATCH /api/v1/admin/users/[id]`, `POST /api/v1/admin/users/[id]/actions` (lock/unlock/reset), `GET /api/v1/admin/users` (search).
+  - **Dead letter batch operations**: `POST /api/v1/events/batch` (retry/discard selected), `GET /api/v1/events/[id]/retry-history`.
+  - **Admin phase 1A test suite**: 405 tests in `apps/admin/src/__tests__/phase1a.test.ts`.
+- **Editable OPPS ERA LENS Narrative** (Session 2026-02-25):
+  - **Schema**: `semantic_narrative_config` table (migration 0197) — stores customizable narrative prompt template with `{{PLACEHOLDER}}` tokens.
+  - **Admin UI**: `/train-ai/narrative` page — view/edit THE OPPS ERA LENS system prompt, preview rendered template, reset to default.
+  - **Backend**: `packages/modules/semantic/src/config/narrative-config.ts` — DB-backed template with 5-min in-memory cache. `getNarrativeTemplate()` / `updateNarrativeTemplate()`.
+  - **API**: `GET/PUT /api/v1/eval/narrative` — read and update narrative template.
+- **User Password Management** (Session 2026-02-25):
+  - `updateUser()` now accepts optional `password` field — updates Supabase Auth + app DB atomically.
+  - API: `PATCH /api/v1/users/[id]` accepts `password` (min 8, max 128 chars).
+  - Frontend: collapsible "Set new password" section in Edit User modal (Settings → General → Users) with confirm + validation.
+  - Admin: `EditTenantDialog` component for tenant detail editing.
+- **Impersonation Phase 1A** (Session 2026-02-25):
+  - **Migration 0198**: `impersonation_phase1a.sql` — impersonation session tracking tables.
+  - **Safety module**: `packages/core/src/auth/impersonation-safety.ts` — 6 assertion guards wired to sensitive API routes (void, return, refund, role assign/revoke, user invite/update, accounting settings).
+  - **Admin UI**: `ImpersonateDialog`, `ImpersonationHistoryTab` components. Impersonation history with action counts, session expiry tracking.
+  - **API routes**: `POST /api/v1/impersonation/active`, `POST /api/v1/impersonation/expire`, `GET /api/v1/impersonation/history`.
+- **Performance Indexes** (Migration 0201):
+  - 140 lines of covering indexes for auth, permissions, orders, tenders, inventory movements, and reporting read models.
+- **Accessibility Infrastructure** (Session 2026-02-26):
+  - **3 A11y utility hooks**: `useDialogA11y(ref, isOpen)` (dialog roles, aria attributes, body hiding), `useFocusTrap(ref, isActive)` (Tab wrapping, nested trap stack, restore focus), `announce(message, priority)` (aria-live region for screen readers).
+  - **ESLint jsx-a11y plugin**: 15 error rules (WCAG 2.1 AA) + 13 warning rules added to `eslint.config.mjs`.
+  - **Files**: `apps/web/src/lib/dialog-a11y.ts`, `focus-trap.ts`, `live-region.ts`.
+- **Settings Role Management Enhancements** (Session 2026-02-26):
+  - **`permission-groups.ts`**: 75+ permissions organized by module/category with hierarchical sub-groups. Helpers: `getAllGroupPerms()`, `getPermLabel()`, `getPermMeta()`.
+  - **`RoleComparisonView`**: side-by-side role permission matrix with "Differences Only" toggle.
+  - **`RoleEditorPanel`**: portal-based role editor with permission picker, coverage bar, search, select all/clear per group. System role protection.
+- **PMS Calendar Enhancements** (Session 2026-02-26):
+  - **`CondensedView`**: month-level occupancy heatmap — room-type rows, date columns, occupancy % color gradient.
+  - **`DateJumpPicker`**: quick-jump date navigation with preset ranges.
+  - **`useCalendarScroll`**: edge-triggered auto-scroll navigation (mouse within 60px of edge triggers smooth scroll).
+  - **PMS utilization grid**: `/pms/utilization` page with `getUtilizationGrid` and `getUtilizationGridByRoom` queries.
+- **UI Component Improvements** (Session 2026-02-26):
+  - **Select component**: replaced browser-native `<select>` with custom portal-based dropdown supporting search, multi-select tags, `useId()` for accessible `aria-controls`, `role="combobox"` + `aria-haspopup="listbox"`, `aria-expanded`, dark mode opacity-based colors.
+  - **Form fields, data tables, search inputs, toast, action menu, confirm dialog**: dark mode opacity-based color updates.
+  - **All dialogs and modals**: consistent dark mode styling using `bg-surface` and opacity-based colors.
+  - **Dashboard layout a11y**: `aria-hidden="true"` on decorative icons, `aria-label="Main navigation"` on nav, `aria-expanded`/`aria-controls` on collapsible sections.
+  - **Global CSS a11y**: `.skip-link` class for keyboard users, `:focus-visible` ring with semantic tokens, `@media (prefers-reduced-motion: reduce)` to disable animations.
+- **Batch Line Item API** (Session 2026-02-26):
+  - **`POST /api/v1/orders/[id]/lines/batch`**: accepts `{ items: [...] }` array, adds multiple line items in a single transaction. Used by POS rapid-tap optimization.
+  - **`addLineItemsBatch` command**: `packages/modules/orders/src/commands/add-line-items-batch.ts` — validates all items, resolves catalog data, adds to order atomically.
+  - **POS `addItem()` is now synchronous** — returns `void`, optimistic temp lines appear instantly, items batch into a queue (50ms debounce, max 20 items) and flush via the batch API.
+  - **Batch flush on placeOrder**: pending batch is explicitly flushed before placing to prevent queued items from being lost.
+  - **Rollback**: batch failures roll back ALL temp lines from that batch atomically (tracked by batch ID, not prefix).
+- **Public Guest Waitlist** (Session 2026-02-26):
+  - **Guest join page**: `/(guest)/waitlist/join/` — unauthenticated form (name, phone, party size 1-8, seating preference).
+  - **Guest status page**: `/(guest)/waitlist/[token]/` — real-time position tracking via 8-char base64url token.
+  - **API**: `POST /api/v1/guest/waitlist/join` — rate-limited to 10 requests per 15 minutes per IP.
+  - **No authentication required** — guest provides name + phone only. Rate limiting is the only guard.
+- **Member Portal Dark Mode** (Session 2026-02-26):
+  - Member portal is now **dark-mode only** — light theme removed entirely.
+  - Uses GitHub-inspired dark palette with Tailwind v4 `@theme` block mapping CSS custom properties to Tailwind utilities.
+  - Semantic tokens: `--color-surface`, `--color-primary`, `--color-border` etc. enable `bg-surface`, `text-primary` utilities.
+- **Host Module V2 Services** (Session 2026-02-26):
+  - **Wait-time estimator** (`packages/modules/fnb/src/services/wait-time-estimator.ts`): pure algorithm — pre-fetch data, then call `computeWaitTime()`. Uses 28-day rolling window of turn times, party-size bucketing (small ≤2, medium ≤4, large ≤6, xlarge >6), confidence levels (high ≥50pts, medium ≥20, low ≥10, default <10). Rounds to nearest 5 min, clamped 5-120.
+  - **Table assigner** (`packages/modules/fnb/src/services/table-assigner.ts`): pure scoring algorithm — `scoreTable()` with weighted factors: capacity fit (40%), seating preference (25%), server balance (20%), VIP history (15%). Combination penalty 0.85x. Returns top 3 suggestions.
+  - **Notification service** (`packages/modules/fnb/src/services/notification-service.ts`): SMS provider abstraction with `SmsProvider` interface. `ConsoleSmsProvider` for dev (logs to console), `TwilioSmsProvider` for production (HTTP POST with Basic auth). Singleton via `getSmsProvider()` auto-detects from env vars.
+  - **Notification templates** (`packages/modules/fnb/src/services/notification-templates.ts`): 5 template types (`table_ready`, `reservation_confirmation`, `reservation_reminder`, `reservation_cancelled`, `waitlist_joined`) with `{variableName}` placeholder interpolation.
+  - **Host settings** (`packages/modules/fnb/src/services/host-settings.ts`): 25+ configurable options across 5 sections (reservations, waitlist, notifications, estimation, guest self-service). JSONB blob with Zod schema + deep merge.
 
 ### Test Coverage
-3355+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 621 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
+3896+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 757 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive + 93 host-stand + 43 host-integration) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 405 admin-phase1a + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -1313,7 +1439,21 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~Year seed script (366 days of realistic transactions)~~ ✓ DONE
 - ~~Portal auth scripts (seed-portal-auth, add-portal-member)~~ ✓ DONE
 - ~~Bug fixes: modifiers category filter, inventory display, F&B export, catalog import, PMS projector~~ ✓ DONE
-- Run migrations 0134-0193 on dev DB
+- ~~Production resilience (circuit breaker, DB pool tuning, auth caching, event bus resilience)~~ ✓ DONE
+- ~~Usage analytics & action items engine~~ ✓ DONE
+- ~~API route consolidation (43→14 dynamic [action] handlers)~~ ✓ DONE
+- ~~PMS housekeeping staff management~~ ✓ DONE
+- ~~SuperAdmin Phase 1B (feature flags, module matrix, admin users)~~ ✓ DONE
+- ~~Editable OPPS ERA LENS narrative template~~ ✓ DONE
+- ~~User password management (change password API + frontend)~~ ✓ DONE
+- ~~Impersonation Phase 1A (dual-table schema + guards)~~ ✓ DONE
+- ~~Performance indexes (auth hot path, GL transaction type mappings)~~ ✓ DONE
+- ~~Accessibility infrastructure (dialog-a11y, focus-trap, live-region, ESLint jsx-a11y)~~ ✓ IN PROGRESS (uncommitted)
+- ~~Settings role management enhancements (permission-groups config, role-comparison, role-editor)~~ ✓ IN PROGRESS (uncommitted)
+- ~~PMS calendar enhancements (condensed view, date jump, scroll hook)~~ ✓ IN PROGRESS (uncommitted)
+- ~~Host Module V2 (15 commands, 12 queries, 5 services, 29 frontend components, 136 tests)~~ ✓ IN PROGRESS (uncommitted)
+- ~~PMS utilization grid (room-type + date-range occupancy)~~ ✓ IN PROGRESS (uncommitted)
+- Run migrations 0134-0206 on dev DB
 - Run `tools/scripts/seed-admin-roles.ts` after migration 0097
 - Run `tools/scripts/backfill-accounting-accounts.ts` after migration 0100 (creates Tips Payable + Service Charge Revenue for existing tenants)
 - Toggle `enableLegacyGlPosting = false` per tenant after validating GL reconciliation
@@ -1325,9 +1465,13 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - Entitlement bulk mode change (batch enable/disable with dependency resolution)
 - Semantic SQL mode testing: regression suite for common SQL patterns
 - Payment gateway: additional providers (Square, Worldpay), Apple Pay merchant validation, recurring billing
-- ERP cron: upgrade to Vercel Pro for 15-minute cron intervals (required for auto-close windows)
+- ~~ERP cron: upgrade to Vercel Pro for 15-minute cron intervals (required for auto-close windows)~~ ✓ DONE (Vercel Pro configured)
 - SuperAdmin portal: implement all 14 session specs (build frontend + backend per session notes)
 - Modifier reporting: frontend analytics dashboards (daypart heatmaps, upsell impact, waste signals)
+- Run migrations 0197-0206 on dev DB
+- PMS utilization frontend polish (grid interactions, date range picker)
+- Accessibility audit pass (remaining components)
+- Run F&B schema migration 0206 (host_module_v2) on dev DB
 
 ## Critical Gotchas (Quick Reference)
 
@@ -1369,7 +1513,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 36. **Query mappings must include ALL frontend-needed fields** — When mapping DB rows in `getXxx()` queries, never omit nullable columns. Omitted fields are `undefined` in JS, and `undefined !== null` is `true` (strict equality), causing rendering bugs (e.g., `formatMoney(undefined)` = `$NaN`). Always map with `?? null`.
 37. **Percentage values: store as raw percentage, not basis points** — For discounts and service charges, store the percentage as-is (10 for 10%). Don't multiply by 100. Keeps storage consistent between charges and discounts, and simplifies display. For fixed dollar amounts, store as cents.
 38. **Service charges apply AFTER discounts** — Percentage service charges use `(subtotal - discountTotal)` as base, not raw `subtotal`. Order of operations: discount first, then service charge on the discounted amount.
-39. **Dark mode uses inverted gray scale** — In `globals.css`, dark mode swaps grays: `gray-900` = near-white, `gray-50` = dark. Never use `bg-gray-900 text-white` (invisible in dark mode). Use `bg-indigo-600 text-white` for primary buttons, `border-red-500/40 text-red-500 hover:bg-red-500/10` for destructive — opacity-based colors work in both modes. Use `bg-surface` for theme-aware backgrounds.
+39. **Dark mode enforcement (CRITICAL)** — Dark mode is the DEFAULT. The gray scale IS inverted (`gray-900` = near-white, `gray-50` = dark). Non-gray colors (red, green, blue, amber, indigo) are NOT inverted. BANNED: `bg-white` (use `bg-surface`), `bg-{color}-50/100` (use `bg-{color}-500/10`), `text-{color}-800/900` (use `text-{color}-500`), `border-gray-200/300` (use `border-border`), `hover:bg-gray-50` (use `hover:bg-accent`), `dark:` prefixes (not supported), `text-gray-900` (use `text-foreground`), `text-gray-400/500` (use `text-muted-foreground`), `placeholder-gray-*` (use `placeholder:text-muted-foreground`). Correct patterns: status badges = `bg-{color}-500/10 text-{color}-500 border-{color}-500/30`, cards/dialogs = `bg-surface border-border`, inputs = `bg-surface border-input text-foreground`. Exceptions: `text-white` on colored buttons, `bg-white` on toggle knobs, colors inside SVGs/Konva. See CONVENTIONS.md "Dark Mode" section for full conversion table.
 40. **Never add cross-module dependencies in package.json** — modules in `packages/modules/` must ONLY depend on `@oppsera/shared`, `@oppsera/db`, and `@oppsera/core`. Never add `module-orders`, `module-catalog`, etc. as a dependency of another module. Use events or internal read APIs instead.
 41. **Never import another module's internal helpers** — if multiple modules need `checkIdempotency`, `fetchOrderForMutation`, etc., move them to `@oppsera/core`. Never import from `@oppsera/module-X/helpers/*` in `@oppsera/module-Y`.
 42. **Never query another module's tables in event consumers** — event consumers receive all needed data in the event payload. Don't reach into other modules' tables. If more data is needed, enrich the event payload or use an internal read API.
@@ -1736,6 +1880,40 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 394. **AI Tools hub uses tabbed lazy-loading** — `/insights/ai-tools` page renders 7 tabs (Watchlist, Analysis Tools, Scheduled Reports, Lenses, Embeds, Authoring, History) where each tab content is loaded via `next/dynamic` from sibling insight sub-pages. Passes `embedded` prop to suppress standalone page chrome.
 395. **Admin global user search** — `/users/global` page provides cross-tenant user search with text/status/lock filters, slide-over detail panel (500px), and action buttons (Lock/Unlock, Force PW Reset, Reset MFA, Revoke Sessions) with confirmation dialogs. Uses `useAdminUserSearch`, `useAdminUserDetail`, `useAdminUserActions` hooks.
 396. **Admin tenant API keys tab** — `ApiKeysTab` component displays tenant API keys with masked prefixes, status badges (active/expired/revoked), and per-key revoke buttons. Uses `useApiKeys(tenantId)` hook.
+397. **`signOut()` must use `'local'` scope, never `'global'`** — calling `supabase.auth.admin.signOut(userId, 'global')` revokes ALL sessions for that user across all devices. If one device logs out, every other device gets cascading 401s. Always use `supabase.auth.signOut()` (which defaults to local scope) or pass `'local'` explicitly.
+398. **Cross-tab refresh token coordination** — Supabase rotates refresh tokens on use. If two tabs race to refresh, only the first wins and the old token is invalidated. The losing tab must detect that localStorage was already updated by the winner and use the fresh tokens instead of retrying with the now-invalid old token.
+399. **Circuit breaker on `apiFetch` prevents retry storms** — after 15 failures in 30s sliding window, `apiFetch` short-circuits for 5s returning `SERVICE_UNAVAILABLE`. `fetchMe()` respects the circuit breaker. Never lower the threshold below 10 — a single dashboard page fires 5-10+ concurrent API calls, so transient hiccups can trip it.
+400. **`recordTenderSchema.amountGiven` minimum is 1, not 0** — a 0-cent tender is never valid. The min was changed from 0 to 1 after PaymentPanel created ghost 0-cent tenders with GL entries. `placeAndRecordTender` also has a defense-in-depth guard for `amountGiven <= 0`.
+401. **Never fire preemptive place-and-pay on PaymentPanel mount** — this creates race conditions with the user's actual payment click. The place-and-pay fast path handles open orders atomically. Let the user's click trigger the single API call.
+402. **Move event enrichment queries outside FOR UPDATE transactions** — category names, modifier groups, and other read-only enrichment data should be fetched BEFORE or AFTER the transaction, not while holding the row lock. No consumer uses enrichment data that must be consistent with the lock.
+403. **`instrumentation.ts` must use `Promise.all` for critical imports** — sequential `await import()` calls serialize cold start. Group independent module imports into `Promise.all`. Defer non-critical consumers (golf, PMS, F&B reporting) to background after critical path completes.
+404. **`GET /api/health/light` returns without DB check** — use for load balancers and uptime monitors. Saves a pool connection per ping. `GET /api/health` still does the full DB health check.
+405. **Frontend permission hooks must share a single fetch** — `usePermissionsContext()` reads from `PermissionsProvider` in the dashboard layout. Never create independent `usePermissions()` calls (each fires its own API request). Same pattern for `useEntitlements()` with 60s module-level cache.
+406. **Settings page tabs must be lazy-loaded** — `RolesTab`, `ModulesTab`, `DashboardSettingsTab`, `AuditLogTab`, and `UserManagementTab` use `next/dynamic` in `settings-content.tsx`. Without this, the 1,355-line bundle loads on initial settings page visit.
+407. **`/settings` redirect is server-side** — `apps/web/src/app/(dashboard)/settings/page.tsx` uses Next.js `redirect('/settings/general')`, not client-side `router.replace()`. Zero JS overhead.
+408. **Consolidated action routes use `[action]` dynamic segment** — 43 individual action routes (e.g., `/accounts/[id]/deactivate`, `/accounts/[id]/merge`) collapsed into 14 dynamic `[id]/[action]/route.ts` handlers with switch dispatch. All URLs preserved. Each action branch has its own permission check. Pattern: `const action = params.action;` then `switch (action) { case 'deactivate': ... }`.
+409. **Usage tracker must use `db.transaction()`, never manual `BEGIN/COMMIT`** — manual `BEGIN`/`COMMIT` via separate `db.execute()` calls route each statement to a different pooled connection, leaving connections stuck in open/aborted transactions. With `max: 2` pool, this cascades to total DB failure. Always use `db.transaction(async (tx) => { ... })`.
+410. **Usage tracker checks table existence before flushing** — if migration 0203 hasn't been run, the tracker discards its buffer and stops the timer instead of growing the buffer forever.
+411. **Feature flags use dual-table pattern** — `feature_flag_definitions` (system-wide registry, `tenant_id IS NULL`) + `tenant_feature_flags` (per-tenant overrides with value JSONB). Definitions are seeded by admins, not by migration.
+412. **Narrative template uses `{{PLACEHOLDER}}` tokens** — `semantic_narrative_config` stores customizable prompts. `getNarrativeTemplate()` resolves placeholders at runtime. 5-min in-memory cache. Reset to default by DELETE + re-seed.
+413. **A11y dialog hooks must be used on all portal-based dialogs** — `useDialogA11y(ref, isOpen)` sets `role="dialog"`, `aria-modal="true"`, activates focus trap, and hides body children. `useFocusTrap` supports nested traps via stack. `announce()` sends screen-reader notifications via `aria-live` region.
+414. **ESLint jsx-a11y rules are tiered** — 15 error rules (hard failures: `aria-props`, `alt-text`, `heading-has-content`, `tabindex-no-positive`, etc.) + 13 warning rules (soft: `click-events-have-key-events`, `label-has-associated-control`, `no-autofocus`). `anchor-is-valid` is off (conflicts with Next.js `<Link>`).
+415. **Permission groups must be updated when adding permissions** — `apps/web/src/components/settings/permission-groups.ts` defines the `PERMISSION_GROUPS` array that controls the role manager UI. Uses hierarchical sub-groups for large modules. New permissions not in this file won't appear in the role editor. Uses `getAllGroupPerms()`, `getPermLabel()`, `getPermMeta()` helpers.
+416. **POS `addItem()` is synchronous, not async** — `usePOS.addItem()` returns `void` (not a Promise). It creates an optimistic temp line (`id='temp-...'`) immediately for instant UI feedback, then queues the item for batch flush. Never `await addItem()` — it blocks nothing.
+417. **POS uses 50ms debounce batch for line items** — rapid `addItem()` calls accumulate in `batchQueue.current[]`. After 50ms of inactivity OR when the queue hits 20 items (`BATCH_MAX_SIZE`), `flushBatch()` fires a single `POST /api/v1/orders/{orderId}/lines/batch` request. Temp line IDs are replaced with server-returned IDs on response. Constants: `BATCH_DEBOUNCE_MS = 50`, `BATCH_MAX_SIZE = 20`.
+418. **Batch line item API request shape** — `POST /api/v1/orders/[id]/lines/batch` accepts `{ items: [{ catalogItemId, qty, modifiers, specialInstructions, selectedOptions, priceOverride, notes, clientRequestId }] }` and returns `{ data: { order, lines } }`. Max 20 items per batch.
+419. **Member portal is dark-mode only** — `apps/member-portal/src/app/globals.css` sets `color-scheme: dark` on `:root`. There is no light mode. The portal uses a Tailwind v4 `@theme` block (lines 6-23) to map color tokens to CSS custom properties (`--color-surface`, `--color-background`, `--color-accent-foreground`, etc.).
+420. **Host V2 wait-time estimator is a pure function** — `computeWaitTime()` in `packages/modules/fnb/src/services/wait-time-estimator.ts` takes pre-fetched data (turn times, occupancy, upcoming reservations, party size) and returns `{ estimatedMinutes, confidence, factors }`. No DB access. If `netAvailable > 0`, returns 0 (table available now). Otherwise: `avgTurnTime * (turnsNeeded / divisor)`, rounded to nearest 5 minutes, clamped 5–120 range.
+421. **Host V2 wait-time confidence thresholds** — `getConfidence(dataPointCount)`: `>=50` data points = high, `>=20` = medium, `>=10` = low, `<10` = default (uses system-wide averages). Confidence is exposed in the API response so the host can judge estimate reliability.
+422. **Host V2 table assigner uses 4-factor weighted scoring** — `scoreTable()` in `packages/modules/fnb/src/services/table-assigner.ts` computes: capacity fit (0.40 weight), seating preference match (0.25), server load balance (0.20), VIP preference (0.15). Each component returns 0–1.0. Returns top 3 suggestions sorted by score descending.
+423. **Host V2 table combination penalty is 0.85x** — when two adjacent combinable tables are paired to seat a large party, the combined score is multiplied by `COMBINATION_PENALTY = 0.85`. This makes single-table seating preferred over combinations when capacity allows.
+424. **Guest tokens are 8-char base64url** — `host-helpers.ts` generates tokens via `randomBytes(6).toString('base64url').slice(0, 8)`. 48 bits of entropy (6 random bytes), alphanumeric + `-_` character set. Used for guest waitlist tracking and notification URLs.
+425. **Logout deduplication uses module-level promise** — `let _logoutPromise: Promise<void> | null = null` in `use-auth.ts`. If a logout is already in progress, subsequent calls `await _logoutPromise` instead of starting a new one. Prevents race conditions where concurrent logouts clear tokens set by an intervening login. Always reset to `null` in `finally`.
+426. **SMS provider uses singleton with test override** — `getSmsProvider()` returns `TwilioSmsProvider` if both `TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` env vars exist, otherwise `ConsoleSmsProvider` (logs to console). `setSmsProvider(provider)` allows test injection. Twilio provider uses HTTP POST with Basic Auth.
+427. **Select component has full ARIA combobox pattern** — `apps/web/src/components/ui/select.tsx` uses `role="combobox"` with `aria-expanded`, `aria-haspopup="listbox"`, `aria-controls={listboxId}` (via `useId()`). Dropdown uses `role="listbox"`, options use `role="option"` with `aria-selected`. Tag remove buttons have `role="button"` + `tabIndex={0}` + `aria-label`. All decorative icons use `aria-hidden="true"`.
+428. **Global CSS skip-link pattern** — `globals.css` defines `.skip-link` positioned off-screen (`left: -9999px`), brought into view on `:focus` (`left: 1rem, top: 1rem`, z-index 999). Add `<a href="#main-content" class="skip-link">Skip to content</a>` as first child of `<body>`.
+429. **Global focus-visible ring uses semantic token** — `*:focus-visible` in `globals.css` applies a 2px outline at 2px offset using `--sem-ring` (#2563eb blue). Excludes elements already using Tailwind `focus-visible:ring-*` classes to avoid double-ring styling.
+430. **`prefers-reduced-motion` disables all animations globally** — `globals.css` media query sets `animation-duration: 0.01ms !important`, `transition-duration: 0.01ms !important`, and `scroll-behavior: auto` on all elements and pseudo-elements. Applied unconditionally — never override with `!important` animation styles.
 
 ## Migration Rules (IMPORTANT — Multi-Agent Safety)
 

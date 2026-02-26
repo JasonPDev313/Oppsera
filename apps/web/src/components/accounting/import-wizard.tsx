@@ -104,11 +104,11 @@ const TARGET_FIELD_LABELS: Record<string, string> = {
 };
 
 const ACCOUNT_TYPE_COLORS: Record<string, string> = {
-  asset: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  liability: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-  equity: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  revenue: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  expense: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+  asset: 'bg-blue-500/20 text-blue-500',
+  liability: 'bg-orange-500/20 text-orange-500',
+  equity: 'bg-purple-500/20 text-purple-500',
+  revenue: 'bg-green-500/20 text-green-500',
+  expense: 'bg-red-500/20 text-red-500',
 };
 
 const WIZARD_STEPS = [
@@ -328,10 +328,10 @@ export function ImportWizard({ open, onClose, onSuccess }: ImportWizardProps) {
   // ── Computed ───────────────────────────────────────────────────
 
   const confidenceColor = useMemo(() => {
-    if (!analysis) return 'text-gray-500';
-    if (analysis.overallConfidence >= 90) return 'text-green-600 dark:text-green-400';
-    if (analysis.overallConfidence >= 60) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
+    if (!analysis) return 'text-muted-foreground';
+    if (analysis.overallConfidence >= 90) return 'text-green-500';
+    if (analysis.overallConfidence >= 60) return 'text-yellow-500';
+    return 'text-red-500';
   }, [analysis]);
 
   const importableCount = useMemo(() => {
@@ -352,13 +352,13 @@ export function ImportWizard({ open, onClose, onSuccess }: ImportWizardProps) {
       {/* Dialog */}
       <div className="relative bg-surface rounded-lg shadow-xl w-[95vw] max-w-5xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <h2 className="text-lg font-semibold text-foreground">
               Import Chart of Accounts
             </h2>
             {analysis && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-sm text-muted-foreground mt-0.5">
                 {fileName} — {analysis.fileInfo.totalRows} accounts
                 <span className={`ml-2 font-medium ${confidenceColor}`}>
                   {analysis.overallConfidence}% confidence
@@ -366,26 +366,26 @@ export function ImportWizard({ open, onClose, onSuccess }: ImportWizardProps) {
               </p>
             )}
           </div>
-          <button onClick={handleClose} className="p-1 rounded hover:bg-gray-200/50 dark:hover:bg-gray-700/50">
-            <X className="w-5 h-5" />
+          <button onClick={handleClose} className="p-1 rounded hover:bg-accent" aria-label="Close">
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center px-6 py-3 border-b border-gray-200 dark:border-gray-700 gap-1 overflow-x-auto">
+        <div className="flex items-center px-6 py-3 border-b border-border gap-1 overflow-x-auto">
           {WIZARD_STEPS.map((s, i) => {
             const isActive = s.key === step;
             const isPast = i < stepIndex;
             const Icon = s.icon;
             return (
               <div key={s.key} className="flex items-center gap-1 shrink-0">
-                {i > 0 && <div className={`w-6 h-px ${isPast ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`} />}
+                {i > 0 && <div className={`w-6 h-px ${isPast ? 'bg-indigo-500' : 'bg-border'}`} />}
                 <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
                   isActive
-                    ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                    ? 'bg-indigo-500/10 text-indigo-400'
                     : isPast
-                    ? 'text-indigo-600 dark:text-indigo-400'
-                    : 'text-gray-400 dark:text-gray-500'
+                    ? 'text-indigo-500'
+                    : 'text-muted-foreground'
                 }`}>
                   <Icon className="w-3.5 h-3.5" />
                   {s.label}
@@ -456,8 +456,8 @@ export function ImportWizard({ open, onClose, onSuccess }: ImportWizardProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border">
+          <div className="text-sm text-muted-foreground">
             {step === 'validation' && analysis && (
               <span>{importableCount} accounts ready to import</span>
             )}
@@ -467,7 +467,7 @@ export function ImportWizard({ open, onClose, onSuccess }: ImportWizardProps) {
               <button
                 onClick={goBack}
                 disabled={isLoading}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-foreground bg-muted rounded-lg hover:bg-accent disabled:opacity-50"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
@@ -544,25 +544,25 @@ function UploadStep({
         onClick={() => fileInputRef.current?.click()}
         className={`flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
           fileContent
-            ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-900/10'
-            : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+            ? 'border-indigo-500 bg-indigo-500/10'
+            : 'border-input hover:border-indigo-400 hover:bg-accent'
         }`}
       >
         {fileContent ? (
           <>
             <FileText className="w-10 h-10 text-indigo-500 mb-3" />
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{fileName}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-sm font-medium text-foreground">{fileName}</p>
+            <p className="text-xs text-muted-foreground mt-1">
               {(fileContent.length / 1024).toFixed(1)} KB — Click or drop to replace
             </p>
           </>
         ) : (
           <>
-            <Upload className="w-10 h-10 text-gray-400 mb-3" />
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Upload className="w-10 h-10 text-muted-foreground mb-3" />
+            <p className="text-sm font-medium text-foreground">
               Drop your CSV or TSV file here
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               or click to browse — max 10MB, 25,000 rows
             </p>
           </>
@@ -578,17 +578,17 @@ function UploadStep({
 
       {/* State selector */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1">
           State Name (optional)
         </label>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+        <p className="text-xs text-muted-foreground mb-2">
           If your COA uses state-specific account names (e.g., &quot;Michigan Sales Tax&quot;),
           select the state to auto-standardize them with [STATE_NAME] placeholders.
         </p>
         <select
           value={stateName}
           onChange={(e) => onStateName(e.target.value)}
-          className="w-full sm:w-64 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-surface text-gray-900 dark:text-gray-100"
+          className="w-full sm:w-64 px-3 py-2 text-sm border border-input rounded-lg bg-surface text-foreground"
         >
           <option value="">No state substitution</option>
           {US_STATES.map((s) => (
@@ -598,9 +598,9 @@ function UploadStep({
       </div>
 
       {/* Format info */}
-      <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/40">
+      <div className="flex items-start gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/30">
         <Info className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
-        <div className="text-sm text-blue-700 dark:text-blue-300">
+        <div className="text-sm text-blue-500">
           <p className="font-medium mb-1">Supported formats</p>
           <p className="text-xs">
             CSV, TSV. The system will auto-detect column mappings, account types, and hierarchy structure.
@@ -643,28 +643,28 @@ function AnalysisStep({ analysis }: { analysis: AnalysisResult }) {
 
       {/* Column detection summary */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+        <h3 className="text-sm font-semibold text-foreground mb-3">
           Detected Column Mappings
         </h3>
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="border border-border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800">
-                <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">File Column</th>
-                <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Mapped To</th>
-                <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Confidence</th>
-                <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Samples</th>
+              <tr className="bg-muted">
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">File Column</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Mapped To</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Confidence</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground">Samples</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+            <tbody className="divide-y divide-border">
               {analysis.columnMappings.map((m, i) => (
                 <tr key={i} className={m.targetField === 'ignore' ? 'opacity-50' : ''}>
                   <td className="px-3 py-2 font-mono text-xs">{m.sourceColumn}</td>
                   <td className="px-3 py-2">
                     <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
                       m.targetField === 'ignore'
-                        ? 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500'
-                        : 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                        ? 'bg-muted text-muted-foreground'
+                        : 'bg-indigo-500/10 text-indigo-400'
                     }`}>
                       {TARGET_FIELD_LABELS[m.targetField] ?? m.targetField}
                     </span>
@@ -672,7 +672,7 @@ function AnalysisStep({ analysis }: { analysis: AnalysisResult }) {
                   <td className="px-3 py-2">
                     <ConfidenceBar value={m.confidence} />
                   </td>
-                  <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 max-w-[200px] truncate">
+                  <td className="px-3 py-2 text-xs text-muted-foreground max-w-[200px] truncate">
                     {m.sampleValues.slice(0, 3).join(', ')}
                   </td>
                 </tr>
@@ -685,7 +685,7 @@ function AnalysisStep({ analysis }: { analysis: AnalysisResult }) {
       {/* Account type distribution */}
       {analysis.validation.typeDistribution && Object.keys(analysis.validation.typeDistribution).length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+          <h3 className="text-sm font-semibold text-foreground mb-3">
             Account Type Distribution
           </h3>
           <div className="flex flex-wrap gap-2">
@@ -693,7 +693,7 @@ function AnalysisStep({ analysis }: { analysis: AnalysisResult }) {
               <span
                 key={type}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${
-                  ACCOUNT_TYPE_COLORS[type] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+                  ACCOUNT_TYPE_COLORS[type] ?? 'bg-muted text-foreground'
                 }`}
               >
                 {type}
@@ -706,14 +706,14 @@ function AnalysisStep({ analysis }: { analysis: AnalysisResult }) {
 
       {/* Validation preview */}
       {(analysis.validation.errorCount > 0 || analysis.validation.warningCount > 0) && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800/40">
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
           <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
           <div className="text-sm">
-            <p className="font-medium text-yellow-800 dark:text-yellow-200">
+            <p className="font-medium text-yellow-500">
               {analysis.validation.errorCount} error{analysis.validation.errorCount !== 1 ? 's' : ''},{' '}
               {analysis.validation.warningCount} warning{analysis.validation.warningCount !== 1 ? 's' : ''}
             </p>
-            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+            <p className="text-xs text-yellow-500 mt-1">
               Review the Validation step to resolve issues before importing.
             </p>
           </div>
@@ -736,26 +736,26 @@ function MappingStep({
 }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-600 dark:text-gray-400">
+      <p className="text-sm text-muted-foreground">
         Review and adjust column mappings. The system detected these mappings automatically — override any that are incorrect.
       </p>
 
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+      <div className="border border-border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 dark:bg-gray-800">
-              <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400 w-1/4">File Column</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400 w-1/4">Maps To</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400 w-1/6">Confidence</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Reason</th>
+            <tr className="bg-muted">
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-1/4">File Column</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-1/4">Maps To</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-1/6">Confidence</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Reason</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+          <tbody className="divide-y divide-border">
             {analysis.columnMappings.map((m, i) => (
               <tr key={i}>
                 <td className="px-3 py-2">
                   <span className="font-mono text-xs">{m.sourceColumn}</span>
-                  <div className="text-xs text-gray-400 mt-0.5">
+                  <div className="text-xs text-muted-foreground mt-0.5">
                     {m.sampleValues.slice(0, 2).join(', ')}
                   </div>
                 </td>
@@ -763,7 +763,7 @@ function MappingStep({
                   <select
                     value={customMappings[i] ?? m.targetField}
                     onChange={(e) => onCustomMapping(i, e.target.value)}
-                    className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-surface text-gray-900 dark:text-gray-100"
+                    className="w-full px-2 py-1 text-xs border border-input rounded bg-surface text-foreground"
                   >
                     {Object.entries(TARGET_FIELD_LABELS).map(([key, label]) => (
                       <option key={key} value={key}>{label}</option>
@@ -773,7 +773,7 @@ function MappingStep({
                 <td className="px-3 py-2">
                   <ConfidenceBar value={m.confidence} />
                 </td>
-                <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                <td className="px-3 py-2 text-xs text-muted-foreground">
                   {m.reason}
                 </td>
               </tr>
@@ -808,13 +808,13 @@ function TypesStep({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-muted-foreground">
           Review inferred account types. Override any that seem incorrect.
         </p>
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-surface text-gray-900 dark:text-gray-100"
+          className="px-2 py-1 text-xs border border-input rounded bg-surface text-foreground"
         >
           <option value="all">All accounts</option>
           <option value="low">Low confidence only</option>
@@ -826,18 +826,18 @@ function TypesStep({
         </select>
       </div>
 
-      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-h-[50vh] overflow-y-auto">
+      <div className="border border-border rounded-lg overflow-hidden max-h-[50vh] overflow-y-auto">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800 z-10">
+          <thead className="sticky top-0 bg-muted z-10">
             <tr>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400 w-28">Account #</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Name</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400 w-32">Type</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400 w-24">Conf.</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-28">Account #</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground">Name</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-32">Type</th>
+              <th className="text-left px-3 py-2 font-medium text-muted-foreground w-24">Conf.</th>
               <th className="w-8" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+          <tbody className="divide-y divide-border">
             {filteredAccounts.slice(0, 200).map((a) => (
               <TypeRow
                 key={a.rowNumber}
@@ -851,7 +851,7 @@ function TypesStep({
           </tbody>
         </table>
         {filteredAccounts.length > 200 && (
-          <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400 text-center border-t border-gray-200 dark:border-gray-700">
+          <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border">
             Showing 200 of {filteredAccounts.length} accounts
           </div>
         )}
@@ -877,8 +877,8 @@ function TypeRow({
   return (
     <>
       <tr
-        className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 ${
-          account.typeConfidence < 60 ? 'bg-yellow-50/50 dark:bg-yellow-900/5' : ''
+        className={`cursor-pointer hover:bg-accent ${
+          account.typeConfidence < 60 ? 'bg-yellow-500/5' : ''
         }`}
         onClick={onToggle}
       >
@@ -886,32 +886,32 @@ function TypeRow({
         <td className="px-3 py-2 text-xs">{account.name}</td>
         <td className="px-3 py-2">
           <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-            ACCOUNT_TYPE_COLORS[effectiveType] ?? 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+            ACCOUNT_TYPE_COLORS[effectiveType] ?? 'bg-muted text-foreground'
           }`}>
             {effectiveType}
           </span>
           {account.issues.some((i) => i.code === 'EXISTING_ACCOUNT') && (
-            <span className="ml-1 text-xs text-gray-400">(existing)</span>
+            <span className="ml-1 text-xs text-muted-foreground">(existing)</span>
           )}
         </td>
         <td className="px-3 py-2">
           <ConfidenceBar value={account.typeConfidence} small />
         </td>
         <td className="px-3 py-2">
-          {expanded ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+          {expanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
         </td>
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={5} className="px-3 py-3 bg-gray-50/50 dark:bg-gray-800/30">
+          <td colSpan={5} className="px-3 py-3 bg-muted/50">
             <div className="space-y-3">
               {/* Type override */}
               <div className="flex items-center gap-3">
-                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 w-24">Override type:</label>
+                <label className="text-xs font-medium text-muted-foreground w-24">Override type:</label>
                 <select
                   value={override?.accountType ?? ''}
                   onChange={(e) => onOverride('accountType', e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-surface text-gray-900 dark:text-gray-100"
+                  className="px-2 py-1 text-xs border border-input rounded bg-surface text-foreground"
                 >
                   <option value="">Use inferred ({account.accountType})</option>
                   <option value="asset">Asset</option>
@@ -924,9 +924,9 @@ function TypeRow({
 
               {/* Inference reason */}
               <div>
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Inference reason:</p>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Inference reason:</p>
                 <div className="flex flex-wrap gap-1">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">
                     {account.typeReason}
                   </span>
                 </div>
@@ -966,9 +966,9 @@ function HierarchyStep({ analysis }: { analysis: AnalysisResult }) {
       </div>
 
       {analysis.hierarchy.strategy !== 'none' && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/40">
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
           <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-          <div className="text-sm text-green-700 dark:text-green-300">
+          <div className="text-sm text-green-500">
             <p className="font-medium">Hierarchy detected: {analysis.hierarchy.strategy.replace('_', ' ')}</p>
             <p className="text-xs mt-1">
               {analysis.hierarchy.strategy === 'parent_column'
@@ -983,18 +983,18 @@ function HierarchyStep({ analysis }: { analysis: AnalysisResult }) {
 
       {hasParents && (
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+          <h3 className="text-sm font-semibold text-foreground mb-3">
             Parent-Child Relationships ({parentMapEntries.length})
           </h3>
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden max-h-[40vh] overflow-y-auto">
+          <div className="border border-border rounded-lg overflow-hidden max-h-[40vh] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-gray-50 dark:bg-gray-800">
+              <thead className="sticky top-0 bg-muted">
                 <tr>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Child Account</th>
-                  <th className="text-left px-3 py-2 font-medium text-gray-600 dark:text-gray-400">Parent Account</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Child Account</th>
+                  <th className="text-left px-3 py-2 font-medium text-muted-foreground">Parent Account</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+              <tbody className="divide-y divide-border">
                 {parentMapEntries.slice(0, 100).map(([child, parent]) => (
                   <tr key={child}>
                     <td className="px-3 py-1.5 font-mono text-xs">{child}</td>
@@ -1004,7 +1004,7 @@ function HierarchyStep({ analysis }: { analysis: AnalysisResult }) {
               </tbody>
             </table>
             {parentMapEntries.length > 100 && (
-              <div className="px-3 py-2 text-xs text-gray-500 text-center border-t border-gray-200 dark:border-gray-700">
+              <div className="px-3 py-2 text-xs text-muted-foreground text-center border-t border-border">
                 Showing 100 of {parentMapEntries.length} relationships
               </div>
             )}
@@ -1059,9 +1059,9 @@ function ValidationStep({
       </div>
 
       {errors.length === 0 && warnings.length === 0 && (
-        <div className="flex items-start gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/40">
+        <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
           <CheckCircle className="w-5 h-5 text-green-500 shrink-0 mt-0.5" />
-          <div className="text-sm text-green-700 dark:text-green-300">
+          <div className="text-sm text-green-500">
             <p className="font-medium">All accounts validated successfully</p>
             <p className="text-xs mt-1">No issues found. Ready to import.</p>
           </div>
@@ -1084,7 +1084,7 @@ function ValidationStep({
         <div>
           <button
             onClick={() => setShowWarnings(!showWarnings)}
-            className="flex items-center gap-2 text-sm font-medium text-yellow-700 dark:text-yellow-300 mb-2"
+            className="flex items-center gap-2 text-sm font-medium text-yellow-500 mb-2"
           >
             {showWarnings ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             <AlertTriangle className="w-4 h-4" />
@@ -1104,7 +1104,7 @@ function ValidationStep({
 
       {/* Info items */}
       {infos.length > 0 && (
-        <div className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="text-xs text-muted-foreground">
           {infos.length} informational note{infos.length !== 1 ? 's' : ''} (not shown)
         </div>
       )}
@@ -1125,20 +1125,20 @@ function IssueList({
   onToggleSkip: (row: number) => void;
   color: 'red' | 'yellow';
 }) {
-  const borderColor = color === 'red' ? 'border-red-200 dark:border-red-800/40' : 'border-yellow-200 dark:border-yellow-800/40';
+  const borderColor = color === 'red' ? 'border-red-500/30' : 'border-yellow-500/30';
 
   return (
     <div className={`border ${borderColor} rounded-lg overflow-hidden`}>
       {title && (
         <div className={`px-3 py-2 text-xs font-semibold ${
           color === 'red'
-            ? 'bg-red-50 text-red-700 dark:bg-red-900/10 dark:text-red-300'
-            : 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/10 dark:text-yellow-300'
+            ? 'bg-red-500/10 text-red-500'
+            : 'bg-yellow-500/10 text-yellow-500'
         }`}>
           {title}
         </div>
       )}
-      <div className="max-h-[30vh] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+      <div className="max-h-[30vh] overflow-y-auto divide-y divide-border">
         {issues.map((issue, i) => {
           const hasRow = issue.rowNumber != null;
           const isSkipped = hasRow && skipRows.has(issue.rowNumber!);
@@ -1147,15 +1147,15 @@ function IssueList({
               key={i}
               className={`flex items-start gap-3 px-3 py-2 text-xs ${isSkipped ? 'opacity-40 line-through' : ''}`}
             >
-              <span className="font-mono text-gray-400 shrink-0 w-10">
+              <span className="font-mono text-muted-foreground shrink-0 w-10">
                 {hasRow ? `Row ${issue.rowNumber}` : '—'}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-gray-700 dark:text-gray-300">{issue.message}</p>
+                <p className="text-foreground">{issue.message}</p>
                 {(issue.resolutions?.length ?? 0) > 0 && !isSkipped && (
                   <div className="flex flex-wrap gap-1 mt-1">
                     {issue.resolutions!.map((r, j) => (
-                      <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                      <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                         {r.label}
                       </span>
                     ))}
@@ -1165,10 +1165,11 @@ function IssueList({
               {hasRow && (
                 <button
                   onClick={() => onToggleSkip(issue.rowNumber!)}
-                  className="shrink-0 p-1 rounded hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
+                  className="shrink-0 p-1 rounded hover:bg-accent"
                   title={isSkipped ? 'Include this row' : 'Skip this row'}
+                  aria-label={isSkipped ? 'Include this row' : 'Skip this row'}
                 >
-                  {isSkipped ? <Eye className="w-3.5 h-3.5 text-gray-400" /> : <EyeOff className="w-3.5 h-3.5 text-gray-400" />}
+                  {isSkipped ? <Eye className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />}
                 </button>
               )}
             </div>
@@ -1192,8 +1193,8 @@ function ImportResultStep({
     return (
       <div className="flex flex-col items-center justify-center py-16">
         <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
-        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Importing accounts...</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">This may take a moment for large files.</p>
+        <p className="text-sm font-medium text-foreground">Importing accounts...</p>
+        <p className="text-xs text-muted-foreground mt-1">This may take a moment for large files.</p>
       </div>
     );
   }
@@ -1202,13 +1203,13 @@ function ImportResultStep({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start gap-4 p-6 rounded-lg bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-800/40">
+      <div className="flex items-start gap-4 p-6 rounded-lg bg-green-500/10 border border-green-500/30">
         <CheckCircle className="w-8 h-8 text-green-500 shrink-0" />
         <div>
-          <h3 className="text-lg font-semibold text-green-800 dark:text-green-200">
+          <h3 className="text-lg font-semibold text-green-500">
             Import Complete
           </h3>
-          <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+          <p className="text-sm text-green-500 mt-1">
             Successfully imported your Chart of Accounts.
           </p>
         </div>
@@ -1223,12 +1224,12 @@ function ImportResultStep({
 
       {importResult.errors.length > 0 && (
         <div>
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">Import Errors</h4>
-          <div className="border border-red-200 dark:border-red-800/40 rounded-lg max-h-[30vh] overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+          <h4 className="text-sm font-semibold text-foreground mb-2">Import Errors</h4>
+          <div className="border border-red-500/30 rounded-lg max-h-[30vh] overflow-y-auto divide-y divide-border">
             {importResult.errors.map((err, i) => (
               <div key={i} className="px-3 py-2 text-xs flex gap-3">
-                <span className="font-mono text-gray-400 shrink-0">{err.accountNumber}</span>
-                <span className="text-red-600 dark:text-red-400">{err.message}</span>
+                <span className="font-mono text-muted-foreground shrink-0">{err.accountNumber}</span>
+                <span className="text-red-500">{err.message}</span>
               </div>
             ))}
           </div>
@@ -1250,26 +1251,26 @@ function MetricCard({
   color: 'green' | 'red' | 'yellow' | 'blue' | 'indigo' | 'purple';
 }) {
   const colorMap = {
-    green: 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800/40',
-    red: 'bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800/40',
-    yellow: 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/10 dark:border-yellow-800/40',
-    blue: 'bg-blue-50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-800/40',
-    indigo: 'bg-indigo-50 border-indigo-200 dark:bg-indigo-900/10 dark:border-indigo-800/40',
-    purple: 'bg-purple-50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-800/40',
+    green: 'bg-green-500/10 border-green-500/30',
+    red: 'bg-red-500/10 border-red-500/30',
+    yellow: 'bg-yellow-500/10 border-yellow-500/30',
+    blue: 'bg-blue-500/10 border-blue-500/30',
+    indigo: 'bg-indigo-500/10 border-indigo-500/30',
+    purple: 'bg-purple-500/10 border-purple-500/30',
   };
 
   const valueColorMap = {
-    green: 'text-green-700 dark:text-green-300',
-    red: 'text-red-700 dark:text-red-300',
-    yellow: 'text-yellow-700 dark:text-yellow-300',
-    blue: 'text-blue-700 dark:text-blue-300',
-    indigo: 'text-indigo-700 dark:text-indigo-300',
-    purple: 'text-purple-700 dark:text-purple-300',
+    green: 'text-green-500',
+    red: 'text-red-500',
+    yellow: 'text-yellow-500',
+    blue: 'text-blue-500',
+    indigo: 'text-indigo-500',
+    purple: 'text-purple-500',
   };
 
   return (
     <div className={`px-4 py-3 rounded-lg border ${colorMap[color]}`}>
-      <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className={`text-xl font-bold mt-0.5 ${valueColorMap[color]}`}>{value}</p>
     </div>
   );
@@ -1283,13 +1284,13 @@ function ConfidenceBar({ value, small }: { value: number; small?: boolean }) {
 
   return (
     <div className="flex items-center gap-2">
-      <div className={`flex-1 rounded-full bg-gray-200 dark:bg-gray-700 ${small ? 'h-1' : 'h-1.5'}`}>
+      <div className={`flex-1 rounded-full bg-muted ${small ? 'h-1' : 'h-1.5'}`}>
         <div
           className={`${color} rounded-full ${small ? 'h-1' : 'h-1.5'}`}
           style={{ width: `${Math.min(value, 100)}%` }}
         />
       </div>
-      <span className={`text-gray-500 dark:text-gray-400 font-mono ${small ? 'text-[10px]' : 'text-xs'}`}>
+      <span className={`text-muted-foreground font-mono ${small ? 'text-[10px]' : 'text-xs'}`}>
         {value}%
       </span>
     </div>

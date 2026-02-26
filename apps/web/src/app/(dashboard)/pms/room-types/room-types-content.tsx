@@ -210,7 +210,7 @@ export default function RoomTypesContent() {
         header: 'Code',
         width: '100px',
         render: (row: RoomTypeRow) => (
-          <span className="font-mono text-sm font-medium text-gray-900">
+          <span className="font-mono text-sm font-medium text-foreground">
             {(row as RoomType).code}
           </span>
         ),
@@ -220,11 +220,11 @@ export default function RoomTypesContent() {
         header: 'Name',
         render: (row: RoomTypeRow) => (
           <div>
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-foreground">
               {(row as RoomType).name}
             </span>
             {(row as RoomType).description && (
-              <p className="mt-0.5 text-xs text-gray-500 line-clamp-1">
+              <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">
                 {(row as RoomType).description}
               </p>
             )}
@@ -238,7 +238,7 @@ export default function RoomTypesContent() {
         render: (row: RoomTypeRow) => {
           const rt = row as RoomType;
           return (
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-foreground">
               {rt.maxAdults}A / {rt.maxChildren}C (max {rt.maxOccupancy})
             </span>
           );
@@ -249,7 +249,7 @@ export default function RoomTypesContent() {
         header: 'Rooms',
         width: '80px',
         render: (row: RoomTypeRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {(row as RoomType).roomCount ?? 0}
           </span>
         ),
@@ -266,12 +266,12 @@ export default function RoomTypesContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <LayoutGrid className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Room Types</h1>
-            <p className="text-sm text-gray-500">Define room categories and capacity</p>
+            <h1 className="text-2xl font-bold text-foreground">Room Types</h1>
+            <p className="text-sm text-muted-foreground">Define room categories and capacity</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -325,22 +325,22 @@ export default function RoomTypesContent() {
               onClick={closeDialog}
             />
             {/* Panel */}
-            <div className="relative z-10 w-full max-w-md rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+            <div className="relative z-10 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-foreground">
                   New Room Type
                 </h2>
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-gray-600"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {formError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {formError}
                 </div>
               )}
@@ -348,7 +348,7 @@ export default function RoomTypesContent() {
               <div className="space-y-4">
                 {/* Property (auto-filled, read-only for single property) */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Property
                   </label>
                   {properties.length > 1 ? (
@@ -360,7 +360,7 @@ export default function RoomTypesContent() {
                       className="w-full"
                     />
                   ) : (
-                    <div className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    <div className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground">
                       {propertyDisplayName}
                     </div>
                   )}
@@ -368,7 +368,7 @@ export default function RoomTypesContent() {
 
                 {/* Code */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Code <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -377,17 +377,17 @@ export default function RoomTypesContent() {
                     onChange={(e) => setFormCode(e.target.value.toUpperCase())}
                     placeholder="e.g. STD, DLX, STE"
                     maxLength={20}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     autoFocus
                   />
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Short code for this room type (e.g. STD, DLX, STE)
                   </p>
                 </div>
 
                 {/* Name */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -396,13 +396,13 @@ export default function RoomTypesContent() {
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="e.g. Standard Room, Deluxe Suite"
                     maxLength={100}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Description
                   </label>
                   <input
@@ -410,14 +410,14 @@ export default function RoomTypesContent() {
                     value={formDescription}
                     onChange={(e) => setFormDescription(e.target.value)}
                     placeholder="e.g. Two Double Beds"
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 {/* Capacity row */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                    <label className="mb-1 block text-sm font-medium text-foreground">
                       Max Adults
                     </label>
                     <input
@@ -426,11 +426,11 @@ export default function RoomTypesContent() {
                       max={20}
                       value={formMaxAdults}
                       onChange={(e) => setFormMaxAdults(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-gray-700">
+                    <label className="mb-1 block text-sm font-medium text-foreground">
                       Max Children
                     </label>
                     <input
@@ -439,7 +439,7 @@ export default function RoomTypesContent() {
                       max={20}
                       value={formMaxChildren}
                       onChange={(e) => setFormMaxChildren(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
@@ -450,7 +450,7 @@ export default function RoomTypesContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
                 >
                   Cancel
                 </button>

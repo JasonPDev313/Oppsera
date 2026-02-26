@@ -97,8 +97,8 @@ export default function TaxRemittanceContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Tax Remittance Report</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-semibold text-foreground">Tax Remittance Report</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Tax collected by jurisdiction and rate for filing purposes.
           </p>
         </div>
@@ -114,27 +114,27 @@ export default function TaxRemittanceContent() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-surface p-4 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-500">From</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">From</label>
           <input
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-500">To</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">To</label>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
         <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-gray-500">Location</label>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Location</label>
           <Select
             options={locationOptions}
             value={locationId}
@@ -147,21 +147,21 @@ export default function TaxRemittanceContent() {
       {/* Summary cards */}
       {report && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-gray-200 bg-surface p-4">
-            <p className="text-xs font-medium text-gray-500">Taxable Sales</p>
-            <p className="mt-1 text-xl font-semibold text-gray-900">
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <p className="text-xs font-medium text-muted-foreground">Taxable Sales</p>
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatMoney(report.totalTaxableSalesCents)}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4">
-            <p className="text-xs font-medium text-gray-500">Tax Collected</p>
-            <p className="mt-1 text-xl font-semibold text-gray-900">
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <p className="text-xs font-medium text-muted-foreground">Tax Collected</p>
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatMoney(report.totalTaxCollectedCents)}
             </p>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4">
-            <p className="text-xs font-medium text-gray-500">Exempt Sales</p>
-            <p className="mt-1 text-xl font-semibold text-gray-900">
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <p className="text-xs font-medium text-muted-foreground">Exempt Sales</p>
+            <p className="mt-1 text-xl font-semibold text-foreground">
               {formatMoney(report.totalExemptSalesCents)}
             </p>
           </div>
@@ -175,7 +175,7 @@ export default function TaxRemittanceContent() {
         </div>
       )}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">
           {error}
         </div>
       )}
@@ -186,7 +186,7 @@ export default function TaxRemittanceContent() {
           {groupedRows.map((group) => (
             <div key={group.jurisdictionCode ?? '_unassigned'} className="space-y-2">
               <div className="flex items-center gap-3">
-                <h3 className="text-sm font-semibold text-gray-900">
+                <h3 className="text-sm font-semibold text-foreground">
                   {group.authorityName ?? group.jurisdictionCode ?? 'Unassigned Jurisdiction'}
                 </h3>
                 {group.authorityType && (
@@ -207,7 +207,7 @@ export default function TaxRemittanceContent() {
                     key: 'taxRateName',
                     header: 'Tax Rate',
                     render: (row) => (
-                      <span className="font-medium text-gray-900">{row.taxRateName as string}</span>
+                      <span className="font-medium text-foreground">{row.taxRateName as string}</span>
                     ),
                   },
                   {
@@ -232,7 +232,7 @@ export default function TaxRemittanceContent() {
                     key: 'taxCollectedCents',
                     header: 'Tax Collected',
                     render: (row) => (
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-foreground">
                         {formatMoney(Number(row.taxCollectedCents))}
                       </span>
                     ),
@@ -249,12 +249,12 @@ export default function TaxRemittanceContent() {
               />
 
               {/* Group subtotal */}
-              <div className="flex items-center justify-end gap-6 border-t border-gray-100 pt-2 text-sm">
-                <span className="text-gray-500">Subtotal:</span>
-                <span className="font-medium text-gray-700">
+              <div className="flex items-center justify-end gap-6 border-t border-border pt-2 text-sm">
+                <span className="text-muted-foreground">Subtotal:</span>
+                <span className="font-medium text-foreground">
                   Taxable {formatMoney(group.totalTaxable)}
                 </span>
-                <span className="font-semibold text-gray-900">
+                <span className="font-semibold text-foreground">
                   Collected {formatMoney(group.totalCollected)}
                 </span>
               </div>
@@ -265,10 +265,10 @@ export default function TaxRemittanceContent() {
 
       {/* Empty state */}
       {!isLoading && report && groupedRows.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
-          <FileSpreadsheet className="h-10 w-10 text-gray-300" />
-          <p className="mt-3 text-sm text-gray-500">No tax data for the selected period</p>
-          <p className="mt-1 text-xs text-gray-400">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+          <FileSpreadsheet className="h-10 w-10 text-muted-foreground" />
+          <p className="mt-3 text-sm text-muted-foreground">No tax data for the selected period</p>
+          <p className="mt-1 text-xs text-muted-foreground">
             Tax data is recorded when orders with taxable items are placed.
           </p>
         </div>

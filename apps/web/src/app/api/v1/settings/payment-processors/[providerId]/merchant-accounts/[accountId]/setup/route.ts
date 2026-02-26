@@ -200,7 +200,7 @@ export const PUT = withMiddleware(
 
     return NextResponse.json({ data: { success: true } });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );
 
 /** Mask a value, showing only the last 4 chars. */

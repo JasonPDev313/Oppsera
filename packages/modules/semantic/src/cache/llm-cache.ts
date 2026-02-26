@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 // -- LLM Prompt-Level Response Cache -------------------------------------------
 // Caches LLM responses by hashing the system prompt + user message + conversation
 // history. This avoids re-calling the LLM for identical questions within the TTL
@@ -8,6 +10,7 @@
 // Stage 2+: swap backing store to Redis without changing the interface.
 
 const LLM_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const LLM_CACHE_SWR_WINDOW_MS = 20 * 60 * 1000; // 20 minutes — serve stale for up to 20 min while revalidating
 const LLM_CACHE_MAX_SIZE = 100;           // max entries per process
 
 // -- Types --------------------------------------------------------------------
@@ -26,9 +29,11 @@ export interface LLMCacheStats {
   size: number;
   maxSize: number;
   ttlMs: number;
+  swrWindowMs: number;
   hits: number;
   misses: number;
   evictions: number;
+  staleHits: number;
 }
 
 // -- Internal state -----------------------------------------------------------
@@ -38,16 +43,13 @@ const _cache = new Map<string, CachedLLMResponse>();
 let _hits = 0;
 let _misses = 0;
 let _evictions = 0;
+let _staleHits = 0;
 
 // -- Key generation -----------------------------------------------------------
-// djb2 hash for compact cache keys (same algorithm as query-cache.ts).
+// Uses SHA-256 for collision-resistant cache keys.
 
-function djb2(s: string): number {
-  let h = 5381;
-  for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) + h) ^ s.charCodeAt(i);
-  }
-  return h >>> 0;
+function sha256Short(s: string): string {
+  return createHash('sha256').update(s).digest('hex').slice(0, 16);
 }
 
 /**
@@ -56,17 +58,17 @@ function djb2(s: string): number {
  * string is not re-hashed on every cache lookup.
  */
 export function hashSystemPrompt(prompt: string): string {
-  return djb2(prompt).toString(16);
+  return sha256Short(prompt);
 }
 
 function makeHistoryHash(history?: { role: string; content: string }[]): string {
   if (!history || history.length === 0) return '';
-  return djb2(
+  return sha256Short(
     history
       .filter((m) => m.role === 'user')
       .map((m) => m.content)
       .join('|'),
-  ).toString(16);
+  );
 }
 
 function makeCacheKey(
@@ -76,7 +78,7 @@ function makeCacheKey(
   history?: { role: string; content: string }[],
 ): string {
   const historyHash = makeHistoryHash(history);
-  const messageHash = djb2(userMessage + historyHash).toString(16);
+  const messageHash = sha256Short(userMessage + historyHash);
   return `${tenantId}:${systemPromptHash}:${messageHash}`;
 }
 
@@ -114,6 +116,34 @@ export function getFromLLMCache(
   _cache.delete(key);
   _cache.set(key, entry);
   _hits++;
+  return entry;
+}
+
+/**
+ * Look up a cached LLM response with extended stale-while-revalidate window.
+ * Returns entries up to SWR_WINDOW_MS old (even if past TTL), for use as fallback
+ * when the LLM API is unavailable (circuit breaker open, rate limited, etc.).
+ *
+ * Unlike `getFromLLMCache`, this does NOT count as a cache hit (for stats).
+ */
+export function getStaleFromLLMCache(
+  tenantId: string,
+  systemPromptHash: string,
+  userMessage: string,
+  history?: { role: string; content: string }[],
+): CachedLLMResponse | null {
+  const key = makeCacheKey(tenantId, systemPromptHash, userMessage, history);
+  const entry = _cache.get(key);
+
+  if (!entry) return null;
+
+  // Allow entries up to SWR window (much longer than normal TTL)
+  if (Date.now() - entry.cachedAt > LLM_CACHE_SWR_WINDOW_MS) {
+    _cache.delete(key);
+    return null;
+  }
+
+  _staleHits++;
   return entry;
 }
 
@@ -174,9 +204,11 @@ export function getLLMCacheStats(): LLMCacheStats {
     size: _cache.size,
     maxSize: LLM_CACHE_MAX_SIZE,
     ttlMs: LLM_CACHE_TTL_MS,
+    swrWindowMs: LLM_CACHE_SWR_WINDOW_MS,
     hits: _hits,
     misses: _misses,
     evictions: _evictions,
+    staleHits: _staleHits,
   };
 }
 
@@ -185,4 +217,5 @@ export function resetLLMCacheStats(): void {
   _hits = 0;
   _misses = 0;
   _evictions = 0;
+  _staleHits = 0;
 }

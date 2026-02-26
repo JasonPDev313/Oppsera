@@ -623,7 +623,7 @@ export function AccountPicker({
   const dropdown = isOpen && dropdownPos && createPortal(
     <div
       ref={dropdownRef}
-      className="fixed z-50 rounded-lg border border-gray-200 bg-surface shadow-lg"
+      className="fixed z-50 rounded-lg border border-border bg-surface shadow-lg"
       style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
     >
       {/* Suggestion banner */}
@@ -634,42 +634,42 @@ export function AccountPicker({
             onChange(suggestedAccount.id);
             handleClose();
           }}
-          className="flex w-full items-center gap-2 border-b border-indigo-100 bg-indigo-50 px-3 py-2.5 text-left text-sm transition-colors hover:bg-indigo-100"
+          className="flex w-full items-center gap-2 border-b border-indigo-500/20 bg-indigo-500/10 px-3 py-2.5 text-left text-sm transition-colors hover:bg-indigo-500/20"
         >
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
-          <span className="text-indigo-700">
+          <span className="text-indigo-500">
             <span className="font-medium">Suggested:</span>{' '}
             <span className="font-mono text-xs">{suggestedAccount.accountNumber}</span>{' '}
             {suggestedAccount.name}
           </span>
         </button>
       )}
-      <div className="border-b border-gray-100 p-2">
+      <div className="border-b border-border p-2">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             ref={searchRef}
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by number or name..."
-            className="w-full rounded border border-gray-200 py-1.5 pl-7 pr-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded border border-border py-1.5 pl-7 pr-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
       </div>
       <div className="max-h-64 overflow-auto py-1">
         {isLoading && (
-          <p className="px-3 py-2 text-sm text-gray-500">Loading accounts...</p>
+          <p className="px-3 py-2 text-sm text-muted-foreground">Loading accounts...</p>
         )}
         {!isLoading && filteredAccounts.length === 0 && (
-          <p className="px-3 py-2 text-sm text-gray-500">No accounts found</p>
+          <p className="px-3 py-2 text-sm text-muted-foreground">No accounts found</p>
         )}
         {ACCOUNT_TYPE_ORDER.map((type) => {
           const items = grouped[type];
           if (!items || items.length === 0) return null;
           return (
             <div key={type}>
-              <p className="px-3 py-1.5 text-xs font-semibold uppercase text-gray-400">
+              <p className="px-3 py-1.5 text-xs font-semibold uppercase text-muted-foreground">
                 {ACCOUNT_TYPE_LABELS[type]}
               </p>
               {items.map((acc) => {
@@ -682,18 +682,18 @@ export function AccountPicker({
                       onChange(acc.id);
                       handleClose();
                     }}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 ${
-                      acc.id === value ? 'bg-indigo-50 text-indigo-700' :
-                      isSuggested ? 'bg-indigo-50/50' : 'text-gray-900'
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
+                      acc.id === value ? 'bg-indigo-500/10 text-indigo-500' :
+                      isSuggested ? 'bg-indigo-500/10' : 'text-foreground'
                     }`}
                   >
-                    <span className="font-mono text-xs text-gray-500">{acc.accountNumber}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{acc.accountNumber}</span>
                     <span>{acc.name}</span>
                     {isSuggested && (
                       <Sparkles className="ml-auto h-3 w-3 shrink-0 text-indigo-400" />
                     )}
                     {acc.isControlAccount && (
-                      <span className={`${isSuggested ? '' : 'ml-auto'} inline-flex rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700`}>
+                      <span className={`${isSuggested ? '' : 'ml-auto'} inline-flex rounded bg-amber-500/10 px-1.5 py-0.5 text-xs text-amber-500`}>
                         Control
                       </span>
                     )}
@@ -717,11 +717,11 @@ export function AccountPicker({
         disabled={disabled}
         className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm focus:ring-2 focus:outline-none ${
           error
-            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-            : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-        } ${disabled ? 'cursor-not-allowed bg-gray-50 text-gray-400' : ''}`}
+            ? 'border-red-500/30 focus:border-red-500 focus:ring-red-500'
+            : 'border-input focus:border-indigo-500 focus:ring-indigo-500'
+        } ${disabled ? 'cursor-not-allowed bg-muted text-muted-foreground' : ''}`}
       >
-        <span className={selectedAccount ? 'text-gray-900' : 'text-gray-400'}>
+        <span className={selectedAccount ? 'text-foreground' : 'text-muted-foreground'}>
           {selectedAccount
             ? `${selectedAccount.accountNumber} — ${selectedAccount.name}`
             : placeholder}
@@ -741,12 +741,12 @@ export function AccountPicker({
                   onChange(null);
                 }
               }}
-              className="text-gray-400 hover:text-gray-600"
+              className="text-muted-foreground hover:text-muted-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </span>
           )}
-          <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </div>
       </button>
       {dropdown}

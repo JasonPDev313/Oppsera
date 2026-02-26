@@ -53,8 +53,8 @@ export function TransferModal({
               {transferLabel}
             </h3>
           </div>
-          <button type="button" onClick={onClose} className="p-1 rounded hover:opacity-80" style={{ color: 'var(--fnb-text-muted)' }}>
-            <X className="h-4 w-4" />
+          <button type="button" onClick={onClose} aria-label="Close" className="p-1 rounded hover:opacity-80" style={{ color: 'var(--fnb-text-muted)' }}>
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 

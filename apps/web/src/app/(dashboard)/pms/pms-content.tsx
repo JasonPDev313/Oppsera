@@ -80,14 +80,14 @@ function KpiCard({
   color: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface px-4 py-4">
+    <div className="rounded-lg border border-border bg-surface px-4 py-4">
       <div className="flex items-center gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${color}`}>
           <Icon className="h-5 w-5" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-gray-500">{label}</p>
-          <p className="mt-0.5 text-xl font-semibold text-gray-900">{value}</p>
+          <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="mt-0.5 text-xl font-semibold text-foreground">{value}</p>
         </div>
       </div>
     </div>
@@ -261,12 +261,12 @@ export default function PmsContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Property Management</h1>
-            <p className="text-sm text-gray-500">Today&apos;s overview and activity</p>
+            <h1 className="text-2xl font-bold text-foreground">Property Management</h1>
+            <p className="text-sm text-muted-foreground">Today&apos;s overview and activity</p>
           </div>
         </div>
 
@@ -287,25 +287,25 @@ export default function PmsContent() {
           icon={CalendarCheck}
           label="Today's Arrivals"
           value={isLoading ? '\u2014' : todayArrivals}
-          color="bg-green-100 text-green-600"
+          color="bg-green-500/20 text-green-500"
         />
         <KpiCard
           icon={CalendarMinus}
           label="Today's Departures"
           value={isLoading ? '\u2014' : todayDepartures}
-          color="bg-amber-100 text-amber-600"
+          color="bg-amber-500/20 text-amber-500"
         />
         <KpiCard
           icon={BedDouble}
           label="Rooms Occupied"
           value={isLoading ? '\u2014' : roomsOccupied}
-          color="bg-blue-100 text-blue-600"
+          color="bg-blue-500/20 text-blue-500"
         />
         <KpiCard
           icon={Percent}
           label="Occupancy Rate"
           value={isLoading ? '\u2014' : occupancyRate}
-          color="bg-purple-100 text-purple-600"
+          color="bg-purple-500/20 text-purple-500"
         />
       </div>
 
@@ -322,7 +322,7 @@ export default function PmsContent() {
         <button
           type="button"
           onClick={() => router.push('/pms/reservations?status=CONFIRMED')}
-          className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           <LogIn className="h-4 w-4" />
           Check In
@@ -330,7 +330,7 @@ export default function PmsContent() {
         <button
           type="button"
           onClick={() => router.push('/pms/reservations?status=CHECKED_IN')}
-          className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           <LogOut className="h-4 w-4" />
           Check Out
@@ -339,7 +339,7 @@ export default function PmsContent() {
 
       {/* Today's Activity Table */}
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-gray-900">Today&apos;s Activity</h2>
+        <h2 className="mb-3 text-lg font-semibold text-foreground">Today&apos;s Activity</h2>
         <DataTable
           columns={activityColumns}
           data={activityItems as ActivityRow[]}

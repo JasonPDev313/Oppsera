@@ -27,19 +27,19 @@ export function AccountingPageShell({
     <div className="space-y-6">
       {/* Breadcrumbs */}
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav className="flex items-center gap-1 text-sm text-gray-500">
-          <Link href="/accounting" className="hover:text-gray-700 transition-colors">
+        <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+          <Link href="/accounting" className="hover:text-foreground transition-colors">
             Accounting
           </Link>
           {breadcrumbs.map((crumb, i) => (
             <span key={i} className="flex items-center gap-1">
               <ChevronRight className="h-3.5 w-3.5" />
               {crumb.href ? (
-                <Link href={crumb.href} className="hover:text-gray-700 transition-colors">
+                <Link href={crumb.href} className="hover:text-foreground transition-colors">
                   {crumb.label}
                 </Link>
               ) : (
-                <span className="text-gray-900 font-medium">{crumb.label}</span>
+                <span className="text-foreground font-medium">{crumb.label}</span>
               )}
             </span>
           ))}
@@ -49,8 +49,8 @@ export function AccountingPageShell({
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
+          <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         {actions && (
           <div className="flex items-center gap-2">

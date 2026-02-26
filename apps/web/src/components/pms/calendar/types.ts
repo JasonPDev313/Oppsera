@@ -77,6 +77,8 @@ export interface CalendarDayData {
 
 export type ViewRange = 7 | 14 | 30;
 
+export type ViewMode = 'grid' | 'day';
+
 export interface CalendarFilters {
   roomTypes: Set<string>;
   floors: Set<string>;

@@ -26,7 +26,7 @@ export const POST = withMiddleware(
   },
   {
     entitlement: 'pos_fnb',
-    permission: 'pos_fnb.floor_plan.manage',
+    permission: 'pos_fnb.host.manage',
     writeAccess: true,
   },
 );

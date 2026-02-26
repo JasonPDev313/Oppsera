@@ -44,72 +44,72 @@ export function VendorCatalogEditDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Edit Catalog Item</h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <h2 className="text-lg font-semibold text-foreground">Edit Catalog Item</h2>
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded p-1 text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
-        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
-          <span className="text-sm font-medium text-gray-900">{entry.itemName}</span>
-          {entry.itemSku && <span className="ml-2 text-xs text-gray-400">{entry.itemSku}</span>}
+        <div className="mb-4 rounded-lg border border-border bg-muted px-3 py-2">
+          <span className="text-sm font-medium text-foreground">{entry.itemName}</span>
+          {entry.itemSku && <span className="ml-2 text-xs text-muted-foreground">{entry.itemSku}</span>}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Vendor SKU</span>
+              <span className="text-sm font-medium text-foreground">Vendor SKU</span>
               <input
                 type="text"
                 value={vendorSku}
                 onChange={(e) => setVendorSku(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Vendor Cost</span>
+              <span className="text-sm font-medium text-foreground">Vendor Cost</span>
               <input
                 type="number"
                 step="0.01"
                 min="0"
                 value={vendorCost}
                 onChange={(e) => setVendorCost(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 placeholder="0.00"
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Lead Time (days)</span>
+              <span className="text-sm font-medium text-foreground">Lead Time (days)</span>
               <input
                 type="number"
                 min="0"
                 value={leadTimeDays}
                 onChange={(e) => setLeadTimeDays(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-gray-700">Min Order Qty</span>
+              <span className="text-sm font-medium text-foreground">Min Order Qty</span>
               <input
                 type="number"
                 min="1"
                 step="any"
                 value={minOrderQty}
                 onChange={(e) => setMinOrderQty(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </label>
           </div>
 
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Pack Size</span>
+            <span className="text-sm font-medium text-foreground">Pack Size</span>
             <input
               type="text"
               value={packSize}
               onChange={(e) => setPackSize(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               placeholder="e.g. Case of 24"
             />
           </label>
@@ -119,27 +119,27 @@ export function VendorCatalogEditDialog({
               type="checkbox"
               checked={isPreferred}
               onChange={(e) => setIsPreferred(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-input text-indigo-600 focus:ring-indigo-500"
             />
-            <Star className={`h-4 w-4 ${isPreferred ? 'fill-amber-400 text-amber-400' : 'text-gray-400'}`} />
-            <span className="text-sm font-medium text-gray-700">Preferred vendor for this item</span>
+            <Star className={`h-4 w-4 ${isPreferred ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'}`} />
+            <span className="text-sm font-medium text-foreground">Preferred vendor for this item</span>
           </label>
 
           <label className="block">
-            <span className="text-sm font-medium text-gray-700">Notes</span>
+            <span className="text-sm font-medium text-foreground">Notes</span>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               rows={2}
             />
           </label>
 
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
+          <div className="flex justify-end gap-3 border-t border-border pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
               Cancel
             </button>

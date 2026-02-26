@@ -20,7 +20,7 @@ function PaneSkeleton() {
   return (
     <div className="flex-1 space-y-1 p-2">
       {[1, 2, 3].map((i) => (
-        <div key={i} className="h-9 w-full animate-pulse rounded bg-gray-500/10" />
+        <div key={i} className="h-9 w-full animate-pulse rounded bg-muted0/10" />
       ))}
     </div>
   );
@@ -42,20 +42,20 @@ export function ProfitCenterPane({
   const items = profitCenters ?? [];
 
   return (
-    <div className="flex flex-col rounded-lg border border-gray-200 bg-surface">
-      <div className="border-b border-gray-200 px-4 py-3">
-        <h3 className="text-sm font-semibold text-gray-900">Profit Centers</h3>
+    <div className="flex flex-col rounded-lg border border-border bg-surface">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-foreground">Profit Centers</h3>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           <PaneSkeleton />
         ) : disabled ? (
-          <p className="px-4 py-6 text-center text-xs text-gray-400">
+          <p className="px-4 py-6 text-center text-xs text-muted-foreground">
             Select a location first
           </p>
         ) : items.length === 0 ? (
-          <p className="px-4 py-6 text-center text-xs text-gray-400">
+          <p className="px-4 py-6 text-center text-xs text-muted-foreground">
             No profit centers yet
           </p>
         ) : (
@@ -63,22 +63,22 @@ export function ProfitCenterPane({
             <div
               key={pc.id}
               onClick={() => onSelect(pc.id)}
-              className={`relative flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-gray-500/10 ${
+              className={`relative flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-muted0/10 ${
                 selectedId === pc.id ? 'bg-indigo-500/10' : ''
               }`}
             >
               <div className="flex flex-1 items-center gap-2 overflow-hidden">
                 <span
-                  className={`truncate ${!pc.isActive ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+                  className={`truncate ${!pc.isActive ? 'text-muted-foreground line-through' : 'text-foreground'}`}
                 >
                   {pc.name}
                 </span>
                 {pc.code && (
-                  <span className="shrink-0 rounded bg-gray-500/10 px-1.5 py-0.5 text-xs text-gray-500">
+                  <span className="shrink-0 rounded bg-muted0/10 px-1.5 py-0.5 text-xs text-muted-foreground">
                     {pc.code}
                   </span>
                 )}
-                <span className="shrink-0 rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-600">
+                <span className="shrink-0 rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-500">
                   {pc.terminalCount}
                 </span>
               </div>
@@ -89,12 +89,12 @@ export function ProfitCenterPane({
                     e.stopPropagation();
                     setMenuOpen(menuOpen === pc.id ? null : pc.id);
                   }}
-                  className="rounded p-1 text-gray-400 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:text-muted-foreground"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </button>
                 {menuOpen === pc.id && (
-                  <div className="absolute right-0 top-full z-10 w-32 rounded-lg border border-gray-200 bg-surface py-1 shadow-lg">
+                  <div className="absolute right-0 top-full z-10 w-32 rounded-lg border border-border bg-surface py-1 shadow-lg">
                     <button
                       type="button"
                       onClick={(e) => {
@@ -102,7 +102,7 @@ export function ProfitCenterPane({
                         setMenuOpen(null);
                         onEdit(pc.id);
                       }}
-                      className="w-full px-3 py-1.5 text-left text-sm text-gray-900 hover:bg-gray-500/10"
+                      className="w-full px-3 py-1.5 text-left text-sm text-foreground hover:bg-muted0/10"
                     >
                       Edit
                     </button>
@@ -125,12 +125,12 @@ export function ProfitCenterPane({
         )}
       </div>
 
-      <div className="border-t border-gray-200 p-3">
+      <div className="border-t border-border p-3">
         <button
           type="button"
           onClick={onAdd}
           disabled={disabled}
-          className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-400/50 px-3 py-2 text-sm text-gray-500 transition-colors hover:border-indigo-500/50 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-400/50 disabled:hover:text-gray-500"
+          className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-gray-400/50 px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-indigo-500/50 hover:text-indigo-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-400/50 disabled:hover:text-muted-foreground"
         >
           <Plus className="h-4 w-4" /> Add Profit Center
         </button>

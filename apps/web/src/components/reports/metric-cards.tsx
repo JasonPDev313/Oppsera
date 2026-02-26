@@ -21,21 +21,21 @@ const CARDS: {
     key: 'todaySales',
     label: 'Total Sales',
     icon: DollarSign,
-    iconColor: 'bg-green-100 text-green-600',
+    iconColor: 'bg-green-500/20 text-green-500',
     format: formatReportMoney,
   },
   {
     key: 'todayOrders',
     label: 'Orders',
     icon: ShoppingCart,
-    iconColor: 'bg-blue-100 text-blue-600',
+    iconColor: 'bg-blue-500/20 text-blue-500',
     format: (v) => String(v),
   },
   {
     key: 'lowStockCount',
     label: 'Low Stock Items',
     icon: AlertTriangle,
-    iconColor: 'bg-amber-100 text-amber-600',
+    iconColor: 'bg-amber-500/20 text-amber-500',
     format: (v) => String(v),
     warnWhen: (v) => v > 0,
   },
@@ -43,7 +43,7 @@ const CARDS: {
     key: 'activeCustomers30d',
     label: 'Active Customers',
     icon: Users,
-    iconColor: 'bg-indigo-100 text-indigo-600',
+    iconColor: 'bg-indigo-500/20 text-indigo-500',
     format: (v) => String(v),
   },
 ];
@@ -68,17 +68,17 @@ export function MetricCards({ data, isLoading }: MetricCardsProps) {
             <div className="flex items-center gap-4">
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                  isWarning ? 'bg-amber-100 text-amber-600' : card.iconColor
+                  isWarning ? 'bg-amber-500/20 text-amber-500' : card.iconColor
                 }`}
               >
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-500">{card.label}</p>
+                <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
                 {isLoading || value === null ? (
-                  <div className="mt-1 h-7 w-20 animate-pulse rounded bg-gray-200" />
+                  <div className="mt-1 h-7 w-20 animate-pulse rounded bg-muted" />
                 ) : (
-                  <p className="truncate text-2xl font-bold text-gray-900">
+                  <p className="truncate text-2xl font-bold text-foreground">
                     {card.format(value)}
                   </p>
                 )}

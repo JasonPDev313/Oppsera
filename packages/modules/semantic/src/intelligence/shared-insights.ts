@@ -3,7 +3,7 @@
 // gets a crypto-random token and a snapshot of the narrative, sections,
 // and query result data. Supports expiration and view counting.
 
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { db } from '@oppsera/db';
 import { semanticSharedInsights } from '@oppsera/db';
 import { eq, and, desc, lt, or, isNull, sql } from 'drizzle-orm';

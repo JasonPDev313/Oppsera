@@ -120,7 +120,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
   return (
     <div className="flex flex-col gap-3">
       {/* Mode tabs */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="flex gap-1 rounded-lg bg-muted p-1">
         {([
           { key: 'item' as const, label: 'Items', icon: Package },
           { key: 'category' as const, label: 'Categories', icon: FolderOpen },
@@ -132,8 +132,8 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
             onClick={() => setMode(tab.key)}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
               mode === tab.key
-                ? 'bg-surface text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-surface text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <tab.icon className="h-3.5 w-3.5" />
@@ -158,7 +158,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
       )}
 
       {/* Results list */}
-      <div className="max-h-48 overflow-y-auto rounded-md border border-gray-200">
+      <div className="max-h-48 overflow-y-auto rounded-md border border-border">
         {mode === 'item' &&
           filteredItems.map((item) => (
             <button
@@ -174,7 +174,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
                 });
                 onClose();
               }}
-              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50"
+              className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent"
             >
               <span className="truncate">{item.name}</span>
               <span className="ml-2 shrink-0 text-xs text-gray-400">{formatPrice(item.price)}</span>
@@ -196,7 +196,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
                 });
                 onClose();
               }}
-              className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-gray-50"
+              className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-accent"
             >
               <FolderOpen className="mr-2 h-3.5 w-3.5 text-gray-400" />
               {catId}
@@ -218,7 +218,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
                 });
                 onClose();
               }}
-              className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-gray-50"
+              className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-accent"
             >
               <Zap className="mr-2 h-3.5 w-3.5 text-gray-400" />
               {action.label}
@@ -245,7 +245,7 @@ interface TileInspectorProps {
 function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorProps) {
   return (
     <div className="space-y-4">
-      <h4 className="text-sm font-semibold text-gray-900">Tile Properties</h4>
+      <h4 className="text-sm font-semibold text-foreground">Tile Properties</h4>
 
       {/* Label */}
       <div>
@@ -319,9 +319,9 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
       </div>
 
       {/* Type badge */}
-      <div className="flex items-center gap-2 rounded-md bg-gray-50 px-3 py-2">
-        <span className="text-xs text-gray-500">Type:</span>
-        <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-medium capitalize text-gray-600">
+      <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2">
+        <span className="text-xs text-muted-foreground">Type:</span>
+        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium capitalize text-muted-foreground">
           {tile.type}
         </span>
       </div>
@@ -331,7 +331,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
         <button
           type="button"
           onClick={onDuplicate}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
         >
           <Copy className="h-3 w-3" />
           Duplicate
@@ -339,7 +339,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
         <button
           type="button"
           onClick={onDelete}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-md border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
         >
           <Trash2 className="h-3 w-3" />
           Delete
@@ -491,9 +491,9 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
   return createPortal(
     <div className="fixed inset-0 z-50 flex flex-col bg-surface">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
+      <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Quick Menu Editor</h2>
+          <h2 className="text-lg font-semibold text-foreground">Quick Menu Editor</h2>
           <p className="text-xs text-gray-500">
             Design your custom Hot Sellers grid. Changes save automatically.
           </p>
@@ -525,7 +525,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
           {/* 8-column preview grid */}
           <div
-            className="grid gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4"
+            className="grid gap-2 rounded-lg border border-border bg-muted p-4"
             style={{
               gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`,
               gridTemplateRows: `repeat(${GRID_ROWS}, 60px)`,
@@ -577,7 +577,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
               type="button"
               onClick={() => setPageIndex((i) => Math.max(i - 1, 0))}
               disabled={pageIndex === 0}
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 disabled:opacity-30"
+              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-accent disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -606,7 +606,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
               type="button"
               onClick={() => setPageIndex((i) => Math.min(i + 1, pages.length - 1))}
               disabled={pageIndex === pages.length - 1}
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 disabled:opacity-30"
+              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-accent disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -633,7 +633,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
               <button
                 type="button"
                 onClick={() => deletePage(pageIndex)}
-                className="rounded-md p-1.5 text-red-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                className="rounded-md p-1.5 text-red-400 transition-colors hover:bg-red-500/10 hover:text-red-500"
                 title="Delete this page"
               >
                 <Trash2 className="h-4 w-4" />
@@ -645,7 +645,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
           {showTilePicker && (
             <div className="rounded-lg border border-gray-200 bg-surface p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-gray-900">Add Tile</h4>
+                <h4 className="text-sm font-semibold text-foreground">Add Tile</h4>
                 <button
                   type="button"
                   onClick={() => setShowTilePicker(false)}
@@ -664,7 +664,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
         </div>
 
         {/* Right: Inspector */}
-        <div className="w-72 shrink-0 border-l border-gray-200 bg-gray-50 p-4 overflow-y-auto">
+        <div className="w-72 shrink-0 border-l border-border bg-muted p-4 overflow-y-auto">
           {selectedTile ? (
             <TileInspector
               tile={selectedTile}

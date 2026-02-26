@@ -24,9 +24,9 @@ interface DigestViewerProps {
 // ── Constants ──────────────────────────────────────────────────────
 
 const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  daily: { label: 'Daily', color: 'bg-blue-100 text-blue-700' },
-  weekly: { label: 'Weekly', color: 'bg-violet-100 text-violet-700' },
-  monthly: { label: 'Monthly', color: 'bg-amber-100 text-amber-700' },
+  daily: { label: 'Daily', color: 'bg-blue-500/10 text-blue-500' },
+  weekly: { label: 'Weekly', color: 'bg-violet-500/10 text-violet-500' },
+  monthly: { label: 'Monthly', color: 'bg-amber-500/10 text-amber-500' },
 };
 
 const TYPES_FOR_FILTER = ['all', 'daily', 'weekly', 'monthly'] as const;
@@ -157,7 +157,7 @@ export function DigestViewer({
 
         {filtered.map((digest) => {
           const isExpanded = expandedIds.has(digest.id);
-          const typeConfig = TYPE_LABELS[digest.type] ?? { label: digest.type, color: 'bg-gray-100 text-gray-700' };
+          const typeConfig = TYPE_LABELS[digest.type] ?? { label: digest.type, color: 'bg-muted text-muted-foreground' };
 
           return (
             <div key={digest.id} className="px-4 py-3">

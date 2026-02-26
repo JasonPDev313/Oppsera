@@ -119,23 +119,23 @@ function ChangePlanModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="w-full max-w-md rounded-lg border border-gray-200 bg-surface p-6 shadow-xl">
-        <h3 className="mb-4 text-lg font-semibold text-gray-900">Change Membership Plan</h3>
+      <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl">
+        <h3 className="mb-4 text-lg font-semibold text-foreground">Change Membership Plan</h3>
 
         {error && (
-          <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
             {error}
           </div>
         )}
 
         <div className="mb-4">
-          <label className="mb-1 block text-sm font-medium text-gray-700">
+          <label className="mb-1 block text-sm font-medium text-foreground">
             Select New Plan
           </label>
           <select
             value={selectedPlanId}
             onChange={(e) => setSelectedPlanId(e.target.value)}
-            className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-input bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           >
             <option value="">-- Select a plan --</option>
             {availablePlans.map((p) => (
@@ -147,12 +147,12 @@ function ChangePlanModal({
         </div>
 
         <div className="mb-6">
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={prorationEnabled}
               onChange={(e) => setProrationEnabled(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-input text-indigo-600 focus:ring-indigo-500"
             />
             Enable proration for partial period
           </label>
@@ -162,7 +162,7 @@ function ChangePlanModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Cancel
           </button>
@@ -197,50 +197,50 @@ function CurrentSubscriptionCard({
   onChangePlan: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-indigo-600" />
-          <h3 className="text-sm font-semibold text-gray-900">Current Subscription</h3>
+          <h3 className="text-sm font-semibold text-foreground">Current Subscription</h3>
         </div>
         <StatusBadge status={subscription.status} />
       </div>
       <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3">
         <div>
-          <div className="text-xs text-gray-500">Plan</div>
-          <div className="text-sm font-medium text-gray-900">
+          <div className="text-xs text-muted-foreground">Plan</div>
+          <div className="text-sm font-medium text-foreground">
             {subscription.planName || subscription.planId}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Effective Start</div>
-          <div className="flex items-center gap-1.5 text-sm text-gray-900">
-            <Calendar className="h-3.5 w-3.5 text-gray-400" />
+          <div className="text-xs text-muted-foreground">Effective Start</div>
+          <div className="flex items-center gap-1.5 text-sm text-foreground">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
             {formatDate(subscription.effectiveStart)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Next Bill Date</div>
-          <div className="flex items-center gap-1.5 text-sm text-gray-900">
-            <Calendar className="h-3.5 w-3.5 text-gray-400" />
+          <div className="text-xs text-muted-foreground">Next Bill Date</div>
+          <div className="flex items-center gap-1.5 text-sm text-foreground">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
             {formatDate(subscription.nextBillDate)}
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Last Billed</div>
-          <div className="text-sm text-gray-900">{formatDate(subscription.lastBilledDate)}</div>
+          <div className="text-xs text-muted-foreground">Last Billed</div>
+          <div className="text-sm text-foreground">{formatDate(subscription.lastBilledDate)}</div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Billed Through</div>
-          <div className="text-sm text-gray-900">{formatDate(subscription.billedThroughDate)}</div>
+          <div className="text-xs text-muted-foreground">Billed Through</div>
+          <div className="text-sm text-foreground">{formatDate(subscription.billedThroughDate)}</div>
         </div>
       </div>
       {subscription.status === 'active' && (
-        <div className="mt-4 border-t border-gray-100 pt-3">
+        <div className="mt-4 border-t border-border pt-3">
           <button
             type="button"
             onClick={onChangePlan}
-            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
           >
             <ArrowRightLeft className="h-3.5 w-3.5" />
             Change Plan
@@ -264,21 +264,21 @@ export default function DuesSubTab({ accountId }: { accountId: string }) {
   if (isLoading) {
     return (
       <div className="space-y-4 p-4">
-        <div className="h-32 animate-pulse rounded-lg bg-gray-100" />
-        <div className="h-24 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-32 animate-pulse rounded-lg bg-muted" />
+        <div className="h-24 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-gray-500">
+      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-muted-foreground">
         <AlertCircle className="h-6 w-6 text-red-400" />
         <p className="text-sm">Failed to load subscription data</p>
         <button
           type="button"
           onClick={mutate}
-          className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700"
+          className="flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-500"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Retry
@@ -289,9 +289,9 @@ export default function DuesSubTab({ accountId }: { accountId: string }) {
 
   if (subscriptions.length === 0) {
     return (
-      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-gray-400">
+      <div className="flex h-48 flex-col items-center justify-center gap-2 p-4 text-muted-foreground">
         <CreditCard className="h-6 w-6" />
-        <p className="text-sm font-medium text-gray-500">No Subscriptions</p>
+        <p className="text-sm font-medium text-muted-foreground">No Subscriptions</p>
         <p className="text-xs">No dues subscriptions have been assigned to this account.</p>
       </div>
     );
@@ -307,14 +307,14 @@ export default function DuesSubTab({ accountId }: { accountId: string }) {
       )}
 
       {pastSubscriptions.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <h3 className="mb-3 text-sm font-semibold text-gray-900">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">
             Subscription History ({pastSubscriptions.length})
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                <tr className="border-b border-border text-left text-xs text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Plan</th>
                   <th className="pb-2 pr-4 font-medium">Status</th>
                   <th className="pb-2 pr-4 font-medium">Start</th>
@@ -324,14 +324,14 @@ export default function DuesSubTab({ accountId }: { accountId: string }) {
               <tbody className="divide-y divide-gray-50">
                 {pastSubscriptions.map((sub) => (
                   <tr key={sub.id}>
-                    <td className="py-2 pr-4 text-gray-900">
+                    <td className="py-2 pr-4 text-foreground">
                       {sub.planName || sub.planId}
                     </td>
                     <td className="py-2 pr-4">
                       <StatusBadge status={sub.status} />
                     </td>
-                    <td className="py-2 pr-4 text-gray-600">{formatDate(sub.effectiveStart)}</td>
-                    <td className="py-2 text-gray-600">{formatDate(sub.effectiveEnd)}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{formatDate(sub.effectiveStart)}</td>
+                    <td className="py-2 text-muted-foreground">{formatDate(sub.effectiveEnd)}</td>
                   </tr>
                 ))}
               </tbody>

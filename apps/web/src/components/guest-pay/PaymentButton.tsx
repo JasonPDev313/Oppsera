@@ -120,7 +120,7 @@ export function PaymentButton({
 
         {/* Error */}
         {displayError && (
-          <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{displayError}</p>
+          <p className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-500">{displayError}</p>
         )}
 
         {/* Pay button */}
@@ -150,7 +150,7 @@ export function PaymentButton({
     return (
       <div className="text-center">
         <div className="flex h-32 items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
         {memberLink}
       </div>
@@ -160,10 +160,10 @@ export function PaymentButton({
   // Live mode WITHOUT tokenizer — card payments not configured
   return (
     <div className="text-center">
-      <div className="w-full rounded-2xl bg-gray-200 py-4 text-base font-bold text-gray-500">
+      <div className="w-full rounded-2xl bg-muted py-4 text-base font-bold text-muted-foreground">
         Card Payments Coming Soon
       </div>
-      <p className="text-xs text-gray-400 mt-2">
+      <p className="text-xs text-muted-foreground mt-2">
         Please ask your server for assistance.
       </p>
       {memberLink}

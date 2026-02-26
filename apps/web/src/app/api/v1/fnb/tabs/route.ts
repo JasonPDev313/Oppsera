@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import { listTabs, openTab, openTabSchema } from '@oppsera/module-fnb';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/fnb/tabs — list tabs
 export const GET = withMiddleware(
@@ -16,7 +17,7 @@ export const GET = withMiddleware(
       tableId: url.searchParams.get('tableId') ?? undefined,
       status: (url.searchParams.get('status') as any) ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
   },

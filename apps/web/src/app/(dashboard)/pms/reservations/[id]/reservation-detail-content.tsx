@@ -215,11 +215,11 @@ function PostChargeDialog({
     >
       <div className="mt-4 space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Type</label>
+          <label className="block text-sm font-medium text-foreground">Type</label>
           <select
             value={entryType}
             onChange={(e) => setEntryType(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="ROOM_CHARGE">Room Charge</option>
             <option value="TAX">Tax</option>
@@ -229,17 +229,17 @@ function PostChargeDialog({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Description</label>
+          <label className="block text-sm font-medium text-foreground">Description</label>
           <input
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="e.g. Mini bar charge"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Amount ($)</label>
+          <label className="block text-sm font-medium text-foreground">Amount ($)</label>
           <input
             type="number"
             value={amount}
@@ -247,7 +247,7 @@ function PostChargeDialog({
             step="0.01"
             min="0"
             placeholder="0.00"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
       </div>
@@ -303,7 +303,7 @@ function CancelDialog({
       isLoading={isSubmitting}
     >
       <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-foreground">
           Reason (optional)
         </label>
         <input
@@ -311,7 +311,7 @@ function CancelDialog({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="e.g. Guest requested cancellation"
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
     </ConfirmDialog>
@@ -365,7 +365,7 @@ function MoveRoomDialog({
       isLoading={isSubmitting}
     >
       <div className="mt-4">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-foreground">
           New Room ID
         </label>
         <input
@@ -373,7 +373,7 @@ function MoveRoomDialog({
           value={newRoomId}
           onChange={(e) => setNewRoomId(e.target.value)}
           placeholder="Enter the new room ID"
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="mt-1 block w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
     </ConfirmDialog>
@@ -412,7 +412,7 @@ function FolioSection({
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="h-6 w-32 animate-pulse rounded bg-gray-200" />
         <div className="mt-4 space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -425,9 +425,9 @@ function FolioSection({
 
   if (!folio) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
-        <h2 className="text-lg font-semibold text-gray-900">Folio</h2>
-        <p className="mt-2 text-sm text-gray-500">
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="text-lg font-semibold text-foreground">Folio</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
           No folio has been created for this reservation yet.
         </p>
       </div>
@@ -437,12 +437,12 @@ function FolioSection({
   const effectiveFolioId = folioId ?? folio.id;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface">
+    <div className="rounded-lg border border-border bg-surface">
       {/* Folio Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
-          <FileText className="h-5 w-5 text-gray-400" />
-          <h2 className="text-lg font-semibold text-gray-900">Folio</h2>
+          <FileText className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          <h2 className="text-lg font-semibold text-foreground">Folio</h2>
           <Badge variant={folio.status === 'OPEN' ? 'success' : 'neutral'}>
             {folio.status}
           </Badge>
@@ -453,7 +453,7 @@ function FolioSection({
             onClick={() => setShowPostCharge(true)}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             Post Charge
           </button>
         )}
@@ -461,24 +461,24 @@ function FolioSection({
 
       {/* Entries Table */}
       {folio.entries.length === 0 ? (
-        <div className="px-6 py-8 text-center text-sm text-gray-500">
+        <div className="px-6 py-8 text-center text-sm text-muted-foreground">
           No folio entries yet.
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <tr className="border-b border-border bg-muted">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Type
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Description
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Date
                 </th>
               </tr>
@@ -489,7 +489,7 @@ function FolioSection({
                 return (
                   <tr
                     key={entry.id}
-                    className="border-b border-gray-100 last:border-0"
+                    className="border-b border-border last:border-0"
                   >
                     <td className="px-6 py-3">
                       <Badge
@@ -504,18 +504,18 @@ function FolioSection({
                         {ENTRY_TYPE_LABELS[entry.entryType] ?? entry.entryType}
                       </Badge>
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-900">
+                    <td className="px-6 py-3 text-sm text-foreground">
                       {entry.description}
                     </td>
                     <td
                       className={`px-6 py-3 text-right text-sm font-medium ${
-                        isPayment ? 'text-green-600' : 'text-gray-900'
+                        isPayment ? 'text-green-500' : 'text-foreground'
                       }`}
                     >
                       {isPayment ? '-' : ''}
                       {formatMoney(Math.abs(entry.amountCents))}
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-500">
+                    <td className="px-6 py-3 text-sm text-muted-foreground">
                       {formatDateTime(entry.postedAt)}
                     </td>
                   </tr>
@@ -527,36 +527,36 @@ function FolioSection({
       )}
 
       {/* Folio Summary */}
-      <div className="border-t border-gray-200 px-6 py-4">
+      <div className="border-t border-border px-6 py-4">
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Subtotal</span>
-            <span className="text-gray-900">{formatMoney(folio.subtotalCents)}</span>
+            <span className="text-muted-foreground">Subtotal</span>
+            <span className="text-foreground">{formatMoney(folio.subtotalCents)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Tax</span>
-            <span className="text-gray-900">{formatMoney(folio.taxCents)}</span>
+            <span className="text-muted-foreground">Tax</span>
+            <span className="text-foreground">{formatMoney(folio.taxCents)}</span>
           </div>
           {folio.feeCents > 0 && (
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Fees</span>
-              <span className="text-gray-900">{formatMoney(folio.feeCents)}</span>
+              <span className="text-muted-foreground">Fees</span>
+              <span className="text-foreground">{formatMoney(folio.feeCents)}</span>
             </div>
           )}
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Payments</span>
-            <span className="text-green-600">
+            <span className="text-muted-foreground">Payments</span>
+            <span className="text-green-500">
               -{formatMoney(folio.summary.totalPayments)}
             </span>
           </div>
-          <div className="border-t border-gray-200 pt-2">
+          <div className="border-t border-border pt-2">
             <div className="flex justify-between">
-              <span className="text-base font-semibold text-gray-900">
+              <span className="text-base font-semibold text-foreground">
                 Balance Due
               </span>
               <span
                 className={`text-base font-semibold ${
-                  folio.summary.balanceDue > 0 ? 'text-red-600' : 'text-green-600'
+                  folio.summary.balanceDue > 0 ? 'text-red-500' : 'text-green-500'
                 }`}
               >
                 {formatMoney(folio.summary.balanceDue)}
@@ -659,18 +659,18 @@ export default function ReservationDetailContent() {
           <div className="h-5 w-5 animate-pulse rounded bg-gray-200" />
           <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
         </div>
-        <div className="space-y-4 rounded-lg border border-gray-200 bg-surface p-6">
+        <div className="space-y-4 rounded-lg border border-border bg-surface p-6">
           <div className="h-4 w-64 animate-pulse rounded bg-gray-200" />
           <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
           <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
         </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="space-y-3 rounded-lg border border-gray-200 bg-surface p-6 lg:col-span-2">
+          <div className="space-y-3 rounded-lg border border-border bg-surface p-6 lg:col-span-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="h-5 animate-pulse rounded bg-gray-100" />
             ))}
           </div>
-          <div className="space-y-3 rounded-lg border border-gray-200 bg-surface p-6">
+          <div className="space-y-3 rounded-lg border border-border bg-surface p-6">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="h-5 animate-pulse rounded bg-gray-100" />
             ))}
@@ -687,17 +687,17 @@ export default function ReservationDetailContent() {
         <button
           type="button"
           onClick={() => router.push('/pms/reservations')}
-          className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to Reservations
         </button>
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-          <XCircle className="h-12 w-12 text-gray-300" />
-          <h3 className="mt-4 text-sm font-semibold text-gray-900">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+          <XCircle className="h-12 w-12 text-gray-300" aria-hidden="true" />
+          <h3 className="mt-4 text-sm font-semibold text-foreground">
             Reservation not found
           </h3>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             The reservation you are looking for does not exist or has been removed.
           </p>
           <button
@@ -729,24 +729,24 @@ export default function ReservationDetailContent() {
       <button
         type="button"
         onClick={() => router.push('/pms/reservations')}
-        className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="h-4 w-4" />
+        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back to Reservations
       </button>
 
       {/* Reservation Header */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-foreground">
                 Reservation #{reservation.id.slice(-8).toUpperCase()}
               </h1>
               <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
             </div>
-            <p className="mt-1 text-lg text-gray-700">{guest}</p>
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+            <p className="mt-1 text-lg text-foreground">{guest}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               {sourceBadge && (
                 <Badge variant={sourceBadge.variant}>{sourceBadge.label}</Badge>
               )}
@@ -764,7 +764,7 @@ export default function ReservationDetailContent() {
                   disabled={isCheckingIn}
                   className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  <LogIn className="h-4 w-4" />
+                  <LogIn className="h-4 w-4" aria-hidden="true" />
                   {isCheckingIn ? 'Checking In...' : 'Check In'}
                 </button>
                 <button
@@ -772,7 +772,7 @@ export default function ReservationDetailContent() {
                   onClick={() => setShowCancel(true)}
                   className="flex items-center gap-2 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
                 >
-                  <XCircle className="h-4 w-4" />
+                  <XCircle className="h-4 w-4" aria-hidden="true" />
                   Cancel
                 </button>
               </>
@@ -785,7 +785,7 @@ export default function ReservationDetailContent() {
                   disabled={isCheckingIn}
                   className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  <LogIn className="h-4 w-4" />
+                  <LogIn className="h-4 w-4" aria-hidden="true" />
                   Confirm
                 </button>
                 <button
@@ -793,7 +793,7 @@ export default function ReservationDetailContent() {
                   onClick={() => setShowCancel(true)}
                   className="flex items-center gap-2 rounded-lg border border-red-500/40 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
                 >
-                  <XCircle className="h-4 w-4" />
+                  <XCircle className="h-4 w-4" aria-hidden="true" />
                   Cancel
                 </button>
               </>
@@ -806,15 +806,15 @@ export default function ReservationDetailContent() {
                   disabled={isCheckingOut}
                   className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
                   {isCheckingOut ? 'Checking Out...' : 'Check Out'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowMoveRoom(true)}
-                  className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                  className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
                 >
-                  <ArrowRightLeft className="h-4 w-4" />
+                  <ArrowRightLeft className="h-4 w-4" aria-hidden="true" />
                   Move Room
                 </button>
               </>
@@ -826,8 +826,8 @@ export default function ReservationDetailContent() {
       {/* Two-column layout */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Left: Reservation Details */}
-        <div className="rounded-lg border border-gray-200 bg-surface p-6 lg:col-span-2">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="rounded-lg border border-border bg-surface p-6 lg:col-span-2">
+          <h2 className="text-lg font-semibold text-foreground">
             Reservation Details
           </h2>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -868,54 +868,54 @@ export default function ReservationDetailContent() {
         {/* Right: Guest Info + Notes */}
         <div className="space-y-6">
           {/* Guest Info */}
-          <div className="rounded-lg border border-gray-200 bg-surface p-6">
-            <h2 className="text-lg font-semibold text-gray-900">Guest Info</h2>
+          <div className="rounded-lg border border-border bg-surface p-6">
+            <h2 className="text-lg font-semibold text-foreground">Guest Info</h2>
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-3">
-                <User className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-900">{guest}</span>
+                <User className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                <span className="text-sm text-foreground">{guest}</span>
               </div>
               {reservation.guestEmail && (
                 <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-900">
+                  <Mail className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  <span className="text-sm text-foreground">
                     {reservation.guestEmail}
                   </span>
                 </div>
               )}
               {reservation.primaryGuestJson && (
                 <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-500">\u2014</span>
+                  <Phone className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  <span className="text-sm text-muted-foreground">—</span>
                 </div>
               )}
             </div>
           </div>
 
           {/* Notes */}
-          <div className="rounded-lg border border-gray-200 bg-surface p-6">
-            <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-              <StickyNote className="h-4 w-4 text-gray-400" />
+          <div className="rounded-lg border border-border bg-surface p-6">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+              <StickyNote className="h-4 w-4 text-gray-400" aria-hidden="true" />
               Notes
             </h2>
             {reservation.internalNotes ? (
               <div className="mt-3">
-                <p className="text-xs font-medium text-gray-500">Internal Notes</p>
-                <p className="mt-1 text-sm text-gray-700">
+                <p className="text-xs font-medium text-muted-foreground">Internal Notes</p>
+                <p className="mt-1 text-sm text-foreground">
                   {reservation.internalNotes}
                 </p>
               </div>
             ) : null}
             {reservation.guestNotes ? (
               <div className="mt-3">
-                <p className="text-xs font-medium text-gray-500">Guest Notes</p>
-                <p className="mt-1 text-sm text-gray-700">
+                <p className="text-xs font-medium text-muted-foreground">Guest Notes</p>
+                <p className="mt-1 text-sm text-foreground">
                   {reservation.guestNotes}
                 </p>
               </div>
             ) : null}
             {!reservation.internalNotes && !reservation.guestNotes && (
-              <p className="mt-3 text-sm text-gray-500">No notes added.</p>
+              <p className="mt-3 text-sm text-muted-foreground">No notes added.</p>
             )}
           </div>
         </div>
@@ -959,10 +959,10 @@ function DetailRow({
 }) {
   return (
     <div>
-      <p className="text-xs font-medium text-gray-500">{label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p
         className={`mt-0.5 text-sm ${
-          highlight ? 'font-semibold text-gray-900' : 'text-gray-700'
+          highlight ? 'font-semibold text-foreground' : 'text-foreground'
         }`}
       >
         {value}

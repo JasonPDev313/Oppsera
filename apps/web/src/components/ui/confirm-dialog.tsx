@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useDialogA11y } from '@/lib/dialog-a11y';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -28,43 +29,44 @@ export function ConfirmDialog({
   isLoading = false,
   children,
 }: ConfirmDialogProps) {
-  const confirmRef = useRef<HTMLButtonElement>(null);
+  const instanceId = useId();
+  const titleId = `confirm-dialog-title-${instanceId}`;
+  const descId = `confirm-dialog-desc-${instanceId}`;
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    },
-    [onClose],
-  );
-
-  useEffect(() => {
-    if (open) {
-      document.addEventListener('keydown', handleKeyDown);
-      confirmRef.current?.focus();
-      return () => document.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [open, handleKeyDown]);
+  useDialogA11y(dialogRef, open, {
+    labelledBy: titleId,
+    describedBy: description ? descId : undefined,
+    onClose,
+    role: destructive ? 'alertdialog' : 'dialog',
+  });
 
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        {description && <p className="mt-2 text-sm text-gray-500">{description}</p>}
+      <div
+        ref={dialogRef}
+        className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl"
+      >
+        <h3 id={titleId} className="text-lg font-semibold text-foreground">{title}</h3>
+        {description && <p id={descId} className="mt-2 text-sm text-gray-500">{description}</p>}
         {children}
         <div className="mt-6 flex justify-end gap-3">
           <button
+            ref={cancelRef}
             type="button"
             onClick={onClose}
             disabled={isLoading}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            data-autofocus
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             {cancelLabel}
           </button>
           <button
-            ref={confirmRef}
             type="button"
             onClick={onConfirm}
             disabled={isLoading}

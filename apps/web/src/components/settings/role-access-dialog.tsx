@@ -257,19 +257,19 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="mx-4 flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-foreground">
               Access Scope
             </h2>
-            <p className="mt-0.5 text-sm text-gray-500">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               Configure which locations, profit centers, and terminals the{' '}
-              <span className="font-medium text-gray-700">{roleName}</span> role
+              <span className="font-medium text-foreground">{roleName}</span> role
               can access
             </p>
           </div>
-          <button type="button" onClick={onClose}>
-            <X className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+          <button type="button" onClick={onClose} aria-label="Close">
+            <X className="h-5 w-5 text-muted-foreground hover:text-muted-foreground" aria-hidden="true" />
           </button>
         </div>
 
@@ -277,17 +277,17 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : (
             <div className="space-y-4">
               {error && (
-                <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {error}
                 </div>
               )}
 
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 When &ldquo;All&rdquo; is enabled, the role has unrestricted
                 access at that level. Disable it to restrict access to specific
                 items.
@@ -316,28 +316,28 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
                     }}
                   />
                   {!allLocations_ && (
-                    <div className="space-y-1 rounded-lg border border-gray-200 p-3">
+                    <div className="space-y-1 rounded-lg border border-border p-3">
                       {sites.length === 0 && (
-                        <p className="text-xs text-gray-400">No locations configured</p>
+                        <p className="text-xs text-muted-foreground">No locations configured</p>
                       )}
                       {sites.map((site) => {
                         const venues = venuesBySite.get(site.id) ?? [];
                         const hasVenues = venues.length > 0;
                         return (
                           <div key={site.id}>
-                            <label className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50">
+                            <label className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-accent">
                               <input
                                 type="checkbox"
                                 checked={locationIds.has(site.id)}
                                 onChange={() => toggleLocation(site.id)}
-                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500"
                               />
-                              <MapPin className="h-3.5 w-3.5 text-gray-400" />
-                              <span className="text-sm text-gray-900">
+                              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-sm text-foreground">
                                 {site.name}
                               </span>
                               {hasVenues && (
-                                <span className="text-xs text-gray-400">
+                                <span className="text-xs text-muted-foreground">
                                   ({venues.length} venue{venues.length !== 1 ? 's' : ''})
                                 </span>
                               )}
@@ -347,16 +347,16 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
                                 {venues.map((venue) => (
                                   <label
                                     key={venue.id}
-                                    className="flex items-center gap-2 rounded px-2 py-1 hover:bg-gray-50"
+                                    className="flex items-center gap-2 rounded px-2 py-1 hover:bg-accent"
                                   >
                                     <input
                                       type="checkbox"
                                       checked={locationIds.has(venue.id)}
                                       onChange={() => toggleLocation(venue.id)}
-                                      className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                      className="h-3.5 w-3.5 rounded border-input text-indigo-500 focus:ring-indigo-500"
                                     />
-                                    <Building2 className="h-3 w-3 text-gray-400" />
-                                    <span className="text-xs text-gray-700">
+                                    <Building2 className="h-3 w-3 text-muted-foreground" />
+                                    <span className="text-xs text-foreground">
                                       {venue.name}
                                     </span>
                                   </label>
@@ -394,9 +394,9 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
                     }}
                   />
                   {!allProfitCenters_ && (
-                    <div className="space-y-1 rounded-lg border border-gray-200 p-3">
+                    <div className="space-y-1 rounded-lg border border-border p-3">
                       {allProfitCenters.length === 0 && (
-                        <p className="text-xs text-gray-400">No profit centers configured</p>
+                        <p className="text-xs text-muted-foreground">No profit centers configured</p>
                       )}
                       {/* Group by location */}
                       {allLocations
@@ -409,10 +409,10 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
                               key={loc.id}
                               className={accessible ? '' : 'opacity-40'}
                             >
-                              <p className="px-2 py-1 text-xs font-medium text-gray-500 uppercase">
+                              <p className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase">
                                 {loc.name}
                                 {!accessible && (
-                                  <span className="ml-1 normal-case text-amber-600">
+                                  <span className="ml-1 normal-case text-amber-500">
                                     (location not selected)
                                   </span>
                                 )}
@@ -420,21 +420,21 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
                               {pcs.map((pc) => (
                                 <label
                                   key={pc.id}
-                                  className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50"
+                                  className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-accent"
                                 >
                                   <input
                                     type="checkbox"
                                     checked={profitCenterIds.has(pc.id)}
                                     onChange={() => toggleProfitCenter(pc.id)}
                                     disabled={!accessible}
-                                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                    className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
                                   />
-                                  <Store className="h-3.5 w-3.5 text-gray-400" />
-                                  <span className="text-sm text-gray-900">
+                                  <Store className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="text-sm text-foreground">
                                     {pc.name}
                                   </span>
                                   {pc.code && (
-                                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
+                                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                                       {pc.code}
                                     </span>
                                   )}
@@ -471,9 +471,9 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
                     }}
                   />
                   {!allTerminals_ && (
-                    <div className="space-y-1 rounded-lg border border-gray-200 p-3">
+                    <div className="space-y-1 rounded-lg border border-border p-3">
                       {allTerminals.length === 0 && (
-                        <p className="text-xs text-gray-400">No terminals configured</p>
+                        <p className="text-xs text-muted-foreground">No terminals configured</p>
                       )}
                       {/* Group by profit center */}
                       {allProfitCenters
@@ -486,11 +486,11 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
                               key={pc.id}
                               className={accessible ? '' : 'opacity-40'}
                             >
-                              <p className="px-2 py-1 text-xs font-medium text-gray-500 uppercase">
+                              <p className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase">
                                 {pc.name}
                                 {pc.code && ` (${pc.code})`}
                                 {!accessible && (
-                                  <span className="ml-1 normal-case text-amber-600">
+                                  <span className="ml-1 normal-case text-amber-500">
                                     (location not selected)
                                   </span>
                                 )}
@@ -498,21 +498,21 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
                               {terms.map((t) => (
                                 <label
                                   key={t.id}
-                                  className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-gray-50"
+                                  className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-accent"
                                 >
                                   <input
                                     type="checkbox"
                                     checked={terminalIds.has(t.id)}
                                     onChange={() => toggleTerminal(t.id)}
                                     disabled={!accessible}
-                                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                    className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500 disabled:opacity-50"
                                   />
-                                  <Monitor className="h-3.5 w-3.5 text-gray-400" />
-                                  <span className="text-sm text-gray-900">
+                                  <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="text-sm text-foreground">
                                     {t.name}
                                   </span>
                                   {t.terminalNumber != null && (
-                                    <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500">
+                                    <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
                                       #{t.terminalNumber}
                                     </span>
                                   )}
@@ -530,11 +530,11 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -577,16 +577,16 @@ function SectionHeader({
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-center gap-2 rounded-lg border border-gray-200 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+      className="flex w-full items-center gap-2 rounded-lg border border-border px-4 py-3 text-left transition-colors hover:bg-accent"
     >
       {expanded ? (
-        <ChevronDown className="h-4 w-4 text-gray-400" />
+        <ChevronDown className="h-4 w-4 text-muted-foreground" />
       ) : (
-        <ChevronRight className="h-4 w-4 text-gray-400" />
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
       )}
-      <Icon className="h-4 w-4 text-indigo-600" />
-      <span className="text-sm font-medium text-gray-900">{title}</span>
-      <span className="ml-auto rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
+      <Icon className="h-4 w-4 text-indigo-500" />
+      <span className="text-sm font-medium text-foreground">{title}</span>
+      <span className="ml-auto rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-xs font-medium text-indigo-400">
         {badge}
       </span>
     </button>
@@ -603,15 +603,15 @@ function AllToggle({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 rounded-lg border border-dashed border-gray-300 px-3 py-2 hover:bg-gray-50">
+    <label className="flex items-center gap-2 rounded-lg border border-dashed border-input px-3 py-2 hover:bg-accent">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500"
       />
-      <span className="text-sm font-medium text-gray-700">{label}</span>
-      <span className="text-xs text-gray-400">(unrestricted)</span>
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      <span className="text-xs text-muted-foreground">(unrestricted)</span>
     </label>
   );
 }

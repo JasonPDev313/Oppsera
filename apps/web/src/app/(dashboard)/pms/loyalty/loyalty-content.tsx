@@ -96,28 +96,28 @@ export default function LoyaltyContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
-            <Award className="h-5 w-5" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500">
+            <Award className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Loyalty Programs</h1>
-            <p className="text-sm text-gray-500">Manage loyalty programs and member rewards</p>
+            <h1 className="text-2xl font-bold text-foreground">Loyalty Programs</h1>
+            <p className="text-sm text-muted-foreground">Manage loyalty programs and member rewards</p>
           </div>
         </div>
       </div>
 
       {/* Tab Bar */}
-      <div className="flex gap-1 rounded-lg border border-gray-200 bg-surface p-1">
+      <div className="flex gap-1 rounded-lg border border-border bg-surface p-1">
         <button
           type="button"
           onClick={() => setActiveTab('programs')}
           className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === 'programs'
               ? 'bg-indigo-600 text-white'
-              : 'text-gray-600 hover:bg-gray-200/50 hover:text-gray-900'
+              : 'text-muted-foreground hover:bg-gray-200/50 hover:text-foreground'
           }`}
         >
-          <Star className="h-4 w-4" />
+          <Star className="h-4 w-4" aria-hidden="true" />
           Programs
         </button>
         <button
@@ -126,10 +126,10 @@ export default function LoyaltyContent() {
           className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === 'members'
               ? 'bg-indigo-600 text-white'
-              : 'text-gray-600 hover:bg-gray-200/50 hover:text-gray-900'
+              : 'text-muted-foreground hover:bg-gray-200/50 hover:text-foreground'
           }`}
         >
-          <Users className="h-4 w-4" />
+          <Users className="h-4 w-4" aria-hidden="true" />
           Members
         </button>
       </div>
@@ -202,14 +202,14 @@ function ProgramsTab() {
           onClick={openCreate}
           className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Create Program
         </button>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
           {error}
         </div>
       )}
@@ -217,16 +217,16 @@ function ProgramsTab() {
       {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && programs.length === 0 && !error && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-          <Award className="h-12 w-12 text-gray-300" />
-          <h3 className="mt-4 text-sm font-semibold text-gray-900">No loyalty programs</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+          <Award className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
+          <h3 className="mt-4 text-sm font-semibold text-foreground">No loyalty programs</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             Create your first loyalty program to start rewarding guests.
           </p>
           <button
@@ -241,54 +241,54 @@ function ProgramsTab() {
 
       {/* Programs list */}
       {!isLoading && programs.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Name
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Pts / $
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Pts / Night
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Redemption Value
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Tiers
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500 w-20" />
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground w-20" />
                 </tr>
               </thead>
               <tbody>
                 {programs.map((p) => (
                   <tr
                     key={p.id}
-                    className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50"
+                    className="border-b border-border transition-colors last:border-0 hover:bg-accent"
                   >
                     <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-gray-900">{p.name}</span>
+                      <span className="text-sm font-medium text-foreground">{p.name}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm text-gray-700">{p.pointsPerDollar}</span>
+                      <span className="text-sm text-foreground">{p.pointsPerDollar}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm text-gray-700">{p.pointsPerNight}</span>
+                      <span className="text-sm text-foreground">{p.pointsPerNight}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-sm text-gray-700">
+                      <span className="text-sm text-foreground">
                         {formatCentsToDollars(p.redemptionValueCents)} / pt
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="text-sm text-gray-700">{p.tiers.length}</span>
+                      <span className="text-sm text-foreground">{p.tiers.length}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant={p.isActive ? 'success' : 'neutral'}>
@@ -299,7 +299,7 @@ function ProgramsTab() {
                       <button
                         type="button"
                         onClick={() => openEdit(p)}
-                        className="rounded-lg border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200/50"
+                        className="rounded-lg border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
                       >
                         Edit
                       </button>
@@ -315,24 +315,24 @@ function ProgramsTab() {
             {programs.map((p) => (
               <div
                 key={p.id}
-                className="rounded-lg border border-gray-100 p-4 space-y-2"
+                className="rounded-lg border border-border p-4 space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900">{p.name}</span>
+                  <span className="text-sm font-medium text-foreground">{p.name}</span>
                   <Badge variant={p.isActive ? 'success' : 'neutral'}>
                     {p.isActive ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
-                  <div>Pts/$: <span className="text-gray-700">{p.pointsPerDollar}</span></div>
-                  <div>Pts/Night: <span className="text-gray-700">{p.pointsPerNight}</span></div>
-                  <div>Value: <span className="text-gray-700">{formatCentsToDollars(p.redemptionValueCents)}/pt</span></div>
-                  <div>Tiers: <span className="text-gray-700">{p.tiers.length}</span></div>
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  <div>Pts/$: <span className="text-foreground">{p.pointsPerDollar}</span></div>
+                  <div>Pts/Night: <span className="text-foreground">{p.pointsPerNight}</span></div>
+                  <div>Value: <span className="text-foreground">{formatCentsToDollars(p.redemptionValueCents)}/pt</span></div>
+                  <div>Tiers: <span className="text-foreground">{p.tiers.length}</span></div>
                 </div>
                 <button
                   type="button"
                   onClick={() => openEdit(p)}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200/50"
+                  className="w-full rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
                 >
                   Edit
                 </button>
@@ -482,22 +482,22 @@ function ProgramDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             {isEdit ? 'Edit Program' : 'Create Program'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {formError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
             {formError}
           </div>
         )}
@@ -505,7 +505,7 @@ function ProgramDialog({
         <div className="space-y-4">
           {/* Name */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -514,7 +514,7 @@ function ProgramDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Gold Rewards"
               maxLength={100}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               autoFocus
             />
           </div>
@@ -522,7 +522,7 @@ function ProgramDialog({
           {/* Points per dollar */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-foreground">
                 Points per Dollar
               </label>
               <input
@@ -531,11 +531,11 @@ function ProgramDialog({
                 min="0"
                 value={pointsPerDollar}
                 onChange={(e) => setPointsPerDollar(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-foreground">
                 Points per Night
               </label>
               <input
@@ -544,14 +544,14 @@ function ProgramDialog({
                 min="0"
                 value={pointsPerNight}
                 onChange={(e) => setPointsPerNight(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
 
           {/* Redemption value */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Redemption Value ($ per point)
             </label>
             <input
@@ -561,20 +561,20 @@ function ProgramDialog({
               value={redemptionValueCents}
               onChange={(e) => setRedemptionValueCents(e.target.value)}
               placeholder="0.01"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Dollar value of each point when redeemed (e.g. 0.01 = 1 cent per point)
             </p>
           </div>
 
           {/* Active toggle */}
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-foreground">
             <input
               type="checkbox"
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
             />
             Program is active
           </label>
@@ -582,13 +582,13 @@ function ProgramDialog({
           {/* Tiers */}
           <div>
             <div className="mb-2 flex items-center justify-between">
-              <label className="text-sm font-medium text-gray-700">Tiers</label>
+              <label className="text-sm font-medium text-foreground">Tiers</label>
               <button
                 type="button"
                 onClick={addTier}
-                className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200/50"
+                className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
               >
-                <Plus className="h-3 w-3" />
+                <Plus className="h-3 w-3" aria-hidden="true" />
                 Add Tier
               </button>
             </div>
@@ -596,7 +596,7 @@ function ProgramDialog({
               {tiers.map((tier, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3"
+                  className="flex items-center gap-2 rounded-lg border border-border bg-muted p-3"
                 >
                   <div className="flex-1 space-y-2">
                     <input
@@ -604,11 +604,11 @@ function ProgramDialog({
                       value={tier.name}
                       onChange={(e) => updateTier(idx, 'name', e.target.value)}
                       placeholder="Tier name"
-                      className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-full rounded border border-border bg-surface px-2 py-1 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-[10px] uppercase tracking-wide text-gray-400">
+                        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
                           Min Points
                         </label>
                         <input
@@ -618,11 +618,11 @@ function ProgramDialog({
                           onChange={(e) =>
                             updateTier(idx, 'minPoints', parseInt(e.target.value, 10) || 0)
                           }
-                          className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded border border-border bg-surface px-2 py-1 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="text-[10px] uppercase tracking-wide text-gray-400">
+                        <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
                           Multiplier
                         </label>
                         <input
@@ -633,7 +633,7 @@ function ProgramDialog({
                           onChange={(e) =>
                             updateTier(idx, 'multiplier', parseFloat(e.target.value) || 1)
                           }
-                          className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded border border-border bg-surface px-2 py-1 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                     </div>
@@ -642,7 +642,7 @@ function ProgramDialog({
                     <button
                       type="button"
                       onClick={() => removeTier(idx)}
-                      className="shrink-0 rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500"
+                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -658,7 +658,7 @@ function ProgramDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
           >
             Cancel
           </button>
@@ -668,7 +668,7 @@ function ProgramDialog({
             disabled={isSubmitting}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {isSubmitting
               ? isEdit
                 ? 'Saving...'
@@ -780,13 +780,13 @@ function MembersTab() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {/* Search */}
         <div className="relative flex-1 max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <input
             type="text"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by guest name..."
-            className="w-full rounded-lg border border-gray-200 bg-surface py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
           />
         </div>
         <button
@@ -794,14 +794,14 @@ function MembersTab() {
           onClick={() => setEnrollOpen(true)}
           className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Enroll Guest
         </button>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
           {error}
         </div>
       )}
@@ -809,16 +809,16 @@ function MembersTab() {
       {/* Loading */}
       {isLoading && members.length === 0 && (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" aria-hidden="true" />
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && members.length === 0 && !error && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-          <Users className="h-12 w-12 text-gray-300" />
-          <h3 className="mt-4 text-sm font-semibold text-gray-900">No loyalty members</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+          <Users className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
+          <h3 className="mt-4 text-sm font-semibold text-foreground">No loyalty members</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             {searchTerm
               ? 'No members match your search.'
               : 'Enroll guests in a loyalty program to get started.'}
@@ -828,32 +828,32 @@ function MembersTab() {
 
       {/* Members table */}
       {members.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           {/* Desktop table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
+                <tr className="border-b border-border bg-muted">
                   <th className="w-8 px-2 py-3" />
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Guest
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Program
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Balance
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Lifetime
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Tier
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Enrolled
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500 w-48">
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground w-48">
                     Actions
                   </th>
                 </tr>
@@ -895,7 +895,7 @@ function MembersTab() {
           <button
             type="button"
             onClick={() => fetchMembers(true)}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Load More
           </button>
@@ -904,7 +904,7 @@ function MembersTab() {
 
       {isLoading && members.length > 0 && (
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
         </div>
       )}
 
@@ -957,29 +957,29 @@ function MemberRow({
   return (
     <>
       <tr
-        className="border-b border-gray-100 transition-colors last:border-0 cursor-pointer hover:bg-gray-50"
+        className="border-b border-border transition-colors last:border-0 cursor-pointer hover:bg-accent"
         onClick={onToggle}
       >
         <td className="px-2 py-3 text-center">
           {isExpanded ? (
-            <ChevronDown className="mx-auto h-4 w-4 text-gray-400" />
+            <ChevronDown className="mx-auto h-4 w-4 text-muted-foreground" aria-hidden="true" />
           ) : (
-            <ChevronRight className="mx-auto h-4 w-4 text-gray-400" />
+            <ChevronRight className="mx-auto h-4 w-4 text-muted-foreground" aria-hidden="true" />
           )}
         </td>
         <td className="px-4 py-3">
-          <span className="text-sm font-medium text-gray-900">{member.guestName}</span>
+          <span className="text-sm font-medium text-foreground">{member.guestName}</span>
         </td>
         <td className="px-4 py-3">
-          <span className="text-sm text-gray-700">{member.programName}</span>
+          <span className="text-sm text-foreground">{member.programName}</span>
         </td>
         <td className="px-4 py-3 text-right">
-          <span className="text-sm font-semibold text-gray-900">
+          <span className="text-sm font-semibold text-foreground">
             {formatNumber(member.pointsBalance)}
           </span>
         </td>
         <td className="px-4 py-3 text-right">
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             {formatNumber(member.lifetimePoints)}
           </span>
         </td>
@@ -987,28 +987,28 @@ function MemberRow({
           {member.currentTier ? (
             <Badge variant="purple">{member.currentTier}</Badge>
           ) : (
-            <span className="text-sm text-gray-400">{'\u2014'}</span>
+            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
           )}
         </td>
         <td className="px-4 py-3">
-          <span className="text-sm text-gray-500">{formatDate(member.enrolledAt)}</span>
+          <span className="text-sm text-muted-foreground">{formatDate(member.enrolledAt)}</span>
         </td>
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={onEarn}
-              className="flex items-center gap-1 rounded-md border border-green-200 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+              className="flex items-center gap-1 rounded-md border border-green-500/30 px-2 py-1 text-xs font-medium text-green-500 hover:bg-green-500/10"
             >
-              <TrendingUp className="h-3 w-3" />
+              <TrendingUp className="h-3 w-3" aria-hidden="true" />
               Earn
             </button>
             <button
               type="button"
               onClick={onAdjust}
-              className="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200/50"
+              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
             >
-              <Minus className="h-3 w-3" />
+              <Minus className="h-3 w-3" aria-hidden="true" />
               Adjust
             </button>
           </div>
@@ -1016,7 +1016,7 @@ function MemberRow({
       </tr>
       {isExpanded && (
         <tr>
-          <td colSpan={8} className="bg-gray-50 px-4 py-0">
+          <td colSpan={8} className="bg-muted px-4 py-0">
             <MemberTransactions memberId={member.id} />
           </td>
         </tr>
@@ -1043,31 +1043,31 @@ function MemberCard({
   onEarn: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-gray-100 p-4">
+    <div className="rounded-lg border border-border p-4">
       <div className="cursor-pointer" onClick={onToggle}>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-900">{member.guestName}</span>
+          <span className="text-sm font-medium text-foreground">{member.guestName}</span>
           {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-gray-400" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           )}
         </div>
-        <div className="mt-1 text-xs text-gray-500">{member.programName}</div>
+        <div className="mt-1 text-xs text-muted-foreground">{member.programName}</div>
         <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
           <div>
-            <div className="text-gray-400">Balance</div>
-            <div className="font-semibold text-gray-900">
+            <div className="text-muted-foreground">Balance</div>
+            <div className="font-semibold text-foreground">
               {formatNumber(member.pointsBalance)}
             </div>
           </div>
           <div>
-            <div className="text-gray-400">Lifetime</div>
-            <div className="text-gray-700">{formatNumber(member.lifetimePoints)}</div>
+            <div className="text-muted-foreground">Lifetime</div>
+            <div className="text-foreground">{formatNumber(member.lifetimePoints)}</div>
           </div>
           <div>
-            <div className="text-gray-400">Tier</div>
-            <div className="text-gray-700">{member.currentTier ?? '\u2014'}</div>
+            <div className="text-muted-foreground">Tier</div>
+            <div className="text-foreground">{member.currentTier ?? '\u2014'}</div>
           </div>
         </div>
       </div>
@@ -1075,22 +1075,22 @@ function MemberCard({
         <button
           type="button"
           onClick={onEarn}
-          className="flex flex-1 items-center justify-center gap-1 rounded-md border border-green-200 px-2 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50"
+          className="flex flex-1 items-center justify-center gap-1 rounded-md border border-green-500/30 px-2 py-1.5 text-xs font-medium text-green-500 hover:bg-green-500/10"
         >
-          <TrendingUp className="h-3 w-3" />
+          <TrendingUp className="h-3 w-3" aria-hidden="true" />
           Earn
         </button>
         <button
           type="button"
           onClick={onAdjust}
-          className="flex flex-1 items-center justify-center gap-1 rounded-md border border-gray-200 px-2 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200/50"
+          className="flex flex-1 items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
         >
-          <Minus className="h-3 w-3" />
+          <Minus className="h-3 w-3" aria-hidden="true" />
           Adjust
         </button>
       </div>
       {isExpanded && (
-        <div className="mt-3 border-t border-gray-200 pt-3">
+        <div className="mt-3 border-t border-border pt-3">
           <MemberTransactions memberId={member.id} />
         </div>
       )}
@@ -1151,14 +1151,14 @@ function MemberTransactions({ memberId }: { memberId: string }) {
   if (isLoading && transactions.length === 0) {
     return (
       <div className="flex items-center justify-center py-4">
-        <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
       </div>
     );
   }
 
   if (transactions.length === 0) {
     return (
-      <div className="py-4 text-center text-sm text-gray-400">
+      <div className="py-4 text-center text-sm text-muted-foreground">
         No transactions yet.
       </div>
     );
@@ -1166,7 +1166,7 @@ function MemberTransactions({ memberId }: { memberId: string }) {
 
   return (
     <div className="py-3">
-      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Recent Transactions
       </h4>
       <div className="space-y-1">
@@ -1179,21 +1179,21 @@ function MemberTransactions({ memberId }: { memberId: string }) {
               <Badge variant={typeColors[t.type] ?? 'neutral'}>
                 {t.type}
               </Badge>
-              <span className="text-gray-700">{t.description}</span>
+              <span className="text-foreground">{t.description}</span>
               {t.reservationId && (
-                <span className="text-xs text-gray-400">Res: {t.reservationId}</span>
+                <span className="text-xs text-muted-foreground">Res: {t.reservationId}</span>
               )}
             </div>
             <div className="flex items-center gap-4">
               <span
                 className={`font-medium ${
-                  t.points >= 0 ? 'text-green-700' : 'text-red-600'
+                  t.points >= 0 ? 'text-green-500' : 'text-red-500'
                 }`}
               >
                 {t.points >= 0 ? '+' : ''}
                 {formatNumber(t.points)}
               </span>
-              <span className="text-xs text-gray-400">{formatDate(t.createdAt)}</span>
+              <span className="text-xs text-muted-foreground">{formatDate(t.createdAt)}</span>
             </div>
           </div>
         ))}
@@ -1204,7 +1204,7 @@ function MemberTransactions({ memberId }: { memberId: string }) {
             type="button"
             onClick={() => fetchTransactions(true)}
             disabled={isLoading}
-            className="rounded-md border border-gray-200 px-3 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200/50 disabled:opacity-50"
+            className="rounded-md border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-gray-200/50 disabled:opacity-50"
           >
             {isLoading ? 'Loading...' : 'Load More'}
           </button>
@@ -1265,32 +1265,32 @@ function AdjustPointsDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Adjust Points</h2>
+          <h2 className="text-lg font-semibold text-foreground">Adjust Points</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-gray-500">
-          Adjusting points for <span className="font-medium text-gray-900">{member.guestName}</span>.
-          Current balance: <span className="font-medium text-gray-900">{formatNumber(member.pointsBalance)}</span>.
+        <p className="mb-4 text-sm text-muted-foreground">
+          Adjusting points for <span className="font-medium text-foreground">{member.guestName}</span>.
+          Current balance: <span className="font-medium text-foreground">{formatNumber(member.pointsBalance)}</span>.
         </p>
 
         {formError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
             {formError}
           </div>
         )}
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Points <span className="text-red-500">*</span>
             </label>
             <input
@@ -1298,15 +1298,15 @@ function AdjustPointsDialog({
               value={points}
               onChange={(e) => setPoints(e.target.value)}
               placeholder="e.g. -500 or 200"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               autoFocus
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Use negative for deductions, positive for additions
             </p>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Description <span className="text-red-500">*</span>
             </label>
             <input
@@ -1315,7 +1315,7 @@ function AdjustPointsDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Manual correction, Courtesy credit"
               maxLength={200}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
@@ -1324,7 +1324,7 @@ function AdjustPointsDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
           >
             Cancel
           </button>
@@ -1334,7 +1334,7 @@ function AdjustPointsDialog({
             disabled={isSubmitting}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {isSubmitting ? 'Adjusting...' : 'Adjust Points'}
           </button>
         </div>
@@ -1397,32 +1397,32 @@ function EarnPointsDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Earn Points</h2>
+          <h2 className="text-lg font-semibold text-foreground">Earn Points</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-gray-500">
-          Earning points for <span className="font-medium text-gray-900">{member.guestName}</span>.
-          Current balance: <span className="font-medium text-gray-900">{formatNumber(member.pointsBalance)}</span>.
+        <p className="mb-4 text-sm text-muted-foreground">
+          Earning points for <span className="font-medium text-foreground">{member.guestName}</span>.
+          Current balance: <span className="font-medium text-foreground">{formatNumber(member.pointsBalance)}</span>.
         </p>
 
         {formError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
             {formError}
           </div>
         )}
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Points <span className="text-red-500">*</span>
             </label>
             <input
@@ -1431,12 +1431,12 @@ function EarnPointsDialog({
               value={points}
               onChange={(e) => setPoints(e.target.value)}
               placeholder="e.g. 500"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               autoFocus
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Reservation ID
             </label>
             <input
@@ -1444,11 +1444,11 @@ function EarnPointsDialog({
               value={reservationId}
               onChange={(e) => setReservationId(e.target.value)}
               placeholder="Optional"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Description <span className="text-red-500">*</span>
             </label>
             <input
@@ -1457,7 +1457,7 @@ function EarnPointsDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Stay bonus, Promotion award"
               maxLength={200}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
@@ -1466,7 +1466,7 @@ function EarnPointsDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
           >
             Cancel
           </button>
@@ -1476,7 +1476,7 @@ function EarnPointsDialog({
             disabled={isSubmitting}
             className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {isSubmitting ? 'Earning...' : 'Earn Points'}
           </button>
         </div>
@@ -1558,27 +1558,27 @@ function EnrollDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Enroll Guest</h2>
+          <h2 className="text-lg font-semibold text-foreground">Enroll Guest</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {formError && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
             {formError}
           </div>
         )}
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Guest ID <span className="text-red-500">*</span>
             </label>
             <input
@@ -1586,28 +1586,28 @@ function EnrollDialog({
               value={guestId}
               onChange={(e) => setGuestId(e.target.value)}
               placeholder="Enter guest ID"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               autoFocus
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Program <span className="text-red-500">*</span>
             </label>
             {isLoadingPrograms ? (
-              <div className="flex items-center gap-2 py-2 text-sm text-gray-400">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 Loading programs...
               </div>
             ) : programs.length === 0 ? (
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 No active programs. Create one first.
               </p>
             ) : (
               <select
                 value={programId}
                 onChange={(e) => setProgramId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 {programs.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -1623,7 +1623,7 @@ function EnrollDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
           >
             Cancel
           </button>
@@ -1633,7 +1633,7 @@ function EnrollDialog({
             disabled={isSubmitting || programs.length === 0}
             className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {isSubmitting ? 'Enrolling...' : 'Enroll Guest'}
           </button>
         </div>

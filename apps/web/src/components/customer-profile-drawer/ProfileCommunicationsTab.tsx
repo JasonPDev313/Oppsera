@@ -117,11 +117,11 @@ export function ProfileCommunicationsTab({
   if (error) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load communications.</p>
+        <p className="text-sm text-red-500">Failed to load communications.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -141,7 +141,7 @@ export function ProfileCommunicationsTab({
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               channelFilter === ch
                 ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-muted text-muted-foreground hover:bg-muted'
             }`}
           >
             {ch === 'all' ? 'All' : ch.charAt(0).toUpperCase() + ch.slice(1)}
@@ -165,12 +165,12 @@ export function ProfileCommunicationsTab({
             return (
               <div
                 key={comm.id}
-                className="rounded-lg border border-gray-200 p-3"
+                className="rounded-lg border border-border p-3"
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-2">
                     <div className="mt-0.5 flex items-center gap-1">
-                      <ChannelIcon className="h-4 w-4 text-gray-400" />
+                      <ChannelIcon className="h-4 w-4 text-muted-foreground" />
                       <DirectionIcon
                         className={`h-3 w-3 ${
                           comm.direction === 'outbound'
@@ -181,16 +181,16 @@ export function ProfileCommunicationsTab({
                     </div>
                     <div className="min-w-0 flex-1">
                       {comm.subject && (
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-sm font-medium text-foreground">
                           {comm.subject}
                         </p>
                       )}
                       {comm.body && (
-                        <p className="mt-0.5 line-clamp-2 text-xs text-gray-600">
+                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                           {comm.body}
                         </p>
                       )}
-                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{formatDateTime(comm.createdAt)}</span>
                         {comm.createdBy && (
                           <>
@@ -217,7 +217,7 @@ export function ProfileCommunicationsTab({
               type="button"
               onClick={loadMore}
               disabled={loadingMore}
-              className="flex w-full items-center justify-center gap-1 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
             >
               <ChevronDown className="h-4 w-4" />
               {loadingMore ? 'Loading...' : 'Load more'}

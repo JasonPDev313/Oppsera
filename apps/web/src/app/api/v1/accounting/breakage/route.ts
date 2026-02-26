@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { listPendingBreakage, getPendingBreakageStats } from '@oppsera/module-accounting';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/accounting/breakage — list pending breakage reviews
 export const GET = withMiddleware(
@@ -9,7 +10,7 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const status = url.searchParams.get('status') ?? undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined;
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const result = await listPendingBreakage({
       tenantId: ctx.tenantId,

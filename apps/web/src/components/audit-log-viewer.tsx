@@ -107,7 +107,7 @@ export function AuditLogViewer({
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -117,76 +117,76 @@ export function AuditLogViewer({
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-500">From</label>
+          <label className="block text-xs font-medium text-muted-foreground">From</label>
           <input
             type="date"
             value={fromDate}
             onChange={(e) => setFromDate(e.target.value)}
-            className="mt-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="mt-1 rounded-lg border border-input px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500">To</label>
+          <label className="block text-xs font-medium text-muted-foreground">To</label>
           <input
             type="date"
             value={toDate}
             onChange={(e) => setToDate(e.target.value)}
-            className="mt-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="mt-1 rounded-lg border border-input px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500">Action</label>
+          <label className="block text-xs font-medium text-muted-foreground">Action</label>
           <input
             type="text"
             value={actionFilter}
             onChange={(e) => setActionFilter(e.target.value)}
             placeholder="e.g. role.created"
-            className="mt-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="mt-1 rounded-lg border border-input px-3 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
         </div>
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-hidden rounded-lg border border-border">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                 Date/Time
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                 Action
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                 Entity
               </th>
               {showActor && (
-                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                   Actor
                 </th>
               )}
-              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+              <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                 Changes
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 bg-surface">
+          <tbody className="divide-y divide-border bg-surface">
             {entries.map((entry) => (
               <tr key={entry.id}>
-                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                   {formatDate(entry.createdAt)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-foreground">
                   {formatAction(entry.action)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                   <span className="font-mono">{entry.entityType}</span>
-                  <span className="ml-1 text-gray-400">{entry.entityId.slice(0, 10)}...</span>
+                  <span className="ml-1 text-muted-foreground">{entry.entityId.slice(0, 10)}...</span>
                 </td>
                 {showActor && (
-                  <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-500">
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
                     {entry.actorType === 'system' ? (
-                      <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                      <span className="inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-500">
                         system
                       </span>
                     ) : (
@@ -201,7 +201,7 @@ export function AuditLogViewer({
                       onClick={() =>
                         setExpandedId(expandedId === entry.id ? null : entry.id)
                       }
-                      className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800"
+                      className="inline-flex items-center gap-1 text-indigo-500 hover:text-indigo-500"
                     >
                       {expandedId === entry.id ? (
                         <ChevronDown className="h-3 w-3" />
@@ -211,7 +211,7 @@ export function AuditLogViewer({
                       View
                     </button>
                   ) : (
-                    <span className="text-gray-300">—</span>
+                    <span className="text-muted-foreground/50">—</span>
                   )}
                 </td>
               </tr>
@@ -220,7 +220,7 @@ export function AuditLogViewer({
               <tr>
                 <td
                   colSpan={showActor ? 5 : 4}
-                  className="px-4 py-8 text-center text-sm text-gray-500"
+                  className="px-4 py-8 text-center text-sm text-muted-foreground"
                 >
                   No audit log entries found
                 </td>
@@ -232,18 +232,18 @@ export function AuditLogViewer({
 
       {/* Expanded changes */}
       {expandedId && (
-        <div className="mt-2 rounded-lg border border-indigo-100 bg-indigo-50 p-3">
-          <h4 className="text-xs font-medium text-indigo-800">Changes</h4>
+        <div className="mt-2 rounded-lg border border-indigo-500/20 bg-indigo-500/10 p-3">
+          <h4 className="text-xs font-medium text-indigo-500">Changes</h4>
           <div className="mt-2 space-y-1">
             {Object.entries(
               entries.find((e) => e.id === expandedId)?.changes ?? {},
             ).map(([field, diff]) => (
               <div key={field} className="flex items-baseline gap-2 text-xs">
-                <span className="font-mono font-medium text-gray-700">{field}:</span>
-                <span className="text-red-600 line-through">
+                <span className="font-mono font-medium text-foreground">{field}:</span>
+                <span className="text-red-500 line-through">
                   {JSON.stringify(diff.old)}
                 </span>
-                <span className="text-green-600">{JSON.stringify(diff.new)}</span>
+                <span className="text-green-500">{JSON.stringify(diff.new)}</span>
               </div>
             ))}
           </div>
@@ -257,7 +257,7 @@ export function AuditLogViewer({
             type="button"
             onClick={loadMore}
             disabled={isLoadingMore}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
           >
             {isLoadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
             Load More

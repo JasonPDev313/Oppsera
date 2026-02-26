@@ -33,7 +33,7 @@ import {
   RotateCcw,
   Settings,
   CreditCard,
-  MessageSquareText,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
 
@@ -117,8 +117,7 @@ const MODULES: NavModule[] = [
       { href: '/train-ai/cost', label: 'Cost Analytics', icon: DollarSign },
       { href: '/train-ai/safety', label: 'Safety Rules', icon: ShieldAlert },
       { href: '/train-ai/patterns', label: 'Patterns', icon: AlertTriangle },
-      { href: '/train-ai/narrative', label: 'Narrative Prompt', icon: MessageSquareText },
-      { href: '/train-ai/lenses', label: 'System Lenses', icon: Layers },
+      { href: '/train-ai/ai-behavior', label: 'AI Behavior', icon: SlidersHorizontal },
     ],
   },
 ];
@@ -141,7 +140,7 @@ export function AdminSidebar() {
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      <nav aria-label="Admin navigation" className="flex-1 px-3 py-4 space-y-1">
         {MODULES.map((mod) => (
           <SidebarModule key={mod.prefix} module={mod} pathname={pathname} />
         ))}
@@ -155,9 +154,10 @@ export function AdminSidebar() {
           <p className="text-xs text-indigo-400 mt-0.5 capitalize">{session.role.replace('_', ' ')}</p>
           <button
             onClick={logout}
+            aria-label="Sign out"
             className="mt-3 flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors"
           >
-            <LogOut size={13} />
+            <LogOut size={13} aria-hidden="true" />
             Sign out
           </button>
         </div>
@@ -174,32 +174,35 @@ function SidebarModule({ module: mod, pathname }: { module: NavModule; pathname:
     <div>
       <button
         onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls={`nav-section-${mod.prefix.replace(/\//g, '-')}`}
         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
           isActive
             ? 'text-white bg-slate-800'
             : 'text-slate-400 hover:text-white hover:bg-slate-800'
         }`}
       >
-        <mod.icon size={16} />
+        <mod.icon size={16} aria-hidden="true" />
         <span className="flex-1 text-left">{mod.label}</span>
-        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        {expanded ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
       </button>
 
       {expanded && (
-        <div className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
+        <div id={`nav-section-${mod.prefix.replace(/\//g, '-')}`} className="ml-3 mt-0.5 space-y-0.5 border-l border-slate-700 pl-3">
           {mod.children.map(({ href, label, icon: Icon }) => {
             const active = pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
+                aria-current={active ? 'page' : undefined}
                 className={`flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
                   active
                     ? 'bg-indigo-600 text-white font-medium'
                     : 'text-slate-400 hover:text-white hover:bg-slate-800'
                 }`}
               >
-                <Icon size={14} />
+                <Icon size={14} aria-hidden="true" />
                 {label}
               </Link>
             );

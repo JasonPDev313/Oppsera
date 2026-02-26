@@ -48,7 +48,7 @@ export function MoneyInput({
 
   return (
     <div className={`relative ${className}`}>
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
         $
       </span>
       <input
@@ -62,11 +62,11 @@ export function MoneyInput({
         disabled={disabled}
         className={`w-full rounded-lg border py-2 pl-7 pr-3 text-right text-sm tabular-nums focus:ring-2 focus:outline-none ${
           error
-            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
+            ? 'border-red-500/30 focus:border-red-500 focus:ring-red-500'
             : focused
               ? 'border-indigo-500 ring-2 ring-indigo-500'
-              : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-        } ${disabled ? 'cursor-not-allowed bg-gray-50 text-gray-400' : ''}`}
+              : 'border-input focus:border-indigo-500 focus:ring-indigo-500'
+        } ${disabled ? 'cursor-not-allowed bg-muted text-muted-foreground' : ''}`}
       />
     </div>
   );

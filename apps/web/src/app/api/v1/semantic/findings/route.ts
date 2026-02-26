@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { eq, and, desc, lt } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, semanticAnalysisFindings } from '@oppsera/db';
+import { parseLimit } from '@/lib/api-params';
 
 // ── GET /api/v1/semantic/findings ─────────────────────────────────
 // List background analysis findings for the current tenant.
@@ -19,7 +20,7 @@ export const GET = withMiddleware(
     const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
     const findingType = url.searchParams.get('findingType') ?? undefined;
     const priority = url.searchParams.get('priority') ?? undefined;
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 100);
+    const limit = parseLimit(url.searchParams.get('limit'));
     const cursor = url.searchParams.get('cursor') ?? undefined;
 
     const conditions = [eq(semanticAnalysisFindings.tenantId, ctx.tenantId)];

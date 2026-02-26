@@ -1,18 +1,113 @@
 @import 'tailwindcss';
 @source "../../";
 
+/* ── Theme: Semantic design tokens ───────────────────────────────── */
+
+@theme {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+
+  --color-background: var(--sem-background);
+  --color-foreground: var(--sem-foreground);
+  --color-card: var(--sem-card);
+  --color-card-foreground: var(--sem-card-foreground);
+  --color-muted: var(--sem-muted);
+  --color-muted-foreground: var(--sem-muted-foreground);
+  --color-border: var(--sem-border);
+  --color-input: var(--sem-input);
+  --color-ring: var(--sem-ring);
+  --color-primary: var(--sem-primary);
+  --color-primary-foreground: var(--sem-primary-foreground);
+  --color-accent: var(--sem-accent);
+  --color-accent-foreground: var(--sem-accent-foreground);
+}
+
+/* ── Dark mode (default) ─────────────────────────────────────────── */
+
 :root {
+  color-scheme: dark;
+
+  /* Portal-specific custom props (kept for backward compat) */
   --portal-primary: #2563eb;
-  --portal-primary-light: #dbeafe;
-  --portal-bg: #f8fafc;
-  --portal-surface: #ffffff;
-  --portal-text: #1e293b;
-  --portal-text-muted: #64748b;
-  --portal-border: #e2e8f0;
+  --portal-primary-light: #2563eb33;
+  --portal-bg: #0d1117;
+  --portal-surface: #161b22;
+  --portal-text: #e6edf3;
+  --portal-text-muted: #8b949e;
+  --portal-border: #30363d;
+
+  /* Inverted gray scale for dark mode */
+  --color-gray-50: #1c2128;
+  --color-gray-100: #0d1117;
+  --color-gray-200: #30363d;
+  --color-gray-300: #484f58;
+  --color-gray-400: #7d8590;
+  --color-gray-500: #7d8590;
+  --color-gray-600: #c9d1d9;
+  --color-gray-700: #e6edf3;
+  --color-gray-800: #f0f3f6;
+  --color-gray-900: #f0f6fc;
+  --color-gray-950: #ffffff;
+
+  --surface: #161b22;
+  --surface-raised: #1c2128;
+
+  /* Semantic tokens — dark mode */
+  --sem-background: #0d1117;
+  --sem-foreground: #e6edf3;
+  --sem-card: #161b22;
+  --sem-card-foreground: #e6edf3;
+  --sem-muted: #1c2128;
+  --sem-muted-foreground: #8b949e;
+  --sem-border: #30363d;
+  --sem-input: #30363d;
+  --sem-ring: #58a6ff;
+  --sem-primary: #2563eb;
+  --sem-primary-foreground: #ffffff;
+  --sem-accent: #1c2128;
+  --sem-accent-foreground: #e6edf3;
 }
 
 body {
   background: var(--portal-bg);
   color: var(--portal-text);
   font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ── Accessibility ──────────────────────────────────────────────── */
+
+/* Skip-to-content link — visually hidden until focused */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  z-index: 999;
+  padding: 0.5rem 1rem;
+  background: var(--portal-primary);
+  color: #ffffff;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+/* Global focus-visible ring */
+:focus-visible:not([class*="focus-visible\:ring"]) {
+  outline: 2px solid var(--portal-primary);
+  outline-offset: 2px;
+}
+
+/* Respect user's motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

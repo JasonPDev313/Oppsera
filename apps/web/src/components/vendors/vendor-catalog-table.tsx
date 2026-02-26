@@ -40,8 +40,8 @@ export function VendorCatalogTable({
       header: 'Item',
       render: (row: CatalogRow) => (
         <div>
-          <span className="font-medium text-gray-900">{row.itemName}</span>
-          {row.itemSku && <span className="ml-2 text-xs text-gray-400">{row.itemSku}</span>}
+          <span className="font-medium text-foreground">{row.itemName}</span>
+          {row.itemSku && <span className="ml-2 text-xs text-muted-foreground">{row.itemSku}</span>}
         </div>
       ),
     },
@@ -49,21 +49,21 @@ export function VendorCatalogTable({
       key: 'vendorSku',
       header: 'Vendor SKU',
       render: (row: CatalogRow) => (
-        <span className="text-sm text-gray-600">{row.vendorSku ?? '\u2014'}</span>
+        <span className="text-sm text-muted-foreground">{row.vendorSku ?? '\u2014'}</span>
       ),
     },
     {
       key: 'vendorCost',
       header: 'Cost',
       render: (row: CatalogRow) => (
-        <span className="text-sm font-medium text-gray-900">{formatMoney(row.vendorCost)}</span>
+        <span className="text-sm font-medium text-foreground">{formatMoney(row.vendorCost)}</span>
       ),
     },
     {
       key: 'lastCost',
       header: 'Last Cost',
       render: (row: CatalogRow) => (
-        <span className="text-sm text-gray-500">{formatMoney(row.lastCost)}</span>
+        <span className="text-sm text-muted-foreground">{formatMoney(row.lastCost)}</span>
       ),
     },
     {
@@ -73,14 +73,14 @@ export function VendorCatalogTable({
         row.isPreferred ? (
           <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
         ) : (
-          <span className="text-xs text-gray-400">\u2014</span>
+          <span className="text-xs text-muted-foreground">—</span>
         ),
     },
     {
       key: 'leadTimeDays',
       header: 'Lead Time',
       render: (row: CatalogRow) => (
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-muted-foreground">
           {row.leadTimeDays != null ? `${row.leadTimeDays}d` : '\u2014'}
         </span>
       ),
@@ -94,7 +94,7 @@ export function VendorCatalogTable({
           <button
             type="button"
             onClick={() => onEdit(row as VendorCatalogEntry)}
-            className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Edit"
           >
             <Pencil className="h-4 w-4" />
@@ -107,7 +107,7 @@ export function VendorCatalogTable({
                   onRemove(row.id as string);
                   setConfirmRemove(null);
                 }}
-                className="rounded p-1.5 text-red-500 hover:bg-red-50"
+                className="rounded p-1.5 text-red-500 hover:bg-red-500/10"
                 title="Confirm remove"
               >
                 <Check className="h-4 w-4" />
@@ -115,7 +115,7 @@ export function VendorCatalogTable({
               <button
                 type="button"
                 onClick={() => setConfirmRemove(null)}
-                className="rounded p-1.5 text-gray-400 hover:bg-gray-100"
+                className="rounded p-1.5 text-muted-foreground hover:bg-accent"
                 title="Cancel"
               >
                 <X className="h-4 w-4" />
@@ -125,7 +125,7 @@ export function VendorCatalogTable({
             <button
               type="button"
               onClick={() => setConfirmRemove(row.id as string)}
-              className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-500"
+              className="rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
               title="Remove"
             >
               <Trash2 className="h-4 w-4" />
@@ -156,7 +156,7 @@ export function VendorCatalogTable({
           <button
             type="button"
             onClick={onLoadMore}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
           >
             Load More
           </button>

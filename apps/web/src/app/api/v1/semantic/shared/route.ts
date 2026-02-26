@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
-import { randomBytes } from 'crypto';
+import { randomBytes } from 'node:crypto';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, semanticSharedInsights, semanticEvalTurns } from '@oppsera/db';
 import { generateUlid, ValidationError } from '@oppsera/shared';

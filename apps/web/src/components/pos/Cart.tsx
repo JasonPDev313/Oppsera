@@ -51,28 +51,28 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
   const qtyDisplay = qty !== 1 ? ` (x${formatQty(qty)})` : '';
 
   return (
-    <div className="group flex flex-col border-b border-gray-100 px-3 py-0.5">
+    <div className="group flex flex-col border-b border-border px-3 py-0.5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span
-              className="font-medium text-gray-900 truncate"
+              className="font-medium text-foreground truncate"
               style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
             >
               {line.catalogItemName}
             </span>
             {qtyDisplay && (
-              <span className="text-xs text-gray-500">{qtyDisplay}</span>
+              <span className="text-xs text-muted-foreground">{qtyDisplay}</span>
             )}
           </div>
 
           {/* Price override */}
           {line.originalUnitPrice != null && (
             <div className="mt-0.5 flex items-center gap-1.5">
-              <span className="text-xs text-gray-400 line-through">
+              <span className="text-xs text-muted-foreground line-through">
                 {formatMoney(line.originalUnitPrice)}
               </span>
-              <span className="text-xs font-medium text-gray-700">
+              <span className="text-xs font-medium text-foreground">
                 {formatMoney(line.unitPrice)}
               </span>
               {line.priceOverrideReason && (
@@ -89,7 +89,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
               {line.modifiers.map((mod) => (
                 <div
                   key={mod.modifierId}
-                  className="text-xs text-gray-500"
+                  className="text-xs text-muted-foreground"
                 >
                   {mod.name}
                   {mod.priceAdjustment !== 0 && (
@@ -111,7 +111,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
 
           {/* Notes */}
           {line.notes && (
-            <p className="mt-0.5 text-xs text-gray-400">{line.notes}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{line.notes}</p>
           )}
         </div>
 
@@ -119,13 +119,13 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
         <div className="flex items-start gap-1 shrink-0">
           <div className="text-right">
             <div
-              className="text-sm font-semibold text-gray-900"
+              className="text-sm font-semibold text-foreground"
               style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
             >
               {formatMoney(line.lineTotal)}
             </div>
             {line.lineTax > 0 && (
-              <div className="text-[10px] text-gray-400">
+              <div className="text-[10px] text-muted-foreground">
                 tax {formatMoney(line.lineTax)}
               </div>
             )}
@@ -133,7 +133,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
           <button
             type="button"
             onClick={() => onRemove(line.id)}
-            className="rounded p-0.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+            className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
             aria-label={`Remove ${line.catalogItemName}`}
           >
             <X className="h-4 w-4" />
@@ -148,18 +148,18 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
             type="button"
             onClick={handleDecrement}
             disabled={qty <= (allowedFractions[0] ?? 1)}
-            className="flex h-6 w-6 items-center justify-center rounded border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-30"
+            className="flex h-6 w-6 items-center justify-center rounded border border-input text-muted-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-30"
             aria-label="Decrease quantity"
           >
             <Minus className="h-3 w-3" />
           </button>
-          <span className="min-w-8 text-center text-sm font-medium text-gray-700">
+          <span className="min-w-8 text-center text-sm font-medium text-foreground">
             {formatQty(qty)}
           </span>
           <button
             type="button"
             onClick={handleIncrement}
-            className="flex h-6 w-6 items-center justify-center rounded border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100"
+            className="flex h-6 w-6 items-center justify-center rounded border border-input text-muted-foreground transition-colors hover:bg-accent"
             aria-label="Increase quantity"
           >
             <Plus className="h-3 w-3" />
@@ -172,10 +172,10 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
 
 function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty'>) {
   return (
-    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
+    <div className="group flex items-start justify-between gap-2 border-b border-border px-3 py-0.5">
       <div className="flex-1 min-w-0">
         <span
-          className="font-medium text-gray-900 truncate block"
+          className="font-medium text-foreground truncate block"
           style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
         >
           {line.catalogItemName}
@@ -184,7 +184,7 @@ function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty
         {/* Price override */}
         {line.originalUnitPrice != null && (
           <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="text-xs text-gray-400 line-through">
+            <span className="text-xs text-muted-foreground line-through">
               {formatMoney(line.originalUnitPrice)}
             </span>
             <span className="text-xs font-medium text-gray-700">
@@ -209,7 +209,7 @@ function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty
 
         {/* Notes */}
         {line.notes && (
-          <p className="mt-0.5 text-xs text-gray-400">{line.notes}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{line.notes}</p>
         )}
       </div>
 
@@ -230,7 +230,7 @@ function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty
         <button
           type="button"
           onClick={() => onRemove(line.id)}
-          className="rounded p-0.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
           aria-label={`Remove ${line.catalogItemName}`}
         >
           <X className="h-4 w-4" />
@@ -244,10 +244,10 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
   const durationMinutes = (line as unknown as { metadata?: { durationMinutes?: number } }).metadata?.durationMinutes;
 
   return (
-    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
+    <div className="group flex items-start justify-between gap-2 border-b border-border px-3 py-0.5">
       <div className="flex-1 min-w-0">
         <span
-          className="font-medium text-gray-900 truncate block"
+          className="font-medium text-foreground truncate block"
           style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
         >
           {line.catalogItemName}
@@ -261,7 +261,7 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
         {/* Price override */}
         {line.originalUnitPrice != null && (
           <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="text-xs text-gray-400 line-through">
+            <span className="text-xs text-muted-foreground line-through">
               {formatMoney(line.originalUnitPrice)}
             </span>
             <span className="text-xs font-medium text-gray-700">
@@ -277,7 +277,7 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
 
         {/* Notes */}
         {line.notes && (
-          <p className="mt-0.5 text-xs text-gray-400">{line.notes}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{line.notes}</p>
         )}
       </div>
 
@@ -298,7 +298,7 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
         <button
           type="button"
           onClick={() => onRemove(line.id)}
-          className="rounded p-0.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
           aria-label={`Remove ${line.catalogItemName}`}
         >
           <X className="h-4 w-4" />
@@ -310,10 +310,10 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
 
 function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty'>) {
   return (
-    <div className="group flex items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5">
+    <div className="group flex items-start justify-between gap-2 border-b border-border px-3 py-0.5">
       <div className="flex-1 min-w-0">
         <span
-          className="font-medium text-gray-900 truncate block"
+          className="font-medium text-foreground truncate block"
           style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
         >
           {line.catalogItemName}
@@ -322,7 +322,7 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
         {/* Price override */}
         {line.originalUnitPrice != null && (
           <div className="mt-0.5 flex items-center gap-1.5">
-            <span className="text-xs text-gray-400 line-through">
+            <span className="text-xs text-muted-foreground line-through">
               {formatMoney(line.originalUnitPrice)}
             </span>
             <span className="text-xs font-medium text-gray-700">
@@ -348,7 +348,7 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
 
         {/* Notes */}
         {line.notes && (
-          <p className="mt-0.5 text-xs text-gray-400">{line.notes}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{line.notes}</p>
         )}
       </div>
 
@@ -369,7 +369,7 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
         <button
           type="button"
           onClick={() => onRemove(line.id)}
-          className="rounded p-0.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+          className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
           aria-label={`Remove ${line.catalogItemName}`}
         >
           <X className="h-4 w-4" />
@@ -396,24 +396,24 @@ function ExpandedLineEditor({
   const [note, setNote] = useState(line.notes ?? '');
 
   return (
-    <div className="border-t border-gray-100 bg-gray-50 px-3 py-2 space-y-2">
+    <div className="border-t border-border bg-muted px-3 py-2 space-y-2">
       {/* Qty stepper */}
       {onUpdateQty && (
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 w-8">Qty</span>
+          <span className="text-xs font-medium text-muted-foreground w-8">Qty</span>
           <button
             type="button"
             onClick={() => onUpdateQty(line.id, Math.max(1, qty - 1))}
             disabled={qty <= 1}
-            className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-30 active:scale-[0.97]"
+            className="flex h-7 w-7 items-center justify-center rounded border border-input text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30 active:scale-[0.97]"
           >
             <Minus className="h-3 w-3" />
           </button>
-          <span className="min-w-8 text-center text-sm font-semibold text-gray-700">{qty}</span>
+          <span className="min-w-8 text-center text-sm font-semibold text-foreground">{qty}</span>
           <button
             type="button"
             onClick={() => onUpdateQty(line.id, qty + 1)}
-            className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 text-gray-500 transition-colors hover:bg-gray-100 active:scale-[0.97]"
+            className="flex h-7 w-7 items-center justify-center rounded border border-input text-muted-foreground transition-colors hover:bg-accent active:scale-[0.97]"
           >
             <Plus className="h-3 w-3" />
           </button>
@@ -423,7 +423,7 @@ function ExpandedLineEditor({
       {/* Note input */}
       {onUpdateNote && (
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 w-8">Note</span>
+          <span className="text-xs font-medium text-muted-foreground w-8">Note</span>
           <input
             type="text"
             value={note}
@@ -431,7 +431,7 @@ function ExpandedLineEditor({
             onBlur={() => onUpdateNote(line.id, note)}
             onKeyDown={(e) => { if (e.key === 'Enter') onUpdateNote(line.id, note); }}
             placeholder="Add a note..."
-            className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+            className="flex-1 rounded border border-input px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none"
           />
         </div>
       )}
@@ -440,7 +440,7 @@ function ExpandedLineEditor({
       <button
         type="button"
         onClick={() => onRemove(line.id)}
-        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 px-2 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 active:scale-[0.97]"
+        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-2 py-1.5 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10 active:scale-[0.97]"
       >
         <X className="h-3 w-3" />
         Remove Item
@@ -586,13 +586,13 @@ export const Cart = memo(function Cart({
   }, [itemCount]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div role="region" aria-label={`${label} — ${itemCount} item${itemCount !== 1 ? 's' : ''}`} className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-gray-200 px-3 py-0.5">
+      <div className="flex items-center justify-between border-b border-border px-3 py-0.5">
         {selectMode ? (
           <>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-indigo-700">
+              <span className="text-sm font-semibold text-indigo-400">
                 {selectedLineIds?.size ?? 0} selected
               </span>
             </div>
@@ -603,7 +603,7 @@ export const Cart = memo(function Cart({
                     <button
                       type="button"
                       onClick={onBatchRemove}
-                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
                     >
                       <Trash2 className="h-3 w-3" />
                       Remove
@@ -613,7 +613,7 @@ export const Cart = memo(function Cart({
                     <button
                       type="button"
                       onClick={onBatchDiscount}
-                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-indigo-400 transition-colors hover:bg-indigo-500/10"
                     >
                       <DollarSign className="h-3 w-3" />
                       Discount
@@ -624,7 +624,7 @@ export const Cart = memo(function Cart({
               <button
                 type="button"
                 onClick={onToggleSelectMode}
-                className="rounded-md px-2 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                className="rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
               >
                 Done
               </button>
@@ -632,16 +632,16 @@ export const Cart = memo(function Cart({
           </>
         ) : (
           <>
-            <h2 className="text-sm font-semibold text-gray-900">{label}</h2>
+            <h2 className="text-sm font-semibold text-foreground">{label}</h2>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 {itemCount} {itemCount === 1 ? 'item' : 'items'}
               </span>
               {onToggleSelectMode && itemCount > 0 && (
                 <button
                   type="button"
                   onClick={onToggleSelectMode}
-                  className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   title="Select items"
                 >
                   <CheckSquare className="h-3.5 w-3.5" />
@@ -655,7 +655,7 @@ export const Cart = memo(function Cart({
       {/* Lines */}
       {itemCount === 0 ? (
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-gray-400">No items yet</p>
+          <p className="text-sm text-muted-foreground">No items yet</p>
         </div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-y-auto">
@@ -674,7 +674,7 @@ export const Cart = memo(function Cart({
                     tabIndex={0}
                     onClick={() => selectMode && onToggleSelect ? onToggleSelect(group.displayLine.id) : toggleExpand(group.displayLine.id)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectMode && onToggleSelect) { onToggleSelect(group.displayLine.id); } else { toggleExpand(group.displayLine.id); } } }}
-                    className="group flex cursor-pointer items-start justify-between gap-2 border-b border-gray-100 px-3 py-0.5 transition-colors hover:bg-gray-50"
+                    className="group flex cursor-pointer items-start justify-between gap-2 border-b border-border px-3 py-0.5 transition-colors hover:bg-accent"
                   >
                     {selectMode && (
                       <input
@@ -688,20 +688,20 @@ export const Cart = memo(function Cart({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <span
-                          className="font-medium text-gray-900 truncate"
+                          className="font-medium text-foreground truncate"
                           style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
                         >
                           {group.displayLine.catalogItemName}
                         </span>
-                        <span className="shrink-0 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">
+                        <span className="shrink-0 rounded-full bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-bold text-indigo-400">
                           x{group.count}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <Pencil className="h-3 w-3 text-gray-300 opacity-0 transition-opacity group-hover:opacity-100" />
+                      <Pencil className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                       <div
-                        className="text-sm font-semibold text-gray-900"
+                        className="text-sm font-semibold text-foreground"
                         style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
                       >
                         {formatMoney(group.totalCents)}
@@ -714,7 +714,7 @@ export const Cart = memo(function Cart({
                             onRemoveItem(line.id);
                           }
                         }}
-                        className="rounded p-0.5 text-gray-300 transition-colors hover:bg-red-50 hover:text-red-500"
+                        className="rounded p-0.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
                         aria-label={`Remove all ${group.displayLine.catalogItemName}`}
                       >
                         <X className="h-4 w-4" />
@@ -728,10 +728,10 @@ export const Cart = memo(function Cart({
                     tabIndex={0}
                     onClick={() => selectMode && onToggleSelect ? onToggleSelect(group.displayLine.id) : toggleExpand(group.displayLine.id)}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { if (selectMode && onToggleSelect) { onToggleSelect(group.displayLine.id); } else { toggleExpand(group.displayLine.id); } } }}
-                    className="cursor-pointer transition-colors hover:bg-gray-50"
+                    className="cursor-pointer transition-colors hover:bg-accent"
                   >
                     {selectMode ? (
-                      <div className="flex items-start gap-2 border-b border-gray-100 px-3 py-0.5">
+                      <div className="flex items-start gap-2 border-b border-border px-3 py-0.5">
                         <input
                           type="checkbox"
                           checked={selectedLineIds?.has(group.displayLine.id) ?? false}

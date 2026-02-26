@@ -57,19 +57,19 @@ export default function JournalsContent() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {/* Search */}
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search by journal # or memo..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface py-2 pl-10 pr-3 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
           <button
             type="button"
             onClick={() => setShowFilters((f) => !f)}
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 sm:hidden"
+            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground sm:hidden"
           >
             Filters <ChevronDown className={`h-4 w-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
           </button>
@@ -81,19 +81,19 @@ export default function JournalsContent() {
             type="date"
             value={filters.startDate ?? ''}
             onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
-          <span className="self-center text-sm text-gray-400">to</span>
+          <span className="self-center text-sm text-muted-foreground">to</span>
           <input
             type="date"
             value={filters.endDate ?? ''}
             onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
           <select
             value={filters.sourceModule ?? ''}
             onChange={(e) => setFilters((f) => ({ ...f, sourceModule: e.target.value || undefined }))}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All Sources</option>
             {sourceModules.map((m) => (
@@ -103,7 +103,7 @@ export default function JournalsContent() {
           <select
             value={filters.status ?? ''}
             onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value || undefined }))}
-            className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
@@ -117,7 +117,7 @@ export default function JournalsContent() {
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
@@ -136,18 +136,18 @@ export default function JournalsContent() {
       {!isLoading && entries.length > 0 && (
         <>
           {/* Desktop table */}
-          <div className="hidden md:block overflow-hidden rounded-lg border border-gray-200 bg-surface">
+          <div className="hidden md:block overflow-hidden rounded-lg border border-border bg-surface">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Journal #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Source</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Memo</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Debits</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Credits</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Actions</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Journal #</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Memo</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Debits</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Credits</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -171,7 +171,7 @@ export default function JournalsContent() {
               <button
                 type="button"
                 onClick={() => setFilters((f) => ({ ...f, cursor: meta.cursor ?? undefined }))}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Load More
               </button>
@@ -191,34 +191,34 @@ function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onR
   const badge = SOURCE_MODULE_BADGES[entry.sourceModule];
 
   return (
-    <tr className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+    <tr className="border-b border-border last:border-0 hover:bg-accent">
       <td className="px-4 py-3 text-sm">
-        <Link href={`/accounting/journals/${entry.id}`} className="font-medium text-indigo-600 hover:text-indigo-800">
+        <Link href={`/accounting/journals/${entry.id}`} className="font-medium text-indigo-500 hover:text-indigo-500">
           #{entry.journalNumber}
         </Link>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-700">{entry.businessDate}</td>
+      <td className="px-4 py-3 text-sm text-foreground">{entry.businessDate}</td>
       <td className="px-4 py-3 text-sm">
         {badge && (
           <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-            badge.variant === 'success' ? 'bg-green-100 text-green-700' :
-            badge.variant === 'info' ? 'bg-blue-100 text-blue-700' :
-            badge.variant === 'purple' ? 'bg-purple-100 text-purple-700' :
-            badge.variant === 'orange' ? 'bg-orange-100 text-orange-700' :
-            badge.variant === 'indigo' ? 'bg-indigo-100 text-indigo-700' :
-            'bg-gray-100 text-gray-700'
+            badge.variant === 'success' ? 'bg-green-500/20 text-green-500' :
+            badge.variant === 'info' ? 'bg-blue-500/20 text-blue-500' :
+            badge.variant === 'purple' ? 'bg-purple-500/20 text-purple-500' :
+            badge.variant === 'orange' ? 'bg-orange-500/20 text-orange-500' :
+            badge.variant === 'indigo' ? 'bg-indigo-500/20 text-indigo-500' :
+            'bg-muted text-foreground'
           }`}>
             {badge.label}
           </span>
         )}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500 max-w-[200px] truncate">
+      <td className="px-4 py-3 text-sm text-muted-foreground max-w-[200px] truncate">
         {entry.memo ?? '—'}
       </td>
-      <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-900">
+      <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">
         {formatAccountingMoney(totalDebits)}
       </td>
-      <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-900">
+      <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">
         {formatAccountingMoney(totalCredits)}
       </td>
       <td className="px-4 py-3 text-sm">
@@ -229,17 +229,17 @@ function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onR
           <button
             type="button"
             onClick={() => setShowActions(!showActions)}
-            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <MoreHorizontal className="h-4 w-4" />
           </button>
           {showActions && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowActions(false)} />
-              <div className="absolute right-0 z-50 mt-1 w-36 rounded-lg border border-gray-200 bg-surface py-1 shadow-lg">
+              <div className="absolute right-0 z-50 mt-1 w-36 rounded-lg border border-border bg-surface py-1 shadow-lg">
                 <Link
                   href={`/accounting/journals/${entry.id}`}
-                  className="block w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  className="block w-full px-3 py-1.5 text-left text-sm text-foreground hover:bg-accent"
                 >
                   View
                 </Link>
@@ -247,7 +247,7 @@ function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onR
                   <button
                     type="button"
                     onClick={() => { setShowActions(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-green-700 hover:bg-green-50"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-green-500 hover:bg-green-500/10"
                   >
                     <CheckCircle className="h-3.5 w-3.5" /> Post
                   </button>
@@ -256,7 +256,7 @@ function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onR
                   <button
                     type="button"
                     onClick={() => { setShowActions(false); }}
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-700 hover:bg-red-50"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-red-500 hover:bg-red-500/10"
                   >
                     <XCircle className="h-3.5 w-3.5" /> Void
                   </button>
@@ -279,24 +279,24 @@ function JournalCard({ entry }: { entry: JournalEntry }) {
   return (
     <Link
       href={`/accounting/journals/${entry.id}`}
-      className="block rounded-lg border border-gray-200 bg-surface p-4 space-y-2 hover:border-gray-300"
+      className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-border"
     >
       <div className="flex items-center justify-between">
-        <span className="font-medium text-indigo-600">#{entry.journalNumber}</span>
+        <span className="font-medium text-indigo-500">#{entry.journalNumber}</span>
         <StatusBadge status={entry.status} />
       </div>
       <div className="flex items-center justify-between text-sm">
-        <span className="text-gray-500">{entry.businessDate}</span>
+        <span className="text-muted-foreground">{entry.businessDate}</span>
         {badge && (
-          <span className="text-xs text-gray-500">{badge.label}</span>
+          <span className="text-xs text-muted-foreground">{badge.label}</span>
         )}
       </div>
       {entry.memo && (
-        <p className="text-sm text-gray-500 truncate">{entry.memo}</p>
+        <p className="text-sm text-muted-foreground truncate">{entry.memo}</p>
       )}
       <div className="flex justify-between text-sm">
-        <span className="text-gray-500">Debits: <span className="tabular-nums text-gray-900">{formatAccountingMoney(totalDebits)}</span></span>
-        <span className="text-gray-500">Credits: <span className="tabular-nums text-gray-900">{formatAccountingMoney(totalCredits)}</span></span>
+        <span className="text-muted-foreground">Debits: <span className="tabular-nums text-foreground">{formatAccountingMoney(totalDebits)}</span></span>
+        <span className="text-muted-foreground">Credits: <span className="tabular-nums text-foreground">{formatAccountingMoney(totalCredits)}</span></span>
       </div>
     </Link>
   );

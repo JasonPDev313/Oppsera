@@ -54,27 +54,27 @@ export function InventoryImportMappingRow({ column, usedTargets, onUpdateMapping
         ? 'bg-yellow-500/20 text-yellow-600'
         : column.confidence > 0
           ? 'bg-red-500/20 text-red-600'
-          : 'bg-gray-500/20 text-gray-500';
+          : 'bg-muted text-muted-foreground';
 
   const isRequired = column.targetField === 'name' || column.targetField === 'defaultPrice';
 
   return (
-    <tr className="border-b border-gray-200/50">
+    <tr className="border-b border-border/50">
       {/* Source header */}
       <td className="px-3 py-2.5 font-medium text-sm">
         {column.sourceHeader}
       </td>
 
       {/* Sample values */}
-      <td className="px-3 py-2.5 text-xs text-gray-500 max-w-[200px]">
+      <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[200px]">
         {column.sampleValues.length > 0 ? (
           <div className="space-y-0.5">
             {column.sampleValues.map((v, i) => (
-              <div key={i} className="truncate">{v || <span className="italic text-gray-400">(empty)</span>}</div>
+              <div key={i} className="truncate">{v || <span className="italic text-muted-foreground">(empty)</span>}</div>
             ))}
           </div>
         ) : (
-          <span className="italic text-gray-400">(empty column)</span>
+          <span className="italic text-muted-foreground">(empty column)</span>
         )}
       </td>
 
@@ -85,7 +85,7 @@ export function InventoryImportMappingRow({ column, usedTargets, onUpdateMapping
             {column.confidence}%
           </span>
         ) : (
-          <span className="text-xs text-gray-400">—</span>
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
 
@@ -94,7 +94,7 @@ export function InventoryImportMappingRow({ column, usedTargets, onUpdateMapping
         <select
           value={column.targetField ?? ''}
           onChange={(e) => onUpdateMapping(column.columnIndex, e.target.value || null)}
-          className="w-full text-sm rounded-md border border-gray-300 bg-surface px-2 py-1.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="w-full text-sm rounded-md border border-input bg-surface px-2 py-1.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
         >
           <option value="">— Skip this column —</option>
           {Object.entries(TARGET_FIELD_GROUPS).map(([group, fields]) => (
@@ -117,7 +117,7 @@ export function InventoryImportMappingRow({ column, usedTargets, onUpdateMapping
       </td>
 
       {/* Explanation */}
-      <td className="px-3 py-2.5 text-xs text-gray-500 max-w-[200px]">
+      <td className="px-3 py-2.5 text-xs text-muted-foreground max-w-[200px]">
         <span className="truncate block">{column.explanation}</span>
       </td>
     </tr>

@@ -85,10 +85,10 @@ const STATUS_BADGE: Record<string, { label: string; variant: string }> = {
 };
 
 const ASSIGNMENT_BADGE: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Pending', color: 'bg-gray-100 text-gray-600' },
-  in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-700' },
-  completed: { label: 'Completed', color: 'bg-green-100 text-green-700' },
-  skipped: { label: 'Skipped', color: 'bg-amber-100 text-amber-700' },
+  pending: { label: 'Pending', color: 'bg-muted text-muted-foreground' },
+  in_progress: { label: 'In Progress', color: 'bg-blue-500/20 text-blue-500' },
+  completed: { label: 'Completed', color: 'bg-green-500/20 text-green-500' },
+  skipped: { label: 'Skipped', color: 'bg-amber-500/20 text-amber-500' },
 };
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -134,14 +134,14 @@ function StatCard({
   color: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
+    <div className="rounded-lg border border-border bg-surface px-4 py-3">
       <div className="flex items-center gap-3">
         <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}>
-          <Icon className="h-4 w-4" />
+          <Icon className="h-4 w-4" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <p className="truncate text-xs font-medium text-gray-500">{label}</p>
-          <p className="mt-0.5 text-lg font-semibold text-gray-900">{value}</p>
+          <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
+          <p className="mt-0.5 text-lg font-semibold text-foreground">{value}</p>
         </div>
       </div>
     </div>
@@ -170,7 +170,7 @@ function RoomCard({
           ? 'border-indigo-500 ring-2 ring-indigo-500/20'
           : isDirty
             ? 'border-amber-300 hover:border-amber-400'
-            : 'border-gray-200 hover:border-gray-300'
+            : 'border-border hover:border-border'
       }`}
       onClick={onClick}
       role="button"
@@ -183,37 +183,37 @@ function RoomCard({
       }}
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="text-xl font-bold text-gray-900">{room.roomNumber}</h3>
+        <h3 className="text-xl font-bold text-foreground">{room.roomNumber}</h3>
         <Badge variant={badge.variant}>{badge.label}</Badge>
       </div>
 
-      <p className="mt-1 text-sm text-gray-600">{room.roomTypeName}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{room.roomTypeName}</p>
       {room.floor && <p className="text-xs text-gray-400">Floor {room.floor}</p>}
 
       {room.currentGuest && (
-        <div className="mt-3 border-t border-gray-100 pt-2">
-          <p className="text-xs font-medium text-gray-500">Current Guest</p>
-          <p className="text-sm text-gray-900">{room.currentGuest.name}</p>
+        <div className="mt-3 border-t border-border pt-2">
+          <p className="text-xs font-medium text-muted-foreground">Current Guest</p>
+          <p className="text-sm text-foreground">{room.currentGuest.name}</p>
           <p className="text-xs text-gray-400">Checkout: {room.currentGuest.checkOutDate}</p>
         </div>
       )}
 
       {room.arrivingGuest && !room.currentGuest && (
-        <div className="mt-3 border-t border-gray-100 pt-2">
-          <p className="text-xs font-medium text-gray-500">Arriving Today</p>
-          <p className="text-sm text-gray-900">{room.arrivingGuest.name}</p>
+        <div className="mt-3 border-t border-border pt-2">
+          <p className="text-xs font-medium text-muted-foreground">Arriving Today</p>
+          <p className="text-sm text-foreground">{room.arrivingGuest.name}</p>
         </div>
       )}
 
       <div className="mt-2 flex gap-1.5">
         {room.departingToday && isOccupied && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-            <LogOut className="h-3 w-3" /> Departing
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-500">
+            <LogOut className="h-3 w-3" aria-hidden="true" /> Departing
           </span>
         )}
         {room.arrivingToday && !room.currentGuest && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
-            <LogIn className="h-3 w-3" /> Arriving
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-500">
+            <LogIn className="h-3 w-3" aria-hidden="true" /> Arriving
           </span>
         )}
       </div>
@@ -288,21 +288,21 @@ function AssignHousekeeperDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-lg border border-gray-200 bg-surface p-6 shadow-xl">
+      <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             Assign Housekeeper — Room {room.roomNumber}
           </h2>
           <button onClick={onClose} className="rounded p-1 hover:bg-gray-200/50">
-            <X className="h-4 w-4 text-gray-500" />
+            <X className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
 
         <div className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Housekeeper</label>
+            <label className="block text-sm font-medium text-foreground">Housekeeper</label>
             {active.length === 0 ? (
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-muted-foreground">
                 No housekeepers configured for this property.
               </p>
             ) : (
@@ -317,15 +317,15 @@ function AssignHousekeeperDialog({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Priority</label>
-            <p className="text-xs text-gray-500">Lower number = higher priority</p>
+            <label className="block text-sm font-medium text-foreground">Priority</label>
+            <p className="text-xs text-muted-foreground">Lower number = higher priority</p>
             <input
               type="number"
               min={0}
               max={99}
               value={priority}
               onChange={(e) => setPriority(Number(e.target.value))}
-              className="mt-1 w-20 rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm text-gray-900"
+              className="mt-1 w-20 rounded-md border border-border bg-surface px-3 py-1.5 text-sm text-foreground"
             />
           </div>
         </div>
@@ -333,7 +333,7 @@ function AssignHousekeeperDialog({
         <div className="mt-6 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
           >
             Cancel
           </button>
@@ -387,20 +387,20 @@ function ReasonDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-lg border border-gray-200 bg-surface p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        <p className="mt-1 text-sm text-gray-500">{description}</p>
+      <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl">
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder={placeholder}
-          className="mt-3 w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder-gray-400"
+          className="mt-3 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder-gray-400"
           rows={3}
         />
         <div className="mt-4 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
           >
             Cancel
           </button>
@@ -448,18 +448,18 @@ function RoomDetailDrawer({
   const badge = STATUS_BADGE[room.status] ?? { label: room.status, variant: 'neutral' };
   const transitions = VALID_TRANSITIONS[room.status] ?? [];
   const aBadge = assignment
-    ? ASSIGNMENT_BADGE[assignment.status] ?? { label: assignment.status, color: 'bg-gray-100 text-gray-600' }
+    ? ASSIGNMENT_BADGE[assignment.status] ?? { label: assignment.status, color: 'bg-muted text-muted-foreground' }
     : null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="fixed inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-gray-200 bg-surface shadow-xl">
+      <div className="relative z-10 flex h-full w-full max-w-md flex-col border-l border-border bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-xl font-bold text-gray-900">Room {room.roomNumber}</h2>
-            <p className="text-sm text-gray-500">
+            <h2 className="text-xl font-bold text-foreground">Room {room.roomNumber}</h2>
+            <p className="text-sm text-muted-foreground">
               {room.roomTypeName}
               {room.floor ? ` · Floor ${room.floor}` : ''}
             </p>
@@ -467,7 +467,7 @@ function RoomDetailDrawer({
           <div className="flex items-center gap-3">
             <Badge variant={badge.variant}>{badge.label}</Badge>
             <button onClick={onClose} className="rounded p-1 hover:bg-gray-200/50">
-              <X className="h-5 w-5 text-gray-500" />
+              <X className="h-5 w-5 text-muted-foreground" />
             </button>
           </div>
         </div>
@@ -477,27 +477,27 @@ function RoomDetailDrawer({
           {/* Guest Information */}
           {(room.currentGuest || room.arrivingGuest) && (
             <section>
-              <h3 className="text-sm font-semibold text-gray-700">Guest Information</h3>
+              <h3 className="text-sm font-semibold text-foreground">Guest Information</h3>
               {room.currentGuest && (
-                <div className="mt-2 flex items-start gap-3 rounded-lg border border-gray-200 bg-surface p-3">
-                  <User className="mt-0.5 h-4 w-4 text-gray-400" />
+                <div className="mt-2 flex items-start gap-3 rounded-lg border border-border bg-surface p-3">
+                  <User className="mt-0.5 h-4 w-4 text-gray-400" aria-hidden="true" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{room.currentGuest.name}</p>
-                    <p className="text-xs text-gray-500">Checkout: {room.currentGuest.checkOutDate}</p>
+                    <p className="text-sm font-medium text-foreground">{room.currentGuest.name}</p>
+                    <p className="text-xs text-muted-foreground">Checkout: {room.currentGuest.checkOutDate}</p>
                     {room.departingToday && (
-                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        <LogOut className="h-3 w-3" /> Departing today
+                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-500">
+                        <LogOut className="h-3 w-3" aria-hidden="true" /> Departing today
                       </span>
                     )}
                   </div>
                 </div>
               )}
               {room.arrivingGuest && !room.currentGuest && (
-                <div className="mt-2 flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50/30 p-3">
-                  <LogIn className="mt-0.5 h-4 w-4 text-blue-500" />
+                <div className="mt-2 flex items-start gap-3 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
+                  <LogIn className="mt-0.5 h-4 w-4 text-blue-500" aria-hidden="true" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{room.arrivingGuest.name}</p>
-                    <p className="text-xs text-blue-600">Arriving today</p>
+                    <p className="text-sm font-medium text-foreground">{room.arrivingGuest.name}</p>
+                    <p className="text-xs text-blue-500">Arriving today</p>
                   </div>
                 </div>
               )}
@@ -507,7 +507,7 @@ function RoomDetailDrawer({
           {/* Housekeeping Assignment */}
           <section>
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-700">Housekeeping Assignment</h3>
+              <h3 className="text-sm font-semibold text-foreground">Housekeeping Assignment</h3>
               {assignment && aBadge && (
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${aBadge.color}`}>
                   {aBadge.label}
@@ -517,26 +517,26 @@ function RoomDetailDrawer({
 
             {assignment ? (
               <div className="mt-2 space-y-3">
-                <div className="rounded-lg border border-gray-200 bg-surface p-3">
+                <div className="rounded-lg border border-border bg-surface p-3">
                   <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-900">{assignment.housekeeperName}</span>
+                    <User className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                    <span className="text-sm font-medium text-foreground">{assignment.housekeeperName}</span>
                   </div>
                   {assignment.startedAt && (
-                    <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                      <Clock className="h-3 w-3" />
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Clock className="h-3 w-3" aria-hidden="true" />
                       Started: {formatTime(assignment.startedAt)}
                     </div>
                   )}
                   {assignment.completedAt && (
-                    <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                      <CheckCheck className="h-3 w-3" />
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                      <CheckCheck className="h-3 w-3" aria-hidden="true" />
                       Completed: {formatTime(assignment.completedAt)}
                       {assignment.durationMinutes != null && ` (${assignment.durationMinutes} min)`}
                     </div>
                   )}
                   {assignment.notes && (
-                    <p className="mt-2 text-xs italic text-gray-500">{assignment.notes}</p>
+                    <p className="mt-2 text-xs italic text-muted-foreground">{assignment.notes}</p>
                   )}
                 </div>
 
@@ -548,14 +548,14 @@ function RoomDetailDrawer({
                         disabled={isActioning}
                         className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                       >
-                        <Play className="h-3.5 w-3.5" /> Start Cleaning
+                        <Play className="h-3.5 w-3.5" aria-hidden="true" /> Start Cleaning
                       </button>
                       <button
                         onClick={() => onSkipCleaning(assignment.id)}
                         disabled={isActioning}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200/50 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-200/50 disabled:opacity-50"
                       >
-                        <SkipForward className="h-3.5 w-3.5" /> Skip
+                        <SkipForward className="h-3.5 w-3.5" aria-hidden="true" /> Skip
                       </button>
                     </>
                   )}
@@ -566,14 +566,14 @@ function RoomDetailDrawer({
                         disabled={isActioning}
                         className="inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
                       >
-                        <CheckCheck className="h-3.5 w-3.5" /> Complete Cleaning
+                        <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" /> Complete Cleaning
                       </button>
                       <button
                         onClick={() => onSkipCleaning(assignment.id)}
                         disabled={isActioning}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200/50 disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-200/50 disabled:opacity-50"
                       >
-                        <SkipForward className="h-3.5 w-3.5" /> Skip
+                        <SkipForward className="h-3.5 w-3.5" aria-hidden="true" /> Skip
                       </button>
                     </>
                   )}
@@ -581,22 +581,22 @@ function RoomDetailDrawer({
                     <button
                       onClick={onAssign}
                       disabled={isActioning}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200/50 disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-200/50 disabled:opacity-50"
                     >
-                      <UserPlus className="h-3.5 w-3.5" /> Reassign
+                      <UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> Reassign
                     </button>
                   )}
                 </div>
               </div>
             ) : (
               <div className="mt-2">
-                <p className="text-sm text-gray-500">No housekeeper assigned for today.</p>
+                <p className="text-sm text-muted-foreground">No housekeeper assigned for today.</p>
                 <button
                   onClick={onAssign}
                   disabled={isActioning}
                   className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  <UserPlus className="h-3.5 w-3.5" /> Assign Housekeeper
+                  <UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> Assign Housekeeper
                 </button>
               </div>
             )}
@@ -604,8 +604,8 @@ function RoomDetailDrawer({
 
           {/* Change Room Status */}
           <section>
-            <h3 className="text-sm font-semibold text-gray-700">Change Room Status</h3>
-            <p className="mt-1 text-xs text-gray-500">
+            <h3 className="text-sm font-semibold text-foreground">Change Room Status</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
               Current: {STATUS_LABELS[room.status] ?? room.status}
             </p>
             {transitions.length > 0 ? (
@@ -622,11 +622,11 @@ function RoomDetailDrawer({
                         isClean
                           ? 'bg-green-600 text-white hover:bg-green-700'
                           : isOoO
-                            ? 'border border-red-300 text-red-700 hover:bg-red-50/50'
-                            : 'border border-gray-300 text-gray-700 hover:bg-gray-200/50'
+                            ? 'border border-red-500/30 text-red-500 hover:bg-red-500/10'
+                            : 'border border-border text-foreground hover:bg-gray-200/50'
                       }`}
                     >
-                      <ArrowRight className="h-3.5 w-3.5" />
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
                       {isClean ? 'Mark Clean' : isOoO ? 'Out of Order' : `Mark ${STATUS_LABELS[target] ?? target}`}
                     </button>
                   );
@@ -926,12 +926,12 @@ export default function HousekeepingContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
-            <Sparkles className="h-5 w-5" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
+            <Sparkles className="h-5 w-5" aria-hidden="true" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Housekeeping</h1>
-            <p className="text-sm text-gray-500">Room status board for {today}</p>
+            <h1 className="text-2xl font-bold text-foreground">Housekeeping</h1>
+            <p className="text-sm text-muted-foreground">Room status board for {today}</p>
           </div>
         </div>
 
@@ -954,7 +954,7 @@ export default function HousekeepingContent() {
           />
           <button
             onClick={refreshAll}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
             title="Refresh"
           >
             <RefreshCw className="h-4 w-4" />
@@ -964,17 +964,17 @@ export default function HousekeepingContent() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard icon={CheckCircle2} label="Clean" value={stats.clean} color="bg-green-100 text-green-600" />
-        <StatCard icon={AlertTriangle} label="Dirty" value={stats.dirty} color="bg-amber-100 text-amber-600" />
-        <StatCard icon={BedDouble} label="Occupied" value={stats.occupied} color="bg-blue-100 text-blue-600" />
-        <StatCard icon={Ban} label="Out of Order" value={stats.outOfOrder} color="bg-red-100 text-red-600" />
+        <StatCard icon={CheckCircle2} label="Clean" value={stats.clean} color="bg-green-500/20 text-green-500" />
+        <StatCard icon={AlertTriangle} label="Dirty" value={stats.dirty} color="bg-amber-500/20 text-amber-500" />
+        <StatCard icon={BedDouble} label="Occupied" value={stats.occupied} color="bg-blue-500/20 text-blue-500" />
+        <StatCard icon={Ban} label="Out of Order" value={stats.outOfOrder} color="bg-red-500/20 text-red-500" />
       </div>
 
       {/* Room Grid */}
       {isLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="rounded-lg border border-gray-200 bg-surface p-4">
+            <div key={i} className="rounded-lg border border-border bg-surface p-4">
               <div className="h-6 w-16 animate-pulse rounded bg-gray-200" />
               <div className="mt-2 h-4 w-32 animate-pulse rounded bg-gray-100" />
               <div className="mt-2 h-4 w-20 animate-pulse rounded bg-gray-100" />
@@ -982,10 +982,10 @@ export default function HousekeepingContent() {
           ))}
         </div>
       ) : rooms.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-          <BedDouble className="h-12 w-12 text-gray-300" />
-          <h3 className="mt-4 text-sm font-semibold text-gray-900">No rooms found</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+          <BedDouble className="h-12 w-12 text-gray-300" aria-hidden="true" />
+          <h3 className="mt-4 text-sm font-semibold text-foreground">No rooms found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             {statusFilter ? 'No rooms match the selected filter.' : 'No rooms configured for this property.'}
           </p>
         </div>

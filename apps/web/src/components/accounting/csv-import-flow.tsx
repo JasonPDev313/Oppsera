@@ -172,7 +172,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
         <button
           type="button"
           onClick={step === 'complete' ? () => { handleClose(); onSuccess(); } : handleClose}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
         >
           {step === 'complete' ? 'Done' : 'Cancel'}
         </button>
@@ -181,7 +181,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
             <button
               type="button"
               onClick={reset}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
               Upload Different File
             </button>
@@ -225,7 +225,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
       {/* Upload Step */}
       {step === 'upload' && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Upload a CSV file with your chart of accounts. Required columns:
             <strong> Account Number</strong> and <strong>Name</strong>.
             Optional: Account Type, Parent Account, Classification, Description.
@@ -233,18 +233,18 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
 
           {/* State Selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">State (optional)</label>
+            <label className="block text-sm font-medium text-foreground">State (optional)</label>
             <select
               value={stateName}
               onChange={(e) => setStateName(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-surface focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600"
+              className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm bg-surface focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="">None — leave state placeholders as-is</option>
               {US_STATES.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               If your CSV contains state-specific accounts (e.g., &quot;Sales Tax Payable - Michigan&quot;),
               selecting a state will auto-detect and standardize them.
             </p>
@@ -254,20 +254,20 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleDrop}
-            className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 px-6 py-10 transition-colors hover:border-indigo-400 dark:border-gray-600 dark:hover:border-indigo-500/50"
+            className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-input px-6 py-10 transition-colors hover:border-indigo-400"
           >
-            <Upload className="mb-3 h-10 w-10 text-gray-400" />
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">
               Drag &amp; drop your CSV here, or{' '}
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-indigo-600 hover:text-indigo-700"
+                className="text-indigo-500 hover:text-indigo-500"
               >
                 browse
               </button>
             </p>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">CSV files only, max 5MB, up to 2000 accounts</p>
+            <p className="mt-1 text-xs text-muted-foreground">CSV files only, max 5MB, up to 2000 accounts</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -298,28 +298,28 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
           {/* Summary */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-gray-400" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{fileName}</span>
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">{fileName}</span>
             </div>
-            <span className="text-sm text-gray-500">{validation.accountCount} accounts</span>
+            <span className="text-sm text-muted-foreground">{validation.accountCount} accounts</span>
           </div>
 
           {/* Error/Warning Counts */}
           <div className="flex gap-3">
             {validation.errors.length > 0 && (
-              <div className="flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1 text-sm font-medium text-red-700 dark:bg-red-900/20 dark:text-red-400">
+              <div className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1 text-sm font-medium text-red-500">
                 <AlertTriangle className="h-4 w-4" />
                 {validation.errors.length} error{validation.errors.length !== 1 ? 's' : ''}
               </div>
             )}
             {validation.warnings.length > 0 && (
-              <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+              <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-sm font-medium text-amber-500">
                 <AlertTriangle className="h-4 w-4" />
                 {validation.warnings.length} warning{validation.warnings.length !== 1 ? 's' : ''}
               </div>
             )}
             {validation.isValid && validation.errors.length === 0 && (
-              <div className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-sm font-medium text-green-700 dark:bg-green-900/20 dark:text-green-400">
+              <div className="flex items-center gap-1.5 rounded-full bg-green-500/10 px-3 py-1 text-sm font-medium text-green-500">
                 <CheckCircle className="h-4 w-4" />
                 Valid — ready to import
               </div>
@@ -328,16 +328,16 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
 
           {/* State Detection */}
           {validation.stateDetections.length > 0 && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-              <p className="text-sm font-medium text-blue-800 dark:text-blue-300">State names detected:</p>
+            <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
+              <p className="text-sm font-medium text-blue-500">State names detected:</p>
               <ul className="mt-1 space-y-0.5">
                 {validation.stateDetections.slice(0, 5).map((d, i) => (
-                  <li key={i} className="text-xs text-blue-700 dark:text-blue-400">
+                  <li key={i} className="text-xs text-blue-500">
                     &quot;{d.originalName}&quot; → detected {d.stateDetected}
                   </li>
                 ))}
                 {validation.stateDetections.length > 5 && (
-                  <li className="text-xs text-blue-600 dark:text-blue-400">
+                  <li className="text-xs text-blue-500">
                     ...and {validation.stateDetections.length - 5} more
                   </li>
                 )}
@@ -347,7 +347,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
                   <select
                     value={stateName}
                     onChange={(e) => setStateName(e.target.value)}
-                    className="rounded border border-blue-300 bg-surface px-2 py-1 text-xs dark:border-blue-700"
+                    className="rounded border border-blue-500/30 bg-surface px-2 py-1 text-xs"
                   >
                     <option value="">Apply state...</option>
                     {US_STATES.map((s) => (
@@ -357,7 +357,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
                   <button
                     type="button"
                     onClick={handleRevalidate}
-                    className="ml-2 text-xs text-blue-700 underline dark:text-blue-400"
+                    className="ml-2 text-xs text-blue-500 underline"
                   >
                     Re-validate
                   </button>
@@ -368,10 +368,10 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
 
           {/* Errors */}
           {validation.errors.length > 0 && (
-            <div className="max-h-40 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
-              <p className="mb-1 text-sm font-medium text-red-800 dark:text-red-300">Errors (must fix before import):</p>
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-red-500/30 bg-red-500/10 p-3">
+              <p className="mb-1 text-sm font-medium text-red-500">Errors (must fix before import):</p>
               {validation.errors.map((e, i) => (
-                <p key={i} className="text-xs text-red-700 dark:text-red-400">
+                <p key={i} className="text-xs text-red-500">
                   {e.row ? `Row ${e.row}: ` : ''}{e.message}
                 </p>
               ))}
@@ -380,13 +380,13 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
 
           {/* Warnings */}
           {validation.warnings.length > 0 && (
-            <details className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
-              <summary className="cursor-pointer text-sm font-medium text-amber-800 dark:text-amber-300">
+            <details className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+              <summary className="cursor-pointer text-sm font-medium text-amber-500">
                 Warnings ({validation.warnings.length})
               </summary>
               <div className="mt-2 max-h-32 overflow-y-auto">
                 {validation.warnings.map((w, i) => (
-                  <p key={i} className="text-xs text-amber-700 dark:text-amber-400">
+                  <p key={i} className="text-xs text-amber-500">
                     {w.row ? `Row ${w.row}: ` : ''}{w.message}
                   </p>
                 ))}
@@ -396,29 +396,29 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
 
           {/* Preview Table */}
           {validation.preview.length > 0 && (
-            <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="overflow-hidden rounded-lg border border-border">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 dark:bg-gray-800">
+                <thead className="bg-muted">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Number</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Name</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Type</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Parent</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Number</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Name</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Parent</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                <tbody className="divide-y divide-border">
                   {validation.preview.map((row, i) => (
                     <tr key={i}>
-                      <td className="px-3 py-1.5 font-mono text-xs text-gray-900 dark:text-gray-100">{row.accountNumber}</td>
-                      <td className="px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300">{row.name}</td>
-                      <td className="px-3 py-1.5 text-xs capitalize text-gray-500 dark:text-gray-400">{row.accountType}</td>
-                      <td className="px-3 py-1.5 font-mono text-xs text-gray-400">{row.parentAccountNumber ?? '—'}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs text-foreground">{row.accountNumber}</td>
+                      <td className="px-3 py-1.5 text-xs text-foreground">{row.name}</td>
+                      <td className="px-3 py-1.5 text-xs capitalize text-muted-foreground">{row.accountType}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground">{row.parentAccountNumber ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {validation.accountCount > 50 && (
-                <p className="border-t border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-500 dark:border-gray-700 dark:bg-gray-800">
+                <p className="border-t border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
                   Showing first 50 of {validation.accountCount} accounts
                 </p>
               )}

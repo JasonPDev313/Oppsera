@@ -26,11 +26,12 @@ export function CommandPaletteTrigger({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-400 transition-colors hover:border-gray-300 hover:text-gray-500"
+      aria-label="Search pages (Ctrl+K)"
+      className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-input hover:text-foreground"
     >
-      <Search className="h-4 w-4" />
+      <Search className="h-4 w-4" aria-hidden="true" />
       <span className="hidden sm:inline">Search...</span>
-      <kbd className="hidden rounded border border-gray-200 bg-surface px-1.5 py-0.5 text-xs font-medium text-gray-400 sm:inline-block">
+      <kbd className="hidden rounded border border-border bg-surface px-1.5 py-0.5 text-xs font-medium text-muted-foreground sm:inline-block">
         {typeof navigator !== 'undefined' && /Mac/.test(navigator.userAgent) ? '\u2318' : 'Ctrl+'}K
       </kbd>
     </button>
@@ -152,32 +153,37 @@ export function CommandPalette() {
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh]" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-[70] flex items-start justify-center pt-[15vh]" role="dialog" aria-modal="true" aria-label="Command palette" onKeyDown={handleKeyDown}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
 
       {/* Palette */}
-      <div className="relative w-full max-w-lg rounded-xl border border-gray-200 bg-surface shadow-2xl">
+      <div className="relative w-full max-w-lg rounded-xl border border-border bg-surface shadow-2xl">
         {/* Search input */}
-        <div className="flex items-center gap-3 border-b border-gray-200 px-4">
-          <Search className="h-5 w-5 shrink-0 text-gray-400" />
+        <div className="flex items-center gap-3 border-b border-border px-4">
+          <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <input
             ref={inputRef}
             type="text"
+            role="combobox"
+            aria-expanded={visibleEntries.length > 0}
+            aria-controls="command-palette-results"
+            aria-activedescendant={visibleEntries[selectedIndex] ? `command-result-${selectedIndex}` : undefined}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search pages..."
-            className="h-12 flex-1 bg-transparent text-sm text-gray-900 outline-none placeholder:text-gray-400"
+            aria-label="Search pages"
+            className="h-12 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
           />
-          <kbd className="rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-xs text-gray-400">
+          <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             Esc
           </kbd>
         </div>
 
         {/* Results */}
-        <div ref={listRef} className="max-h-80 overflow-y-auto p-2">
+        <div ref={listRef} id="command-palette-results" role="listbox" className="max-h-80 overflow-y-auto p-2">
           {visibleEntries.length === 0 ? (
-            <div className="px-3 py-8 text-center text-sm text-gray-400">
+            <div className="px-3 py-8 text-center text-sm text-muted-foreground">
               No results for &ldquo;{query}&rdquo;
             </div>
           ) : (
@@ -186,29 +192,33 @@ export function CommandPalette() {
               return (
                 <button
                   key={entry.href}
+                  id={`command-result-${i}`}
                   type="button"
+                  role="option"
+                  aria-selected={isSelected}
                   data-selected={isSelected}
                   onClick={() => handleSelect(entry)}
                   onMouseEnter={() => setSelectedIndex(i)}
                   className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
                     isSelected
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-gray-600 hover:bg-gray-50'
+                      ? 'bg-indigo-500/10 text-indigo-400'
+                      : 'text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   <entry.icon
-                    className={`h-4 w-4 shrink-0 ${isSelected ? 'text-indigo-600' : 'text-gray-400'}`}
+                    className={`h-4 w-4 shrink-0 ${isSelected ? 'text-indigo-400' : 'text-muted-foreground'}`}
+                    aria-hidden="true"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{entry.label}</div>
                     {entry.breadcrumb && (
-                      <div className={`truncate text-xs ${isSelected ? 'text-indigo-400' : 'text-gray-400'}`}>
+                      <div className={`truncate text-xs ${isSelected ? 'text-indigo-400' : 'text-muted-foreground'}`}>
                         {entry.breadcrumb}
                       </div>
                     )}
                   </div>
                   {isSelected && (
-                    <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                    <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-indigo-400" aria-hidden="true" />
                   )}
                 </button>
               );
@@ -217,18 +227,18 @@ export function CommandPalette() {
         </div>
 
         {/* Footer hint */}
-        <div className="flex items-center gap-4 border-t border-gray-200 px-4 py-2 text-xs text-gray-400">
+        <div className="flex items-center gap-4 border-t border-border px-4 py-2 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-gray-200 bg-gray-50 px-1 py-0.5">&uarr;</kbd>
-            <kbd className="rounded border border-gray-200 bg-gray-50 px-1 py-0.5">&darr;</kbd>
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5">&uarr;</kbd>
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5">&darr;</kbd>
             Navigate
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-gray-200 bg-gray-50 px-1 py-0.5">&crarr;</kbd>
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5">&crarr;</kbd>
             Open
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="rounded border border-gray-200 bg-gray-50 px-1 py-0.5">Esc</kbd>
+            <kbd className="rounded border border-border bg-muted px-1 py-0.5">Esc</kbd>
             Close
           </span>
         </div>

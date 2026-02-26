@@ -21,7 +21,7 @@ export default function EditDashboardPage() {
 
   if (!dashboard) {
     return (
-      <div className="p-6 text-center text-gray-500">
+      <div className="p-6 text-center text-muted-foreground">
         Dashboard not found
       </div>
     );

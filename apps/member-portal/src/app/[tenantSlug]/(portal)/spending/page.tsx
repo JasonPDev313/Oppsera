@@ -17,8 +17,8 @@ export default function SpendingPage() {
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
-        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-        <div className="h-48 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="h-48 bg-muted rounded-lg animate-pulse" />
       </div>
     );
   }
@@ -26,8 +26,8 @@ export default function SpendingPage() {
   if (error) {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+          <p className="text-red-500">{error}</p>
         </div>
       </div>
     );
@@ -47,7 +47,7 @@ export default function SpendingPage() {
 
       {!minimums || minimums.length === 0 ? (
         <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-8 text-center">
-          <TrendingUp className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <TrendingUp className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-[var(--portal-text-muted)]">No minimum spend requirements for your membership.</p>
         </div>
       ) : (
@@ -74,7 +74,7 @@ export default function SpendingPage() {
                     </span>
                     <span className="font-medium">{pct}%</span>
                   </div>
-                  <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
                         pct >= 100 ? 'bg-green-500' : pct >= 75 ? 'bg-blue-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-400'

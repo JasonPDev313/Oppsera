@@ -190,29 +190,29 @@ export function BulkAssignModifiersDialog({ open, onClose, onSuccess }: BulkAssi
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative flex h-[80vh] w-full max-w-3xl flex-col rounded-lg bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Bulk Assign Modifier Groups</h2>
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 className="text-lg font-semibold text-foreground">Bulk Assign Modifier Groups</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-1 border-b border-gray-100 px-6 py-3">
+        <div className="flex items-center gap-1 border-b border-border px-6 py-3">
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center">
-              {i > 0 && <ChevronRight className="mx-1 h-4 w-4 text-gray-300" />}
+              {i > 0 && <ChevronRight className="mx-1 h-4 w-4 text-border" />}
               <span
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                   s === step
-                    ? 'bg-indigo-100 text-indigo-700'
+                    ? 'bg-indigo-500/100/20 text-indigo-500'
                     : i < stepIndex
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-500'
+                      ? 'bg-green-500/20 text-green-500'
+                      : 'bg-muted text-muted-foreground'
                 }`}
               >
                 {i < stepIndex && <Check className="mr-1 inline h-3 w-3" />}
@@ -292,8 +292,8 @@ export function BulkAssignModifiersDialog({ open, onClose, onSuccess }: BulkAssi
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-          <div className="text-sm text-gray-500">
+        <div className="flex items-center justify-between border-t border-border px-6 py-4">
+          <div className="text-sm text-muted-foreground">
             {selectedItemIds.size} item(s), {selectedGroupIds.size} group(s) selected
           </div>
           <div className="flex gap-3">
@@ -302,7 +302,7 @@ export function BulkAssignModifiersDialog({ open, onClose, onSuccess }: BulkAssi
                 type="button"
                 onClick={goBack}
                 disabled={assigning}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Back
@@ -403,19 +403,19 @@ function ItemSelectionStep({
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search items..."
-            className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-input py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
         <select
           value={itemTypeFilter}
           onChange={(e) => onItemTypeChange(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         >
           <option value="">All Types</option>
           <option value="food_item">Food</option>
@@ -431,7 +431,7 @@ function ItemSelectionStep({
         <select
           value={deptFilter}
           onChange={(e) => onDeptChange(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         >
           <option value="">All Departments</option>
           {departments.map((d) => (
@@ -442,7 +442,7 @@ function ItemSelectionStep({
           <select
             value={subDeptFilter}
             onChange={(e) => onSubDeptChange(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All Sub-Depts</option>
             {subDepartments.map((s) => (
@@ -454,7 +454,7 @@ function ItemSelectionStep({
           <select
             value={catFilter}
             onChange={(e) => onCatChange(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">All Categories</option>
             {categories.map((c) => (
@@ -466,7 +466,7 @@ function ItemSelectionStep({
 
       {/* Select all / clear */}
       <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-muted-foreground">
           {selectedIds.size} item(s) selected
         </span>
         <div className="flex gap-2">
@@ -481,7 +481,7 @@ function ItemSelectionStep({
             <button
               type="button"
               onClick={onClearAll}
-              className="text-xs font-medium text-gray-500 hover:text-gray-700"
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
             >
               Clear
             </button>
@@ -495,30 +495,30 @@ function ItemSelectionStep({
           <LoadingSpinner size="sm" label="Loading items..." />
         </div>
       ) : items.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">No items found</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">No items found</p>
       ) : (
-        <div className="max-h-[40vh] space-y-1 overflow-y-auto rounded-lg border border-gray-200">
+        <div className="max-h-[40vh] space-y-1 overflow-y-auto rounded-lg border border-border">
           {items.map((item) => (
             <label
               key={item.id}
-              className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-gray-50 ${
-                selectedIds.has(item.id) ? 'bg-indigo-50' : ''
+              className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-accent ${
+                selectedIds.has(item.id) ? 'bg-indigo-500/10' : ''
               }`}
             >
               <input
                 type="checkbox"
                 checked={selectedIds.has(item.id)}
                 onChange={() => onToggle(item.id)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-input text-indigo-600 focus:ring-indigo-500"
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium text-gray-900">{item.name}</span>
+                  <span className="truncate text-sm font-medium text-foreground">{item.name}</span>
                   {item.sku && (
-                    <span className="shrink-0 font-mono text-xs text-gray-400">{item.sku}</span>
+                    <span className="shrink-0 font-mono text-xs text-muted-foreground">{item.sku}</span>
                   )}
                 </div>
-                <div className="flex gap-2 text-xs text-gray-500">
+                <div className="flex gap-2 text-xs text-muted-foreground">
                   <span>{item.categoryName || item.departmentName || '-'}</span>
                   <span>${Number(item.defaultPrice).toFixed(2)}</span>
                 </div>
@@ -551,42 +551,42 @@ function GroupSelectionStep({
   return (
     <div className="space-y-4">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search modifier groups..."
-          className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-full rounded-lg border border-input py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
 
-      <span className="text-sm text-gray-500">{selectedIds.size} group(s) selected</span>
+      <span className="text-sm text-muted-foreground">{selectedIds.size} group(s) selected</span>
 
       {isLoading ? (
         <div className="flex justify-center py-8">
           <LoadingSpinner size="sm" label="Loading groups..." />
         </div>
       ) : groups.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">No modifier groups found</p>
+        <p className="py-8 text-center text-sm text-muted-foreground">No modifier groups found</p>
       ) : (
-        <div className="max-h-[40vh] space-y-1 overflow-y-auto rounded-lg border border-gray-200">
+        <div className="max-h-[40vh] space-y-1 overflow-y-auto rounded-lg border border-border">
           {groups.map((group) => (
             <label
               key={group.id}
-              className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-gray-50 ${
-                selectedIds.has(group.id) ? 'bg-indigo-50' : ''
+              className={`flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-accent ${
+                selectedIds.has(group.id) ? 'bg-indigo-500/10' : ''
               }`}
             >
               <input
                 type="checkbox"
                 checked={selectedIds.has(group.id)}
                 onChange={() => onToggle(group.id)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-input text-indigo-600 focus:ring-indigo-500"
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium text-gray-900">{group.name}</span>
+                  <span className="truncate text-sm font-medium text-foreground">{group.name}</span>
                   <Badge variant={group.isRequired ? 'warning' : 'neutral'}>
                     {group.isRequired ? 'Required' : 'Optional'}
                   </Badge>
@@ -594,7 +594,7 @@ function GroupSelectionStep({
                     <Badge variant="info">{group.instructionMode}</Badge>
                   )}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-muted-foreground">
                   {group.modifiers?.length ?? 0} option(s)
                   {group.minSelections > 0 && ` · min ${group.minSelections}`}
                   {group.maxSelections > 0 && ` · max ${group.maxSelections}`}
@@ -635,7 +635,7 @@ function OverridesStep({
 }) {
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
         <AlertTriangle className="mr-2 inline h-4 w-4" />
         These overrides are optional. They apply per-assignment and override the group defaults for the selected items.
       </div>
@@ -643,14 +643,14 @@ function OverridesStep({
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         {/* Required override */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Required Override</label>
+          <label className="block text-sm font-medium text-foreground">Required Override</label>
           <select
             value={overrideRequired === null ? '' : overrideRequired ? 'true' : 'false'}
             onChange={(e) => {
               const v = e.target.value;
               onRequiredChange(v === '' ? null : v === 'true');
             }}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">Use group default</option>
             <option value="true">Required</option>
@@ -660,11 +660,11 @@ function OverridesStep({
 
         {/* Instruction mode override */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Instruction Mode Override</label>
+          <label className="block text-sm font-medium text-foreground">Instruction Mode Override</label>
           <select
             value={overrideInstructionMode}
             onChange={(e) => onInstructionModeChange(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           >
             <option value="">Use group default</option>
             <option value="none">Off</option>
@@ -675,42 +675,42 @@ function OverridesStep({
 
         {/* Min selections override */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Min Selections Override</label>
+          <label className="block text-sm font-medium text-foreground">Min Selections Override</label>
           <input
             type="number"
             min={0}
             value={overrideMin}
             onChange={(e) => onMinChange(e.target.value)}
             placeholder="Use group default"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
 
         {/* Max selections override */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Max Selections Override</label>
+          <label className="block text-sm font-medium text-foreground">Max Selections Override</label>
           <input
             type="number"
             min={0}
             value={overrideMax}
             onChange={(e) => onMaxChange(e.target.value)}
             placeholder="Use group default"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
 
         {/* Prompt order */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">Prompt Order</label>
+          <label className="block text-sm font-medium text-foreground">Prompt Order</label>
           <input
             type="number"
             min={0}
             value={promptOrder}
             onChange={(e) => onPromptOrderChange(e.target.value)}
             placeholder="0 (default)"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
-          <p className="mt-1 text-xs text-gray-500">Controls the display order of groups in POS</p>
+          <p className="mt-1 text-xs text-muted-foreground">Controls the display order of groups in POS</p>
         </div>
       </div>
     </div>
@@ -749,15 +749,15 @@ function ConfirmStep({
   return (
     <div className="space-y-6">
       {/* Summary */}
-      <div className="rounded-lg border border-gray-200 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-gray-900">Assignment Summary</h3>
-        <div className="space-y-2 text-sm text-gray-700">
+      <div className="rounded-lg border border-border p-4">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">Assignment Summary</h3>
+        <div className="space-y-2 text-sm text-foreground">
           <p>
             Assigning <span className="font-semibold">{selectedGroupCount}</span> modifier group(s) to{' '}
             <span className="font-semibold">{selectedItemCount}</span> item(s)
           </p>
           <div>
-            <span className="font-medium text-gray-500">Items:</span>
+            <span className="font-medium text-muted-foreground">Items:</span>
             <div className="mt-1 flex flex-wrap gap-1">
               {selectedItemNames.slice(0, 10).map((name) => (
                 <Badge key={name} variant="neutral">{name}</Badge>
@@ -768,7 +768,7 @@ function ConfirmStep({
             </div>
           </div>
           <div>
-            <span className="font-medium text-gray-500">Groups:</span>
+            <span className="font-medium text-muted-foreground">Groups:</span>
             <div className="mt-1 flex flex-wrap gap-1">
               {selectedGroupNames.map((name) => (
                 <Badge key={name} variant="info">{name}</Badge>
@@ -779,8 +779,8 @@ function ConfirmStep({
       </div>
 
       {/* Mode toggle */}
-      <div className="rounded-lg border border-gray-200 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-gray-900">Assignment Mode</h3>
+      <div className="rounded-lg border border-border p-4">
+        <h3 className="mb-3 text-sm font-semibold text-foreground">Assignment Mode</h3>
         <div className="space-y-3">
           <label className="flex cursor-pointer items-start gap-3">
             <input
@@ -788,11 +788,11 @@ function ConfirmStep({
               name="mode"
               checked={assignMode === 'merge'}
               onChange={() => onModeChange('merge')}
-              className="mt-0.5 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="mt-0.5 h-4 w-4 border-input text-indigo-600 focus:ring-indigo-500"
             />
             <div>
-              <span className="text-sm font-medium text-gray-900">Merge</span>
-              <p className="text-xs text-gray-500">
+              <span className="text-sm font-medium text-foreground">Merge</span>
+              <p className="text-xs text-muted-foreground">
                 Add groups to items. Existing assignments are preserved.
               </p>
             </div>
@@ -803,11 +803,11 @@ function ConfirmStep({
               name="mode"
               checked={assignMode === 'replace'}
               onChange={() => onModeChange('replace')}
-              className="mt-0.5 h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="mt-0.5 h-4 w-4 border-input text-indigo-600 focus:ring-indigo-500"
             />
             <div>
-              <span className="text-sm font-medium text-gray-900">Replace</span>
-              <p className="text-xs text-gray-500">
+              <span className="text-sm font-medium text-foreground">Replace</span>
+              <p className="text-xs text-muted-foreground">
                 Remove all existing assignments, then add selected groups.
               </p>
             </div>
@@ -817,9 +817,9 @@ function ConfirmStep({
 
       {/* Overrides summary */}
       {hasOverrides && (
-        <div className="rounded-lg border border-gray-200 p-4">
-          <h3 className="mb-3 text-sm font-semibold text-gray-900">Overrides Applied</h3>
-          <div className="space-y-1 text-sm text-gray-700">
+        <div className="rounded-lg border border-border p-4">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Overrides Applied</h3>
+          <div className="space-y-1 text-sm text-foreground">
             {overrideRequired !== null && (
               <p>Required: <span className="font-medium">{overrideRequired ? 'Yes' : 'No'}</span></p>
             )}
@@ -835,7 +835,7 @@ function ConfirmStep({
 
       {/* Replace mode warning */}
       {assignMode === 'replace' && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
           <AlertTriangle className="mr-2 inline h-4 w-4" />
           Replace mode will <strong>remove all existing modifier group assignments</strong> from the selected items before assigning the new groups.
         </div>

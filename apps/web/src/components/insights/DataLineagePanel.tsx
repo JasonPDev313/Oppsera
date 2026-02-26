@@ -171,7 +171,7 @@ export function DataLineagePanel({
                   <span className="text-[10px] text-muted-foreground w-16 shrink-0">Metrics</span>
                   <div className="flex flex-wrap gap-1">
                     {plan.metrics.map((m) => (
-                      <span key={m} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700">
+                      <span key={m} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/20 text-emerald-500">
                         {m}
                       </span>
                     ))}
@@ -184,7 +184,7 @@ export function DataLineagePanel({
                   <span className="text-[10px] text-muted-foreground w-16 shrink-0">Dims</span>
                   <div className="flex flex-wrap gap-1">
                     {plan.dimensions.map((d) => (
-                      <span key={d} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">
+                      <span key={d} className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/20 text-blue-500">
                         {d}
                       </span>
                     ))}

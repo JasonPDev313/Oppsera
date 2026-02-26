@@ -74,5 +74,5 @@ export const PATCH = withMiddleware(
     const updated = await getWorkflowConfig(ctx.tenantId, moduleKey, workflowKey);
     return NextResponse.json({ data: updated });
   },
-  { entitlement: 'platform_core', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'platform_core', permission: 'settings.update', writeAccess: true },
 );

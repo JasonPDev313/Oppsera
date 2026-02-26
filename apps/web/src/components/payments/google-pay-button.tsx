@@ -245,11 +245,11 @@ export function GooglePayButton({
           type="button"
           onClick={handleClick}
           disabled={isProcessing}
-          className="flex w-full items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-900 shadow-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 py-3 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Pay with Google Pay"
         >
           {isProcessing ? (
-            <span className="text-gray-500">Processing...</span>
+            <span className="text-muted-foreground">Processing...</span>
           ) : (
             <>
               {/* Official Google "G" mark */}

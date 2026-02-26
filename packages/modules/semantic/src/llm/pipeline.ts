@@ -12,9 +12,11 @@ import { buildSchemaCatalog } from '../schema/schema-catalog';
 import { getEvalCaptureService } from '../evaluation/capture';
 import { getLLMAdapter, setLLMAdapter } from './adapters/anthropic';
 import { getFromQueryCache, setInQueryCache } from '../cache/query-cache';
-import { getFromLLMCache, setInLLMCache, hashSystemPrompt } from '../cache/llm-cache';
+import { getFromLLMCache, setInLLMCache, hashSystemPrompt, getStaleFromLLMCache } from '../cache/llm-cache';
 import { recordSemanticRequest } from '../observability/metrics';
 import { generateUlid } from '@oppsera/shared';
+import { coalesceRequest, buildCoalesceKey, getCircuitBreakerStatus } from './adapters/resilience';
+import { setAdaptiveBackoffLevel } from '../cache/semantic-rate-limiter';
 import { generateFollowUps } from '../intelligence/follow-up-generator';
 import { inferChartConfig } from '../intelligence/chart-inferrer';
 import { scoreDataQuality } from '../intelligence/data-quality-scorer';
@@ -44,11 +46,60 @@ function shouldSkipExpensiveOp(startMs: number, minRequiredMs: number): boolean 
 // Captures an EvalTurn after completion (best-effort, never blocks response).
 
 export async function runPipeline(input: PipelineInput): Promise<PipelineOutput> {
+  const { message, context } = input;
+  const { tenantId } = context;
+
+  // ── Request coalescing: identical concurrent questions share one LLM call ──
+  const coalesceKey = buildCoalesceKey(tenantId, message, context.history);
+  return coalesceRequest(coalesceKey, () => _runPipelineInner(input));
+}
+
+async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> {
   const { message, context, examples = [] } = input;
   const { tenantId, lensSlug } = context;
 
   const startMs = Date.now();
   let evalTurnId: string | null = null;
+
+  // ── Circuit breaker graceful degradation ──────────────────────
+  // When the LLM API circuit breaker is OPEN, try to serve from LLM cache
+  // before failing fast. This gives a stale-but-useful response instead of
+  // an error when the Anthropic API is temporarily unavailable.
+  const cbStatus = getCircuitBreakerStatus();
+  if (cbStatus.state === 'OPEN') {
+    console.warn(`[semantic] Circuit breaker is OPEN — attempting cache fallback (retry in ${Math.ceil(cbStatus.retryAfterMs / 1000)}s)`);
+    const narrativePromptKey = hashSystemPrompt(`fallback:${context.lensSlug ?? 'default'}`);
+    const dataSummary = ''; // no data fingerprint for fallback
+    const cachedNarrative = getStaleFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
+    if (cachedNarrative) {
+      console.log('[semantic] Serving stale cached response while circuit breaker is OPEN');
+      let sections: PipelineOutput['sections'] = [];
+      try { sections = JSON.parse(cachedNarrative.model) as PipelineOutput['sections']; } catch { /* fallback to empty */ }
+      return {
+        mode: 'metrics',
+        narrative: cachedNarrative.content,
+        sections,
+        data: null,
+        plan: null,
+        isClarification: false,
+        clarificationText: null,
+        evalTurnId: null,
+        llmConfidence: null,
+        llmLatencyMs: 0,
+        executionTimeMs: null,
+        tokensInput: 0,
+        tokensOutput: 0,
+        provider: '',
+        model: '',
+        compiledSql: null,
+        compilationErrors: [],
+        tablesAccessed: [],
+        cacheStatus: 'STALE',
+      };
+    }
+    // No cache entry — fall through and let the adapter throw CircuitOpenError
+    // which will be caught in the intent resolution try/catch below.
+  }
 
   // ── 1. Load registry catalog + schema catalog in parallel ───────
   console.log('[semantic] Pipeline start — loading registry + schema...');
@@ -78,13 +129,39 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
       schemaSummary: schemaCatalog?.summaryText ?? null,
     });
     console.log(`[semantic] Intent resolved in ${Date.now() - intentStart}ms (mode=${intent.mode}, clarification=${intent.isClarification}, confidence=${intent.confidence})`);
+
+    // ── Sync adaptive backoff with circuit breaker health ──
+    // After a successful LLM call, check the circuit breaker error rate
+    // and adjust the rate limiter accordingly.
+    const postIntentCb = getCircuitBreakerStatus();
+    if (postIntentCb.errorRate >= 0.4) {
+      setAdaptiveBackoffLevel('reduced');
+    } else if (postIntentCb.errorRate >= 0.1) {
+      // Some errors but not critical — keep monitoring
+      setAdaptiveBackoffLevel('normal');
+    } else {
+      setAdaptiveBackoffLevel('normal');
+    }
   } catch (err) {
     console.error(`[semantic] Intent resolution FAILED in ${Date.now() - intentStart}ms:`, err);
     const errStr = String(err);
-    const isRateLimit = errStr.toLowerCase().includes('rate limit');
-    const userMessage = isRateLimit
+    const errLower = errStr.toLowerCase();
+    const isRateLimit = errLower.includes('rate limit') || errLower.includes('429');
+    const isOverloaded = errLower.includes('529') || errLower.includes('503') || errLower.includes('overloaded');
+    const isTimeout = errLower.includes('timed out') || errLower.includes('timeout');
+    const isCircuitOpen = errLower.includes('circuit breaker');
+
+    // ── Adaptive backoff: reduce rate when LLM API is failing ──
+    if (isRateLimit || isOverloaded || isCircuitOpen) {
+      setAdaptiveBackoffLevel('minimal');
+    } else if (isTimeout) {
+      setAdaptiveBackoffLevel('reduced');
+    }
+    const userMessage = isRateLimit || isOverloaded
       ? "I'm experiencing high demand right now. Please try again in a minute — your question is a good one and I want to give it a proper answer."
-      : "I wasn't able to process that question right now. Please try rephrasing or try again shortly.";
+      : isTimeout
+        ? "That analysis took longer than expected. Please try a simpler question or try again in a moment."
+        : "I wasn't able to process that question right now. Please try rephrasing or try again shortly.";
     return {
       mode: 'metrics',
       narrative: `## Answer\n\n${userMessage}`,

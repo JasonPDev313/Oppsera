@@ -117,27 +117,27 @@ export function RefundDialog({ open, onClose, orderId, orderNumber, locationId, 
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-2xl bg-surface shadow-xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <RotateCcw className="h-5 w-5 text-orange-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Refund Order #{orderNumber}</h2>
+            <h2 className="text-lg font-semibold text-foreground">Refund Order #{orderNumber}</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         <div className="px-6 py-4 space-y-4">
           {isFetching ? (
-            <p className="text-sm text-gray-500">Loading tenders...</p>
+            <p className="text-sm text-muted-foreground">Loading tenders...</p>
           ) : tenders.length === 0 ? (
-            <p className="text-sm text-gray-500">No tenders found for this order.</p>
+            <p className="text-sm text-muted-foreground">No tenders found for this order.</p>
           ) : (
             <>
               {/* Tender selector (if multiple) */}
               {tenders.length > 1 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Tender</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Tender</label>
                   <select
                     value={selectedTenderId}
                     onChange={(e) => {
@@ -145,7 +145,7 @@ export function RefundDialog({ open, onClose, orderId, orderNumber, locationId, 
                       const t = tenders.find((t) => t.id === e.target.value);
                       if (t) setAmount((t.amount / 100).toFixed(2));
                     }}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     {tenders.map((t) => (
                       <option key={t.id} value={t.id}>
@@ -158,11 +158,11 @@ export function RefundDialog({ open, onClose, orderId, orderNumber, locationId, 
 
               {/* Amount */}
               <div>
-                <label htmlFor="refundAmount" className="block text-sm font-medium text-gray-700 mb-1">
-                  Refund Amount {selectedTender && <span className="text-gray-400">(max {formatMoney(selectedTender.amount)})</span>}
+                <label htmlFor="refundAmount" className="block text-sm font-medium text-foreground mb-1">
+                  Refund Amount {selectedTender && <span className="text-muted-foreground">(max {formatMoney(selectedTender.amount)})</span>}
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                   <input
                     id="refundAmount"
                     type="number"
@@ -171,7 +171,7 @@ export function RefundDialog({ open, onClose, orderId, orderNumber, locationId, 
                     max={selectedTender ? (selectedTender.amount / 100).toFixed(2) : undefined}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 py-2.5 pl-8 pr-4 text-right text-lg font-bold text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
+                    className="w-full rounded-lg border border-input py-2.5 pl-8 pr-4 text-right text-lg font-bold text-foreground focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                     autoFocus
                   />
                 </div>
@@ -179,13 +179,13 @@ export function RefundDialog({ open, onClose, orderId, orderNumber, locationId, 
 
               {/* Reason */}
               <div>
-                <label htmlFor="refundReason" className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                <label htmlFor="refundReason" className="block text-sm font-medium text-foreground mb-1">Reason</label>
                 <input
                   id="refundReason"
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
                   placeholder="e.g. Customer request, wrong item..."
                 />
               </div>
@@ -193,8 +193,8 @@ export function RefundDialog({ open, onClose, orderId, orderNumber, locationId, 
           )}
         </div>
 
-        <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
-          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
+        <div className="flex gap-3 border-t border-border px-6 py-4">
+          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent">
             Cancel
           </button>
           <button

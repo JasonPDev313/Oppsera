@@ -67,11 +67,11 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
   if (error || !data) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load financial data.</p>
+        <p className="text-sm text-red-500">Failed to load financial data.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -94,16 +94,16 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
     <div className="space-y-6 p-6">
       {/* AR Aging Summary */}
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Accounts Receivable
         </h3>
         {arAging.total === 0 ? (
-          <p className="text-sm text-gray-500">No outstanding balance.</p>
+          <p className="text-sm text-muted-foreground">No outstanding balance.</p>
         ) : (
-          <div className="rounded-lg border border-gray-200 bg-surface p-4">
+          <div className="rounded-lg border border-border bg-surface p-4">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm text-gray-500">Total Outstanding</span>
-              <span className="text-lg font-semibold text-gray-900">
+              <span className="text-sm text-muted-foreground">Total Outstanding</span>
+              <span className="text-lg font-semibold text-foreground">
                 {formatCurrency(arAging.total)}
               </span>
             </div>
@@ -120,23 +120,23 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
 
       {/* Billing Accounts */}
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Billing Accounts
         </h3>
         {billingAccounts.length === 0 ? (
-          <p className="text-sm text-gray-500">No billing accounts.</p>
+          <p className="text-sm text-muted-foreground">No billing accounts.</p>
         ) : (
           <div className="space-y-2">
             {billingAccounts.map((acct) => (
               <div
                 key={acct.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
               >
                 <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-gray-400" />
+                  <CreditCard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">{acct.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-foreground">{acct.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       Balance: {formatCurrency(acct.currentBalanceCents)}
                       {acct.creditLimitCents !== null && (
                         <> / Limit: {formatCurrency(acct.creditLimitCents)}</>
@@ -163,11 +163,11 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
 
       {/* Open Invoices */}
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Open Invoices
         </h3>
         {openInvoices.length === 0 ? (
-          <p className="text-sm text-gray-500">No open invoices.</p>
+          <p className="text-sm text-muted-foreground">No open invoices.</p>
         ) : (
           <div className="space-y-2">
             {openInvoices.map((inv) => {
@@ -178,30 +178,31 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
                   key={inv.id}
                   className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
                     isOverdue
-                      ? 'border-red-200 bg-red-50'
-                      : 'border-gray-200'
+                      ? 'border-red-500/30 bg-red-500/100/10'
+                      : 'border-border'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <FileText
                       className={`h-4 w-4 ${
-                        isOverdue ? 'text-red-400' : 'text-gray-400'
+                        isOverdue ? 'text-red-400' : 'text-muted-foreground'
                       }`}
+                      aria-hidden="true"
                     />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-foreground">
                         {formatDate(inv.periodStart)} - {formatDate(inv.periodEnd)}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Due: {formatDate(inv.dueDate)}
                         {isOverdue && (
-                          <span className="ml-1 font-medium text-red-600">Overdue</span>
+                          <span className="ml-1 font-medium text-red-500">Overdue</span>
                         )}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">
+                    <p className="text-sm font-semibold text-foreground">
                       {formatCurrency(inv.closingBalanceCents)}
                     </p>
                     <Badge
@@ -225,31 +226,31 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
 
       {/* Recent Payments */}
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Recent Payments
         </h3>
         {recentPayments.length === 0 ? (
-          <p className="text-sm text-gray-500">No recent payments.</p>
+          <p className="text-sm text-muted-foreground">No recent payments.</p>
         ) : (
           <div className="space-y-2">
             {recentPayments.map((payment) => (
               <div
                 key={payment.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
               >
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-green-500" />
+                  <DollarSign className="h-4 w-4 text-green-500" aria-hidden="true" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-foreground">
                       {formatCurrency(payment.amountCents)}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {formatDate(payment.createdAt)}
                     </p>
                   </div>
                 </div>
                 {payment.notes && (
-                  <p className="max-w-[160px] truncate text-xs text-gray-500">
+                  <p className="max-w-[160px] truncate text-xs text-muted-foreground">
                     {payment.notes}
                   </p>
                 )}
@@ -262,13 +263,13 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
       {/* Wallet Accounts */}
       {walletAccounts.length > 0 && (
         <section>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Wallet Accounts
           </h3>
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 p-3">
-            <Wallet className="h-5 w-5 text-indigo-600" />
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/100/10 p-3">
+            <Wallet className="h-5 w-5 text-indigo-600" aria-hidden="true" />
             <div>
-              <p className="text-sm font-semibold text-indigo-900">
+              <p className="text-sm font-semibold text-indigo-400">
                 Total Wallet Balance: {formatCurrency(walletBalanceCents)}
               </p>
             </div>
@@ -277,22 +278,22 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
             {walletAccounts.map((wallet) => (
               <div
                 key={wallet.id}
-                className="flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-border px-3 py-2"
               >
                 <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-gray-400" />
+                  <Wallet className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <div>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-foreground">
                       {wallet.walletType}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {formatCurrency(wallet.balanceCents)} {wallet.currency}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   {wallet.expiresAt && (
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs text-muted-foreground">
                       Exp: {formatDate(wallet.expiresAt)}
                     </span>
                   )}
@@ -311,18 +312,18 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
       {/* Loyalty */}
       {(loyaltyTier || loyaltyPointsBalance > 0) && (
         <section>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Loyalty
           </h3>
-          <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <Star className="h-5 w-5 text-amber-500" />
+          <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/100/10 p-3">
+            <Star className="h-5 w-5 text-amber-500" aria-hidden="true" />
             <div>
               {loyaltyTier && (
-                <p className="text-sm font-semibold text-amber-900">
+                <p className="text-sm font-semibold text-amber-500">
                   {loyaltyTier} Tier
                 </p>
               )}
-              <p className="text-xs text-amber-700">
+              <p className="text-xs text-amber-500">
                 {loyaltyPointsBalance.toLocaleString()} points
               </p>
             </div>
@@ -346,16 +347,16 @@ function AgingBucket({
 }) {
   const colorClass =
     cents === 0
-      ? 'text-gray-500'
+      ? 'text-muted-foreground'
       : variant === 'error'
-        ? 'text-red-600 font-semibold'
+        ? 'text-red-500 font-semibold'
         : variant === 'warning'
-          ? 'text-amber-600 font-medium'
-          : 'text-gray-900';
+          ? 'text-amber-500 font-medium'
+          : 'text-foreground';
 
   return (
     <div>
-      <p className="text-gray-500">{label}</p>
+      <p className="text-muted-foreground">{label}</p>
       <p className={`mt-0.5 text-sm ${colorClass}`}>
         {formatCurrency(cents)}
       </p>

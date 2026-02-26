@@ -120,17 +120,17 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
         <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
         <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Edit Tag</h3>
+            <h3 className="text-lg font-semibold text-foreground">Edit Tag</h3>
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div className="mt-4 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3">
-            <p className="text-sm text-yellow-800">
+          <div className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+            <p className="text-sm text-yellow-500">
               System tags cannot be edited. This tag is managed by the platform and its configuration is read-only.
             </p>
           </div>
@@ -138,7 +138,7 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               Close
             </button>
@@ -154,11 +154,11 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Edit Tag</h3>
+          <h3 className="text-lg font-semibold text-foreground">Edit Tag</h3>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -171,22 +171,22 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. VIP, High Spender, At Risk"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
           <FormField label="Type">
             <div className="flex items-center gap-2">
               {tag.tagType === 'smart' ? (
-                <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700">
+                <span className="inline-flex items-center rounded-full bg-purple-500/20 px-2.5 py-0.5 text-xs font-medium text-purple-500">
                   Smart
                 </span>
               ) : (
-                <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                   Manual
                 </span>
               )}
-              <span className="text-xs text-gray-500">Tag type cannot be changed</span>
+              <span className="text-xs text-muted-foreground">Tag type cannot be changed</span>
             </div>
           </FormField>
 
@@ -196,7 +196,7 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description for this tag"
               rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none"
             />
           </FormField>
 
@@ -210,7 +210,7 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
                     onClick={() => { setColor(preset); setCustomColor(''); }}
                     className={`h-8 w-8 rounded-full border-2 transition-all ${
                       color === preset && !customColor
-                        ? 'border-gray-900 scale-110'
+                        ? 'border-foreground scale-110'
                         : 'border-transparent hover:scale-105'
                     }`}
                     style={{ backgroundColor: preset }}
@@ -224,11 +224,11 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
                   value={customColor}
                   onChange={(e) => setCustomColor(e.target.value)}
                   placeholder="Custom hex (e.g. #FF5733)"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 />
                 {(customColor || color) && (
                   <span
-                    className="inline-block h-8 w-8 shrink-0 rounded-full border border-gray-200"
+                    className="inline-block h-8 w-8 shrink-0 rounded-full border border-border"
                     style={{ backgroundColor: customColor || color }}
                   />
                 )}
@@ -242,7 +242,7 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
               value={icon}
               onChange={(e) => setIcon(e.target.value)}
               placeholder="Optional icon name"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -250,7 +250,7 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             >
               <option value="">Select a category</option>
               {CATEGORIES.map((cat) => (
@@ -267,7 +267,7 @@ export function EditTagDialog({ open, onClose, tag, onUpdated }: EditTagDialogPr
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Cancel
           </button>

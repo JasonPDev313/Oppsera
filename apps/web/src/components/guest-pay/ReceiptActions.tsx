@@ -71,7 +71,7 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
   if (showEmailInput && !emailSent) {
     return (
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-700">
+        <label className="block text-sm font-medium text-foreground">
           Email your receipt
         </label>
         <div className="flex gap-2">
@@ -83,7 +83,7 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
               setEmailError(null);
             }}
             placeholder="your@email.com"
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm
+            className="flex-1 rounded-lg border border-input px-3 py-2 text-sm
                        focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
             autoFocus
             onKeyDown={(e) => {
@@ -95,7 +95,7 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
             onClick={handleSendEmail}
             disabled={emailSending || !isValidEmail(emailInput)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white
-                       hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                       hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {emailSending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -114,7 +114,7 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
             setShowEmailInput(false);
             setEmailError(null);
           }}
-          className="text-xs text-gray-500 hover:text-gray-700"
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
           Cancel
         </button>
@@ -128,8 +128,8 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
       <button
         type="button"
         onClick={handleDownload}
-        className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700
-                   hover:bg-gray-50 transition-colors print:hidden"
+        className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-border py-2.5 text-sm font-medium text-foreground
+                   hover:bg-accent transition-colors print:hidden"
       >
         <Download className="h-4 w-4" />
         Save
@@ -140,8 +140,8 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
         type="button"
         onClick={() => !emailSent && setShowEmailInput(true)}
         disabled={emailSent}
-        className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700
-                   hover:bg-gray-50 transition-colors disabled:text-green-600 disabled:border-green-200 disabled:bg-green-50 print:hidden"
+        className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-border py-2.5 text-sm font-medium text-foreground
+                   hover:bg-accent transition-colors disabled:text-green-500 disabled:border-green-500/30 disabled:bg-green-500/10 print:hidden"
       >
         {emailSent ? (
           <>
@@ -161,8 +161,8 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
         <button
           type="button"
           onClick={handleShare}
-          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-gray-300 py-2.5 text-sm font-medium text-gray-700
-                     hover:bg-gray-50 transition-colors print:hidden"
+          className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-border py-2.5 text-sm font-medium text-foreground
+                     hover:bg-accent transition-colors print:hidden"
         >
           <Share2 className="h-4 w-4" />
           Share

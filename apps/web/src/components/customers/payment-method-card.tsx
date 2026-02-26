@@ -52,7 +52,7 @@ export function PaymentMethodCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const expired = isExpired(method.expiryMonth, method.expiryYear);
-  const brandColor = BRAND_COLORS[method.brand?.toLowerCase() ?? ''] ?? 'text-gray-600';
+  const brandColor = BRAND_COLORS[method.brand?.toLowerCase() ?? ''] ?? 'text-muted-foreground';
 
   // Close menu on outside click
   useEffect(() => {
@@ -70,10 +70,10 @@ export function PaymentMethodCard({
     <div
       className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${
         method.isDefault
-          ? 'border-indigo-200 bg-indigo-50/50'
+          ? 'border-indigo-500/30 bg-indigo-500/5'
           : expired
-            ? 'border-red-200 bg-red-50/30'
-            : 'border-gray-200'
+            ? 'border-red-500/30 bg-red-500/5'
+            : 'border-border'
       }`}
     >
       {/* Left: Icon + details */}
@@ -81,30 +81,30 @@ export function PaymentMethodCard({
         <CreditCard className={`h-5 w-5 shrink-0 ${brandColor}`} />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-foreground">
               {brandLabel(method.brand)}
             </span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               ····{method.last4 ?? '????'}
             </span>
             {method.isDefault && (
-              <span className="inline-flex items-center gap-0.5 rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-700">
+              <span className="inline-flex items-center gap-0.5 rounded bg-indigo-500/20 px-1.5 py-0.5 text-xs font-medium text-indigo-500">
                 <Star className="h-3 w-3" />
                 Default
               </span>
             )}
             {expired && (
-              <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+              <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-xs font-medium text-red-500">
                 Expired
               </span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
             {method.nickname && (
               <span className="truncate max-w-[120px]">{method.nickname}</span>
             )}
             {method.nickname && method.expiryMonth != null && (
-              <span className="text-gray-300">&middot;</span>
+              <span className="text-muted-foreground/30">&middot;</span>
             )}
             {method.expiryMonth != null && (
               <span>Exp {formatExpiry(method.expiryMonth, method.expiryYear)}</span>
@@ -119,13 +119,13 @@ export function PaymentMethodCard({
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
           disabled={isActing}
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
         >
           <MoreVertical className="h-4 w-4" />
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-full z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-surface py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-10 mt-1 w-44 rounded-lg border border-border bg-surface py-1 shadow-lg">
             {!method.isDefault && (
               <button
                 type="button"
@@ -133,9 +133,9 @@ export function PaymentMethodCard({
                   setMenuOpen(false);
                   onSetDefault(method.id);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-accent"
               >
-                <Star className="h-4 w-4 text-gray-400" />
+                <Star className="h-4 w-4 text-muted-foreground" />
                 Set as Default
               </button>
             )}
@@ -145,7 +145,7 @@ export function PaymentMethodCard({
                 setMenuOpen(false);
                 onRemove(method.id);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-red-500/10"
             >
               <Trash2 className="h-4 w-4" />
               Remove

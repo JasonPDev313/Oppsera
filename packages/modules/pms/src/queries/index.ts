@@ -194,3 +194,10 @@ export type { LoyaltyMemberDetail } from './get-loyalty-member';
 
 export { listLoyaltyTransactions } from './list-loyalty-transactions';
 export type { LoyaltyTransactionItem, ListLoyaltyTransactionsResult } from './list-loyalty-transactions';
+
+// ── Utilization Grid ────────────────────────────────────────────────
+export { getUtilizationGrid } from './get-utilization-grid';
+export type { UtilizationGridResponse, UtilizationRoomType, UtilizationCell } from './get-utilization-grid';
+
+export { getUtilizationGridByRoom } from './get-utilization-grid-by-room';
+export type { UtilizationByRoomResponse, UtilizationRoom, UtilizationRoomCell } from './get-utilization-grid-by-room';

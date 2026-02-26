@@ -65,14 +65,14 @@ function OfflineSyncBadgeComponent() {
           backgroundColor: 'var(--pos-bg-elevated)',
           color: 'var(--pos-text-warning, #d97706)',
         }}
-        title={`${pendingCount} offline transaction${pendingCount !== 1 ? 's' : ''} pending`}
+        aria-label={`${pendingCount} offline transaction${pendingCount !== 1 ? 's' : ''} pending`}
       >
-        <CloudOff className="h-3.5 w-3.5" />
+        <CloudOff className="h-3.5 w-3.5" aria-hidden="true" />
         <span>{pendingCount}</span>
       </button>
 
       {showDetail && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="offline-queue-dialog-title">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowDetail(false)}
@@ -85,7 +85,7 @@ function OfflineSyncBadgeComponent() {
             }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold">Offline Queue</h3>
+              <h3 id="offline-queue-dialog-title" className="text-lg font-bold">Offline Queue</h3>
               <button
                 type="button"
                 onClick={handleSync}
@@ -128,7 +128,7 @@ function OfflineSyncBadgeComponent() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       {tx.status === 'pending' && (
-                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-700">
+                        <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-medium text-amber-500">
                           Pending
                         </span>
                       )}
@@ -136,7 +136,7 @@ function OfflineSyncBadgeComponent() {
                         <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-500" />
                       )}
                       {tx.status === 'failed' && (
-                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-medium text-red-700">
+                        <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-xs font-medium text-red-500">
                           Failed ({tx.retryCount})
                         </span>
                       )}

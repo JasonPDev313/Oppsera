@@ -9,6 +9,7 @@ import './events/contracts';
 export {
   openOrder,
   addLineItem,
+  addLineItemsBatch,
   removeLineItem,
   addServiceCharge,
   removeServiceCharge,
@@ -42,6 +43,7 @@ export type { ReturnOrderSummary, ReturnLineSummary } from './queries/get-return
 export {
   openOrderSchema,
   addLineItemSchema,
+  addLineItemsBatchSchema,
   removeLineItemSchema,
   addServiceChargeSchema,
   removeServiceChargeSchema,
@@ -60,6 +62,7 @@ export {
 export type {
   OpenOrderInput,
   AddLineItemInput,
+  AddLineItemsBatchInput,
   RemoveLineItemInput,
   AddServiceChargeInput,
   RemoveServiceChargeInput,

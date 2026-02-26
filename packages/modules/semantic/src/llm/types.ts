@@ -147,7 +147,7 @@ export interface PipelineOutput {
   compiledSql: string | null;
   compilationErrors: string[];
   tablesAccessed: string[];
-  cacheStatus: 'HIT' | 'MISS' | 'SKIP';
+  cacheStatus: 'HIT' | 'MISS' | 'SKIP' | 'STALE';
   // Mode B only: the generated SQL explanation
   sqlExplanation?: string;
   // Proactive intelligence

@@ -84,20 +84,20 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
   if (!open || !item || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="package-confirm-dialog-title">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
+        <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
+            <h3 id="package-confirm-dialog-title" className="text-lg font-semibold text-foreground">{item.name}</h3>
           </div>
-          <span className="text-lg font-semibold text-gray-900">{formatPrice(item.price)}</span>
+          <span className="text-lg font-semibold text-foreground">{formatPrice(item.price)}</span>
           <button
             ref={firstFocusRef}
             type="button"
             onClick={onClose}
-            className="ml-3 rounded-md p-1 text-gray-400 hover:text-gray-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+            className="ml-3 rounded-md p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
           >
             <X className="h-5 w-5" />
           </button>
@@ -105,19 +105,19 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
 
         {/* Content */}
         <div className="px-6 py-4">
-          <p className="mb-3 text-sm font-medium text-gray-700">This package includes:</p>
+          <p className="mb-3 text-sm font-medium text-foreground">This package includes:</p>
 
           {isSumMode && components.length > 0 ? (
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-xs text-gray-500">
+                <tr className="border-b border-border text-xs text-muted-foreground">
                   <th className="pb-1 text-left font-medium">Item</th>
                   <th className="pb-1 text-right font-medium">Unit</th>
                   <th className="pb-1 text-right font-medium">Qty</th>
                   <th className="pb-1 text-right font-medium">Extended</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {components.map((comp) => {
                   const unitPrice = comp.componentUnitPrice ?? 0;
                   const extended = unitPrice * comp.qty;
@@ -134,20 +134,20 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
                           <span className="text-gray-900">{comp.itemName}</span>
                         </div>
                       </td>
-                      <td className="py-1.5 text-right text-gray-600">{formatDollars(unitPrice)}</td>
+                      <td className="py-1.5 text-right text-muted-foreground">{formatDollars(unitPrice)}</td>
                       <td className="py-1.5 text-right text-gray-600">{comp.qty}</td>
                       <td className="py-1.5 text-right">
                         <span className="font-medium text-gray-900">{formatDollars(extended)}</span>
-                        <span className="ml-1 text-xs text-gray-400">({allocPct}%)</span>
+                        <span className="ml-1 text-xs text-muted-foreground">({allocPct}%)</span>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
-                <tr className="border-t border-gray-200">
-                  <td colSpan={3} className="pt-2 text-sm font-medium text-gray-700">Total</td>
-                  <td className="pt-2 text-right text-base font-semibold text-gray-900">
+                <tr className="border-t border-border">
+                  <td colSpan={3} className="pt-2 text-sm font-medium text-foreground">Total</td>
+                  <td className="pt-2 text-right text-base font-semibold text-foreground">
                     {formatDollars(componentsSubtotal ?? 0)}
                   </td>
                 </tr>
@@ -163,11 +163,11 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
                   return (
                     <li
                       key={comp.catalogItemId}
-                      className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                      className="flex items-center justify-between rounded-lg border border-border bg-muted px-3 py-2"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-400">&bull;</span>
-                        <span className="text-sm text-gray-900">
+                        <span className="text-sm text-muted-foreground">&bull;</span>
+                        <span className="text-sm text-foreground">
                           {comp.itemName} ({comp.qty}x)
                         </span>
                       </div>
@@ -178,13 +178,13 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
               </ul>
 
               {components.length === 0 && (
-                <p className="text-sm text-gray-400 italic">No components listed.</p>
+                <p className="text-sm text-muted-foreground italic">No components listed.</p>
               )}
 
-              <div className="mt-4 border-t border-gray-200 pt-3">
+              <div className="mt-4 border-t border-border pt-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Package price:</span>
-                  <span className="text-lg font-semibold text-gray-900">{formatPrice(item.price)}</span>
+                  <span className="text-sm font-medium text-foreground">Package price:</span>
+                  <span className="text-lg font-semibold text-foreground">{formatPrice(item.price)}</span>
                 </div>
               </div>
             </>
@@ -192,11 +192,11 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Cancel
           </button>

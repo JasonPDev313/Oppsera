@@ -1,6 +1,6 @@
 import { gzip } from 'zlib';
 import { promisify } from 'util';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { db } from '@oppsera/db';
 import { platformBackups } from '@oppsera/db/schema';
 import { generateUlid } from '@oppsera/shared';

@@ -402,7 +402,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   // Show the "fully paid" success state
   if (lastResult?.isFullyPaid) {
     return createPortal(
-      <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Payment Complete">
         <div className="fixed inset-0 bg-black/50" />
         <div className="relative w-full max-w-md rounded-2xl bg-surface p-8 text-center shadow-xl">
           <div className="payment-success-icon mx-auto flex h-16 w-16 items-center justify-center">
@@ -411,13 +411,13 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               <path d="M16 28l8 8 16-16" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="payment-success-check" />
             </svg>
           </div>
-          <h2 className="mt-4 text-xl font-bold text-gray-900">Payment Complete</h2>
+          <h2 className="mt-4 text-xl font-bold text-foreground">Payment Complete</h2>
           {tenderType === 'cash' && lastResult.changeGiven > 0 && (
             <p className="mt-2 text-2xl font-bold text-green-600">
               Change: {formatMoney(lastResult.changeGiven)}
             </p>
           )}
-          <p className="mt-2 text-sm text-gray-500">Order fully paid</p>
+          <p className="mt-2 text-sm text-muted-foreground">Order fully paid</p>
         </div>
       </div>,
       document.body
@@ -428,52 +428,52 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   const headerColor = tenderType === 'card' ? 'text-indigo-600' : tenderType === 'check' ? 'text-blue-600' : 'text-green-600';
 
   return createPortal(
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="tender-dialog-title">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-2xl bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
             <HeaderIcon className={`h-5 w-5 ${headerColor}`} />
-            <h2 className="text-lg font-semibold text-gray-900">{TENDER_LABELS[tenderType] ?? 'Payment'}</h2>
+            <h2 id="tender-dialog-title" className="text-lg font-semibold text-foreground">{TENDER_LABELS[tenderType] ?? 'Payment'}</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
 
         <div className="px-6 py-4 space-y-4">
           {/* Order summary */}
-          <div className="rounded-lg bg-gray-50 p-4 space-y-2">
+          <div className="rounded-lg bg-muted p-4 space-y-2">
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Order Total</span>
-              <span className="font-medium text-gray-900">{formatMoney(order.total)}</span>
+              <span className="text-muted-foreground">Order Total</span>
+              <span className="font-medium text-foreground">{formatMoney(order.total)}</span>
             </div>
             {tenderSummary && tenderSummary.summary.totalTendered > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Already Paid</span>
+                <span className="text-muted-foreground">Already Paid</span>
                 <span className="font-medium text-green-600">{formatMoney(tenderSummary.summary.totalTendered)}</span>
               </div>
             )}
-            <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2">
-              <span className="text-gray-900">Remaining</span>
-              <span className="text-gray-900">{formatMoney(remaining)}</span>
+            <div className="flex justify-between text-base font-bold border-t border-border pt-2">
+              <span className="text-foreground">Remaining</span>
+              <span className="text-foreground">{formatMoney(remaining)}</span>
             </div>
           </div>
 
           {/* Surcharge notice (card payments only) */}
           {tenderType === 'card' && surchargeAmountCents > 0 && (
-            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-1">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="font-medium text-amber-800">Credit Card Surcharge ({(effectiveSurchargeRate * 100).toFixed(2)}%)</span>
-                <span className="font-semibold text-amber-900">{formatMoney(surchargeAmountCents)}</span>
+                <span className="font-medium text-amber-500">Credit Card Surcharge ({(effectiveSurchargeRate * 100).toFixed(2)}%)</span>
+                <span className="font-semibold text-amber-500">{formatMoney(surchargeAmountCents)}</span>
               </div>
               {surchargeDisclosure && (
-                <p className="text-xs text-amber-700">{surchargeDisclosure}</p>
+                <p className="text-xs text-amber-500">{surchargeDisclosure}</p>
               )}
-              <div className="flex justify-between text-sm font-bold border-t border-amber-200 pt-1">
-                <span className="text-amber-900">Total with Surcharge</span>
-                <span className="text-amber-900">{formatMoney(chargeAmountForSurcharge + surchargeAmountCents)}</span>
+              <div className="flex justify-between text-sm font-bold border-t border-amber-500/30 pt-1">
+                <span className="text-amber-500">Total with Surcharge</span>
+                <span className="text-amber-500">{formatMoney(chargeAmountForSurcharge + surchargeAmountCents)}</span>
               </div>
             </div>
           )}
@@ -498,11 +498,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                 {/* Amount (editable before sending to terminal) */}
                 {(cardPresentStatus === 'idle' || cardPresentStatus === 'cancelled') && (
                   <div>
-                    <label htmlFor="amountGiven" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="amountGiven" className="block text-sm font-medium text-foreground mb-1">
                       Charge Amount
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                       <input
                         id="amountGiven"
                         type="number"
@@ -510,7 +510,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                         min="0"
                         value={amountGiven}
                         onChange={(e) => setAmountGiven(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 py-3 pl-8 pr-4 text-right text-xl font-bold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full rounded-lg border border-input py-3 pl-8 pr-4 text-right text-xl font-bold text-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                         placeholder="0.00"
                       />
                     </div>
@@ -520,11 +520,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                 {/* Tip (card-present tips — optional, before sending) */}
                 {config.tipEnabled && (cardPresentStatus === 'idle' || cardPresentStatus === 'cancelled') && (
                   <div>
-                    <label htmlFor="tipAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="tipAmount" className="block text-sm font-medium text-foreground mb-1">
                       Tip
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                       <input
                         id="tipAmount"
                         type="number"
@@ -532,7 +532,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                         min="0"
                         value={tipAmount}
                         onChange={(e) => setTipAmount(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 text-right text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full rounded-lg border border-input py-2 pl-8 pr-4 text-right text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                         placeholder="0.00"
                       />
                     </div>
@@ -543,7 +543,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               /* ── Card-on-file mode: charge a stored card ── */
               <>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-foreground mb-2">
                     <Wallet className="inline h-4 w-4 mr-1 -mt-0.5" />
                     Card on File
                   </label>
@@ -555,25 +555,25 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                         onClick={() => setSelectedPaymentMethodId(method.id)}
                         className={`w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors ${
                           selectedPaymentMethodId === method.id
-                            ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20'
-                            : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
+                            ? 'border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-500/20'
+                            : 'border-border bg-surface hover:border-border hover:bg-accent'
                         }`}
                       >
                         <div className="flex items-center gap-3">
-                          <CreditCard className={`h-5 w-5 ${selectedPaymentMethodId === method.id ? 'text-indigo-600' : 'text-gray-400'}`} />
+                          <CreditCard className={`h-5 w-5 ${selectedPaymentMethodId === method.id ? 'text-indigo-600' : 'text-muted-foreground'}`} />
                           <div>
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-foreground">
                               {method.brand ?? 'Card'} {method.last4 ? `****${method.last4}` : ''}
                             </div>
                             {method.expiryMonth && method.expiryYear && (
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-muted-foreground">
                                 Exp {String(method.expiryMonth).padStart(2, '0')}/{String(method.expiryYear).slice(-2)}
                               </div>
                             )}
                           </div>
                         </div>
                         {method.isDefault && (
-                          <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">Default</span>
+                          <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-medium text-indigo-400">Default</span>
                         )}
                       </button>
                     ))}
@@ -582,11 +582,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
 
                 {/* Amount */}
                 <div>
-                  <label htmlFor="amountGiven" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="amountGiven" className="block text-sm font-medium text-foreground mb-1">
                     Charge Amount
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                     <input
                       id="amountGiven"
                       type="number"
@@ -594,7 +594,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                       min="0"
                       value={amountGiven}
                       onChange={(e) => setAmountGiven(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 py-3 pl-8 pr-4 text-right text-xl font-bold text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                      className="w-full rounded-lg border border-input py-3 pl-8 pr-4 text-right text-xl font-bold text-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                       placeholder="0.00"
                     />
                   </div>
@@ -602,11 +602,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                 {/* Tip section (card-on-file tips) */}
                 {config.tipEnabled && (
                   <div>
-                    <label htmlFor="tipAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="tipAmount" className="block text-sm font-medium text-foreground mb-1">
                       Tip
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                       <input
                         id="tipAmount"
                         type="number"
@@ -614,7 +614,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                         min="0"
                         value={tipAmount}
                         onChange={(e) => setTipAmount(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 text-right text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                        className="w-full rounded-lg border border-input py-2 pl-8 pr-4 text-right text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                         placeholder="0.00"
                       />
                     </div>
@@ -623,11 +623,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               </>
             ) : (
               /* ── No payment device and no stored cards ── */
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-6 text-center space-y-3">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-6 text-center space-y-3">
                 <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
                 <div>
-                  <p className="text-sm font-semibold text-amber-900">No payment device configured</p>
-                  <p className="mt-1 text-xs text-amber-700">
+                  <p className="text-sm font-semibold text-amber-500">No payment device configured</p>
+                  <p className="mt-1 text-xs text-amber-500">
                     {order.customerId
                       ? cardsLoading
                         ? 'Loading stored cards...'
@@ -641,11 +641,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
             <>
               {/* Amount */}
               <div>
-                <label htmlFor="amountGiven" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="amountGiven" className="block text-sm font-medium text-foreground mb-1">
                   Amount
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                   <input
                     id="amountGiven"
                     type="number"
@@ -653,14 +653,14 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                     min="0"
                     value={amountGiven}
                     onChange={(e) => setAmountGiven(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 py-3 pl-8 pr-4 text-right text-xl font-bold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full rounded-lg border border-input py-3 pl-8 pr-4 text-right text-xl font-bold text-foreground focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     placeholder="0.00"
                   />
                 </div>
               </div>
               {/* Check Number */}
               <div>
-                <label htmlFor="checkNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="checkNumber" className="block text-sm font-medium text-foreground mb-1">
                   Check Number
                 </label>
                 <input
@@ -668,7 +668,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                   type="text"
                   value={checkNumber}
                   onChange={(e) => setCheckNumber(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 py-3 px-4 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-lg border border-input py-3 px-4 text-sm text-foreground focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   placeholder="Enter check number"
                   autoFocus
                 />
@@ -678,11 +678,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
             <>
               {/* Cash: Amount input */}
               <div>
-                <label htmlFor="amountGiven" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="amountGiven" className="block text-sm font-medium text-foreground mb-1">
                   Amount Given
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                   <input
                     id="amountGiven"
                     type="number"
@@ -690,7 +690,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                     min="0"
                     value={amountGiven}
                     onChange={(e) => setAmountGiven(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 py-3 pl-8 pr-4 text-right text-xl font-bold text-gray-900 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                    className="w-full rounded-lg border border-input py-3 pl-8 pr-4 text-right text-xl font-bold text-foreground focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                     placeholder="0.00"
                     autoFocus
                   />
@@ -707,7 +707,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                       const current = Math.round(parseFloat(prev || '0') * 100);
                       return ((current + cents) / 100).toFixed(2);
                     })}
-                    className="rounded-lg border border-gray-200 bg-surface px-3 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:border-gray-300"
+                    className="rounded-lg border border-border bg-surface px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:border-border"
                   >
                     +{formatMoney(cents)}
                   </button>
@@ -717,7 +717,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                 type="button"
                 onClick={() => { setExact(); handleSubmit(remaining); }}
                 disabled={isSubmitting}
-                className="w-full rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Processing...' : `Pay Exact — ${formatMoney(remaining)}`}
               </button>
@@ -725,11 +725,11 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
               {/* Cash: Tip section (only if enabled) */}
               {config.tipEnabled && (
                 <div>
-                  <label htmlFor="tipAmount" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="tipAmount" className="block text-sm font-medium text-foreground mb-1">
                     Tip
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                     <input
                       id="tipAmount"
                       type="number"
@@ -737,7 +737,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                       min="0"
                       value={tipAmount}
                       onChange={(e) => setTipAmount(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 py-2 pl-8 pr-4 text-right text-sm text-gray-900 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                      className="w-full rounded-lg border border-input py-2 pl-8 pr-4 text-right text-sm text-foreground focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                       placeholder="0.00"
                     />
                   </div>
@@ -746,9 +746,9 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
 
               {/* Cash: Change preview */}
               {amountCents > remaining && (
-                <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-center">
-                  <span className="text-sm text-green-700">Change Due: </span>
-                  <span className="text-lg font-bold text-green-700">{formatMoney(amountCents - remaining)}</span>
+                <div className="rounded-lg bg-green-500/10 border border-green-500/30 p-3 text-center">
+                  <span className="text-sm text-green-500">Change Due: </span>
+                  <span className="text-lg font-bold text-green-500">{formatMoney(amountCents - remaining)}</span>
                 </div>
               )}
             </>
@@ -756,7 +756,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         </div>
 
         {/* Footer */}
-        <div className="flex gap-3 border-t border-gray-200 px-6 py-4">
+        <div className="flex gap-3 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={onClose}

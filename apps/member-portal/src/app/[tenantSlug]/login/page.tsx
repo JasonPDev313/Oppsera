@@ -47,6 +47,9 @@ export default function LoginPage() {
                 id="email"
                 type="email"
                 required
+                aria-required="true"
+                aria-invalid={error ? 'true' : undefined}
+                aria-describedby={error ? 'login-error' : undefined}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-lg border border-[var(--portal-border)] px-3 py-2 text-sm
@@ -63,6 +66,9 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 required
+                aria-required="true"
+                aria-invalid={error ? 'true' : undefined}
+                aria-describedby={error ? 'login-error' : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-lg border border-[var(--portal-border)] px-3 py-2 text-sm
@@ -72,7 +78,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+              <div id="login-error" role="alert" className="rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-500">
                 {error}
               </div>
             )}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getVendorLedger } from '@oppsera/module-ap';
+import { parseLimit } from '@/lib/api-params';
 
 function extractVendorId(request: NextRequest): string {
   const url = new URL(request.url);
@@ -19,7 +20,7 @@ export const GET = withMiddleware(
       startDate: searchParams.get('startDate') ?? undefined,
       endDate: searchParams.get('endDate') ?? undefined,
       cursor: searchParams.get('cursor') ?? undefined,
-      limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined,
+      limit: parseLimit(searchParams.get('limit')),
     });
     return NextResponse.json({ data: result });
   },

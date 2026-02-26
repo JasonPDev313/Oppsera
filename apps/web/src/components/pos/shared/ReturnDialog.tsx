@@ -173,28 +173,28 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="return-dialog-title">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 flex h-[600px] w-full max-w-lg flex-col rounded-xl bg-surface shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
-            <RotateCcw className="h-5 w-5 text-indigo-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Process Return</h2>
+            <RotateCcw className="h-5 w-5 text-indigo-600" aria-hidden="true" />
+            <h2 id="return-dialog-title" className="text-lg font-semibold text-foreground">Process Return</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-md p-1 text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} aria-label="Close" className="rounded-md p-1 text-muted-foreground hover:text-foreground">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-2">
+        <div className="flex items-center gap-2 border-b border-border px-6 py-2">
           {(['find', 'select', 'reason', 'confirm'] as Step[]).map((s, i) => (
             <div key={s} className="flex items-center gap-2">
-              {i > 0 && <ChevronRight className="h-3 w-3 text-gray-300" />}
+              {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground" aria-hidden="true" />}
               <span
                 className={`text-xs font-medium ${
-                  s === step ? 'text-indigo-600' : 'text-gray-400'
+                  s === step ? 'text-indigo-600' : 'text-muted-foreground'
                 }`}
               >
                 {s === 'find' ? 'Find Order' : s === 'select' ? 'Select Items' : s === 'reason' ? 'Reason' : 'Confirm'}
@@ -208,7 +208,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
           {/* ── Step 1: Find Order ──────────────────────────────── */}
           {step === 'find' && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Search by order number, customer name, or receipt number.
               </p>
               <div className="flex gap-2">
@@ -218,7 +218,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
                   placeholder="Order # or customer name..."
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="flex-1 rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   autoFocus
                 />
                 <button
@@ -233,7 +233,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
               </div>
 
               {isSearching && (
-                <p className="text-center text-sm text-gray-400">Searching...</p>
+                <p className="text-center text-sm text-muted-foreground">Searching...</p>
               )}
 
               {searchResults.length > 0 && (
@@ -243,27 +243,27 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                       key={order.id}
                       type="button"
                       onClick={() => handleSelectOrder(order)}
-                      className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-4 py-3 text-left transition-colors hover:bg-gray-50"
+                      className="flex w-full items-center justify-between rounded-lg border border-border px-4 py-3 text-left transition-colors hover:bg-accent"
                     >
                       <div>
-                        <span className="text-sm font-semibold text-gray-900">
+                        <span className="text-sm font-semibold text-foreground">
                           #{order.orderNumber}
                         </span>
                         {order.customerName && (
-                          <span className="ml-2 text-sm text-gray-500">{order.customerName}</span>
+                          <span className="ml-2 text-sm text-muted-foreground">{order.customerName}</span>
                         )}
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-muted-foreground">
                           {order.lines?.length ?? 0} items &middot; {formatMoney(order.total)}
                         </p>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </button>
                   ))}
                 </div>
               )}
 
               {!isSearching && searchResults.length === 0 && searchQuery.trim() && (
-                <p className="text-center text-sm text-gray-400">No orders found</p>
+                <p className="text-center text-sm text-muted-foreground">No orders found</p>
               )}
             </div>
           )}
@@ -271,19 +271,19 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
           {/* ── Step 2: Select Items ───────────────────────────── */}
           {step === 'select' && selectedOrder && (
             <div className="space-y-3">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Select items and quantities to return from order #{selectedOrder.orderNumber}.
               </p>
               {returnLines.map((rl) => (
                 <div
                   key={rl.lineId}
                   className={`flex items-center justify-between rounded-lg border px-4 py-3 ${
-                    rl.returnQty > 0 ? 'border-indigo-200 bg-indigo-50' : 'border-gray-200'
+                    rl.returnQty > 0 ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-border'
                   }`}
                 >
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-gray-900 truncate block">{rl.lineName}</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-sm font-medium text-foreground truncate block">{rl.lineName}</span>
+                    <span className="text-xs text-muted-foreground">
                       {formatMoney(rl.unitPrice)} each &middot; Max: {rl.maxQty}
                     </span>
                   </div>
@@ -292,7 +292,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                       type="button"
                       onClick={() => updateReturnQty(rl.lineId, -1)}
                       disabled={rl.returnQty <= 0}
-                      className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 text-gray-500 hover:bg-gray-100 disabled:opacity-30"
+                      className="flex h-7 w-7 items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent disabled:opacity-30"
                     >
                       <Minus className="h-3 w-3" />
                     </button>
@@ -301,7 +301,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                       type="button"
                       onClick={() => updateReturnQty(rl.lineId, 1)}
                       disabled={rl.returnQty >= rl.maxQty}
-                      className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 text-gray-500 hover:bg-gray-100 disabled:opacity-30"
+                      className="flex h-7 w-7 items-center justify-center rounded border border-input text-muted-foreground hover:bg-accent disabled:opacity-30"
                     >
                       <Plus className="h-3 w-3" />
                     </button>
@@ -314,7 +314,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
           {/* ── Step 3: Reason ─────────────────────────────────── */}
           {step === 'reason' && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">Provide a reason for each returned item.</p>
+              <p className="text-sm text-muted-foreground">Provide a reason for each returned item.</p>
 
               {/* Global reason */}
               <div className="flex gap-2">
@@ -323,13 +323,13 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                   value={globalReason}
                   onChange={(e) => setGlobalReason(e.target.value)}
                   placeholder="Apply reason to all items..."
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                  className="flex-1 rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleApplyGlobalReason}
                   disabled={!globalReason.trim()}
-                  className="rounded-lg bg-gray-100 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 disabled:opacity-50"
+                  className="rounded-lg bg-muted px-3 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
                 >
                   Apply All
                 </button>
@@ -338,7 +338,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
               {/* Per-line reasons */}
               {returnLines.filter((rl) => rl.returnQty > 0).map((rl) => (
                 <div key={rl.lineId} className="space-y-1">
-                  <label className="text-xs font-medium text-gray-700">
+                  <label className="text-xs font-medium text-foreground">
                     {rl.lineName} (x{rl.returnQty})
                   </label>
                   <input
@@ -351,7 +351,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                       );
                     }}
                     placeholder="Reason for return..."
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               ))}
@@ -361,28 +361,28 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
           {/* ── Step 4: Confirm ────────────────────────────────── */}
           {step === 'confirm' && selectedOrder && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Review the return details below.
               </p>
 
-              <div className="rounded-lg border border-gray-200 divide-y divide-gray-100">
+              <div className="rounded-lg border border-border divide-y divide-border">
                 <div className="px-4 py-3">
-                  <span className="text-xs font-medium text-gray-500">Order</span>
-                  <p className="text-sm font-semibold text-gray-900">#{selectedOrder.orderNumber}</p>
+                  <span className="text-xs font-medium text-muted-foreground">Order</span>
+                  <p className="text-sm font-semibold text-foreground">#{selectedOrder.orderNumber}</p>
                 </div>
                 {returnLines.filter((rl) => rl.returnQty > 0).map((rl) => (
                   <div key={rl.lineId} className="flex items-center justify-between px-4 py-3">
                     <div>
-                      <span className="text-sm font-medium text-gray-900">{rl.lineName}</span>
-                      <p className="text-xs text-gray-500">x{rl.returnQty} &middot; {rl.reason}</p>
+                      <span className="text-sm font-medium text-foreground">{rl.lineName}</span>
+                      <p className="text-xs text-muted-foreground">x{rl.returnQty} &middot; {rl.reason}</p>
                     </div>
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-sm font-semibold text-foreground">
                       {formatMoney(rl.returnQty * rl.unitPrice)}
                     </span>
                   </div>
                 ))}
-                <div className="flex items-center justify-between bg-gray-50 px-4 py-3">
-                  <span className="text-sm font-semibold text-gray-900">Refund Total</span>
+                <div className="flex items-center justify-between bg-muted px-4 py-3">
+                  <span className="text-sm font-semibold text-foreground">Refund Total</span>
                   <span className="text-base font-bold text-indigo-600">{formatMoney(returnTotal)}</span>
                 </div>
               </div>
@@ -391,7 +391,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-t border-border px-6 py-4">
           <div>
             {step !== 'find' && (
               <button
@@ -401,7 +401,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                   const idx = steps.indexOf(step);
                   if (idx > 0) setStep(steps[idx - 1]!);
                 }}
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground"
               >
                 Back
               </button>

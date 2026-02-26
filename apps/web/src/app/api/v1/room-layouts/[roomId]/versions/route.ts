@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getVersionHistory } from '@oppsera/module-room-layouts';
+import { parseLimit } from '@/lib/api-params';
 
 function extractRoomId(request: NextRequest): string {
   const url = new URL(request.url);
@@ -20,7 +21,7 @@ export const GET = withMiddleware(
       tenantId: ctx.tenantId,
       roomId,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({

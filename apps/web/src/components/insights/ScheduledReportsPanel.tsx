@@ -189,18 +189,18 @@ export function ScheduledReportsPanel({
                     {/* Status indicator */}
                     {schedule.isActive ? (
                       overdue ? (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[10px] font-medium bg-amber-100 text-amber-700">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[10px] font-medium bg-amber-500/10 text-amber-500">
                           <AlertTriangle className="h-2.5 w-2.5" />
                           Overdue
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700">
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-500">
                           <CheckCircle className="h-2.5 w-2.5" />
                           Active
                         </span>
                       )
                     ) : (
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0 rounded text-[10px] font-medium bg-muted text-muted-foreground">
                         <PauseCircle className="h-2.5 w-2.5" />
                         Paused
                       </span>

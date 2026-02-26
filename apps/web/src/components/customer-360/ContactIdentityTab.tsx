@@ -72,8 +72,8 @@ function typeBadgeVariant(type: string): string {
 function SectionHeader({ icon: Icon, title, count }: { icon: React.ElementType; title: string; count: number }) {
   return (
     <div className="flex items-center gap-2 mb-3">
-      <Icon className="h-4 w-4 text-gray-500" />
-      <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+      <Icon aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       <Badge variant="neutral">{count}</Badge>
     </div>
   );
@@ -83,12 +83,12 @@ function InlineSelect({ value, onChange, options, label }: {
   value: string; onChange: (v: string) => void; options: string[]; label: string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-gray-600">
+    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
       {label}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded border border-gray-300 bg-surface px-2 py-1.5 text-sm"
+        className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
       >
         {options.map((o) => <option key={o} value={o}>{o}</option>)}
       </select>
@@ -101,14 +101,14 @@ function InlineInput({ value, onChange, label, placeholder, type = 'text', requi
   type?: string; required?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-gray-600">
+    <label className="flex flex-col gap-1 text-xs text-muted-foreground">
       {label}{required && <span className="text-red-500"> *</span>}
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="rounded border border-gray-300 bg-surface px-2 py-1.5 text-sm"
+        className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
         required={required}
       />
     </label>
@@ -119,12 +119,12 @@ function InlineCheckbox({ checked, onChange, label }: {
   checked: boolean; onChange: (v: boolean) => void; label: string;
 }) {
   return (
-    <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="rounded border-gray-300"
+        className="rounded border-input"
       />
       {label}
     </label>
@@ -136,8 +136,8 @@ function ActionButton({ onClick, icon: Icon, label, variant = 'default' }: {
   variant?: 'default' | 'danger';
 }) {
   const cls = variant === 'danger'
-    ? 'text-red-500 hover:bg-red-500/10'
-    : 'text-gray-500 hover:bg-gray-200/50';
+    ? 'text-red-500 hover:bg-red-500/100/100/10'
+    : 'text-muted-foreground hover:bg-muted/50';
   return (
     <button
       type="button"
@@ -167,7 +167,7 @@ function SaveCancelButtons({ onSave, onCancel, saving }: {
         type="button"
         onClick={onCancel}
         disabled={saving}
-        className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+        className="rounded border border-input px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent disabled:opacity-50"
       >
         Cancel
       </button>
@@ -240,14 +240,14 @@ function EmailSection({ customerId, emails, onRefresh }: {
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4">
+    <div className="border border-border rounded-lg p-4">
       <SectionHeader icon={Mail} title="Emails" count={emails.length} />
 
       <div className="space-y-2">
         {emails.map((entry) =>
           editingId === entry.id ? (
-            <div key={entry.id} className="rounded border border-indigo-200 bg-indigo-50/30 p-3 space-y-3">
-              <p className="text-sm font-medium text-gray-800">{entry.email}</p>
+            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/100/10 p-3 space-y-3">
+              <p className="text-sm font-medium text-foreground">{entry.email}</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <InlineSelect
                   value={editForm.type ?? entry.type}
@@ -280,16 +280,16 @@ function EmailSection({ customerId, emails, onRefresh }: {
               />
             </div>
           ) : (
-            <div key={entry.id} className="flex items-center gap-2 rounded p-2 hover:bg-gray-100/50 group">
-              <span className="text-sm text-gray-800 font-medium">{entry.email}</span>
+            <div key={entry.id} className="flex items-center gap-2 rounded p-2 hover:bg-accent group">
+              <span className="text-sm text-foreground font-medium">{entry.email}</span>
               <Badge variant={typeBadgeVariant(entry.type)}>{entry.type}</Badge>
-              {entry.isPrimary && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
-              {entry.isVerified && <CheckCircle className="h-3.5 w-3.5 text-green-500" />}
+              {entry.isPrimary && <Star aria-hidden="true" className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
+              {entry.isVerified && <CheckCircle aria-hidden="true" className="h-3.5 w-3.5 text-green-500" />}
               {entry.canReceiveStatements && (
-                <span title="Statements"><FileText className="h-3.5 w-3.5 text-gray-400" /></span>
+                <span title="Statements"><FileText aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" /></span>
               )}
               {entry.canReceiveMarketing && (
-                <span title="Marketing"><Megaphone className="h-3.5 w-3.5 text-gray-400" /></span>
+                <span title="Marketing"><Megaphone aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" /></span>
               )}
               <span className="flex-1" />
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -302,7 +302,7 @@ function EmailSection({ customerId, emails, onRefresh }: {
       </div>
 
       {showAdd ? (
-        <div className="mt-3 rounded border border-gray-200 bg-surface p-3 space-y-3">
+        <div className="mt-3 rounded border border-border bg-surface p-3 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InlineInput
               value={form.email}
@@ -346,9 +346,9 @@ function EmailSection({ customerId, emails, onRefresh }: {
         <button
           type="button"
           onClick={() => setShowAdd(true)}
-          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-500"
         >
-          <Plus className="h-3.5 w-3.5" /> Add Email
+          <Plus aria-hidden="true" className="h-3.5 w-3.5" /> Add Email
         </button>
       )}
     </div>
@@ -414,14 +414,14 @@ function PhoneSection({ customerId, phones, onRefresh }: {
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4">
+    <div className="border border-border rounded-lg p-4">
       <SectionHeader icon={Phone} title="Phones" count={phones.length} />
 
       <div className="space-y-2">
         {phones.map((entry) =>
           editingId === entry.id ? (
-            <div key={entry.id} className="rounded border border-indigo-200 bg-indigo-50/30 p-3 space-y-3">
-              <p className="text-sm font-medium text-gray-800">{formatPhone(entry.phoneE164, entry.phoneDisplay)}</p>
+            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/100/10 p-3 space-y-3">
+              <p className="text-sm font-medium text-foreground">{formatPhone(entry.phoneE164, entry.phoneDisplay)}</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <InlineSelect
                   value={editForm.type ?? entry.type}
@@ -449,15 +449,15 @@ function PhoneSection({ customerId, phones, onRefresh }: {
               />
             </div>
           ) : (
-            <div key={entry.id} className="flex items-center gap-2 rounded p-2 hover:bg-gray-100/50 group">
-              <span className="text-sm text-gray-800 font-medium">
+            <div key={entry.id} className="flex items-center gap-2 rounded p-2 hover:bg-accent group">
+              <span className="text-sm text-foreground font-medium">
                 {formatPhone(entry.phoneE164, entry.phoneDisplay)}
               </span>
               <Badge variant={typeBadgeVariant(entry.type)}>{entry.type}</Badge>
-              {entry.isPrimary && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
-              {entry.isVerified && <CheckCircle className="h-3.5 w-3.5 text-green-500" />}
+              {entry.isPrimary && <Star aria-hidden="true" className="h-3.5 w-3.5 text-amber-500 fill-amber-500" />}
+              {entry.isVerified && <CheckCircle aria-hidden="true" className="h-3.5 w-3.5 text-green-500" />}
               {entry.canReceiveSms && (
-                <span title="SMS capable"><MessageSquare className="h-3.5 w-3.5 text-gray-400" /></span>
+                <span title="SMS capable"><MessageSquare aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" /></span>
               )}
               <span className="flex-1" />
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -470,7 +470,7 @@ function PhoneSection({ customerId, phones, onRefresh }: {
       </div>
 
       {showAdd ? (
-        <div className="mt-3 rounded border border-gray-200 bg-surface p-3 space-y-3">
+        <div className="mt-3 rounded border border-border bg-surface p-3 space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <InlineInput
               value={form.phoneE164}
@@ -509,9 +509,9 @@ function PhoneSection({ customerId, phones, onRefresh }: {
         <button
           type="button"
           onClick={() => setShowAdd(true)}
-          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-500"
         >
-          <Plus className="h-3.5 w-3.5" /> Add Phone
+          <Plus aria-hidden="true" className="h-3.5 w-3.5" /> Add Phone
         </button>
       )}
     </div>
@@ -665,23 +665,23 @@ function AddressSection({ customerId, addresses, onRefresh }: {
         </div>
         {((data.type as string) === 'seasonal' || data.seasonalStartMonth != null) && (
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-xs text-gray-600">
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               Seasonal Start
               <select
                 value={data.seasonalStartMonth ?? ''}
                 onChange={(e) => update({ seasonalStartMonth: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded border border-gray-300 bg-surface px-2 py-1.5 text-sm"
+                className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
               >
                 <option value="">None</option>
                 {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-xs text-gray-600">
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
               Seasonal End
               <select
                 value={data.seasonalEndMonth ?? ''}
                 onChange={(e) => update({ seasonalEndMonth: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded border border-gray-300 bg-surface px-2 py-1.5 text-sm"
+                className="rounded border border-input bg-surface px-2 py-1.5 text-sm"
               >
                 <option value="">None</option>
                 {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
@@ -694,13 +694,13 @@ function AddressSection({ customerId, addresses, onRefresh }: {
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4">
+    <div className="border border-border rounded-lg p-4">
       <SectionHeader icon={MapPin} title="Addresses" count={addresses.length} />
 
       <div className="space-y-2">
         {addresses.map((entry) =>
           editingId === entry.id ? (
-            <div key={entry.id} className="rounded border border-indigo-200 bg-indigo-50/30 p-3 space-y-3">
+            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/100/10 p-3 space-y-3">
               {renderAddressForm(editForm, (patch) => setEditForm((p) => ({ ...p, ...patch })))}
               <SaveCancelButtons
                 onSave={() => handleUpdate(entry.id)}
@@ -709,18 +709,18 @@ function AddressSection({ customerId, addresses, onRefresh }: {
               />
             </div>
           ) : (
-            <div key={entry.id} className="flex items-start gap-2 rounded p-2 hover:bg-gray-100/50 group">
+            <div key={entry.id} className="flex items-start gap-2 rounded p-2 hover:bg-accent group">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-gray-800">{formatAddress(entry)}</span>
+                  <span className="text-sm text-foreground">{formatAddress(entry)}</span>
                   <Badge variant={typeBadgeVariant(entry.type)}>{entry.type}</Badge>
-                  {entry.isPrimary && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
+                  {entry.isPrimary && <Star aria-hidden="true" className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
                   {entry.label && (
-                    <span className="text-xs text-gray-500 italic">{entry.label}</span>
+                    <span className="text-xs text-muted-foreground italic">{entry.label}</span>
                   )}
                 </div>
                 {entry.seasonalStartMonth != null && entry.seasonalEndMonth != null && (
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Seasonal: {MONTH_NAMES[entry.seasonalStartMonth - 1]}&ndash;{MONTH_NAMES[entry.seasonalEndMonth - 1]}
                   </p>
                 )}
@@ -735,7 +735,7 @@ function AddressSection({ customerId, addresses, onRefresh }: {
       </div>
 
       {showAdd ? (
-        <div className="mt-3 rounded border border-gray-200 bg-surface p-3 space-y-3">
+        <div className="mt-3 rounded border border-border bg-surface p-3 space-y-3">
           {renderAddressForm(form, (patch) => setForm((p) => ({ ...p, ...patch })))}
           <SaveCancelButtons
             onSave={handleAdd}
@@ -747,7 +747,7 @@ function AddressSection({ customerId, addresses, onRefresh }: {
         <button
           type="button"
           onClick={() => setShowAdd(true)}
-          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-500"
         >
           <Plus className="h-3.5 w-3.5" /> Add Address
         </button>
@@ -870,13 +870,13 @@ function EmergencyContactsSection({ customerId, contacts, onRefresh }: {
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4">
+    <div className="border border-border rounded-lg p-4">
       <SectionHeader icon={ShieldAlert} title="Emergency Contacts" count={contacts.length} />
 
       <div className="space-y-2">
         {contacts.map((entry) =>
           editingId === entry.id ? (
-            <div key={entry.id} className="rounded border border-indigo-200 bg-indigo-50/30 p-3 space-y-3">
+            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/100/10 p-3 space-y-3">
               {renderEmergencyForm(editForm, (patch) => setEditForm((p) => ({ ...p, ...patch })))}
               <SaveCancelButtons
                 onSave={() => handleUpdate(entry.id)}
@@ -885,21 +885,21 @@ function EmergencyContactsSection({ customerId, contacts, onRefresh }: {
               />
             </div>
           ) : (
-            <div key={entry.id} className="flex items-start gap-2 rounded p-2 hover:bg-gray-100/50 group">
+            <div key={entry.id} className="flex items-start gap-2 rounded p-2 hover:bg-accent group">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm font-medium text-gray-800">{entry.name}</span>
+                  <span className="text-sm font-medium text-foreground">{entry.name}</span>
                   {entry.relationship && (
                     <Badge variant="neutral">{entry.relationship}</Badge>
                   )}
-                  {entry.isPrimary && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
+                  {entry.isPrimary && <Star aria-hidden="true" className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
                 </div>
-                <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-500">
+                <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
                   <span>{formatPhone(entry.phoneE164, entry.phoneDisplay)}</span>
                   {entry.email && <span>{entry.email}</span>}
                 </div>
                 {entry.notes && (
-                  <p className="text-xs text-gray-500 mt-0.5 italic">{entry.notes}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 italic">{entry.notes}</p>
                 )}
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
@@ -912,7 +912,7 @@ function EmergencyContactsSection({ customerId, contacts, onRefresh }: {
       </div>
 
       {showAdd ? (
-        <div className="mt-3 rounded border border-gray-200 bg-surface p-3 space-y-3">
+        <div className="mt-3 rounded border border-border bg-surface p-3 space-y-3">
           {renderEmergencyForm(form, (patch) => setForm((p) => ({ ...p, ...patch })))}
           <SaveCancelButtons
             onSave={handleAdd}
@@ -924,9 +924,9 @@ function EmergencyContactsSection({ customerId, contacts, onRefresh }: {
         <button
           type="button"
           onClick={() => setShowAdd(true)}
-          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-3 flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-500"
         >
-          <Plus className="h-3.5 w-3.5" /> Add Emergency Contact
+          <Plus aria-hidden="true" className="h-3.5 w-3.5" /> Add Emergency Contact
         </button>
       )}
     </div>
@@ -942,7 +942,7 @@ export default function ContactIdentityTab({ customerId }: { customerId: string 
     return (
       <div className="space-y-4 animate-pulse">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="border border-gray-200 rounded-lg p-4 h-24 bg-gray-100/50" />
+          <div key={i} className="border border-border rounded-lg p-4 h-24 bg-muted" />
         ))}
       </div>
     );
@@ -950,7 +950,7 @@ export default function ContactIdentityTab({ customerId }: { customerId: string 
 
   if (contacts.error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+      <div className="rounded-lg border border-red-500/30 bg-red-500/100/10 p-4 text-sm text-red-500">
         Failed to load contact information. Please try again.
       </div>
     );
@@ -961,12 +961,12 @@ export default function ContactIdentityTab({ customerId }: { customerId: string 
   return (
     <div className="space-y-4">
       {/* Identity Card */}
-      <div className="border border-gray-200 rounded-lg p-4">
+      <div className="border border-border rounded-lg p-4">
         <div className="flex items-center gap-2 mb-3">
-          <User className="h-4 w-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-700">Identity</h3>
+          <User aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground">Identity</h3>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Basic identity is displayed in the profile header above. Use the sections below to manage detailed contact information.
         </p>
       </div>

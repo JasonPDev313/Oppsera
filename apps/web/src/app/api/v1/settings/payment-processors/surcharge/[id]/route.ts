@@ -29,5 +29,5 @@ export const DELETE = withMiddleware(
     const result = await deleteSurchargeSettings(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'payments', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );

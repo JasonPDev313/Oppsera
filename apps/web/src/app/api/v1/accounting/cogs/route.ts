@@ -10,6 +10,7 @@ import {
   listPeriodicCogsSchema,
   postPeriodicCogsSchema,
 } from '@oppsera/module-accounting';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -18,7 +19,7 @@ export const GET = withMiddleware(
       locationId: url.searchParams.get('locationId') ?? undefined,
       status: url.searchParams.get('status') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     if (!parsed.success) {

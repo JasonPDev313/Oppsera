@@ -205,12 +205,15 @@ describe('semantic-rate-limiter', () => {
   });
 
   describe('default config', () => {
-    it('allows up to 30 requests per minute with default config', () => {
+    it('allows up to 30 requests per minute with default sliding window', () => {
+      // Use a config with burst limit raised to 30 so the tight-loop test
+      // validates the sliding-window limit, not burst protection.
+      const noBurstConfig = { maxRequests: 30, windowMs: 60_000, burstLimit: 30 };
       for (let i = 0; i < 30; i++) {
-        const r = checkSemanticRateLimit(tenant);
+        const r = checkSemanticRateLimit(tenant, noBurstConfig);
         expect(r.allowed).toBe(true);
       }
-      const blocked = checkSemanticRateLimit(tenant);
+      const blocked = checkSemanticRateLimit(tenant, noBurstConfig);
       expect(blocked.allowed).toBe(false);
     });
   });

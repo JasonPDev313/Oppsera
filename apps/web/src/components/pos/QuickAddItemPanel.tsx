@@ -92,7 +92,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
       <div className="border-b border-gray-200 px-4 py-3">
         <div className="flex items-center gap-2">
           <PackagePlus className="h-4.5 w-4.5 text-indigo-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Quick Add Item</h3>
+          <h3 className="text-sm font-semibold text-foreground">Quick Add Item</h3>
         </div>
         <p className="mt-0.5 text-xs text-gray-500">
           Create a new catalog item from the register
@@ -103,7 +103,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
         <div className="mx-auto max-w-md space-y-4">
           {/* Name */}
           <div>
-            <label htmlFor="qai-name" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="qai-name" className="mb-1 block text-xs font-medium text-foreground">
               Item Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -120,7 +120,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
           {/* Item Type + Price row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="qai-type" className="mb-1 block text-xs font-medium text-gray-700">
+              <label htmlFor="qai-type" className="mb-1 block text-xs font-medium text-foreground">
                 Type <span className="text-red-500">*</span>
               </label>
               <select
@@ -135,7 +135,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
               </select>
             </div>
             <div>
-              <label htmlFor="qai-price" className="mb-1 block text-xs font-medium text-gray-700">
+              <label htmlFor="qai-price" className="mb-1 block text-xs font-medium text-foreground">
                 Price <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -157,7 +157,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
           {/* SKU + Barcode row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="qai-sku" className="mb-1 block text-xs font-medium text-gray-700">SKU</label>
+              <label htmlFor="qai-sku" className="mb-1 block text-xs font-medium text-foreground">SKU</label>
               <input
                 id="qai-sku"
                 type="text"
@@ -168,7 +168,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
               />
             </div>
             <div>
-              <label htmlFor="qai-barcode" className="mb-1 block text-xs font-medium text-gray-700">Barcode</label>
+              <label htmlFor="qai-barcode" className="mb-1 block text-xs font-medium text-foreground">Barcode</label>
               <input
                 id="qai-barcode"
                 type="text"
@@ -182,7 +182,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
 
           {/* Cost */}
           <div>
-            <label htmlFor="qai-cost" className="mb-1 block text-xs font-medium text-gray-700">Cost</label>
+            <label htmlFor="qai-cost" className="mb-1 block text-xs font-medium text-foreground">Cost</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
               <input
@@ -207,21 +207,21 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
               className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
             />
             <div>
-              <span className="text-sm font-medium text-gray-700">Track Inventory</span>
+              <span className="text-sm font-medium text-foreground">Track Inventory</span>
               <p className="text-xs text-gray-500">Enable stock tracking for this item</p>
             </div>
           </label>
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
               {error}
             </div>
           )}
 
           {/* Success */}
           {successMessage && (
-            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+            <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-500">
               <Check className="h-4 w-4 shrink-0" />
               {successMessage}
             </div>

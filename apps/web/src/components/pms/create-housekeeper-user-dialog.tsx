@@ -104,14 +104,14 @@ export function CreateHousekeeperUserDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/30">
           <h2 className="text-lg font-semibold">Create New Housekeeper</h2>
-          <button onClick={handleClose} className="p-1 rounded hover:bg-gray-200/50">
-            <X className="w-5 h-5" />
+          <button onClick={handleClose} className="p-1 rounded hover:bg-gray-200/50" aria-label="Close">
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
         {/* Form */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Create a new user account with the housekeeper role.
           </p>
 
@@ -175,7 +175,7 @@ export function CreateHousekeeperUserDialog({
               className="w-full px-3 py-2 rounded-md border border-gray-300/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
             {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
-            <p className="text-xs text-gray-500 mt-1">If blank, an invite email will be sent.</p>
+            <p className="text-xs text-muted-foreground mt-1">If blank, an invite email will be sent.</p>
           </div>
 
           {/* Phone */}
@@ -195,7 +195,7 @@ export function CreateHousekeeperUserDialog({
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-indigo-500/10 text-indigo-500 border border-indigo-500/30 text-sm">
               Housekeeper
             </div>
-            <p className="text-xs text-gray-500 mt-1">This user will be assigned the housekeeper role automatically.</p>
+            <p className="text-xs text-muted-foreground mt-1">This user will be assigned the housekeeper role automatically.</p>
           </div>
         </div>
 

@@ -46,13 +46,13 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="comp-dialog-title">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Gift className="h-5 w-5 text-purple-500" />
-            <h2 className="text-lg font-semibold">Comp Item</h2>
+            <Gift className="h-5 w-5 text-purple-500" aria-hidden="true" />
+            <h2 id="comp-dialog-title" className="text-lg font-semibold">Comp Item</h2>
           </div>
           <button
             type="button"
@@ -66,7 +66,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
         <div className="space-y-4">
           {itemName && (
             <div className="rounded-lg bg-purple-500/10 px-3 py-2">
-              <p className="text-sm font-medium text-purple-700">{itemName}</p>
+              <p className="text-sm font-medium text-purple-500">{itemName}</p>
               {amountCents != null && (
                 <p className="text-xs text-purple-600">
                   Comp amount: ${(amountCents / 100).toFixed(2)}
@@ -77,7 +77,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
 
           {/* Category */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-500">Category</label>
+            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Category</label>
             <div className="flex flex-wrap gap-2">
               {COMP_CATEGORIES.map((cat) => (
                 <button
@@ -98,7 +98,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
 
           {/* Quick reasons */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-500">Reason</label>
+            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Reason</label>
             <div className="mb-2 flex flex-wrap gap-1.5">
               {QUICK_REASONS.map((r) => (
                 <button
@@ -120,7 +120,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
               onChange={(e) => setReason(e.target.value)}
               placeholder="Enter reason for comp..."
               rows={2}
-              className="w-full rounded-lg border border-gray-300/50 bg-transparent px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
@@ -128,7 +128,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-100/50"
+              className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
             >
               Cancel
             </button>

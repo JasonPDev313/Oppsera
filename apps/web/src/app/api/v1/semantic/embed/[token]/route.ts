@@ -88,13 +88,12 @@ export async function GET(request: NextRequest) {
     embedToken.config,
   );
 
-  // Build CORS headers for the allowed origin
+  // Build CORS headers — only set for explicitly configured origins
   const corsHeaders: Record<string, string> = {};
   if (origin && embedToken.allowedOrigins && embedToken.allowedOrigins.length > 0) {
     corsHeaders['Access-Control-Allow-Origin'] = origin;
-  } else if (!embedToken.allowedOrigins || embedToken.allowedOrigins.length === 0) {
-    corsHeaders['Access-Control-Allow-Origin'] = '*';
   }
+  // No CORS header when allowedOrigins is not configured — embeds require explicit origin config
 
   return NextResponse.json(
     {

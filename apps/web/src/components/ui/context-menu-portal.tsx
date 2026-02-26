@@ -164,7 +164,7 @@ export function ContextMenuPortal({
       tabIndex={-1}
       onKeyDown={handleKeyDown}
       onMouseDown={(e) => e.stopPropagation()}
-      className="fixed z-50 min-w-48 rounded-lg border border-gray-200 bg-surface py-1 shadow-xl outline-none"
+      className="fixed z-50 min-w-48 rounded-lg border border-border bg-surface py-1 shadow-xl outline-none"
       style={{ left: adjustedPosition.x, top: adjustedPosition.y }}
     >
       {visibleItems.map((item, index) => {
@@ -175,7 +175,7 @@ export function ContextMenuPortal({
         return (
           <div key={item.key}>
             {item.dividerBefore && (
-              <div className="my-1 border-t border-gray-100" />
+              <div className="my-1 border-t border-border" />
             )}
             <button
               type="button"
@@ -203,16 +203,16 @@ export function ContextMenuPortal({
               }}
               className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors ${
                 item.disabled
-                  ? 'cursor-not-allowed text-gray-300'
+                  ? 'cursor-not-allowed text-muted-foreground/50'
                   : item.destructive
-                    ? `text-red-600 ${isFocused ? 'bg-red-50' : 'hover:bg-red-50'}`
-                    : `text-gray-700 ${isFocused ? 'bg-indigo-50' : 'hover:bg-indigo-50'}`
+                    ? `text-red-500 ${isFocused ? 'bg-red-500/10' : 'hover:bg-red-500/10'}`
+                    : `text-foreground ${isFocused ? 'bg-accent' : 'hover:bg-accent'}`
               }`}
             >
-              {Icon && <Icon className="h-4 w-4 shrink-0 text-gray-400" />}
+              {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />}
               <span className="flex-1 text-left">{item.label}</span>
               {hasChildren && (
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               )}
             </button>
           </div>

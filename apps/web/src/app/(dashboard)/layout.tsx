@@ -74,11 +74,11 @@ function LiveClockDisplay() {
   return (
     <>
       <div className="hidden items-center gap-1.5 md:flex">
-        <CalendarDays className="h-4 w-4 text-gray-400" />
+        <CalendarDays className="h-4 w-4 text-gray-400" aria-hidden="true" />
         <span className="text-sm font-medium text-gray-600">{clock.date}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <Clock className="h-4 w-4 text-gray-400" />
+        <Clock className="h-4 w-4 text-gray-400" aria-hidden="true" />
         <span className="text-sm font-medium tabular-nums text-gray-600">{clock.time}</span>
       </div>
     </>
@@ -105,12 +105,12 @@ function SidebarActions({
       >
         {theme === 'dark' ? (
           <>
-            <Sun className="h-5 w-5 shrink-0" />
+            <Sun className="h-5 w-5 shrink-0" aria-hidden="true" />
             {!collapsed && 'Light Mode'}
           </>
         ) : (
           <>
-            <Moon className="h-5 w-5 shrink-0" />
+            <Moon className="h-5 w-5 shrink-0" aria-hidden="true" />
             {!collapsed && 'Dark Mode'}
           </>
         )}
@@ -124,10 +124,10 @@ function SidebarActions({
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
       >
         {collapsed ? (
-          <PanelLeftOpen className="h-5 w-5 shrink-0" />
+          <PanelLeftOpen className="h-5 w-5 shrink-0" aria-hidden="true" />
         ) : (
           <>
-            <PanelLeftClose className="h-5 w-5 shrink-0" />
+            <PanelLeftClose className="h-5 w-5 shrink-0" aria-hidden="true" />
             Collapse
           </>
         )}
@@ -227,6 +227,9 @@ function SidebarContent({
   // Single-open: only one group expanded per parent at a time.
   // To switch to multi-open, change value type to string[] and toggle individually.
   const GROUPS_KEY = 'sidebar_expanded_groups';
+  // Read from localStorage in the initializer so the first client render
+  // already has the correct expanded state — avoids a visible
+  // collapse-then-expand flash. On the server, returns {}.
   const [expandedGroup, setExpandedGroup] = useState<Record<string, string | null>>(() => {
     if (typeof window === 'undefined') return {};
     try {
@@ -280,7 +283,7 @@ function SidebarContent({
       </div>
 
       {/* Navigation */}
-      <nav className={`sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
+      <nav aria-label="Main navigation" className={`sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto py-4 ${collapsed ? 'px-2' : 'px-3'}`}>
         {navItems.map((item) => {
           const entitlementEnabled = !item.moduleKey || isModuleEnabled(item.moduleKey);
           const permissionGranted = !item.requiredPermission || can(item.requiredPermission);
@@ -302,6 +305,8 @@ function SidebarContent({
                   type="button"
                   onClick={() => toggleSection(item.name)}
                   title={collapsed ? item.name : undefined}
+                  aria-expanded={isExpanded}
+                  aria-controls={collapsed ? undefined : `nav-section-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
                   className={`group flex w-full items-center rounded-lg text-sm font-medium transition-colors ${
                     collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
                   } ${
@@ -314,6 +319,7 @@ function SidebarContent({
                     className={`h-5 w-5 shrink-0 ${
                       isParentActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'
                     }`}
+                    aria-hidden="true"
                   />
                   {!collapsed && (
                     <>
@@ -322,13 +328,14 @@ function SidebarContent({
                         className={`ml-auto h-4 w-4 shrink-0 transition-transform ${
                           isExpanded ? 'rotate-180' : ''
                         } ${isParentActive ? 'text-indigo-600' : 'text-gray-400'}`}
+                        aria-hidden="true"
                       />
                     </>
                   )}
                 </button>
                 {/* Expanded: inline children */}
                 {isExpanded && !collapsed && (
-                  <div className={`ml-6 mt-1 border-l border-gray-200 pl-3 ${item.collapsibleGroups ? '' : 'space-y-1'}`}>
+                  <div id={`nav-section-${item.name.replace(/\s+/g, '-').toLowerCase()}`} className={`ml-6 mt-1 border-l border-gray-200 pl-3 ${item.collapsibleGroups ? '' : 'space-y-1'}`}>
                     {item.collapsibleGroups ? (
                       // Collapsible accordion groups (e.g., Property Mgmt categories)
                       (() => {
@@ -373,6 +380,7 @@ function SidebarContent({
                                           key={child.href}
                                           href={child.href}
                                           onClick={onLinkClick}
+                                          aria-current={isChildActive ? 'page' : undefined}
                                           className={`block rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                                             isChildActive
                                               ? 'text-indigo-600'
@@ -410,13 +418,14 @@ function SidebarContent({
                               <Link
                                 href={child.href}
                                 onClick={onLinkClick}
+                                aria-current={isChildActive ? 'page' : undefined}
                                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                                   isChildActive
                                     ? 'text-indigo-600'
                                     : 'text-gray-500 hover:text-gray-900'
                                 }`}
                               >
-                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} aria-hidden="true" />
                                 {child.name}
                               </Link>
                             </div>
@@ -450,13 +459,14 @@ function SidebarContent({
                               <Link
                                 href={child.href}
                                 onClick={onLinkClick}
+                                aria-current={isChildActive ? 'page' : undefined}
                                 className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
                                   isChildActive
                                     ? 'bg-indigo-600/10 text-indigo-600'
                                     : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                                 }`}
                               >
-                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} />
+                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} aria-hidden="true" />
                                 {child.name}
                               </Link>
                             </div>
@@ -476,6 +486,7 @@ function SidebarContent({
               href={item.href}
               onClick={onLinkClick}
               title={collapsed ? item.name : undefined}
+              aria-current={isParentActive ? 'page' : undefined}
               className={`group flex items-center rounded-lg text-sm font-medium transition-colors ${
                 collapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
               } ${
@@ -488,6 +499,7 @@ function SidebarContent({
                 className={`h-5 w-5 shrink-0 ${
                   isParentActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'
                 }`}
+                aria-hidden="true"
               />
               {!collapsed && item.name}
             </Link>
@@ -516,9 +528,9 @@ function SidebarContent({
                 type="button"
                 onClick={onLogout}
                 className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                title="Sign out"
+                aria-label="Sign out"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-4 w-4" aria-hidden="true" />
               </button>
             </>
           )}
@@ -607,6 +619,24 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     window.location.href = '/login';
   };
 
+  // During auth or entitlements loading, show all modules — filter once both are loaded
+  const checkModule = useCallback(
+    (key: string) => (isLoading || entitlementsLoading) ? true : isModuleEnabled(key),
+    [isLoading, entitlementsLoading, isModuleEnabled],
+  );
+
+  // Apply tenant nav preferences (order + visibility) — falls back to default order
+  const orderedNav = useMemo(
+    () => applyNavPreferences(itemOrder ?? [], checkModule),
+    [itemOrder, checkModule],
+  );
+
+  // Second pass: filter by ERP workflow visibility (hides accounting for SMB, etc.)
+  const filteredNav = useMemo(() => {
+    if (erpConfigLoading || Object.keys(workflowConfigs).length === 0) return orderedNav;
+    return filterNavByTier(orderedNav, workflowConfigs);
+  }, [orderedNav, workflowConfigs, erpConfigLoading]);
+
   // Not loading but not authenticated → redirect handled by effect above
   if (!isLoading && (!isAuthenticated || !user || needsOnboarding)) {
     return null;
@@ -617,28 +647,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const tenantName = tenant?.name || 'OppsEra';
   const userName = user?.name || 'User';
   const userEmail = user?.email || '';
-  // During auth or entitlements loading, show all modules — filter once both are loaded
-  const checkModule = (isLoading || entitlementsLoading) ? () => true : isModuleEnabled;
   // During loading, grant all permissions — filter once loaded
   const checkPermission = (isLoading || permissionsLoading) ? () => true : can;
-
-  // Apply tenant nav preferences (order + visibility) — falls back to default order
-  const orderedNav = useMemo(
-    () => applyNavPreferences(itemOrder ?? [], checkModule),
-    [itemOrder, isLoading, entitlementsLoading, isModuleEnabled],
-  );
-
-  // Second pass: filter by ERP workflow visibility (hides accounting for SMB, etc.)
-  const filteredNav = useMemo(() => {
-    if (erpConfigLoading || Object.keys(workflowConfigs).length === 0) return orderedNav;
-    return filterNavByTier(orderedNav, workflowConfigs);
-  }, [orderedNav, workflowConfigs, erpConfigLoading]);
 
   return (
     <ContextMenuProvider>
     <ProfileDrawerProvider>
     <ItemEditDrawerProvider>
     <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <ImpersonationBanner />
       <div className="flex flex-1 overflow-hidden">
       {/* Mobile sidebar backdrop */}
@@ -660,8 +677,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             type="button"
             className="ml-1 flex h-10 w-10 items-center justify-center rounded-full focus:ring-2 focus:ring-white focus:outline-none"
             onClick={() => setSidebarOpen(false)}
+            aria-label="Close navigation"
           >
-            <X className="h-6 w-6 text-white" />
+            <X className="h-6 w-6 text-white" aria-hidden="true" />
           </button>
         </div>
         <SidebarContent
@@ -717,8 +735,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               type="button"
               className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 md:hidden"
               onClick={() => setSidebarOpen(true)}
+              aria-label="Open navigation"
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
             <span className="text-sm font-semibold text-gray-700 md:hidden">{tenantName}</span>
             <span className="hidden text-sm font-semibold text-gray-700 md:block">
@@ -731,9 +750,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={toggleFullscreen}
               className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-              title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
-              {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+              {isFullscreen ? <Minimize2 className="h-5 w-5" aria-hidden="true" /> : <Maximize2 className="h-5 w-5" aria-hidden="true" />}
             </button>
             <LiveClockDisplay />
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 transition-colors hover:bg-indigo-700">
@@ -743,7 +762,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page content */}
-        <main className={`flex-1 ${
+        <main id="main-content" className={`flex-1 ${
           pathname.startsWith('/pos')
             ? 'overflow-hidden'
             : 'overflow-y-auto p-4 md:p-6'

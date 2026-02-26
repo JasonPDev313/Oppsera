@@ -78,7 +78,7 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
         <div className="grid grid-cols-2 gap-3">
           {/* Prep Time */}
           <div>
-            <label htmlFor="edit-prep" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-prep" className="mb-1 block text-xs font-medium text-foreground">
               Prep Time
             </label>
             <select
@@ -88,7 +88,7 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
                 const val = e.target.value ? Number(e.target.value) : null;
                 onUpdateMetadata('prepTime', val);
               }}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
               <option value="">Not set</option>
               {PREP_TIMES.map((t) => (
@@ -99,7 +99,7 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
 
           {/* Course */}
           <div>
-            <label htmlFor="edit-course" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-course" className="mb-1 block text-xs font-medium text-foreground">
               Course
             </label>
             <input
@@ -108,13 +108,13 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
               value={course}
               onChange={(e) => onUpdateMetadata('course', e.target.value || null)}
               placeholder="e.g. Appetizer, Main, Dessert"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-input bg-surface px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
         </div>
 
         {/* Special Instructions toggle */}
-        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5">
+        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5">
           <input
             type="checkbox"
             checked={allowSpecialInstructions}
@@ -122,14 +122,14 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
             className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           <div>
-            <span className="text-sm font-medium text-gray-700">Allow Special Instructions</span>
-            <p className="text-xs text-gray-500">Let servers add custom notes for the kitchen</p>
+            <span className="text-sm font-medium text-foreground">Allow Special Instructions</span>
+            <p className="text-xs text-muted-foreground">Let servers add custom notes for the kitchen</p>
           </div>
         </label>
 
         {/* Fractional Sales */}
         <div>
-          <label className="mb-1 block text-xs font-medium text-gray-700">Allowed Portion Sizes</label>
+          <label className="mb-1 block text-xs font-medium text-foreground">Allowed Portion Sizes</label>
           <div className="flex gap-2">
             {FRACTION_OPTIONS.map((opt) => {
               const isSelected = allowedFractions.has(opt.value);
@@ -151,8 +151,8 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
                   disabled={opt.value === 1}
                   className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                     isSelected
-                      ? 'border-indigo-300 bg-indigo-100 text-indigo-700'
-                      : 'border-gray-200 bg-gray-50 text-gray-500 hover:bg-gray-100'
+                      ? 'border-indigo-500/30 bg-indigo-500/20 text-indigo-500'
+                      : 'border-border bg-muted text-muted-foreground hover:bg-accent'
                   } ${opt.value === 1 ? 'cursor-default opacity-70' : ''}`}
                 >
                   {opt.label}
@@ -160,7 +160,7 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
               );
             })}
           </div>
-          <p className="mt-1 text-[11px] text-gray-400">
+          <p className="mt-1 text-[11px] text-muted-foreground">
             Enable fractional selling (e.g., half portion). Full is always available.
           </p>
         </div>
@@ -168,18 +168,18 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
         {/* Modifier Groups */}
         {groups.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-700">Modifier Groups</p>
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-gray-200">
+            <p className="text-xs font-medium text-foreground">Modifier Groups</p>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-border">
               {groups.map((group) => {
                 const isDefault = defaultGroupIds.has(group.id);
                 const isOptional = optionalGroupIds.has(group.id);
                 return (
                   <div
                     key={group.id}
-                    className="flex items-center justify-between border-b border-gray-100 px-3 py-2 last:border-b-0"
+                    className="flex items-center justify-between border-b border-border px-3 py-2 last:border-b-0"
                   >
                     <div className="min-w-0 flex-1">
-                      <span className="text-sm text-gray-900">{group.name}</span>
+                      <span className="text-sm text-foreground">{group.name}</span>
                       {group.isRequired && (
                         <Badge variant="error" className="ml-1.5 text-[10px]">Required</Badge>
                       )}
@@ -190,8 +190,8 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
                         onClick={() => toggleDefault(group.id)}
                         className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
                           isDefault
-                            ? 'bg-indigo-100 text-indigo-700'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            ? 'bg-indigo-500/20 text-indigo-500'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
                         }`}
                       >
                         Default
@@ -201,8 +201,8 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
                         onClick={() => toggleOptional(group.id)}
                         className={`rounded px-2 py-0.5 text-xs font-medium transition-colors ${
                           isOptional
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                            ? 'bg-amber-500/20 text-amber-500'
+                            : 'bg-muted text-muted-foreground hover:bg-accent'
                         }`}
                       >
                         Optional
@@ -212,7 +212,7 @@ export function FnbSection({ metadata, onUpdateMetadata }: FnbSectionProps) {
                 );
               })}
             </div>
-            <p className="text-[11px] text-gray-400">
+            <p className="text-[11px] text-muted-foreground">
               Default groups open automatically when adding the item. Optional groups can be chosen by the server.
             </p>
           </div>

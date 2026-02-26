@@ -278,8 +278,10 @@ export async function getUserById(input: { tenantId: string; userId: string }) {
         .where(and(eq(userLocations.tenantId, input.tenantId), eq(userLocations.userId, input.userId))),
     ]);
 
+    // Strip sensitive fields before returning
+    const { passwordHash: _ph, authProviderId: _ap, ...safeUser } = user;
     return {
-      ...user,
+      ...safeUser,
       roles: roleRows,
       locations: locationRows,
     };

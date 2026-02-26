@@ -114,7 +114,7 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
             checked={sameEveryDay}
             onChange={(e) => setSameEveryDay(e.target.checked)}
             disabled={disabled}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-input text-indigo-500 focus:ring-indigo-500"
           />
           Same every day
         </label>
@@ -122,7 +122,7 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
           type="button"
           onClick={copyToAll}
           disabled={disabled}
-          className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+          className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-500 disabled:opacity-50"
         >
           <Copy className="h-3 w-3" />
           Copy Monday to all
@@ -135,8 +135,8 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
           if (sameEveryDay && key !== 'mon') return null;
 
           return (
-            <div key={key} className="flex items-start gap-3 rounded-md border border-gray-200 bg-surface p-2.5">
-              <div className="w-24 shrink-0 pt-1.5 text-sm font-medium text-gray-700">
+            <div key={key} className="flex items-start gap-3 rounded-md border border-border bg-surface p-2.5">
+              <div className="w-24 shrink-0 pt-1.5 text-sm font-medium text-foreground">
                 {sameEveryDay ? 'All days' : label}
               </div>
 
@@ -146,9 +146,9 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
                   checked={day.closed}
                   onChange={() => toggleClosed(key)}
                   disabled={disabled}
-                  className="h-3.5 w-3.5 rounded border-gray-300 text-gray-500 focus:ring-gray-400"
+                  className="h-3.5 w-3.5 rounded border-input text-muted-foreground focus:ring-gray-400"
                 />
-                <span className="text-xs text-gray-500">Closed</span>
+                <span className="text-xs text-muted-foreground">Closed</span>
               </label>
 
               {!day.closed && (
@@ -159,18 +159,18 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
                         value={period.open}
                         onChange={(e) => updatePeriod(key, idx, 'open', e.target.value)}
                         disabled={disabled}
-                        className="rounded border border-gray-300 bg-surface px-2 py-1 text-sm"
+                        className="rounded border border-input bg-surface px-2 py-1 text-sm"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{formatTime(t)}</option>
                         ))}
                       </select>
-                      <span className="text-xs text-gray-400">to</span>
+                      <span className="text-xs text-muted-foreground">to</span>
                       <select
                         value={period.close}
                         onChange={(e) => updatePeriod(key, idx, 'close', e.target.value)}
                         disabled={disabled}
-                        className="rounded border border-gray-300 bg-surface px-2 py-1 text-sm"
+                        className="rounded border border-input bg-surface px-2 py-1 text-sm"
                       >
                         {TIME_OPTIONS.map((t) => (
                           <option key={t} value={t}>{formatTime(t)}</option>
@@ -181,7 +181,7 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
                           type="button"
                           onClick={() => removePeriod(key, idx)}
                           disabled={disabled}
-                          className="p-0.5 text-gray-400 hover:text-red-500"
+                          className="p-0.5 text-muted-foreground hover:text-red-500"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -193,7 +193,7 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
                       type="button"
                       onClick={() => addPeriod(key)}
                       disabled={disabled}
-                      className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                      className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-500"
                     >
                       <Plus className="h-3 w-3" />
                       Add hours

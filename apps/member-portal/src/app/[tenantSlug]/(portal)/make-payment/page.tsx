@@ -66,8 +66,8 @@ function MethodRadio({
         disabled
           ? 'opacity-50 cursor-not-allowed border-[var(--portal-border)]'
           : selected
-            ? 'border-[var(--portal-primary)] bg-blue-50/50'
-            : 'border-[var(--portal-border)] hover:border-gray-300'
+            ? 'border-[var(--portal-primary)] bg-blue-500/10'
+            : 'border-[var(--portal-border)] hover:border-border'
       }`}
     >
       <input
@@ -88,7 +88,7 @@ function MethodRadio({
         )}
       </div>
       {method.isDefault && (
-        <span className="text-xs font-medium text-[var(--portal-primary)] bg-blue-50 px-2 py-0.5 rounded-full shrink-0">
+        <span className="text-xs font-medium text-[var(--portal-primary)] bg-blue-500/10 px-2 py-0.5 rounded-full shrink-0">
           Default
         </span>
       )}
@@ -117,7 +117,7 @@ function PaymentResult({
     return (
       <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-6 text-center space-y-4">
         <div className={`mx-auto w-12 h-12 rounded-full flex items-center justify-center ${
-          isAch ? 'bg-blue-50' : 'bg-green-50'
+          isAch ? 'bg-blue-500/10' : 'bg-green-500/10'
         }`}>
           {isAch ? (
             <Info className="h-6 w-6 text-blue-600" />
@@ -135,8 +135,8 @@ function PaymentResult({
           <p className="text-sm text-[var(--portal-text-muted)]">{result.userMessage}</p>
         )}
         {isAch && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+            <p className="text-sm text-blue-500">
               ACH payments typically take 2-3 business days to process. You will see the payment reflected on your account once it clears.
             </p>
           </div>
@@ -159,11 +159,11 @@ function PaymentResult({
   // Declined or error
   return (
     <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-6 text-center space-y-4">
-      <div className="mx-auto w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+      <div className="mx-auto w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
         <AlertTriangle className="h-6 w-6 text-red-600" />
       </div>
       <div>
-        <h2 className="text-lg font-semibold text-red-800">Payment Declined</h2>
+        <h2 className="text-lg font-semibold text-red-500">Payment Declined</h2>
         {result.userMessage && (
           <p className="text-sm text-[var(--portal-text-muted)] mt-1">{result.userMessage}</p>
         )}
@@ -279,9 +279,9 @@ export default function MakePaymentPage() {
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-4">
-        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-        <div className="h-32 bg-gray-200 rounded-lg animate-pulse" />
-        <div className="h-64 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="h-32 bg-muted rounded-lg animate-pulse" />
+        <div className="h-64 bg-muted rounded-lg animate-pulse" />
       </div>
     );
   }
@@ -339,7 +339,7 @@ export default function MakePaymentPage() {
       <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4">
         <label className="block text-sm font-semibold mb-2">Payment Amount</label>
         <div className="relative">
-          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
           <input
             type="number"
             min="1"
@@ -378,8 +378,8 @@ export default function MakePaymentPage() {
           <label
             className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
               useNewCard
-                ? 'border-[var(--portal-primary)] bg-blue-50/50'
-                : 'border-[var(--portal-border)] hover:border-gray-300'
+                ? 'border-[var(--portal-primary)] bg-blue-500/10'
+                : 'border-[var(--portal-border)] hover:border-border'
             }`}
           >
             <input
@@ -392,7 +392,7 @@ export default function MakePaymentPage() {
               }}
               className="accent-[var(--portal-primary)]"
             />
-            <CreditCard className="h-4 w-4 text-gray-400" />
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
             <p className="text-sm font-medium">Use a new card</p>
           </label>
         </div>
@@ -411,7 +411,7 @@ export default function MakePaymentPage() {
               onError={(msg) => setError(msg)}
             />
             {tokenResult && (
-              <div className="flex items-center gap-2 text-sm text-green-700 mt-2">
+              <div className="flex items-center gap-2 text-sm text-green-500 mt-2">
                 <CheckCircle2 className="h-4 w-4" />
                 Card ending in {tokenResult.last4 ?? '****'} ready
               </div>
@@ -436,8 +436,8 @@ export default function MakePaymentPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+          <p className="text-sm text-red-500">{error}</p>
         </div>
       )}
 

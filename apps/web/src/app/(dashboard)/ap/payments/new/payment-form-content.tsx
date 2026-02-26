@@ -130,10 +130,10 @@ export default function PaymentFormContent() {
     >
       <div className="space-y-6">
         {/* Header fields */}
-        <div className="rounded-lg border border-gray-200 bg-surface p-5 space-y-4">
+        <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Vendor <span className="text-red-500">*</span>
               </label>
               <input
@@ -141,26 +141,26 @@ export default function PaymentFormContent() {
                 value={vendorId}
                 onChange={(e) => handleVendorChange(e.target.value)}
                 placeholder="Vendor ID"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Payment Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Payment Method</label>
               <select
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               >
                 {PAYMENT_METHODS.map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
@@ -168,39 +168,39 @@ export default function PaymentFormContent() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Bank Account</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Bank Account</label>
               <input
                 type="text"
                 value={bankAccountId}
                 onChange={(e) => setBankAccountId(e.target.value)}
                 placeholder="Bank account"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reference #</label>
+              <label className="block text-sm font-medium text-foreground mb-1">Reference #</label>
               <input
                 type="text"
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
                 placeholder="Check #, ACH ref, etc."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-foreground mb-1">
                 Amount <span className="text-red-500">*</span>
               </label>
               <MoneyInput value={amount} onChange={setAmount} />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Memo</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Memo</label>
             <textarea
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
         </div>
@@ -209,39 +209,39 @@ export default function PaymentFormContent() {
         {allocations.length > 0 && (
           <div>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Bill Allocation</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Bill Allocation</h2>
               <button
                 type="button"
                 onClick={handlePayAll}
                 disabled={paymentNum <= 0}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent disabled:opacity-50"
               >
                 Pay All
               </button>
             </div>
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+            <div className="overflow-hidden rounded-lg border border-border bg-surface">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Bill #</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Bill Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Due Date</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Total</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Balance Due</th>
-                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Payment</th>
+                    <tr className="border-b border-border bg-muted">
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Bill #</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Bill Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Due Date</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Total</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Balance Due</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Payment</th>
                     </tr>
                   </thead>
                   <tbody>
                     {allocations.map((a, idx) => (
-                      <tr key={a.billId} className="border-b border-gray-100 last:border-0">
+                      <tr key={a.billId} className="border-b border-border last:border-0">
                         <td className="px-4 py-2.5 text-sm font-medium text-indigo-600">{a.billNumber}</td>
-                        <td className="px-4 py-2.5 text-sm text-gray-700">{a.billDate}</td>
-                        <td className="px-4 py-2.5 text-sm text-gray-700">{a.dueDate}</td>
-                        <td className="px-4 py-2.5 text-right text-sm tabular-nums text-gray-900">
+                        <td className="px-4 py-2.5 text-sm text-foreground">{a.billDate}</td>
+                        <td className="px-4 py-2.5 text-sm text-foreground">{a.dueDate}</td>
+                        <td className="px-4 py-2.5 text-right text-sm tabular-nums text-foreground">
                           {formatAccountingMoney(a.totalAmount)}
                         </td>
-                        <td className="px-4 py-2.5 text-right text-sm tabular-nums text-gray-900">
+                        <td className="px-4 py-2.5 text-right text-sm tabular-nums text-foreground">
                           {formatAccountingMoney(a.balanceDue)}
                         </td>
                         <td className="px-4 py-2.5 text-right">
@@ -250,7 +250,7 @@ export default function PaymentFormContent() {
                             value={a.paymentAmount}
                             onChange={(e) => handleAllocationChange(idx, e.target.value)}
                             placeholder="0.00"
-                            className="w-28 rounded border border-gray-300 px-2 py-1 text-right text-sm tabular-nums focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                            className="w-28 rounded border border-border px-2 py-1 text-right text-sm tabular-nums focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                           />
                         </td>
                       </tr>
@@ -263,12 +263,12 @@ export default function PaymentFormContent() {
             {/* Allocation Totals */}
             <div className="mt-3 flex justify-end gap-6 text-sm">
               <div>
-                <span className="text-gray-500">Total Allocated:</span>{' '}
+                <span className="text-muted-foreground">Total Allocated:</span>{' '}
                 <span className="font-medium tabular-nums">{formatAccountingMoney(totalAllocated)}</span>
               </div>
               <div>
-                <span className="text-gray-500">Unapplied:</span>{' '}
-                <span className={`font-medium tabular-nums ${unapplied > 0.005 ? 'text-amber-600' : 'text-green-600'}`}>
+                <span className="text-muted-foreground">Unapplied:</span>{' '}
+                <span className={`font-medium tabular-nums ${unapplied > 0.005 ? 'text-amber-500' : 'text-green-500'}`}>
                   {formatAccountingMoney(unapplied)}
                 </span>
               </div>
@@ -280,7 +280,7 @@ export default function PaymentFormContent() {
         <div className="flex items-center justify-between">
           <Link
             href="/ap/payments"
-            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Payments
@@ -290,7 +290,7 @@ export default function PaymentFormContent() {
               type="button"
               onClick={() => handleSubmit(false)}
               disabled={isSubmitting || !vendorId || paymentNum <= 0}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
             >
               Save Draft
             </button>

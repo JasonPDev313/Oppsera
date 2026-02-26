@@ -30,9 +30,9 @@ function TileSkeleton() {
   return (
     <div className="flex h-full items-center justify-center p-4">
       <div className="w-full space-y-3">
-        <div className="h-3 w-3/4 animate-pulse rounded bg-gray-200" />
-        <div className="h-16 w-full animate-pulse rounded bg-gray-200" />
-        <div className="h-3 w-1/2 animate-pulse rounded bg-gray-200" />
+        <div className="h-3 w-3/4 animate-pulse rounded bg-muted-foreground/20" />
+        <div className="h-16 w-full animate-pulse rounded bg-muted-foreground/20" />
+        <div className="h-3 w-1/2 animate-pulse rounded bg-muted-foreground/20" />
       </div>
     </div>
   );
@@ -42,7 +42,7 @@ function TileSkeleton() {
 function NoData() {
   return (
     <div className="flex h-full items-center justify-center p-4">
-      <p className="text-sm text-gray-400">No data</p>
+      <p className="text-sm text-muted-foreground">No data</p>
     </div>
   );
 }
@@ -166,11 +166,11 @@ function TableTile({ data }: { data: RunReportResult }) {
     <div className="h-full overflow-auto p-2">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-gray-200">
+          <tr className="border-b border-border">
             {data.columns.map((col) => (
               <th
                 key={col}
-                className="px-2 py-1.5 text-left font-medium text-gray-500"
+                className="px-2 py-1.5 text-left font-medium text-muted-foreground"
               >
                 {col}
               </th>
@@ -179,9 +179,9 @@ function TableTile({ data }: { data: RunReportResult }) {
         </thead>
         <tbody>
           {displayRows.map((row, idx) => (
-            <tr key={idx} className="border-b border-gray-100 last:border-0">
+            <tr key={idx} className="border-b border-border last:border-0">
               {data.columns.map((col) => (
-                <td key={col} className="px-2 py-1 text-gray-700">
+                <td key={col} className="px-2 py-1 text-foreground">
                   {row[col] != null ? String(row[col]) : '\u2014'}
                 </td>
               ))}
@@ -190,7 +190,7 @@ function TableTile({ data }: { data: RunReportResult }) {
         </tbody>
       </table>
       {data.rows.length > 10 && (
-        <p className="mt-1 px-2 text-xs text-gray-400">
+        <p className="mt-1 px-2 text-xs text-muted-foreground">
           Showing 10 of {data.rows.length} rows
         </p>
       )}
@@ -225,9 +225,9 @@ function MetricTile({ data }: { data: RunReportResult }) {
 
   return (
     <div className="flex h-full flex-col items-center justify-center p-4">
-      <span className="text-3xl font-bold text-gray-900">{formatted}</span>
+      <span className="text-3xl font-bold text-foreground">{formatted}</span>
       {metricLabel && (
-        <span className="mt-1 text-sm text-gray-500">{metricLabel}</span>
+        <span className="mt-1 text-sm text-muted-foreground">{metricLabel}</span>
       )}
     </div>
   );
@@ -246,19 +246,19 @@ export function DashboardTile({
   const hasData = data !== null && data.rows.length > 0;
 
   return (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-surface shadow-sm">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
       {/* Header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-gray-100 px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         {isEditing && dragHandleProps && (
           <div
             {...dragHandleProps}
-            className="cursor-grab text-gray-400 hover:text-gray-600 active:cursor-grabbing"
+            className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
           >
             <GripVertical className="h-4 w-4" />
           </div>
         )}
 
-        <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
+        <h3 className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
           {tile.title}
         </h3>
 
@@ -268,7 +268,7 @@ export function DashboardTile({
               <button
                 type="button"
                 onClick={onEdit}
-                className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="Edit tile"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -278,7 +278,7 @@ export function DashboardTile({
               <button
                 type="button"
                 onClick={onRemove}
-                className="rounded p-1 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                className="rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
                 aria-label="Remove tile"
               >
                 <Trash2 className="h-3.5 w-3.5" />

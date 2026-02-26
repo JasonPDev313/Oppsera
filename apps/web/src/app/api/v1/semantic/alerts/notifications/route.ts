@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, semanticAlertNotifications } from '@oppsera/db';
+import { parseLimit } from '@/lib/api-params';
 
 // ── GET /api/v1/semantic/alerts/notifications ─────────────────────
 // List alert notifications for the current tenant.
@@ -17,7 +18,7 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const unreadOnly = url.searchParams.get('unreadOnly') === 'true';
     const severity = url.searchParams.get('severity') ?? undefined;
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 100);
+    const limit = parseLimit(url.searchParams.get('limit'));
     const cursor = url.searchParams.get('cursor') ?? undefined;
 
     const conditions = [eq(semanticAlertNotifications.tenantId, ctx.tenantId)];

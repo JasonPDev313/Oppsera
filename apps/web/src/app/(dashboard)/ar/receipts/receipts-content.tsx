@@ -32,7 +32,7 @@ export default function ReceiptsContent() {
         <select
           value={filters.status ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value || undefined }))}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         >
           <option value="">All Statuses</option>
           <option value="draft">Draft</option>
@@ -43,20 +43,20 @@ export default function ReceiptsContent() {
           type="date"
           value={filters.startDate ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value || undefined }))}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         />
         <input
           type="date"
           value={filters.endDate ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value || undefined }))}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
 
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
@@ -73,26 +73,26 @@ export default function ReceiptsContent() {
       {!isLoading && receipts.length > 0 && (
         <>
           {/* Desktop */}
-          <div className="hidden md:block overflow-hidden rounded-lg border border-gray-200 bg-surface">
+          <div className="hidden md:block overflow-hidden rounded-lg border border-border bg-surface">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Method</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Reference</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Customer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Method</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Reference</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {receipts.map((rcpt) => (
-                  <tr key={rcpt.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 text-sm text-gray-700">{rcpt.receiptDate}</td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{rcpt.customerName ?? '—'}</td>
-                    <td className="px-4 py-3 text-sm capitalize text-gray-700">{rcpt.paymentMethod}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{rcpt.referenceNumber ?? '—'}</td>
-                    <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-gray-900">
+                  <tr key={rcpt.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                    <td className="px-4 py-3 text-sm text-foreground">{rcpt.receiptDate}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-foreground">{rcpt.customerName ?? '—'}</td>
+                    <td className="px-4 py-3 text-sm capitalize text-foreground">{rcpt.paymentMethod}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{rcpt.referenceNumber ?? '—'}</td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-foreground">
                       {formatAccountingMoney(rcpt.amount)}
                     </td>
                     <td className="px-4 py-3 text-sm">
@@ -109,18 +109,18 @@ export default function ReceiptsContent() {
             {receipts.map((rcpt) => (
               <div
                 key={rcpt.id}
-                className="rounded-lg border border-gray-200 bg-surface p-4 space-y-2"
+                className="rounded-lg border border-border bg-surface p-4 space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-gray-900">{rcpt.customerName ?? '—'}</span>
+                  <span className="font-medium text-foreground">{rcpt.customerName ?? '—'}</span>
                   <StatusBadge status={rcpt.status} />
                 </div>
-                <div className="flex justify-between text-sm text-gray-500">
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{rcpt.receiptDate}</span>
                   <span className="capitalize">{rcpt.paymentMethod}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Ref: {rcpt.referenceNumber ?? '—'}</span>
+                  <span className="text-muted-foreground">Ref: {rcpt.referenceNumber ?? '—'}</span>
                   <span className="font-medium tabular-nums">{formatAccountingMoney(rcpt.amount)}</span>
                 </div>
               </div>

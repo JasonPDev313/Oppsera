@@ -92,17 +92,17 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative mx-4 w-full max-w-md rounded-xl border border-gray-200 bg-surface p-6 shadow-2xl">
+      <div className="relative mx-4 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Landmark className="h-5 w-5 text-emerald-600" />
-            <h2 className="text-lg font-semibold text-gray-900">Add Bank Account</h2>
+            <h2 className="text-lg font-semibold text-foreground">Add Bank Account</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -111,7 +111,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Routing Number */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Routing Number
             </label>
             <input
@@ -124,7 +124,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
               className={`w-full rounded-lg border px-3 py-2 text-sm ${
                 routingNumber.length === 9 && !routingValid
                   ? 'border-red-300 focus:ring-red-500'
-                  : 'border-gray-300 focus:ring-indigo-500'
+                  : 'border-input focus:ring-indigo-500'
               } focus:outline-none focus:ring-2`}
             />
             {routingNumber.length === 9 && !routingValid && (
@@ -134,7 +134,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
 
           {/* Account Number */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Account Number
             </label>
             <input
@@ -144,13 +144,13 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17))}
               placeholder="Account number"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           {/* Confirm Account Number */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Confirm Account Number
             </label>
             <input
@@ -163,7 +163,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
               className={`w-full rounded-lg border px-3 py-2 text-sm ${
                 confirmAccount.length > 0 && !accountsMatch
                   ? 'border-red-300 focus:ring-red-500'
-                  : 'border-gray-300 focus:ring-indigo-500'
+                  : 'border-input focus:ring-indigo-500'
               } focus:outline-none focus:ring-2`}
             />
             {confirmAccount.length > 0 && !accountsMatch && (
@@ -173,7 +173,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
 
           {/* Account Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Account Type
             </label>
             <div className="flex gap-3">
@@ -186,7 +186,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
                   onChange={() => setAccountType('checking')}
                   className="h-4 w-4 text-indigo-600"
                 />
-                <span className="text-sm text-gray-700">Checking</span>
+                <span className="text-sm text-foreground">Checking</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -197,15 +197,15 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
                   onChange={() => setAccountType('savings')}
                   className="h-4 w-4 text-indigo-600"
                 />
-                <span className="text-sm text-gray-700">Savings</span>
+                <span className="text-sm text-foreground">Savings</span>
               </label>
             </div>
           </div>
 
           {/* Bank Name (optional) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bank Name <span className="text-gray-400">(optional)</span>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Bank Name <span className="text-muted-foreground">(optional)</span>
             </label>
             <input
               type="text"
@@ -213,14 +213,14 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
               onChange={(e) => setBankName(e.target.value)}
               placeholder="e.g. Chase, Wells Fargo"
               maxLength={100}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
           {/* Nickname (optional) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nickname <span className="text-gray-400">(optional)</span>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Nickname <span className="text-muted-foreground">(optional)</span>
             </label>
             <input
               type="text"
@@ -228,7 +228,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
               onChange={(e) => setNickname(e.target.value)}
               placeholder="e.g. My Checking"
               maxLength={50}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -240,12 +240,12 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
               onChange={(e) => setIsDefault(e.target.checked)}
               className="h-4 w-4 rounded text-indigo-600"
             />
-            <span className="text-sm text-gray-700">Set as default payment method</span>
+            <span className="text-sm text-foreground">Set as default payment method</span>
           </label>
 
           {/* Error */}
           {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
               {error}
             </div>
           )}
@@ -255,7 +255,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
             >
               Cancel
             </button>

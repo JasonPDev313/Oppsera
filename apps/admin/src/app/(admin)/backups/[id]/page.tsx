@@ -101,10 +101,10 @@ export default function BackupDetailPage() {
           <div>
             <p className="text-xs text-slate-400 mb-1">Status</p>
             <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-              backup.status === 'completed' ? 'bg-green-100 text-green-700' :
-              backup.status === 'failed' ? 'bg-red-100 text-red-700' :
-              backup.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-              'bg-gray-100 text-gray-600'
+              backup.status === 'completed' ? 'bg-green-500/10 text-green-500' :
+              backup.status === 'failed' ? 'bg-red-500/10 text-red-500' :
+              backup.status === 'in_progress' ? 'bg-blue-500/10 text-blue-500' :
+              'bg-slate-500/10 text-slate-400'
             }`}>
               {backup.status === 'completed' && <CheckCircle size={12} />}
               {backup.status === 'failed' && <XCircle size={12} />}

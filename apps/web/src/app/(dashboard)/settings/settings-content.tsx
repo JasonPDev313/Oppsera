@@ -1,13 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, MoreVertical, Copy, GitCompare, Trash2 } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissionsContext } from '@/components/permissions-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
 import { AuditLogViewer } from '@/components/audit-log-viewer';
 import { useRoleAccess } from '@/hooks/use-role-access';
 import { RoleAccessDialog } from '@/components/settings/role-access-dialog';
+import { RoleEditorPanel } from '@/components/settings/role-editor-panel';
+import { RoleComparisonView } from '@/components/settings/role-comparison';
+import { PERMISSION_GROUPS, getAllGroupPerms, getPermLabel, TOTAL_PERMISSION_COUNT } from '@/components/settings/permission-groups';
 import { useRoles as useRolesQuery, useInvalidateSettingsData } from '@/hooks/use-settings-data';
 import type { RoleListItem } from '@/hooks/use-settings-data';
 
@@ -24,123 +27,7 @@ interface RoleDetail extends Omit<Role, 'userCount'> {
   }>;
 }
 
-// ── Permission Groups ────────────────────────────────────────────
-
-interface PermissionSubGroup {
-  label: string;
-  permissions: string[];
-}
-
-interface PermissionGroupEntry {
-  label: string;
-  /** Flat list — used for small groups with no sub-sections */
-  permissions?: string[];
-  /** Hierarchical sub-groups — each toggleable independently */
-  subGroups?: PermissionSubGroup[];
-}
-
-/** Get all permissions for a group (flat or sub-grouped) */
-function getAllGroupPerms(group: PermissionGroupEntry): string[] {
-  if (group.permissions) return group.permissions;
-  return group.subGroups?.flatMap((sg) => sg.permissions) ?? [];
-}
-
-const PERMISSION_GROUPS: PermissionGroupEntry[] = [
-  // ── Platform ──────────────────────────────────────────────
-  {
-    label: 'Platform',
-    subGroups: [
-      { label: 'Dashboard', permissions: ['dashboard.view', 'dashboard.configure'] },
-      { label: 'Settings', permissions: ['settings.view', 'settings.update'] },
-      { label: 'Users & Roles', permissions: ['users.view', 'users.manage'] },
-      { label: 'Modules', permissions: ['modules.manage'] },
-      { label: 'Audit Log', permissions: ['audit.view'] },
-    ],
-  },
-  // ── Catalog ───────────────────────────────────────────────
-  { label: 'Inventory Items', permissions: ['catalog.view', 'catalog.manage'] },
-  // ── POS / Orders ──────────────────────────────────────────
-  {
-    label: 'POS / Orders',
-    subGroups: [
-      { label: 'Orders', permissions: ['orders.view', 'orders.create', 'orders.manage', 'orders.void'] },
-      { label: 'Returns & Overrides', permissions: ['returns.create', 'price.override', 'discounts.apply', 'charges.manage'] },
-      { label: 'Cash Drawer', permissions: ['shift.manage', 'cash.drawer', 'cash.drop'] },
-    ],
-  },
-  // ── Payments ──────────────────────────────────────────────
-  { label: 'Payments', permissions: ['tenders.view', 'tenders.create', 'tenders.adjust', 'tenders.refund'] },
-  // ── Inventory ─────────────────────────────────────────────
-  { label: 'Inventory', permissions: ['inventory.view', 'inventory.manage'] },
-  // ── Customers ─────────────────────────────────────────────
-  {
-    label: 'Customers',
-    subGroups: [
-      { label: 'Profiles', permissions: ['customers.view', 'customers.manage'] },
-      { label: 'Billing & AR', permissions: ['billing.view', 'billing.manage'] },
-    ],
-  },
-  // ── Reports ───────────────────────────────────────────────
-  {
-    label: 'Reports',
-    subGroups: [
-      { label: 'Standard Reports', permissions: ['reports.view', 'reports.export'] },
-      { label: 'Custom Reports', permissions: ['reports.custom.view', 'reports.custom.manage'] },
-    ],
-  },
-  // ── Golf ──────────────────────────────────────────────────
-  { label: 'Golf', permissions: ['golf.analytics.view'] },
-  // ── Accounting ────────────────────────────────────────────
-  {
-    label: 'Accounting',
-    subGroups: [
-      { label: 'General Ledger', permissions: ['accounting.view', 'accounting.manage'] },
-      { label: 'GL Mappings', permissions: ['accounting.mappings.manage'] },
-      { label: 'Period Close', permissions: ['accounting.period.close'] },
-      { label: 'Banking', permissions: ['accounting.banking.view', 'accounting.banking.reconcile'] },
-      { label: 'Tax & Financials', permissions: ['accounting.tax.view', 'accounting.financials.view', 'accounting.revenue.view'] },
-      { label: 'COGS', permissions: ['cogs.manage'] },
-    ],
-  },
-  // ── AP / AR ───────────────────────────────────────────────
-  { label: 'Accounts Payable', permissions: ['ap.view', 'ap.manage'] },
-  { label: 'Accounts Receivable', permissions: ['ar.view', 'ar.manage'] },
-  // ── F&B POS ───────────────────────────────────────────────
-  {
-    label: 'F&B POS',
-    subGroups: [
-      { label: 'Floor Plan', permissions: ['pos_fnb.floor_plan.view', 'pos_fnb.floor_plan.manage'] },
-      { label: 'Tabs', permissions: ['pos_fnb.tabs.view', 'pos_fnb.tabs.create', 'pos_fnb.tabs.transfer', 'pos_fnb.tabs.void', 'pos_fnb.tabs.manage'] },
-      { label: 'KDS', permissions: ['pos_fnb.kds.view', 'pos_fnb.kds.bump', 'pos_fnb.kds.recall'] },
-      { label: 'Payments', permissions: ['pos_fnb.payments.create', 'pos_fnb.payments.split', 'pos_fnb.payments.refund', 'pos_fnb.payments.void'] },
-      { label: 'Tips', permissions: ['pos_fnb.tips.adjust', 'pos_fnb.tips.finalize', 'pos_fnb.tips.pool_manage', 'pos_fnb.tips.manage'] },
-      { label: 'Menu', permissions: ['pos_fnb.menu.manage', 'pos_fnb.menu.comp', 'pos_fnb.menu.discount', 'pos_fnb.menu.price_override'] },
-      { label: 'Close Batch', permissions: ['pos_fnb.close_batch.manage', 'pos_fnb.close_batch.cash_count'] },
-      { label: 'Reports', permissions: ['pos_fnb.reports.view', 'pos_fnb.reports.export'] },
-      { label: 'Settings', permissions: ['pos_fnb.settings.manage'] },
-      { label: 'GL Posting', permissions: ['pos_fnb.gl.view', 'pos_fnb.gl.manage', 'pos_fnb.gl.post', 'pos_fnb.gl.reverse', 'pos_fnb.gl.mappings'] },
-    ],
-  },
-  // ── AI Insights ───────────────────────────────────────────
-  { label: 'AI Insights', permissions: ['semantic.view', 'semantic.query', 'semantic.manage', 'semantic.admin'] },
-  // ── Room Layouts ──────────────────────────────────────────
-  { label: 'Room Layouts', permissions: ['room_layouts.view', 'room_layouts.manage'] },
-  // ── PMS ───────────────────────────────────────────────────
-  {
-    label: 'Property Management',
-    subGroups: [
-      { label: 'Property', permissions: ['pms.property.view', 'pms.property.manage'] },
-      { label: 'Rooms', permissions: ['pms.rooms.view', 'pms.rooms.manage'] },
-      { label: 'Reservations', permissions: ['pms.reservations.view', 'pms.reservations.create', 'pms.reservations.edit', 'pms.reservations.cancel'] },
-      { label: 'Front Desk', permissions: ['pms.front_desk.check_in', 'pms.front_desk.check_out', 'pms.front_desk.no_show'] },
-      { label: 'Calendar', permissions: ['pms.calendar.view', 'pms.calendar.move', 'pms.calendar.resize'] },
-      { label: 'Housekeeping', permissions: ['pms.housekeeping.view', 'pms.housekeeping.manage'] },
-      { label: 'Guests', permissions: ['pms.guests.view', 'pms.guests.manage'] },
-      { label: 'Folios', permissions: ['pms.folio.view', 'pms.folio.post_charges', 'pms.folio.post_payments'] },
-      { label: 'Rates', permissions: ['pms.rates.view', 'pms.rates.manage'] },
-    ],
-  },
-];
+// Permission groups are imported from @/components/settings/permission-groups
 
 // ── Roles Tab ────────────────────────────────────────────────────
 
@@ -148,18 +35,27 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
   const { data: roles = [], isLoading } = useRolesQuery();
   const { invalidateRoles } = useInvalidateSettingsData();
   const [selectedRole, setSelectedRole] = useState<RoleDetail | null>(null);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAccessDialog, setShowAccessDialog] = useState(false);
+  const [actionsOpenId, setActionsOpenId] = useState<string | null>(null);
+
+  // Editor panel state
+  const [editorMode, setEditorMode] = useState<'create' | 'edit' | 'duplicate' | null>(null);
+  const [duplicateSource, setDuplicateSource] = useState<RoleDetail | null>(null);
+
+  // Compare state
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareSelection, setCompareSelection] = useState<Set<string>>(new Set());
+  const [showComparison, setShowComparison] = useState(false);
 
   const handleSelectRole = useCallback(async (roleId: string) => {
+    if (compareMode) return; // Don't select in compare mode
     try {
       const response = await apiFetch<{ data: RoleDetail }>(`/api/v1/roles/${roleId}`);
       setSelectedRole(response.data);
     } catch {
       // Ignore
     }
-  }, []);
+  }, [compareMode]);
 
   const handleDeleteRole = useCallback(
     async (roleId: string) => {
@@ -177,6 +73,44 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
     [invalidateRoles],
   );
 
+  const handleDuplicate = useCallback(async (roleId: string) => {
+    try {
+      const response = await apiFetch<{ data: RoleDetail }>(`/api/v1/roles/${roleId}`);
+      setDuplicateSource(response.data);
+      setEditorMode('duplicate');
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const handleEdit = useCallback(async (roleId: string) => {
+    try {
+      const response = await apiFetch<{ data: RoleDetail }>(`/api/v1/roles/${roleId}`);
+      setSelectedRole(response.data);
+      setEditorMode('edit');
+    } catch {
+      // Ignore
+    }
+  }, []);
+
+  const handleToggleCompare = useCallback((roleId: string) => {
+    setCompareSelection((prev) => {
+      const next = new Set(prev);
+      if (next.has(roleId)) next.delete(roleId);
+      else next.add(roleId);
+      return next;
+    });
+  }, []);
+
+  const comparisonRoles = roles
+    .filter((r) => compareSelection.has(r.id))
+    .map((r) => ({ id: r.id, name: r.name, permissions: r.permissions ?? [] }));
+
+  const closeEditor = () => {
+    setEditorMode(null);
+    setDuplicateSource(null);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -188,80 +122,231 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
   return (
     <div className="flex gap-6">
       <div className="flex-1">
+        {/* Header */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Roles</h2>
-          {canManage && (
+          <h2 className="text-lg font-semibold text-foreground">Roles</h2>
+          <div className="flex items-center gap-2">
+            {/* Compare toggle */}
             <button
               type="button"
-              onClick={() => setShowCreateDialog(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              onClick={() => {
+                if (compareMode) {
+                  setCompareMode(false);
+                  setCompareSelection(new Set());
+                  setShowComparison(false);
+                } else {
+                  setCompareMode(true);
+                }
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                compareMode
+                  ? 'bg-amber-500/15 text-amber-500 border border-amber-400/30'
+                  : 'border border-border text-foreground hover:bg-accent'
+              }`}
             >
-              <Plus className="h-4 w-4" />
-              Create Role
+              <GitCompare className="h-4 w-4" />
+              {compareMode ? 'Exit Compare' : 'Compare'}
             </button>
-          )}
+
+            {/* Compare action */}
+            {compareMode && compareSelection.size >= 2 && (
+              <button
+                type="button"
+                onClick={() => setShowComparison(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                Compare {compareSelection.size} Roles
+              </button>
+            )}
+
+            {canManage && !compareMode && (
+              <button
+                type="button"
+                onClick={() => setEditorMode('create')}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              >
+                <Plus className="h-4 w-4" />
+                Create Role
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        {/* Compare mode hint */}
+        {compareMode && compareSelection.size < 2 && (
+          <p className="mt-2 text-sm text-amber-500">
+            Select 2-3 roles to compare their permissions side by side.
+          </p>
+        )}
+
+        {/* Roles table */}
+        <div className="mt-4 overflow-hidden rounded-lg border border-border">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                {compareMode && (
+                  <th className="w-10 px-3 py-3" />
+                )}
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                   Description
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                   Users
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase">
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
+                  Permissions
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground uppercase">
                   Type
                 </th>
+                {canManage && !compareMode && (
+                  <th className="w-12 px-2 py-3" />
+                )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-surface">
-              {roles.map((role) => (
-                <tr
-                  key={role.id}
-                  onClick={() => handleSelectRole(role.id)}
-                  className="cursor-pointer hover:bg-gray-50"
-                >
-                  <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
-                    {role.name}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500">
-                    {role.description || '—'}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
-                    {role.userCount}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3">
-                    {role.isSystem ? (
-                      <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
-                        System
-                      </span>
-                    ) : (
-                      <span className="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
-                        Custom
-                      </span>
+            <tbody className="divide-y divide-border bg-surface">
+              {roles.map((role) => {
+                const permCount = role.permissions?.length ?? 0;
+                const coveragePct = TOTAL_PERMISSION_COUNT > 0
+                  ? Math.round((permCount / TOTAL_PERMISSION_COUNT) * 100)
+                  : 0;
+                const isActionsOpen = actionsOpenId === role.id;
+
+                return (
+                  <tr
+                    key={role.id}
+                    onClick={() => compareMode ? handleToggleCompare(role.id) : handleSelectRole(role.id)}
+                    className={`cursor-pointer hover:bg-muted ${
+                      compareSelection.has(role.id) ? 'bg-indigo-500/10' : ''
+                    }`}
+                  >
+                    {compareMode && (
+                      <td className="px-3 py-3">
+                        <input
+                          type="checkbox"
+                          checked={compareSelection.has(role.id)}
+                          onChange={() => handleToggleCompare(role.id)}
+                          disabled={!compareSelection.has(role.id) && compareSelection.size >= 3}
+                          className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500 disabled:opacity-40"
+                        />
+                      </td>
                     )}
-                  </td>
-                </tr>
-              ))}
+                    <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
+                      {role.name}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">
+                      {role.description || '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
+                      {role.userCount}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">{permCount}</span>
+                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              coveragePct === 100 ? 'bg-green-500' : coveragePct > 0 ? 'bg-amber-400' : 'bg-muted'
+                            }`}
+                            style={{ width: `${coveragePct}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {role.isSystem ? (
+                        <span className="inline-flex rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-500">
+                          System
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-muted0/15 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                          Custom
+                        </span>
+                      )}
+                    </td>
+                    {canManage && !compareMode && (
+                      <td className="relative px-2 py-3" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => setActionsOpenId(isActionsOpen ? null : role.id)}
+                          className="rounded p-1 text-gray-400 hover:bg-accent hover:text-foreground"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+
+                        {isActionsOpen && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setActionsOpenId(null)} />
+                            <div className="absolute right-2 top-full z-20 mt-1 w-40 rounded-lg border border-border bg-surface py-1 shadow-lg">
+                              {(role.isSystem ? role.name !== 'owner' : true) && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionsOpenId(null);
+                                    handleEdit(role.id);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted"
+                                >
+                                  <Check className="h-3.5 w-3.5" />
+                                  Edit
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActionsOpenId(null);
+                                  handleDuplicate(role.id);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted"
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                                Duplicate
+                              </button>
+                              {!role.isSystem && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionsOpenId(null);
+                                    handleDeleteRole(role.id);
+                                  }}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-500/10"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+
+        {/* Comparison view */}
+        {showComparison && comparisonRoles.length >= 2 && (
+          <RoleComparisonView
+            roles={comparisonRoles}
+            onClose={() => setShowComparison(false)}
+          />
+        )}
       </div>
 
       {/* Role detail side panel */}
-      {selectedRole && (
-        <div className="w-96 shrink-0 rounded-lg border border-gray-200 bg-surface p-4">
+      {selectedRole && !compareMode && (
+        <div className="w-96 shrink-0 rounded-lg border border-border bg-surface p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-gray-900">{selectedRole.name}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{selectedRole.name}</h3>
               {selectedRole.isSystem && (
-                <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                <span className="inline-flex rounded-full bg-blue-500/15 px-2 py-0.5 text-xs font-medium text-blue-500">
                   System
                 </span>
               )}
@@ -270,17 +355,26 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
               {canManage && (selectedRole.isSystem ? selectedRole.name !== 'owner' : true) && (
                 <button
                   type="button"
-                  onClick={() => setShowEditDialog(true)}
-                  className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                  onClick={() => setEditorMode('edit')}
+                  className="rounded px-2 py-1 text-xs font-medium text-indigo-500 hover:bg-indigo-500/10"
                 >
                   Edit
+                </button>
+              )}
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => handleDuplicate(selectedRole.id)}
+                  className="rounded px-2 py-1 text-xs font-medium text-indigo-500 hover:bg-indigo-500/10"
+                >
+                  Duplicate
                 </button>
               )}
               {canManage && !selectedRole.isSystem && (
                 <button
                   type="button"
                   onClick={() => handleDeleteRole(selectedRole.id)}
-                  className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                  className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
                 >
                   Delete
                 </button>
@@ -291,11 +385,11 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
             </div>
           </div>
           {selectedRole.description && (
-            <p className="mt-1 text-xs text-gray-500">{selectedRole.description}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{selectedRole.description}</p>
           )}
 
           <div className="mt-4">
-            <h4 className="text-xs font-medium text-gray-500 uppercase">
+            <h4 className="text-xs font-medium text-muted-foreground uppercase">
               Permissions ({selectedRole.permissions.length})
             </h4>
             <div className="mt-2 max-h-48 space-y-2 overflow-y-auto">
@@ -312,7 +406,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                       ) : (
                         <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-400" />
                       )}
-                      <span className="text-xs font-semibold text-gray-700">{group.label}</span>
+                      <span className="text-xs font-semibold text-foreground">{group.label}</span>
                       <span className="text-xs text-gray-400">{active.length}/{allPerms.length}</span>
                     </div>
                     {!isFullGroup && (
@@ -320,9 +414,10 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                         {active.map((perm) => (
                           <span
                             key={perm}
-                            className="inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-mono text-gray-600"
+                            className="inline-flex rounded bg-muted0/10 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                            title={perm}
                           >
-                            {perm}
+                            {getPermLabel(perm)}
                           </span>
                         ))}
                       </div>
@@ -337,14 +432,15 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                 if (ungrouped.length === 0) return null;
                 return (
                   <div>
-                    <span className="text-xs font-semibold text-gray-700">Other</span>
+                    <span className="text-xs font-semibold text-foreground">Other</span>
                     <div className="mt-0.5 flex flex-wrap gap-1">
                       {ungrouped.map((perm) => (
                         <span
                           key={perm}
-                          className="inline-flex rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-mono text-gray-600"
+                          className="inline-flex rounded bg-muted0/10 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          title={perm}
                         >
-                          {perm}
+                          {getPermLabel(perm)}
                         </span>
                       ))}
                     </div>
@@ -355,16 +451,16 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
           </div>
 
           <div className="mt-4">
-            <h4 className="text-xs font-medium text-gray-500 uppercase">
+            <h4 className="text-xs font-medium text-muted-foreground uppercase">
               Assigned Users ({selectedRole.assignedUsers.length})
             </h4>
             <div className="mt-2 space-y-1">
               {selectedRole.assignedUsers.map((user, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-medium text-indigo-700">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-medium text-indigo-500">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-gray-700">{user.name}</span>
+                  <span className="text-foreground">{user.name}</span>
                   <span className="text-xs text-gray-400">{user.email}</span>
                 </div>
               ))}
@@ -383,26 +479,39 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
         </div>
       )}
 
-      {/* Create Role Dialog */}
-      {showCreateDialog && (
-        <RoleFormDialog
-          onClose={() => setShowCreateDialog(false)}
+      {/* Role Editor Panel */}
+      {editorMode === 'create' && (
+        <RoleEditorPanel
+          editRole={null}
+          onClose={closeEditor}
           onSaved={() => {
-            setShowCreateDialog(false);
+            closeEditor();
             invalidateRoles();
           }}
         />
       )}
 
-      {/* Edit Role Dialog */}
-      {showEditDialog && selectedRole && (
-        <RoleFormDialog
-          role={selectedRole}
-          onClose={() => setShowEditDialog(false)}
+      {editorMode === 'edit' && selectedRole && (
+        <RoleEditorPanel
+          editRole={selectedRole}
+          onClose={closeEditor}
           onSaved={() => {
-            setShowEditDialog(false);
+            closeEditor();
             invalidateRoles();
             handleSelectRole(selectedRole.id);
+          }}
+        />
+      )}
+
+      {editorMode === 'duplicate' && duplicateSource && (
+        <RoleEditorPanel
+          editRole={null}
+          initialPermissions={[...duplicateSource.permissions]}
+          initialName={`${duplicateSource.name} (Copy)`}
+          onClose={closeEditor}
+          onSaved={() => {
+            closeEditor();
+            invalidateRoles();
           }}
         />
       )}
@@ -436,14 +545,14 @@ function RoleAccessSection({
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-medium text-gray-500 uppercase">
+        <h4 className="text-xs font-medium text-muted-foreground uppercase">
           Access Scope
         </h4>
         {canManage && (
           <button
             type="button"
             onClick={onEditAccess}
-            className="rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+            className="rounded px-2 py-1 text-xs font-medium text-indigo-500 hover:bg-indigo-500/10"
           >
             Edit Access
           </button>
@@ -462,13 +571,13 @@ function RoleAccessSection({
           {/* Locations */}
           <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-gray-400" />
-            <span className="text-xs text-gray-700">
+            <span className="text-xs text-foreground">
               {access.locationIds.length === 0 ? (
-                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500">
                   All Locations
                 </span>
               ) : (
-                <span className="text-gray-600">
+                <span className="text-muted-foreground">
                   {access.locationIds.length} location{access.locationIds.length !== 1 ? 's' : ''}
                 </span>
               )}
@@ -477,13 +586,13 @@ function RoleAccessSection({
           {/* Profit Centers */}
           <div className="flex items-center gap-2">
             <Store className="h-3.5 w-3.5 text-gray-400" />
-            <span className="text-xs text-gray-700">
+            <span className="text-xs text-foreground">
               {access.profitCenterIds.length === 0 ? (
-                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500">
                   All Profit Centers
                 </span>
               ) : (
-                <span className="text-gray-600">
+                <span className="text-muted-foreground">
                   {access.profitCenterIds.length} profit center{access.profitCenterIds.length !== 1 ? 's' : ''}
                 </span>
               )}
@@ -492,13 +601,13 @@ function RoleAccessSection({
           {/* Terminals */}
           <div className="flex items-center gap-2">
             <Monitor className="h-3.5 w-3.5 text-gray-400" />
-            <span className="text-xs text-gray-700">
+            <span className="text-xs text-foreground">
               {access.terminalIds.length === 0 ? (
-                <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500">
                   All Terminals
                 </span>
               ) : (
-                <span className="text-gray-600">
+                <span className="text-muted-foreground">
                   {access.terminalIds.length} terminal{access.terminalIds.length !== 1 ? 's' : ''}
                 </span>
               )}
@@ -510,308 +619,7 @@ function RoleAccessSection({
   );
 }
 
-// ── Role Form Dialog ─────────────────────────────────────────────
-
-function RoleFormDialog({
-  role,
-  onClose,
-  onSaved,
-}: {
-  role?: RoleDetail;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const isEditing = !!role;
-  const [name, setName] = useState(role?.name ?? '');
-  const [description, setDescription] = useState(role?.description ?? '');
-  const [selectedPerms, setSelectedPerms] = useState<Set<string>>(
-    new Set(role?.permissions ?? []),
-  );
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
-    // Auto-expand groups that have selected permissions when editing
-    if (!role) return new Set<string>();
-    const expanded = new Set<string>();
-    for (const group of PERMISSION_GROUPS) {
-      if (group.subGroups) {
-        const allPerms = getAllGroupPerms(group);
-        if (allPerms.some((p) => role.permissions.includes(p))) {
-          expanded.add(group.label);
-        }
-      }
-    }
-    return expanded;
-  });
-
-  const toggleExpanded = (label: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) {
-        next.delete(label);
-      } else {
-        next.add(label);
-      }
-      return next;
-    });
-  };
-
-  const togglePerm = (perm: string) => {
-    setSelectedPerms((prev) => {
-      const next = new Set(prev);
-      if (next.has(perm)) {
-        next.delete(perm);
-      } else {
-        next.add(perm);
-      }
-      return next;
-    });
-  };
-
-  const toggleGroup = (perms: string[]) => {
-    const allSelected = perms.every((p) => selectedPerms.has(p));
-    setSelectedPerms((prev) => {
-      const next = new Set(prev);
-      for (const p of perms) {
-        if (allSelected) {
-          next.delete(p);
-        } else {
-          next.add(p);
-        }
-      }
-      return next;
-    });
-  };
-
-  const handleSubmit = async () => {
-    if (selectedPerms.size === 0) {
-      setError('At least one permission is required');
-      return;
-    }
-
-    setIsSaving(true);
-    setError(null);
-
-    try {
-      if (isEditing) {
-        await apiFetch(`/api/v1/roles/${role.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            name: role.isSystem ? undefined : name,
-            description,
-            permissions: [...selectedPerms],
-          }),
-        });
-      } else {
-        await apiFetch('/api/v1/roles', {
-          method: 'POST',
-          body: JSON.stringify({
-            name,
-            description: description || undefined,
-            permissions: [...selectedPerms],
-          }),
-        });
-      }
-      onSaved();
-    } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError('An error occurred');
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
-            {isEditing ? `Edit ${role.name}` : 'Create Role'}
-          </h2>
-          <button type="button" onClick={onClose}>
-            <X className="h-5 w-5 text-gray-400" />
-          </button>
-        </div>
-
-        {error && (
-          <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="mt-4 space-y-4">
-          {/* Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={isEditing && role.isSystem}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:bg-gray-100"
-              placeholder="e.g. Shift Lead"
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
-            <input
-              type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              placeholder="What can this role do?"
-            />
-          </div>
-
-          {/* Permission checkboxes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Permissions</label>
-            <div className="mt-2 max-h-80 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-3">
-              {PERMISSION_GROUPS.map((group) => {
-                const allPerms = getAllGroupPerms(group);
-                const allSelected = allPerms.every((p) => selectedPerms.has(p));
-                const someSelected = allPerms.some((p) => selectedPerms.has(p));
-                const isExpanded = expandedGroups.has(group.label);
-
-                if (group.permissions) {
-                  // Flat group — no sub-sections
-                  return (
-                    <div key={group.label} className="rounded-md px-2 py-1.5">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-                          onChange={() => toggleGroup(group.permissions!)}
-                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span className="text-sm font-medium text-gray-700">{group.label}</span>
-                        <span className="text-xs text-gray-400">
-                          {group.permissions.filter((p) => selectedPerms.has(p)).length}/{group.permissions.length}
-                        </span>
-                      </div>
-                      <div className="ml-6 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                        {group.permissions.map((perm) => (
-                          <label key={perm} className="flex items-center gap-1.5">
-                            <input
-                              type="checkbox"
-                              checked={selectedPerms.has(perm)}
-                              onChange={() => togglePerm(perm)}
-                              className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                            />
-                            <span className="text-xs font-mono text-gray-600">{perm}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Hierarchical group with sub-sections
-                return (
-                  <div key={group.label} className="rounded-md border border-gray-100">
-                    {/* Group header — click to expand/collapse */}
-                    <div className="flex items-center gap-2 px-2 py-1.5">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        ref={(el) => { if (el) el.indeterminate = someSelected && !allSelected; }}
-                        onChange={() => toggleGroup(allPerms)}
-                        className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => toggleExpanded(group.label)}
-                        className="flex flex-1 items-center gap-1.5 text-left"
-                      >
-                        {isExpanded
-                          ? <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-                          : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />}
-                        <span className="text-sm font-medium text-gray-700">{group.label}</span>
-                        <span className="text-xs text-gray-400">
-                          {allPerms.filter((p) => selectedPerms.has(p)).length}/{allPerms.length}
-                        </span>
-                      </button>
-                    </div>
-
-                    {/* Sub-groups */}
-                    {isExpanded && group.subGroups && (
-                      <div className="space-y-1 border-t border-gray-100 px-2 pb-2 pt-1">
-                        {group.subGroups.map((sg) => {
-                          const sgAllSelected = sg.permissions.every((p) => selectedPerms.has(p));
-                          const sgSomeSelected = sg.permissions.some((p) => selectedPerms.has(p));
-                          return (
-                            <div key={sg.label} className="ml-4">
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={sgAllSelected}
-                                  ref={(el) => { if (el) el.indeterminate = sgSomeSelected && !sgAllSelected; }}
-                                  onChange={() => toggleGroup(sg.permissions)}
-                                  className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                />
-                                <span className="text-xs font-semibold text-gray-600">{sg.label}</span>
-                                <span className="text-xs text-gray-400">
-                                  {sg.permissions.filter((p) => selectedPerms.has(p)).length}/{sg.permissions.length}
-                                </span>
-                              </div>
-                              <div className="ml-5 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
-                                {sg.permissions.map((perm) => (
-                                  <label key={perm} className="flex items-center gap-1">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedPerms.has(perm)}
-                                      onChange={() => togglePerm(perm)}
-                                      className="h-3 w-3 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className="text-xs font-mono text-gray-500">{perm.split('.').slice(1).join('.')}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isSaving || (!name.trim() && !isEditing)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {isSaving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Check className="h-4 w-4" />
-            )}
-            {isEditing ? 'Save Changes' : 'Create Role'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// RoleFormDialog replaced by RoleEditorPanel in @/components/settings/role-editor-panel
 
 // ── Modules Tab ──────────────────────────────────────────────────
 
@@ -842,27 +650,27 @@ function ModuleStatusBadge({ mod, enabled, hasEntitlement }: { mod: typeof MODUL
   const isComingSoon = mod.phase !== 'v1';
   if (isComingSoon) {
     return (
-      <span className="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700">
+      <span className="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-500">
         Coming Soon
       </span>
     );
   }
   if (enabled) {
     return (
-      <span className="inline-flex rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-700">
+      <span className="inline-flex rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-500">
         Active
       </span>
     );
   }
   if (hasEntitlement) {
     return (
-      <span className="inline-flex rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-600">
+      <span className="inline-flex rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-500">
         Disabled
       </span>
     );
   }
   return (
-    <span className="inline-flex rounded-full bg-gray-500/15 px-2 py-0.5 text-xs font-medium text-gray-500">
+    <span className="inline-flex rounded-full bg-muted0/15 px-2 py-0.5 text-xs font-medium text-muted-foreground">
       Not Enabled
     </span>
   );
@@ -921,7 +729,7 @@ function ModuleActions({
         type="button"
         onClick={() => onToggle(mod.key, false)}
         disabled={togglingModule === mod.key}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/100/10 disabled:opacity-50"
       >
         {togglingModule === mod.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
         Disable
@@ -976,16 +784,16 @@ export function ModulesTab() {
     <div>
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Modules</h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-foreground">Modules</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             Modules enabled for your account. Enable available modules or contact support for upgrades.
           </p>
         </div>
-        <div className="flex items-center rounded-lg border border-gray-200 p-0.5">
+        <div className="flex items-center rounded-lg border border-border p-0.5">
           <button
             type="button"
             onClick={() => setViewMode('grid')}
-            className={`rounded-md p-1.5 ${viewMode === 'grid' ? 'bg-gray-200/70 text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`rounded-md p-1.5 ${viewMode === 'grid' ? 'bg-gray-200/70 text-foreground' : 'text-gray-400 hover:text-foreground'}`}
             title="Grid view"
           >
             <Grid3X3 className="h-4 w-4" />
@@ -993,7 +801,7 @@ export function ModulesTab() {
           <button
             type="button"
             onClick={() => setViewMode('list')}
-            className={`rounded-md p-1.5 ${viewMode === 'list' ? 'bg-gray-200/70 text-gray-900' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`rounded-md p-1.5 ${viewMode === 'list' ? 'bg-gray-200/70 text-foreground' : 'text-gray-400 hover:text-foreground'}`}
             title="List view"
           >
             <List className="h-4 w-4" />
@@ -1017,17 +825,17 @@ export function ModulesTab() {
                 key={mod.key}
                 className={`rounded-lg border p-4 ${
                   enabled
-                    ? 'border-gray-200 bg-surface'
-                    : 'border-gray-200/60 bg-gray-500/5'
+                    ? 'border-border bg-surface'
+                    : 'border-border/60 bg-muted0/5'
                 }`}
               >
                 <div className="flex items-start justify-between">
-                  <h3 className={`text-sm font-semibold ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>
+                  <h3 className={`text-sm font-semibold ${enabled ? 'text-foreground' : 'text-gray-400'}`}>
                     {mod.name}
                   </h3>
                   <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} />
                 </div>
-                <p className={`mt-1.5 text-xs ${enabled ? 'text-gray-500' : 'text-gray-400'}`}>
+                <p className={`mt-1.5 text-xs ${enabled ? 'text-muted-foreground' : 'text-gray-400'}`}>
                   {mod.description}
                 </p>
                 {ent && enabled && ent.limits && Object.keys(ent.limits).length > 0 && (
@@ -1035,7 +843,7 @@ export function ModulesTab() {
                     {Object.entries(ent.limits).map(([key, value]) => (
                       <span
                         key={key}
-                        className="inline-flex rounded bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-700"
+                        className="inline-flex rounded bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-500"
                       >
                         {value} {key.replace('max_', '').replace('_', ' ')}
                       </span>
@@ -1065,18 +873,18 @@ export function ModulesTab() {
           })}
         </div>
       ) : (
-        <div className="mt-6 overflow-hidden rounded-lg border border-gray-200">
+        <div className="mt-6 overflow-hidden rounded-lg border border-border">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-500/5">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Module</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
-                <th className="hidden px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:table-cell">Plan</th>
-                <th className="hidden px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 md:table-cell">Limits</th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Action</th>
+              <tr className="border-b border-border bg-muted0/5">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Module</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</th>
+                <th className="hidden px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:table-cell">Plan</th>
+                <th className="hidden px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground md:table-cell">Limits</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-border">
               {MODULES.map((mod) => {
                 const ent = entitlements.get(mod.key);
                 const enabled = isModuleEnabled(mod.key);
@@ -1089,15 +897,15 @@ export function ModulesTab() {
                 return (
                   <tr key={mod.key} className="hover:bg-gray-200/30">
                     <td className="px-4 py-3">
-                      <p className={`text-sm font-medium ${enabled ? 'text-gray-900' : 'text-gray-400'}`}>{mod.name}</p>
-                      <p className={`mt-0.5 text-xs ${enabled ? 'text-gray-500' : 'text-gray-400'}`}>{mod.description}</p>
+                      <p className={`text-sm font-medium ${enabled ? 'text-foreground' : 'text-gray-400'}`}>{mod.name}</p>
+                      <p className={`mt-0.5 text-xs ${enabled ? 'text-muted-foreground' : 'text-gray-400'}`}>{mod.description}</p>
                     </td>
                     <td className="px-4 py-3">
                       <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} />
                     </td>
                     <td className="hidden px-4 py-3 sm:table-cell">
                       {ent ? (
-                        <span className="text-xs text-gray-500">{ent.planTier}</span>
+                        <span className="text-xs text-muted-foreground">{ent.planTier}</span>
                       ) : (
                         <span className="text-xs text-gray-400">&mdash;</span>
                       )}
@@ -1108,7 +916,7 @@ export function ModulesTab() {
                           {Object.entries(ent.limits).map(([key, value]) => (
                             <span
                               key={key}
-                              className="inline-flex rounded bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-700"
+                              className="inline-flex rounded bg-indigo-500/10 px-2 py-0.5 text-xs text-indigo-500"
                             >
                               {value} {key.replace('max_', '').replace('_', ' ')}
                             </span>
@@ -1205,32 +1013,32 @@ export function DashboardSettingsTab() {
 
   return (
     <div className="max-w-2xl">
-      <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <h2 className="text-lg font-semibold text-foreground">Dashboard</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
         Choose which widgets appear on your dashboard home page.
       </p>
 
       {saved && (
-        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-green-50 px-3 py-1.5 text-sm text-green-700">
+        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-green-500/10 px-3 py-1.5 text-sm text-green-500">
           <Check className="h-4 w-4" /> Saved
         </div>
       )}
 
       {/* Widget Toggles */}
       <div className="mt-6 space-y-4">
-        <h3 className="text-sm font-medium text-gray-700">Widgets</h3>
+        <h3 className="text-sm font-medium text-foreground">Widgets</h3>
         <div className="space-y-3">
           {widgets.map((w) => (
-            <label key={w.key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-4 hover:bg-gray-50/50">
+            <label key={w.key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4 hover:bg-muted/50">
               <input
                 type="checkbox"
                 checked={prefs[w.key]}
                 onChange={() => handleToggle(w.key)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="mt-0.5 h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
               <div>
-                <p className="text-sm font-medium text-gray-900">{w.label}</p>
-                <p className="text-xs text-gray-500">{w.description}</p>
+                <p className="text-sm font-medium text-foreground">{w.label}</p>
+                <p className="text-xs text-muted-foreground">{w.description}</p>
               </div>
             </label>
           ))}
@@ -1239,15 +1047,15 @@ export function DashboardSettingsTab() {
 
       {/* Notes Editor */}
       <div className="mt-8">
-        <h3 className="text-sm font-medium text-gray-700">Dashboard Notes</h3>
-        <p className="mt-1 text-xs text-gray-500">
+        <h3 className="text-sm font-medium text-foreground">Dashboard Notes</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
           These notes appear on your dashboard. Great for daily specials, shift reminders, or team messages.
         </p>
         <textarea
           value={notes}
           onChange={(e) => handleNotesChange(e.target.value)}
           placeholder="Quick notes, reminders, daily specials..."
-          className="mt-3 w-full resize-y rounded-lg border border-gray-300 bg-transparent p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="mt-3 w-full resize-y rounded-lg border border-border bg-transparent p-3 text-sm text-foreground placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           rows={6}
         />
         <p className="mt-1 text-xs text-gray-400">Saved to this browser (localStorage)</p>
@@ -1261,8 +1069,8 @@ export function DashboardSettingsTab() {
 export function AuditLogTab() {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900">Audit Log</h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <h2 className="text-lg font-semibold text-foreground">Audit Log</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
         View all activity and changes across your organization.
       </p>
       <div className="mt-6">

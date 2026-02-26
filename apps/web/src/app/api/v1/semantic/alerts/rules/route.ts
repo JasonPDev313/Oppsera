@@ -4,6 +4,7 @@ import { eq, and, desc, lt } from 'drizzle-orm';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, semanticAlertRules } from '@oppsera/db';
+import { parseLimit } from '@/lib/api-params';
 import { generateUlid, ValidationError } from '@oppsera/shared';
 
 // ── Validation ────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ export const GET = withMiddleware(
     const url = new URL(request.url);
     const activeOnly = url.searchParams.get('activeOnly') !== 'false';
     const ruleType = url.searchParams.get('ruleType') ?? undefined;
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 100);
+    const limit = parseLimit(url.searchParams.get('limit'));
     const cursor = url.searchParams.get('cursor') ?? undefined;
 
     const conditions = [eq(semanticAlertRules.tenantId, ctx.tenantId)];

@@ -53,6 +53,20 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   const openOrderPromise = useRef<Promise<Order> | null>(null);
   const placingPromise = useRef<Promise<Order> | null>(null);
 
+  // ── Batch queue for rapid item adds ──────────────────────────────
+  // Instead of firing one API call per click, collect rapid clicks and
+  // flush them as a single batch API call. Optimistic UI is unchanged.
+  const BATCH_DEBOUNCE_MS = 50;
+  const BATCH_MAX_SIZE = 20;
+
+  interface BatchItem {
+    input: AddLineItemInput;
+    tempId: string;
+    reqId: string;
+  }
+  const batchQueue = useRef<BatchItem[]>([]);
+  const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── Fetch order detail ─────────────────────────────────────────
 
   const fetchOrder = useCallback(
@@ -91,6 +105,16 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
       // Non-critical — silently ignore
     }
   }, [config.locationId]);
+
+  // Clean up batch timer on unmount to prevent stale timer firing after teardown
+  useEffect(() => {
+    return () => {
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // Refresh held count after initial render (deferred so it doesn't block POS load)
   useEffect(() => {
@@ -165,171 +189,204 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     }
   }, [config.terminalId, user?.id, handleMutationError]);
 
+  // ── Flush Batch (internal) ─────────────────────────────────────
+  // Sends all queued items to the batch endpoint in a single API call.
+
+  const flushBatch = useCallback(async () => {
+    // Atomically snapshot and clear the queue
+    const items = batchQueue.current;
+    batchQueue.current = [];
+    batchTimerRef.current = null;
+    if (items.length === 0) return;
+
+    // Ensure order exists (deduplicated for rapid taps)
+    let order = orderRef.current;
+    if (!order || !order.id) {
+      if (!openOrderPromise.current) {
+        openOrderPromise.current = openOrder().finally(() => {
+          openOrderPromise.current = null;
+        });
+      }
+      order = await openOrderPromise.current;
+    }
+
+    const tempIds = items.map((i) => i.tempId);
+
+    const serverCall = apiFetch<{ data: { order: Order; lines: OrderLine[] } }>(
+      `/api/v1/orders/${order.id}/lines/batch`,
+      {
+        method: 'POST',
+        headers: locationHeaders,
+        body: JSON.stringify({
+          items: items.map((i) => ({
+            catalogItemId: i.input.catalogItemId,
+            qty: i.input.qty,
+            modifiers: i.input.modifiers ?? undefined,
+            specialInstructions: i.input.specialInstructions ?? undefined,
+            selectedOptions: i.input.selectedOptions ?? undefined,
+            priceOverride: i.input.priceOverride ?? undefined,
+            notes: i.input.notes ?? undefined,
+            clientRequestId: i.reqId,
+          })),
+        }),
+      },
+    );
+
+    // Track in pendingAddItems so placeOrder can await it
+    const tracked = serverCall.then(() => {});
+    pendingAddItems.current.push(tracked);
+    tracked.catch(() => {}).finally(() => {
+      pendingAddItems.current = pendingAddItems.current.filter((p) => p !== tracked);
+    });
+
+    try {
+      const res = await serverCall;
+      const updatedOrder = res.data.order;
+      const newLines = res.data.lines as OrderLine[];
+
+      // Replace all temp lines from this batch with real server lines
+      setCurrentOrder((prev) => {
+        const existing = prev?.lines ?? [];
+        const withoutTemps = existing.filter((l) => !tempIds.includes(l.id));
+        const newLineIds = new Set(newLines.map((nl) => nl.id));
+        const merged = [...withoutTemps.filter((l) => !newLineIds.has(l.id)), ...newLines];
+
+        // Only apply server totals if this is the latest version
+        if (prev && typeof updatedOrder.version === 'number' && prev.version > updatedOrder.version) {
+          return { ...prev, lines: merged };
+        }
+
+        return {
+          ...updatedOrder,
+          lines: merged,
+          charges: prev?.charges ?? [],
+          discounts: prev?.discounts ?? [],
+        };
+      });
+    } catch (err) {
+      // Roll back ALL temp lines from this batch
+      setCurrentOrder((prev) => {
+        if (!prev) return prev;
+        const rolledBack = (prev.lines ?? []).filter((l) => !tempIds.includes(l.id));
+        const removedSubtotal = (prev.lines ?? [])
+          .filter((l) => tempIds.includes(l.id))
+          .reduce((sum, l) => sum + l.lineSubtotal, 0);
+        return {
+          ...prev,
+          lines: rolledBack,
+          subtotal: prev.subtotal - removedSubtotal,
+          total: prev.total - removedSubtotal,
+        };
+      });
+
+      if (err instanceof ApiError && err.statusCode === 404) {
+        onItemNotFoundRef.current?.();
+      }
+
+      await handleMutationError(err);
+    }
+  }, [openOrder, handleMutationError, locationHeaders]);
+
   // ── Add Line Item ──────────────────────────────────────────────
+  // Optimistic UI is instant. Server sync is batched — rapid clicks
+  // within 50ms are collected into a single API call.
 
   const addItem = useCallback(
-    async (input: AddLineItemInput): Promise<void> => {
-      try {
-        // ── Optimistic update FIRST — show item in cart immediately ──
-        const display = input._display;
-        const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-        if (display) {
-          const modifierAdj = (input.modifiers ?? []).reduce((sum, m) => sum + m.priceAdjustment, 0);
-          const unitPrice = input.priceOverride?.unitPrice ?? display.unitPrice + modifierAdj;
-          const lineSubtotal = Math.round(input.qty * unitPrice);
-          const tempLine: OrderLine = {
-            id: tempId,
-            catalogItemId: input.catalogItemId,
-            catalogItemName: display.name,
-            catalogItemSku: display.sku ?? null,
-            itemType: display.itemType,
-            qty: input.qty,
-            unitPrice,
-            originalUnitPrice: input.priceOverride ? display.unitPrice : null,
-            priceOverrideReason: input.priceOverride?.reason ?? null,
-            lineSubtotal,
-            lineTax: 0,
-            lineTotal: lineSubtotal,
-            modifiers: input.modifiers ?? null,
-            specialInstructions: input.specialInstructions ?? null,
-            selectedOptions: input.selectedOptions ?? null,
-            packageComponents: null,
-            notes: input.specialInstructions ?? null,
-            sortOrder: 0,
-            taxCalculationMode: 'inclusive',
-          };
-          setCurrentOrder((prev) => {
-            if (prev) {
-              return {
-                ...prev,
-                lines: [...(prev.lines ?? []), tempLine],
-                subtotal: prev.subtotal + lineSubtotal,
-                total: prev.total + lineSubtotal,
-              };
-            }
-            // No order yet — create a placeholder for instant display
-            const now = new Date().toISOString();
+    (input: AddLineItemInput): void => {
+      // ── Optimistic update FIRST — show item in cart immediately ──
+      const display = input._display;
+      const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      if (display) {
+        const modifierAdj = (input.modifiers ?? []).reduce((sum, m) => sum + m.priceAdjustment, 0);
+        const unitPrice = input.priceOverride?.unitPrice ?? display.unitPrice + modifierAdj;
+        const lineSubtotal = Math.round(input.qty * unitPrice);
+        const tempLine: OrderLine = {
+          id: tempId,
+          catalogItemId: input.catalogItemId,
+          catalogItemName: display.name,
+          catalogItemSku: display.sku ?? null,
+          itemType: display.itemType,
+          qty: input.qty,
+          unitPrice,
+          originalUnitPrice: input.priceOverride ? display.unitPrice : null,
+          priceOverrideReason: input.priceOverride?.reason ?? null,
+          lineSubtotal,
+          lineTax: 0,
+          lineTotal: lineSubtotal,
+          modifiers: input.modifiers ?? null,
+          specialInstructions: input.specialInstructions ?? null,
+          selectedOptions: input.selectedOptions ?? null,
+          packageComponents: null,
+          notes: input.specialInstructions ?? null,
+          sortOrder: 0,
+          taxCalculationMode: 'inclusive',
+        };
+        setCurrentOrder((prev) => {
+          if (prev) {
             return {
-              id: '',
-              tenantId: '',
-              locationId: config.locationId,
-              orderNumber: '...',
-              status: 'open',
-              source: 'pos',
-              version: 0,
-              subtotal: lineSubtotal,
-              taxTotal: 0,
-              serviceChargeTotal: 0,
-              discountTotal: 0,
-              total: lineSubtotal,
-              customerId: null,
-              businessDate: todayBusinessDate(),
-              terminalId: config.terminalId,
-              employeeId: user?.id ?? null,
-              taxExempt: false,
-              taxExemptReason: null,
-              notes: null,
-              lines: [tempLine],
-              charges: [],
-              discounts: [],
-              createdAt: now,
-              updatedAt: now,
-              placedAt: null,
-              paidAt: null,
-              voidedAt: null,
-              voidReason: null,
+              ...prev,
+              lines: [...(prev.lines ?? []), tempLine],
+              subtotal: prev.subtotal + lineSubtotal,
+              total: prev.total + lineSubtotal,
             };
-          });
-        }
-
-        // Auto-open order if none exists (deduplicated for rapid taps)
-        let order = orderRef.current;
-        if (!order || !order.id) {
-          if (!openOrderPromise.current) {
-            openOrderPromise.current = openOrder().finally(() => {
-              openOrderPromise.current = null;
-            });
           }
-          order = await openOrderPromise.current;
-        }
-
-        // ── Server call (background) ─────────────────────────────────
-        const reqId = clientRequestId();
-        const serverCall = apiFetch<{ data: { order: Order; line: OrderLine } }>(
-          `/api/v1/orders/${order.id}/lines`,
-          {
-            method: 'POST',
-            headers: locationHeaders,
-            body: JSON.stringify({
-              catalogItemId: input.catalogItemId,
-              qty: input.qty,
-              modifiers: input.modifiers ?? undefined,
-              specialInstructions: input.specialInstructions ?? undefined,
-              selectedOptions: input.selectedOptions ?? undefined,
-              priceOverride: input.priceOverride ?? undefined,
-              notes: input.notes ?? undefined,
-              clientRequestId: reqId,
-            }),
-          },
-        );
-
-        // Track this in-flight call so placeOrder can wait for it.
-        // Rejection is preserved on the tracked promise so allSettled sees it.
-        // placeOrder uses allSettled — failed items (already rolled back from
-        // the cart by handleMutationError) don't block placing the order.
-        const tracked = serverCall.then(() => {});
-        pendingAddItems.current.push(tracked);
-        tracked.catch(() => {}).finally(() => {
-          pendingAddItems.current = pendingAddItems.current.filter((p) => p !== tracked);
-        });
-
-        const res = await serverCall;
-
-        // ── Replace optimistic line with real data ───────────────────
-        const updatedOrder = res.data.order;
-        const newLine = res.data.line;
-        setCurrentOrder((prev) => {
-          const existing = prev?.lines ?? [];
-          const newLines = [...existing.filter((l) => l.id !== tempId && l.id !== newLine.id), newLine];
-
-          // Only apply server totals from newer versions — prevents an out-of-order
-          // response (with fewer items) from overwriting a later response's correct totals.
-          if (prev && typeof updatedOrder.version === 'number' && prev.version > updatedOrder.version) {
-            return { ...prev, lines: newLines };
-          }
-
+          // No order yet — create a placeholder for instant display
+          const now = new Date().toISOString();
           return {
-            ...updatedOrder,
-            lines: newLines,
-            charges: prev?.charges ?? [],
-            discounts: prev?.discounts ?? [],
+            id: '',
+            tenantId: '',
+            locationId: config.locationId,
+            orderNumber: '...',
+            status: 'open',
+            source: 'pos',
+            version: 0,
+            subtotal: lineSubtotal,
+            taxTotal: 0,
+            serviceChargeTotal: 0,
+            discountTotal: 0,
+            total: lineSubtotal,
+            customerId: null,
+            businessDate: todayBusinessDate(),
+            terminalId: config.terminalId,
+            employeeId: user?.id ?? null,
+            taxExempt: false,
+            taxExemptReason: null,
+            notes: null,
+            lines: [tempLine],
+            charges: [],
+            discounts: [],
+            createdAt: now,
+            updatedAt: now,
+            placedAt: null,
+            paidAt: null,
+            voidedAt: null,
+            voidReason: null,
           };
         });
-      } catch (err) {
-        // ── Rollback optimistic line on error ────────────────────────
-        setCurrentOrder((prev) => {
-          if (!prev) return prev;
-          const rolledBack = (prev.lines ?? []).filter((l) => !l.id.startsWith('temp-'));
-          const removedSubtotal = (prev.lines ?? [])
-            .filter((l) => l.id.startsWith('temp-'))
-            .reduce((sum, l) => sum + l.lineSubtotal, 0);
-          return {
-            ...prev,
-            lines: rolledBack,
-            subtotal: prev.subtotal - removedSubtotal,
-            total: prev.total - removedSubtotal,
-          };
-        });
-
-        // Archived/deleted item — trigger catalog refresh to purge stale grid
-        if (err instanceof ApiError && err.statusCode === 404) {
-          onItemNotFoundRef.current?.();
-        }
-
-        await handleMutationError(err);
       }
+
+      // ── Push to batch queue (no API call yet) ─────────────────────
+      batchQueue.current.push({ input, tempId, reqId: clientRequestId() });
+
+      // Flush immediately if queue hits max size
+      if (batchQueue.current.length >= BATCH_MAX_SIZE) {
+        if (batchTimerRef.current) {
+          clearTimeout(batchTimerRef.current);
+          batchTimerRef.current = null;
+        }
+        void flushBatch();
+        return;
+      }
+
+      // Otherwise, debounce: reset timer so rapid clicks batch together
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+      }
+      batchTimerRef.current = setTimeout(() => {
+        void flushBatch();
+      }, BATCH_DEBOUNCE_MS);
     },
-    [openOrder, handleMutationError],
+    [flushBatch, config.locationId, config.terminalId, user?.id],
   );
 
   // ── Remove Line Item ───────────────────────────────────────────
@@ -541,6 +598,15 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     // Already placed (may have resolved after waiting for openOrder)
     if (order.status === 'placed') return order;
 
+    // Flush any pending batch timer so queued items are sent before placing
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+      batchTimerRef.current = null;
+      if (batchQueue.current.length > 0) {
+        void flushBatch();
+      }
+    }
+
     // Wait for any in-flight addItem calls to settle before placing.
     // Use allSettled so failed addItems (already shown to user) don't block placeOrder.
     if (pendingAddItems.current.length > 0) {
@@ -603,7 +669,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
 
     placingPromise.current = doPlace();
     return placingPromise.current;
-  }, [toast, handleMutationError]);
+  }, [toast, handleMutationError, flushBatch]);
 
   // ── Record Tender ────────────────────────────────────────────────
 

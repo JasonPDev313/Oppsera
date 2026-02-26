@@ -68,7 +68,7 @@ function CardItem({
     <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3">
-          <div className="p-2 bg-indigo-50 rounded-lg">
+          <div className="p-2 bg-indigo-500/10 rounded-lg">
             <CreditCard className="h-5 w-5 text-indigo-600" />
           </div>
           <div>
@@ -77,7 +77,7 @@ function CardItem({
                 {method.nickname ?? `${brandDisplay(method.brand)} ****${method.last4}`}
               </p>
               {method.isDefault && (
-                <span className="text-xs font-medium text-[var(--portal-primary)] bg-blue-50 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-medium text-[var(--portal-primary)] bg-blue-500/10 px-2 py-0.5 rounded-full">
                   Default
                 </span>
               )}
@@ -104,7 +104,7 @@ function CardItem({
           {!confirmDelete ? (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
+              className="p-1.5 text-muted-foreground hover:text-red-600 rounded transition-colors"
               title="Remove card"
             >
               <Trash2 className="h-4 w-4" />
@@ -187,7 +187,7 @@ function AddCardForm({
 
       {tokenResult && (
         <div className="space-y-3 border-t border-[var(--portal-border)] pt-3">
-          <div className="flex items-center gap-2 text-sm text-green-700">
+          <div className="flex items-center gap-2 text-sm text-green-500">
             <CheckCircle2 className="h-4 w-4" />
             Card ending in {tokenResult.last4 ?? '****'} captured
           </div>
@@ -223,7 +223,7 @@ function AddCardForm({
       <div className="flex gap-2 justify-end">
         <button
           onClick={onCancel}
-          className="px-4 py-2 text-sm font-medium border border-[var(--portal-border)] rounded-lg hover:bg-gray-50 transition-colors"
+          className="px-4 py-2 text-sm font-medium border border-[var(--portal-border)] rounded-lg hover:bg-accent transition-colors"
         >
           Cancel
         </button>
@@ -246,25 +246,25 @@ function VerificationBadge({ status }: { status: PortalBankAccount['verification
   switch (status) {
     case 'verified':
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-500 bg-green-500/10 px-2 py-0.5 rounded-full">
           <CheckCircle2 className="h-3 w-3" /> Verified
         </span>
       );
     case 'pending_micro':
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full">
           <AlertCircle className="h-3 w-3" /> Pending Verification
         </span>
       );
     case 'failed':
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full">
           <AlertCircle className="h-3 w-3" /> Failed
         </span>
       );
     default:
       return (
-        <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
           Unverified
         </span>
       );
@@ -301,14 +301,14 @@ function VerifyForm({ account, onVerified }: { account: PortalBankAccount; onVer
   }
 
   return (
-    <form onSubmit={handleVerify} className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-      <p className="text-sm text-yellow-800 mb-2">
+    <form onSubmit={handleVerify} className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+      <p className="text-sm text-yellow-500 mb-2">
         Two small deposits were sent to your bank account. Enter the amounts below to verify ownership.
       </p>
       {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
       <div className="flex items-end gap-2">
         <div>
-          <label className="block text-xs font-medium text-yellow-800 mb-1">Deposit 1 (cents)</label>
+          <label className="block text-xs font-medium text-yellow-500 mb-1">Deposit 1 (cents)</label>
           <input
             type="number"
             min={1}
@@ -318,11 +318,11 @@ function VerifyForm({ account, onVerified }: { account: PortalBankAccount; onVer
             placeholder="e.g. 32"
             required
             disabled={isSubmitting}
-            className="w-24 border border-yellow-300 rounded px-2 py-1.5 text-sm bg-white disabled:opacity-50"
+            className="w-24 border border-yellow-500/30 rounded px-2 py-1.5 text-sm bg-surface disabled:opacity-50"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-yellow-800 mb-1">Deposit 2 (cents)</label>
+          <label className="block text-xs font-medium text-yellow-500 mb-1">Deposit 2 (cents)</label>
           <input
             type="number"
             min={1}
@@ -332,7 +332,7 @@ function VerifyForm({ account, onVerified }: { account: PortalBankAccount; onVer
             placeholder="e.g. 47"
             required
             disabled={isSubmitting}
-            className="w-24 border border-yellow-300 rounded px-2 py-1.5 text-sm bg-white disabled:opacity-50"
+            className="w-24 border border-yellow-500/30 rounded px-2 py-1.5 text-sm bg-surface disabled:opacity-50"
           />
         </div>
         <button
@@ -369,14 +369,14 @@ function BankAccountItem({
     <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-3">
-          <div className="p-2 bg-blue-50 rounded-lg">
+          <div className="p-2 bg-blue-500/10 rounded-lg">
             <Building2 className="h-5 w-5 text-blue-600" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <p className="font-medium text-sm">{displayName}</p>
               {account.isDefault && (
-                <span className="text-xs font-medium text-[var(--portal-primary)] bg-blue-50 px-2 py-0.5 rounded-full">
+                <span className="text-xs font-medium text-[var(--portal-primary)] bg-blue-500/10 px-2 py-0.5 rounded-full">
                   Default
                 </span>
               )}
@@ -413,7 +413,7 @@ function BankAccountItem({
           {!confirmDelete ? (
             <button
               onClick={() => setConfirmDelete(true)}
-              className="p-1.5 text-gray-400 hover:text-red-600 rounded transition-colors"
+              className="p-1.5 text-muted-foreground hover:text-red-600 rounded transition-colors"
               title="Remove bank account"
             >
               <Trash2 className="h-4 w-4" />
@@ -502,9 +502,9 @@ export default function PaymentMethodsPage() {
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
-        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-        <div className="h-32 bg-gray-200 rounded-lg animate-pulse" />
-        <div className="h-32 bg-gray-200 rounded-lg animate-pulse" />
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
+        <div className="h-32 bg-muted rounded-lg animate-pulse" />
+        <div className="h-32 bg-muted rounded-lg animate-pulse" />
       </div>
     );
   }
@@ -536,7 +536,7 @@ export default function PaymentMethodsPage() {
               </button>
               <button
                 onClick={() => { setShowAddBank(true); setShowAddCard(false); }}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-[var(--portal-border)] rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-[var(--portal-border)] rounded-lg hover:bg-accent transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 Add Bank Account
@@ -547,8 +547,8 @@ export default function PaymentMethodsPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 text-sm">{error}</p>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+          <p className="text-red-500 text-sm">{error}</p>
         </div>
       )}
 
@@ -556,7 +556,7 @@ export default function PaymentMethodsPage() {
       {showAddCard && (
         <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4">
           <h2 className="font-semibold mb-4 flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-gray-400" />
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
             Add Credit or Debit Card
           </h2>
           <AddCardForm
@@ -573,7 +573,7 @@ export default function PaymentMethodsPage() {
       {showAddBank && (
         <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4">
           <h2 className="font-semibold mb-4 flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-gray-400" />
+            <Building2 className="h-5 w-5 text-muted-foreground" />
             Add Bank Account
           </h2>
           <BankAccountForm
@@ -628,7 +628,7 @@ export default function PaymentMethodsPage() {
       {/* Empty state */}
       {cards.length === 0 && (!bankAccounts || bankAccounts.length === 0) && !showAddCard && !showAddBank && (
         <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-8 text-center">
-          <CreditCard className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+          <CreditCard className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
           <p className="text-[var(--portal-text-muted)] mb-4">
             No payment methods on file. Add a card or bank account to make payments.
           </p>
@@ -642,7 +642,7 @@ export default function PaymentMethodsPage() {
             </button>
             <button
               onClick={() => setShowAddBank(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-[var(--portal-border)] rounded-lg hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-[var(--portal-border)] rounded-lg hover:bg-accent transition-colors"
             >
               <Plus className="h-4 w-4" />
               Add Bank Account

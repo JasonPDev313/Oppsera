@@ -915,5 +915,162 @@ export type { WaitlistItem, WaitlistResult } from './queries/get-waitlist';
 export { getReservations } from './queries/get-reservations';
 export type { ReservationItem, ReservationsResult } from './queries/get-reservations';
 
+// ═══════════════════════════════════════════════════════════════════
+// Host Module V2 — Enhanced Reservations, Waitlist & Turn Tracking
+// ═══════════════════════════════════════════════════════════════════
+
+// V2 Commands
+export { hostCreateReservation } from './commands/host-create-reservation';
+export { hostUpdateReservation } from './commands/host-update-reservation';
+export { confirmReservation } from './commands/confirm-reservation';
+export { checkInReservationV2 } from './commands/check-in-reservation-v2';
+export { seatReservation } from './commands/seat-reservation';
+export { completeReservation } from './commands/complete-reservation';
+export { cancelReservationV2 } from './commands/cancel-reservation-v2';
+export { markNoShow } from './commands/mark-no-show';
+export { hostAddToWaitlist } from './commands/host-add-to-waitlist';
+export { hostUpdateWaitlistEntry } from './commands/host-update-waitlist-entry';
+export { notifyWaitlistParty } from './commands/notify-waitlist-party';
+export { hostSeatFromWaitlist } from './commands/host-seat-from-waitlist';
+export { hostRemoveFromWaitlist } from './commands/host-remove-from-waitlist';
+export { recordTableTurn } from './commands/record-table-turn';
+export { sendGuestNotification } from './commands/send-guest-notification';
+
+// V2 Helpers
+export { mapHostReservationRow, mapHostWaitlistRow } from './commands/host-helpers';
+
+// V2 Queries
+export { hostListReservations } from './queries/host-list-reservations';
+export type { HostReservationListItem, HostReservationListResult } from './queries/host-list-reservations';
+export { hostGetReservation } from './queries/host-get-reservation';
+export type { HostReservationDetail } from './queries/host-get-reservation';
+export { hostGetUpcomingReservations } from './queries/host-get-upcoming-reservations';
+export type { UpcomingReservationItem } from './queries/host-get-upcoming-reservations';
+export { hostListWaitlist } from './queries/host-list-waitlist';
+export type { HostWaitlistListItem } from './queries/host-list-waitlist';
+export { hostGetWaitlistEntry } from './queries/host-get-waitlist-entry';
+export type { HostWaitlistEntryDetail } from './queries/host-get-waitlist-entry';
+export { hostGetWaitlistStats } from './queries/host-get-waitlist-stats';
+export type { HostWaitlistStats } from './queries/host-get-waitlist-stats';
+export { hostGetDashboardMetrics } from './queries/host-get-dashboard-metrics';
+export type { HostDashboardMetrics } from './queries/host-get-dashboard-metrics';
+export { hostGetTableTurnStats } from './queries/host-get-table-turn-stats';
+export type { HostTableTurnStats, TurnTimeBucket } from './queries/host-get-table-turn-stats';
+export { hostGetPreShiftReport } from './queries/host-get-pre-shift-report';
+export type { PreShiftReport } from './queries/host-get-pre-shift-report';
+
+// V2 Analytics
+export { getHostAnalytics } from './queries/get-host-analytics';
+export type { HostAnalyticsResult, HostAnalyticsInput } from './queries/get-host-analytics';
+
+// V2 Events
+export { HOST_EVENTS } from './events/host-events';
+export type { HostEventType } from './events/host-events';
+
+// V2 Validation
+export {
+  HOST_RESERVATION_STATUSES,
+  HOST_WAITLIST_STATUSES,
+  MEAL_PERIODS,
+  RESERVATION_TRANSITIONS,
+  WAITLIST_TRANSITIONS,
+  validateReservationTransition,
+  validateWaitlistTransition,
+} from './validation-host';
+export type {
+  HostReservationStatus,
+  HostWaitlistStatus,
+  MealPeriod,
+  HostCreateReservationInput,
+  HostUpdateReservationInput,
+  SeatReservationInput,
+  CancelReservationV2Input,
+  ConfirmReservationInput,
+  CompleteReservationInput,
+  MarkNoShowInput,
+  CheckInReservationV2Input,
+  HostAddToWaitlistInput,
+  HostUpdateWaitlistEntryInput,
+  HostSeatFromWaitlistInput,
+  HostNotifyWaitlistInput,
+  HostRemoveFromWaitlistInput,
+  RecordTableTurnInput,
+  SendGuestNotificationInput,
+  HostGetAnalyticsInput,
+} from './validation-host';
+export {
+  hostCreateReservationSchema,
+  hostUpdateReservationSchema,
+  hostGetAnalyticsSchema,
+  hostRemoveFromWaitlistSchema,
+  sendGuestNotificationSchema,
+  hostAddToWaitlistSchema,
+  hostSeatFromWaitlistSchema,
+  cancelReservationV2Schema,
+  markNoShowSchema,
+  checkInReservationV2Schema,
+  confirmReservationSchema,
+  completeReservationSchema,
+  seatReservationSchema,
+  hostGetPreShiftReportSchema,
+} from './validation-host';
+
+// V2 Services (pure algorithm exports)
+export {
+  computeWaitTime,
+  getPartySizeBucket,
+  getConfidence,
+  roundToNearest,
+  clamp,
+  DEFAULT_TURN_TIMES,
+} from './services/wait-time-estimator';
+export type {
+  WaitTimeEstimate as WaitTimeEstimateV2,
+  EstimateWaitTimeInput,
+  TurnTimeData,
+  OccupancyData,
+} from './services/wait-time-estimator';
+
+export {
+  computeTableSuggestions,
+  scoreCapacityFit,
+  scoreSeatingPreference,
+  scoreServerBalance,
+  scoreVipPreference,
+  generateReasoning,
+  findCombinations,
+  scoreTable,
+} from './services/table-assigner';
+export type {
+  TableSuggestion,
+  SuggestTablesInput,
+  AvailableTable as AvailableTableV2,
+  ServerLoad,
+  CustomerTableHistory,
+} from './services/table-assigner';
+
+// V2 Intelligence Queries (DB wrappers)
+export { estimateWaitTime } from './queries/estimate-wait-time';
+export { suggestTables } from './queries/suggest-tables';
+export { getTableAvailabilityForecast } from './queries/get-table-availability-forecast';
+export type { TableForecastEntry, TableAvailabilityForecastInput } from './queries/get-table-availability-forecast';
+
+// V2 Notification Service
+export { getSmsProvider, setSmsProvider, ConsoleSmsProvider, TwilioSmsProvider } from './services/notification-service';
+export type { SmsProvider } from './services/notification-service';
+export { NOTIFICATION_TEMPLATES, renderTemplate } from './services/notification-templates';
+export type { NotificationTemplateKey } from './services/notification-templates';
+
+// V2 Host Settings
+export {
+  hostSettingsSchema,
+  getDefaultHostSettings,
+  mergeHostSettings,
+} from './services/host-settings';
+export type { HostSettings as HostSettingsV2, HostSettingsInput } from './services/host-settings';
+
+// V2 Consumers
+export { handleTabClosedForHost, handleTurnCompletedForHost } from './consumers/host-consumers';
+
 // Re-export reconciliation methods (used by ReconciliationReadApi)
 export { getFnbCloseStatus } from './reconciliation';

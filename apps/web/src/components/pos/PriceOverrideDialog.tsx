@@ -111,16 +111,16 @@ export function PriceOverrideDialog({
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="price-override-dialog-title">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 pt-6 pb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Price Override</h3>
+        <div className="flex items-center justify-between border-b border-border px-6 pt-6 pb-4">
+          <h3 id="price-override-dialog-title" className="text-lg font-semibold text-foreground">Price Override</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-600 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
           >
             <X className="h-5 w-5" />
           </button>
@@ -130,17 +130,17 @@ export function PriceOverrideDialog({
         <div ref={contentRef} className="px-6 py-4 space-y-5">
           {/* Item info */}
           <div>
-            <p className="text-sm text-gray-500">Item</p>
-            <p className="text-sm font-medium text-gray-900">{itemName}</p>
+            <p className="text-sm text-muted-foreground">Item</p>
+            <p className="text-sm font-medium text-foreground">{itemName}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500">Current Price</p>
-            <p className="text-sm font-medium text-gray-900">{formatPrice(currentPrice)}</p>
+            <p className="text-sm text-muted-foreground">Current Price</p>
+            <p className="text-sm font-medium text-foreground">{formatPrice(currentPrice)}</p>
           </div>
 
           {/* New price */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">New Price</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">New Price</label>
             <CurrencyInput
               value={newPriceDollars}
               onChange={(v) => setNewPriceDollars(v)}
@@ -149,15 +149,15 @@ export function PriceOverrideDialog({
 
           {/* Reason */}
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-700">Reason</label>
+            <label className="mb-2 block text-sm font-medium text-foreground">Reason</label>
             <div className="space-y-2">
               {REASONS.map((r) => (
                 <label
                   key={r.value}
                   className={`flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2 transition-colors ${
                     reason === r.value
-                      ? 'border-indigo-300 bg-indigo-50'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      ? 'border-indigo-500/30 bg-indigo-500/10'
+                      : 'border-border hover:bg-accent'
                   }`}
                 >
                   <input
@@ -167,7 +167,7 @@ export function PriceOverrideDialog({
                     onChange={() => setReason(r.value)}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500"
                   />
-                  <span className="text-sm text-gray-900">{r.label}</span>
+                  <span className="text-sm text-foreground">{r.label}</span>
                 </label>
               ))}
             </div>
@@ -175,7 +175,7 @@ export function PriceOverrideDialog({
 
           {/* Manager PIN */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Manager PIN</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Manager PIN</label>
             <input
               type="password"
               value={pin}
@@ -183,17 +183,17 @@ export function PriceOverrideDialog({
               placeholder="Enter 4-digit PIN"
               inputMode="numeric"
               maxLength={8}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 border-t border-gray-200 px-6 py-4">
+        <div className="flex justify-end gap-3 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Cancel
           </button>
@@ -204,7 +204,7 @@ export function PriceOverrideDialog({
             className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
               canApply
                 ? 'bg-indigo-600 hover:bg-indigo-700'
-                : 'cursor-not-allowed bg-indigo-300'
+                : 'cursor-not-allowed bg-indigo-600/50'
             }`}
           >
             Apply Override

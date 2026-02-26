@@ -56,15 +56,15 @@ export function MemberAuthForm({ token, onSuccess, onBack }: MemberAuthFormProps
   return (
     <div className="px-4 py-6">
       <div className="mb-6">
-        <h2 className="text-lg font-bold text-gray-900">Charge to Your Account</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <h2 className="text-lg font-bold text-foreground">Charge to Your Account</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Enter your member number and the last 4 digits of your phone number to verify your identity.
         </p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Member Number
           </label>
           <input
@@ -72,14 +72,14 @@ export function MemberAuthForm({ token, onSuccess, onBack }: MemberAuthFormProps
             value={memberNumber}
             onChange={(e) => setMemberNumber(e.target.value)}
             placeholder="e.g. M12345"
-            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 bg-white focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            className="w-full rounded-xl border border-input px-4 py-3 text-base text-foreground bg-surface focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
             autoComplete="off"
             disabled={loading}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Last 4 Digits of Phone
           </label>
           <input
@@ -89,15 +89,15 @@ export function MemberAuthForm({ token, onSuccess, onBack }: MemberAuthFormProps
             value={phoneLast4}
             onChange={(e) => setPhoneLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
             placeholder="1234"
-            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-base text-gray-900 bg-white tracking-[0.3em] text-center focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            className="w-full rounded-xl border border-input px-4 py-3 text-base text-foreground bg-surface tracking-[0.3em] text-center focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
             autoComplete="off"
             disabled={loading}
           />
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
+            <p className="text-sm text-red-500">{error}</p>
           </div>
         )}
 
@@ -114,7 +114,7 @@ export function MemberAuthForm({ token, onSuccess, onBack }: MemberAuthFormProps
           type="button"
           onClick={onBack}
           disabled={loading}
-          className="w-full py-2 text-sm text-gray-500 hover:text-gray-700"
+          className="w-full py-2 text-sm text-muted-foreground hover:text-foreground"
         >
           Back
         </button>

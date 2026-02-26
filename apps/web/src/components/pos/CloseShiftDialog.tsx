@@ -78,14 +78,14 @@ export function CloseShiftDialog({
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="close-shift-dialog-title">
       <div className="absolute inset-0 bg-black/50" onClick={summary ? onClose : undefined} />
       <div
         ref={contentRef}
         className="relative z-10 w-full max-w-lg rounded-2xl bg-surface p-6 shadow-xl max-h-[90vh] overflow-y-auto"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{summary ? 'Shift Summary' : 'Close Shift'}</h2>
+          <h2 id="close-shift-dialog-title" className="text-lg font-semibold">{summary ? 'Shift Summary' : 'Close Shift'}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -99,30 +99,30 @@ export function CloseShiftDialog({
           // ── Summary View ──────────────────────────────────────────
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="text-gray-500">Sales Count</div>
+              <div className="text-muted-foreground">Sales Count</div>
               <div className="text-right font-medium">{summary.salesCount}</div>
-              <div className="text-gray-500">Sales Total</div>
+              <div className="text-muted-foreground">Sales Total</div>
               <div className="text-right font-medium">{formatMoney(summary.salesTotal)}</div>
-              <div className="text-gray-500">Cash Received</div>
+              <div className="text-muted-foreground">Cash Received</div>
               <div className="text-right font-medium">{formatMoney(summary.cashReceived)}</div>
-              <div className="text-gray-500">Card Received</div>
+              <div className="text-muted-foreground">Card Received</div>
               <div className="text-right font-medium">{formatMoney(summary.cardReceived)}</div>
-              <div className="text-gray-500">Tips Collected</div>
+              <div className="text-muted-foreground">Tips Collected</div>
               <div className="text-right font-medium">{formatMoney(summary.tipsCollected)}</div>
-              <div className="text-gray-500">Paid In</div>
+              <div className="text-muted-foreground">Paid In</div>
               <div className="text-right font-medium">{formatMoney(summary.paidInTotal)}</div>
-              <div className="text-gray-500">Paid Out</div>
+              <div className="text-muted-foreground">Paid Out</div>
               <div className="text-right font-medium">{formatMoney(summary.paidOutTotal)}</div>
-              <div className="text-gray-500">Cash Drops</div>
+              <div className="text-muted-foreground">Cash Drops</div>
               <div className="text-right font-medium">{formatMoney(summary.cashDropTotal)}</div>
-              <div className="border-t border-gray-200 col-span-2" />
-              <div className="text-gray-500">Opening Balance</div>
+              <div className="border-t border-border col-span-2" />
+              <div className="text-muted-foreground">Opening Balance</div>
               <div className="text-right font-medium">{formatMoney(summary.openingBalanceCents)}</div>
-              <div className="text-gray-500">Expected Cash</div>
+              <div className="text-muted-foreground">Expected Cash</div>
               <div className="text-right font-medium">{formatMoney(summary.expectedCashCents)}</div>
-              <div className="text-gray-500">Counted Cash</div>
+              <div className="text-muted-foreground">Counted Cash</div>
               <div className="text-right font-medium">{formatMoney(summary.closingCountCents ?? 0)}</div>
-              <div className="text-gray-500 font-semibold">Variance</div>
+              <div className="text-muted-foreground font-semibold">Variance</div>
               <div className={`text-right font-bold ${(summary.varianceCents ?? 0) === 0 ? 'text-green-600' : (summary.varianceCents ?? 0) > 0 ? 'text-blue-600' : 'text-red-600'}`}>
                 {(summary.varianceCents ?? 0) === 0 ? 'Balanced' : formatMoney(summary.varianceCents ?? 0)}
               </div>
@@ -130,7 +130,7 @@ export function CloseShiftDialog({
 
             {summary.salesByDepartment.length > 0 && (
               <div className="mt-4">
-                <h3 className="mb-2 text-sm font-semibold text-gray-500">Sales by Department</h3>
+                <h3 className="mb-2 text-sm font-semibold text-muted-foreground">Sales by Department</h3>
                 {summary.salesByDepartment.map((dept) => (
                   <div key={dept.departmentName} className="flex justify-between text-sm py-0.5">
                     <span>{dept.departmentName}</span>
@@ -151,15 +151,15 @@ export function CloseShiftDialog({
         ) : (
           // ── Cash Count View ───────────────────────────────────────
           <div className="space-y-4">
-            <div className="rounded-lg bg-gray-100/50 p-3 text-center">
-              <div className="text-sm text-gray-500">Opening Balance</div>
+            <div className="rounded-lg bg-muted p-3 text-center">
+              <div className="text-sm text-muted-foreground">Opening Balance</div>
               <div className="text-lg font-semibold">{formatMoney(openingBalanceCents)}</div>
             </div>
 
             <button
               type="button"
               onClick={() => setShowDenominations(!showDenominations)}
-              className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
+              className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
             >
               <span>Count by Denomination</span>
               {showDenominations ? (
@@ -178,7 +178,7 @@ export function CloseShiftDialog({
                       <button
                         type="button"
                         onClick={() => updateCount(d.value, -1)}
-                        className="h-8 w-8 rounded-lg border border-gray-300 text-sm font-bold transition-colors hover:bg-gray-100"
+                        className="h-8 w-8 rounded-lg border border-input text-sm font-bold transition-colors hover:bg-accent"
                       >
                         −
                       </button>
@@ -188,11 +188,11 @@ export function CloseShiftDialog({
                       <button
                         type="button"
                         onClick={() => updateCount(d.value, 1)}
-                        className="h-8 w-8 rounded-lg border border-gray-300 text-sm font-bold transition-colors hover:bg-gray-100"
+                        className="h-8 w-8 rounded-lg border border-input text-sm font-bold transition-colors hover:bg-accent"
                       >
                         +
                       </button>
-                      <span className="w-20 text-right text-sm text-gray-500">
+                      <span className="w-20 text-right text-sm text-muted-foreground">
                         {formatMoney((counts[d.value] ?? 0) * d.value)}
                       </span>
                     </div>
@@ -201,13 +201,13 @@ export function CloseShiftDialog({
               </div>
             )}
 
-            <div className="rounded-lg bg-indigo-50 p-3 text-center">
-              <div className="text-sm text-indigo-600">Counted Cash</div>
-              <div className="text-2xl font-bold text-indigo-700">{formatMoney(totalCents)}</div>
+            <div className="rounded-lg bg-indigo-500/10 p-3 text-center">
+              <div className="text-sm text-indigo-400">Counted Cash</div>
+              <div className="text-2xl font-bold text-indigo-400">{formatMoney(totalCents)}</div>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-gray-500">
+              <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
                 Notes (optional)
               </label>
               <textarea
@@ -215,7 +215,7 @@ export function CloseShiftDialog({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Any notes about this shift..."
                 rows={2}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
+                className="w-full rounded-lg border border-input px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
               />
             </div>
 
@@ -223,7 +223,7 @@ export function CloseShiftDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-100/50"
+                className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
               >
                 Cancel
               </button>

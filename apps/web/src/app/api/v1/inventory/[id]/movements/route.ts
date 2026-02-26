@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { getMovements } from '@oppsera/module-inventory';
+import { parseLimit } from '@/lib/api-params';
 
 function extractItemId(request: NextRequest): string {
   const parts = new URL(request.url).pathname.split('/');
@@ -19,7 +20,7 @@ export const GET = withMiddleware(
       movementType: url.searchParams.get('movementType') ?? undefined,
       source: url.searchParams.get('source') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) || undefined : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     return NextResponse.json({
       data: result.movements,

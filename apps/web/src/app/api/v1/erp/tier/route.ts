@@ -116,5 +116,5 @@ export const POST = withMiddleware(
       },
     });
   },
-  { entitlement: 'platform_core', permission: 'settings.manage', writeAccess: true },
+  { entitlement: 'platform_core', permission: 'settings.update', writeAccess: true },
 );

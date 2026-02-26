@@ -56,7 +56,7 @@ export default function BillDetailContent() {
   if (isLoading) {
     return (
       <AccountingPageShell title="Bill" breadcrumbs={[{ label: 'AP Bills', href: '/ap/bills' }, { label: 'Loading...' }]}>
-        <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-lg bg-gray-100" />)}</div>
+        <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />)}</div>
       </AccountingPageShell>
     );
   }
@@ -64,7 +64,7 @@ export default function BillDetailContent() {
   if (!bill) {
     return (
       <AccountingPageShell title="Bill" breadcrumbs={[{ label: 'AP Bills', href: '/ap/bills' }, { label: 'Not Found' }]}>
-        <div className="text-center py-12 text-gray-500">Bill not found.</div>
+        <div className="text-center py-12 text-muted-foreground">Bill not found.</div>
       </AccountingPageShell>
     );
   }
@@ -82,7 +82,7 @@ export default function BillDetailContent() {
             <>
               <Link
                 href={`/ap/bills/new?edit=${bill.id}`}
-                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 <Pencil className="h-4 w-4" />
                 Edit
@@ -102,7 +102,7 @@ export default function BillDetailContent() {
             <button
               type="button"
               onClick={() => setShowVoidDialog(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10"
             >
               <XCircle className="h-4 w-4" />
               Void
@@ -112,87 +112,87 @@ export default function BillDetailContent() {
       }
     >
       {/* Header */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-5 space-y-4">
+      <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
         <div className="flex flex-wrap items-center gap-3">
           <StatusBadge status={bill.status} />
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Vendor</p>
-            <p className="mt-1 text-sm font-medium text-gray-900">{bill.vendorName ?? '—'}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Vendor</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{bill.vendorName ?? '—'}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Bill Date</p>
-            <p className="mt-1 text-sm text-gray-900">{bill.billDate}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Bill Date</p>
+            <p className="mt-1 text-sm text-foreground">{bill.billDate}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Due Date</p>
-            <p className="mt-1 text-sm text-gray-900">{bill.dueDate}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Due Date</p>
+            <p className="mt-1 text-sm text-foreground">{bill.dueDate}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Created</p>
-            <p className="mt-1 text-sm text-gray-900">{new Date(bill.createdAt).toLocaleDateString()}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Created</p>
+            <p className="mt-1 text-sm text-foreground">{new Date(bill.createdAt).toLocaleDateString()}</p>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Total</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{formatAccountingMoney(bill.totalAmount)}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-foreground">{formatAccountingMoney(bill.totalAmount)}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Tax</p>
-            <p className="mt-1 text-lg font-bold tabular-nums text-gray-900">{formatAccountingMoney(bill.taxAmount)}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax</p>
+            <p className="mt-1 text-lg font-bold tabular-nums text-foreground">{formatAccountingMoney(bill.taxAmount)}</p>
           </div>
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Balance Due</p>
-            <p className={`mt-1 text-lg font-bold tabular-nums ${Number(bill.balanceDue) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Balance Due</p>
+            <p className={`mt-1 text-lg font-bold tabular-nums ${Number(bill.balanceDue) > 0 ? 'text-red-500' : 'text-green-500'}`}>
               {formatAccountingMoney(bill.balanceDue)}
             </p>
           </div>
         </div>
         {bill.memo && (
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Memo</p>
-            <p className="mt-1 text-sm text-gray-900">{bill.memo}</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Memo</p>
+            <p className="mt-1 text-sm text-foreground">{bill.memo}</p>
           </div>
         )}
       </div>
 
       {/* Lines */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Bill Lines</h2>
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Bill Lines</h2>
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Account</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Description</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Qty</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Unit Cost</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Amount</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Account</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Qty</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Unit Cost</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Amount</th>
                 </tr>
               </thead>
               <tbody>
                 {bill.lines.map((line) => (
-                  <tr key={line.id} className="border-b border-gray-100 last:border-0">
-                    <td className="px-4 py-3 text-sm capitalize text-gray-700">{line.lineType}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {line.glAccountNumber && <span className="mr-1 font-mono text-xs text-gray-500">{line.glAccountNumber}</span>}
+                  <tr key={line.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 text-sm capitalize text-foreground">{line.lineType}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">
+                      {line.glAccountNumber && <span className="mr-1 font-mono text-xs text-muted-foreground">{line.glAccountNumber}</span>}
                       {line.glAccountName ?? '—'}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500">{line.description ?? '—'}</td>
-                    <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-700">{line.quantity}</td>
-                    <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-700">{formatAccountingMoney(line.unitCost)}</td>
-                    <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-gray-900">{formatAccountingMoney(line.amount)}</td>
+                    <td className="px-4 py-3 text-sm text-muted-foreground">{line.description ?? '—'}</td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{line.quantity}</td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{formatAccountingMoney(line.unitCost)}</td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-foreground">{formatAccountingMoney(line.amount)}</td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t border-gray-300 bg-gray-50 font-semibold">
-                  <td colSpan={5} className="px-4 py-3 text-sm text-gray-700">Total</td>
-                  <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-900">{formatAccountingMoney(bill.totalAmount)}</td>
+                <tr className="border-t border-border bg-muted font-semibold">
+                  <td colSpan={5} className="px-4 py-3 text-sm text-foreground">Total</td>
+                  <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{formatAccountingMoney(bill.totalAmount)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -200,13 +200,13 @@ export default function BillDetailContent() {
           {/* Mobile */}
           <div className="space-y-3 p-4 md:hidden">
             {bill.lines.map((line) => (
-              <div key={line.id} className="rounded border border-gray-100 p-3 space-y-1">
+              <div key={line.id} className="rounded border border-border p-3 space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="capitalize text-gray-500">{line.lineType}</span>
+                  <span className="capitalize text-muted-foreground">{line.lineType}</span>
                   <span className="font-medium tabular-nums">{formatAccountingMoney(line.amount)}</span>
                 </div>
-                <p className="text-sm text-gray-900">{line.glAccountName ?? line.glAccountId}</p>
-                {line.description && <p className="text-xs text-gray-500">{line.description}</p>}
+                <p className="text-sm text-foreground">{line.glAccountName ?? line.glAccountId}</p>
+                {line.description && <p className="text-xs text-muted-foreground">{line.description}</p>}
               </div>
             ))}
           </div>
@@ -215,7 +215,7 @@ export default function BillDetailContent() {
 
       <Link
         href="/ap/bills"
-        className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700"
+        className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to AP Bills
@@ -225,21 +225,21 @@ export default function BillDetailContent() {
       {showVoidDialog && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowVoidDialog(false)} />
-          <div className="relative z-10 w-full max-w-md rounded-lg border border-gray-200 bg-surface p-6 shadow-xl space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Void Bill</h3>
-            <p className="text-sm text-gray-500">This will create a reversal GL entry. This cannot be undone.</p>
+          <div className="relative z-10 w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Void Bill</h3>
+            <p className="text-sm text-muted-foreground">This will create a reversal GL entry. This cannot be undone.</p>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-foreground mb-1">Reason <span className="text-red-500">*</span></label>
               <textarea
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
                 rows={3}
                 placeholder="Reason for voiding..."
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowVoidDialog(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button type="button" onClick={() => setShowVoidDialog(false)} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">Cancel</button>
               <button
                 type="button"
                 onClick={handleVoid}

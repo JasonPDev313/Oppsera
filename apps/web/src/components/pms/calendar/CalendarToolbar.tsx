@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   CalendarDays,
   ChevronLeft,
@@ -11,21 +11,24 @@ import {
   Printer,
   Search,
   X,
+  Zap,
 } from 'lucide-react';
-import type { ViewRange, CalendarFilters, CalendarRoom, CalendarSegment } from './types';
-import { formatWeekRange, formatDateLong } from './types';
+import type { ViewRange, ViewMode, CalendarFilters, CalendarRoom, CalendarSegment } from './types';
+import { formatWeekRange, formatDateLong, formatDate } from './types';
+import DateJumpPicker from './DateJumpPicker';
 
 interface CalendarToolbarProps {
   viewRange: ViewRange;
   onViewRangeChange: (range: ViewRange) => void;
-  viewMode: 'grid' | 'day';
-  onViewModeChange: (mode: 'grid' | 'day') => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
   weekStart: Date;
   selectedDate: string;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
   onDateClick?: (date: string) => void;
+  onDateJump: (date: string) => void;
   properties: { id: string; name: string }[];
   propertyId: string;
   onPropertyChange: (id: string) => void;
@@ -36,8 +39,8 @@ interface CalendarToolbarProps {
   rooms: CalendarRoom[];
   segments: CalendarSegment[];
   lastUpdatedAt: string | null;
-  pageView?: 'calendar' | 'list';
-  onPageViewChange?: (view: 'calendar' | 'list') => void;
+  pageView?: 'quick' | 'calendar' | 'list';
+  onPageViewChange?: (view: 'quick' | 'calendar' | 'list') => void;
   onNewReservation?: () => void;
 }
 
@@ -51,6 +54,7 @@ export default function CalendarToolbar({
   onPrev,
   onNext,
   onToday,
+  onDateJump,
   properties,
   propertyId,
   onPropertyChange,
@@ -66,6 +70,12 @@ export default function CalendarToolbar({
 }: CalendarToolbarProps) {
   const [showFilters, setShowFilters] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
+
+  // Compute the date value for the picker
+  const pickerValue = useMemo(() => {
+    if (pageView === 'calendar' && viewMode === 'day') return selectedDate;
+    return formatDate(weekStart); // quick view + grid both use weekStart
+  }, [pageView, viewMode, weekStart, selectedDate]);
 
   useEffect(() => {
     if (!showFilters) return;
@@ -114,61 +124,61 @@ export default function CalendarToolbar({
       {/* Row 1: View controls + property + search */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          {/* Calendar / List page-level toggle */}
+          {/* Quick View / Calendar / List page-level toggle */}
           {pageView && onPageViewChange && (
-            <div className="flex rounded-lg border border-gray-200 bg-surface">
-              <button
-                onClick={() => onPageViewChange('calendar')}
-                className={`flex items-center gap-1.5 rounded-l-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  pageView === 'calendar' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
-                }`}
-              >
-                <CalendarDays className="h-3.5 w-3.5" />
-                Calendar
-              </button>
-              <button
-                onClick={() => onPageViewChange('list')}
-                className={`flex items-center gap-1.5 rounded-r-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  pageView === 'list' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
-                }`}
-              >
-                <List className="h-3.5 w-3.5" />
-                List
-              </button>
+            <div className="flex rounded-lg border border-border bg-surface">
+              {([
+                { view: 'quick' as const, label: 'Quick View', Icon: Zap },
+                { view: 'calendar' as const, label: 'Calendar', Icon: CalendarDays },
+                { view: 'list' as const, label: 'List', Icon: List },
+              ]).map(({ view, label, Icon }, i) => (
+                <button
+                  key={view}
+                  onClick={() => onPageViewChange(view)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                    i === 0 ? 'rounded-l-lg' : ''
+                  }${i === 2 ? 'rounded-r-lg' : ''} ${
+                    pageView === view ? 'bg-indigo-600 text-white' : 'text-muted-foreground hover:bg-accent/50'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Grid / Day toggle (calendar view only) */}
-          {(!pageView || pageView === 'calendar') && (
-            <div className="flex rounded-lg border border-gray-200 bg-surface">
-              <button
-                onClick={() => onViewModeChange('grid')}
-                className={`rounded-l-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
-                }`}
-              >
-                Grid
-              </button>
-              <button
-                onClick={() => onViewModeChange('day')}
-                className={`rounded-r-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  viewMode === 'day' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
-                }`}
-              >
-                Day
-              </button>
+          {/* View mode toggle (calendar page only) */}
+          {pageView === 'calendar' && (
+            <div className="flex rounded-lg border border-border bg-surface">
+              {([
+                { mode: 'day' as const, label: 'Summary' },
+                { mode: 'grid' as const, label: 'Full grid' },
+              ]).map(({ mode, label }, i) => (
+                <button
+                  key={mode}
+                  onClick={() => onViewModeChange(mode)}
+                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                    i === 0 ? 'rounded-l-lg' : ''
+                  }${i === 1 ? 'rounded-r-lg' : ''} ${
+                    viewMode === mode ? 'bg-indigo-600 text-white' : 'text-muted-foreground hover:bg-accent/50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           )}
 
-          {/* Range selector (only in grid mode within calendar view) */}
-          {(!pageView || pageView === 'calendar') && viewMode === 'grid' && (
-            <div className="flex rounded-lg border border-gray-200 bg-surface">
+          {/* Range selector (quick view + grid mode) */}
+          {(pageView === 'quick' || (pageView === 'calendar' && viewMode === 'grid')) && (
+            <div className="flex rounded-lg border border-border bg-surface">
               {([7, 14, 30] as ViewRange[]).map((r) => (
                 <button
                   key={r}
                   onClick={() => onViewRangeChange(r)}
                   className={`px-2.5 py-1.5 text-xs font-medium transition-colors first:rounded-l-lg last:rounded-r-lg ${
-                    viewRange === r ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-200/50'
+                    viewRange === r ? 'bg-indigo-600 text-white' : 'text-muted-foreground hover:bg-accent/50'
                   }`}
                 >
                   {r}d
@@ -181,20 +191,21 @@ export default function CalendarToolbar({
         <div className="flex items-center gap-2">
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={filters.search}
               onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
               placeholder="Search rooms or guests..."
-              className="w-48 rounded-lg border border-gray-200 bg-surface py-1.5 pl-8 pr-3 text-xs text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-48 rounded-lg border border-border bg-surface py-1.5 pl-8 pr-3 text-xs text-foreground placeholder-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             {filters.search && (
               <button
                 onClick={() => onFiltersChange({ ...filters, search: '' })}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3 w-3" aria-hidden="true" />
               </button>
             )}
           </div>
@@ -205,8 +216,8 @@ export default function CalendarToolbar({
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                 hasActiveFilters
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                  : 'border-gray-200 bg-surface text-gray-600 hover:bg-gray-200/50'
+                  ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400'
+                  : 'border-border bg-surface text-muted-foreground hover:bg-accent/50'
               }`}
             >
               <Filter className="h-3.5 w-3.5" />
@@ -219,9 +230,9 @@ export default function CalendarToolbar({
             </button>
 
             {showFilters && (
-              <div className="absolute right-0 top-full z-30 mt-1 w-72 rounded-lg border border-gray-200 bg-surface p-3 shadow-lg">
+              <div className="absolute right-0 top-full z-30 mt-1 w-72 rounded-lg border border-border bg-surface p-3 shadow-lg">
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-xs font-medium text-gray-700">Filters</span>
+                  <span className="text-xs font-medium text-foreground">Filters</span>
                   {hasActiveFilters && (
                     <button onClick={clearFilters} className="text-[10px] text-indigo-600 hover:underline">
                       Clear all
@@ -289,8 +300,8 @@ export default function CalendarToolbar({
             onClick={onToggleLegend}
             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
               showLegend
-                ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-                : 'border-gray-200 bg-surface text-gray-600 hover:bg-gray-200/50'
+                ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-400'
+                : 'border-border bg-surface text-muted-foreground hover:bg-accent/50'
             }`}
           >
             Legend
@@ -299,10 +310,11 @@ export default function CalendarToolbar({
           {/* Print */}
           <button
             onClick={() => window.print()}
-            className="rounded-lg border border-gray-200 bg-surface p-1.5 text-gray-600 hover:bg-gray-200/50 print:hidden"
+            className="rounded-lg border border-border bg-surface p-1.5 text-muted-foreground hover:bg-accent/50 print:hidden"
             title="Print calendar"
+            aria-label="Print calendar"
           >
-            <Printer className="h-3.5 w-3.5" />
+            <Printer className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
 
           {/* New Reservation */}
@@ -321,7 +333,7 @@ export default function CalendarToolbar({
             <select
               value={propertyId}
               onChange={(e) => onPropertyChange(e.target.value)}
-              className="rounded-lg border border-gray-200 bg-surface px-3 py-1.5 text-xs text-gray-900"
+              className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs text-foreground"
             >
               {properties.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -333,24 +345,26 @@ export default function CalendarToolbar({
         </div>
       </div>
 
-      {/* Row 2: Date navigation (calendar view only) */}
-      {(!pageView || pageView === 'calendar') && <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface px-4 py-1.5">
-        <button onClick={onPrev} className="rounded-md p-1 text-gray-600 hover:bg-gray-200/50">
-          <ChevronLeft className="h-4 w-4" />
+      {/* Row 2: Date navigation (quick view + calendar, not list) */}
+      {pageView !== 'list' && <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-1.5">
+        <button onClick={onPrev} className="rounded-md p-1 text-muted-foreground hover:bg-accent/50" aria-label="Previous">
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
         </button>
         <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-gray-900">
-            {viewMode === 'grid' ? formatWeekRange(weekStart, viewRange) : formatDateLong(selectedDate)}
-          </span>
+          <DateJumpPicker value={pickerValue} onSelect={onDateJump}>
+            <span className="text-sm font-medium text-foreground">
+              {pageView === 'calendar' && viewMode === 'day' ? formatDateLong(selectedDate) : formatWeekRange(weekStart, viewRange)}
+            </span>
+          </DateJumpPicker>
           <button
             onClick={onToday}
-            className="rounded-md border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-600 hover:bg-gray-200/50"
+            className="rounded-md border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground hover:bg-accent/50"
           >
             Today
           </button>
         </div>
-        <button onClick={onNext} className="rounded-md p-1 text-gray-600 hover:bg-gray-200/50">
-          <ChevronRight className="h-4 w-4" />
+        <button onClick={onNext} className="rounded-md p-1 text-muted-foreground hover:bg-accent/50" aria-label="Next">
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>}
     </div>
@@ -362,7 +376,7 @@ export default function CalendarToolbar({
 function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">{title}</div>
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{title}</div>
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -378,8 +392,8 @@ function FilterCheckbox({
   onChange: () => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-gray-700 hover:bg-gray-100/50">
-      <input type="checkbox" checked={checked} onChange={onChange} className="h-3 w-3 rounded border-gray-300 text-indigo-600" />
+    <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs text-foreground hover:bg-accent/50">
+      <input type="checkbox" checked={checked} onChange={onChange} className="h-3 w-3 rounded border-input text-indigo-600" />
       {label}
     </label>
   );

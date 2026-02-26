@@ -7,6 +7,7 @@ import {
   generateStatement,
   generateStatementSchema,
 } from '@oppsera/module-membership';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -18,9 +19,7 @@ export const GET = withMiddleware(
       membershipAccountId: accountId,
       status: url.searchParams.get('status') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit')
-        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({

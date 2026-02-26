@@ -405,7 +405,7 @@ export function RegisterTabs({
 
   return (
     <>
-      <div className="flex shrink-0 items-center border-b border-gray-200 bg-gray-50">
+      <div className="flex shrink-0 items-center border-b border-border bg-muted">
         {/* Left scroll arrow */}
         {canScrollLeft && (
           <button
@@ -442,8 +442,8 @@ export function RegisterTabs({
                   isActive
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : hasOrder
-                      ? 'bg-surface border border-gray-200 text-gray-900 hover:border-indigo-300 hover:bg-indigo-50'
-                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                      ? 'bg-surface border border-border text-foreground hover:border-indigo-300 hover:bg-indigo-500/10'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
                 {/* Occupied dot indicator (non-active tabs with orders) */}
@@ -521,7 +521,7 @@ export function RegisterTabs({
               onClick={() =>
                 openRename(contextMenu.tabNumber, contextMenu.x, contextMenu.y)
               }
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
             >
               <Pencil className="h-4 w-4 text-gray-400" />
               Rename Tab
@@ -532,7 +532,7 @@ export function RegisterTabs({
               <button
                 type="button"
                 onClick={handleDetachCustomer}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
               >
                 <UserMinus className="h-4 w-4 text-gray-400" />
                 Detach Customer
@@ -552,7 +552,7 @@ export function RegisterTabs({
                     contextMenu.y,
                   )
                 }
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
               >
                 <UserPlus className="h-4 w-4 text-gray-400" />
                 Attach Customer
@@ -567,7 +567,7 @@ export function RegisterTabs({
                   onViewProfile(customerId);
                   setContextMenu(null);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
               >
                 <Eye className="h-4 w-4 text-gray-400" />
                 View Profile
@@ -582,7 +582,7 @@ export function RegisterTabs({
                   onAddNewCustomer();
                   setContextMenu(null);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
               >
                 <UserPlus className="h-4 w-4 text-gray-400" />
                 Add New Customer
@@ -600,7 +600,7 @@ export function RegisterTabs({
                     contextMenu.y,
                   )
                 }
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
               >
                 <UserCog className="h-4 w-4 text-gray-400" />
                 Change Server
@@ -617,7 +617,7 @@ export function RegisterTabs({
                     onSaveTab(contextMenu.tabNumber);
                     setContextMenu(null);
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-indigo-50"
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
                 >
                   <Archive className="h-4 w-4 text-gray-400" />
                   Save Tab
@@ -635,7 +635,7 @@ export function RegisterTabs({
                     onCloseTab(contextMenu.tabNumber);
                     setContextMenu(null);
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50"
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-500 transition-colors hover:bg-red-500/10"
                 >
                   <X className="h-4 w-4 text-red-400" />
                   Close Tab
@@ -745,13 +745,13 @@ export function RegisterTabs({
                     key={customer.id}
                     type="button"
                     onClick={() => handleSelectCustomer(customer)}
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-indigo-50"
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
                       {customer.displayName.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900">
+                      <p className="truncate text-sm font-medium text-foreground">
                         {customer.displayName}
                       </p>
                       <p className="truncate text-xs text-gray-500">
@@ -829,13 +829,13 @@ export function RegisterTabs({
                     key={member.id}
                     type="button"
                     onClick={() => handleSelectServer(member)}
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-indigo-50"
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-xs font-semibold text-indigo-500">
                       {member.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-gray-900">{member.name}</p>
+                      <p className="truncate text-sm font-medium text-foreground">{member.name}</p>
                       <p className="truncate text-xs text-gray-500">{member.email}</p>
                     </div>
                   </button>

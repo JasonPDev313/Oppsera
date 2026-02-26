@@ -4,7 +4,7 @@ import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { AppError, generateUlid } from '@oppsera/shared';
 import { paymentProviders, paymentProviderCredentials, paymentMerchantAccounts, terminalMerchantAssignments } from '@oppsera/db';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import type {
   CreateProviderInput,
   UpdateProviderInput,
@@ -136,7 +136,7 @@ export async function saveProviderCredentials(ctx: RequestContext, input: SaveCr
           eq(paymentProviderCredentials.providerId, input.providerId),
           input.locationId
             ? eq(paymentProviderCredentials.locationId, input.locationId)
-            : eq(paymentProviderCredentials.locationId, ''),
+            : isNull(paymentProviderCredentials.locationId),
         ),
       )
       .limit(1);

@@ -33,14 +33,14 @@ export function OpenShiftDialog({ open, onClose, onOpen }: OpenShiftDialogProps)
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="open-shift-dialog-title">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div
         ref={contentRef}
         className="relative z-10 w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Open Shift</h2>
+          <h2 id="open-shift-dialog-title" className="text-lg font-semibold">Open Shift</h2>
           <button
             type="button"
             onClick={onClose}
@@ -52,7 +52,7 @@ export function OpenShiftDialog({ open, onClose, onOpen }: OpenShiftDialogProps)
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-500">
+            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
               Opening Balance (cash in drawer)
             </label>
             <CurrencyInput
@@ -63,7 +63,7 @@ export function OpenShiftDialog({ open, onClose, onOpen }: OpenShiftDialogProps)
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-500">
+            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">
               Change Fund (optional separate float)
             </label>
             <CurrencyInput
@@ -77,7 +77,7 @@ export function OpenShiftDialog({ open, onClose, onOpen }: OpenShiftDialogProps)
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-100/50"
+              className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
             >
               Cancel
             </button>

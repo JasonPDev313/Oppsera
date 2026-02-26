@@ -22,10 +22,10 @@ const SKELETON_WIDTHS = ['70%', '85%', '60%', '75%', '65%', '80%', '55%'];
 
 function SkeletonRow({ colCount }: { colCount: number }) {
   return (
-    <tr className="border-b border-gray-100">
+    <tr className="border-b border-border">
       {Array.from({ length: colCount }).map((_, i) => (
         <td key={i} className="px-4 py-3">
-          <div className="h-4 animate-pulse rounded bg-gray-200" style={{ width: SKELETON_WIDTHS[i % SKELETON_WIDTHS.length] }} />
+          <div className="h-4 animate-pulse rounded bg-muted" style={{ width: SKELETON_WIDTHS[i % SKELETON_WIDTHS.length] }} />
         </td>
       ))}
     </tr>
@@ -43,16 +43,17 @@ export function DataTable<T extends Record<string, unknown>>({
 }: DataTableProps<T>) {
   if (isLoading) {
     return (
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+      <div className="overflow-hidden rounded-lg border border-border bg-surface" role="status" aria-busy="true" aria-label="Loading data">
         {/* Desktop skeleton */}
         <div className="hidden md:block">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
+              <tr className="border-b border-border bg-muted">
                 {columns.map((col) => (
                   <th
                     key={col.key}
-                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500"
+                    scope="col"
+                    className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground"
                     style={col.width ? { width: col.width } : undefined}
                   >
                     {col.header}
@@ -70,10 +71,10 @@ export function DataTable<T extends Record<string, unknown>>({
         {/* Mobile skeleton */}
         <div className="space-y-3 p-4 md:hidden">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="space-y-2 rounded-lg border border-gray-100 p-4">
-              <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-gray-200" />
-              <div className="h-3 w-1/3 animate-pulse rounded bg-gray-200" />
+            <div key={i} className="space-y-2 rounded-lg border border-border p-4">
+              <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-1/3 animate-pulse rounded bg-muted" />
             </div>
           ))}
         </div>
@@ -83,8 +84,8 @@ export function DataTable<T extends Record<string, unknown>>({
 
   if (data.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
-        <p className="text-sm text-gray-500">{emptyMessage}</p>
+      <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+        <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         {emptyAction && (
           <button
             type="button"
@@ -99,16 +100,17 @@ export function DataTable<T extends Record<string, unknown>>({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface">
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
+            <tr className="border-b border-border bg-muted">
               {columns.map((col) => (
                 <th
                   key={col.key}
-                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500"
+                  scope="col"
+                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground"
                   style={col.width ? { width: col.width } : undefined}
                 >
                   {col.header}
@@ -121,12 +123,15 @@ export function DataTable<T extends Record<string, unknown>>({
               <tr
                 key={(row.id as string) ?? idx}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`border-b border-gray-100 transition-colors last:border-0 ${
-                  onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''
+                onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row); } } : undefined}
+                tabIndex={onRowClick ? 0 : undefined}
+                role={onRowClick ? 'button' : undefined}
+                className={`border-b border-border transition-colors last:border-0 ${
+                  onRowClick ? 'cursor-pointer hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500' : ''
                 } ${rowClassName ? rowClassName(row) : ''}`}
               >
                 {columns.map((col) => (
-                  <td key={col.key} className="px-4 py-3 text-sm text-gray-900">
+                  <td key={col.key} className="px-4 py-3 text-sm text-foreground">
                     {col.render ? col.render(row) : (row[col.key] as React.ReactNode)}
                   </td>
                 ))}
@@ -142,14 +147,17 @@ export function DataTable<T extends Record<string, unknown>>({
           <div
             key={(row.id as string) ?? idx}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
-            className={`rounded-lg border border-gray-100 p-4 ${
-              onRowClick ? 'cursor-pointer hover:bg-gray-50' : ''
+            onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row); } } : undefined}
+            tabIndex={onRowClick ? 0 : undefined}
+            role={onRowClick ? 'button' : undefined}
+            className={`rounded-lg border border-border p-4 ${
+              onRowClick ? 'cursor-pointer hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500' : ''
             } ${rowClassName ? rowClassName(row) : ''}`}
           >
             {columns.map((col) => (
               <div key={col.key} className="flex items-baseline justify-between py-1">
-                <span className="text-xs font-medium text-gray-500">{col.header}</span>
-                <span className="text-sm text-gray-900">
+                <span className="text-xs font-medium text-muted-foreground">{col.header}</span>
+                <span className="text-sm text-foreground">
                   {col.render ? col.render(row) : (row[col.key] as React.ReactNode)}
                 </span>
               </div>

@@ -13,11 +13,11 @@ interface LoadingSpinnerProps {
 
 export function LoadingSpinner({ size = 'md', label }: LoadingSpinnerProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-3">
+    <div role="status" aria-label={label || 'Loading'} className="flex flex-col items-center justify-center gap-3">
       <div
-        className={`animate-spin rounded-full border-gray-200 border-t-indigo-600 ${sizeClasses[size]}`}
+        className={`animate-spin rounded-full border-muted border-t-indigo-600 ${sizeClasses[size]}`}
       />
-      {label && <p className="text-sm text-gray-500">{label}</p>}
+      {label && <p className="text-sm text-muted-foreground" aria-hidden="true">{label}</p>}
     </div>
   );
 }

@@ -29,7 +29,7 @@ export function TaxMappingTable({ mappings, taxGroups, onChange }: TaxMappingTab
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200 text-left dark:border-gray-700">
+          <tr className="border-b border-border text-left">
             <th className="px-3 py-2 font-medium">Legacy Column</th>
             <th className="px-3 py-2 font-medium">Detected Rate</th>
             <th className="px-3 py-2 font-medium">OppsEra Tax Group</th>
@@ -40,9 +40,9 @@ export function TaxMappingTable({ mappings, taxGroups, onChange }: TaxMappingTab
         </thead>
         <tbody>
           {mappings.map((m) => (
-            <tr key={m.id} className="border-b border-gray-100 dark:border-gray-800">
+            <tr key={m.id} className="border-b border-border">
               <td className="px-3 py-2 font-mono text-xs">{m.legacyColumn}</td>
-              <td className="px-3 py-2 text-gray-500">
+              <td className="px-3 py-2 text-muted-foreground">
                 {m.legacyRate != null ? `${m.legacyRate}%` : '-'}
               </td>
               <td className="px-3 py-2">
@@ -71,8 +71,8 @@ export function TaxMappingTable({ mappings, taxGroups, onChange }: TaxMappingTab
                   onClick={() => onChange(m.id, { isConfirmed: !m.isConfirmed })}
                   className={`rounded p-1 ${
                     m.isConfirmed
-                      ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30'
-                      : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      ? 'text-green-500 hover:bg-green-500/10'
+                      : 'text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   {m.isConfirmed ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
@@ -84,7 +84,7 @@ export function TaxMappingTable({ mappings, taxGroups, onChange }: TaxMappingTab
       </table>
 
       {mappings.length === 0 && (
-        <p className="py-6 text-center text-sm text-gray-500">
+        <p className="py-6 text-center text-sm text-muted-foreground">
           No tax columns detected. You can skip this step.
         </p>
       )}

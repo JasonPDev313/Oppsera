@@ -22,7 +22,7 @@ function OfflineBanner({ queueCount }: { queueCount: number }) {
         color: '#ffffff',
       }}
     >
-      <WifiOff className="h-4 w-4" />
+      <WifiOff className="h-4 w-4" aria-hidden="true" />
       <span className="text-xs font-bold">
         OFFLINE MODE
         {queueCount > 0 && ` — ${queueCount} action${queueCount > 1 ? 's' : ''} queued`}

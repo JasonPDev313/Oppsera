@@ -21,27 +21,27 @@ export function TagTable({ tags, isLoading, onEdit, onArchive, onUnarchive, onVi
 
   if (tags.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-        <p className="text-sm text-gray-500">No tags found</p>
+      <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+        <p className="text-sm text-muted-foreground">No tags found</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-gray-200">
+    <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50/50">
-            <th className="px-4 py-3 font-medium text-gray-600">Name</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Type</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Category</th>
-            <th className="px-4 py-3 font-medium text-gray-600 text-right">Customers</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Status</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Created</th>
-            <th className="px-4 py-3 font-medium text-gray-600 text-right">Actions</th>
+          <tr className="border-b border-border bg-muted/50">
+            <th className="px-4 py-3 font-medium text-muted-foreground">Name</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Type</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Category</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground text-right">Customers</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Created</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-border/50">
           {tags.map((tag) => (
             <TagRow
               key={tag.id}
@@ -110,29 +110,29 @@ function TagRow({
   ];
 
   return (
-    <tr className="transition-colors hover:bg-gray-50/50">
+    <tr className="transition-colors hover:bg-accent/50">
       <td className="px-4 py-3">
         <div className="flex items-center gap-2.5">
           <span
             className="inline-block h-3 w-3 shrink-0 rounded-full"
             style={{ backgroundColor: tag.color }}
           />
-          <span className="font-medium text-gray-900">{tag.name}</span>
+          <span className="font-medium text-foreground">{tag.name}</span>
         </div>
       </td>
       <td className="px-4 py-3">
         <TypeBadge type={tag.tagType} />
       </td>
-      <td className="px-4 py-3 text-gray-600 capitalize">
+      <td className="px-4 py-3 text-muted-foreground capitalize">
         {tag.category ?? '\u2014'}
       </td>
-      <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+      <td className="px-4 py-3 text-right tabular-nums text-foreground">
         {tag.customerCount.toLocaleString()}
       </td>
       <td className="px-4 py-3">
         <StatusBadge isArchived={isArchived} />
       </td>
-      <td className="px-4 py-3 text-gray-500">
+      <td className="px-4 py-3 text-muted-foreground">
         {new Date(tag.createdAt).toLocaleDateString()}
       </td>
       <td className="px-4 py-3 text-right">
@@ -145,13 +145,13 @@ function TagRow({
 function TypeBadge({ type }: { type: string }) {
   if (type === 'smart') {
     return (
-      <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-700">
+      <span className="inline-flex items-center rounded-full bg-purple-500/20 px-2.5 py-0.5 text-xs font-medium text-purple-500">
         Smart
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
       Manual
     </span>
   );
@@ -160,13 +160,13 @@ function TypeBadge({ type }: { type: string }) {
 function StatusBadge({ isArchived }: { isArchived: boolean }) {
   if (isArchived) {
     return (
-      <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+      <span className="inline-flex items-center rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-medium text-red-500">
         Archived
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-700">
+    <span className="inline-flex items-center rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs font-medium text-green-500">
       Active
     </span>
   );
@@ -174,45 +174,45 @@ function StatusBadge({ isArchived }: { isArchived: boolean }) {
 
 function LoadingSkeleton() {
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200">
+    <div className="overflow-hidden rounded-lg border border-border">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50/50">
-            <th className="px-4 py-3 font-medium text-gray-600">Name</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Type</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Category</th>
-            <th className="px-4 py-3 font-medium text-gray-600 text-right">Customers</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Status</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Created</th>
-            <th className="px-4 py-3 font-medium text-gray-600 text-right">Actions</th>
+          <tr className="border-b border-border bg-muted/50">
+            <th className="px-4 py-3 font-medium text-muted-foreground">Name</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Type</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Category</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground text-right">Customers</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Created</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-border/50">
           {Array.from({ length: 5 }).map((_, i) => (
             <tr key={i}>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="h-3 w-3 animate-pulse rounded-full bg-gray-200" />
-                  <div className="h-4 w-28 animate-pulse rounded bg-gray-200" />
+                  <div className="h-3 w-3 animate-pulse rounded-full bg-muted" />
+                  <div className="h-4 w-28 animate-pulse rounded bg-muted" />
                 </div>
               </td>
               <td className="px-4 py-3">
-                <div className="h-5 w-16 animate-pulse rounded-full bg-gray-200" />
+                <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
               </td>
               <td className="px-4 py-3">
-                <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
+                <div className="h-4 w-20 animate-pulse rounded bg-muted" />
               </td>
               <td className="px-4 py-3 text-right">
-                <div className="ml-auto h-4 w-10 animate-pulse rounded bg-gray-200" />
+                <div className="ml-auto h-4 w-10 animate-pulse rounded bg-muted" />
               </td>
               <td className="px-4 py-3">
-                <div className="h-5 w-16 animate-pulse rounded-full bg-gray-200" />
+                <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
               </td>
               <td className="px-4 py-3">
-                <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
+                <div className="h-4 w-20 animate-pulse rounded bg-muted" />
               </td>
               <td className="px-4 py-3 text-right">
-                <div className="ml-auto h-6 w-6 animate-pulse rounded bg-gray-200" />
+                <div className="ml-auto h-6 w-6 animate-pulse rounded bg-muted" />
               </td>
             </tr>
           ))}

@@ -1,4 +1,4 @@
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import { db } from '@oppsera/db';
 import { semanticEvalSessions, semanticEvalTurns } from '@oppsera/db';
 import { sql, eq } from 'drizzle-orm';

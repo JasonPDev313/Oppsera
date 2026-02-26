@@ -112,7 +112,7 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
         {(step === 'mapping' || step === 'preview') && (
           <button
             onClick={goBack}
-            className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >
             <ChevronLeft className="w-4 h-4" />
             Back
@@ -170,19 +170,19 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-colors dark:border-gray-600 dark:hover:border-indigo-500/50 dark:hover:bg-indigo-900/10"
+            className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-500/10 transition-colors"
           >
             {step === 'analyzing' ? (
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
                 <p className="text-sm font-medium">Analyzing {fileName}...</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Detecting column types and mappings</p>
+                <p className="text-xs text-muted-foreground">Detecting column types and mappings</p>
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3">
-                <Upload className="w-10 h-10 text-gray-400" />
+                <Upload className="w-10 h-10 text-muted-foreground" />
                 <p className="text-sm font-medium">Drop a CSV file here, or click to browse</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Supports CSV, TSV — up to 10,000 rows</p>
+                <p className="text-xs text-muted-foreground">Supports CSV, TSV — up to 10,000 rows</p>
               </div>
             )}
             <input
@@ -200,7 +200,7 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
             <select
               value={defaultItemType}
               onChange={(e) => setDefaultItemType(e.target.value)}
-              className="w-full max-w-xs text-sm rounded-md border border-gray-300 bg-surface px-3 py-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-gray-600"
+              className="w-full max-w-xs text-sm rounded-md border border-input bg-surface px-3 py-2 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             >
               <option value="retail">Retail</option>
               <option value="food">Food</option>
@@ -209,17 +209,17 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
               <option value="green_fee">Green Fee</option>
               <option value="rental">Rental</option>
             </select>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Used when the file doesn&apos;t include an item type column
             </p>
           </div>
 
-          <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+          <p className="text-xs text-muted-foreground italic">
             You don&apos;t need to clean your file perfectly. We&apos;ll help you match fields automatically.
           </p>
 
           {error && (
-            <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/40 text-red-600 text-sm dark:text-red-400">
+            <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/40 text-red-500 text-sm">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
@@ -233,7 +233,7 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-medium">Column Mapping</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-muted-foreground mt-0.5">
                 We&apos;ve auto-matched your columns. {totalRows.toLocaleString()} rows detected — review and adjust any mappings below.
               </p>
             </div>
@@ -244,10 +244,10 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-md border border-gray-200/50 dark:border-gray-700/50">
+          <div className="overflow-x-auto rounded-md border border-border/50">
             <table className="w-full text-left">
               <thead>
-                <tr className="bg-gray-50/80 text-xs text-gray-500 uppercase tracking-wide dark:bg-gray-800/50">
+                <tr className="bg-muted/80 text-xs text-muted-foreground uppercase tracking-wide">
                   <th className="px-3 py-2 font-medium">Source Column</th>
                   <th className="px-3 py-2 font-medium">Sample Values</th>
                   <th className="px-3 py-2 font-medium text-center">Confidence</th>
@@ -269,13 +269,13 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
           </div>
 
           {!hasName && (
-            <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/40 text-red-600 text-sm dark:text-red-400">
+            <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/40 text-red-500 text-sm">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               Item Name must be mapped to continue
             </div>
           )}
           {!hasPrice && (
-            <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/40 text-red-600 text-sm dark:text-red-400">
+            <div className="flex items-center gap-2 p-3 rounded-md bg-red-500/10 border border-red-500/40 text-red-500 text-sm">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               Price must be mapped to continue
             </div>
@@ -303,18 +303,18 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
           {/* Extra stats pills */}
           <div className="flex flex-wrap gap-2">
             {(stats.newDepartments.length > 0 || stats.newSubDepartments.length > 0 || stats.newCategories.length > 0) && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-700 text-sm dark:text-blue-400">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-500 text-sm">
                 {stats.newDepartments.length + stats.newSubDepartments.length + stats.newCategories.length} categories to auto-create
               </div>
             )}
             {stats.duplicateSkus.length > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-700 text-sm dark:text-yellow-400">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-500 text-sm">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 {stats.duplicateSkus.length} duplicate SKUs
               </div>
             )}
             {warnings.length > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-700 text-sm dark:text-yellow-400">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-500/10 text-yellow-500 text-sm">
                 {warnings.length} warnings
               </div>
             )}
@@ -323,9 +323,9 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
           {/* Duplicate SKU mode */}
           {stats.duplicateSkus.length > 0 && (
             <div className="flex items-center gap-3 p-3 rounded-md bg-yellow-500/10 border border-yellow-500/40">
-              <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0" />
               <div className="flex-1 text-sm">
-                <p className="font-medium text-yellow-700 dark:text-yellow-400">
+                <p className="font-medium text-yellow-500">
                   {stats.duplicateSkus.length} item(s) have SKUs that already exist
                 </p>
                 <div className="flex items-center gap-4 mt-2">
@@ -358,23 +358,23 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
           {errors.length > 0 && (
             <div className="space-y-1 max-h-32 overflow-y-auto">
               {errors.slice(0, 20).map((e, i) => (
-                <div key={i} className="text-xs text-red-600 dark:text-red-400 flex gap-1">
+                <div key={i} className="text-xs text-red-500 flex gap-1">
                   {e.row && <span className="font-medium">Row {e.row}:</span>}
                   <span>{e.message}</span>
                 </div>
               ))}
               {errors.length > 20 && (
-                <div className="text-xs text-gray-500">...and {errors.length - 20} more errors</div>
+                <div className="text-xs text-muted-foreground">...and {errors.length - 20} more errors</div>
               )}
             </div>
           )}
 
           {/* Preview table */}
           {preview.length > 0 && (
-            <div className="overflow-x-auto rounded-md border border-gray-200/50 dark:border-gray-700/50">
+            <div className="overflow-x-auto rounded-md border border-border/50">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="bg-gray-50/80 text-xs text-gray-500 uppercase tracking-wide dark:bg-gray-800/50">
+                  <tr className="bg-muted/80 text-xs text-muted-foreground uppercase tracking-wide">
                     <th className="px-3 py-2">Name</th>
                     <th className="px-3 py-2">SKU</th>
                     <th className="px-3 py-2">Type</th>
@@ -385,12 +385,12 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
                 </thead>
                 <tbody>
                   {preview.map((item, i) => (
-                    <tr key={i} className="border-t border-gray-200/50 dark:border-gray-700/50">
+                    <tr key={i} className="border-t border-border/50">
                       <td className="px-3 py-1.5 truncate max-w-[200px]">{item.name}</td>
                       <td className="px-3 py-1.5 text-xs font-mono">{item.sku ?? '—'}</td>
                       <td className="px-3 py-1.5 text-xs">{item.itemType}</td>
                       <td className="px-3 py-1.5 text-right">${item.defaultPrice.toFixed(2)}</td>
-                      <td className="px-3 py-1.5 text-right text-gray-500">
+                      <td className="px-3 py-1.5 text-right text-muted-foreground">
                         {item.cost != null ? `$${item.cost.toFixed(2)}` : '—'}
                       </td>
                       <td className="px-3 py-1.5 text-xs truncate max-w-[150px]">
@@ -401,7 +401,7 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
                 </tbody>
               </table>
               {stats.validRows > preview.length && (
-                <div className="px-3 py-2 text-xs text-gray-500 border-t border-gray-200/50 dark:border-gray-700/50">
+                <div className="px-3 py-2 text-xs text-muted-foreground border-t border-border/50">
                   Showing {preview.length} of {stats.validRows} items
                 </div>
               )}

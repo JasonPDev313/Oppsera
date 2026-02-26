@@ -64,5 +64,5 @@ export const POST = withMiddleware(
       },
     });
   },
-  { entitlement: 'platform_core', permission: 'settings.manage' },
+  { entitlement: 'platform_core', permission: 'settings.update' },
 );

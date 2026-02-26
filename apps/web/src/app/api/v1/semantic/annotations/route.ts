@@ -4,6 +4,7 @@ import { eq, and, desc, lt, or } from 'drizzle-orm';
 import { z } from 'zod';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { db, semanticAnnotations } from '@oppsera/db';
+import { parseLimit } from '@/lib/api-params';
 import { generateUlid, ValidationError } from '@oppsera/shared';
 
 // ── Validation ────────────────────────────────────────────────────
@@ -28,7 +29,7 @@ export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
     const url = new URL(request.url);
     const metricSlug = url.searchParams.get('metricSlug') ?? undefined;
-    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), 100);
+    const limit = parseLimit(url.searchParams.get('limit'));
     const cursor = url.searchParams.get('cursor') ?? undefined;
 
     const conditions = [

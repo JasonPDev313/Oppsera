@@ -11,13 +11,13 @@ function formatMoney(cents: number): string {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    active: 'bg-green-100 text-green-800',
-    suspended: 'bg-yellow-100 text-yellow-800',
-    frozen: 'bg-blue-100 text-blue-800',
-    terminated: 'bg-red-100 text-red-800',
+    active: 'bg-green-500/10 text-green-500',
+    suspended: 'bg-yellow-500/10 text-yellow-500',
+    frozen: 'bg-blue-500/10 text-blue-500',
+    terminated: 'bg-red-500/10 text-red-500',
   };
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] ?? 'bg-gray-100 text-gray-800'}`}>
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] ?? 'bg-muted text-muted-foreground'}`}>
       {status}
     </span>
   );
@@ -32,10 +32,10 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="p-4 sm:p-6 space-y-4 max-w-5xl mx-auto">
-        <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+        <div className="h-8 w-48 bg-muted rounded animate-pulse" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-32 bg-gray-200 rounded-lg animate-pulse" />
+            <div key={i} className="h-32 bg-muted rounded-lg animate-pulse" />
           ))}
         </div>
       </div>
@@ -45,8 +45,8 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">Unable to load your membership information. {error}</p>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+          <p className="text-red-500">Unable to load your membership information. {error}</p>
         </div>
       </div>
     );
@@ -56,7 +56,7 @@ export default function DashboardPage() {
     return (
       <div className="p-4 sm:p-6 max-w-5xl mx-auto">
         <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-8 text-center">
-          <Shield className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <Shield className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <h2 className="text-lg font-semibold mb-2">No Active Membership</h2>
           <p className="text-[var(--portal-text-muted)]">
             You don't have an active membership account. Contact the club to get started.
@@ -109,7 +109,7 @@ export default function DashboardPage() {
       <div className="bg-[var(--portal-surface)] border border-[var(--portal-border)] rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <CreditCard className="h-5 w-5 text-gray-400" />
+            <CreditCard className="h-5 w-5 text-muted-foreground" />
             <div>
               <p className="font-medium">Autopay</p>
               <p className="text-sm text-[var(--portal-text-muted)]">
@@ -120,7 +120,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-            summary.autopayEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+            summary.autopayEnabled ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'
           }`}>
             {summary.autopayEnabled ? 'Active' : 'Inactive'}
           </span>
@@ -132,7 +132,7 @@ export default function DashboardPage() {
         <div className="p-4 border-b border-[var(--portal-border)]">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-gray-400" />
+              <FileText className="h-5 w-5 text-muted-foreground" />
               <h2 className="font-semibold">Recent Statements</h2>
             </div>
             <Link
@@ -148,7 +148,7 @@ export default function DashboardPage() {
         ) : (
           <div className="divide-y divide-[var(--portal-border)]">
             {summary.recentStatements.map((stmt) => (
-              <div key={stmt.id} className="p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer">
+              <div key={stmt.id} className="p-4 flex items-center justify-between hover:bg-accent cursor-pointer">
                 <div>
                   <p className="font-medium">{stmt.statementNumber ?? 'Statement'}</p>
                   <p className="text-sm text-[var(--portal-text-muted)]">
@@ -157,7 +157,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{formatMoney(stmt.totalDueCents)}</span>
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </div>
             ))}

@@ -21,14 +21,15 @@ import {
 // ── Module Keys ────────────────────────────────────────────────
 
 describe('FNB_SETTINGS_MODULE_KEYS', () => {
-  it('has 9 module keys', () => {
-    expect(FNB_SETTINGS_MODULE_KEYS).toHaveLength(9);
+  it('has 10 module keys', () => {
+    expect(FNB_SETTINGS_MODULE_KEYS).toHaveLength(10);
   });
 
   it('includes all expected keys', () => {
     expect(FNB_SETTINGS_MODULE_KEYS).toEqual([
       'fnb_general', 'fnb_floor', 'fnb_ordering', 'fnb_kitchen',
       'fnb_payment', 'fnb_tips', 'fnb_accounting', 'fnb_receipts', 'fnb_hardware',
+      'fnb_host',
     ]);
   });
 });

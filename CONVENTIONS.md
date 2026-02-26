@@ -753,23 +753,114 @@ On Windows, Tailwind v4's native binary (`@tailwindcss/oxide`) can intermittentl
 **Symptom**: Page renders as unstyled raw text — sidebar items visible but no layout, spacing, or colors.
 **Fix**: Kill all Node processes → delete `apps/web/.next` → restart `pnpm dev` → hard refresh browser (`Ctrl+Shift+R`). See CLAUDE.md "Troubleshooting: CSS Not Loading" for full procedure.
 
-### Dark Mode (Inverted Gray Scale)
+### Dark Mode (Inverted Gray Scale) — MANDATORY ENFORCEMENT
 
 Dark mode is the **default** (`:root` has `color-scheme: dark`). Light mode is opt-in via `.light` class. The gray scale is **inverted** in `globals.css` — in dark mode, `gray-900` maps to near-white (`#f0f6fc`) and `gray-50` maps to dark (`#1c2128`). Other color palettes (red, indigo, amber, etc.) are NOT inverted.
 
-**Consequence:** Standard Tailwind dark mode assumptions break. `bg-gray-900 text-white` becomes near-white background with white text (invisible).
+**Consequence:** Standard Tailwind dark mode assumptions break. `bg-gray-900 text-white` becomes near-white background with white text (invisible). `bg-white` stays white in both modes. `bg-red-50` stays a pastel pink, looking jarring on dark backgrounds.
 
-**Button color patterns that work in both modes:**
+#### Banned Classes (NEVER use these)
+
+| Banned Class | Replacement | Why |
+|---|---|---|
+| `bg-white` | `bg-surface` | White is always white — invisible text in dark mode |
+| `bg-gray-50` | `bg-muted` or `bg-surface` | Gray-50 maps to near-black in dark mode |
+| `bg-{color}-50` (e.g., `bg-red-50`, `bg-green-50`, `bg-blue-50`, `bg-amber-50`, `bg-indigo-50`) | `bg-{color}-500/10` | Non-gray pastels are NOT inverted — they stay light |
+| `bg-{color}-100` | `bg-{color}-500/10` | Same issue |
+| `text-gray-900` | `text-foreground` | Gray-900 is near-white in dark mode (double-bright text) |
+| `text-gray-700` | `text-foreground` or `text-muted-foreground` | Same |
+| `text-gray-500` | `text-muted-foreground` | Use semantic token |
+| `text-gray-400` | `text-muted-foreground` | Use semantic token |
+| `text-{color}-900` / `text-{color}-800` / `text-{color}-700` | `text-{color}-500` or `text-{color}-400` | Dark shades disappear on dark backgrounds |
+| `border-gray-200` / `border-gray-300` | `border-border` | Use semantic border token |
+| `border-{color}-200` / `border-{color}-300` | `border-{color}-500/30` | Opacity-based borders work in both modes |
+| `hover:bg-gray-50` / `hover:bg-gray-100` | `hover:bg-accent` or `hover:bg-gray-200/50` | Gray-50 is near-black in dark mode |
+| `hover:bg-{color}-50` / `hover:bg-{color}-100` | `hover:bg-{color}-500/10` | Pastels don't invert |
+| `dark:` prefixed classes | Use opacity-based pattern | Our theme doesn't use Tailwind `dark:` — it uses inverted grays |
+| `divide-gray-200` | `divide-border` | Same as border |
+| `ring-gray-300` | `ring-border` | Same as border |
+| `placeholder-gray-400` | `placeholder:text-muted-foreground` | Use semantic token |
+
+#### Semantic Design Tokens (ALWAYS use these)
+
+| Token | CSS Variable | Dark Value | Light Value | Use For |
+|---|---|---|---|---|
+| `bg-surface` | `--color-surface` | `#161b22` | `#ffffff` | Page/card/dialog backgrounds |
+| `bg-surface-raised` | `--color-surface-raised` | `#1c2128` | `#f8f9fa` | Elevated surfaces |
+| `bg-muted` | `--color-muted` | via gray scale | via gray scale | Subtle backgrounds |
+| `bg-accent` | `--color-accent` | via gray scale | via gray scale | Hover backgrounds |
+| `bg-background` | `--color-background` | `#0d1117` | `#f0f6fc` | Full-page background |
+| `text-foreground` | `--color-foreground` | light | dark | Primary text |
+| `text-muted-foreground` | `--color-muted-foreground` | dimmed | dimmed | Secondary text |
+| `border-border` | `--color-border` | dark border | light border | All borders |
+| `border-input` | `--color-input` | dark input border | light input border | Form input borders |
+| `bg-card` | `--color-card` | dark card | light card | Card backgrounds |
+
+#### Correct Patterns
+
+**Buttons:**
 
 | Button Type         | Classes                                                      |
 | ------------------- | ------------------------------------------------------------ |
 | Primary             | `bg-indigo-600 text-white hover:bg-indigo-700`               |
 | Destructive outline | `border border-red-500/40 text-red-500 hover:bg-red-500/10`  |
-| Secondary/ghost     | `text-gray-600 hover:bg-gray-100` (inverted grays work here) |
+| Secondary/ghost     | `text-muted-foreground hover:bg-accent`                      |
 
-**Theme-aware background:** Use `bg-surface` (CSS variable: dark `#161b22`, light `#ffffff`).
+**Status badges / colored backgrounds:**
+```tsx
+// WRONG — breaks in dark mode:
+<span className="bg-green-50 text-green-800 border-green-200">Active</span>
 
-**Rule:** Use opacity-based colors (`red-500/40`, `red-500/10`) instead of static shades (`red-300`, `red-50`) for borders and hover states — these adapt naturally to both modes.
+// CORRECT — opacity-based, works in both modes:
+<span className="bg-green-500/10 text-green-500 border-green-500/30">Active</span>
+```
+
+**Cards/panels/dialogs:**
+```tsx
+// WRONG:
+<div className="bg-white border border-gray-200 rounded-lg">
+
+// CORRECT:
+<div className="bg-surface border border-border rounded-lg">
+```
+
+**Form inputs:**
+```tsx
+// WRONG:
+<input className="bg-white border-gray-300 text-gray-900 placeholder-gray-400" />
+
+// CORRECT:
+<input className="bg-surface border-input text-foreground placeholder:text-muted-foreground" />
+```
+
+**Hover states:**
+```tsx
+// WRONG:
+<button className="hover:bg-gray-50">
+
+// CORRECT:
+<button className="hover:bg-accent">
+// or for colored hover:
+<button className="hover:bg-red-500/10">
+```
+
+#### Exceptions (these are OK)
+
+- `text-white` on colored buttons (e.g., `bg-indigo-600 text-white`) — the colored background ensures contrast
+- `bg-white` on toggle knob circles (switch UI) — the knob should always be white
+- Colors inside SVG charts, Konva canvases, or print-oriented receipt previews
+- Tailwind gray classes that ARE inverted (e.g., `text-gray-600`, `bg-gray-100`) are technically safe because the gray scale IS remapped — but semantic tokens (`text-muted-foreground`, `bg-muted`) are still preferred for clarity
+- `bg-black` is safe — black stays black in both modes
+
+#### Pre-Commit Check
+
+Before committing any `.tsx` file, mentally verify:
+1. No `bg-white` (use `bg-surface`)
+2. No `bg-{color}-50` or `bg-{color}-100` outside of exceptions (use `bg-{color}-500/10`)
+3. No `text-{color}-800/900` for colored text (use `text-{color}-500`)
+4. No `border-gray-200/300` (use `border-border`)
+5. No `hover:bg-gray-50` (use `hover:bg-accent`)
+6. No `dark:` prefixed classes (not supported by our theme system)
 
 ### Data Fetching Hooks
 
@@ -8190,4 +8281,866 @@ The `GET /api/v1/accounting/settings` route now returns 404 with message `"Accou
 ### Key Rule
 
 API routes that return configuration objects should return 404 when the configuration doesn't exist — not `{ data: null }`. This follows the REST convention that missing resources are 404.
+
+## 150. Host Module V2 Patterns
+
+### Reservation State Machine
+Use `validateReservationTransition(currentStatus, targetStatus)` from
+`validation-host.ts` before any status change. Throws `ValidationError`
+on invalid transition. Valid transitions defined in `RESERVATION_TRANSITIONS`.
+
+### Wait-Time Estimation
+Always call `estimateWaitTime()` when adding to waitlist. Store the quote
+on the entry for accuracy tracking. Estimator uses 28-day rolling window
+of turn times with fallback defaults.
+
+### Table Assignment
+`suggestTables()` returns top 3 scored suggestions. Always present to host
+for confirmation — never auto-assign. Scoring: capacity fit (40%), preference
+match (25%), server balance (20%), VIP/history (15%).
+
+### Guest Notifications
+SMS via fire-and-forget `sendGuestNotification()`. Record created synchronously,
+dispatch async. Delivery tracked via provider webhook. Templates in
+`notification-templates.ts` with `{variable}` interpolation.
+
+### Guest Self-Service Pages
+Public pages under `/guest/` force light mode, use minimal JS, 15s auto-poll.
+Rate-limited to 10 req/min per IP. Guest tokens are 8-char alphanumeric.
+
+### Host Settings
+Settings stored as single JSONB blob under `module_key = 'fnb_host'` via
+`getFnbSettings`/`updateFnbSettings`. Zod schema in `host-settings.ts` with
+`.default()` on every field. Deep merge via `mergeHostSettings()` — only updates
+explicitly provided top-level keys, preserving other sections.
+
+## 151. Circuit Breaker on `apiFetch`
+
+### Purpose
+Prevents retry storms when the backend is down. After too many failures in a
+sliding window, short-circuits all requests with a client-side error until a
+cooldown expires.
+
+### Configuration
+```typescript
+const CIRCUIT_BREAKER = {
+  failureThreshold: 20,   // failures in window to trip
+  windowMs: 30_000,       // sliding window size
+  cooldownMs: 8_000,      // how long circuit stays open
+};
+```
+
+### Rules
+1. **Sliding window**: `_failureTimestamps[]` stores `Date.now()` of each failure.
+   Old entries (> windowMs) are pruned before checking threshold.
+2. **Auth bypass**: paths containing `/auth/` never count as failures — normal
+   401s during login/signup must not trip the breaker.
+3. **AbortError bypass**: `DOMException` with `name === 'AbortError'` (navigation
+   cancellation) is not logged and not counted as a failure.
+4. **Reset**: any successful non-auth response clears `_failureTimestamps`.
+5. **Open circuit**: when tripped, `apiFetch` immediately throws
+   `ApiError('SERVICE_UNAVAILABLE', 503)` without making a network request.
+6. **Cooldown**: circuit re-closes after `cooldownMs` and allows one probe request.
+7. **Cross-tab token refresh**: if a refresh fails but `localStorage` has newer
+   tokens (another tab refreshed first), treat as success — don't clear tokens.
+
+### Pattern
+```typescript
+// In api-client.ts
+function recordFailure() {
+  _failureTimestamps.push(Date.now());
+}
+function isCircuitOpen(): boolean {
+  const now = Date.now();
+  _failureTimestamps = _failureTimestamps.filter(t => now - t < CIRCUIT_BREAKER.windowMs);
+  if (_failureTimestamps.length >= CIRCUIT_BREAKER.failureThreshold) {
+    _circuitOpenUntil = now + CIRCUIT_BREAKER.cooldownMs;
+    return true;
+  }
+  return now < _circuitOpenUntil;
+}
+```
+
+## 152. API Route Consolidation via Dynamic `[action]` Segments
+
+### Problem
+Sibling action routes under a resource (e.g.,
+`/reservations/[id]/cancel/route.ts`, `/reservations/[id]/check-in/route.ts`,
+`/reservations/[id]/no-show/route.ts`) each contain identical middleware wiring,
+auth checks, and error handling — only the command call differs.
+
+### Pattern
+Consolidate into a single dynamic route:
+```
+/api/v1/fnb/host/reservations/[id]/[action]/route.ts
+```
+The handler dispatches based on `params.action`:
+```typescript
+export async function POST(req, { params }) {
+  const { id, action } = await params;
+  return withMiddleware(async (ctx) => {
+    switch (action) {
+      case 'cancel':    return handleCancel(ctx, id, await req.json());
+      case 'check-in':  return handleCheckIn(ctx, id);
+      case 'confirm':   return handleConfirm(ctx, id);
+      case 'complete':  return handleComplete(ctx, id);
+      case 'seat':      return handleSeat(ctx, id, await req.json());
+      case 'no-show':   return handleNoShow(ctx, id);
+      default:          return NextResponse.json({ error: { code: 'NOT_FOUND' } }, { status: 404 });
+    }
+  }, { entitlement: 'pos_fnb', permission: 'fnb.host.manage' });
+}
+```
+
+### Rules
+1. All sibling actions must share the same middleware options (entitlement,
+   permission). If permissions differ per action, use per-case
+   `requirePermission()` inside the switch.
+2. Keep the original route files as thin re-exports or delete them —
+   never leave duplicate route handlers.
+3. Use kebab-case for action names in URLs (`check-in`, `no-show`).
+4. Always include a `default` case returning 404.
+5. This reduced host module routes from 43 files to 14 dynamic handlers.
+
+## 153. Usage Analytics — Buffer-and-Flush Pattern
+
+### Architecture
+Fire-and-forget usage tracking with zero impact on request latency.
+
+```
+recordUsage(event)  →  in-memory Map  →  30s flush  →  DB transaction
+                        (5K overflow)       timer        (4 upserts)
+```
+
+### Buffer Key
+`tenantId|moduleKey|hourBucket` — hour-granular aggregation. Each bucket
+accumulates: `requestCount`, `writeCount`, `readCount`, `errorCount`,
+`uniqueUsers` (Set), `totalDuration`, `maxDuration`, `workflows` (sub-map).
+
+### Flush Rules
+1. **Lazy start**: flush timer only starts on first `recordUsage()` call.
+2. **Overflow trigger**: if buffer exceeds 5K entries, flush immediately.
+3. **Atomic swap**: snapshot the buffer → replace with new Map → flush
+   snapshot async. If flush fails, merge snapshot back into new buffer.
+4. **Table existence check**: first flush verifies `rm_usage_*` tables exist.
+   If not, discard buffer and stop timer permanently.
+5. **CRITICAL — use `db.transaction()`**: never use `db.execute(sql\`BEGIN\`)`.
+   With postgres.js pooling, each `execute()` can go to a different connection,
+   leaving connections stuck in open transactions. Always use
+   `db.transaction(async (tx) => { ... })`.
+6. **Batch inserts**: chunk into groups of 50 to prevent query size explosion.
+7. **Vercel timer**: `.unref()` on the interval so it doesn't prevent process
+   shutdown.
+
+### DB Tables
+| Table | Granularity | Purpose |
+|---|---|---|
+| `rm_usage_hourly` | 1 row/tenant/module/hour | Raw aggregates |
+| `rm_usage_daily` | 1 row/tenant/module/day | Avg duration, peak hour |
+| `rm_usage_workflow_daily` | 1 row/tenant/module/workflow/day | Workflow-level detail |
+| `rm_usage_module_adoption` | 1 row/tenant/module | First/last use, active days |
+
+All use `ON CONFLICT ... DO UPDATE` with `GREATEST()` for max,
+`+` for totals.
+
+## 154. Accessibility Infrastructure
+
+### Three Utility Hooks
+
+#### `useDialogA11y(ref, isOpen, options)`
+Wraps portal-based dialogs with WCAG 2.1 AA compliance:
+- Sets `role`, `aria-modal`, `aria-labelledby`, `aria-describedby`
+- Activates focus trap (delegates to `useFocusTrap`)
+- Handles Escape key → `options.onClose`
+- Hides sibling elements with `aria-hidden="true"` (inert tree)
+
+```typescript
+const dialogRef = useRef<HTMLDivElement>(null);
+useDialogA11y(dialogRef, isOpen, {
+  labelledBy: 'dialog-title',
+  onClose: () => setOpen(false),
+  role: 'dialog', // or 'alertdialog' for confirmations
+});
+```
+
+#### `useFocusTrap(ref, isActive)`
+Keyboard focus wrapping within a container:
+- **Trap stack**: nested dialogs push/pop — only top-most handles Tab
+- **First focus**: `[data-autofocus]` if present, else first focusable element
+- **Tab wrapping**: Shift+Tab on first → last; Tab on last → first
+- **Restoration**: on unmount, focus returns to previously focused element
+- **Excluded**: `[tabindex="-1"]`, disabled, hidden (`offsetParent === null`)
+
+#### `announce(message, priority?)`
+ARIA live region for screen reader announcements:
+- Two singleton nodes: `polite` (waits) + `assertive` (interrupts)
+- Re-announce pattern: empty → `requestAnimationFrame` → set message
+- Auto-clear after 5s to prevent stale announcements
+- Nodes persist for app lifetime (shared across components)
+
+### Rules
+1. All portal-based dialogs (POS, settings, accounting) SHOULD use
+   `useDialogA11y`. New dialogs MUST use it.
+2. Pass the portal container ref, not an inner div — the ref must be
+   ancestor of all dialog content.
+3. Use `announce()` for form submission results, toast-like feedback,
+   and async operation completions.
+4. Never use `autofocus` HTML attribute — use `data-autofocus` instead
+   (avoids ESLint `no-autofocus` warning).
+
+### ESLint jsx-a11y Rules
+Two-tier configuration in `eslint.config.mjs`:
+
+| Tier | Severity | Rules |
+|---|---|---|
+| **Tier 1** (correctness) | `error` | `aria-props`, `aria-role`, `role-has-required-aria-props`, `alt-text`, `heading-has-content`, `tabindex-no-positive`, `no-redundant-roles` |
+| **Tier 2** (incremental) | `warn` | `click-events-have-key-events`, `label-has-associated-control`, `no-static-element-interactions`, `interactive-supports-focus`, `mouse-events-have-key-events` |
+
+Special: `anchor-is-valid: off` (conflicts with Next.js `<Link>`),
+`no-autofocus: ['warn', { ignoreNonDOM: true }]`.
+
+## 155. Permission Groups Configuration
+
+### Structure
+`apps/web/src/components/settings/permission-groups.ts` organizes 75+
+permissions into a hierarchical structure for the role manager UI.
+
+```typescript
+type PermissionGroupEntry = {
+  label: string;
+  permissions?: string[];        // flat group
+  subGroups?: PermissionSubGroup[]; // hierarchical group
+};
+type PermissionSubGroup = {
+  label: string;
+  permissions: string[];
+};
+```
+
+### Rules
+1. **Three-file update**: adding a permission requires changes to:
+   - `packages/shared/src/permissions/permission-matrix.ts` (source of truth)
+   - `permission-groups.ts` (UI structure)
+   - `packages/db/src/seed.ts` (role defaults)
+2. **Flat vs hierarchical**: small modules (Inventory, Golf) use `permissions[]`.
+   Large modules (POS, F&B, Accounting, PMS) use `subGroups[]`.
+3. **Category tabs**: `CATEGORY_TABS` array controls the tab filter bar
+   (all/platform/pos/fnb/accounting/pms/etc.).
+4. **Helper functions**:
+   - `getAllGroupPerms(group)` — flattens any group to a string array
+   - `getPermLabel(key)` — returns display description from `PERMISSION_BY_KEY`
+   - `permMatchesSearch(permKey, group, sub, query)` — fuzzy search
+5. **Permission keys are case-sensitive** — `orders.create` ≠ `Orders.Create`.
+
+## 156. Feature Flags — Dual-Table Pattern
+
+### Schema
+```
+feature_flags           (system definitions, platform-admin managed)
+├── key (unique)
+├── description
+├── isEnabled (global default)
+├── rolloutPercentage
+└── metadata (JSONB)
+
+feature_flag_overrides  (per-tenant overrides)
+├── flagKey → feature_flags.key
+├── tenantId
+├── isEnabled (override)
+└── reason
+```
+
+### Resolution Order
+1. Check `feature_flag_overrides` for `(flagKey, tenantId)`.
+2. If found, use override `isEnabled`.
+3. If not found, use `feature_flags.isEnabled` (global default).
+4. Rollout percentage: hash `tenantId` and compare to `rolloutPercentage`.
+
+### Rules
+1. **Flags are platform-level** — created/managed via SuperAdmin portal,
+   not tenant self-service.
+2. **Overrides require a reason** — admin must provide text explaining why
+   a tenant gets a non-default value.
+3. **Never delete flags** — deactivate with `isEnabled = false`. Overrides
+   reference `flagKey` as FK.
+4. **Cache**: flags are cached in middleware for the request lifetime.
+   No separate LRU cache needed — they're small and rarely change.
+
+## 157. Cold Start Parallelization
+
+### Pattern
+`instrumentation.ts` runs on Vercel cold start. Sequential lazy-imports
+were adding ~800ms. Now uses `Promise.all` for independent imports:
+
+```typescript
+export async function register() {
+  await Promise.all([
+    import('@oppsera/core'),
+    import('@oppsera/module-catalog'),
+    import('@oppsera/module-orders'),
+    import('@oppsera/module-payments'),
+    import('@oppsera/module-inventory'),
+    import('@oppsera/module-customers'),
+    import('@oppsera/module-reporting'),
+    import('@oppsera/module-semantic'),
+    import('@oppsera/module-accounting'),
+    import('@oppsera/module-pms'),
+  ]);
+  // Sequential: bootstrap singletons that depend on modules
+  const { initializeAccountingPostingApi } = await import('./lib/accounting-bootstrap');
+  await initializeAccountingPostingApi();
+  // ... other singletons
+}
+```
+
+### Rules
+1. Only parallelize truly independent imports (no init-order dependency).
+2. Singleton bootstrap (AccountingPostingApi, CatalogReadApi, etc.) MUST
+   be sequential AFTER module imports — they call `setXxxApi()` on loaded modules.
+3. Never `await` usage tracker start — it checks table existence and may
+   fail on fresh DBs.
+
+## 158. Cross-Tab Auth Token Coordination
+
+### Problem
+Multiple browser tabs share `localStorage` tokens. Tab A's token refresh
+can race with Tab B's, causing both to use stale refresh tokens.
+
+### Solution
+1. **Deduplication**: `apiFetch` stores a single `refreshPromise` so
+   concurrent 401s within the same tab share one refresh call.
+2. **Cross-tab detection**: if a refresh fails with 401 but `localStorage`
+   now has a newer `accessToken` than what we started with (another tab
+   refreshed successfully), treat our refresh as a success and use the
+   new tokens.
+3. **signOut scope**: `supabase.auth.signOut({ scope: 'local' })` — clears
+   only the current tab's session. Using `'global'` would revoke the
+   refresh token for ALL tabs, breaking concurrent sessions.
+4. **Final 401**: if refresh truly fails (no cross-tab rescue), clear all
+   tokens and let the auth context redirect to login.
+
+### Rules
+- Always use `scope: 'local'` on signOut.
+- Never assume a refresh failure means all sessions are invalid — check
+  localStorage first.
+- The `refreshPromise` singleton prevents thundering herd on 401.
+
+## 159. Event Bus Resilience
+
+### Problem
+A slow or crashed event handler blocks the entire event processing pipeline,
+causing upstream timeouts and cascading failures.
+
+### Solution (implemented in `packages/core/src/events/event-bus.ts`)
+1. **Handler timeout**: 30s per handler via `Promise.race` with a timeout
+   promise. Timed-out handlers log an error but don't block other handlers.
+2. **Concurrency limit**: max 10 concurrent handler executions. Excess
+   handlers are queued and processed as slots free up.
+3. **`Promise.allSettled` for deferred consumers**: non-critical consumers
+   use `allSettled` so one failure doesn't abort the batch.
+4. **Error isolation**: each handler wrapped in try/catch. Errors are
+   logged with handler name + event type but never propagated to the
+   publisher.
+
+### Rules
+- Critical consumers (GL posting, inventory deduction) run in the
+  `publishWithOutbox` transaction — these are NOT subject to the timeout.
+- Deferred consumers (reporting projections, usage tracking, timeline
+  writes) run post-commit with timeout + isolation.
+- Never throw from a deferred consumer — it's fire-and-forget.
+
+## 160. Editable OPPS ERA LENS Narrative Template
+
+### Schema
+`semantic_narrative_config` table (migration 0197):
+- `tenantId` (nullable — NULL = system default)
+- `templateKey` ('narrative_system_prompt')
+- `templateContent` (TEXT — full system prompt with `{{PLACEHOLDER}}` tokens)
+- `isActive` (boolean)
+- Unique constraint on `(tenant_id, template_key)`
+
+### Placeholder Tokens
+Templates use `{{VARIABLE_NAME}}` syntax, replaced at render time:
+- `{{INDUSTRY_HINT}}` — business type context from lens
+- `{{METRIC_CONTEXT}}` — metric definitions block
+- `{{DATE_CONTEXT}}` — current date for relative date references
+- `{{LENS_CONTEXT}}` — active lens description
+
+### Caching
+In-memory cache with 5-min TTL. Cache key: `tenantId ?? 'system'`.
+Invalidated on template save.
+
+### Rules
+1. Always provide system-default template (NULL tenantId) as fallback.
+2. Tenant template overrides the system default entirely — no merging.
+3. Template validation: must contain at least `{{METRIC_CONTEXT}}` placeholder.
+4. API: `GET/PUT /api/v1/semantic/narrative-config` (admin permission required).
+5. Frontend: admin Train AI → AI Behavior page with Monaco-style editor.
+
+## 161. DB Pool Tuning for Vercel Serverless
+
+### Current Config (Vercel Pro)
+```typescript
+const pool = postgres(DATABASE_URL, {
+  max: 3,                // per-instance (was 5, then 2, settled at 3)
+  idle_timeout: 20,      // seconds before idle connection is closed
+  max_lifetime: 300,     // 5 min max connection lifetime
+  connect_timeout: 10,   // 10s connection timeout (Vercel cold starts)
+  prepare: false,        // REQUIRED for Supavisor transaction mode
+});
+```
+
+### Rules
+1. **Never exceed `max: 3` on Vercel** — many concurrent instances × pool
+   size = total connections. At 50 instances × 3 = 150 connections (within
+   Supavisor's 600 pooler connection limit on Medium compute).
+2. **`connect_timeout: 10`** — Vercel cold starts can take 5-7s. Without
+   this, connections fail with "connection terminated" during burst traffic.
+3. **`idle_timeout: 20`** — close idle connections quickly to free Supavisor
+   slots. Vercel functions are short-lived.
+4. **`max_lifetime: 300`** — prevents stale connections after Supavisor
+   failover or Supabase maintenance.
+5. **`prepare: false`** — ALWAYS required for Supavisor transaction mode.
+   Without it, prepared statements fail silently.
+
+## 162. Cache Scaling with LRU Eviction
+
+### Pattern
+All in-memory caches follow the same bounded-LRU pattern:
+
+```typescript
+const cache = new Map<string, { value: T; expiresAt: number }>();
+const MAX_ENTRIES = 2000;
+
+function set(key: string, value: T, ttlMs: number) {
+  if (cache.size >= MAX_ENTRIES) {
+    // Delete oldest entry (Map maintains insertion order)
+    const firstKey = cache.keys().next().value;
+    cache.delete(firstKey);
+  }
+  cache.set(key, { value, expiresAt: Date.now() + ttlMs });
+}
+function get(key: string): T | null {
+  const entry = cache.get(key);
+  if (!entry || Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+  // Move to end for LRU (delete + re-set)
+  cache.delete(key);
+  cache.set(key, entry);
+  return entry.value;
+}
+```
+
+### Cache Inventory (Vercel Pro)
+| Cache | Max Entries | TTL | Location |
+|---|---|---|---|
+| Auth user | 2,000 | 120s | `supabase-adapter.ts` |
+| Permissions | 5,000 | 15s | `with-middleware.ts` |
+| Locations | 2,000 | 60s | `with-middleware.ts` |
+| Entitlements | 2,000 | 60s | `with-middleware.ts` |
+| ERP workflow | 1,000 | 60s | `workflow-engine.ts` |
+| Semantic rate limiter | 2,000 | 60s cleanup | `semantic-rate-limiter.ts` |
+| Semantic query cache | 500 | 300s | `llm-cache.ts` |
+| Frontend permissions | per-user | 30s | `use-auth.ts` |
+
+### Rules
+1. **Always bound Map size** — unbounded Maps are memory leaks on
+   long-running Vercel instances. The ERP workflow cache and semantic
+   rate limiter were both unbounded before the fix.
+2. **Use Map insertion-order for FIFO eviction** — `Map.keys().next().value`
+   gives the oldest entry. Delete + re-set on read for LRU behavior.
+3. **Periodic cleanup for time-based Maps** — rate limiter and workflow
+   cache use `setInterval` (30-60s) with `.unref()` to prune expired
+   entries, preventing gradual memory growth.
+4. **Never cache mutable state** — only cache slow-changing identity data
+   (users, permissions, locations). Never cache orders, inventory, or
+   financial data.
+
+## 163. Supabase Auth — Combined Membership Query
+
+### Before (3 sequential queries per request)
+```typescript
+const user = await tx.select().from(users).where(...);
+const membership = await tx.select().from(tenantMemberships).where(...);
+const tenant = await tx.select().from(tenants).where(...);
+```
+
+### After (1 combined query)
+```typescript
+const [row] = await tx.select({
+  userId: users.id,
+  email: users.email,
+  displayName: users.displayName,
+  tenantId: tenantMemberships.tenantId,
+  systemRole: tenantMemberships.systemRole,
+  tenantName: tenants.name,
+  tenantSlug: tenants.slug,
+}).from(users)
+  .innerJoin(tenantMemberships, and(
+    eq(tenantMemberships.userId, users.id),
+    eq(tenantMemberships.isActive, true),
+  ))
+  .innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
+  .where(eq(users.authProviderId, authProviderId))
+  .limit(1);
+```
+
+### Rules
+1. Always prefer a single JOIN query over sequential lookups when the
+   results are used together in the same code path.
+2. The auth hot path (every authenticated request) is the highest-priority
+   optimization target — even 1 saved query × 1000 requests/min is
+   significant.
+3. Combined with the 2K-entry / 120s auth user cache, most requests
+   skip the DB entirely.
+
+## 164. POS Payment Race Condition Elimination
+
+### Problem
+The preemptive `placeOrder` pattern (fire placeOrder when TenderDialog
+opens, complete tender when user clicks Pay) caused race conditions:
+- If placeOrder was slow, tender would fire before order was placed
+- Recovering from 409 "already placed" added complexity
+- `amountGiven: 0` allowed accidental $0.00 tenders
+
+### Solution
+1. **Remove preemptive place-and-pay**: TenderDialog no longer fires
+   `onPlaceOrder()` in a useEffect. The place-and-pay fast path handles
+   both in a single transaction when the user clicks Pay.
+2. **`amountGiven` minimum 1 cent**: Zod schema updated to
+   `z.number().int().min(1)` — prevents $0.00 tenders at the validation
+   layer.
+3. **Single-transaction fast path**: `placeAndRecordTender()` combines
+   both operations, eliminating the race entirely.
+
+### Rules
+- Never use preemptive async operations that can race with user actions.
+- Validate at the schema level (Zod `.min(1)`) not just the UI level.
+- The `placeAndRecordTender` fast path should be the default POS path.
+
+## 165. Settings Lazy-Loading Pattern
+
+### Problem
+The Settings → General page imported all 6 tab components eagerly,
+including heavy ones like the role editor (75+ permissions).
+
+### Solution
+```typescript
+const BusinessInfoTab = dynamic(() => import('./tabs/BusinessInfoTab'), {
+  loading: () => <TabSkeleton />,
+});
+const RolesTab = dynamic(() => import('./tabs/RolesTab'), {
+  loading: () => <TabSkeleton />,
+});
+// ... other tabs
+```
+
+Each tab component is a default export in its own file. The parent
+`general-info-content.tsx` renders only the active tab — other tabs'
+chunks are never loaded.
+
+### Rules
+1. Apply to any page with tabs where individual tabs are >100 lines.
+2. Each tab must be a separate file with `export default`.
+3. Always provide a `loading` component (skeleton or spinner).
+4. The tab state (which tab is active) lives in the parent — never
+   in the lazy-loaded child.
+
+## 166. PMS Housekeeping Staff Management
+
+### Schema (migration 0202)
+`pms_housekeepers_staff` table — links `pms_housekeepers` to `users` table
+with scheduling and skill metadata:
+- `housekeeperId` → `pms_housekeepers.id`
+- `userId` → `users.id`
+- `shiftPreference`, `maxRooms`, `skills` (JSONB), `certifications`
+- `frontDeskAssigned` boolean for multi-role staff
+
+### Conventions
+1. **Display name resolution**: queries JOIN `users` table to resolve
+   `displayName` for housekeeper lists. Never store denormalized names.
+2. **Staff vs housekeeper**: `pms_housekeepers` is the operational entity
+   (assignments, productivity). `pms_housekeepers_staff` is the HR link.
+3. **Front desk assignment**: `frontDeskAssigned = true` allows the same
+   user to appear in both housekeeping and front desk views.
+4. **Skill matching**: `skills` JSONB array enables assignment suggestions
+   based on room type requirements.
+
+## 167. Lightweight Health Endpoint
+
+### `/api/health` (public, unauthenticated)
+```typescript
+export async function GET() {
+  return NextResponse.json({ status: 'ok' }, {
+    headers: { 'Cache-Control': 'no-store' },
+  });
+}
+```
+
+### Rules
+1. **No DB queries** — the health endpoint must return instantly (~1ms).
+   DB health is checked by `/api/admin/health` (authenticated).
+2. **`no-store`** — prevents CDN/browser caching of health status.
+3. **Used by**: POS visibility resume (`HEAD /api/health` to warm Vercel),
+   circuit breaker probe (first request after cooldown), monitoring systems.
+4. **Never add diagnostics** to the public endpoint — infrastructure
+   details (DB latency, cache stats, commit SHA) stay in admin health.
+
+## 168. Frontend Permission Caching
+
+### Pattern
+`use-auth.ts` caches the user's permission set client-side with 30s TTL:
+
+```typescript
+const permissionCache = useRef<{ perms: Set<string>; expiresAt: number } | null>(null);
+
+function hasPermission(permission: string): boolean {
+  if (!permissionCache.current || Date.now() > permissionCache.current.expiresAt) {
+    permissionCache.current = {
+      perms: new Set(user.permissions),
+      expiresAt: Date.now() + 30_000,
+    };
+  }
+  return permissionCache.current.perms.has(permission)
+    || permissionCache.current.perms.has('*');
+}
+```
+
+### Rules
+1. **Ref-based, not state-based** — permission checks are synchronous and
+   must not trigger re-renders.
+2. **Wildcard check** — always check for `'*'` (Owner/Admin wildcard) in
+   addition to the specific permission string.
+3. **30s TTL** — matches the server-side 15s permission cache TTL with
+   some buffer. Permission changes propagate within 30s on frontend.
+4. **Never use for security-critical decisions** — frontend caching is
+   for UI gating (show/hide buttons). Server-side `requirePermission()`
+   middleware is the actual security boundary.
+
+## 169. POS Batch Add-to-Cart Optimization
+
+### Problem
+Rapid item taps on POS (e.g., scanning barcodes, quick-menu buttons) fired
+individual `POST /api/v1/orders/[id]/lines` calls per tap. Under load this
+created N concurrent requests, each with its own `publishWithOutbox`
+transaction.
+
+### Solution
+`usePOS.addItem()` is now **synchronous** — it returns `void`, not a Promise.
+Each call creates an optimistic temp line (`id='temp-{ulid}'`) for instant
+UI feedback, then queues the item in `batchQueue.current[]`.
+
+```typescript
+// Constants
+const BATCH_DEBOUNCE_MS = 50;
+const BATCH_MAX_SIZE = 20;
+
+// addItem() — synchronous
+function addItem(input: AddItemInput): void {
+  const tempId = `temp-${ulid()}`;
+  // ... create optimistic line for UI ...
+  batchQueue.current.push({ input, tempId, reqId });
+
+  if (batchQueue.current.length >= BATCH_MAX_SIZE) {
+    flushBatch();  // immediate flush at max size
+  } else {
+    clearTimeout(batchTimer.current);
+    batchTimer.current = setTimeout(flushBatch, BATCH_DEBOUNCE_MS);
+  }
+}
+```
+
+`flushBatch()` sends a single `POST /api/v1/orders/{orderId}/lines/batch`
+with up to 20 items. Server returns `{ order, lines }`. Temp IDs are
+replaced with real server IDs on the response.
+
+### Rules
+1. **Never `await addItem()`** — it's synchronous and returns void.
+2. **Max 20 items per batch** — the server rejects batches larger than 20.
+3. **Temp lines are optimistic** — if the batch fails, temp lines are removed
+   and error is shown.
+4. **Order must be open before batching** — `flushBatch()` checks order status.
+
+## 170. Logout Deduplication Pattern
+
+### Problem
+Multiple concurrent logout triggers (token expiry + user click + cross-tab
+event) could race, with a later logout clearing tokens set by an intervening
+login/refresh.
+
+### Solution
+Module-level promise in `use-auth.ts`:
+```typescript
+let _logoutPromise: Promise<void> | null = null;
+
+async function signOut() {
+  if (_logoutPromise) {
+    await _logoutPromise;  // share existing logout
+    return;
+  }
+  _logoutPromise = (async () => {
+    try {
+      // clear tokens, redirect, etc.
+    } finally {
+      _logoutPromise = null;
+    }
+  })();
+  await _logoutPromise;
+}
+```
+
+### Rules
+1. **Module-level, not React state** — the promise must survive component
+   re-renders and be shared across all callers.
+2. **Always reset in `finally`** — prevents permanent lock if logout throws.
+3. **Never start a new logout if one is in progress** — just await the
+   existing promise.
+
+## 171. Pure Algorithm Services (Host Module V2)
+
+### Pattern
+Domain algorithms that score, estimate, or rank should be **pure functions**
+with no DB access, no side effects, and no imports from `@oppsera/db`:
+
+```
+packages/modules/fnb/src/services/
+├── wait-time-estimator.ts    # computeWaitTime(), getPartySizeBucket()
+├── table-assigner.ts         # scoreTable(), rankTables(), suggestTables()
+├── notification-service.ts   # getSmsProvider() — singleton, testable
+└── notification-templates.ts # buildConfirmationSms(), buildReadySms()
+```
+
+### Wait-Time Estimator
+- Input: pre-fetched `TurnTimeData`, `OccupancyData`, upcoming reservations,
+  party size
+- Output: `{ estimatedMinutes, confidence, factors }`
+- Confidence thresholds: `>=50` = high, `>=20` = medium, `>=10` = low,
+  `<10` = default
+- Result clamped to 5–120 minutes, rounded to nearest 5
+
+### Table Assigner
+- 4-factor weighted scoring: capacity fit (0.40), seating preference (0.25),
+  server balance (0.20), VIP preference (0.15)
+- Each component returns 0–1.0, combined via weighted sum
+- Table combinations get `COMBINATION_PENALTY = 0.85` applied
+- Returns top 3 suggestions sorted by score descending
+
+### Rules
+1. **Never import DB schema in service files** — data must be pre-fetched
+   by the calling command/query and passed as typed arguments.
+2. **Keep scoring weights as named constants** — never inline magic numbers.
+3. **All services must be individually testable** — no setup beyond
+   constructing input data.
+4. **Use `setSmsProvider()` for test injection** — never mock the module.
+
+## 172. Member Portal Dark-Mode-Only Design
+
+### Pattern
+The member portal (`apps/member-portal/`) is dark-mode only — no light mode
+toggle. `globals.css` sets `color-scheme: dark` on `:root`.
+
+### Tailwind v4 `@theme` Block
+```css
+@theme {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-fg);
+}
+```
+CSS custom properties are defined on `:root` with dark values only. Tailwind
+v4 `@theme` maps these to utility classes (`bg-surface`, `text-foreground`).
+
+### Rules
+1. **Never add `@media (prefers-color-scheme: light)`** — the portal is
+   exclusively dark.
+2. **Use `bg-surface` and `bg-surface-raised`** for backgrounds, never
+   `bg-white` or `bg-gray-900`.
+3. **Accessibility features are included** — skip-link, focus-visible ring,
+   and `prefers-reduced-motion` are in the portal's `globals.css`.
+4. **Portal auth is independent** — portal JWT tokens (`createPortalToken()`)
+   are separate from the main app auth.
+
+## 173. SMS Provider Abstraction
+
+### Pattern
+```typescript
+interface SmsProvider {
+  send(to: string, body: string): Promise<{ externalId: string; status: string }>;
+}
+
+class ConsoleSmsProvider implements SmsProvider { /* logs to console */ }
+class TwilioSmsProvider implements SmsProvider { /* HTTP POST to Twilio */ }
+
+let _provider: SmsProvider | null = null;
+export function getSmsProvider(): SmsProvider {
+  if (!_provider) {
+    _provider = (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN)
+      ? new TwilioSmsProvider() : new ConsoleSmsProvider();
+  }
+  return _provider;
+}
+export function setSmsProvider(p: SmsProvider) { _provider = p; }
+```
+
+### Rules
+1. **Env var detection at runtime** — never import Twilio SDK directly.
+   ConsoleSmsProvider is the default for dev/test.
+2. **`setSmsProvider()` for testing** — inject a mock provider, never
+   `vi.mock()` the module.
+3. **Twilio uses Basic Auth** — HTTP POST to
+   `https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json`
+   with `Authorization: Basic base64(sid:token)`. No SDK dependency.
+4. **External IDs are tracked** — `send()` returns the provider's message ID
+   for delivery tracking. Console provider returns `console_${Date.now()}`.
+
+## 174. WCAG 2.1 AA Accessibility Conventions
+
+### Skip Link
+Every app's `globals.css` defines `.skip-link`:
+```css
+.skip-link {
+  position: absolute; left: -9999px;
+  /* On :focus → left: 1rem, top: 1rem, z-index: 999 */
+}
+```
+Add `<a href="#main-content" class="skip-link">Skip to content</a>` as the
+first child of `<body>`. The target `<main id="main-content">` must exist.
+
+### Focus-Visible Ring
+Global `*:focus-visible` applies a 2px outline at 2px offset using the
+semantic token `--sem-ring` (#2563eb). Excludes elements with Tailwind
+`focus-visible:ring-*` classes to avoid double-ring.
+
+### Reduced Motion
+`@media (prefers-reduced-motion: reduce)` disables ALL animations and
+transitions globally (0.01ms duration). `scroll-behavior: auto`. Never
+override with `!important` animation styles.
+
+### Dialog Accessibility
+All portal-based dialogs must use `useDialogA11y(ref, isOpen)`:
+- Sets `role="dialog"`, `aria-modal="true"`
+- Activates focus trap (via `useFocusTrap`)
+- Hides sibling elements from screen readers
+
+### Live Announcements
+Use `announce(message, priority?)` from `lib/live-region.ts` for dynamic
+content changes. Creates an `aria-live` region (polite by default, assertive
+for errors).
+
+### Component Rules
+1. **Select**: `role="combobox"` + `aria-expanded` + `aria-haspopup="listbox"` +
+   `aria-controls={listboxId}`. Options: `role="option"` + `aria-selected`.
+2. **Decorative icons**: always add `aria-hidden="true"` to icons that are
+   purely visual (chevrons, status dots, etc.).
+3. **Interactive icons**: wrap in `<button>` with `aria-label` describing the
+   action.
+4. **Form fields**: use `<label>` with `htmlFor`, or `aria-label` for icon-only
+   inputs.
+5. **ESLint jsx-a11y**: 15 error rules (hard failures), 13 warning rules
+   (soft). `anchor-is-valid` is off (conflicts with Next.js `<Link>`).
 

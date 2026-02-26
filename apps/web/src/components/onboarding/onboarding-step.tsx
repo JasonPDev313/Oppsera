@@ -50,35 +50,35 @@ export function OnboardingStep({ step, inlineContent, onMarkDone }: OnboardingSt
             {step.isComplete ? (
               <CheckCircle className="h-5 w-5 text-green-500" />
             ) : (
-              <Circle className="h-5 w-5 text-gray-300" />
+              <Circle className="h-5 w-5 text-muted-foreground/60" />
             )}
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <Icon
-                className={`h-4 w-4 shrink-0 ${step.isComplete ? 'text-green-600' : 'text-gray-400'}`}
+                className={`h-4 w-4 shrink-0 ${step.isComplete ? 'text-green-500' : 'text-muted-foreground'}`}
               />
               <h4
-                className={`text-sm font-medium ${step.isComplete ? 'text-green-700' : 'text-gray-900'}`}
+                className={`text-sm font-medium ${step.isComplete ? 'text-green-500' : 'text-foreground'}`}
               >
                 {step.label}
               </h4>
             </div>
-            <p className="ml-6 mt-0.5 text-xs text-gray-500">{step.description}</p>
+            <p className="ml-6 mt-0.5 text-xs text-muted-foreground">{step.description}</p>
           </div>
         </button>
 
         {step.isComplete ? (
           <div className="flex shrink-0 items-center gap-2">
-            <span className="inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-700">
+            <span className="inline-flex items-center rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-medium text-green-500">
               Done
             </span>
             {step.isManuallyDone && onMarkDone && (
               <button
                 type="button"
                 onClick={onMarkDone}
-                className="text-xs text-gray-400 hover:text-gray-600"
+                className="text-xs text-muted-foreground hover:text-muted-foreground"
                 title="Undo manual completion"
               >
                 Undo
@@ -92,7 +92,7 @@ export function OnboardingStep({ step, inlineContent, onMarkDone }: OnboardingSt
             className="shrink-0"
           >
             <ChevronDown
-              className={`mt-0.5 h-4 w-4 text-gray-400 transition-transform ${
+              className={`mt-0.5 h-4 w-4 text-muted-foreground transition-transform ${
                 isExpanded ? 'rotate-180' : ''
               }`}
             />
@@ -113,7 +113,7 @@ export function OnboardingStep({ step, inlineContent, onMarkDone }: OnboardingSt
                 <ArrowRight className="h-4 w-4" />
               </Link>
             ) : (
-              <p className="text-sm italic text-gray-400">
+              <p className="text-sm italic text-muted-foreground">
                 This configuration will be available in a future update.
               </p>
             )
@@ -122,7 +122,7 @@ export function OnboardingStep({ step, inlineContent, onMarkDone }: OnboardingSt
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onMarkDone(); }}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-gray-500/20 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-500/10"
+              className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-gray-500/20 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-gray-500/10"
             >
               <CheckCircle className="h-3.5 w-3.5" />
               Mark as done

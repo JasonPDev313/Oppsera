@@ -32,9 +32,9 @@ const CHECKLIST_ICONS: Record<string, typeof CheckCircle> = {
 };
 
 const CHECKLIST_COLORS: Record<string, string> = {
-  pass: 'text-green-600 bg-green-50 border-green-200',
-  fail: 'text-red-600 bg-red-50 border-red-200',
-  warning: 'text-amber-600 bg-amber-50 border-amber-200',
+  pass: 'text-green-500 bg-green-500/10 border-green-500/30',
+  fail: 'text-red-500 bg-red-500/10 border-red-500/30',
+  warning: 'text-amber-500 bg-amber-500/10 border-amber-500/30',
 };
 
 export default function CloseContent() {
@@ -63,7 +63,7 @@ export default function CloseContent() {
 
   function getPeriodColor(period: string): string {
     const p = periodLookup[period];
-    if (!p) return 'bg-gray-200 border-gray-300 text-gray-500';
+    if (!p) return 'bg-muted border-border text-muted-foreground';
     if (p.status === 'closed') return 'bg-green-500 border-green-600 text-white';
     if (p.status === 'in_review') return 'bg-amber-400 border-amber-500 text-white';
     return 'bg-indigo-500 border-indigo-600 text-white';
@@ -120,12 +120,12 @@ export default function CloseContent() {
                 {period.split('-')[1]}
               </button>
               {i < timelinePeriods.length - 1 && (
-                <div className="mx-0.5 h-0.5 w-4 bg-gray-300" />
+                <div className="mx-0.5 h-0.5 w-4 bg-muted" />
               )}
             </div>
           ))}
         </div>
-        <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+        <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <span className="h-3 w-3 rounded-full bg-green-500" /> Closed
           </span>
@@ -136,17 +136,17 @@ export default function CloseContent() {
             <span className="h-3 w-3 rounded-full bg-indigo-500" /> Open
           </span>
           <span className="flex items-center gap-1">
-            <span className="h-3 w-3 rounded-full bg-gray-200" /> No Data
+            <span className="h-3 w-3 rounded-full bg-muted" /> No Data
           </span>
         </div>
       </div>
 
       {/* Selected Period Header */}
       <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-xl font-bold text-gray-900">{selectedPeriod}</h2>
+        <h2 className="text-xl font-bold text-foreground">{selectedPeriod}</h2>
         {detail && <StatusBadge status={detail.status} />}
         {detail?.closedAt && (
-          <span className="text-sm text-gray-500">
+          <span className="text-sm text-muted-foreground">
             Closed {new Date(detail.closedAt).toLocaleDateString()}
           </span>
         )}
@@ -156,7 +156,7 @@ export default function CloseContent() {
       {detailLoading && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
@@ -164,7 +164,7 @@ export default function CloseContent() {
       {!detailLoading && detail && (
         <div className="space-y-3">
           {detail.checklist.length === 0 && (
-            <div className="rounded-lg border border-dashed border-gray-300 py-8 text-center text-sm text-gray-500">
+            <div className="rounded-lg border border-dashed border-border py-8 text-center text-sm text-muted-foreground">
               No checklist items for this period.
             </div>
           )}
@@ -201,13 +201,13 @@ export default function CloseContent() {
       {!detailLoading && detail && detail.status !== 'closed' && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Close Notes</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Close Notes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               placeholder="Optional notes for this period close..."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
@@ -239,7 +239,7 @@ export default function CloseContent() {
             {isFiscalYearEnd && (
               <button
                 onClick={() => setShowRetainedEarnings(true)}
-                className="flex items-center gap-2 rounded-lg border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 <FileText className="h-4 w-4" />
                 Generate Retained Earnings
@@ -251,8 +251,8 @@ export default function CloseContent() {
 
       {/* Closed period info */}
       {!detailLoading && detail && detail.status === 'closed' && (
-        <div className="flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          <Lock className="h-5 w-5 shrink-0 text-green-600" />
+        <div className="flex items-center gap-3 rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-500">
+          <Lock className="h-5 w-5 shrink-0 text-green-500" />
           <span>
             This period is closed and locked.
             {detail.notes && <> Notes: {detail.notes}</>}
@@ -264,18 +264,18 @@ export default function CloseContent() {
       {showRetainedEarnings && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Generate Retained Earnings</h3>
-            <p className="mt-2 text-sm text-gray-600">
+            <h3 className="text-lg font-semibold text-foreground">Generate Retained Earnings</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
               This will create a journal entry transferring the current year&apos;s net income (P&L)
               into the Retained Earnings equity account. This is typically done as part of fiscal year-end close.
             </p>
-            <p className="mt-2 text-sm font-medium text-amber-700">
+            <p className="mt-2 text-sm font-medium text-amber-500">
               This action is idempotent — running it again will not create duplicate entries.
             </p>
             <div className="mt-4 flex justify-end gap-3">
               <button
                 onClick={() => setShowRetainedEarnings(false)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Cancel
               </button>

@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useEffect, useCallback, useRef } from 'react';
+import { memo, useEffect, useCallback, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -20,6 +20,7 @@ export const POSSlidePanel = memo(function POSSlidePanel({
   children,
 }: POSSlidePanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
   // Close on Escape
   const handleKeyDown = useCallback(
@@ -38,7 +39,7 @@ export const POSSlidePanel = memo(function POSSlidePanel({
   if (!open || typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/40 slide-panel-backdrop"
@@ -51,14 +52,15 @@ export const POSSlidePanel = memo(function POSSlidePanel({
         style={{ width }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-          <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <h3 id={titleId} className="text-base font-semibold text-foreground">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-gray-400 transition-colors hover:text-gray-600"
+            aria-label="Close"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
           >
-            <X className="h-5 w-5" />
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
         {/* Content */}

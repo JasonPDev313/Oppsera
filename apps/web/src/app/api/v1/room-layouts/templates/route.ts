@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
 import { listTemplates, createTemplate, createTemplateSchema } from '@oppsera/module-room-layouts';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/room-layouts/templates — list templates
 export const GET = withMiddleware(
@@ -13,7 +14,7 @@ export const GET = withMiddleware(
       category: url.searchParams.get('category') ?? undefined,
       search: url.searchParams.get('search') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({

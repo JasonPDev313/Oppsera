@@ -50,28 +50,28 @@ export function OnboardingPhase({ phase, isExpanded, onToggle, onSkip, children 
               : 'bg-indigo-500/10'
         }`}>
           {isComplete ? (
-            <CheckCircle className="h-5 w-5 text-green-600" />
+            <CheckCircle className="h-5 w-5 text-green-500" />
           ) : (
-            <Icon className={`h-5 w-5 ${phase.isSkipped ? 'text-gray-400' : 'text-indigo-600'}`} />
+            <Icon className={`h-5 w-5 ${phase.isSkipped ? 'text-muted-foreground' : 'text-indigo-500'}`} />
           )}
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-gray-900">{phase.label}</h3>
+            <h3 className="text-sm font-semibold text-foreground">{phase.label}</h3>
             {phase.isSkipped && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-500">
                 <SkipForward className="h-3 w-3" /> Skipped
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-0.5">{phase.description}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{phase.description}</p>
         </div>
 
         {/* Completion badge */}
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
-            <span className={`text-xs font-semibold ${isComplete ? 'text-green-600' : 'text-gray-500'}`}>
+            <span className={`text-xs font-semibold ${isComplete ? 'text-green-500' : 'text-muted-foreground'}`}>
               {phase.completedSteps}/{phase.totalSteps}
             </span>
             <div className="mt-1 h-1.5 w-20 rounded-full bg-gray-500/10">
@@ -82,7 +82,7 @@ export function OnboardingPhase({ phase, isExpanded, onToggle, onSkip, children 
             </div>
           </div>
           <ChevronDown
-            className={`h-4 w-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+            className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`}
           />
         </div>
       </button>
@@ -100,7 +100,7 @@ export function OnboardingPhase({ phase, isExpanded, onToggle, onSkip, children 
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onSkip(); }}
-                className="flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-gray-600"
+                className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
               >
                 <SkipForward className="h-3 w-3" />
                 {phase.isSkipped ? 'Unskip this phase' : 'Skip this phase'}

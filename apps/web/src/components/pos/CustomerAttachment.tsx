@@ -152,14 +152,14 @@ export function CustomerAttachment({
     const displayLabel = customerName || attachedName || customerId;
     return (
       <div ref={containerRef} className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 rounded-md bg-indigo-50 px-2.5 py-1.5">
+        <div className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 px-2.5 py-1.5">
           <User className="h-3.5 w-3.5 text-indigo-500" />
-          <span className="text-sm font-medium text-indigo-700 max-w-40 truncate">{displayLabel}</span>
+          <span className="text-sm font-medium text-indigo-500 max-w-40 truncate">{displayLabel}</span>
         </div>
         <button
           type="button"
           onClick={() => onViewProfile?.(customerId)}
-          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
+          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-indigo-500 transition-colors hover:bg-indigo-500/10"
           title="View customer profile"
         >
           <Eye className="h-3.5 w-3.5" />
@@ -235,7 +235,7 @@ export function CustomerAttachment({
                 setQuery('');
                 setShowDropdown(false);
               }}
-              className="flex w-full items-center gap-3 border-b border-gray-100 px-3 py-2 text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+              className="flex w-full items-center gap-3 border-b border-border px-3 py-2 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
             >
               Remove customer from order
             </button>
@@ -270,13 +270,13 @@ export function CustomerAttachment({
                 key={customer.id}
                 type="button"
                 onClick={() => handleSelect(customer)}
-                className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-indigo-50"
+                className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-accent"
               >
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-medium text-gray-600">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
                   {customer.displayName.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-gray-900">
+                  <p className="truncate text-sm font-medium text-foreground">
                     {customer.displayName}
                   </p>
                   <p className="truncate text-xs text-gray-500">

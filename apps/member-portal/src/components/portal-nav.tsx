@@ -19,7 +19,7 @@ export function PortalNav() {
   const tenantSlug = params?.tenantSlug as string;
 
   return (
-    <nav className="border-b border-[var(--portal-border)] bg-[var(--portal-surface)]">
+    <nav aria-label="Portal navigation" className="border-b border-[var(--portal-border)] bg-[var(--portal-surface)]">
       <div className="max-w-5xl mx-auto px-4">
         <div className="flex gap-1 overflow-x-auto">
           {navItems.map((item) => {
@@ -31,13 +31,14 @@ export function PortalNav() {
               <Link
                 key={item.href}
                 href={fullHref}
+                aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                   isActive
                     ? 'border-[var(--portal-primary)] text-[var(--portal-primary)]'
                     : 'border-transparent text-[var(--portal-text-muted)] hover:text-[var(--portal-text)]'
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-4 w-4" aria-hidden="true" />
                 {item.label}
               </Link>
             );

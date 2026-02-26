@@ -20,24 +20,25 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
   const quickSizes = [1, 2, 3, 4, 5, 6, 7, 8];
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true" aria-labelledby="seat-guests-dialog-title">
       <div className="rounded-xl p-6 shadow-lg w-[340px] bg-surface">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-gray-900">
+          <h3 id="seat-guests-dialog-title" className="text-lg font-bold text-foreground">
             Seat Table {tableNumber}
           </h3>
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center justify-center rounded-lg h-8 w-8 transition-colors bg-gray-100 text-gray-400 hover:bg-gray-200"
+            aria-label="Close"
+            className="flex items-center justify-center rounded-lg h-8 w-8 transition-colors bg-muted text-muted-foreground hover:bg-accent"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
 
         {/* Party size label */}
-        <p className="text-xs mb-3 text-gray-400">
+        <p className="text-xs mb-3 text-muted-foreground">
           Capacity: {tableCapacity} &middot; Party size:
         </p>
 
@@ -46,17 +47,17 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
           <button
             type="button"
             onClick={() => setPartySize(Math.max(1, partySize - 1))}
-            className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors bg-muted text-foreground hover:bg-accent"
           >
             <Minus className="h-5 w-5" />
           </button>
-          <span className="text-3xl font-bold w-16 text-center text-gray-900">
+          <span className="text-3xl font-bold w-16 text-center text-foreground">
             {partySize}
           </span>
           <button
             type="button"
             onClick={() => setPartySize(partySize + 1)}
-            className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className="flex items-center justify-center rounded-lg fnb-touch-min transition-colors bg-muted text-foreground hover:bg-accent"
           >
             <Plus className="h-5 w-5" />
           </button>
@@ -72,7 +73,7 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
               className={`rounded-lg py-2.5 text-sm font-semibold transition-colors ${
                 partySize === n
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
               {n}
@@ -85,7 +86,7 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg py-3 text-sm font-semibold transition-colors bg-gray-100 text-gray-600 hover:bg-gray-200"
+            className="flex-1 rounded-lg py-3 text-sm font-semibold transition-colors bg-muted text-muted-foreground hover:bg-accent"
           >
             Cancel
           </button>

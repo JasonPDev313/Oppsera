@@ -142,21 +142,21 @@ export function ProfitCenterFormModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-foreground">
             {isEdit ? 'Edit Profit Center' : 'Add Profit Center'}
           </h2>
-          <button onClick={onClose} className="rounded p-1 hover:bg-gray-200/50">
-            <X className="h-5 w-5 text-gray-500" />
+          <button onClick={onClose} className="rounded p-1 hover:bg-muted/50" aria-label="Close">
+            <X className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Location</label>
+            <label className="block text-sm font-medium text-foreground">Location</label>
             <select
               value={locationId}
               onChange={(e) => setLocationId(e.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
               disabled={isEdit || !!prefilledLocationId}
             >
               <option value="">Select location</option>
@@ -190,34 +190,34 @@ export function ProfitCenterFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <label className="block text-sm font-medium text-foreground">Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Bar, Restaurant, Pro Shop"
-              className="mt-1 w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Code</label>
+            <label className="block text-sm font-medium text-foreground">Code</label>
             <input
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="e.g. BAR-01"
-              className="mt-1 w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Description</label>
+            <label className="block text-sm font-medium text-foreground">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="mt-1 w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
             />
           </div>
 
@@ -250,20 +250,20 @@ export function ProfitCenterFormModal({
                 onChange={(e) => setSiteLevelAcknowledged(e.target.checked)}
                 className="mt-0.5 rounded"
               />
-              <span className="text-yellow-700">
+              <span className="text-yellow-500">
                 I understand this profit center will apply at the site level, not a
                 specific venue.
               </span>
             </label>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-500">{error}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               Cancel
             </button>

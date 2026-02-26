@@ -74,15 +74,15 @@ export function LinkUserDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/30">
           <h2 className="text-lg font-semibold">Link Existing User</h2>
-          <button onClick={handleClose} className="p-1 rounded hover:bg-gray-200/50">
-            <X className="w-5 h-5" />
+          <button onClick={handleClose} className="p-1 rounded hover:bg-gray-200/50" aria-label="Close">
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
 
         {/* Search */}
         <div className="px-6 py-3 border-b border-gray-200/30">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               placeholder="Search by name or email..."
@@ -97,9 +97,9 @@ export function LinkUserDialog({
         {/* User list */}
         <div className="flex-1 overflow-y-auto px-6 py-3 min-h-[200px]">
           {isLoadingUsers ? (
-            <div className="flex items-center justify-center py-8 text-sm text-gray-500">Loading users...</div>
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">Loading users...</div>
           ) : filtered.length === 0 ? (
-            <div className="flex items-center justify-center py-8 text-sm text-gray-500">
+            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
               {search ? 'No matching users found.' : 'No available users.'}
             </div>
           ) : (
@@ -118,7 +118,7 @@ export function LinkUserDialog({
                     }`}
                   >
                     <div className="font-medium">{display}</div>
-                    <div className={`text-xs ${isSelected ? 'text-indigo-200' : 'text-gray-500'}`}>
+                    <div className={`text-xs ${isSelected ? 'text-indigo-200' : 'text-muted-foreground'}`}>
                       {u.email}
                       {u.roles.length > 0 && (
                         <span className="ml-2">

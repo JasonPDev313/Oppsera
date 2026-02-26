@@ -31,7 +31,7 @@ export default function AchSettingsTab() {
   if (!selectedProviderId && providers.length > 0) {
     return (
       <div className="space-y-4">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Select a provider to configure ACH settings for its merchant accounts.
         </p>
         <div className="space-y-2">
@@ -39,12 +39,12 @@ export default function AchSettingsTab() {
             <button
               key={p.id}
               onClick={() => setSelectedProviderId(p.id)}
-              className="flex w-full items-center gap-3 rounded-lg border border-gray-200 px-4 py-3 text-left hover:bg-gray-50"
+              className="flex w-full items-center gap-3 rounded-lg border border-border px-4 py-3 text-left hover:bg-muted"
             >
-              <CreditCard className="h-5 w-5 text-gray-400" />
+              <CreditCard className="h-5 w-5 text-muted-foreground" />
               <div>
-                <span className="text-sm font-medium text-gray-900">{p.displayName}</span>
-                <span className="ml-2 text-xs text-gray-400">{p.code}</span>
+                <span className="text-sm font-medium text-foreground">{p.displayName}</span>
+                <span className="ml-2 text-xs text-muted-foreground">{p.code}</span>
               </div>
             </button>
           ))}
@@ -56,17 +56,17 @@ export default function AchSettingsTab() {
   if (providersLoading || accountsLoading) {
     return (
       <div className="space-y-3">
-        <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
-        <div className="h-32 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-32 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
 
   if (accounts.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-gray-300 py-8">
-        <Landmark className="h-8 w-8 text-gray-300" />
-        <p className="text-sm text-gray-500">
+      <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-input py-8">
+        <Landmark className="h-8 w-8 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
           No merchant accounts found. Create a Merchant Account (MID) first.
         </p>
       </div>
@@ -75,10 +75,10 @@ export default function AchSettingsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+      <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-4 py-3">
         <div className="flex items-start gap-2">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-          <div className="text-sm text-blue-700">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
+          <div className="text-sm text-blue-500">
             <p className="font-medium">NACHA Compliance</p>
             <p className="mt-1">
               ACH payments require a Company Name that appears on customer bank statements.
@@ -136,16 +136,16 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 p-5">
+    <div className="rounded-lg border border-border p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Landmark className="h-5 w-5 text-emerald-600" />
-          <h3 className="text-base font-semibold text-gray-900">{mid.displayName}</h3>
-          <span className="text-xs text-gray-400">MID: {mid.merchantId}</span>
+          <h3 className="text-base font-semibold text-foreground">{mid.displayName}</h3>
+          <span className="text-xs text-muted-foreground">MID: {mid.merchantId}</span>
         </div>
 
         <label className="flex items-center gap-2 cursor-pointer">
-          <span className="text-sm text-gray-600">ACH Enabled</span>
+          <span className="text-sm text-muted-foreground">ACH Enabled</span>
           <input
             type="checkbox"
             checked={achEnabled}
@@ -159,7 +159,7 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
         <div className="space-y-4">
           {/* Company Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Company Name <span className="text-red-500">*</span>
             </label>
             <input
@@ -168,17 +168,17 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder="Your Company Name"
               maxLength={100}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Appears on customer bank statements. Required by NACHA.
             </p>
           </div>
 
           {/* Company ID */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Company ID <span className="text-gray-400">(optional)</span>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Company ID <span className="text-muted-foreground">(optional)</span>
             </label>
             <input
               type="text"
@@ -186,24 +186,24 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
               onChange={(e) => setCompanyId(e.target.value)}
               placeholder="Originator ID"
               maxLength={50}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               NACHA originator identification number.
             </p>
           </div>
 
           {/* Default SEC Code */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Default SEC Code</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Default SEC Code</label>
             <div className="grid grid-cols-2 gap-2">
               {SEC_CODE_OPTIONS.map((opt) => (
                 <label
                   key={opt.value}
                   className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${
                     secCode === opt.value
-                      ? 'border-indigo-300 bg-indigo-50'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      ? 'border-indigo-500/30 bg-indigo-500/10'
+                      : 'border-border hover:bg-muted'
                   }`}
                 >
                   <input
@@ -212,11 +212,11 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
                     value={opt.value}
                     checked={secCode === opt.value}
                     onChange={() => setSecCode(opt.value)}
-                    className="mt-0.5 h-4 w-4 text-indigo-600"
+                    className="mt-0.5 h-4 w-4 text-indigo-500"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-900">{opt.label}</span>
-                    <p className="text-xs text-gray-500">{opt.desc}</p>
+                    <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                    <p className="text-xs text-muted-foreground">{opt.desc}</p>
                   </div>
                 </label>
               ))}
@@ -225,15 +225,15 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
 
           {/* Verification Mode */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Bank Account Verification</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Bank Account Verification</label>
             <div className="space-y-2">
               {VERIFICATION_MODE_OPTIONS.map((opt) => (
                 <label
                   key={opt.value}
                   className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${
                     verificationMode === opt.value
-                      ? 'border-indigo-300 bg-indigo-50'
-                      : 'border-gray-200 hover:bg-gray-50'
+                      ? 'border-indigo-500/30 bg-indigo-500/10'
+                      : 'border-border hover:bg-muted'
                   }`}
                 >
                   <input
@@ -242,11 +242,11 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
                     value={opt.value}
                     checked={verificationMode === opt.value}
                     onChange={() => setVerificationMode(opt.value)}
-                    className="mt-0.5 h-4 w-4 text-indigo-600"
+                    className="mt-0.5 h-4 w-4 text-indigo-500"
                   />
                   <div>
-                    <span className="text-sm font-medium text-gray-900">{opt.label}</span>
-                    <p className="text-xs text-gray-500">{opt.desc}</p>
+                    <span className="text-sm font-medium text-foreground">{opt.label}</span>
+                    <p className="text-xs text-muted-foreground">{opt.desc}</p>
                   </div>
                 </label>
               ))}
@@ -266,13 +266,13 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
           Save ACH Settings
         </button>
         {saved && (
-          <span className="flex items-center gap-1 text-sm text-green-600">
+          <span className="flex items-center gap-1 text-sm text-green-500">
             <CheckCircle2 className="h-4 w-4" />
             Saved
           </span>
         )}
         {error && (
-          <span className="text-sm text-red-600">{error}</span>
+          <span className="text-sm text-red-500">{error}</span>
         )}
       </div>
     </div>

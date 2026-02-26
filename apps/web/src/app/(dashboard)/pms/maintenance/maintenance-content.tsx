@@ -225,13 +225,13 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
       />
 
       {/* Dialog */}
-      <div className="relative z-10 mx-4 w-full max-w-lg rounded-xl border border-gray-200 bg-surface shadow-xl">
+      <div className="relative z-10 mx-4 w-full max-w-lg rounded-xl border border-border bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-          <h2 className="text-lg font-semibold text-gray-900">Create Work Order</h2>
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <h2 className="text-lg font-semibold text-foreground">Create Work Order</h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -241,7 +241,7 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
         <div className="max-h-[70vh] space-y-4 overflow-y-auto px-6 py-4">
           {/* Title */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
+            <label className="mb-1 block text-sm font-medium text-foreground">
               Title <span className="text-red-500">*</span>
             </label>
             <input
@@ -249,25 +249,25 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Leaking faucet in Room 204"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
           {/* Description */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Description</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Detailed description of the issue..."
               rows={3}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
           {/* Room */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Room</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Room</label>
             <Select
               options={roomOptions}
               value={roomId}
@@ -280,7 +280,7 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
           {/* Category + Priority row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Category</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Category</label>
               <Select
                 options={CATEGORY_FORM_OPTIONS}
                 value={category}
@@ -289,7 +289,7 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Priority</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Priority</label>
               <Select
                 options={PRIORITY_FORM_OPTIONS}
                 value={priority}
@@ -301,20 +301,20 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
 
           {/* Assigned To */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Assigned To</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Assigned To</label>
             <input
               type="text"
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
               placeholder="Name of assignee"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
 
           {/* Estimated Hours + Due Date row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Estimated Hours</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Estimated Hours</label>
               <input
                 type="number"
                 min="0"
@@ -322,27 +322,27 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
                 value={estimatedHours}
                 onChange={(e) => setEstimatedHours(e.target.value)}
                 placeholder="e.g. 2"
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">Due Date</label>
+              <label className="mb-1 block text-sm font-medium text-foreground">Due Date</label>
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50 disabled:opacity-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -384,12 +384,12 @@ function WorkOrderCard({
     new Date(order.dueDate) < new Date();
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4 transition-colors hover:border-gray-300">
+    <div className="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border">
       {/* Top row: title + priority */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0">
-          <StatusIcon className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
-          <h3 className="text-sm font-semibold text-gray-900 line-clamp-2">{order.title}</h3>
+          <StatusIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground line-clamp-2">{order.title}</h3>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <Badge variant={priorityBadge.variant}>{priorityBadge.label}</Badge>
@@ -398,7 +398,7 @@ function WorkOrderCard({
       </div>
 
       {/* Details row */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {/* Room or Common Area */}
         <span className="flex items-center gap-1">
           <Wrench className="h-3 w-3" />
@@ -418,7 +418,7 @@ function WorkOrderCard({
 
         {/* Due date */}
         {order.dueDate && (
-          <span className={`flex items-center gap-1 ${isOverdue ? 'font-medium text-red-600' : ''}`}>
+          <span className={`flex items-center gap-1 ${isOverdue ? 'font-medium text-red-500' : ''}`}>
             <CalendarDays className="h-3 w-3" />
             Due {formatDate(order.dueDate)}
             {isOverdue && ' (overdue)'}
@@ -426,12 +426,12 @@ function WorkOrderCard({
         )}
 
         {/* Created */}
-        <span className="text-gray-400">Created {formatDate(order.createdAt)}</span>
+        <span className="text-muted-foreground">Created {formatDate(order.createdAt)}</span>
       </div>
 
       {/* Description preview */}
       {order.description && (
-        <p className="mt-2 text-xs text-gray-500 line-clamp-2">{order.description}</p>
+        <p className="mt-2 text-xs text-muted-foreground line-clamp-2">{order.description}</p>
       )}
 
       {/* Actions */}
@@ -440,7 +440,7 @@ function WorkOrderCard({
           <button
             onClick={() => onComplete(order.id)}
             disabled={isCompleting}
-            className="flex items-center gap-1.5 rounded-lg border border-green-300 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-50 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-green-500/30 px-3 py-1.5 text-xs font-medium text-green-500 hover:bg-green-500/10 disabled:opacity-50"
           >
             {isCompleting ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -643,12 +643,12 @@ export default function MaintenanceContent() {
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-100 text-orange-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-500/20 text-orange-500">
             <Wrench className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Maintenance</h1>
-            <p className="text-sm text-gray-500">Work orders and maintenance requests</p>
+            <h1 className="text-2xl font-bold text-foreground">Maintenance</h1>
+            <p className="text-sm text-muted-foreground">Work orders and maintenance requests</p>
           </div>
         </div>
 
@@ -675,47 +675,47 @@ export default function MaintenanceContent() {
 
       {/* ── Quick Stats ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
+        <div className="rounded-lg border border-border bg-surface px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-500/20 text-blue-500">
               <AlertTriangle className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-gray-500">Open</p>
-              <p className="mt-0.5 text-lg font-semibold text-gray-900">{stats.open}</p>
+              <p className="truncate text-xs font-medium text-muted-foreground">Open</p>
+              <p className="mt-0.5 text-lg font-semibold text-foreground">{stats.open}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
+        <div className="rounded-lg border border-border bg-surface px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500">
               <Clock className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-gray-500">In Progress</p>
-              <p className="mt-0.5 text-lg font-semibold text-gray-900">{stats.inProgress}</p>
+              <p className="truncate text-xs font-medium text-muted-foreground">In Progress</p>
+              <p className="mt-0.5 text-lg font-semibold text-foreground">{stats.inProgress}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
+        <div className="rounded-lg border border-border bg-surface px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-100 text-red-600">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-500/20 text-red-500">
               <XCircle className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-gray-500">Overdue</p>
-              <p className="mt-0.5 text-lg font-semibold text-gray-900">{stats.overdue}</p>
+              <p className="truncate text-xs font-medium text-muted-foreground">Overdue</p>
+              <p className="mt-0.5 text-lg font-semibold text-foreground">{stats.overdue}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
+        <div className="rounded-lg border border-border bg-surface px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-600">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-500/20 text-green-500">
               <CheckCircle className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-gray-500">Completed (7d)</p>
-              <p className="mt-0.5 text-lg font-semibold text-gray-900">{stats.completedThisWeek}</p>
+              <p className="truncate text-xs font-medium text-muted-foreground">Completed (7d)</p>
+              <p className="mt-0.5 text-lg font-semibold text-foreground">{stats.completedThisWeek}</p>
             </div>
           </div>
         </div>
@@ -725,13 +725,13 @@ export default function MaintenanceContent() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search work orders..."
-            className="w-full rounded-lg border border-gray-200 bg-surface py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
           />
         </div>
 
@@ -765,27 +765,27 @@ export default function MaintenanceContent() {
       {isLoading && workOrders.length === 0 ? (
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="rounded-lg border border-gray-200 bg-surface p-4">
+            <div key={i} className="rounded-lg border border-border bg-surface p-4">
               <div className="flex items-center justify-between">
-                <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
+                <div className="h-4 w-48 animate-pulse rounded bg-muted" />
                 <div className="flex gap-2">
-                  <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
-                  <div className="h-5 w-16 animate-pulse rounded-full bg-gray-100" />
+                  <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+                  <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
                 </div>
               </div>
               <div className="mt-3 flex gap-4">
-                <div className="h-3 w-24 animate-pulse rounded bg-gray-100" />
-                <div className="h-3 w-20 animate-pulse rounded bg-gray-100" />
-                <div className="h-3 w-28 animate-pulse rounded bg-gray-100" />
+                <div className="h-3 w-24 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-28 animate-pulse rounded bg-muted" />
               </div>
             </div>
           ))}
         </div>
       ) : workOrders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-          <Wrench className="h-12 w-12 text-gray-300" />
-          <h3 className="mt-4 text-sm font-semibold text-gray-900">No work orders found</h3>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+          <Wrench className="h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 text-sm font-semibold text-foreground">No work orders found</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
             {searchTerm || statusFilter || priorityFilter || categoryFilter
               ? 'No work orders match the current filters.'
               : 'Create your first work order to get started.'}
@@ -816,7 +816,7 @@ export default function MaintenanceContent() {
       {/* ── Loading indicator ──────────────────────────────────────── */}
       {isLoading && workOrders.length > 0 && (
         <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       )}
 
@@ -825,7 +825,7 @@ export default function MaintenanceContent() {
         <div className="flex justify-center">
           <button
             onClick={loadMore}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-gray-200/50"
           >
             Load more
           </button>

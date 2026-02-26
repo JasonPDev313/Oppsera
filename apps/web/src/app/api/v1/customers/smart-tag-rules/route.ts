@@ -7,6 +7,7 @@ import {
   createSmartTagRule,
   createSmartTagRuleSchema,
 } from '@oppsera/module-customers';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/customers/smart-tag-rules
 export const GET = withMiddleware(
@@ -16,7 +17,7 @@ export const GET = withMiddleware(
       tenantId: ctx.tenantId,
       isActive: searchParams.has('isActive') ? searchParams.get('isActive') === 'true' : undefined,
       cursor: searchParams.get('cursor') ?? undefined,
-      limit: searchParams.has('limit') ? Number(searchParams.get('limit')) : undefined,
+      limit: parseLimit(searchParams.get('limit')),
     });
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
   },

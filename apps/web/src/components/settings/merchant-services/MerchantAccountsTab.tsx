@@ -99,12 +99,12 @@ export default function MerchantAccountsTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-medium text-gray-900">Merchant Accounts</h2>
+          <h2 className="text-lg font-medium text-foreground">Merchant Accounts</h2>
           {providers.length > 0 && (
             <select
               value={selectedProviderId ?? ''}
               onChange={(e) => setSelectedProviderId(e.target.value || null)}
-              className="rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+              className="rounded-md border border-input bg-surface px-3 py-1.5 text-sm"
             >
               <option value="">Select provider...</option>
               {providers.map((p) => (
@@ -119,7 +119,7 @@ export default function MerchantAccountsTab() {
           <button
             onClick={() => setShowVerifyReport(true)}
             disabled={!selectedProviderId || accounts.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 disabled:opacity-50"
           >
             <ShieldCheck className="h-4 w-4" /> Verify Credentials
           </button>
@@ -134,56 +134,56 @@ export default function MerchantAccountsTab() {
       </div>
 
       {!selectedProviderId ? (
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-          <p className="text-sm text-gray-500">Select a provider to manage merchant accounts.</p>
+        <div className="rounded-lg border-2 border-dashed border-input p-12 text-center">
+          <p className="text-sm text-muted-foreground">Select a provider to manage merchant accounts.</p>
         </div>
       ) : isLoading ? (
-        <div className="py-12 text-center text-gray-400">Loading merchant accounts...</div>
+        <div className="py-12 text-center text-muted-foreground">Loading merchant accounts...</div>
       ) : accounts.length === 0 ? (
-        <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-          <Server className="mx-auto h-12 w-12 text-gray-400" />
-          <p className="mt-4 text-sm font-medium text-gray-900">No merchant accounts</p>
-          <p className="mt-1 text-sm text-gray-500">
+        <div className="rounded-lg border-2 border-dashed border-input p-12 text-center">
+          <Server className="mx-auto h-12 w-12 text-muted-foreground" />
+          <p className="mt-4 text-sm font-medium text-foreground">No merchant accounts</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             Add a merchant ID (MID) to start processing payments with this provider.
           </p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Merchant ID</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Display Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Location</th>
-                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Merchant ID</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Display Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Location</th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase text-muted-foreground">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 bg-surface">
+            <tbody className="divide-y divide-border bg-surface">
               {accounts.map((a) => (
-                <tr key={a.id} className="hover:bg-gray-50/50">
-                  <td className="px-4 py-3 text-sm font-mono text-gray-900">
+                <tr key={a.id} className="hover:bg-muted/50">
+                  <td className="px-4 py-3 text-sm font-mono text-foreground">
                     {a.merchantId}
                     {a.isDefault && (
-                      <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                      <span className="ml-2 rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-medium text-indigo-400">
                         Default
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-900">{a.displayName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{a.locationId ?? 'Tenant-wide'}</td>
+                  <td className="px-4 py-3 text-sm text-foreground">{a.displayName}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{a.locationId ?? 'Tenant-wide'}</td>
                   <td className="px-4 py-3 text-sm">
                     {a.isActive ? (
-                      <span className="text-green-600">Active</span>
+                      <span className="text-green-500">Active</span>
                     ) : (
-                      <span className="text-gray-400">Inactive</span>
+                      <span className="text-muted-foreground">Inactive</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => setSetupAccountId(a.id)}
-                        className="inline-flex items-center gap-1 rounded bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                        className="inline-flex items-center gap-1 rounded bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-400 hover:bg-indigo-500/20"
                       >
                         <Settings2 className="h-3 w-3" /> Setup
                       </button>
@@ -196,14 +196,14 @@ export default function MerchantAccountsTab() {
                               isDefault: true,
                             })
                           }
-                          className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                          className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
                         >
                           Set Default
                         </button>
                       )}
                       <button
                         onClick={() => setEditingMid(a)}
-                        className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+                        className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
                       >
                         Edit
                       </button>
@@ -215,7 +215,7 @@ export default function MerchantAccountsTab() {
                               accountId: a.id,
                             })
                           }
-                          className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-50"
+                          className="rounded px-2 py-1 text-xs text-red-500 hover:bg-red-500/10"
                         >
                           Deactivate
                         </button>
@@ -283,7 +283,7 @@ function AddMidDialog({
 
   return (
     <DialogOverlay onClose={onClose}>
-      <h3 className="text-lg font-semibold text-gray-900">Add Merchant Account</h3>
+      <h3 className="text-lg font-semibold text-foreground">Add Merchant Account</h3>
       <div className="mt-4 space-y-3">
         {/* Sandbox quick-fill */}
         <button
@@ -292,39 +292,39 @@ function AddMidDialog({
             setMerchantId(SANDBOX_DEFAULTS.merchantId);
             setDisplayName(SANDBOX_DEFAULTS.displayName);
           }}
-          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100"
+          className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-500 hover:bg-amber-500/20"
         >
           <FlaskConical className="h-4 w-4" />
           Use Sandbox UAT Test MID
         </button>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Merchant ID (MID)</label>
+          <label className="block text-sm font-medium text-foreground">Merchant ID (MID)</label>
           <input
             type="text"
             value={merchantId}
             onChange={(e) => setMerchantId(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+            className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
             placeholder="496160873888"
           />
-          <p className="mt-1 text-xs text-gray-500">Your processor-assigned merchant identifier.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Your processor-assigned merchant identifier.</p>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700">Display Name</label>
+          <label className="block text-sm font-medium text-foreground">Display Name</label>
           <input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+            className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
             placeholder="Main Processing Account"
           />
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="rounded border-gray-300" />
-          <span className="text-gray-700">Set as default MID for this provider</span>
+          <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="rounded border-input" />
+          <span className="text-foreground">Set as default MID for this provider</span>
         </label>
       </div>
       <div className="mt-6 flex justify-end gap-3">
-        <button onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
         <button
           onClick={() => onSubmit({ merchantId, displayName, isDefault })}
           disabled={isLoading || !merchantId || !displayName}
@@ -355,25 +355,25 @@ function EditMidDialog({
 
   return (
     <DialogOverlay onClose={onClose}>
-      <h3 className="text-lg font-semibold text-gray-900">Edit Merchant Account</h3>
-      <p className="mt-1 text-sm text-gray-500">MID: {account.merchantId}</p>
+      <h3 className="text-lg font-semibold text-foreground">Edit Merchant Account</h3>
+      <p className="mt-1 text-sm text-muted-foreground">MID: {account.merchantId}</p>
       <div className="mt-4 space-y-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Display Name</label>
+          <label className="block text-sm font-medium text-foreground">Display Name</label>
           <input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+            className="mt-1 block w-full rounded-md border border-input bg-surface px-3 py-2 text-sm"
           />
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="rounded border-gray-300" />
-          <span className="text-gray-700">Set as default MID for this provider</span>
+          <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} className="rounded border-input" />
+          <span className="text-foreground">Set as default MID for this provider</span>
         </label>
       </div>
       <div className="mt-6 flex justify-end gap-3">
-        <button onClick={onClose} className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
         <button
           onClick={() => onSubmit({ displayName, isDefault })}
           disabled={isLoading || !displayName}
@@ -478,7 +478,7 @@ function MerchantAccountSetupPanel({
 
   if (isLoading) {
     return (
-      <div className="py-12 text-center text-gray-400">
+      <div className="py-12 text-center text-muted-foreground">
         <Loader2 className="mx-auto h-6 w-6 animate-spin" />
         <p className="mt-2">Loading merchant account setup...</p>
       </div>
@@ -488,8 +488,8 @@ function MerchantAccountSetupPanel({
   if (!setup) {
     return (
       <div className="py-12 text-center">
-        <p className="text-sm text-red-600">Merchant account not found.</p>
-        <button onClick={onBack} className="mt-4 text-sm text-indigo-600 hover:text-indigo-700">
+        <p className="text-sm text-red-500">Merchant account not found.</p>
+        <button onClick={onBack} className="mt-4 text-sm text-indigo-500 hover:text-indigo-400">
           &larr; Back to Merchant Accounts
         </button>
       </div>
@@ -502,29 +502,29 @@ function MerchantAccountSetupPanel({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-          <ArrowLeft className="h-5 w-5" />
+        <button onClick={onBack} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground" aria-label="Back">
+          <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </button>
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Merchant Account Setup</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-foreground">Merchant Account Setup</h2>
+          <p className="text-sm text-muted-foreground">
             {setup.account.displayName} &mdash; MID: <code className="text-xs">{setup.account.merchantId}</code>
           </p>
         </div>
       </div>
 
       {/* Credentials Section */}
-      <fieldset className="rounded-lg border border-gray-200 p-5">
-        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-gray-900">
-          <Shield className="h-4 w-4 text-indigo-600" />
+      <fieldset className="rounded-lg border border-border p-5">
+        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-foreground">
+          <Shield className="h-4 w-4 text-indigo-500" />
           CardPointe Credentials
         </legend>
         <div className="mt-3 space-y-4">
           {/* ── Testing / Production Mode Toggle ── */}
-          <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
+          <div className="rounded-lg border border-border bg-muted/50 p-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-700">Environment Mode</p>
-              <div className="inline-flex rounded-lg border border-gray-300 bg-surface p-0.5">
+              <p className="text-sm font-medium text-foreground">Environment Mode</p>
+              <div className="inline-flex rounded-lg border border-input bg-surface p-0.5">
                 <button
                   type="button"
                   onClick={() => {
@@ -544,7 +544,7 @@ function MerchantAccountSetupPanel({
                   className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                     !isProduction
                       ? 'bg-amber-500 text-white shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <FlaskConical className="h-4 w-4" />
@@ -563,7 +563,7 @@ function MerchantAccountSetupPanel({
                   className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                     isProduction
                       ? 'bg-green-600 text-white shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   <Shield className="h-4 w-4" />
@@ -572,9 +572,9 @@ function MerchantAccountSetupPanel({
               </div>
             </div>
             {!isProduction ? (
-              <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3">
-                <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <div className="text-xs text-amber-800">
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                <div className="text-xs text-amber-500">
                   <p className="font-medium">Sandbox / UAT Mode</p>
                   <p className="mt-0.5">
                     Test credentials have been auto-filled. Transactions will be processed against the
@@ -583,9 +583,9 @@ function MerchantAccountSetupPanel({
                 </div>
               </div>
             ) : (
-              <div className="mt-3 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-                <div className="text-xs text-red-800">
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                <div className="text-xs text-red-500">
                   <p className="font-medium">Production Mode</p>
                   <p className="mt-0.5">
                     This account will process <strong>real credit card transactions with real money</strong>.
@@ -598,17 +598,17 @@ function MerchantAccountSetupPanel({
 
           {/* Test Data (visible in Testing mode) */}
           {!isProduction && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
               <button
                 type="button"
                 onClick={() => setShowTestData(!showTestData)}
                 className="flex w-full items-center justify-between"
               >
                 <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-900">Test Cards &amp; Reference Data</span>
+                  <CreditCard className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium text-amber-500">Test Cards &amp; Reference Data</span>
                 </div>
-                {showTestData ? <ChevronUp className="h-4 w-4 text-amber-600" /> : <ChevronDown className="h-4 w-4 text-amber-600" />}
+                {showTestData ? <ChevronUp className="h-4 w-4 text-amber-500" /> : <ChevronDown className="h-4 w-4 text-amber-500" />}
               </button>
               {showTestData && <SandboxTestDataPanel />}
             </div>
@@ -617,20 +617,20 @@ function MerchantAccountSetupPanel({
           {/* Site + Status Row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-500">
-                Site: <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono">{credSite || 'not set'}</code>
+              <span className="text-xs text-muted-foreground">
+                Site: <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">{credSite || 'not set'}</code>
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 {hasSavedCreds ? (
-                  <span className="inline-flex items-center gap-1 text-green-600">
+                  <span className="inline-flex items-center gap-1 text-green-500">
                     <CheckCircle2 className="h-3.5 w-3.5" /> Credentials saved{setup.isSandbox && ' (Sandbox)'}
                   </span>
                 ) : (
-                  <span className="text-amber-600">No credentials saved yet</span>
+                  <span className="text-amber-500">No credentials saved yet</span>
                 )}
               </span>
             </div>
-            <button type="button" onClick={() => setShowPasswords(!showPasswords)} className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700">
+            <button type="button" onClick={() => setShowPasswords(!showPasswords)} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
               {showPasswords ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               {showPasswords ? 'Hide' : 'Show'} values
             </button>
@@ -639,45 +639,45 @@ function MerchantAccountSetupPanel({
           {/* Primary Credentials */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700">CardPointe Username <span className="text-red-500">*</span></label>
-              <input type={showPasswords ? 'text' : 'password'} value={credUsername} onChange={(e) => setCredUsername(e.target.value)} placeholder={maskedCreds.username || 'YOUR_CARDPOINTE_USERNAME'} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className="block text-sm font-medium text-foreground">CardPointe Username <span className="text-red-500">*</span></label>
+              <input type={showPasswords ? 'text' : 'password'} value={credUsername} onChange={(e) => setCredUsername(e.target.value)} placeholder={maskedCreds.username || 'YOUR_CARDPOINTE_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">CardPointe Password <span className="text-red-500">*</span></label>
-              <input type={showPasswords ? 'text' : 'password'} value={credPassword} onChange={(e) => setCredPassword(e.target.value)} placeholder={maskedCreds.password || 'YOUR_CARDPOINTE_PASSWORD'} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <label className="block text-sm font-medium text-foreground">CardPointe Password <span className="text-red-500">*</span></label>
+              <input type={showPasswords ? 'text' : 'password'} value={credPassword} onChange={(e) => setCredPassword(e.target.value)} placeholder={maskedCreds.password || 'YOUR_CARDPOINTE_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Authorization Key <span className="text-gray-400">(optional)</span></label>
-            <input type={showPasswords ? 'text' : 'password'} value={credAuthKey} onChange={(e) => setCredAuthKey(e.target.value)} placeholder={maskedCreds.authorizationKey || 'YOUR_AUTH_KEY'} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label className="block text-sm font-medium text-foreground">Authorization Key <span className="text-muted-foreground">(optional)</span></label>
+            <input type={showPasswords ? 'text' : 'password'} value={credAuthKey} onChange={(e) => setCredAuthKey(e.target.value)} placeholder={maskedCreds.authorizationKey || 'YOUR_AUTH_KEY'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
 
           {/* ACH Credentials */}
-          <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
-            <p className="mb-3 text-sm font-medium text-gray-700">ACH Credentials <span className="text-gray-400">(if ACH is enabled)</span></p>
+          <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="mb-3 text-sm font-medium text-foreground">ACH Credentials <span className="text-muted-foreground">(if ACH is enabled)</span></p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700">ACH Username</label>
-                <input type={showPasswords ? 'text' : 'password'} value={credAchUsername} onChange={(e) => setCredAchUsername(e.target.value)} placeholder={maskedCreds.achUsername || 'YOUR_ACH_USERNAME'} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label className="block text-sm font-medium text-foreground">ACH Username</label>
+                <input type={showPasswords ? 'text' : 'password'} value={credAchUsername} onChange={(e) => setCredAchUsername(e.target.value)} placeholder={maskedCreds.achUsername || 'YOUR_ACH_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">ACH Password</label>
-                <input type={showPasswords ? 'text' : 'password'} value={credAchPassword} onChange={(e) => setCredAchPassword(e.target.value)} placeholder={maskedCreds.achPassword || 'YOUR_ACH_PASSWORD'} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label className="block text-sm font-medium text-foreground">ACH Password</label>
+                <input type={showPasswords ? 'text' : 'password'} value={credAchPassword} onChange={(e) => setCredAchPassword(e.target.value)} placeholder={maskedCreds.achPassword || 'YOUR_ACH_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             </div>
           </div>
 
           {/* Funding Credentials */}
-          <div className="rounded-lg border border-gray-100 bg-gray-50/50 p-4">
-            <p className="mb-3 text-sm font-medium text-gray-700">Funding Credentials <span className="text-gray-400">(optional)</span></p>
+          <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="mb-3 text-sm font-medium text-foreground">Funding Credentials <span className="text-muted-foreground">(optional)</span></p>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Funding Username</label>
-                <input type={showPasswords ? 'text' : 'password'} value={credFundingUsername} onChange={(e) => setCredFundingUsername(e.target.value)} placeholder={maskedCreds.fundingUsername || 'FUNDING_USERNAME'} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label className="block text-sm font-medium text-foreground">Funding Username</label>
+                <input type={showPasswords ? 'text' : 'password'} value={credFundingUsername} onChange={(e) => setCredFundingUsername(e.target.value)} placeholder={maskedCreds.fundingUsername || 'FUNDING_USERNAME'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Funding Password</label>
-                <input type={showPasswords ? 'text' : 'password'} value={credFundingPassword} onChange={(e) => setCredFundingPassword(e.target.value)} placeholder={maskedCreds.fundingPassword || 'FUNDING_PASSWORD'} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <label className="block text-sm font-medium text-foreground">Funding Password</label>
+                <input type={showPasswords ? 'text' : 'password'} value={credFundingPassword} onChange={(e) => setCredFundingPassword(e.target.value)} placeholder={maskedCreds.fundingPassword || 'FUNDING_PASSWORD'} className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
             </div>
           </div>
@@ -685,34 +685,34 @@ function MerchantAccountSetupPanel({
       </fieldset>
 
       {/* Account Settings */}
-      <fieldset className="rounded-lg border border-gray-200 p-5">
-        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-gray-900">
-          <Settings2 className="h-4 w-4 text-indigo-600" /> Account Settings
+      <fieldset className="rounded-lg border border-border p-5">
+        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-foreground">
+          <Settings2 className="h-4 w-4 text-indigo-500" /> Account Settings
         </legend>
         <div className="mt-3 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Merchant Name <span className="text-red-500">*</span></label>
-            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="YOUR_MERCHANT_NAME" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label className="block text-sm font-medium text-foreground">Merchant Name <span className="text-red-500">*</span></label>
+            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="YOUR_MERCHANT_NAME" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">HSN (Hardware Serial Number) <span className="text-gray-400">(optional)</span></label>
-            <input type="text" value={hsn} onChange={(e) => setHsn(e.target.value)} placeholder="OPTIONAL_HSN" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label className="block text-sm font-medium text-foreground">HSN (Hardware Serial Number) <span className="text-muted-foreground">(optional)</span></label>
+            <input type="text" value={hsn} onChange={(e) => setHsn(e.target.value)} placeholder="OPTIONAL_HSN" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">ACH Merchant ID <span className="text-gray-400">(if ACH is enabled)</span></label>
-            <input type="text" value={achMerchantId} onChange={(e) => setAchMerchantId(e.target.value)} placeholder="YOUR_ACH_MID" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label className="block text-sm font-medium text-foreground">ACH Merchant ID <span className="text-muted-foreground">(if ACH is enabled)</span></label>
+            <input type="text" value={achMerchantId} onChange={(e) => setAchMerchantId(e.target.value)} placeholder="YOUR_ACH_MID" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700">Funding Merchant ID <span className="text-gray-400">(optional)</span></label>
-            <input type="text" value={fundingMerchantId} onChange={(e) => setFundingMerchantId(e.target.value)} placeholder="FUNDING_MID" className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <label className="block text-sm font-medium text-foreground">Funding Merchant ID <span className="text-muted-foreground">(optional)</span></label>
+            <input type="text" value={fundingMerchantId} onChange={(e) => setFundingMerchantId(e.target.value)} placeholder="FUNDING_MID" className="mt-1 w-full rounded-lg border border-input px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" />
           </div>
         </div>
       </fieldset>
 
       {/* Terminal & Processing Options */}
-      <fieldset className="rounded-lg border border-gray-200 p-5">
-        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-gray-900">
-          <Cpu className="h-4 w-4 text-indigo-600" /> Terminal &amp; Processing Options
+      <fieldset className="rounded-lg border border-border p-5">
+        <legend className="flex items-center gap-2 px-2 text-sm font-semibold text-foreground">
+          <Cpu className="h-4 w-4 text-indigo-500" /> Terminal &amp; Processing Options
         </legend>
         <div className="mt-3 space-y-5">
           <ToggleRow label="Use For Card Swipe" description="Enable CardConnect for in-person payments (swiped, dipped, or tapped cards)." checked={useForCardSwipe} onChange={setUseForCardSwipe} />
@@ -723,16 +723,16 @@ function MerchantAccountSetupPanel({
       </fieldset>
 
       {/* Save Bar */}
-      <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-4">
         <button onClick={handleSave} disabled={isSaving || !displayName} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
         </button>
-        <button onClick={() => setShowVerify(true)} disabled={!hasSavedCreds} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50">
+        <button onClick={() => setShowVerify(true)} disabled={!hasSavedCreds} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-2.5 text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 disabled:opacity-50">
           <ShieldCheck className="h-4 w-4" /> Verify Credentials
         </button>
-        {saved && <span className="flex items-center gap-1 text-sm font-medium text-green-600"><CheckCircle2 className="h-4 w-4" /> Saved successfully</span>}
-        {saveError && <span className="text-sm text-red-600">{saveError instanceof Error ? saveError.message : 'Failed to save'}</span>}
-        <span className="ml-auto text-xs text-gray-400">Click Save to apply all changes.</span>
+        {saved && <span className="flex items-center gap-1 text-sm font-medium text-green-500"><CheckCircle2 className="h-4 w-4" /> Saved successfully</span>}
+        {saveError && <span className="text-sm text-red-500">{saveError instanceof Error ? saveError.message : 'Failed to save'}</span>}
+        <span className="ml-auto text-xs text-muted-foreground">Click Save to apply all changes.</span>
       </div>
 
       {showVerify && (
@@ -749,55 +749,57 @@ function SandboxTestDataPanel() {
   };
 
   return (
-    <div className="mt-4 space-y-4 border-t border-amber-200 pt-4">
+    <div className="mt-4 space-y-4 border-t border-amber-500/30 pt-4">
       {/* Test MID */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Sandbox Merchant ID</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-500">Sandbox Merchant ID</p>
         <div className="mt-1 flex items-center gap-2">
-          <code className="rounded bg-amber-100 px-2 py-1 text-sm font-mono text-amber-900">{SANDBOX_DEFAULTS.merchantId}</code>
+          <code className="rounded bg-amber-500/20 px-2 py-1 text-sm font-mono text-amber-500">{SANDBOX_DEFAULTS.merchantId}</code>
           <button
             type="button"
             onClick={() => copyToClipboard(SANDBOX_DEFAULTS.merchantId)}
-            className="rounded p-1 text-amber-600 hover:bg-amber-200"
+            className="rounded p-1 text-amber-500 hover:bg-amber-500/20"
             title="Copy MID"
+            aria-label="Copy MID"
           >
-            <Copy className="h-3.5 w-3.5" />
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
-          <span className="text-xs text-amber-600">Use this MID when adding a new merchant account for testing.</span>
+          <span className="text-xs text-amber-500">Use this MID when adding a new merchant account for testing.</span>
         </div>
       </div>
 
       {/* Test Cards */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-500">
           <CreditCard className="mr-1 inline h-3.5 w-3.5" />
           Test Card Numbers
         </p>
-        <p className="mt-0.5 text-xs text-amber-600">CVV: any 3-4 digits &middot; Expiry: any future date (e.g. 1228)</p>
-        <div className="mt-2 overflow-hidden rounded-md border border-amber-200">
+        <p className="mt-0.5 text-xs text-amber-500">CVV: any 3-4 digits &middot; Expiry: any future date (e.g. 1228)</p>
+        <div className="mt-2 overflow-hidden rounded-md border border-amber-500/30">
           <table className="min-w-full text-xs">
-            <thead className="bg-amber-100/70">
+            <thead className="bg-amber-500/20">
               <tr>
-                <th className="px-3 py-1.5 text-left font-medium text-amber-800">Brand</th>
-                <th className="px-3 py-1.5 text-left font-medium text-amber-800">Card Number</th>
-                <th className="px-3 py-1.5 text-left font-medium text-amber-800">Use Case</th>
+                <th className="px-3 py-1.5 text-left font-medium text-amber-500">Brand</th>
+                <th className="px-3 py-1.5 text-left font-medium text-amber-500">Card Number</th>
+                <th className="px-3 py-1.5 text-left font-medium text-amber-500">Use Case</th>
                 <th className="w-8" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-amber-100">
+            <tbody className="divide-y divide-amber-500/20">
               {SANDBOX_TEST_CARDS.map((card) => (
-                <tr key={card.number} className="hover:bg-amber-50">
-                  <td className="px-3 py-1.5 font-medium text-amber-900">{card.brand}</td>
-                  <td className="px-3 py-1.5 font-mono text-amber-900">{card.number}</td>
-                  <td className="px-3 py-1.5 text-amber-700">{card.use}</td>
+                <tr key={card.number} className="hover:bg-amber-500/10">
+                  <td className="px-3 py-1.5 font-medium text-amber-500">{card.brand}</td>
+                  <td className="px-3 py-1.5 font-mono text-amber-500">{card.number}</td>
+                  <td className="px-3 py-1.5 text-amber-500">{card.use}</td>
                   <td className="px-1.5 py-1.5">
                     <button
                       type="button"
                       onClick={() => copyToClipboard(card.number)}
-                      className="rounded p-1 text-amber-500 hover:bg-amber-200 hover:text-amber-700"
+                      className="rounded p-1 text-amber-500 hover:bg-amber-500/20 hover:text-amber-400"
                       title="Copy card number"
+                      aria-label="Copy card number"
                     >
-                      <Copy className="h-3 w-3" />
+                      <Copy className="h-3 w-3" aria-hidden="true" />
                     </button>
                   </td>
                 </tr>
@@ -809,12 +811,12 @@ function SandboxTestDataPanel() {
 
       {/* Amount-Driven Response Codes */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Amount-Driven Response Codes</p>
-        <p className="mt-0.5 text-xs text-amber-700">
-          Use card <code className="rounded bg-amber-100 px-1 font-mono">4000065433421984</code> with amounts in the
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-500">Amount-Driven Response Codes</p>
+        <p className="mt-0.5 text-xs text-amber-500">
+          Use card <code className="rounded bg-amber-500/20 px-1 font-mono">4000065433421984</code> with amounts in the
           <strong> $1,000-$1,999</strong> range. The last 3 digits of the dollar amount = the response code.
         </p>
-        <p className="mt-1 text-xs text-amber-600">
+        <p className="mt-1 text-xs text-amber-500">
           Example: <code className="font-mono">$1332.00</code> → respcode 332 (&ldquo;Account locked&rdquo;) &middot;
           <code className="font-mono"> $1695.00</code> → respcode 695
         </p>
@@ -822,41 +824,42 @@ function SandboxTestDataPanel() {
 
       {/* ACH Test Data */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-500">
           <Landmark className="mr-1 inline h-3.5 w-3.5" />
           ACH Test Data
         </p>
         <div className="mt-1 space-y-1">
           {SANDBOX_ACH_DATA.routingNumbers.map((rn) => (
             <div key={rn} className="flex items-center gap-2">
-              <span className="text-xs text-amber-700">Routing:</span>
-              <code className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-mono text-amber-900">{rn}</code>
+              <span className="text-xs text-amber-500">Routing:</span>
+              <code className="rounded bg-amber-500/20 px-1.5 py-0.5 text-xs font-mono text-amber-500">{rn}</code>
               <button
                 type="button"
                 onClick={() => copyToClipboard(rn)}
-                className="rounded p-0.5 text-amber-500 hover:bg-amber-200"
+                className="rounded p-0.5 text-amber-500 hover:bg-amber-500/20"
                 title="Copy routing number"
+                aria-label="Copy routing number"
               >
-                <Copy className="h-3 w-3" />
+                <Copy className="h-3 w-3" aria-hidden="true" />
               </button>
             </div>
           ))}
-          <p className="text-xs text-amber-600">{SANDBOX_ACH_DATA.note}</p>
+          <p className="text-xs text-amber-500">{SANDBOX_ACH_DATA.note}</p>
         </div>
       </div>
 
       {/* AVS Testing */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">AVS Test Zip Codes</p>
-        <p className="mt-0.5 text-xs text-amber-700">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-500">AVS Test Zip Codes</p>
+        <p className="mt-0.5 text-xs text-amber-500">
           The last 3 digits of the postal code control the AVS response (e.g. zip <code className="font-mono">55112</code>).
           You can also include a 3-digit code in the address field (e.g. <code className="font-mono">&ldquo;112 Main Street&rdquo;</code>).
         </p>
       </div>
 
       {/* Rate Limits */}
-      <div className="rounded-md border border-amber-200 bg-amber-100/50 p-2.5">
-        <p className="text-xs text-amber-800">
+      <div className="rounded-md border border-amber-500/30 bg-amber-500/20 p-2.5">
+        <p className="text-xs text-amber-500">
           <strong>UAT Rate Limit:</strong> 20 TPM per IP for <code className="font-mono">funding</code>,{' '}
           <code className="font-mono">inquire</code>, <code className="font-mono">profile</code>,{' '}
           <code className="font-mono">settlestat</code> endpoints.
@@ -878,48 +881,48 @@ function VerifyCredentialsReport({ providerId, onClose }: { providerId: string; 
 
   const statusColor = (status: VerifyCredentialRow['status']) => {
     switch (status) {
-      case 'OK': return 'text-green-700 bg-green-50';
-      case 'Unauthorized': return 'text-red-700 bg-red-50';
-      case 'Blank Credentials': return 'text-amber-700 bg-amber-50';
-      case 'Timeout': return 'text-orange-700 bg-orange-50';
-      default: return 'text-red-700 bg-red-50';
+      case 'OK': return 'text-green-500 bg-green-500/10';
+      case 'Unauthorized': return 'text-red-500 bg-red-500/10';
+      case 'Blank Credentials': return 'text-amber-500 bg-amber-500/10';
+      case 'Timeout': return 'text-orange-500 bg-orange-500/10';
+      default: return 'text-red-500 bg-red-500/10';
     }
   };
 
   const statusIcon = (status: VerifyCredentialRow['status']) => {
     switch (status) {
-      case 'OK': return <CheckCircle2 className="h-4 w-4 text-green-600" />;
-      case 'Unauthorized': return <XCircle className="h-4 w-4 text-red-600" />;
-      case 'Blank Credentials': return <AlertTriangle className="h-4 w-4 text-amber-600" />;
-      default: return <XCircle className="h-4 w-4 text-red-600" />;
+      case 'OK': return <CheckCircle2 className="h-4 w-4 text-green-500" />;
+      case 'Unauthorized': return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'Blank Credentials': return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+      default: return <XCircle className="h-4 w-4 text-red-500" />;
     }
   };
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="mx-4 w-full max-w-4xl rounded-xl bg-surface shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-3">
-            <ShieldCheck className="h-5 w-5 text-indigo-600" />
+            <ShieldCheck className="h-5 w-5 text-indigo-500" />
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Verify Credentials</h2>
-              <p className="text-sm text-gray-500">Testing connectivity for all credential types</p>
+              <h2 className="text-lg font-semibold text-foreground">Verify Credentials</h2>
+              <p className="text-sm text-muted-foreground">Testing connectivity for all credential types</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground" aria-label="Close">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
         <div className="px-6 py-4">
           {isVerifying ? (
             <div className="py-16 text-center">
-              <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-600" />
-              <p className="mt-3 text-sm font-medium text-gray-700">Testing credentials...</p>
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-500" />
+              <p className="mt-3 text-sm font-medium text-foreground">Testing credentials...</p>
             </div>
           ) : error ? (
             <div className="py-12 text-center">
               <XCircle className="mx-auto h-10 w-10 text-red-400" />
-              <p className="mt-3 text-sm font-medium text-red-700">{error instanceof Error ? error.message : 'Failed to verify credentials'}</p>
+              <p className="mt-3 text-sm font-medium text-red-500">{error instanceof Error ? error.message : 'Failed to verify credentials'}</p>
               <button onClick={() => verify()} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Retry</button>
             </div>
           ) : result ? (
@@ -929,39 +932,39 @@ function VerifyCredentialsReport({ providerId, onClose }: { providerId: string; 
                 const total = result.rows.length;
                 const allOk = okCount === total;
                 return (
-                  <div className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium ${allOk ? 'border-green-200 bg-green-50 text-green-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                  <div className={`flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium ${allOk ? 'border-green-500/30 bg-green-500/10 text-green-500' : 'border-amber-500/30 bg-amber-500/10 text-amber-500'}`}>
                     {allOk ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
                     {okCount} of {total} credential{total !== 1 ? 's' : ''} verified successfully
-                    <span className="ml-auto text-xs font-normal text-gray-500">{new Date(result.testedAt).toLocaleString()}</span>
+                    <span className="ml-auto text-xs font-normal text-muted-foreground">{new Date(result.testedAt).toLocaleString()}</span>
                   </div>
                 );
               })()}
-              <div className="overflow-hidden rounded-lg border border-gray-200">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+              <div className="overflow-hidden rounded-lg border border-border">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-muted">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Merchant Account</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Account Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">MID</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">User Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Password</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Merchant Account</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Account Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">MID</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">User Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Password</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-muted-foreground">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200 bg-surface">
+                  <tbody className="divide-y divide-border bg-surface">
                     {result.rows.map((row, idx) => (
-                      <tr key={`${row.merchantAccountId}-${row.accountType}`} className="hover:bg-gray-50/50">
-                        <td className="px-4 py-2.5 text-sm text-gray-900">
+                      <tr key={`${row.merchantAccountId}-${row.accountType}`} className="hover:bg-muted/50">
+                        <td className="px-4 py-2.5 text-sm text-foreground">
                           {idx === 0 || result.rows[idx - 1]!.merchantAccountId !== row.merchantAccountId ? (
-                            <div><span className="font-medium">{row.displayName}</span><span className="ml-2 font-mono text-xs text-gray-400">{row.merchantId}</span></div>
+                            <div><span className="font-medium">{row.displayName}</span><span className="ml-2 font-mono text-xs text-muted-foreground">{row.merchantId}</span></div>
                           ) : null}
                         </td>
                         <td className="px-4 py-2.5 text-sm">
-                          <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${row.accountType === 'Ecom' ? 'bg-blue-50 text-blue-700' : row.accountType === 'ACH' ? 'bg-purple-50 text-purple-700' : 'bg-teal-50 text-teal-700'}`}>{row.accountType}</span>
+                          <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${row.accountType === 'Ecom' ? 'bg-blue-500/10 text-blue-400' : row.accountType === 'ACH' ? 'bg-purple-500/10 text-purple-400' : 'bg-teal-500/10 text-teal-400'}`}>{row.accountType}</span>
                         </td>
-                        <td className="px-4 py-2.5 font-mono text-sm text-gray-700">{row.mid}</td>
-                        <td className="px-4 py-2.5 text-sm text-gray-700">{row.username || <span className="italic text-gray-400">blank</span>}</td>
-                        <td className="px-4 py-2.5 font-mono text-sm text-gray-700">{row.password || <span className="italic text-gray-400">blank</span>}</td>
+                        <td className="px-4 py-2.5 font-mono text-sm text-muted-foreground">{row.mid}</td>
+                        <td className="px-4 py-2.5 text-sm text-muted-foreground">{row.username || <span className="italic text-muted-foreground">blank</span>}</td>
+                        <td className="px-4 py-2.5 font-mono text-sm text-muted-foreground">{row.password || <span className="italic text-muted-foreground">blank</span>}</td>
                         <td className="px-4 py-2.5">
                           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusColor(row.status)}`} title={row.error}>
                             {statusIcon(row.status)} {row.status}
@@ -975,15 +978,15 @@ function VerifyCredentialsReport({ providerId, onClose }: { providerId: string; 
             </div>
           ) : null}
         </div>
-        <div className="flex items-center justify-between border-t border-gray-200 px-6 py-3">
-          <p className="text-xs text-gray-400">Tests each credential type by calling the CardPointe inquire endpoint.</p>
+        <div className="flex items-center justify-between border-t border-border px-6 py-3">
+          <p className="text-xs text-muted-foreground">Tests each credential type by calling the CardPointe inquire endpoint.</p>
           <div className="flex items-center gap-2">
             {result && (
-              <button onClick={() => verify()} disabled={isVerifying} className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50">
+              <button onClick={() => verify()} disabled={isVerifying} className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50">
                 <ShieldCheck className="h-4 w-4" /> Re-test
               </button>
             )}
-            <button onClick={onClose} className="rounded-md bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200">Close</button>
+            <button onClick={onClose} className="rounded-md bg-muted px-4 py-1.5 text-sm font-medium text-foreground hover:bg-accent">Close</button>
           </div>
         </div>
       </div>

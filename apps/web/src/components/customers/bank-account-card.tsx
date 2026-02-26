@@ -10,10 +10,10 @@ function accountTypeLabel(type: string | null): string {
 }
 
 const VERIFICATION_BADGES: Record<string, { label: string; class: string; icon: typeof ShieldCheck }> = {
-  verified: { label: 'Verified', class: 'bg-green-100 text-green-700', icon: ShieldCheck },
-  pending_micro: { label: 'Pending Verification', class: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  unverified: { label: 'Unverified', class: 'bg-gray-100 text-gray-600', icon: ShieldAlert },
-  failed: { label: 'Verification Failed', class: 'bg-red-100 text-red-700', icon: ShieldAlert },
+  verified: { label: 'Verified', class: 'bg-green-500/20 text-green-500', icon: ShieldCheck },
+  pending_micro: { label: 'Pending Verification', class: 'bg-yellow-500/20 text-yellow-500', icon: Clock },
+  unverified: { label: 'Unverified', class: 'bg-muted text-muted-foreground', icon: ShieldAlert },
+  failed: { label: 'Verification Failed', class: 'bg-red-500/20 text-red-500', icon: ShieldAlert },
 };
 
 interface BankAccountCardProps {
@@ -55,24 +55,24 @@ export function BankAccountCard({
     <div
       className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${
         method.isDefault
-          ? 'border-indigo-200 bg-indigo-50/50'
+          ? 'border-indigo-500/30 bg-indigo-500/5'
           : verificationStatus === 'failed'
-            ? 'border-red-200 bg-red-50/30'
-            : 'border-gray-200'
+            ? 'border-red-500/30 bg-red-500/5'
+            : 'border-border'
       }`}
     >
       <div className="flex items-center gap-3 min-w-0">
         <Landmark className="h-5 w-5 shrink-0 text-emerald-600" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-foreground">
               {bankName ?? accountTypeLabel(bankAccountType)}
             </span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               ····{method.last4 ?? '????'}
             </span>
             {method.isDefault && (
-              <span className="inline-flex items-center gap-0.5 rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-700">
+              <span className="inline-flex items-center gap-0.5 rounded bg-indigo-500/20 px-1.5 py-0.5 text-xs font-medium text-indigo-500">
                 <Star className="h-3 w-3" />
                 Default
               </span>
@@ -84,19 +84,19 @@ export function BankAccountCard({
               </span>
             )}
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+          <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
             {bankAccountType && (
               <span>{accountTypeLabel(bankAccountType)}</span>
             )}
             {routingLast4 && (
               <>
-                <span className="text-gray-300">&middot;</span>
+                <span className="text-muted-foreground/30">&middot;</span>
                 <span>Routing ····{routingLast4}</span>
               </>
             )}
             {method.nickname && (
               <>
-                <span className="text-gray-300">&middot;</span>
+                <span className="text-muted-foreground/30">&middot;</span>
                 <span className="truncate max-w-[120px]">{method.nickname}</span>
               </>
             )}
@@ -110,7 +110,7 @@ export function BankAccountCard({
             type="button"
             onClick={() => onVerify(method.id)}
             disabled={isActing}
-            className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:opacity-50"
+            className="rounded-lg px-2 py-1 text-xs font-medium text-emerald-500 transition-colors hover:bg-emerald-500/10 disabled:opacity-50"
           >
             Verify
           </button>
@@ -120,7 +120,7 @@ export function BankAccountCard({
             type="button"
             onClick={() => onVerify(method.id)}
             disabled={isActing}
-            className="rounded-lg px-2 py-1 text-xs font-medium text-yellow-600 transition-colors hover:bg-yellow-50 disabled:opacity-50"
+            className="rounded-lg px-2 py-1 text-xs font-medium text-yellow-500 transition-colors hover:bg-yellow-500/10 disabled:opacity-50"
           >
             Enter Amounts
           </button>
@@ -130,13 +130,13 @@ export function BankAccountCard({
           type="button"
           onClick={() => setMenuOpen(!menuOpen)}
           disabled={isActing}
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:opacity-50"
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
         >
           <MoreVertical className="h-4 w-4" />
         </button>
 
         {menuOpen && (
-          <div className="absolute right-0 top-full z-10 mt-1 w-44 rounded-lg border border-gray-200 bg-surface py-1 shadow-lg">
+          <div className="absolute right-0 top-full z-10 mt-1 w-44 rounded-lg border border-border bg-surface py-1 shadow-lg">
             {!method.isDefault && (
               <button
                 type="button"
@@ -144,9 +144,9 @@ export function BankAccountCard({
                   setMenuOpen(false);
                   onSetDefault(method.id);
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-foreground hover:bg-accent"
               >
-                <Star className="h-4 w-4 text-gray-400" />
+                <Star className="h-4 w-4 text-muted-foreground" />
                 Set as Default
               </button>
             )}
@@ -156,7 +156,7 @@ export function BankAccountCard({
                 setMenuOpen(false);
                 onRemove(method.id);
               }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-red-500/10"
             >
               <Trash2 className="h-4 w-4" />
               Remove

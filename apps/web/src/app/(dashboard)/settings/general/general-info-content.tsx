@@ -19,7 +19,7 @@ import {
   ScrollText,
   LayoutDashboard,
 } from 'lucide-react';
-import { useBusinessInfo, useUpdateBusinessInfo, useContentBlocks, useUpdateContentBlock } from '@/hooks/use-business-info';
+import { useBusinessInfoAll, useUpdateBusinessInfo, useBatchUpdateContentBlocks } from '@/hooks/use-business-info';
 import dynamic from 'next/dynamic';
 import { usePermissionsContext } from '@/components/permissions-provider';
 import { TagInput } from '@/components/settings/general/tag-input';
@@ -130,7 +130,7 @@ function Section({
         className="flex w-full items-center justify-between px-5 py-4"
       >
         <div className="flex items-center gap-3">
-          <Icon className="h-5 w-5 text-gray-500" />
+          <Icon className="h-5 w-5 text-gray-500" aria-hidden="true" />
           <h2 className="text-base font-semibold text-gray-900">{title}</h2>
           {fieldCount !== undefined && filledCount !== undefined && (
             <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
@@ -138,7 +138,7 @@ function Section({
             </span>
           )}
         </div>
-        {open ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+        {open ? <ChevronUp className="h-4 w-4 text-gray-400" aria-hidden="true" /> : <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />}
       </button>
       {open && <div className="border-t border-gray-100 px-5 pb-5 pt-4">{children}</div>}
     </div>
@@ -172,7 +172,7 @@ function Field({
       {helper && !error && <p className="mt-1 text-xs text-gray-400">{helper}</p>}
       {error && (
         <p className="mt-1 flex items-center gap-1 text-xs text-red-500">
-          <CircleAlert className="h-3 w-3" />
+          <CircleAlert className="h-3 w-3" aria-hidden="true" />
           {error}
         </p>
       )}
@@ -230,7 +230,7 @@ export default function GeneralInfoContent() {
                   : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
               }`}
             >
-              <tab.icon className="h-4 w-4" />
+              <tab.icon className="h-4 w-4" aria-hidden="true" />
               {tab.label}
             </button>
           ))}
@@ -253,10 +253,11 @@ export default function GeneralInfoContent() {
 // ── Business Info Tab ────────────────────────────────────────────
 
 function BusinessInfoTab() {
-  const { data: info, isLoading: loadingInfo } = useBusinessInfo();
-  const { data: blocks, isLoading: loadingBlocks } = useContentBlocks();
+  const { data: generalData, isLoading } = useBusinessInfoAll();
+  const info = generalData?.info;
+  const blocks = generalData?.blocks;
   const updateInfo = useUpdateBusinessInfo();
-  const updateBlock = useUpdateContentBlock();
+  const batchUpdateBlocks = useBatchUpdateContentBlocks();
   const { can } = usePermissionsContext();
   const canEdit = can('settings.update');
 
@@ -434,18 +435,24 @@ function BusinessInfoTab() {
   // ── Save ───────────────────────────────────────────────────────
 
   async function handleSave() {
+    const promises: Promise<unknown>[] = [];
+
     // Save business info
     if (dirty) {
-      await updateInfo.mutateAsync(form);
+      promises.push(updateInfo.mutateAsync(form));
     }
-    // Save content blocks
+
+    // Save content blocks in parallel
     if (contentDirty) {
-      for (const key of CONTENT_BLOCK_KEYS) {
-        if (contentForms[key] !== undefined) {
-          await updateBlock.mutateAsync({ blockKey: key, content: contentForms[key]! });
-        }
+      const dirtyBlocks = CONTENT_BLOCK_KEYS
+        .filter((key) => contentForms[key] !== undefined)
+        .map((key) => ({ blockKey: key, content: contentForms[key]! }));
+      if (dirtyBlocks.length > 0) {
+        promises.push(batchUpdateBlocks.mutateAsync(dirtyBlocks));
       }
     }
+
+    await Promise.all(promises);
     setDirty(false);
     setContentDirty(false);
     setSaveSuccess(true);
@@ -499,7 +506,7 @@ function BusinessInfoTab() {
 
   // ── Loading ────────────────────────────────────────────────────
 
-  if (loadingInfo || loadingBlocks) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -508,7 +515,7 @@ function BusinessInfoTab() {
   }
 
   const isAnyDirty = dirty || contentDirty;
-  const isSaving = updateInfo.isPending || updateBlock.isPending;
+  const isSaving = updateInfo.isPending || batchUpdateBlocks.isPending;
   const disabled = !canEdit;
 
   return (
@@ -723,7 +730,7 @@ function BusinessInfoTab() {
                 className={`flex h-24 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-gray-50/50 transition-colors hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60 ${logoDragOver ? 'border-indigo-400' : 'border-gray-300'}`}
               >
                 <div className="flex flex-col items-center gap-1 text-gray-400">
-                  <ImagePlus className="h-6 w-6" />
+                  <ImagePlus className="h-6 w-6" aria-hidden="true" />
                   <span className="text-xs">Drag & drop or click to upload</span>
                 </div>
               </button>
@@ -1052,7 +1059,7 @@ function BusinessInfoTab() {
                   }}
                   className={`flex h-20 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-gray-50/50 text-sm text-gray-400 transition-colors hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60 ${galleryDragOver ? 'border-indigo-400' : 'border-gray-300'}`}
                 >
-                  <ImagePlus className="mr-2 h-5 w-5" />
+                  <ImagePlus className="mr-2 h-5 w-5" aria-hidden="true" />
                   Add your first photo
                 </button>
               )}
@@ -1093,9 +1100,9 @@ function BusinessInfoTab() {
                 className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
               >
                 {isSaving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
                 ) : saveSuccess ? (
-                  <Check className="h-4 w-4" />
+                  <Check className="h-4 w-4" aria-hidden="true" />
                 ) : null}
                 {isSaving ? 'Saving...' : 'Save changes'}
               </button>
@@ -1107,7 +1114,7 @@ function BusinessInfoTab() {
       {/* Toast notification */}
       {saveSuccess && !isAnyDirty && (
         <div className="fixed bottom-6 right-6 z-30 flex items-center gap-2 rounded-lg bg-green-600 px-4 py-3 text-sm font-medium text-white shadow-lg">
-          <Check className="h-4 w-4" />
+          <Check className="h-4 w-4" aria-hidden="true" />
           Business info updated
         </div>
       )}

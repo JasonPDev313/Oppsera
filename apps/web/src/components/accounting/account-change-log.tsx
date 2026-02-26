@@ -24,12 +24,12 @@ interface AccountChangeLogProps {
 }
 
 const ACTION_LABELS: Record<string, { label: string; color: string }> = {
-  CREATE: { label: 'Created', color: 'text-green-700 bg-green-50' },
-  UPDATE: { label: 'Updated', color: 'text-blue-700 bg-blue-50' },
-  DEACTIVATE: { label: 'Deactivated', color: 'text-red-700 bg-red-50' },
-  REACTIVATE: { label: 'Reactivated', color: 'text-green-700 bg-green-50' },
-  MERGE: { label: 'Merged', color: 'text-purple-700 bg-purple-50' },
-  RENUMBER: { label: 'Renumbered', color: 'text-amber-700 bg-amber-50' },
+  CREATE: { label: 'Created', color: 'text-green-500 bg-green-500/10' },
+  UPDATE: { label: 'Updated', color: 'text-blue-500 bg-blue-500/10' },
+  DEACTIVATE: { label: 'Deactivated', color: 'text-red-500 bg-red-500/10' },
+  REACTIVATE: { label: 'Reactivated', color: 'text-green-500 bg-green-500/10' },
+  MERGE: { label: 'Merged', color: 'text-purple-500 bg-purple-500/10' },
+  RENUMBER: { label: 'Renumbered', color: 'text-amber-500 bg-amber-500/10' },
 };
 
 export function AccountChangeLog({ open, onClose, accountId, accountLabel }: AccountChangeLogProps) {
@@ -77,37 +77,37 @@ export function AccountChangeLog({ open, onClose, accountId, accountLabel }: Acc
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 mx-4 w-full max-w-lg rounded-xl bg-surface shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
-            <History className="h-5 w-5 text-gray-400" />
-            <h2 className="text-lg font-semibold text-gray-900">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold text-foreground">
               Change History{accountLabel ? ` — ${accountLabel}` : ''}
             </h2>
           </div>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-muted-foreground" aria-label="Close">
+            <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto px-6 py-4">
           {entries.length === 0 && !isLoading && (
-            <p className="text-center text-sm text-gray-500">No change history found.</p>
+            <p className="text-center text-sm text-muted-foreground">No change history found.</p>
           )}
 
           <div className="space-y-2">
             {entries.map((entry) => {
-              const actionInfo = ACTION_LABELS[entry.action] ?? { label: entry.action, color: 'text-gray-700 bg-gray-50' };
+              const actionInfo = ACTION_LABELS[entry.action] ?? { label: entry.action, color: 'text-muted-foreground bg-muted' };
               const isExpanded = expandedIds.has(entry.id);
 
               return (
-                <div key={entry.id} className="rounded-lg border border-gray-200 p-3">
+                <div key={entry.id} className="rounded-lg border border-border p-3">
                   <button
                     type="button"
                     className="flex w-full items-center gap-2 text-left"
                     onClick={() => toggleExpand(entry.id)}
                   >
                     {entry.fieldChanged ? (
-                      isExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />
+                      isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     ) : (
                       <div className="w-4" />
                     )}
@@ -115,9 +115,9 @@ export function AccountChangeLog({ open, onClose, accountId, accountLabel }: Acc
                       {actionInfo.label}
                     </span>
                     {entry.fieldChanged && (
-                      <span className="text-xs text-gray-500">{entry.fieldChanged}</span>
+                      <span className="text-xs text-muted-foreground">{entry.fieldChanged}</span>
                     )}
-                    <span className="ml-auto text-xs text-gray-400">
+                    <span className="ml-auto text-xs text-muted-foreground">
                       {entry.changedAt ? new Date(entry.changedAt).toLocaleString() : ''}
                     </span>
                   </button>
@@ -125,13 +125,13 @@ export function AccountChangeLog({ open, onClose, accountId, accountLabel }: Acc
                   {isExpanded && entry.fieldChanged && (
                     <div className="mt-2 ml-6 space-y-1">
                       {entry.oldValue != null && (
-                        <p className="text-xs text-gray-500">
-                          Old: <span className="font-mono text-red-600 line-through">{entry.oldValue}</span>
+                        <p className="text-xs text-muted-foreground">
+                          Old: <span className="font-mono text-red-500 line-through">{entry.oldValue}</span>
                         </p>
                       )}
                       {entry.newValue != null && (
-                        <p className="text-xs text-gray-500">
-                          New: <span className="font-mono text-green-600">{entry.newValue}</span>
+                        <p className="text-xs text-muted-foreground">
+                          New: <span className="font-mono text-green-500">{entry.newValue}</span>
                         </p>
                       )}
                     </div>
@@ -146,7 +146,7 @@ export function AccountChangeLog({ open, onClose, accountId, accountLabel }: Acc
               type="button"
               onClick={() => fetchLog(entries[entries.length - 1]?.id)}
               disabled={isLoading}
-              className="mt-3 w-full rounded-lg border border-gray-200 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+              className="mt-3 w-full rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-accent disabled:opacity-50"
             >
               {isLoading ? 'Loading...' : 'Load More'}
             </button>

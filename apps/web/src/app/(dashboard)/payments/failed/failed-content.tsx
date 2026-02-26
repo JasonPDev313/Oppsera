@@ -26,17 +26,17 @@ import {
 // ── Status config ────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  declined: 'bg-red-100 text-red-700',
-  error: 'bg-orange-100 text-orange-700',
+  declined: 'bg-red-500/10 text-red-500',
+  error: 'bg-orange-500/10 text-orange-500',
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  hard: 'bg-red-100 text-red-700',
-  soft: 'bg-yellow-100 text-yellow-700',
-  fraud: 'bg-red-200 text-red-800',
-  data_fix: 'bg-blue-100 text-blue-700',
-  config_error: 'bg-purple-100 text-purple-700',
-  network_error: 'bg-orange-100 text-orange-700',
+  hard: 'bg-red-500/10 text-red-500',
+  soft: 'bg-yellow-500/10 text-yellow-500',
+  fraud: 'bg-red-500/20 text-red-500',
+  data_fix: 'bg-blue-500/10 text-blue-500',
+  config_error: 'bg-purple-500/10 text-purple-500',
+  network_error: 'bg-orange-500/10 text-orange-500',
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -147,14 +147,14 @@ export default function FailedPaymentsContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Failed Payments</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-semibold text-foreground">Failed Payments</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Review and resolve declined or errored payment attempts
           </p>
         </div>
         <button
           onClick={() => refetch()}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh
@@ -185,15 +185,15 @@ export default function FailedPaymentsContent() {
 
       {/* Filter bar */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Showing failed payments from the last 30 days
         </p>
         <button
           onClick={() => setShowFilters(!showFilters)}
           className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium ${
             hasActiveFilters
-              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/30'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Filter className="h-3.5 w-3.5" />
@@ -204,7 +204,7 @@ export default function FailedPaymentsContent() {
                 e.stopPropagation();
                 clearFilters();
               }}
-              className="ml-1 rounded-full p-0.5 hover:bg-indigo-100"
+              className="ml-1 rounded-full p-0.5 hover:bg-indigo-500/10"
             >
               <X className="h-3 w-3" />
             </button>
@@ -213,32 +213,32 @@ export default function FailedPaymentsContent() {
       </div>
 
       {showFilters && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
+        <div className="rounded-lg border border-border bg-surface p-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">From Date</label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+                className="block w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">To Date</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">To Date</label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+                className="block w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Decline Category</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Decline Category</label>
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm"
+                className="block w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm"
               >
                 {CATEGORY_FILTER_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -257,7 +257,7 @@ export default function FailedPaymentsContent() {
             </button>
             <button
               onClick={clearFilters}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
               Clear all
             </button>
@@ -267,44 +267,44 @@ export default function FailedPaymentsContent() {
 
       {/* Error state */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex items-center gap-3">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex items-center gap-3">
           <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
-          <p className="text-sm text-red-700">Failed to load data. Please try again.</p>
+          <p className="text-sm text-red-500">Failed to load data. Please try again.</p>
         </div>
       )}
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <table className="min-w-full divide-y divide-border">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Date
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Amount
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Card
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Reason
               </th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Attempts
               </th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-border">
             {isLoading && items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
                   Loading failed payments...
                 </td>
               </tr>
@@ -312,8 +312,8 @@ export default function FailedPaymentsContent() {
               <tr>
                 <td colSpan={7} className="px-4 py-12 text-center">
                   <CheckCircle className="mx-auto h-8 w-8 text-green-300" />
-                  <p className="mt-2 text-sm text-gray-500">No failed payments</p>
-                  <p className="text-xs text-gray-400">All payment attempts are healthy</p>
+                  <p className="mt-2 text-sm text-muted-foreground">No failed payments</p>
+                  <p className="text-xs text-muted-foreground">All payment attempts are healthy</p>
                 </td>
               </tr>
             ) : (
@@ -332,8 +332,8 @@ export default function FailedPaymentsContent() {
 
         {/* Pagination */}
         {(meta.hasMore || cursorStack.length > 0) && (
-          <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-4 py-3">
-            <p className="text-sm text-gray-500">
+          <div className="flex items-center justify-between border-t border-border bg-muted px-4 py-3">
+            <p className="text-sm text-muted-foreground">
               Page {cursorStack.length + 1}
               {items.length > 0 && ` \u00B7 ${items.length} results`}
             </p>
@@ -341,7 +341,7 @@ export default function FailedPaymentsContent() {
               <button
                 onClick={goPrevPage}
                 disabled={cursorStack.length === 0}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -349,7 +349,7 @@ export default function FailedPaymentsContent() {
               <button
                 onClick={goNextPage}
                 disabled={!meta.hasMore}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
                 <ChevronRight className="h-4 w-4" />
@@ -410,11 +410,11 @@ function SummaryCard({
   color: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4 flex items-center gap-3">
+    <div className="rounded-lg border border-border bg-surface p-4 flex items-center gap-3">
       <Icon className={`h-5 w-5 ${color}`} />
       <div>
-        <p className="text-xs font-medium text-gray-500">{label}</p>
-        <p className="text-xl font-semibold text-gray-900">{value}</p>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="text-xl font-semibold text-foreground">{value}</p>
       </div>
     </div>
   );
@@ -431,38 +431,38 @@ function FailedPaymentRow({
   onResolve: () => void;
   onDismiss: () => void;
 }) {
-  const statusColors = STATUS_COLORS[item.status] ?? 'bg-gray-100 text-gray-700';
+  const statusColors = STATUS_COLORS[item.status] ?? 'bg-gray-500/10 text-muted-foreground';
 
   return (
-    <tr className="hover:bg-gray-50">
+    <tr className="hover:bg-accent">
       <td className="px-4 py-3 text-sm">
-        <div className="text-gray-900">{formatDate(item.createdAt)}</div>
-        <div className="text-gray-500 text-xs">{formatTime(item.createdAt)}</div>
+        <div className="text-foreground">{formatDate(item.createdAt)}</div>
+        <div className="text-muted-foreground text-xs">{formatTime(item.createdAt)}</div>
       </td>
       <td className="px-4 py-3">
         <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColors}`}>
           {item.status === 'declined' ? 'Declined' : 'Error'}
         </span>
       </td>
-      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+      <td className="px-4 py-3 text-sm font-medium text-foreground">
         {formatCents(item.amountCents)}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-700">
+      <td className="px-4 py-3 text-sm text-foreground">
         {item.cardLast4 ? (
           <span>
-            {item.cardBrand && <span className="text-gray-400 mr-1">{item.cardBrand}</span>}
+            {item.cardBrand && <span className="text-muted-foreground mr-1">{item.cardBrand}</span>}
             ****{item.cardLast4}
           </span>
         ) : (
-          <span className="text-gray-400 capitalize">{item.paymentMethodType}</span>
+          <span className="text-muted-foreground capitalize">{item.paymentMethodType}</span>
         )}
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500 max-w-xs">
+      <td className="px-4 py-3 text-sm text-muted-foreground max-w-xs">
         <div className="flex items-center gap-1.5">
           {item.declineCategory && (
             <span
               className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                CATEGORY_COLORS[item.declineCategory] ?? 'bg-gray-100 text-gray-600'
+                CATEGORY_COLORS[item.declineCategory] ?? 'bg-gray-500/10 text-muted-foreground'
               }`}
             >
               {CATEGORY_LABELS[item.declineCategory] ?? item.declineCategory}
@@ -473,14 +473,14 @@ function FailedPaymentRow({
           </span>
         </div>
       </td>
-      <td className="px-4 py-3 text-sm text-gray-500">
+      <td className="px-4 py-3 text-sm text-muted-foreground">
         {item.attemptCount}
       </td>
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={onRetry}
-            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10"
             title="Retry payment"
           >
             <RotateCcw className="h-3.5 w-3.5" />
@@ -488,7 +488,7 @@ function FailedPaymentRow({
           </button>
           <button
             onClick={onResolve}
-            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50"
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-500/10"
             title="Mark as resolved"
           >
             <CheckCircle className="h-3.5 w-3.5" />
@@ -496,7 +496,7 @@ function FailedPaymentRow({
           </button>
           <button
             onClick={onDismiss}
-            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-gray-500 hover:bg-gray-100"
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
             title="Dismiss"
           >
             <X className="h-3.5 w-3.5" />
@@ -527,20 +527,20 @@ function RetryDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative rounded-lg bg-surface shadow-xl p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold text-gray-900">Retry Payment</h3>
-        <p className="mt-2 text-sm text-gray-600">
+        <h3 className="text-lg font-semibold text-foreground">Retry Payment</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
           Retry the failed payment for{' '}
           <span className="font-semibold">{formatCents(item.amountCents)}</span>
         </p>
 
         {(item.userMessage || item.errorMessage) && (
-          <div className="mt-3 rounded-md bg-red-50 p-3">
-            <p className="text-xs text-red-700">
+          <div className="mt-3 rounded-md bg-red-500/10 p-3">
+            <p className="text-xs text-red-500">
               <span className="font-medium">Previous error:</span>{' '}
               {item.userMessage || item.errorMessage}
             </p>
             {item.suggestedAction && item.suggestedAction !== 'none' && (
-              <p className="mt-1 text-xs text-red-600">
+              <p className="mt-1 text-xs text-red-500">
                 <span className="font-medium">Suggested:</span>{' '}
                 {item.suggestedAction === 'try_different_card'
                   ? 'Try a different card'
@@ -561,8 +561,8 @@ function RetryDialog({
         )}
 
         {!item.retryable && (
-          <div className="mt-3 rounded-md bg-amber-50 border border-amber-200 p-3">
-            <p className="text-xs text-amber-700">
+          <div className="mt-3 rounded-md bg-amber-500/10 border border-amber-500/30 p-3">
+            <p className="text-xs text-amber-500">
               This payment is not retryable with the same card. Use a different payment method or resolve manually.
             </p>
           </div>
@@ -577,10 +577,10 @@ function RetryDialog({
               disabled={!item.retryable}
               className="text-indigo-600"
             />
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-foreground">
               Retry with same card
               {item.cardLast4 && (
-                <span className="text-gray-400 ml-1">(****{item.cardLast4})</span>
+                <span className="text-muted-foreground ml-1">(****{item.cardLast4})</span>
               )}
               {!item.retryable && (
                 <span className="text-red-500 ml-1 text-xs">(not retryable)</span>
@@ -594,7 +594,7 @@ function RetryDialog({
               onChange={() => setRetryMode('stored')}
               className="text-indigo-600"
             />
-            <span className="text-sm text-gray-700">Use stored payment method</span>
+            <span className="text-sm text-foreground">Use stored payment method</span>
           </label>
           {retryMode === 'stored' && (
             <div className="ml-6">
@@ -603,7 +603,7 @@ function RetryDialog({
                 placeholder="Payment method ID"
                 value={paymentMethodId}
                 onChange={(e) => setPaymentMethodId(e.target.value)}
-                className="block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+                className="block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
               />
             </div>
           )}
@@ -613,7 +613,7 @@ function RetryDialog({
           <button
             onClick={onClose}
             disabled={isPending}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -664,10 +664,10 @@ function ResolveDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative rounded-lg bg-surface shadow-xl p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold text-gray-900">
+        <h3 className="text-lg font-semibold text-foreground">
           {isResolve ? 'Resolve Payment' : 'Dismiss Payment'}
         </h3>
-        <p className="mt-2 text-sm text-gray-600">
+        <p className="mt-2 text-sm text-muted-foreground">
           {isResolve
             ? `Mark this ${formatCents(item.amountCents)} payment as resolved.`
             : `Dismiss this ${formatCents(item.amountCents)} failed payment.`}
@@ -675,7 +675,7 @@ function ResolveDialog({
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               Reason <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -687,7 +687,7 @@ function ResolveDialog({
                   ? 'e.g., Customer paid with cash instead'
                   : 'e.g., Customer cancelled order, no payment needed'
               }
-              className="block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+              className="block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
             />
           </div>
 
@@ -700,7 +700,7 @@ function ResolveDialog({
                   onChange={(e) => setPaidByOther(e.target.checked)}
                   className="rounded text-indigo-600"
                 />
-                <span className="text-sm text-gray-700">
+                <span className="text-sm text-foreground">
                   Customer paid by other means
                 </span>
               </label>
@@ -710,7 +710,7 @@ function ResolveDialog({
                   <select
                     value={otherMeansType}
                     onChange={(e) => setOtherMeansType(e.target.value)}
-                    className="block w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm"
+                    className="block w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
                   >
                     <option value="cash">Cash</option>
                     <option value="check">Check</option>
@@ -727,7 +727,7 @@ function ResolveDialog({
           <button
             onClick={onClose}
             disabled={isPending}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>

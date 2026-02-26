@@ -83,7 +83,7 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-500">
           {error}
         </div>
       )}
@@ -209,7 +209,7 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--portal-text-muted)] hover:bg-gray-100 transition-colors disabled:opacity-50"
+          className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--portal-text-muted)] hover:bg-accent transition-colors disabled:opacity-50"
         >
           Cancel
         </button>

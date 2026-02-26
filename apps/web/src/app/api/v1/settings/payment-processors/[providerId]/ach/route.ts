@@ -29,5 +29,5 @@ export const PATCH = withMiddleware(
     const result = await updateMerchantAccountAch(ctx, parsed.data);
     return NextResponse.json({ data: result });
   },
-  { entitlement: 'payments', permission: 'payments.settings.manage', writeAccess: true },
+  { entitlement: 'payments', permission: 'settings.update', writeAccess: true },
 );

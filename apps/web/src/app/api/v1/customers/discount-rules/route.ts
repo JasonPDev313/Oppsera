@@ -7,6 +7,7 @@ import {
   createDiscountRule,
   createDiscountRuleSchema,
 } from '@oppsera/module-customers';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/customers/discount-rules — list all discount rules
 export const GET = withMiddleware(
@@ -16,7 +17,7 @@ export const GET = withMiddleware(
     const isActiveParam = url.searchParams.get('isActive');
     const isActive = isActiveParam != null ? isActiveParam === 'true' : undefined;
     const cursor = url.searchParams.get('cursor') ?? undefined;
-    const limit = url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined;
+    const limit = parseLimit(url.searchParams.get('limit'));
 
     const data = await listDiscountRules({
       tenantId: ctx.tenantId,

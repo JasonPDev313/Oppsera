@@ -103,8 +103,8 @@ export function FileUploadZone({
       <div
         className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
           isDragOver
-            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-            : 'border-gray-300 hover:border-gray-400 dark:border-gray-600'
+            ? 'border-indigo-500 bg-indigo-500/10'
+            : 'border-border hover:border-gray-400'
         } ${isDisabled ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -118,8 +118,8 @@ export function FileUploadZone({
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-indigo-600" />
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{selectedFile.name}</p>
-              <p className="text-xs text-gray-500">{formatSize(selectedFile.sizeBytes)}</p>
+              <p className="text-sm font-medium text-foreground">{selectedFile.name}</p>
+              <p className="text-xs text-muted-foreground">{formatSize(selectedFile.sizeBytes)}</p>
             </div>
             <button
               type="button"
@@ -134,12 +134,12 @@ export function FileUploadZone({
           </div>
         ) : (
           <>
-            <Upload className="mb-2 h-8 w-8 text-gray-400" />
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
+            <p className="text-sm font-medium text-foreground">
               {instruction ?? defaultInstruction}{' '}
-              <span className="text-indigo-600 dark:text-indigo-400">browse</span>
+              <span className="text-indigo-500">browse</span>
             </p>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-muted-foreground">
               {subtitle ?? defaultSubtitle}
             </p>
           </>
@@ -155,7 +155,7 @@ export function FileUploadZone({
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       {reassurance && !selectedFile && !error && (
-        <p className="text-xs text-gray-400 dark:text-gray-500 text-center italic">
+        <p className="text-xs text-muted-foreground text-center italic">
           {reassurance}
         </p>
       )}
@@ -163,12 +163,12 @@ export function FileUploadZone({
       {tip && !selectedFile && !error && (
         <div className="flex items-start gap-2 rounded-md bg-amber-500/5 px-3 py-2">
           <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-          <p className="text-xs text-amber-700 dark:text-amber-400">{tip}</p>
+          <p className="text-xs text-amber-500">{tip}</p>
         </div>
       )}
       {/* Estimate label after file selection */}
       {selectedFile && estimateLabel && (
-        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
+        <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
           {estimateLabel}
         </div>

@@ -35,16 +35,16 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
-  created: 'bg-gray-100 text-gray-700',
-  authorized: 'bg-blue-100 text-blue-700',
-  capture_pending: 'bg-yellow-100 text-yellow-700',
-  captured: 'bg-green-100 text-green-700',
-  voided: 'bg-red-100 text-red-700',
-  refund_pending: 'bg-orange-100 text-orange-700',
-  refunded: 'bg-purple-100 text-purple-700',
-  declined: 'bg-red-100 text-red-700',
-  error: 'bg-red-200 text-red-800',
-  resolved: 'bg-gray-200 text-gray-700',
+  created: 'bg-gray-500/10 text-muted-foreground',
+  authorized: 'bg-blue-500/10 text-blue-500',
+  capture_pending: 'bg-yellow-500/10 text-yellow-500',
+  captured: 'bg-green-500/10 text-green-500',
+  voided: 'bg-red-500/10 text-red-500',
+  refund_pending: 'bg-orange-500/10 text-orange-500',
+  refunded: 'bg-purple-500/10 text-purple-500',
+  declined: 'bg-red-500/10 text-red-500',
+  error: 'bg-red-500/20 text-red-500',
+  resolved: 'bg-gray-500/20 text-muted-foreground',
 };
 
 const TXN_TYPE_ICONS: Record<string, typeof Clock> = {
@@ -57,10 +57,10 @@ const TXN_TYPE_ICONS: Record<string, typeof Clock> = {
 };
 
 const RESPONSE_COLORS: Record<string, string> = {
-  approved: 'text-green-600',
-  declined: 'text-red-600',
-  retry: 'text-yellow-600',
-  error: 'text-red-600',
+  approved: 'text-green-500',
+  declined: 'text-red-500',
+  retry: 'text-yellow-500',
+  error: 'text-red-500',
 };
 
 function formatCents(cents: number | null | undefined): string {
@@ -81,7 +81,7 @@ function formatDateTime(iso: string): string {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const colors = STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700';
+  const colors = STATUS_COLORS[status] ?? 'bg-gray-500/10 text-muted-foreground';
   const label = STATUS_LABELS[status] ?? status;
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${colors}`}>
@@ -107,9 +107,9 @@ export default function TransactionDetailContent() {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-8 w-48 bg-gray-200 rounded" />
-          <div className="h-4 w-96 bg-gray-200 rounded" />
-          <div className="h-64 bg-gray-200 rounded" />
+          <div className="h-8 w-48 bg-muted rounded" />
+          <div className="h-4 w-96 bg-muted rounded" />
+          <div className="h-64 bg-muted rounded" />
         </div>
       </div>
     );
@@ -120,14 +120,14 @@ export default function TransactionDetailContent() {
       <div className="p-6">
         <button
           onClick={() => router.push('/payments/transactions')}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-4"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to Transactions
         </button>
-        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
-          <AlertCircle className="mx-auto h-8 w-8 text-red-400" />
-          <p className="mt-2 text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-center">
+          <AlertCircle className="mx-auto h-8 w-8 text-red-400" aria-hidden="true" />
+          <p className="mt-2 text-sm text-red-500">
             {error ? 'Failed to load transaction details.' : 'Transaction not found.'}
           </p>
         </div>
@@ -144,14 +144,14 @@ export default function TransactionDetailContent() {
       <div>
         <button
           onClick={() => router.push('/payments/transactions')}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to Transactions
         </button>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-gray-900">
+            <h1 className="text-2xl font-semibold text-foreground">
               Transaction Detail
             </h1>
             <StatusBadge status={data.status} />
@@ -160,21 +160,21 @@ export default function TransactionDetailContent() {
             <button
               onClick={() => inquireTransaction.mutate(id)}
               disabled={inquireTransaction.isPending}
-              className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
             >
               {inquireTransaction.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : (
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
               )}
               Refresh Status
             </button>
             {canVoid && (
               <button
                 onClick={() => setShowVoidDialog(true)}
-                className="inline-flex items-center gap-1.5 rounded-md border border-red-300 bg-surface px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                className="inline-flex items-center gap-1.5 rounded-md border border-red-500/40 bg-surface px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10"
               >
-                <Ban className="h-4 w-4" />
+                <Ban className="h-4 w-4" aria-hidden="true" />
                 Void
               </button>
             )}
@@ -183,7 +183,7 @@ export default function TransactionDetailContent() {
                 onClick={() => setShowRefundDialog(true)}
                 className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
               >
-                <RotateCcw className="h-4 w-4" />
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
                 Refund
               </button>
             )}
@@ -199,18 +199,18 @@ export default function TransactionDetailContent() {
         <InfoCard
           label="Refunded"
           value={formatCents(data.refundedAmountCents)}
-          valueClass={data.refundedAmountCents ? 'text-red-600' : undefined}
+          valueClass={data.refundedAmountCents ? 'text-red-500' : undefined}
         />
       </div>
 
       {/* Details grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Payment info */}
-        <div className="rounded-lg border border-gray-200 bg-surface">
-          <div className="border-b border-gray-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-gray-900">Payment Information</h2>
+        <div className="rounded-lg border border-border bg-surface">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">Payment Information</h2>
           </div>
-          <dl className="divide-y divide-gray-100 px-4">
+          <dl className="divide-y divide-border px-4">
             <DetailRow label="Payment Method" value={data.paymentMethodType} />
             {data.cardLast4 && (
               <DetailRow
@@ -228,11 +228,11 @@ export default function TransactionDetailContent() {
         </div>
 
         {/* Reference info */}
-        <div className="rounded-lg border border-gray-200 bg-surface">
-          <div className="border-b border-gray-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-gray-900">References</h2>
+        <div className="rounded-lg border border-border bg-surface">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">References</h2>
           </div>
-          <dl className="divide-y divide-gray-100 px-4">
+          <dl className="divide-y divide-border px-4">
             <DetailRow label="Intent ID" value={data.id} mono />
             <DetailRow label="Idempotency Key" value={data.idempotencyKey} mono />
             {data.orderId && <DetailRow label="Order ID" value={data.orderId} mono />}
@@ -247,28 +247,28 @@ export default function TransactionDetailContent() {
 
       {/* Error message */}
       {data.errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
           <div>
-            <p className="text-sm font-medium text-red-800">Error Message</p>
-            <p className="text-sm text-red-700 mt-1">{data.errorMessage}</p>
+            <p className="text-sm font-medium text-red-500">Error Message</p>
+            <p className="text-sm text-red-500 mt-1">{data.errorMessage}</p>
           </div>
         </div>
       )}
 
       {/* Transaction records timeline */}
-      <div className="rounded-lg border border-gray-200 bg-surface">
-        <div className="border-b border-gray-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-gray-900">
+      <div className="rounded-lg border border-border bg-surface">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-sm font-semibold text-foreground">
             Transaction Records ({data.transactions.length})
           </h2>
         </div>
         {data.transactions.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-gray-500">
+          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             No transaction records yet
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-border">
             {data.transactions.map((rec) => (
               <TransactionRecordRow key={rec.id} record={rec} />
             ))}
@@ -278,11 +278,11 @@ export default function TransactionDetailContent() {
 
       {/* Metadata */}
       {data.metadata && Object.keys(data.metadata).length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-surface">
-          <div className="border-b border-gray-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-gray-900">Metadata</h2>
+        <div className="rounded-lg border border-border bg-surface">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">Metadata</h2>
           </div>
-          <pre className="px-4 py-3 text-xs text-gray-700 overflow-x-auto">
+          <pre className="px-4 py-3 text-xs text-foreground overflow-x-auto">
             {JSON.stringify(data.metadata, null, 2)}
           </pre>
         </div>
@@ -344,9 +344,9 @@ function InfoCard({
   valueClass?: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
-      <p className="text-xs font-medium text-gray-500">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${valueClass ?? 'text-gray-900'}`}>
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${valueClass ?? 'text-foreground'}`}>
         {value}
       </p>
     </div>
@@ -364,8 +364,8 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-center justify-between py-2.5">
-      <dt className="text-sm text-gray-500">{label}</dt>
-      <dd className={`text-sm text-gray-900 ${mono ? 'font-mono text-xs' : ''}`}>
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className={`text-sm text-foreground ${mono ? 'font-mono text-xs' : ''}`}>
         {value}
       </dd>
     </div>
@@ -374,23 +374,23 @@ function DetailRow({
 
 function TransactionRecordRow({ record }: { record: TransactionRecord }) {
   const Icon = TXN_TYPE_ICONS[record.transactionType] ?? Clock;
-  const responseColor = RESPONSE_COLORS[record.responseStatus] ?? 'text-gray-600';
+  const responseColor = RESPONSE_COLORS[record.responseStatus] ?? 'text-muted-foreground';
 
   return (
     <div className="flex items-start gap-3 px-4 py-3">
       <div className="mt-0.5">
-        <Icon className={`h-4 w-4 ${responseColor}`} />
+        <Icon className={`h-4 w-4 ${responseColor}`} aria-hidden="true" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-gray-900 capitalize">
+          <p className="text-sm font-medium text-foreground capitalize">
             {record.transactionType}
           </p>
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-foreground">
             {formatCents(record.amountCents)}
           </p>
         </div>
-        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
           <span className={`font-medium ${responseColor}`}>
             {record.responseStatus}
           </span>
@@ -401,15 +401,15 @@ function TransactionRecordRow({ record }: { record: TransactionRecord }) {
           {record.responseCode && <span>Code: {record.responseCode}</span>}
         </div>
         {record.responseText && (
-          <p className="text-xs text-gray-400 mt-0.5">{record.responseText}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{record.responseText}</p>
         )}
         {(record.avsResponse || record.cvvResponse) && (
-          <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400">
+          <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
             {record.avsResponse && <span>AVS: {record.avsResponse}</span>}
             {record.cvvResponse && <span>CVV: {record.cvvResponse}</span>}
           </div>
         )}
-        <p className="text-xs text-gray-400 mt-0.5">
+        <p className="text-xs text-muted-foreground mt-0.5">
           {formatDateTime(record.createdAt)}
         </p>
       </div>
@@ -434,8 +434,8 @@ function VoidDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative rounded-lg bg-surface shadow-xl p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold text-gray-900">Void Transaction</h3>
-        <p className="mt-2 text-sm text-gray-600">
+        <h3 className="text-lg font-semibold text-foreground">Void Transaction</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
           Are you sure you want to void this transaction for{' '}
           <span className="font-semibold">{amount}</span>? This cannot be undone.
         </p>
@@ -443,7 +443,7 @@ function VoidDialog({
           <button
             onClick={onClose}
             disabled={isPending}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -452,7 +452,7 @@ function VoidDialog({
             disabled={isPending}
             className="inline-flex items-center gap-1.5 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-500 disabled:opacity-50"
           >
-            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             Void Transaction
           </button>
         </div>
@@ -491,8 +491,8 @@ function RefundDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative rounded-lg bg-surface shadow-xl p-6 w-full max-w-md">
-        <h3 className="text-lg font-semibold text-gray-900">Refund Transaction</h3>
-        <p className="mt-2 text-sm text-gray-600">
+        <h3 className="text-lg font-semibold text-foreground">Refund Transaction</h3>
+        <p className="mt-2 text-sm text-muted-foreground">
           Maximum refundable amount:{' '}
           <span className="font-semibold">${maxDollars}</span>
         </p>
@@ -504,7 +504,7 @@ function RefundDialog({
               onChange={() => setRefundType('full')}
               className="text-indigo-600"
             />
-            <span className="text-sm text-gray-700">
+            <span className="text-sm text-foreground">
               Full refund (${maxDollars})
             </span>
           </label>
@@ -515,12 +515,12 @@ function RefundDialog({
               onChange={() => setRefundType('partial')}
               className="text-indigo-600"
             />
-            <span className="text-sm text-gray-700">Partial refund</span>
+            <span className="text-sm text-foreground">Partial refund</span>
           </label>
           {refundType === 'partial' && (
             <div className="ml-6">
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
                   $
                 </span>
                 <input
@@ -531,7 +531,7 @@ function RefundDialog({
                   placeholder="0.00"
                   value={partialAmount}
                   onChange={(e) => setPartialAmount(e.target.value)}
-                  className="block w-full rounded-md border border-gray-300 bg-surface pl-7 pr-3 py-2 text-sm"
+                  className="block w-full rounded-md border border-border bg-surface pl-7 pr-3 py-2 text-sm"
                 />
               </div>
             </div>
@@ -541,7 +541,7 @@ function RefundDialog({
           <button
             onClick={onClose}
             disabled={isPending}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -550,7 +550,7 @@ function RefundDialog({
             disabled={isPending}
             className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
-            {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             Process Refund
           </button>
         </div>

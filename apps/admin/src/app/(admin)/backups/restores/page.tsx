@@ -26,12 +26,12 @@ const STATUS_OPTIONS = [
 ];
 
 const STATUS_BADGES: Record<string, { className: string; icon?: typeof CheckCircle }> = {
-  pending_approval: { className: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  approved: { className: 'bg-blue-100 text-blue-700', icon: CheckCircle },
-  in_progress: { className: 'bg-blue-100 text-blue-700', icon: Loader2 },
-  completed: { className: 'bg-green-100 text-green-700', icon: CheckCircle },
-  failed: { className: 'bg-red-100 text-red-700', icon: XCircle },
-  rejected: { className: 'bg-red-100 text-red-700', icon: XCircle },
+  pending_approval: { className: 'bg-yellow-500/10 text-yellow-500', icon: Clock },
+  approved: { className: 'bg-blue-500/10 text-blue-500', icon: CheckCircle },
+  in_progress: { className: 'bg-blue-500/10 text-blue-500', icon: Loader2 },
+  completed: { className: 'bg-green-500/10 text-green-500', icon: CheckCircle },
+  failed: { className: 'bg-red-500/10 text-red-500', icon: XCircle },
+  rejected: { className: 'bg-red-500/10 text-red-500', icon: XCircle },
 };
 
 export default function RestoreOperationsPage() {
@@ -132,7 +132,7 @@ export default function RestoreOperationsPage() {
             </thead>
             <tbody className="divide-y divide-slate-700">
               {items.map((op) => {
-                const badge = STATUS_BADGES[op.status] ?? { className: 'bg-gray-100 text-gray-600' };
+                const badge = STATUS_BADGES[op.status] ?? { className: 'bg-slate-500/10 text-slate-400' };
                 const BadgeIcon = badge.icon;
                 const canApprove = op.status === 'pending_approval' && op.requestedByAdminId !== session?.adminId;
                 const canReject = op.status === 'pending_approval';

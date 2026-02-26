@@ -8,6 +8,7 @@ import {
   listRetailCloseBatches,
   getRetailCloseBatchByTerminalDate,
 } from '@oppsera/core/retail-close';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/retail-close — List batches or get by terminal+date
 export const GET = withMiddleware(
@@ -35,7 +36,7 @@ export const GET = withMiddleware(
       dateFrom: url.searchParams.get('dateFrom') ?? undefined,
       dateTo: url.searchParams.get('dateTo') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Number(url.searchParams.get('limit')) : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
 
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });

@@ -49,12 +49,12 @@ export function ToggleRow({
           onChange={(e) => onChange(e.target.checked)}
           className="peer sr-only"
         />
-        <div className="h-5 w-9 rounded-full bg-gray-300 peer-checked:bg-indigo-600 transition-colors" />
+        <div className="h-5 w-9 rounded-full bg-muted peer-checked:bg-indigo-600 transition-colors" />
         <div className="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
       </div>
       <div>
-        <span className="text-sm font-medium text-gray-900">{label}</span>
-        <p className="text-xs text-gray-500">{description}</p>
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
     </label>
   );

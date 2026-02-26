@@ -57,8 +57,8 @@ export function SubDepartmentTabs({ departments, selectedId, onSelect, size = 'n
         onClick={() => onSelect(null)}
         className={`shrink-0 rounded-lg ${sizeClasses} font-medium transition-colors ${
           selectedId === null
-            ? 'bg-indigo-100 text-indigo-700'
-            : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+            ? 'bg-indigo-500/20 text-indigo-500'
+            : 'bg-muted text-muted-foreground hover:bg-accent'
         }`}
       >
         All
@@ -70,8 +70,8 @@ export function SubDepartmentTabs({ departments, selectedId, onSelect, size = 'n
           onClick={() => onSelect(dept.id)}
           className={`shrink-0 rounded-lg ${sizeClasses} font-medium transition-colors ${
             selectedId === dept.id
-              ? 'bg-indigo-100 text-indigo-700'
-              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+              ? 'bg-indigo-500/20 text-indigo-500'
+              : 'bg-muted text-muted-foreground hover:bg-accent'
           }`}
         >
           {dept.name}
@@ -91,14 +91,14 @@ interface CategoryRailProps {
 
 export function CategoryRail({ categories, selectedId, onSelect }: CategoryRailProps) {
   return (
-    <div className="w-44 shrink-0 overflow-y-auto border-r border-gray-100 bg-gray-50/50 py-2">
+    <div className="w-44 shrink-0 overflow-y-auto border-r border-border bg-muted/50 py-2">
       <button
         type="button"
         onClick={() => onSelect(null)}
         className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors ${
           selectedId === null
-            ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-600'
-            : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+            ? 'bg-indigo-500/10 text-indigo-500 border-r-2 border-indigo-600'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
         }`}
       >
         All
@@ -110,8 +110,8 @@ export function CategoryRail({ categories, selectedId, onSelect }: CategoryRailP
           onClick={() => onSelect(cat.id)}
           className={`w-full px-4 py-3 text-left text-sm font-medium transition-colors ${
             selectedId === cat.id
-              ? 'bg-indigo-50 text-indigo-700 border-r-2 border-indigo-600'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+              ? 'bg-indigo-500/10 text-indigo-500 border-r-2 border-indigo-600'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
           }`}
         >
           {cat.name}
@@ -192,8 +192,8 @@ export function QuickMenuTab({
           onClick={() => onTabChange('favorites')}
           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
             activeTab === 'favorites'
-              ? 'bg-amber-100 text-amber-700'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              ? 'bg-amber-500/20 text-amber-500'
+              : 'bg-muted text-muted-foreground hover:bg-accent'
           }`}
         >
           Favorites
@@ -203,8 +203,8 @@ export function QuickMenuTab({
           onClick={() => onTabChange('recent')}
           className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
             activeTab === 'recent'
-              ? 'bg-blue-100 text-blue-700'
-              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              ? 'bg-blue-500/20 text-blue-500'
+              : 'bg-muted text-muted-foreground hover:bg-accent'
           }`}
         >
           Recent

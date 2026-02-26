@@ -39,13 +39,13 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="void-line-dialog-title">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative z-10 w-full max-w-md rounded-2xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Trash2 className="h-5 w-5 text-red-500" />
-            <h2 className="text-lg font-semibold">Void Line Item</h2>
+            <Trash2 className="h-5 w-5 text-red-500" aria-hidden="true" />
+            <h2 id="void-line-dialog-title" className="text-lg font-semibold">Void Line Item</h2>
           </div>
           <button
             type="button"
@@ -59,7 +59,7 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
         <div className="space-y-4">
           {itemName && (
             <div className="rounded-lg bg-red-500/10 px-3 py-2">
-              <p className="text-sm font-medium text-red-700">{itemName}</p>
+              <p className="text-sm font-medium text-red-500">{itemName}</p>
               {amountCents != null && (
                 <p className="text-xs text-red-600">
                   Amount: ${(amountCents / 100).toFixed(2)}
@@ -70,7 +70,7 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
 
           {/* Quick reasons */}
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-gray-500">Reason</label>
+            <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Reason</label>
             <div className="mb-2 flex flex-wrap gap-1.5">
               {QUICK_REASONS.map((r) => (
                 <button
@@ -92,7 +92,7 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
               onChange={(e) => setReason(e.target.value)}
               placeholder="Enter reason for voiding..."
               rows={2}
-              className="w-full rounded-lg border border-gray-300/50 bg-transparent px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
             />
           </div>
 
@@ -102,7 +102,7 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
               type="checkbox"
               checked={wasteTracking}
               onChange={(e) => setWasteTracking(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300"
+              className="h-4 w-4 rounded border-input"
             />
             <span className="text-sm">Track as waste (item was already prepared/sent)</span>
           </label>
@@ -111,7 +111,7 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-gray-100/50"
+              className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
             >
               Cancel
             </button>

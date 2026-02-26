@@ -7,6 +7,7 @@ import {
   createSettlement,
   createSettlementSchema,
 } from '@oppsera/module-accounting';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -18,9 +19,7 @@ export const GET = withMiddleware(
       startDate: url.searchParams.get('startDate') ?? undefined,
       endDate: url.searchParams.get('endDate') ?? undefined,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.has('limit')
-        ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 100)
-        : undefined,
+      limit: parseLimit(url.searchParams.get('limit')),
     });
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
   },

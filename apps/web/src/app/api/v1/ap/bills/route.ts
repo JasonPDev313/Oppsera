@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
+import { parseLimit } from '@/lib/api-params';
 import { listBills, createBill, createBillSchema } from '@oppsera/module-ap';
 
 // GET /api/v1/ap/bills — list bills
@@ -17,7 +18,7 @@ export const GET = withMiddleware(
       locationId: searchParams.get('locationId') ?? undefined,
       overdue: searchParams.get('overdue') === 'true' ? true : undefined,
       cursor: searchParams.get('cursor') ?? undefined,
-      limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined,
+      limit: parseLimit(searchParams.get('limit')),
     });
     return NextResponse.json({
       data: result.items,

@@ -25,7 +25,7 @@ export function TenderMappingTable({ mappings, onChange }: TenderMappingTablePro
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-gray-200 text-left dark:border-gray-700">
+          <tr className="border-b border-border text-left">
             <th className="px-3 py-2 font-medium">Legacy Value</th>
             <th className="px-3 py-2 font-medium">Occurrences</th>
             <th className="px-3 py-2 font-medium">OppsEra Type</th>
@@ -35,9 +35,9 @@ export function TenderMappingTable({ mappings, onChange }: TenderMappingTablePro
         </thead>
         <tbody>
           {mappings.map((m) => (
-            <tr key={m.id} className="border-b border-gray-100 dark:border-gray-800">
+            <tr key={m.id} className="border-b border-border">
               <td className="px-3 py-2 font-mono text-xs">{m.legacyValue}</td>
-              <td className="px-3 py-2 text-gray-500">{m.occurrenceCount.toLocaleString()}</td>
+              <td className="px-3 py-2 text-muted-foreground">{m.occurrenceCount.toLocaleString()}</td>
               <td className="px-3 py-2">
                 <MappingDropdown
                   value={m.oppseraTenderType}
@@ -54,8 +54,8 @@ export function TenderMappingTable({ mappings, onChange }: TenderMappingTablePro
                   onClick={() => onChange(m.id, m.oppseraTenderType, !m.isConfirmed)}
                   className={`rounded p-1 ${
                     m.isConfirmed
-                      ? 'text-green-600 hover:bg-green-100 dark:hover:bg-green-900/30'
-                      : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                      ? 'text-green-500 hover:bg-green-500/10'
+                      : 'text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   {m.isConfirmed ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}

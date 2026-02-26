@@ -80,11 +80,11 @@ export function ProfileComplianceTab({ customerId }: ProfileComplianceTabProps) 
   if (error) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load compliance data.</p>
+        <p className="text-sm text-red-500">Failed to load compliance data.</p>
         <button
           type="button"
           onClick={fetchData}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -112,24 +112,24 @@ export function ProfileComplianceTab({ customerId }: ProfileComplianceTabProps) 
     <div className="space-y-6 p-6">
       {/* Summary */}
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Consent Summary
         </h3>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-center">
-            <p className="text-2xl font-semibold text-green-700">{granted.length}</p>
-            <p className="text-xs text-green-600">Consents Granted</p>
+          <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-center">
+            <p className="text-2xl font-semibold text-green-500">{granted.length}</p>
+            <p className="text-xs text-green-500">Consents Granted</p>
           </div>
-          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-center">
-            <p className="text-2xl font-semibold text-red-700">{revoked.length}</p>
-            <p className="text-xs text-red-600">Consents Revoked</p>
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-center">
+            <p className="text-2xl font-semibold text-red-500">{revoked.length}</p>
+            <p className="text-xs text-red-500">Consents Revoked</p>
           </div>
         </div>
       </section>
 
       {/* Consent Records */}
       <section>
-        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           All Consent Records
         </h3>
         <div className="space-y-2">
@@ -140,8 +140,8 @@ export function ProfileComplianceTab({ customerId }: ProfileComplianceTabProps) 
                 key={consent.id}
                 className={`rounded-lg border p-3 ${
                   isGranted
-                    ? 'border-green-200 bg-green-50'
-                    : 'border-red-200 bg-red-50'
+                    ? 'border-green-500/30 bg-green-500/10'
+                    : 'border-red-500/30 bg-red-500/10'
                 }`}
               >
                 <div className="flex items-start justify-between">
@@ -160,16 +160,16 @@ export function ProfileComplianceTab({ customerId }: ProfileComplianceTabProps) 
                         {formatConsentType(consent.consentType)}
                       </p>
                       <div className="mt-1 space-y-0.5 text-xs">
-                        <p className={isGranted ? 'text-green-700' : 'text-red-700'}>
+                        <p className={isGranted ? 'text-green-500' : 'text-red-500'}>
                           {isGranted
                             ? `Granted on ${formatDate(consent.grantedAt)}`
                             : `Revoked on ${consent.revokedAt ? formatDate(consent.revokedAt) : 'N/A'}`}
                         </p>
-                        <p className={isGranted ? 'text-green-600' : 'text-red-600'}>
+                        <p className={isGranted ? 'text-green-500' : 'text-red-500'}>
                           Source: {consent.source}
                         </p>
                         {isGranted && consent.grantedAt && (
-                          <p className="text-green-600">
+                          <p className="text-green-500">
                             Originally granted: {formatDate(consent.grantedAt)}
                           </p>
                         )}
@@ -185,8 +185,8 @@ export function ProfileComplianceTab({ customerId }: ProfileComplianceTabProps) 
                       onClick={() => handleToggleConsent(consent)}
                       className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
                         isGranted
-                          ? 'text-red-600 hover:bg-red-100'
-                          : 'text-green-600 hover:bg-green-100'
+                          ? 'text-red-500 hover:bg-red-500/100/20'
+                          : 'text-green-500 hover:bg-green-500/20'
                       }`}
                     >
                       {isGranted ? 'Revoke' : 'Grant'}
@@ -200,9 +200,9 @@ export function ProfileComplianceTab({ customerId }: ProfileComplianceTabProps) 
       </section>
 
       {/* Privacy notice */}
-      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+      <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-amber-500">
           Consent changes are logged and auditable. Ensure all consent modifications
           comply with your organization&apos;s privacy policies and applicable
           regulations.

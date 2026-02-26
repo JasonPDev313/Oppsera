@@ -62,13 +62,13 @@ export function MultiDatasetFieldPicker({
     <div className="space-y-3">
       {/* Search */}
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search fields across all datasets..."
-          className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-full rounded-lg border border-input py-2 pl-9 pr-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
 
@@ -103,8 +103,8 @@ export function MultiDatasetFieldPicker({
               key={dataset}
               className={`rounded-lg border transition-colors ${
                 selectedInDataset > 0
-                  ? 'border-indigo-200 bg-indigo-50/30'
-                  : 'border-gray-200'
+                  ? 'border-indigo-500/30 bg-indigo-500/5'
+                  : 'border-border'
               } ${isDisabled ? 'opacity-50' : ''}`}
             >
               {/* Section header */}
@@ -114,24 +114,24 @@ export function MultiDatasetFieldPicker({
                 className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
               >
                 {isOpen ? (
-                  <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" />
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 )}
-                <span className="flex-1 text-sm font-semibold text-gray-900">
+                <span className="flex-1 text-sm font-semibold text-foreground">
                   {label}
                 </span>
                 {selectedInDataset > 0 && (
                   <Badge variant="info">{selectedInDataset}</Badge>
                 )}
                 {isStandalone && (
-                  <span className="text-xs text-gray-400">Standalone only</span>
+                  <span className="text-xs text-muted-foreground">Standalone only</span>
                 )}
               </button>
 
               {/* Incompatibility warning */}
               {isOpen && isDisabled && incompatWarning && (
-                <div className="mx-3 mb-2 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <div className="mx-3 mb-2 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   {incompatWarning}
                 </div>
@@ -143,11 +143,11 @@ export function MultiDatasetFieldPicker({
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {/* Dimensions */}
                     <div>
-                      <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Dimensions
                       </h4>
                       {dimensions.length === 0 ? (
-                        <p className="text-xs text-gray-400">None</p>
+                        <p className="text-xs text-muted-foreground">None</p>
                       ) : (
                         <div className="space-y-0.5">
                           {dimensions.map((field) => {
@@ -167,11 +167,11 @@ export function MultiDatasetFieldPicker({
 
                     {/* Measures */}
                     <div>
-                      <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Measures
                       </h4>
                       {metrics.length === 0 ? (
-                        <p className="text-xs text-gray-400">None</p>
+                        <p className="text-xs text-muted-foreground">None</p>
                       ) : (
                         <div className="space-y-0.5">
                           {metrics.map((field) => {
@@ -197,7 +197,7 @@ export function MultiDatasetFieldPicker({
       </div>
 
       {/* Footer */}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-muted-foreground">
         {selectedCount} field{selectedCount !== 1 ? 's' : ''} selected
         {datasetCount > 1 && ` from ${datasetCount} datasets`}
       </p>
@@ -215,14 +215,14 @@ function FieldRow({
   onToggle: () => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-gray-50">
+    <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-accent">
       <input
         type="checkbox"
         checked={isSelected}
         onChange={onToggle}
-        className="h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+        className="h-3.5 w-3.5 rounded border-input text-indigo-600 focus:ring-indigo-500"
       />
-      <span className="flex-1 text-sm text-gray-900">{field.label}</span>
+      <span className="flex-1 text-sm text-foreground">{field.label}</span>
       <Badge variant="neutral">
         {DATA_TYPE_LABELS[field.dataType] ?? field.dataType}
       </Badge>

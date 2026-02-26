@@ -7,6 +7,7 @@ import {
   createTable,
   createTableSchema,
 } from '@oppsera/module-fnb';
+import { parseLimit } from '@/lib/api-params';
 
 // GET /api/v1/fnb/tables — list tables with optional filters
 export const GET = withMiddleware(
@@ -19,7 +20,7 @@ export const GET = withMiddleware(
       sectionId: url.searchParams.get('sectionId') ?? undefined,
       isActive: url.searchParams.get('isActive') === 'false' ? false : true,
       cursor: url.searchParams.get('cursor') ?? undefined,
-      limit: url.searchParams.get('limit') ? Math.min(parseInt(url.searchParams.get('limit')!, 10), 200) : 100,
+      limit: parseLimit(url.searchParams.get('limit'), 200, 100),
     });
 
     return NextResponse.json({

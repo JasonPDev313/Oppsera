@@ -10,7 +10,7 @@ dotenv.config({ path: '../../.env' });
 
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { createCipheriv, randomBytes } from 'crypto';
+import { createCipheriv, randomBytes } from 'node:crypto';
 import { generateUlid } from '@oppsera/shared';
 import {
   tenants,
@@ -225,6 +225,7 @@ async function seed() {
         'pos_fnb.tabs.manage',
         'pos_fnb.kds.view',
         'pos_fnb.payments.manage',
+        'pos_fnb.host.view',
       ],
     },
     {
@@ -254,6 +255,9 @@ async function seed() {
         'pos_fnb.payments.manage',
         'pos_fnb.tips.manage',
         'pos_fnb.menu.manage',
+        'pos_fnb.host.view',
+        'pos_fnb.host.manage',
+        'pos_fnb.host.notifications',
         'room_layouts.view',
         'room_layouts.manage',
       ],
@@ -273,6 +277,7 @@ async function seed() {
         'pos_fnb.tabs.manage',
         'pos_fnb.kds.view',
         'pos_fnb.payments.manage',
+        'pos_fnb.host.view',
       ],
     },
     {
@@ -283,6 +288,7 @@ async function seed() {
         'orders.view',
         'customers.view',
         'pos_fnb.floor_plan.view',
+        'pos_fnb.host.view',
       ],
     },
     {

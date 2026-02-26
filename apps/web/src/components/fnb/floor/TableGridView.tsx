@@ -65,7 +65,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
             }}
           >
             {/* Table number */}
-            <span className="font-bold leading-none text-lg text-gray-900">
+            <span className="font-bold leading-none text-lg text-foreground">
               {table.tableNumber}
             </span>
 

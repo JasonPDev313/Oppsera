@@ -58,6 +58,23 @@ export interface TableSummary {
   blocked: number;
 }
 
+export interface HostTableItem {
+  id: string;
+  tableNumber: number;
+  displayLabel: string;
+  capacityMin: number;
+  capacityMax: number;
+  tableType: string;
+  shape: string;
+  status: string;
+  sectionId: string | null;
+  currentServerUserId: string | null;
+  serverName: string | null;
+  seatedAt: string | null;
+  partySize: number | null;
+  guestName: string | null;
+}
+
 export interface ServerSummary {
   serverUserId: string;
   serverName: string | null;
@@ -116,24 +133,163 @@ export interface TableAvailabilityResult {
   totalTables: number;
 }
 
+/** Host settings shape — matches the hostSettingsSchema from @oppsera/module-fnb */
 export interface HostSettings {
-  id: string | null;
-  locationId: string;
-  defaultWaitQuoteMinutes: number;
-  autoQuoteEnabled: boolean;
-  rotationMode: string;
-  maxPartySize: number;
-  enableVipPriority: boolean;
-  enableSmsNotifications: boolean;
-  enableOnlineWaitlist: boolean;
-  enableOnlineReservations: boolean;
-  reservationSlotIntervalMinutes: number;
-  defaultReservationDurationMinutes: number;
-  maxAdvanceBookingDays: number;
-  requirePhoneForWaitlist: boolean;
-  requirePhoneForReservation: boolean;
-  autoSeatFromWaitlist: boolean;
-  noShowWindowMinutes: number;
+  reservations: {
+    slotMinutes: number;
+    maxPartySize: number;
+    advanceBookingDays: number;
+    sameDayEnabled: boolean;
+    requirePhone: boolean;
+    requireEmail: boolean;
+    allowSpecialRequests: boolean;
+    confirmationRequired: boolean;
+    autoConfirmUpToParty: number;
+    defaultDurationMinutes: { breakfast: number; brunch: number; lunch: number; dinner: number };
+    bufferMinutes: number;
+    overbookPercent: number;
+    minLeadTimeMinutes: number;
+  };
+  pacing: {
+    enabled: boolean;
+    coversPerInterval: number;
+    intervalMinutes: number;
+    onlinePacingPercent: number;
+    perMealPeriod: {
+      breakfast: { maxCovers: number; maxReservations: number };
+      brunch: { maxCovers: number; maxReservations: number };
+      lunch: { maxCovers: number; maxReservations: number };
+      dinner: { maxCovers: number; maxReservations: number };
+    };
+  };
+  waitlist: {
+    maxSize: number;
+    noShowGraceMinutes: number;
+    notifyExpiryMinutes: number;
+    autoRemoveAfterExpiryMinutes: number;
+    allowQuotedTime: boolean;
+    priorityEnabled: boolean;
+    priorityTags: string[];
+    requirePartySize: boolean;
+    maxWaitMinutes: number;
+  };
+  estimation: {
+    enabled: boolean;
+    defaultTurnMinutes: { small: number; medium: number; large: number; xlarge: number };
+    byTableType: { bar: number; booth: number; patio: number; highTop: number };
+    dayOfWeekMultiplier: { sun: number; mon: number; tue: number; wed: number; thu: number; fri: number; sat: number };
+    useHistoricalData: boolean;
+    historicalWeight: number;
+  };
+  deposits: {
+    enabled: boolean;
+    mode: string;
+    amountCents: number;
+    percentOfEstimate: number;
+    minPartySizeForDeposit: number;
+    refundableUntilHoursBefore: number;
+    noShowFeeEnabled: boolean;
+    noShowFeeCents: number;
+    lateCancellationEnabled: boolean;
+    lateCancellationHoursBefore: number;
+    lateCancellationFeeCents: number;
+  };
+  notifications: {
+    smsEnabled: boolean;
+    emailEnabled: boolean;
+    autoConfirmation: boolean;
+    autoReminder: boolean;
+    reminderHoursBefore: number;
+    secondReminderHoursBefore: number;
+    smsFromNumber: string | null;
+    templates: {
+      confirmationSms: string;
+      confirmationEmail: string;
+      reminderSms: string;
+      waitlistReadySms: string;
+      waitlistAddedSms: string;
+      cancellationSms: string;
+      noShowSms: string;
+    };
+    waitlistReadyAlert: boolean;
+    sendOnCancellation: boolean;
+    sendOnModification: boolean;
+  };
+  tableManagement: {
+    autoAssignEnabled: boolean;
+    allowCombinations: boolean;
+    maxCombinedTables: number;
+    holdTimeMinutes: number;
+    lateArrivalGraceMinutes: number;
+    autoReleaseAfterGraceMinutes: number;
+    preferenceWeights: {
+      capacityFit: number;
+      seatingPreference: number;
+      serverBalance: number;
+      vipPreference: number;
+    };
+    minCapacityUtilization: number;
+    maxCapacityOverflow: number;
+  };
+  serverRotation: {
+    method: string;
+    trackCoversPerServer: boolean;
+    maxCoverDifference: number;
+    skipCutServers: boolean;
+    rebalanceOnCut: boolean;
+  };
+  guestSelfService: {
+    waitlistEnabled: boolean;
+    reservationEnabled: boolean;
+    qrCodeEnabled: boolean;
+    showMenuWhileWaiting: boolean;
+    showEstimatedWait: boolean;
+    showQueuePosition: boolean;
+    allowCancellation: boolean;
+    requirePhoneVerification: boolean;
+  };
+  schedule: {
+    blackoutDates: string[];
+    specialHours: unknown[];
+    closedDays: string[];
+    holidayAutoClose: boolean;
+  };
+  display: {
+    defaultView: string;
+    showElapsedTime: boolean;
+    showServerOnTables: boolean;
+    showCoverCount: boolean;
+    showTableStatus: boolean;
+    autoSelectMealPeriod: boolean;
+    colorCodeByStatus: boolean;
+    colorCodeByServer: boolean;
+    compactMode: boolean;
+    refreshIntervalSeconds: number;
+    mealPeriodSchedule: {
+      breakfast: { start: string; end: string };
+      brunch: { start: string; end: string };
+      lunch: { start: string; end: string };
+      dinner: { start: string; end: string };
+    };
+  };
+  alerts: {
+    soundEnabled: boolean;
+    newReservationSound: boolean;
+    waitlistEntrySound: boolean;
+    tableReadySound: boolean;
+    noShowAlertMinutes: number;
+    capacityWarningPercent: number;
+    longWaitAlertMinutes: number;
+    overdueReservationMinutes: number;
+  };
+  guestProfile: {
+    enableTags: boolean;
+    defaultTags: string[];
+    occasionOptions: string[];
+    seatingPreferences: string[];
+    trackVisitHistory: boolean;
+    showGuestNotes: boolean;
+  };
 }
 
 // ── Inputs ───────────────────────────────────────────────────────
@@ -216,6 +372,26 @@ export function useHostDashboard({
   };
 }
 
+// ── Host Tables Hook ─────────────────────────────────────────────
+
+export function useHostTables(locationId: string | null) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['host-tables', locationId],
+    queryFn: async ({ signal }) => {
+      const json = await apiFetch<{ data: HostTableItem[] }>(
+        `/api/v1/fnb/tables?locationId=${locationId}&limit=200`,
+        { signal },
+      );
+      return json.data;
+    },
+    enabled: !!locationId,
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+
+  return { tables: data ?? [], isLoading };
+}
+
 // ── Wait Time Estimate Hook ──────────────────────────────────────
 
 export function useWaitTimeEstimate(
@@ -294,7 +470,7 @@ export function useHostSettings(locationId: string | null) {
   const updateSettings = useMutation({
     mutationFn: async (input: Partial<HostSettings>) => {
       const json = await apiFetch<{ data: HostSettings }>(
-        '/api/v1/fnb/host/settings',
+        `/api/v1/fnb/host/settings?locationId=${locationId}`,
         { method: 'PATCH', body: JSON.stringify(input) },
       );
       return json.data;
@@ -314,9 +490,10 @@ export function useHostSettings(locationId: string | null) {
 
 // ── Waitlist Mutations ───────────────────────────────────────────
 
-export function useWaitlistMutations(_locationId: string | null) {
+export function useWaitlistMutations(locationId: string | null) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const locParam = locationId ? `?locationId=${locationId}` : '';
 
   const invalidateAll = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['host-dashboard'] });
@@ -326,7 +503,7 @@ export function useWaitlistMutations(_locationId: string | null) {
   const addToWaitlist = useMutation({
     mutationFn: async (input: AddToWaitlistInput) => {
       const json = await apiFetch<{ data: WaitlistEntry }>(
-        '/api/v1/fnb/host/waitlist',
+        `/api/v1/fnb/host/waitlist${locParam}`,
         { method: 'POST', body: JSON.stringify(input) },
       );
       return json.data;
@@ -338,7 +515,7 @@ export function useWaitlistMutations(_locationId: string | null) {
   const updateEntry = useMutation({
     mutationFn: async ({ id, ...input }: { id: string } & Partial<AddToWaitlistInput>) => {
       const json = await apiFetch<{ data: WaitlistEntry }>(
-        `/api/v1/fnb/host/waitlist/${id}`,
+        `/api/v1/fnb/host/waitlist/${id}${locParam}`,
         { method: 'PATCH', body: JSON.stringify(input) },
       );
       return json.data;
@@ -350,7 +527,7 @@ export function useWaitlistMutations(_locationId: string | null) {
   const seatGuest = useMutation({
     mutationFn: async (input: { id: string; tableId: string; serverUserId?: string }) => {
       const json = await apiFetch<{ data: unknown }>(
-        `/api/v1/fnb/host/waitlist/${input.id}/seat`,
+        `/api/v1/fnb/host/waitlist/${input.id}/seat${locParam}`,
         { method: 'POST', body: JSON.stringify({ tableId: input.tableId, serverUserId: input.serverUserId }) },
       );
       return json.data;
@@ -362,7 +539,7 @@ export function useWaitlistMutations(_locationId: string | null) {
   const notifyGuest = useMutation({
     mutationFn: async (input: { id: string; method?: string }) => {
       const json = await apiFetch<{ data: unknown }>(
-        `/api/v1/fnb/host/waitlist/${input.id}/notify`,
+        `/api/v1/fnb/host/waitlist/${input.id}/notify${locParam}`,
         { method: 'POST', body: JSON.stringify({ method: input.method }) },
       );
       return json.data;
@@ -374,7 +551,7 @@ export function useWaitlistMutations(_locationId: string | null) {
   const removeGuest = useMutation({
     mutationFn: async (input: { id: string; reason?: string }) => {
       const json = await apiFetch<{ data: unknown }>(
-        `/api/v1/fnb/host/waitlist/${input.id}`,
+        `/api/v1/fnb/host/waitlist/${input.id}${locParam}`,
         { method: 'DELETE', body: JSON.stringify({ reason: input.reason }) },
       );
       return json.data;
@@ -397,11 +574,69 @@ export function useWaitlistMutations(_locationId: string | null) {
   };
 }
 
+// ── Pre-Shift Report ────────────────────────────────────────────
+
+export interface PreShiftAlert {
+  type: 'allergy' | 'large_party' | 'occasion' | 'vip';
+  message: string;
+  reservationId: string;
+  guestName: string;
+  time: string;
+}
+
+export interface VipArrival {
+  reservationId: string;
+  guestName: string;
+  time: string;
+  partySize: number;
+  visitCount: number;
+  notes: string | null;
+}
+
+export interface StaffAssignment {
+  serverName: string;
+  sectionNames: string[];
+  expectedCovers: number;
+}
+
+export interface PreShiftData {
+  totalReservations: number;
+  expectedCovers: number;
+  vipCount: number;
+  largePartyCount: number;
+  alerts: PreShiftAlert[];
+  vipArrivals: VipArrival[];
+  staffAssignments: StaffAssignment[];
+}
+
+export function usePreShift(locationId: string | null, mealPeriod?: string) {
+  const params = new URLSearchParams();
+  if (locationId) params.set('locationId', locationId);
+  if (mealPeriod) params.set('mealPeriod', mealPeriod);
+  const qs = params.toString();
+
+  const { data, isLoading, error } = useQuery<PreShiftData>({
+    queryKey: ['host-pre-shift', locationId, mealPeriod],
+    queryFn: async ({ signal }) => {
+      const json = await apiFetch<{ data: PreShiftData }>(
+        `/api/v1/fnb/host/pre-shift${qs ? `?${qs}` : ''}`,
+        { signal },
+      );
+      return json.data;
+    },
+    enabled: !!locationId,
+    staleTime: 5 * 60_000,
+  });
+
+  return { data: data ?? null, isLoading, error };
+}
+
 // ── Reservation Mutations ────────────────────────────────────────
 
-export function useReservationMutations(_locationId: string | null) {
+export function useReservationMutations(locationId: string | null) {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const locParam = locationId ? `?locationId=${locationId}` : '';
 
   const invalidateAll = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['host-dashboard'] });
@@ -410,7 +645,7 @@ export function useReservationMutations(_locationId: string | null) {
   const createReservation = useMutation({
     mutationFn: async (input: CreateReservationInput) => {
       const json = await apiFetch<{ data: ReservationEntry }>(
-        '/api/v1/fnb/host/reservations',
+        `/api/v1/fnb/host/reservations${locParam}`,
         { method: 'POST', body: JSON.stringify(input) },
       );
       return json.data;
@@ -422,7 +657,7 @@ export function useReservationMutations(_locationId: string | null) {
   const updateReservation = useMutation({
     mutationFn: async ({ id, ...input }: { id: string } & Partial<CreateReservationInput>) => {
       const json = await apiFetch<{ data: ReservationEntry }>(
-        `/api/v1/fnb/host/reservations/${id}`,
+        `/api/v1/fnb/host/reservations/${id}${locParam}`,
         { method: 'PATCH', body: JSON.stringify(input) },
       );
       return json.data;
@@ -434,7 +669,7 @@ export function useReservationMutations(_locationId: string | null) {
   const checkIn = useMutation({
     mutationFn: async (input: { id: string; tableId?: string; serverUserId?: string }) => {
       const json = await apiFetch<{ data: unknown }>(
-        `/api/v1/fnb/host/reservations/${input.id}/check-in`,
+        `/api/v1/fnb/host/reservations/${input.id}/check-in${locParam}`,
         { method: 'POST', body: JSON.stringify({ tableId: input.tableId, serverUserId: input.serverUserId }) },
       );
       return json.data;
@@ -446,7 +681,7 @@ export function useReservationMutations(_locationId: string | null) {
   const cancelReservation = useMutation({
     mutationFn: async (input: { id: string; reason?: string }) => {
       const json = await apiFetch<{ data: unknown }>(
-        `/api/v1/fnb/host/reservations/${input.id}/cancel`,
+        `/api/v1/fnb/host/reservations/${input.id}/cancel${locParam}`,
         { method: 'POST', body: JSON.stringify({ reason: input.reason }) },
       );
       return json.data;
@@ -458,7 +693,7 @@ export function useReservationMutations(_locationId: string | null) {
   const markNoShow = useMutation({
     mutationFn: async (id: string) => {
       const json = await apiFetch<{ data: unknown }>(
-        `/api/v1/fnb/host/reservations/${id}/no-show`,
+        `/api/v1/fnb/host/reservations/${id}/no-show${locParam}`,
         { method: 'POST' },
       );
       return json.data;

@@ -580,7 +580,14 @@ export default function OnboardPage() {
       // Refresh auth state so tenant is populated before navigating.
       // Without this, dashboard layout sees needsOnboarding=true and
       // redirects back to /onboard, creating an infinite loop.
-      await auth.fetchMe();
+      try {
+        await auth.fetchMe();
+      } catch {
+        // fetchMe can fail on cold starts / DB timeouts.
+        // Retry once after a short delay before giving up.
+        await new Promise((r) => setTimeout(r, 1500));
+        await auth.fetchMe();
+      }
       router.push('/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {

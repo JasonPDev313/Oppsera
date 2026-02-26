@@ -123,9 +123,9 @@ function formatDateInput(date: Date): string {
 }
 
 function getCalendarCellColor(baseCents: number, adjustedCents: number): string {
-  if (adjustedCents < baseCents) return 'bg-green-50 border-green-200 text-green-800';
-  if (adjustedCents > baseCents) return 'bg-red-50 border-red-200 text-red-800';
-  return 'bg-yellow-50 border-yellow-200 text-yellow-800';
+  if (adjustedCents < baseCents) return 'bg-green-500/10 border-green-500/30 text-green-500';
+  if (adjustedCents > baseCents) return 'bg-red-500/10 border-red-500/30 text-red-500';
+  return 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500';
 }
 
 // ── Page Component ───────────────────────────────────────────────
@@ -486,7 +486,7 @@ export default function RevenueManagementContent() {
         render: (row: PricingRuleRow) => {
           const rule = row as unknown as PricingRule;
           return (
-            <span className="text-sm font-medium text-gray-900">{rule.name}</span>
+            <span className="text-sm font-medium text-foreground">{rule.name}</span>
           );
         },
       },
@@ -508,7 +508,7 @@ export default function RevenueManagementContent() {
         header: 'Priority',
         width: '80px',
         render: (row: PricingRuleRow) => (
-          <span className="text-sm text-gray-700">{(row as unknown as PricingRule).priority}</span>
+          <span className="text-sm text-foreground">{(row as unknown as PricingRule).priority}</span>
         ),
       },
       {
@@ -519,7 +519,7 @@ export default function RevenueManagementContent() {
           const rule = row as unknown as PricingRule;
           const isUp = rule.adjustments.direction === 'increase';
           return (
-            <span className={`inline-flex items-center gap-1 text-sm font-medium ${isUp ? 'text-red-600' : 'text-green-600'}`}>
+            <span className={`inline-flex items-center gap-1 text-sm font-medium ${isUp ? 'text-red-500' : 'text-green-500'}`}>
               {isUp
                 ? <ArrowUpRight className="h-3.5 w-3.5" />
                 : <ArrowDownRight className="h-3.5 w-3.5" />}
@@ -535,7 +535,7 @@ export default function RevenueManagementContent() {
         render: (row: PricingRuleRow) => {
           const rule = row as unknown as PricingRule;
           return (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               {formatCents(rule.floorCents)} / {formatCents(rule.ceilingCents)}
             </span>
           );
@@ -559,13 +559,13 @@ export default function RevenueManagementContent() {
               title={rule.isActive ? 'Click to deactivate' : 'Click to activate'}
             >
               {togglingId === rule.id ? (
-                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               ) : rule.isActive ? (
-                <ToggleRight className="h-5 w-5 text-green-600" />
+                <ToggleRight className="h-5 w-5 text-green-500" />
               ) : (
-                <ToggleLeft className="h-5 w-5 text-gray-400" />
+                <ToggleLeft className="h-5 w-5 text-muted-foreground" />
               )}
-              <span className={rule.isActive ? 'text-green-700' : 'text-gray-500'}>
+              <span className={rule.isActive ? 'text-green-500' : 'text-muted-foreground'}>
                 {rule.isActive ? 'Active' : 'Inactive'}
               </span>
             </button>
@@ -585,7 +585,7 @@ export default function RevenueManagementContent() {
                 e.stopPropagation();
                 openEdit(rule);
               }}
-              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-200/50 hover:text-gray-600"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-gray-200/50 hover:text-muted-foreground"
               title="Edit rule"
             >
               <Pencil className="h-4 w-4" />
@@ -610,12 +610,12 @@ export default function RevenueManagementContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-500">
             <TrendingUp className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Revenue Management</h1>
-            <p className="text-sm text-gray-500">Configure pricing rules and preview yield adjustments</p>
+            <h1 className="text-2xl font-bold text-foreground">Revenue Management</h1>
+            <p className="text-sm text-muted-foreground">Configure pricing rules and preview yield adjustments</p>
           </div>
         </div>
 
@@ -642,16 +642,16 @@ export default function RevenueManagementContent() {
 
       {/* ── Pricing Rules Section ──────────────────────────────────── */}
       <section>
-        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
           <Zap className="h-5 w-5 text-indigo-500" />
           Pricing Rules
         </h2>
 
         {!isLoadingRules && rules.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-16">
-            <DollarSign className="h-12 w-12 text-gray-300" />
-            <h3 className="mt-4 text-sm font-semibold text-gray-900">No pricing rules</h3>
-            <p className="mt-1 text-sm text-gray-500">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
+            <DollarSign className="h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-4 text-sm font-semibold text-foreground">No pricing rules</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
               Create rules to automatically adjust rates based on occupancy, day of week, and more.
             </p>
             <button
@@ -675,10 +675,10 @@ export default function RevenueManagementContent() {
       {/* ── Pricing Calendar Section ───────────────────────────────── */}
       <section>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
             <Calendar className="h-5 w-5 text-indigo-500" />
             Pricing Calendar
-            <span className="text-sm font-normal text-gray-500">(30-day preview)</span>
+            <span className="text-sm font-normal text-muted-foreground">(30-day preview)</span>
           </h2>
           {roomTypes.length > 0 && (
             <Select
@@ -692,17 +692,17 @@ export default function RevenueManagementContent() {
         </div>
 
         {/* Legend */}
-        <div className="mb-3 flex flex-wrap gap-4 text-xs text-gray-600">
+        <div className="mb-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-green-200 bg-green-50" />
+            <span className="inline-block h-3 w-3 rounded border border-green-500/30 bg-green-500/10" />
             Below base (discounted)
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-yellow-200 bg-yellow-50" />
+            <span className="inline-block h-3 w-3 rounded border border-yellow-500/30 bg-yellow-500/10" />
             At base rate
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-3 w-3 rounded border border-red-200 bg-red-50" />
+            <span className="inline-block h-3 w-3 rounded border border-red-500/30 bg-red-500/10" />
             Above base (premium)
           </span>
         </div>
@@ -712,14 +712,14 @@ export default function RevenueManagementContent() {
             {Array.from({ length: 30 }).map((_, i) => (
               <div
                 key={i}
-                className="h-20 animate-pulse rounded-lg border border-gray-100 bg-gray-50"
+                className="h-20 animate-pulse rounded-lg border border-border bg-muted"
               />
             ))}
           </div>
         ) : calendarData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
-            <Calendar className="h-10 w-10 text-gray-300" />
-            <p className="mt-3 text-sm text-gray-500">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+            <Calendar className="h-10 w-10 text-muted-foreground" />
+            <p className="mt-3 text-sm text-muted-foreground">
               No pricing data available. Set base rates on your rate plans first.
             </p>
           </div>
@@ -766,22 +766,22 @@ export default function RevenueManagementContent() {
         createPortal(
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40" onClick={closeDialog} />
-            <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-gray-200 bg-surface p-6 shadow-xl">
+            <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
+                <h2 className="text-lg font-semibold text-foreground">
                   {dialogMode === 'create' ? 'Create Pricing Rule' : 'Edit Pricing Rule'}
                 </h2>
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
               {formError && (
-                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                   {formError}
                 </div>
               )}
@@ -789,7 +789,7 @@ export default function RevenueManagementContent() {
               <div className="space-y-4">
                 {/* Name */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -798,14 +798,14 @@ export default function RevenueManagementContent() {
                     onChange={(e) => setFormName(e.target.value)}
                     placeholder="e.g. Weekend Premium, High Occupancy Surge"
                     maxLength={200}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     autoFocus
                   />
                 </div>
 
                 {/* Rule Type */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Rule Type
                   </label>
                   <Select
@@ -818,7 +818,7 @@ export default function RevenueManagementContent() {
 
                 {/* Priority */}
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                  <label className="mb-1 block text-sm font-medium text-foreground">
                     Priority
                   </label>
                   <input
@@ -827,31 +827,31 @@ export default function RevenueManagementContent() {
                     step="1"
                     value={formPriority}
                     onChange={(e) => setFormPriority(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Higher priority rules are applied first (0 = lowest)
                   </p>
                 </div>
 
                 {/* Active toggle */}
-                <label className="flex items-center gap-2 text-sm text-gray-700">
+                <label className="flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
                     checked={formIsActive}
                     onChange={(e) => setFormIsActive(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-border text-indigo-500 focus:ring-indigo-500"
                   />
                   Rule is active
                 </label>
 
                 {/* ── Condition Fields (type-specific) ───────────────── */}
-                <fieldset className="rounded-lg border border-gray-200 p-4">
-                  <legend className="px-1 text-sm font-medium text-gray-700">Conditions</legend>
+                <fieldset className="rounded-lg border border-border p-4">
+                  <legend className="px-1 text-sm font-medium text-foreground">Conditions</legend>
 
                   {formRuleType === 'occupancy_threshold' && (
                     <div>
-                      <label className="mb-1 block text-sm text-gray-600">
+                      <label className="mb-1 block text-sm text-muted-foreground">
                         When occupancy is above (%)
                       </label>
                       <div className="relative">
@@ -863,16 +863,16 @@ export default function RevenueManagementContent() {
                           value={formOccupancyPct}
                           onChange={(e) => setFormOccupancyPct(e.target.value)}
                           placeholder="e.g. 80"
-                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 pr-8 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
-                        <Percent className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                        <Percent className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                       </div>
                     </div>
                   )}
 
                   {formRuleType === 'day_of_week' && (
                     <div>
-                      <label className="mb-2 block text-sm text-gray-600">
+                      <label className="mb-2 block text-sm text-muted-foreground">
                         Apply on these days
                       </label>
                       <div className="flex flex-wrap gap-2">
@@ -884,7 +884,7 @@ export default function RevenueManagementContent() {
                             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                               formDaysOfWeek.includes(idx)
                                 ? 'border-indigo-600 bg-indigo-600 text-white'
-                                : 'border-gray-300 bg-surface text-gray-700 hover:bg-gray-200/50'
+                                : 'border-border bg-surface text-foreground hover:bg-gray-200/50'
                             }`}
                           >
                             {label}
@@ -896,7 +896,7 @@ export default function RevenueManagementContent() {
 
                   {formRuleType === 'lead_time' && (
                     <div>
-                      <label className="mb-1 block text-sm text-gray-600">
+                      <label className="mb-1 block text-sm text-muted-foreground">
                         Within X days of arrival
                       </label>
                       <input
@@ -906,7 +906,7 @@ export default function RevenueManagementContent() {
                         value={formLeadTimeDays}
                         onChange={(e) => setFormLeadTimeDays(e.target.value)}
                         placeholder="e.g. 7"
-                        className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                     </div>
                   )}
@@ -914,21 +914,21 @@ export default function RevenueManagementContent() {
                   {formRuleType === 'seasonal' && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="mb-1 block text-sm text-gray-600">Start Date</label>
+                        <label className="mb-1 block text-sm text-muted-foreground">Start Date</label>
                         <input
                           type="date"
                           value={formSeasonStart}
                           onChange={(e) => setFormSeasonStart(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-sm text-gray-600">End Date</label>
+                        <label className="mb-1 block text-sm text-muted-foreground">End Date</label>
                         <input
                           type="date"
                           value={formSeasonEnd}
                           onChange={(e) => setFormSeasonEnd(e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                     </div>
@@ -937,32 +937,32 @@ export default function RevenueManagementContent() {
                   {formRuleType === 'event' && (
                     <div className="space-y-3">
                       <div>
-                        <label className="mb-1 block text-sm text-gray-600">Event Name</label>
+                        <label className="mb-1 block text-sm text-muted-foreground">Event Name</label>
                         <input
                           type="text"
                           value={formEventName}
                           onChange={(e) => setFormEventName(e.target.value)}
                           placeholder="e.g. Local Marathon, Music Festival"
-                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="mb-1 block text-sm text-gray-600">Start Date</label>
+                          <label className="mb-1 block text-sm text-muted-foreground">Start Date</label>
                           <input
                             type="date"
                             value={formEventStart}
                             onChange={(e) => setFormEventStart(e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-sm text-gray-600">End Date</label>
+                          <label className="mb-1 block text-sm text-muted-foreground">End Date</label>
                           <input
                             type="date"
                             value={formEventEnd}
                             onChange={(e) => setFormEventEnd(e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                         </div>
                       </div>
@@ -971,13 +971,13 @@ export default function RevenueManagementContent() {
                 </fieldset>
 
                 {/* ── Adjustment Fields ───────────────────────────────── */}
-                <fieldset className="rounded-lg border border-gray-200 p-4">
-                  <legend className="px-1 text-sm font-medium text-gray-700">Adjustment</legend>
+                <fieldset className="rounded-lg border border-border p-4">
+                  <legend className="px-1 text-sm font-medium text-foreground">Adjustment</legend>
                   <div className="space-y-3">
                     <div className="grid grid-cols-3 gap-3">
                       {/* Direction */}
                       <div>
-                        <label className="mb-1 block text-xs text-gray-500">Direction</label>
+                        <label className="mb-1 block text-xs text-muted-foreground">Direction</label>
                         <Select
                           options={[
                             { value: 'increase', label: 'Increase' },
@@ -990,7 +990,7 @@ export default function RevenueManagementContent() {
                       </div>
                       {/* Type */}
                       <div>
-                        <label className="mb-1 block text-xs text-gray-500">Type</label>
+                        <label className="mb-1 block text-xs text-muted-foreground">Type</label>
                         <Select
                           options={[
                             { value: 'percentage', label: 'Percentage' },
@@ -1003,7 +1003,7 @@ export default function RevenueManagementContent() {
                       </div>
                       {/* Amount */}
                       <div>
-                        <label className="mb-1 block text-xs text-gray-500">
+                        <label className="mb-1 block text-xs text-muted-foreground">
                           Amount {formAdjType === 'percentage' ? '(%)' : '($)'}
                         </label>
                         <input
@@ -1013,7 +1013,7 @@ export default function RevenueManagementContent() {
                           value={formAdjAmount}
                           onChange={(e) => setFormAdjAmount(e.target.value)}
                           placeholder={formAdjType === 'percentage' ? 'e.g. 15' : 'e.g. 20.00'}
-                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                     </div>
@@ -1021,7 +1021,7 @@ export default function RevenueManagementContent() {
                     {/* Floor / Ceiling */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="mb-1 block text-xs text-gray-500">Floor ($)</label>
+                        <label className="mb-1 block text-xs text-muted-foreground">Floor ($)</label>
                         <input
                           type="number"
                           min="0"
@@ -1029,11 +1029,11 @@ export default function RevenueManagementContent() {
                           value={formFloor}
                           onChange={(e) => setFormFloor(e.target.value)}
                           placeholder="Min rate"
-                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs text-gray-500">Ceiling ($)</label>
+                        <label className="mb-1 block text-xs text-muted-foreground">Ceiling ($)</label>
                         <input
                           type="number"
                           min="0"
@@ -1041,7 +1041,7 @@ export default function RevenueManagementContent() {
                           value={formCeiling}
                           onChange={(e) => setFormCeiling(e.target.value)}
                           placeholder="Max rate"
-                          className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </div>
                     </div>
@@ -1054,7 +1054,7 @@ export default function RevenueManagementContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
                 >
                   Cancel
                 </button>

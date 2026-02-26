@@ -94,7 +94,7 @@ function DrawerHeader({
   const loyaltyTier = customer?.metadata?.loyaltyTier as string | undefined;
 
   return (
-    <div className="shrink-0 border-b border-gray-200 px-6 py-4">
+    <div className="shrink-0 border-b border-border px-6 py-4">
       {/* Row 1: Avatar + Name + Actions */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
@@ -104,32 +104,32 @@ function DrawerHeader({
               <img
                 src={profileImageUrl}
                 alt={customer.displayName}
-                className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-indigo-100"
+                className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-indigo-500/20"
               />
             ) : (
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-base font-semibold text-indigo-700 ring-2 ring-indigo-50">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-500/100/20 text-base font-semibold text-indigo-400 ring-2 ring-indigo-500/10">
                 {getInitials(customer.displayName)}
               </div>
             )
           ) : (
-            <div className="h-14 w-14 shrink-0 animate-pulse rounded-full bg-gray-200" />
+            <div className="h-14 w-14 shrink-0 animate-pulse rounded-full bg-muted" />
           )}
 
           {/* Name + Meta */}
           <div className="min-w-0">
             {customer ? (
               <>
-                <h2 className="text-lg font-semibold leading-tight text-gray-900">
+                <h2 className="text-lg font-semibold leading-tight text-foreground">
                   {customer.displayName}
                 </h2>
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   {memberIdentifier && (
-                    <span className="text-xs font-medium text-gray-500">
+                    <span className="text-xs font-medium text-muted-foreground">
                       #{memberIdentifier.value}
                     </span>
                   )}
                   {memberIdentifier && profile?.memberships?.active && (
-                    <span className="text-gray-300">&middot;</span>
+                    <span className="text-muted-foreground">&middot;</span>
                   )}
                   {profile?.memberships?.active && (
                     <Badge variant="indigo">
@@ -146,8 +146,8 @@ function DrawerHeader({
               </>
             ) : (
               <>
-                <div className="h-5 w-40 animate-pulse rounded bg-gray-200" />
-                <div className="mt-2 h-4 w-24 animate-pulse rounded bg-gray-100" />
+                <div className="h-5 w-40 animate-pulse rounded bg-muted" />
+                <div className="mt-2 h-4 w-24 animate-pulse rounded bg-muted" />
               </>
             )}
           </div>
@@ -158,7 +158,7 @@ function DrawerHeader({
           {customerId && (
             <a
               href={`/customers/${customerId}`}
-              className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
               title="Open full profile"
             >
               <ExternalLink className="h-4 w-4" />
@@ -167,7 +167,7 @@ function DrawerHeader({
           <button
             type="button"
             onClick={close}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -176,14 +176,14 @@ function DrawerHeader({
 
       {/* Row 2: Contact details + balance (only when loaded) */}
       {customer && (
-        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-gray-600">
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
           {/* Email */}
           {(primaryEmail || customer.email) && (
             <a
               href={`mailto:${primaryEmail?.value ?? customer.email}`}
               className="flex items-center gap-1.5 truncate hover:text-indigo-600"
             >
-              <Mail className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{primaryEmail?.value ?? customer.email}</span>
             </a>
           )}
@@ -194,7 +194,7 @@ function DrawerHeader({
               href={`tel:${primaryPhone?.value ?? customer.phone}`}
               className="flex items-center gap-1.5 truncate hover:text-indigo-600"
             >
-              <Phone className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <Phone className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{formatPhone(primaryPhone?.value ?? customer.phone ?? '')}</span>
             </a>
           )}
@@ -202,7 +202,7 @@ function DrawerHeader({
           {/* Address */}
           {primaryAddress && (
             <div className="col-span-2 flex items-center gap-1.5 truncate">
-              <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{primaryAddress.value}</span>
             </div>
           )}
@@ -210,8 +210,8 @@ function DrawerHeader({
           {/* Wallet balance */}
           {walletBalance > 0 && (
             <div className="flex items-center gap-1.5">
-              <Wallet className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-              <span className="font-medium text-gray-900">
+              <Wallet className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+              <span className="font-medium text-foreground">
                 Balance: {formatCurrency(walletBalance)}
               </span>
             </div>
@@ -221,7 +221,7 @@ function DrawerHeader({
           {loyaltyTier && (
             <div className="flex items-center gap-1.5">
               <Star className="h-3.5 w-3.5 shrink-0 text-amber-400" />
-              <span className="font-medium text-gray-900">{loyaltyTier}</span>
+              <span className="font-medium text-foreground">{loyaltyTier}</span>
             </div>
           )}
         </div>
@@ -234,7 +234,7 @@ function DrawerHeader({
             <Badge key={tag} variant="neutral">{tag}</Badge>
           ))}
           {customer.tags.length > 3 && (
-            <span className="text-xs text-gray-400">+{customer.tags.length - 3} more</span>
+            <span className="text-xs text-muted-foreground">+{customer.tags.length - 3} more</span>
           )}
         </div>
       )}
@@ -341,7 +341,7 @@ export function CustomerProfileDrawer() {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label="Customer profile">
       {/* Backdrop */}
       <div
         className={`fixed inset-0 transition-opacity duration-300 ${
@@ -360,7 +360,7 @@ export function CustomerProfileDrawer() {
         <DrawerHeader customerId={customerId} profile={profile} close={close} />
 
         {/* Tab bar */}
-        <div className="shrink-0 border-b border-gray-200">
+        <div className="shrink-0 border-b border-border">
           <nav className="flex overflow-x-auto px-6" aria-label="Profile tabs">
             {TABS.map((tab) => (
               <button
@@ -370,7 +370,7 @@ export function CustomerProfileDrawer() {
                 className={`shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
                   activeTab === tab.key
                     ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
                 }`}
               >
                 {tab.label}
@@ -387,13 +387,13 @@ export function CustomerProfileDrawer() {
             </div>
           ) : error ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-red-600">
+              <p className="text-sm text-red-500">
                 Failed to load customer profile.
               </p>
               <button
                 type="button"
                 onClick={mutate}
-                className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
               >
                 Try again
               </button>

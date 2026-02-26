@@ -31,9 +31,9 @@ interface CorrelationChartProps {
 // ── Constants ──────────────────────────────────────────────────────
 
 const STRENGTH_BADGE: Record<string, { bg: string; text: string }> = {
-  strong: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  moderate: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  weak: { bg: 'bg-gray-100', text: 'text-gray-600' },
+  strong: { bg: 'bg-emerald-500/10', text: 'text-emerald-500' },
+  moderate: { bg: 'bg-blue-500/10', text: 'text-blue-500' },
+  weak: { bg: 'bg-muted', text: 'text-muted-foreground' },
 };
 
 // ── Tooltip ────────────────────────────────────────────────────────

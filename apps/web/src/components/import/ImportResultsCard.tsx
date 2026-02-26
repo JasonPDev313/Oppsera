@@ -60,12 +60,12 @@ export function ImportResultsCard({
   return (
     <div className="space-y-4 text-center">
       <StatusIcon className={`mx-auto h-12 w-12 ${statusColor}`} />
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+      <h3 className="text-lg font-semibold text-foreground">
         {statusLabel}
       </h3>
 
       {successRows > 0 && (
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+        <p className="text-sm text-muted-foreground">
           {successRows.toLocaleString()} {entityLabel} imported successfully
         </p>
       )}
@@ -75,10 +75,10 @@ export function ImportResultsCard({
         {stats.map((stat) => (
           <div
             key={stat.label}
-            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-800/50"
+            className="rounded-lg border border-border bg-muted px-3 py-2"
           >
-            <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>
-            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <p className="text-xs text-muted-foreground">{stat.label}</p>
+            <p className="text-lg font-semibold text-foreground">
               {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
             </p>
           </div>
@@ -88,12 +88,12 @@ export function ImportResultsCard({
       {/* Error list (collapsible if > 5) */}
       {errors && errors.length > 0 && (
         <details className="mx-auto max-w-md text-left">
-          <summary className="cursor-pointer text-sm font-medium text-red-600 dark:text-red-400">
+          <summary className="cursor-pointer text-sm font-medium text-red-500">
             {errors.length} error{errors.length !== 1 ? 's' : ''}
           </summary>
-          <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+          <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-red-500/30 bg-red-500/10 p-3">
             {errors.map((err, i) => (
-              <p key={i} className="text-xs text-red-700 dark:text-red-300">
+              <p key={i} className="text-xs text-red-500">
                 {err.row ? `Row ${err.row}: ` : ''}{err.message}
               </p>
             ))}
@@ -109,12 +109,12 @@ export function ImportResultsCard({
               type="button"
               onClick={onGoBack}
               disabled={isRollingBack}
-              className="flex flex-1 items-center gap-3 rounded-lg border border-gray-300 bg-surface p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-800 disabled:opacity-50"
+              className="flex flex-1 items-center gap-3 rounded-lg border border-border bg-surface p-4 text-left transition-colors hover:bg-accent disabled:opacity-50"
             >
               <ArrowLeft className="h-5 w-5 shrink-0 text-indigo-500" />
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Go Back &amp; Fix</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-sm font-medium text-foreground">Go Back &amp; Fix</p>
+                <p className="text-xs text-muted-foreground">
                   Return to preview to fix errors
                 </p>
               </div>
@@ -125,7 +125,7 @@ export function ImportResultsCard({
               type="button"
               onClick={onRollback}
               disabled={isRollingBack}
-              className="flex flex-1 items-center gap-3 rounded-lg border border-red-300 bg-surface p-4 text-left transition-colors hover:bg-red-50 dark:border-red-700 dark:hover:bg-red-900/20 disabled:opacity-50"
+              className="flex flex-1 items-center gap-3 rounded-lg border border-red-500/30 bg-surface p-4 text-left transition-colors hover:bg-red-500/10 disabled:opacity-50"
             >
               {isRollingBack ? (
                 <Loader2 className="h-5 w-5 shrink-0 animate-spin text-red-500" />
@@ -133,10 +133,10 @@ export function ImportResultsCard({
                 <RotateCcw className="h-5 w-5 shrink-0 text-red-500" />
               )}
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                <p className="text-sm font-medium text-foreground">
                   {isRollingBack ? 'Rolling Back...' : 'Roll Back Import'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Delete all newly created {entityLabel}
                 </p>
               </div>

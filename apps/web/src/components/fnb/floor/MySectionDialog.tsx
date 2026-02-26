@@ -77,19 +77,19 @@ export function MySectionDialog({ open, onClose, tables, section }: MySectionDia
       />
 
       {/* Dialog panel */}
-      <div className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl shadow-2xl border border-gray-200 bg-surface mx-4">
+      <div className="relative z-10 w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl shadow-2xl border border-border bg-surface mx-4">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
-            <h2 className="text-base font-bold text-gray-900">Select My Tables</h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <h2 className="text-base font-bold text-foreground">Select My Tables</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
               Tap tables to add or remove from your section
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center justify-center rounded-lg h-8 w-8 transition-colors text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="flex items-center justify-center rounded-lg h-8 w-8 transition-colors text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
@@ -118,10 +118,10 @@ export function MySectionDialog({ open, onClose, tables, section }: MySectionDia
                     className={`
                       relative flex flex-col items-center justify-center rounded-lg border-2 p-2.5 transition-all select-none
                       ${isClaimed
-                        ? 'opacity-40 cursor-not-allowed border-gray-300 bg-gray-100'
+                        ? 'opacity-40 cursor-not-allowed border-input bg-muted'
                         : isSelected
-                          ? 'border-indigo-500 bg-indigo-50 shadow-sm'
-                          : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
+                          ? 'border-indigo-500 bg-indigo-500/10 shadow-sm'
+                          : 'border-border bg-surface hover:border-input hover:bg-accent'
                       }
                     `}
                   >
@@ -139,12 +139,12 @@ export function MySectionDialog({ open, onClose, tables, section }: MySectionDia
                     />
 
                     {/* Table number */}
-                    <span className={`text-sm font-bold leading-none ${isSelected ? 'text-indigo-700' : 'text-gray-900'}`}>
+                    <span className={`text-sm font-bold leading-none ${isSelected ? 'text-indigo-500' : 'text-foreground'}`}>
                       {table.tableNumber}
                     </span>
 
                     {/* Capacity */}
-                    <span className="flex items-center gap-0.5 mt-1 text-[10px] text-gray-400">
+                    <span className="flex items-center gap-0.5 mt-1 text-[10px] text-muted-foreground">
                       <Users className="h-2.5 w-2.5" />
                       {table.capacityMax}
                     </span>
@@ -165,15 +165,15 @@ export function MySectionDialog({ open, onClose, tables, section }: MySectionDia
         {/* Feedback banner */}
         {feedback && (
           <div className={`px-5 py-2 text-xs font-medium ${
-            feedback.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'
+            feedback.type === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
           }`}>
             {feedback.text}
           </div>
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-200">
-          <span className="text-xs font-medium text-gray-500">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+          <span className="text-xs font-medium text-muted-foreground">
             {section.selectedCount} table{section.selectedCount !== 1 ? 's' : ''} selected
           </span>
           <div className="flex items-center gap-2">
@@ -182,7 +182,7 @@ export function MySectionDialog({ open, onClose, tables, section }: MySectionDia
                 type="button"
                 onClick={handleClear}
                 disabled={saving}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors text-red-600 hover:bg-red-50 border border-red-200"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors text-red-500 hover:bg-red-500/10 border border-red-500/30"
               >
                 <Trash2 className="h-3 w-3" />
                 Clear

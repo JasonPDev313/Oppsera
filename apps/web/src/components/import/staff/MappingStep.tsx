@@ -62,24 +62,24 @@ export function MappingStep({
   return (
     <div className="space-y-6">
       {/* Summary bar */}
-      <div className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800/50 px-4 py-3">
-        <span className="text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex items-center justify-between rounded-lg bg-muted px-4 py-3">
+        <span className="text-sm text-muted-foreground">
           {analysis.totalRows} rows detected &middot; {columnMappings.length} columns
         </span>
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-gray-600 dark:text-gray-400">Mode:</span>
+            <span className="text-muted-foreground">Mode:</span>
             <select
               value={importMode}
               onChange={(e) => onImportModeChange(e.target.value as StaffImportMode)}
-              className="rounded border border-gray-300 bg-surface text-gray-900 px-2 py-1 text-sm"
+              className="rounded border border-input bg-surface text-foreground px-2 py-1 text-sm"
             >
               <option value="upsert">Create + Update</option>
               <option value="create_only">Create Only</option>
               <option value="update_only">Update Only</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <input
               type="checkbox"
               checked={autoGenerateUsername}
@@ -95,7 +95,7 @@ export function MappingStep({
       {analysis.warnings.length > 0 && (
         <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 space-y-1">
           {analysis.warnings.map((w, i) => (
-            <p key={i} className="text-sm text-yellow-700 dark:text-yellow-400 flex items-start gap-2">
+            <p key={i} className="text-sm text-yellow-500 flex items-start gap-2">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
               {w}
             </p>
@@ -107,18 +107,18 @@ export function MappingStep({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
-              <th className="pb-2 pr-4 font-medium text-gray-500 dark:text-gray-400 w-48">Source Column</th>
-              <th className="pb-2 pr-4 font-medium text-gray-500 dark:text-gray-400 w-64">OppsEra Field</th>
-              <th className="pb-2 pr-4 font-medium text-gray-500 dark:text-gray-400 w-20 text-center">Confidence</th>
-              <th className="pb-2 font-medium text-gray-500 dark:text-gray-400">Sample Values</th>
+            <tr className="border-b border-border text-left">
+              <th className="pb-2 pr-4 font-medium text-muted-foreground w-48">Source Column</th>
+              <th className="pb-2 pr-4 font-medium text-muted-foreground w-64">OppsEra Field</th>
+              <th className="pb-2 pr-4 font-medium text-muted-foreground w-20 text-center">Confidence</th>
+              <th className="pb-2 font-medium text-muted-foreground">Sample Values</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+          <tbody className="divide-y divide-border">
             {columnMappings.map((mapping) => (
               <tr key={mapping.columnIndex} className={!mapping.targetField ? 'opacity-50' : ''}>
                 <td className="py-2.5 pr-4">
-                  <span className="font-mono text-xs bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
+                  <span className="font-mono text-xs bg-muted px-2 py-0.5 rounded">
                     {mapping.sourceHeader}
                   </span>
                 </td>
@@ -126,7 +126,7 @@ export function MappingStep({
                   <select
                     value={mapping.targetField ?? ''}
                     onChange={(e) => handleFieldChange(mapping.columnIndex, (e.target.value || null) as StaffTargetField | null)}
-                    className="w-full rounded border border-gray-300 bg-surface text-gray-900 px-2 py-1.5 text-sm"
+                    className="w-full rounded border border-input bg-surface text-foreground px-2 py-1.5 text-sm"
                   >
                     {ALL_TARGET_OPTIONS.map((opt) => (
                       <option
@@ -145,7 +145,7 @@ export function MappingStep({
                 <td className="py-2.5">
                   <div className="flex gap-1.5 flex-wrap">
                     {mapping.sampleValues.slice(0, 3).map((v, i) => (
-                      <span key={i} className="text-xs bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 rounded truncate max-w-[140px]">
+                      <span key={i} className="text-xs bg-muted border border-border px-1.5 py-0.5 rounded truncate max-w-[140px]">
                         {v}
                       </span>
                     ))}
@@ -158,10 +158,10 @@ export function MappingStep({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="flex justify-between pt-4 border-t border-border">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+          className="flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="w-4 h-4" />
           Start Over

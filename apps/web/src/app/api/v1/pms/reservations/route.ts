@@ -8,6 +8,7 @@ import {
   createReservation,
   listReservations,
 } from '@oppsera/module-pms';
+import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -27,7 +28,7 @@ export const GET = withMiddleware(
       toDate: searchParams.get('endDate') ?? undefined,
       guestId: searchParams.get('guestId') ?? undefined,
       cursor: searchParams.get('cursor') ?? undefined,
-      limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : undefined,
+      limit: parseLimit(searchParams.get('limit')),
     });
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
   },

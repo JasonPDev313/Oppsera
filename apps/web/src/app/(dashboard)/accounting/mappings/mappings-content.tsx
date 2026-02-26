@@ -75,10 +75,10 @@ export default function MappingsContent() {
     >
       {/* Coverage Summary */}
       {coverage && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-5 space-y-4">
+        <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Mapping Coverage</h2>
-            <span className="text-lg font-bold text-gray-900">{coverage.overallPercentage}%</span>
+            <h2 className="text-sm font-semibold text-foreground">Mapping Coverage</h2>
+            <span className="text-lg font-bold text-foreground">{coverage.overallPercentage}%</span>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {[
@@ -88,13 +88,13 @@ export default function MappingsContent() {
             ].map(({ label, mapped, total }) => (
               <div key={label}>
                 <div className="flex items-center justify-between text-sm mb-1">
-                  <span className="text-gray-600">{label}</span>
-                  <span className="font-medium text-gray-900">{mapped}/{total}</span>
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="font-medium text-foreground">{mapped}/{total}</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div
                     className={`h-full rounded-full transition-all ${
-                      total === 0 ? 'bg-gray-300' :
+                      total === 0 ? 'bg-muted-foreground/30' :
                       mapped === total ? 'bg-green-500' :
                       mapped > 0 ? 'bg-amber-500' : 'bg-red-400'
                     }`}
@@ -105,8 +105,8 @@ export default function MappingsContent() {
             ))}
           </div>
           {coverage.overallPercentage < 100 && (
-            <div className="flex items-center gap-2 rounded bg-amber-500/10 border border-amber-500/40 p-2 text-sm text-amber-800">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
+            <div className="flex items-center gap-2 rounded bg-amber-500/10 border border-amber-500/40 p-2 text-sm text-amber-500">
+              <AlertTriangle aria-hidden="true" className="h-4 w-4 shrink-0" />
               Items without GL mappings will not post to the General Ledger.
             </div>
           )}
@@ -114,7 +114,7 @@ export default function MappingsContent() {
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 overflow-x-auto">
+      <div className="flex border-b border-border overflow-x-auto">
         {tabs.map(({ key, label, count }) => (
           <button
             key={key}
@@ -122,13 +122,13 @@ export default function MappingsContent() {
             onClick={() => setActiveTab(key)}
             className={`shrink-0 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               activeTab === key
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                ? 'border-indigo-500 text-indigo-500'
+                : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
             }`}
           >
             {label}
             {count != null && count > 0 && (
-              <span className="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-xs font-medium text-red-700">
+              <span className="ml-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-500/20 text-xs font-medium text-red-500">
                 {count}
               </span>
             )}
@@ -292,7 +292,7 @@ function DepartmentMappingsTab() {
     return (
       <div className="space-y-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-100" />
+          <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
         ))}
       </div>
     );
@@ -308,9 +308,9 @@ function DepartmentMappingsTab() {
   }
 
   const infoBanner = (
-    <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-800 mb-4">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-500 mb-4">
       <div className="flex items-center gap-2">
-        <CheckCircle className="h-4 w-4 shrink-0 text-indigo-500" />
+        <CheckCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-500" />
         Sub-department revenue mappings are used by both Retail POS and F&amp;B POS.
       </div>
       {suggestionsAvailable > 0 && (
@@ -320,7 +320,7 @@ function DepartmentMappingsTab() {
           disabled={isAutoMapping}
           className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
         >
-          <Sparkles className="h-3.5 w-3.5" />
+          <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
           {isAutoMapping
             ? 'Mapping...'
             : `Auto-Map ${suggestionsAvailable} Suggested`}
@@ -339,26 +339,26 @@ function DepartmentMappingsTab() {
     return (
       <>
       {infoBanner}
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+      <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+            <tr className="border-b border-border bg-muted">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Department
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Revenue Account
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 COGS Account
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Inventory Asset
               </th>
-              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+              <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Returns Account
               </th>
-              <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-20">
+              <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground w-20">
                 Status
               </th>
             </tr>
@@ -400,24 +400,24 @@ function DepartmentMappingsTab() {
         return (
           <div
             key={dept.departmentId}
-            className="overflow-hidden rounded-lg border border-gray-200 bg-surface"
+            className="overflow-hidden rounded-lg border border-border bg-surface"
           >
             {/* Department Header */}
             <button
               type="button"
               onClick={() => toggleDept(dept.departmentId)}
-              className="flex w-full items-center justify-between px-4 py-3 hover:bg-gray-200/50 transition-colors"
+              className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
             >
               <div className="flex items-center gap-2">
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <ChevronDown aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                 )}
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-sm font-semibold text-foreground">
                   {dept.departmentName}
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   ({dept.totalCount} sub-dept{dept.totalCount !== 1 ? 's' : ''})
                 </span>
               </div>
@@ -425,10 +425,10 @@ function DepartmentMappingsTab() {
                 <span
                   className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                     allMapped
-                      ? 'bg-green-100 text-green-700'
+                      ? 'bg-green-500/20 text-green-500'
                       : dept.mappedCount > 0
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-red-100 text-red-700'
+                        ? 'bg-amber-500/20 text-amber-500'
+                        : 'bg-red-500/20 text-red-500'
                   }`}
                 >
                   {dept.mappedCount}/{dept.totalCount} mapped
@@ -438,26 +438,26 @@ function DepartmentMappingsTab() {
 
             {/* Sub-Department Rows */}
             {isExpanded && (
-              <div className="border-t border-gray-200">
+              <div className="border-t border-border">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-100 bg-gray-50">
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <tr className="border-b border-border bg-muted">
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Sub-Department
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Revenue Account
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         COGS Account
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Inventory Asset
                       </th>
-                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                         Returns Account
                       </th>
-                      <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-20">
+                      <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground w-20">
                         Status
                       </th>
                     </tr>
@@ -510,30 +510,30 @@ function SubDepartmentRow({
   return (
     <>
       <tr
-        className={`border-b border-gray-100 last:border-0 ${
+        className={`border-b border-border last:border-0 ${
           !isMapped ? 'bg-amber-500/5' : ''
         }`}
       >
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <div>
-              <div className="text-sm font-medium text-gray-900">{mapping.subDepartmentName}</div>
+              <div className="text-sm font-medium text-foreground">{mapping.subDepartmentName}</div>
               {mapping.itemCount > 0 ? (
                 <button
                   type="button"
                   onClick={onToggleItems}
-                  className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800"
+                  className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-500"
                 >
-                  <Package className="h-3 w-3" />
+                  <Package aria-hidden="true" className="h-3 w-3" />
                   {mapping.itemCount} item{mapping.itemCount !== 1 ? 's' : ''}
                   {isItemsExpanded ? (
-                    <ChevronDown className="h-3 w-3" />
+                    <ChevronDown aria-hidden="true" className="h-3 w-3" />
                   ) : (
-                    <ChevronRight className="h-3 w-3" />
+                    <ChevronRight aria-hidden="true" className="h-3 w-3" />
                   )}
                 </button>
               ) : (
-                <span className="text-xs text-gray-400">No items</span>
+                <span className="text-xs text-muted-foreground">No items</span>
               )}
             </div>
           </div>
@@ -580,9 +580,9 @@ function SubDepartmentRow({
         </td>
         <td className="px-4 py-3 text-center">
           {isMapped ? (
-            <CheckCircle className="inline h-5 w-5 text-green-500" />
+            <CheckCircle aria-hidden="true" className="inline h-5 w-5 text-green-500" />
           ) : (
-            <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+            <span className="inline-flex rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-500">
               Not Mapped
             </span>
           )}
@@ -607,53 +607,53 @@ function ItemsDrillDown({ subDepartmentId }: { subDepartmentId: string }) {
   if (isLoading) {
     return (
       <div className="px-8 py-3">
-        <div className="h-8 animate-pulse rounded bg-gray-100" />
+        <div className="h-8 animate-pulse rounded bg-muted" />
       </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <div className="px-8 py-3 text-xs text-gray-500">
+      <div className="px-8 py-3 text-xs text-muted-foreground">
         No active items in this sub-department.
       </div>
     );
   }
 
   return (
-    <div className="border-t border-gray-100 bg-gray-50">
+    <div className="border-t border-border bg-muted">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-gray-100">
-            <th className="px-8 py-1.5 text-left text-xs font-medium text-gray-400">
+          <tr className="border-b border-border">
+            <th className="px-8 py-1.5 text-left text-xs font-medium text-muted-foreground">
               Item
             </th>
-            <th className="px-4 py-1.5 text-left text-xs font-medium text-gray-400">
+            <th className="px-4 py-1.5 text-left text-xs font-medium text-muted-foreground">
               SKU
             </th>
-            <th className="px-4 py-1.5 text-left text-xs font-medium text-gray-400">
+            <th className="px-4 py-1.5 text-left text-xs font-medium text-muted-foreground">
               Category
             </th>
-            <th className="px-4 py-1.5 text-left text-xs font-medium text-gray-400">
+            <th className="px-4 py-1.5 text-left text-xs font-medium text-muted-foreground">
               Type
             </th>
-            <th className="px-4 py-1.5 text-right text-xs font-medium text-gray-400">
+            <th className="px-4 py-1.5 text-right text-xs font-medium text-muted-foreground">
               Price
             </th>
           </tr>
         </thead>
         <tbody>
           {items.map((item) => (
-            <tr key={item.id} className="border-b border-gray-100 last:border-0">
-              <td className="px-8 py-1.5 text-xs text-gray-700">{item.name}</td>
-              <td className="px-4 py-1.5 text-xs font-mono text-gray-500">
+            <tr key={item.id} className="border-b border-border last:border-0">
+              <td className="px-8 py-1.5 text-xs text-foreground">{item.name}</td>
+              <td className="px-4 py-1.5 text-xs font-mono text-muted-foreground">
                 {item.sku ?? '—'}
               </td>
-              <td className="px-4 py-1.5 text-xs text-gray-500">{item.categoryName}</td>
-              <td className="px-4 py-1.5 text-xs text-gray-500 capitalize">
+              <td className="px-4 py-1.5 text-xs text-muted-foreground">{item.categoryName}</td>
+              <td className="px-4 py-1.5 text-xs text-muted-foreground capitalize">
                 {item.itemType.replace(/_/g, ' ')}
               </td>
-              <td className="px-4 py-1.5 text-right text-xs tabular-nums text-gray-700">
+              <td className="px-4 py-1.5 text-right text-xs tabular-nums text-foreground">
                 ${Number(item.defaultPrice).toFixed(2)}
               </td>
             </tr>
@@ -675,9 +675,9 @@ interface CategoryGroup {
 }
 
 const SOURCE_BADGE: Record<string, { label: string; color: string }> = {
-  manual: { label: 'Manual', color: 'bg-blue-500/10 text-blue-600 border-blue-500/30' },
-  backfilled: { label: 'Backfilled', color: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
-  auto: { label: 'Auto', color: 'bg-green-500/10 text-green-600 border-green-500/30' },
+  manual: { label: 'Manual', color: 'bg-blue-500/10 text-blue-500 border-blue-500/30' },
+  backfilled: { label: 'Backfilled', color: 'bg-amber-500/10 text-amber-500 border-amber-500/30' },
+  auto: { label: 'Auto', color: 'bg-green-500/10 text-green-500 border-green-500/30' },
 };
 
 /** Resolve the AccountPicker filter types for a given DebitKind or CreditKind */
@@ -893,7 +893,7 @@ function PaymentTypeMappingsTab() {
     return (
       <div className="space-y-3">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-100" />
+          <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
         ))}
       </div>
     );
@@ -934,9 +934,9 @@ function PaymentTypeMappingsTab() {
   return (
     <div className="space-y-4">
       {/* Info banner + actions */}
-      <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-800">
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-3 text-sm text-indigo-500">
         <div className="flex items-center gap-2">
-          <CheckCircle className="h-4 w-4 shrink-0 text-indigo-500" />
+          <CheckCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-indigo-500" />
           <span>
             {totalMapped}/{totalTypes} transaction types mapped to GL accounts.
           </span>
@@ -949,16 +949,16 @@ function PaymentTypeMappingsTab() {
               disabled={isAutoMapping}
               className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
               {isAutoMapping ? 'Mapping...' : `Auto-Map ${suggestionsAvailable} Suggested`}
             </button>
           )}
           <button
             type="button"
             onClick={() => setCreateDialogOpen(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-indigo-500/40 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-500/10"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-indigo-500/40 px-3 py-1.5 text-sm font-medium text-indigo-500 transition-colors hover:bg-indigo-500/10"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus aria-hidden="true" className="h-3.5 w-3.5" />
             Add Custom Type
           </button>
         </div>
@@ -972,34 +972,34 @@ function PaymentTypeMappingsTab() {
         return (
           <div
             key={group.category}
-            className="overflow-hidden rounded-lg border border-gray-200 bg-surface"
+            className="overflow-hidden rounded-lg border border-border bg-surface"
           >
             {/* Category Header */}
             <button
               type="button"
               onClick={() => toggleCategory(group.category)}
-              className="flex w-full items-center justify-between px-4 py-3 hover:bg-gray-200/50 transition-colors"
+              className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
             >
               <div className="flex items-center gap-2">
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
+                  <ChevronDown aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                 ) : (
-                  <ChevronRight className="h-4 w-4 text-gray-400" />
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
                 )}
-                <span className="text-sm font-semibold text-gray-900">
+                <span className="text-sm font-semibold text-foreground">
                   {group.label}
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   ({group.totalCount} type{group.totalCount !== 1 ? 's' : ''})
                 </span>
               </div>
               <span
                 className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                   allMapped
-                    ? 'bg-green-100 text-green-700'
+                    ? 'bg-green-500/20 text-green-500'
                     : group.mappedCount > 0
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-red-100 text-red-700'
+                      ? 'bg-amber-500/20 text-amber-500'
+                      : 'bg-red-500/20 text-red-500'
                 }`}
               >
                 {group.mappedCount}/{group.totalCount} mapped
@@ -1008,24 +1008,24 @@ function PaymentTypeMappingsTab() {
 
             {/* Type Rows */}
             {isExpanded && (
-              <div className="border-t border-gray-200">
+              <div className="border-t border-border">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-gray-100 bg-gray-50">
-                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                      <tr className="border-b border-border bg-muted">
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           Transaction Type
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           Credit Account
                         </th>
-                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                        <th className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                           Debit Account
                         </th>
-                        <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-20">
+                        <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground w-20">
                           Status
                         </th>
-                        <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-gray-500 w-12">
+                        <th className="px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground w-12">
                         </th>
                       </tr>
                     </thead>
@@ -1075,7 +1075,7 @@ function TransactionTypeRow({
 
   return (
     <tr
-      className={`border-b border-gray-100 last:border-0 ${
+      className={`border-b border-border last:border-0 ${
         !t.isMapped ? 'bg-amber-500/5' : ''
       }`}
     >
@@ -1083,11 +1083,11 @@ function TransactionTypeRow({
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <div>
-            <div className="text-sm font-medium text-gray-900">{t.name}</div>
+            <div className="text-sm font-medium text-foreground">{t.name}</div>
             <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-xs font-mono text-gray-400">{t.code}</span>
+              <span className="text-xs font-mono text-muted-foreground">{t.code}</span>
               {!t.isSystem && (
-                <span className="inline-flex rounded-full bg-indigo-500/10 border border-indigo-500/30 px-1.5 py-0 text-[10px] font-medium text-indigo-600">
+                <span className="inline-flex rounded-full bg-indigo-500/10 border border-indigo-500/30 px-1.5 py-0 text-[10px] font-medium text-indigo-500">
                   Custom
                 </span>
               )}
@@ -1104,10 +1104,10 @@ function TransactionTypeRow({
       {/* Credit Account */}
       <td className="px-4 py-3">
         {creditDisabled ? (
-          <div className="group relative flex items-center gap-1.5 text-xs text-gray-400 italic">
+          <div className="group relative flex items-center gap-1.5 text-xs text-muted-foreground italic">
             <span>N/A</span>
-            <Info className="h-3.5 w-3.5" />
-            <div className="pointer-events-none absolute bottom-full left-0 mb-1 hidden w-56 rounded-lg border border-gray-200 bg-surface p-2 text-xs text-gray-600 shadow-lg group-hover:block z-10">
+            <Info aria-hidden="true" className="h-3.5 w-3.5" />
+            <div className="pointer-events-none absolute bottom-full left-0 mb-1 hidden w-56 rounded-lg border border-border bg-surface p-2 text-xs text-muted-foreground shadow-lg group-hover:block z-10">
               {getCreditDisabledTooltip(t.category)}
             </div>
           </div>
@@ -1126,10 +1126,10 @@ function TransactionTypeRow({
       {/* Debit Account */}
       <td className="px-4 py-3">
         {debitDisabled ? (
-          <div className="group relative flex items-center gap-1.5 text-xs text-gray-400 italic">
+          <div className="group relative flex items-center gap-1.5 text-xs text-muted-foreground italic">
             <span>N/A</span>
-            <Info className="h-3.5 w-3.5" />
-            <div className="pointer-events-none absolute bottom-full left-0 mb-1 hidden w-56 rounded-lg border border-gray-200 bg-surface p-2 text-xs text-gray-600 shadow-lg group-hover:block z-10">
+            <Info aria-hidden="true" className="h-3.5 w-3.5" />
+            <div className="pointer-events-none absolute bottom-full left-0 mb-1 hidden w-56 rounded-lg border border-border bg-surface p-2 text-xs text-muted-foreground shadow-lg group-hover:block z-10">
               {getDebitDisabledTooltip(t.category)}
             </div>
           </div>
@@ -1148,13 +1148,13 @@ function TransactionTypeRow({
       {/* Status */}
       <td className="px-4 py-3 text-center">
         {t.isMapped ? (
-          <CheckCircle className="inline h-5 w-5 text-green-500" />
+          <CheckCircle aria-hidden="true" className="inline h-5 w-5 text-green-500" />
         ) : isPartial ? (
-          <span className="inline-flex rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-xs font-medium text-amber-600">
+          <span className="inline-flex rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-xs font-medium text-amber-500">
             Partial
           </span>
         ) : (
-          <span className="inline-flex rounded-full bg-red-500/10 border border-red-500/30 px-2 py-0.5 text-xs font-medium text-red-600">
+          <span className="inline-flex rounded-full bg-red-500/10 border border-red-500/30 px-2 py-0.5 text-xs font-medium text-red-500">
             Not Mapped
           </span>
         )}
@@ -1166,7 +1166,7 @@ function TransactionTypeRow({
           <button
             type="button"
             onClick={() => onDelete(t)}
-            className="inline-flex items-center rounded p-1 text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-500"
+            className="inline-flex items-center rounded p-1 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500"
             title="Clear mapping"
           >
             <Trash2 className="h-4 w-4" />
@@ -1207,7 +1207,7 @@ function TaxGroupMappingsTab() {
   };
 
   if (isLoading) {
-    return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />)}</div>;
+    return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />)}</div>;
   }
 
   if (mappings.length === 0) {
@@ -1215,24 +1215,24 @@ function TaxGroupMappingsTab() {
   }
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+    <div className="overflow-hidden rounded-lg border border-border bg-surface">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Tax Group</th>
-              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Rate</th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Tax Payable Account</th>
-              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+            <tr className="border-b border-border bg-muted">
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Group</th>
+              <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Rate</th>
+              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Tax Payable Account</th>
+              <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
             </tr>
           </thead>
           <tbody>
             {mappings.map((m) => {
               const isMapped = !!m.taxPayableAccountId;
               return (
-                <tr key={m.taxGroupId} className={`border-b border-gray-100 last:border-0 ${!isMapped ? 'bg-amber-500/5' : ''}`}>
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{m.taxGroupName}</td>
-                  <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-700">{m.rate}%</td>
+                <tr key={m.taxGroupId} className={`border-b border-border last:border-0 ${!isMapped ? 'bg-amber-500/5' : ''}`}>
+                  <td className="px-4 py-3 text-sm font-medium text-foreground">{m.taxGroupName}</td>
+                  <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{m.rate}%</td>
                   <td className="px-4 py-3">
                     <AccountPicker
                       value={m.taxPayableAccountId}
@@ -1245,9 +1245,9 @@ function TaxGroupMappingsTab() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     {isMapped ? (
-                      <CheckCircle className="inline h-5 w-5 text-green-500" />
+                      <CheckCircle aria-hidden="true" className="inline h-5 w-5 text-green-500" />
                     ) : (
-                      <span className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      <span className="inline-flex rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-500">
                         Not Mapped
                       </span>
                     )}
@@ -1348,7 +1348,7 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
     <div className="space-y-4">
       {/* Location selector */}
       <div className="flex items-center gap-3">
-        <label className="text-sm font-medium text-gray-700">Location</label>
+        <label className="text-sm font-medium text-foreground">Location</label>
         <Select
           options={locationOptions}
           value={locationId}
@@ -1358,13 +1358,13 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
       </div>
 
       {!locationId && (
-        <p className="text-sm text-gray-500">Select a location to configure F&B GL mappings.</p>
+        <p className="text-sm text-muted-foreground">Select a location to configure F&B GL mappings.</p>
       )}
 
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
@@ -1372,15 +1372,15 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
       {coverage && (
         <>
           {/* Coverage progress */}
-          <div className="flex items-center gap-4 rounded-lg border border-gray-200 bg-surface p-4">
+          <div className="flex items-center gap-4 rounded-lg border border-border bg-surface p-4">
             <div className="flex-1">
               <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-gray-600">Overall Coverage</span>
-                <span className="font-medium text-gray-900">
+                <span className="text-muted-foreground">Overall Coverage</span>
+                <span className="font-medium text-foreground">
                   {coverage.mappedCount}/{coverage.totalCount}
                 </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <div
                   className={`h-full rounded-full transition-all ${
                     coverage.mappedCount === coverage.totalCount
@@ -1396,26 +1396,26 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
               </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-gray-900">{coverage.coveragePercent}%</div>
-              <div className="text-xs text-gray-500">
+              <div className="text-2xl font-bold text-foreground">{coverage.coveragePercent}%</div>
+              <div className="text-xs text-muted-foreground">
                 Critical: {coverage.criticalMappedCount}/{coverage.criticalTotalCount}
               </div>
             </div>
           </div>
 
           {/* Category table */}
-          <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+          <div className="overflow-hidden rounded-lg border border-border bg-surface">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <tr className="border-b border-border bg-muted">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Category
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       GL Account
                     </th>
-                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-gray-500">
+                    <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">
                       Status
                     </th>
                   </tr>
@@ -1426,31 +1426,31 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
                     return (
                       <tr
                         key={cat.key}
-                        className={`border-b border-gray-100 last:border-0 ${
+                        className={`border-b border-border last:border-0 ${
                           cat.key === 'sales_revenue' ? '' :
                           !cat.isMapped && cat.critical ? 'bg-red-500/5' : !cat.isMapped ? 'bg-amber-500/5' : ''
                         }`}
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">{cat.label}</span>
+                            <span className="text-sm font-medium text-foreground">{cat.label}</span>
                             {cat.critical && (
-                              <span className="inline-flex rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+                              <span className="inline-flex rounded-full bg-red-500/20 px-1.5 py-0.5 text-[10px] font-medium text-red-500">
                                 Required
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-gray-500 mt-0.5">{cat.description}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>
                         </td>
                         <td className="px-4 py-3">
                           {cat.key === 'sales_revenue' ? (
-                            <div className="flex items-center gap-2 text-sm text-gray-600">
-                              <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <CheckCircle aria-hidden="true" className="h-4 w-4 text-green-500 shrink-0" />
                               <span>Resolved via</span>
                               <button
                                 type="button"
                                 onClick={onNavigateToSubDepartments}
-                                className="text-indigo-600 hover:text-indigo-800 font-medium"
+                                className="text-indigo-500 hover:text-indigo-500 font-medium"
                               >
                                 Sub-Departments
                               </button>
@@ -1468,13 +1468,13 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
                         </td>
                         <td className="px-4 py-3 text-center">
                           {cat.key === 'sales_revenue' || cat.isMapped ? (
-                            <CheckCircle className="inline h-5 w-5 text-green-500" />
+                            <CheckCircle aria-hidden="true" className="inline h-5 w-5 text-green-500" />
                           ) : (
                             <span
                               className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
                                 cat.critical
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-amber-100 text-amber-700'
+                                  ? 'bg-red-500/20 text-red-500'
+                                  : 'bg-amber-500/20 text-amber-500'
                               }`}
                             >
                               {cat.critical ? 'Missing' : 'Not Mapped'}
@@ -1523,23 +1523,23 @@ function UnmappedEventsTab() {
   };
 
   if (isLoading) {
-    return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />)}</div>;
+    return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />)}</div>;
   }
 
   return (
     <div className="space-y-4">
       {/* Remap banner */}
       {remappable.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+        <div className="flex items-center justify-between rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
           <div className="flex items-center gap-3">
-            <RefreshCw className="h-5 w-5 text-indigo-600 shrink-0" />
+            <RefreshCw aria-hidden="true" className="h-5 w-5 text-indigo-500 shrink-0" />
             <div>
-              <p className="text-sm font-medium text-indigo-900">
+              <p className="text-sm font-medium text-foreground">
                 {remappableCount > 0
                   ? `${remappableCount} transaction${remappableCount !== 1 ? 's' : ''} can be retroactively corrected`
                   : `${remappable.length} transaction${remappable.length !== 1 ? 's' : ''} with unmapped GL entries`}
               </p>
-              <p className="text-xs text-indigo-700">
+              <p className="text-xs text-muted-foreground">
                 {remappableCount > 0
                   ? 'GL account mappings now exist for these tenders. Preview and remap their GL entries.'
                   : 'Configure the missing mappings above, then return here to remap.'}
@@ -1566,8 +1566,8 @@ function UnmappedEventsTab() {
             onClick={() => setStatusFilter(s)}
             className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
               statusFilter === s
-                ? 'bg-indigo-100 text-indigo-700'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-indigo-500/20 text-indigo-500'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
             {s.charAt(0).toUpperCase() + s.slice(1)}
@@ -1585,12 +1585,12 @@ function UnmappedEventsTab() {
       {events.length > 0 && (
         <div className="space-y-2">
           {events.map((event) => (
-            <div key={event.id} className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface p-4">
+            <div key={event.id} className="flex items-center justify-between rounded-lg border border-border bg-surface p-4">
               <div className="space-y-1">
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-medium text-foreground">
                   {event.reason}
                 </p>
-                <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span>{event.eventType.replace(/_/g, ' ')}</span>
                   <span>·</span>
                   <span>{event.sourceModule}</span>
@@ -1602,20 +1602,20 @@ function UnmappedEventsTab() {
                 <div className="flex items-center gap-2">
                   <Link
                     href="/accounting/mappings"
-                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                    className="text-sm text-indigo-500 hover:text-indigo-500"
                   >
                     Fix Mapping
                   </Link>
                   <button
                     type="button"
                     onClick={() => handleResolve(event.id)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
                   >
                     Resolve
                   </button>
                 </div>
               ) : (
-                <span className="text-xs text-green-600">Resolved</span>
+                <span className="text-xs text-green-500">Resolved</span>
               )}
             </div>
           ))}

@@ -70,8 +70,8 @@ export default function TipPayoutsContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tip Payouts</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Tip Payouts</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             Track and pay out employee tip balances
           </p>
         </div>
@@ -79,40 +79,40 @@ export default function TipPayoutsContent() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-surface border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
             <DollarSign className="h-4 w-4" />
             Outstanding Tips
           </div>
-          <p className="text-2xl font-bold text-gray-900">{formatMoney(totalOutstanding)}</p>
+          <p className="text-2xl font-bold text-foreground">{formatMoney(totalOutstanding)}</p>
         </div>
-        <div className="bg-surface border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
             <Users className="h-4 w-4" />
             Employees with Balance
           </div>
-          <p className="text-2xl font-bold text-gray-900">{employeesWithBalance}</p>
+          <p className="text-2xl font-bold text-foreground">{employeesWithBalance}</p>
         </div>
-        <div className="bg-surface border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
+        <div className="bg-surface border border-border rounded-lg p-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
             <Clock className="h-4 w-4" />
             As of
           </div>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-2xl font-bold text-foreground">
             {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-border">
         <nav className="flex gap-4">
           <button
             onClick={() => setActiveTab('balances')}
             className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'balances'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-indigo-500 text-indigo-500'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             Balances
@@ -121,8 +121,8 @@ export default function TipPayoutsContent() {
             onClick={() => setActiveTab('history')}
             className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
               activeTab === 'history'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'border-indigo-500 text-indigo-500'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
           >
             Payout History
@@ -132,51 +132,51 @@ export default function TipPayoutsContent() {
 
       {/* Content */}
       {activeTab === 'balances' ? (
-        <div className="bg-surface border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-surface border border-border rounded-lg overflow-hidden">
           {balancesLoading ? (
-            <div className="p-8 text-center text-gray-500">Loading tip balances...</div>
+            <div className="p-8 text-center text-muted-foreground">Loading tip balances...</div>
           ) : balances.length === 0 ? (
             <div className="p-12 text-center">
-              <Banknote className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-4 text-sm font-medium text-gray-900">No outstanding tips</h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <Banknote className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-sm font-medium text-foreground">No outstanding tips</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
                 All employee tip balances are settled.
               </p>
             </div>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-border">
+              <thead className="bg-muted">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Tips</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Paid Out</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Balance</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Last Tip</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Employee</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Total Tips</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Paid Out</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Balance</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Last Tip</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-border">
                 {balances.map((b) => (
-                  <tr key={b.employeeId} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                  <tr key={b.employeeId} className="hover:bg-accent">
+                    <td className="px-6 py-4 text-sm font-medium text-foreground">
                       {b.employeeName ?? b.employeeId.slice(0, 8)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 text-right">
+                    <td className="px-6 py-4 text-sm text-muted-foreground text-right">
                       {formatMoney(b.totalTipsCents)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 text-right">
+                    <td className="px-6 py-4 text-sm text-muted-foreground text-right">
                       {formatMoney(b.totalPaidCents)}
                     </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-gray-900 text-right">
+                    <td className="px-6 py-4 text-sm font-semibold text-foreground text-right">
                       {formatMoney(b.balanceCents)}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 text-right">
+                    <td className="px-6 py-4 text-sm text-muted-foreground text-right">
                       {b.lastTipDate ?? '—'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handlePayOut(b)}
-                        className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                        className="text-sm font-medium text-indigo-500 hover:text-indigo-500"
                       >
                         Pay Out
                       </button>
@@ -197,8 +197,8 @@ export default function TipPayoutsContent() {
                 onClick={() => setStatusFilter(s)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-colors ${
                   statusFilter === s
-                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                    : 'bg-surface border-gray-200 text-gray-600 hover:bg-gray-50'
+                    ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-500'
+                    : 'bg-surface border-border text-muted-foreground hover:bg-accent'
                 }`}
               >
                 {s ? TIP_PAYOUT_STATUS_CONFIG[s as keyof typeof TIP_PAYOUT_STATUS_CONFIG]?.label : 'All'}
@@ -206,61 +206,61 @@ export default function TipPayoutsContent() {
             ))}
           </div>
 
-          <div className="bg-surface border border-gray-200 rounded-lg overflow-hidden">
+          <div className="bg-surface border border-border rounded-lg overflow-hidden">
             {payoutsLoading ? (
-              <div className="p-8 text-center text-gray-500">Loading payout history...</div>
+              <div className="p-8 text-center text-muted-foreground">Loading payout history...</div>
             ) : payouts.length === 0 ? (
               <div className="p-12 text-center">
-                <Clock className="mx-auto h-12 w-12 text-gray-300" />
-                <h3 className="mt-4 text-sm font-medium text-gray-900">No payouts yet</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <Clock className="mx-auto h-12 w-12 text-muted-foreground" />
+                <h3 className="mt-4 text-sm font-medium text-foreground">No payouts yet</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
                   Tip payouts will appear here after they are processed.
                 </p>
               </div>
             ) : (
               <>
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-border">
+                  <thead className="bg-muted">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">GL Ref</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Employee</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Type</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Amount</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">GL Ref</th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-border">
                     {payouts.map((p) => {
                       const statusCfg = TIP_PAYOUT_STATUS_CONFIG[p.status as keyof typeof TIP_PAYOUT_STATUS_CONFIG];
                       const typeCfg = TIP_PAYOUT_TYPE_CONFIG[p.payoutType as keyof typeof TIP_PAYOUT_TYPE_CONFIG];
                       return (
-                        <tr key={p.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-sm text-gray-600">{p.businessDate}</td>
-                          <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                        <tr key={p.id} className="hover:bg-accent">
+                          <td className="px-6 py-4 text-sm text-muted-foreground">{p.businessDate}</td>
+                          <td className="px-6 py-4 text-sm font-medium text-foreground">
                             {p.employeeName ?? p.employeeId.slice(0, 8)}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600">
+                          <td className="px-6 py-4 text-sm text-muted-foreground">
                             {typeCfg?.label ?? p.payoutType}
                           </td>
-                          <td className="px-6 py-4 text-sm font-medium text-gray-900 text-right">
+                          <td className="px-6 py-4 text-sm font-medium text-foreground text-right">
                             {formatMoney(p.amountCents)}
                           </td>
                           <td className="px-6 py-4 text-center">
                             <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full ${
-                              statusCfg?.variant === 'success' ? 'bg-green-50 text-green-700' :
-                              statusCfg?.variant === 'error' ? 'bg-red-50 text-red-700' :
-                              'bg-yellow-50 text-yellow-700'
+                              statusCfg?.variant === 'success' ? 'bg-green-500/10 text-green-500' :
+                              statusCfg?.variant === 'error' ? 'bg-red-500/10 text-red-500' :
+                              'bg-yellow-500/10 text-yellow-500'
                             }`}>
                               {statusCfg?.label ?? p.status}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-500">
+                          <td className="px-6 py-4 text-sm text-muted-foreground">
                             {p.glJournalEntryId ? (
                               <a
                                 href={`/accounting/journals?id=${p.glJournalEntryId}`}
-                                className="text-indigo-600 hover:text-indigo-500"
+                                className="text-indigo-500 hover:text-indigo-500"
                               >
                                 View
                               </a>
@@ -271,7 +271,7 @@ export default function TipPayoutsContent() {
                               <button
                                 onClick={() => handleVoid(p.id)}
                                 disabled={mutating}
-                                className="text-sm font-medium text-red-600 hover:text-red-500 disabled:opacity-50"
+                                className="text-sm font-medium text-red-500 hover:text-red-500 disabled:opacity-50"
                               >
                                 Void
                               </button>
@@ -283,10 +283,10 @@ export default function TipPayoutsContent() {
                   </tbody>
                 </table>
                 {hasMore && (
-                  <div className="p-4 text-center border-t border-gray-200">
+                  <div className="p-4 text-center border-t border-border">
                     <button
                       onClick={loadMore}
-                      className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                      className="text-sm font-medium text-indigo-500 hover:text-indigo-500"
                     >
                       Load more
                     </button>

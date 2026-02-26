@@ -74,29 +74,29 @@ export function AccountTreeView({
         const treeItems = viewMode === 'tree' ? buildTree(items) : null;
 
         return (
-          <div key={type} className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+          <div key={type} className="overflow-hidden rounded-lg border border-border bg-surface">
             {/* Section header */}
             <button
               type="button"
               onClick={() => onToggleCollapse(type)}
-              className="flex w-full items-center gap-2 border-b border-gray-200 bg-gray-50 px-4 py-3 text-left"
+              className="flex w-full items-center gap-2 border-b border-border bg-muted px-4 py-3 text-left"
             >
               {isCollapsed ? (
-                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
               ) : (
-                <ChevronDown className="h-4 w-4 text-gray-400" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
               )}
-              <span className="text-sm font-semibold text-gray-700">
+              <span className="text-sm font-semibold text-foreground">
                 {ACCOUNT_TYPE_LABELS[type]}
               </span>
-              <span className="text-xs text-gray-400">({items.length})</span>
+              <span className="text-xs text-muted-foreground">({items.length})</span>
             </button>
 
             {/* Rows */}
             {!isCollapsed && (
               <div>
                 {items.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-sm text-gray-500">
+                  <div className="px-4 py-6 text-center text-sm text-muted-foreground">
                     No {ACCOUNT_TYPE_LABELS[type].toLowerCase()} accounts
                   </div>
                 ) : (
@@ -104,18 +104,18 @@ export function AccountTreeView({
                     <div
                       key={acc.id}
                       onClick={() => onEditAccount(acc)}
-                      className={`flex cursor-pointer items-center gap-3 border-b border-gray-100 px-4 py-3 transition-colors last:border-0 hover:bg-gray-50 ${
+                      className={`flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3 transition-colors last:border-0 hover:bg-muted ${
                         !acc.isActive ? 'opacity-50' : ''
                       }`}
                       style={{ paddingLeft: `${1 + acc.depth * 1.5}rem` }}
                     >
                       {acc.depth > 0 && (
-                        <span className="text-gray-300">&lsaquo;</span>
+                        <span className="text-muted-foreground">&lsaquo;</span>
                       )}
-                      <span className="w-20 shrink-0 font-mono text-sm font-medium text-gray-700">
+                      <span className="w-20 shrink-0 font-mono text-sm font-medium text-foreground">
                         {acc.accountNumber}
                       </span>
-                      <span className="flex-1 text-sm text-gray-900">{acc.name}</span>
+                      <span className="flex-1 text-sm text-foreground">{acc.name}</span>
                       {acc.classificationName && (
                         <Badge variant="neutral" className="hidden sm:inline-flex">
                           {acc.classificationName}
@@ -127,7 +127,7 @@ export function AccountTreeView({
                         </Badge>
                       )}
                       {acc.balance !== undefined && (
-                        <span className="w-28 text-right text-sm tabular-nums text-gray-700">
+                        <span className="w-28 text-right text-sm tabular-nums text-foreground">
                           {formatAccountingMoney(acc.balance)}
                         </span>
                       )}

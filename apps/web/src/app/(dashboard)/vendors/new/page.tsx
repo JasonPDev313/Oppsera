@@ -28,17 +28,17 @@ export default function NewVendorPage() {
         <button
           type="button"
           onClick={() => router.push('/vendors')}
-          className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">New Vendor</h1>
-          <p className="mt-1 text-sm text-gray-500">Add a new supplier to your system</p>
+          <h1 className="text-xl font-semibold text-foreground">New Vendor</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Add a new supplier to your system</p>
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <VendorForm
           onSubmit={handleSubmit}
           onCancel={() => router.push('/vendors')}

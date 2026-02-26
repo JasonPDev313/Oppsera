@@ -10,10 +10,10 @@ import { useARInvoices, type ARInvoiceFilters } from '@/hooks/use-ar';
 import { formatAccountingMoney } from '@/types/accounting';
 
 const SOURCE_BADGES: Record<string, { label: string; color: string }> = {
-  manual: { label: 'Manual', color: 'bg-blue-100 text-blue-700' },
-  membership: { label: 'Membership', color: 'bg-purple-100 text-purple-700' },
-  event: { label: 'Event', color: 'bg-green-100 text-green-700' },
-  pos_house_account: { label: 'POS House', color: 'bg-teal-100 text-teal-700' },
+  manual: { label: 'Manual', color: 'bg-blue-500/20 text-blue-500' },
+  membership: { label: 'Membership', color: 'bg-purple-500/20 text-purple-500' },
+  event: { label: 'Event', color: 'bg-green-500/20 text-green-500' },
+  pos_house_account: { label: 'POS House', color: 'bg-teal-500/20 text-teal-500' },
 };
 
 export default function InvoicesContent() {
@@ -41,7 +41,7 @@ export default function InvoicesContent() {
         <select
           value={filters.status ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value || undefined }))}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         >
           <option value="">All Statuses</option>
           <option value="draft">Draft</option>
@@ -53,7 +53,7 @@ export default function InvoicesContent() {
         <select
           value={filters.sourceType ?? ''}
           onChange={(e) => setFilters((f) => ({ ...f, sourceType: e.target.value || undefined }))}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         >
           <option value="">All Sources</option>
           <option value="manual">Manual</option>
@@ -61,12 +61,12 @@ export default function InvoicesContent() {
           <option value="event">Event</option>
           <option value="pos_house_account">POS House Account</option>
         </select>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
+        <label className="flex items-center gap-2 text-sm text-foreground">
           <input
             type="checkbox"
             checked={filters.overdueOnly ?? false}
             onChange={(e) => setFilters((f) => ({ ...f, overdueOnly: e.target.checked || undefined }))}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
           />
           Overdue only
         </label>
@@ -76,7 +76,7 @@ export default function InvoicesContent() {
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
@@ -95,18 +95,18 @@ export default function InvoicesContent() {
       {!isLoading && invoices.length > 0 && (
         <>
           {/* Desktop */}
-          <div className="hidden md:block overflow-hidden rounded-lg border border-gray-200 bg-surface">
+          <div className="hidden md:block overflow-hidden rounded-lg border border-border bg-surface">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Invoice #</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Due Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Total</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Balance</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Source</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                <tr className="border-b border-border bg-muted">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Invoice #</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Customer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Due Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Total</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">Balance</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Source</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -114,22 +114,22 @@ export default function InvoicesContent() {
                   const isOverdue = inv.dueDate < today! && ['posted', 'partial'].includes(inv.status);
                   const src = SOURCE_BADGES[inv.sourceType];
                   return (
-                    <tr key={inv.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+                    <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-muted/50">
                       <td className="px-4 py-3 text-sm">
                         <Link href={`/ar/invoices/${inv.id}`} className="font-medium text-indigo-600 hover:text-indigo-800">
                           {inv.invoiceNumber}
                         </Link>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{inv.customerName ?? '—'}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{inv.invoiceDate}</td>
-                      <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
+                      <td className="px-4 py-3 text-sm text-foreground">{inv.customerName ?? '—'}</td>
+                      <td className="px-4 py-3 text-sm text-foreground">{inv.invoiceDate}</td>
+                      <td className={`px-4 py-3 text-sm ${isOverdue ? 'text-red-500 font-medium' : 'text-foreground'}`}>
                         {inv.dueDate}
                         {isOverdue && <AlertTriangle className="ml-1 inline h-3.5 w-3.5 text-red-500" />}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm tabular-nums text-gray-900">
+                      <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">
                         {formatAccountingMoney(inv.totalAmount)}
                       </td>
-                      <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-gray-900">
+                      <td className="px-4 py-3 text-right text-sm tabular-nums font-medium text-foreground">
                         {formatAccountingMoney(inv.balanceDue)}
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -155,19 +155,19 @@ export default function InvoicesContent() {
               <Link
                 key={inv.id}
                 href={`/ar/invoices/${inv.id}`}
-                className="block rounded-lg border border-gray-200 bg-surface p-4 space-y-2 hover:border-gray-300"
+                className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-border"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-indigo-600">{inv.invoiceNumber}</span>
                   <StatusBadge status={inv.status} />
                 </div>
-                <p className="text-sm text-gray-900">{inv.customerName}</p>
-                <div className="flex justify-between text-sm text-gray-500">
+                <p className="text-sm text-foreground">{inv.customerName}</p>
+                <div className="flex justify-between text-sm text-muted-foreground">
                   <span>{inv.invoiceDate}</span>
                   <span>Due: {inv.dueDate}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Total: {formatAccountingMoney(inv.totalAmount)}</span>
+                  <span className="text-muted-foreground">Total: {formatAccountingMoney(inv.totalAmount)}</span>
                   <span className="font-medium">Balance: {formatAccountingMoney(inv.balanceDue)}</span>
                 </div>
               </Link>

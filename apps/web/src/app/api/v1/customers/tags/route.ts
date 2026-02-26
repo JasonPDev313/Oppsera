@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
+import { parseLimit } from '@/lib/api-params';
 import {
   listTags,
   createTag,
@@ -20,7 +21,7 @@ export const GET = withMiddleware(
       includeArchived: searchParams.get('includeArchived') === 'true',
       search: searchParams.get('search') ?? undefined,
       cursor: searchParams.get('cursor') ?? undefined,
-      limit: searchParams.has('limit') ? Number(searchParams.get('limit')) : undefined,
+      limit: parseLimit(searchParams.get('limit')),
     });
     return NextResponse.json({ data: result.items, meta: { cursor: result.cursor, hasMore: result.hasMore } });
   },

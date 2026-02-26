@@ -185,7 +185,7 @@ export function NotificationBell({ className }: NotificationBellProps) {
         ref={bellRef}
         type="button"
         onClick={toggleOpen}
-        className={`relative p-2 rounded-lg text-gray-500 hover:bg-gray-200/50 hover:text-gray-700 transition-colors ${className ?? ''}`}
+        className={`relative p-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors ${className ?? ''}`}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
       >
         <Bell className="h-5 w-5" />
@@ -236,11 +236,11 @@ const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelProps>(
     return (
       <div
         ref={ref}
-        className="fixed z-50 w-[360px] max-h-[480px] flex flex-col rounded-xl border border-gray-200 bg-surface shadow-xl"
+        className="fixed z-50 w-[360px] max-h-[480px] flex flex-col rounded-xl border border-border bg-surface shadow-xl"
         style={{ top: position.top, right: position.right }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 shrink-0">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <h3 className="text-sm font-semibold text-foreground">
             Notifications
           </h3>
@@ -260,15 +260,15 @@ const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelProps>(
         <div className="flex-1 overflow-y-auto">
           {isLoading && (
             <div className="flex items-center justify-center py-10">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-indigo-500" />
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-indigo-500" />
             </div>
           )}
 
           {!isLoading && notifications.length === 0 && (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
-              <Bell className="h-6 w-6 text-gray-300 mb-2" />
-              <p className="text-sm text-gray-500">No notifications</p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <Bell className="h-6 w-6 text-muted-foreground/30 mb-2" />
+              <p className="text-sm text-muted-foreground">No notifications</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 AI insights and alerts will appear here
               </p>
             </div>
@@ -287,11 +287,11 @@ const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelProps>(
         </div>
 
         {/* Footer */}
-        <div className="shrink-0 border-t border-gray-200 px-4 py-2.5">
+        <div className="shrink-0 border-t border-border px-4 py-2.5">
           <button
             type="button"
             onClick={onClose}
-            className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 transition-colors"
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-indigo-500 transition-colors"
           >
             <ExternalLink className="h-3 w-3" />
             View all alerts
@@ -312,8 +312,8 @@ function NotificationItem({ notification }: { notification: Notification }) {
 
   return (
     <div
-      className={`px-4 py-3 border-b border-gray-100 last:border-b-0 transition-colors ${
-        notification.read ? '' : 'bg-indigo-50/30'
+      className={`px-4 py-3 border-b border-border last:border-b-0 transition-colors ${
+        notification.read ? '' : 'bg-indigo-500/5'
       }`}
     >
       <div className="flex items-start gap-2.5">
@@ -330,17 +330,17 @@ function NotificationItem({ notification }: { notification: Notification }) {
             <p
               className={`text-sm leading-snug truncate ${
                 notification.read
-                  ? 'text-gray-700'
-                  : 'text-gray-900 font-medium'
+                  ? 'text-muted-foreground'
+                  : 'text-foreground font-medium'
               }`}
             >
               {notification.title}
             </p>
-            <span className="shrink-0 text-[11px] text-gray-400 whitespace-nowrap">
+            <span className="shrink-0 text-[11px] text-muted-foreground whitespace-nowrap">
               {formatRelativeTime(notification.createdAt)}
             </span>
           </div>
-          <p className="text-xs text-gray-500 leading-relaxed mt-0.5">
+          <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">
             {truncatedBody}
           </p>
         </div>
