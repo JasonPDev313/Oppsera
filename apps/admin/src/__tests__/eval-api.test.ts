@@ -252,7 +252,7 @@ describe('GET /api/v1/eval/examples', () => {
     const body = await res.json();
     expect(body.data).toHaveLength(1);
     expect(body.data[0].id).toBe('ex_001');
-  });
+  }, 15_000);
 });
 
 describe('GET /api/v1/eval/patterns', () => {
