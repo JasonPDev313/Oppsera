@@ -101,11 +101,16 @@ export function usePaymentTypeMappings() {
 export function useTransactionTypeMappings(category?: string) {
   const result = useQuery({
     queryKey: ['transaction-type-mappings', category],
-    queryFn: () => {
+    queryFn: async () => {
       const qs = category ? `?category=${category}` : '';
-      return apiFetch<{ data: TransactionTypeMapping[] }>(
-        `/api/v1/accounting/mappings/transaction-types${qs}`,
-      ).then((r) => r.data);
+      const url = `/api/v1/accounting/mappings/transaction-types${qs}`;
+      try {
+        const res = await apiFetch<{ data: TransactionTypeMapping[] }>(url);
+        return res.data;
+      } catch (err) {
+        console.error('[useTransactionTypeMappings] fetch failed:', url, err);
+        throw err;
+      }
     },
     staleTime: 60_000,
   });

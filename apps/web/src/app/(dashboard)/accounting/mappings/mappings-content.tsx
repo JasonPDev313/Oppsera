@@ -743,7 +743,7 @@ function getCreditMappingRole(code: string): 'revenue' | 'tax' | undefined {
 }
 
 function PaymentTypeMappingsTab() {
-  const { data: allTypes, isLoading, mutate } = useTransactionTypeMappings();
+  const { data: allTypes, isLoading, error, mutate } = useTransactionTypeMappings();
   const { saveTransactionTypeMapping, deleteTransactionTypeMapping } = useMappingMutations();
   const { toast } = useToast();
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['tender']));
@@ -895,6 +895,26 @@ function PaymentTypeMappingsTab() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-100" />
         ))}
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <AccountingEmptyState
+          title="Failed to load transaction types"
+          description={error instanceof Error ? error.message : 'Unknown error loading transaction types. Check browser console.'}
+        />
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => mutate()}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
