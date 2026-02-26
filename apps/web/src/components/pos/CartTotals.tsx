@@ -39,9 +39,9 @@ export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
   })();
 
   return (
-    <div className="border-t border-gray-200 px-3 py-3">
+    <div className="border-t border-border px-3 py-3">
       {/* Subtotal */}
-      <div className="flex items-center justify-between text-sm text-gray-600">
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>Subtotal</span>
         <span>{formatMoney(order.subtotal)}</span>
       </div>
@@ -56,40 +56,40 @@ export const CartTotals = memo(function CartTotals({ order }: CartTotalsProps) {
 
       {/* Service charges (applied after discount) */}
       {hasCharges && (
-        <div className="mt-1 flex items-center justify-between text-sm text-gray-600">
+        <div className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
           <span>{chargeLabel}</span>
           <span>{formatMoney(order.serviceChargeTotal)}</span>
         </div>
       )}
 
       {/* Tax */}
-      <div className="mt-1 flex items-center justify-between text-sm text-gray-600">
+      <div className="mt-1 flex items-center justify-between text-sm text-muted-foreground">
         <span>Tax{order.taxExempt ? ' (Exempt)' : ''}</span>
-        <span className={order.taxExempt ? 'text-purple-600 font-medium' : ''}>
+        <span className={order.taxExempt ? 'text-purple-500 font-medium' : ''}>
           {order.taxExempt ? '$0.00' : formatMoney(order.taxTotal)}
         </span>
       </div>
 
       {/* Tax Exempt Reason */}
       {order.taxExempt && order.taxExemptReason && (
-        <div className="mt-0.5 text-xs text-purple-600 italic">
+        <div className="mt-0.5 text-xs text-purple-500 italic">
           {order.taxExemptReason}
         </div>
       )}
 
       {/* Divider */}
-      <div className="my-2 border-t border-gray-200" />
+      <div className="my-2 border-t border-border" />
 
       {/* Total */}
       <div className="flex items-center justify-between">
         <span
-          className="text-base font-bold text-gray-900"
+          className="text-base font-bold text-foreground"
           style={{ fontSize: 'calc(1rem * var(--pos-font-scale, 1))' }}
         >
           TOTAL
         </span>
         <span
-          className="text-lg font-bold text-gray-900"
+          className="text-lg font-bold text-foreground"
           style={{ fontSize: 'calc(1.125rem * var(--pos-font-scale, 1))' }}
         >
           {formatMoney(order.total)}

@@ -105,7 +105,7 @@ function EditRelationshipRow({
             type="button"
             onClick={handleSave}
             disabled={isLoading}
-            className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
             Save
@@ -113,7 +113,7 @@ function EditRelationshipRow({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
+            className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
           >
             <X className="h-3 w-3" />
             Cancel
@@ -263,7 +263,7 @@ function RelationshipRow({
           <button
             type="button"
             onClick={() => setIsEditing(true)}
-            className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Edit"
           >
             <Edit3 className="h-3.5 w-3.5" />
@@ -272,7 +272,7 @@ function RelationshipRow({
             type="button"
             onClick={handleDelete}
             disabled={isLoading}
-            className="rounded p-1.5 text-muted-foreground hover:bg-red-500/100/10 hover:text-red-500 disabled:opacity-50"
+            className="rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50"
             title="Remove"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -299,7 +299,7 @@ export default function RelationshipsTab({ customerId }: { customerId: string })
         <button
           type="button"
           onClick={() => mutate()}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <RefreshCw className="h-3 w-3" />
           Refresh
@@ -316,7 +316,7 @@ export default function RelationshipsTab({ customerId }: { customerId: string })
           <button
             type="button"
             onClick={() => mutate()}
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Retry

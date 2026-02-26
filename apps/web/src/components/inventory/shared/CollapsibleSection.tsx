@@ -55,19 +55,19 @@ export function CollapsibleSection({
   }, [id, defaultOpen]);
 
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-border">
       <button
         type="button"
         onClick={toggle}
-        className="flex w-full items-center justify-between px-5 py-3 text-left transition-colors hover:bg-gray-50"
+        className="flex w-full items-center justify-between px-5 py-3 text-left transition-colors hover:bg-accent"
         aria-expanded={isOpen}
       >
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-gray-900">{title}</h3>
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
           {badge}
         </div>
         <ChevronDown
-          className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
             isOpen ? 'rotate-0' : '-rotate-90'
           }`}
         />

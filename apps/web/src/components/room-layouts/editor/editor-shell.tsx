@@ -285,7 +285,7 @@ export function EditorShell({ onSave, onPublish, onRevert, onApplyTemplate }: Ed
         onExportJSON={handleExportJSON}
       />
       {selectedIds.length >= 2 && (
-        <div className="flex items-center border-b border-gray-200 bg-surface px-3 py-1">
+        <div className="flex items-center border-b border-border bg-surface px-3 py-1">
           <AlignTools />
         </div>
       )}

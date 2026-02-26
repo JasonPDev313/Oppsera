@@ -43,10 +43,10 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   if (!active || !payload?.length) return null;
   const row = payload[0]!.payload;
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-3 text-sm shadow-lg">
-      <p className="font-semibold text-gray-900">{row.dateLabel}</p>
-      <p className="text-gray-600">Utilization: {formatBasisPoints(row.utilizationBps)}</p>
-      <p className="text-gray-600">Booked: {row.slotsBooked} / {row.slotsAvailable}</p>
+    <div className="rounded-lg border border-border bg-surface p-3 text-sm shadow-lg">
+      <p className="font-semibold text-foreground">{row.dateLabel}</p>
+      <p className="text-muted-foreground">Utilization: {formatBasisPoints(row.utilizationBps)}</p>
+      <p className="text-muted-foreground">Booked: {row.slotsBooked} / {row.slotsAvailable}</p>
     </div>
   );
 }
@@ -89,7 +89,7 @@ export function UtilizationTab({ dateFrom, dateTo, courseId, locationId }: Utili
       {/* Chart */}
       {!utilization.isLoading && utilization.data.length > 0 && (
         <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
-          <h3 className="mb-4 text-sm font-medium text-gray-500">Utilization Trend</h3>
+          <h3 className="mb-4 text-sm font-medium text-muted-foreground">Utilization Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -131,7 +131,7 @@ export function UtilizationTab({ dateFrom, dateTo, courseId, locationId }: Utili
         <button
           type="button"
           onClick={handleExport}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Download className="h-4 w-4" />
           Export CSV
@@ -144,8 +144,8 @@ export function UtilizationTab({ dateFrom, dateTo, courseId, locationId }: Utili
 function MiniCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-surface p-3 ring-1 ring-gray-950/5">
-      <p className="text-xs font-medium text-gray-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-gray-900">{value}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg font-bold text-foreground">{value}</p>
     </div>
   );
 }

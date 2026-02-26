@@ -71,8 +71,8 @@ export function ImportProgressBar({ progress, onCancel }: ImportProgressBarProps
 function StatCard({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
     <div className="rounded-lg border border-border p-3">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${warn ? 'text-red-600' : ''}`}>{value}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${warn ? 'text-red-500' : ''}`}>{value}</p>
     </div>
   );
 }

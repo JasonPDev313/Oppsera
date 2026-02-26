@@ -75,7 +75,7 @@ export function ConditionGroupEditor({ groups, onChange }: ConditionGroupEditorP
               type="button"
               onClick={() => handleRemoveGroup(groupIdx)}
               disabled={groups.length <= 1}
-              className="absolute right-2 top-2 rounded-lg p-1 text-gray-400 transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+              className="absolute right-2 top-2 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
               title="Remove group"
             >
               <X className="h-4 w-4" />

@@ -174,13 +174,13 @@ function TaxRatesTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Manage the individual tax rates that can be composed into tax groups.
         </p>
         <button
           type="button"
           onClick={() => setShowAdd(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Plus aria-hidden="true" className="h-4 w-4" />
           Add Rate
@@ -189,7 +189,7 @@ function TaxRatesTab() {
 
       {/* Add form */}
       {showAdd && (
-        <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
+        <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <FormField label="Name" required error={addErrors.name}>
               <input
@@ -197,7 +197,7 @@ function TaxRatesTab() {
                 value={addName}
                 onChange={(e) => setAddName(e.target.value)}
                 placeholder="e.g. MI State Sales Tax"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
             <FormField label="Rate (%)" required error={addErrors.rate}>
@@ -209,7 +209,7 @@ function TaxRatesTab() {
                 min={0}
                 max={100}
                 step="0.001"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
             <FormField label="Tax Type">
@@ -227,7 +227,7 @@ function TaxRatesTab() {
                 value={addJurisdictionCode}
                 onChange={(e) => setAddJurisdictionCode(e.target.value)}
                 placeholder="e.g. MI"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
             <FormField label="Authority Name">
@@ -236,7 +236,7 @@ function TaxRatesTab() {
                 value={addAuthorityName}
                 onChange={(e) => setAddAuthorityName(e.target.value)}
                 placeholder="e.g. State of Michigan"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
             <FormField label="Authority Type">
@@ -259,7 +259,7 @@ function TaxRatesTab() {
               type="button"
               onClick={handleAdd}
               disabled={adding}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
             >
               {adding ? 'Adding...' : 'Add'}
             </button>
@@ -269,7 +269,7 @@ function TaxRatesTab() {
                 setShowAdd(false);
                 setAddErrors({});
               }}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
             >
               Cancel
             </button>
@@ -282,7 +282,7 @@ function TaxRatesTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setEditingRate(null)} />
           <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Edit Tax Rate</h3>
+            <h3 className="text-lg font-semibold text-foreground">Edit Tax Rate</h3>
             <div className="mt-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="Name" required>
@@ -290,7 +290,7 @@ function TaxRatesTab() {
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </FormField>
                 <FormField label="Rate (%)" required>
@@ -301,12 +301,12 @@ function TaxRatesTab() {
                     min={0}
                     max={100}
                     step="0.001"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </FormField>
               </div>
-              <div className="border-t border-gray-100 pt-4">
-                <p className="mb-3 text-xs font-medium text-gray-500">Jurisdiction Details</p>
+              <div className="border-t border-border pt-4">
+                <p className="mb-3 text-xs font-medium text-muted-foreground">Jurisdiction Details</p>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField label="Jurisdiction Code">
                     <input
@@ -314,7 +314,7 @@ function TaxRatesTab() {
                       value={editJurisdictionCode}
                       onChange={(e) => setEditJurisdictionCode(e.target.value)}
                       placeholder="e.g. MI"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </FormField>
                   <FormField label="Authority Name">
@@ -323,7 +323,7 @@ function TaxRatesTab() {
                       value={editAuthorityName}
                       onChange={(e) => setEditAuthorityName(e.target.value)}
                       placeholder="e.g. State of Michigan"
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                     />
                   </FormField>
                   <FormField label="Authority Type">
@@ -355,7 +355,7 @@ function TaxRatesTab() {
                 type="button"
                 onClick={() => setEditingRate(null)}
                 disabled={saving}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Cancel
               </button>
@@ -363,7 +363,7 @@ function TaxRatesTab() {
                 type="button"
                 onClick={handleSaveEdit}
                 disabled={saving}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save'}
               </button>
@@ -379,7 +379,7 @@ function TaxRatesTab() {
             key: 'name',
             header: 'Name',
             render: (row) => (
-              <span className="font-medium text-gray-900">{row.name as string}</span>
+              <span className="font-medium text-foreground">{row.name as string}</span>
             ),
           },
           {
@@ -392,11 +392,11 @@ function TaxRatesTab() {
             header: 'Jurisdiction',
             render: (row) => {
               const r = row as unknown as TaxRateRow;
-              if (!r.jurisdictionCode && !r.authorityName) return <span className="text-gray-400">—</span>;
+              if (!r.jurisdictionCode && !r.authorityName) return <span className="text-muted-foreground">—</span>;
               return (
                 <div className="text-xs">
-                  {r.authorityName && <div className="text-gray-700">{r.authorityName}</div>}
-                  {r.jurisdictionCode && <div className="text-gray-500">{r.jurisdictionCode}</div>}
+                  {r.authorityName && <div className="text-foreground">{r.authorityName}</div>}
+                  {r.jurisdictionCode && <div className="text-muted-foreground">{r.jurisdictionCode}</div>}
                 </div>
               );
             },
@@ -422,7 +422,7 @@ function TaxRatesTab() {
                     e.stopPropagation();
                     handleStartEdit(row as unknown as TaxRateRow);
                   }}
-                  className="rounded p-1 text-gray-400 hover:text-indigo-600"
+                  className="rounded p-1 text-muted-foreground hover:text-indigo-600"
                   title="Edit"
                 >
                   <Pencil className="h-4 w-4" />
@@ -434,7 +434,7 @@ function TaxRatesTab() {
                       e.stopPropagation();
                       setDeactivateTarget(row as unknown as TaxRateRow);
                     }}
-                    className="rounded p-1 text-gray-400 hover:text-red-600"
+                    className="rounded p-1 text-muted-foreground hover:text-red-500"
                     title="Deactivate"
                   >
                     <X className="h-4 w-4" />
@@ -603,7 +603,7 @@ function TaxGroupsTab() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Tax groups combine rates and are scoped to a specific location.
         </p>
         <Select
@@ -621,7 +621,7 @@ function TaxGroupsTab() {
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               <Plus aria-hidden="true" className="h-4 w-4" />
               Add Tax Group
@@ -630,8 +630,8 @@ function TaxGroupsTab() {
 
           {/* Create form */}
           {showCreate && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
-              <h4 className="mb-3 text-sm font-semibold text-gray-900">New Tax Group</h4>
+            <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
+              <h4 className="mb-3 text-sm font-semibold text-foreground">New Tax Group</h4>
               <div className="space-y-4">
                 <FormField label="Name" required>
                   <input
@@ -639,7 +639,7 @@ function TaxGroupsTab() {
                     value={createName}
                     onChange={(e) => setCreateName(e.target.value)}
                     placeholder="e.g. Standard Food Tax"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </FormField>
                 <FormField label="Tax Rates" helpText="Select the rates to include in this group">
@@ -656,14 +656,14 @@ function TaxGroupsTab() {
                     type="button"
                     onClick={handleCreate}
                     disabled={creating || !createName.trim()}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
                   >
                     {creating ? 'Creating...' : 'Create'}
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowCreate(false)}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
                   >
                     Cancel
                   </button>
@@ -678,12 +678,12 @@ function TaxGroupsTab() {
               <LoadingSpinner label="Loading tax groups..." />
             </div>
           ) : (groups ?? []).length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
-              <p className="text-sm text-gray-500">No tax groups at this location</p>
+            <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+              <p className="text-sm text-muted-foreground">No tax groups at this location</p>
               <button
                 type="button"
                 onClick={() => setShowCreate(true)}
-                className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+                className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
               >
                 Add Tax Group
               </button>
@@ -693,11 +693,11 @@ function TaxGroupsTab() {
               {(groups ?? []).map((group) => (
                 <div
                   key={group.id}
-                  className="rounded-lg border border-gray-200 bg-surface p-4 shadow-sm"
+                  className="rounded-lg border border-border bg-surface p-4 shadow-sm"
                 >
                   <div className="mb-3 flex items-start justify-between">
                     <div>
-                      <h4 className="text-sm font-semibold text-gray-900">{group.name}</h4>
+                      <h4 className="text-sm font-semibold text-foreground">{group.name}</h4>
                       <div className="mt-1 flex items-center gap-2">
                         <Badge variant={group.isActive ? 'success' : 'neutral'}>
                           {group.isActive ? 'Active' : 'Inactive'}
@@ -708,7 +708,7 @@ function TaxGroupsTab() {
                       <button
                         type="button"
                         onClick={() => handleStartEdit(group)}
-                        className="rounded p-1.5 text-gray-400 hover:text-indigo-600"
+                        className="rounded p-1.5 text-muted-foreground hover:text-indigo-600"
                         title="Edit"
                       >
                         <Pencil className="h-4 w-4" />
@@ -717,7 +717,7 @@ function TaxGroupsTab() {
                         <button
                           type="button"
                           onClick={() => setDeactivateTarget(group)}
-                          className="rounded p-1.5 text-gray-400 hover:text-red-600"
+                          className="rounded p-1.5 text-muted-foreground hover:text-red-500"
                           title="Deactivate"
                         >
                           <X className="h-4 w-4" />
@@ -732,23 +732,23 @@ function TaxGroupsTab() {
                       group.rates.map((rate) => (
                         <div
                           key={rate.id}
-                          className="flex items-center justify-between rounded bg-gray-50 px-3 py-1.5 text-sm"
+                          className="flex items-center justify-between rounded bg-muted px-3 py-1.5 text-sm"
                         >
-                          <span className="text-gray-700">{rate.name}</span>
-                          <span className="font-medium text-gray-900">
+                          <span className="text-foreground">{rate.name}</span>
+                          <span className="font-medium text-foreground">
                             {(rate.rateDecimal * 100).toFixed(2)}%
                           </span>
                         </div>
                       ))
                     ) : (
-                      <p className="text-xs text-gray-400">No rates assigned</p>
+                      <p className="text-xs text-muted-foreground">No rates assigned</p>
                     )}
                   </div>
 
                   {/* Total */}
-                  <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-2">
-                    <span className="text-xs font-medium text-gray-500">Total Rate</span>
-                    <span className="text-sm font-semibold text-gray-900">
+                  <div className="mt-3 flex items-center justify-between border-t border-border pt-2">
+                    <span className="text-xs font-medium text-muted-foreground">Total Rate</span>
+                    <span className="text-sm font-semibold text-foreground">
                       {(group.totalRate * 100).toFixed(2)}%
                     </span>
                   </div>
@@ -760,8 +760,8 @@ function TaxGroupsTab() {
       )}
 
       {!locationId && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
-          <p className="text-sm text-gray-500">Select a location to view its tax groups</p>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+          <p className="text-sm text-muted-foreground">Select a location to view its tax groups</p>
         </div>
       )}
 
@@ -770,14 +770,14 @@ function TaxGroupsTab() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setEditGroup(null)} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Edit Tax Group</h3>
+            <h3 className="text-lg font-semibold text-foreground">Edit Tax Group</h3>
             <div className="mt-4 space-y-4">
               <FormField label="Name" required>
                 <input
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </FormField>
               <FormField label="Tax Rates">
@@ -795,7 +795,7 @@ function TaxGroupsTab() {
                 type="button"
                 onClick={() => setEditGroup(null)}
                 disabled={editSaving}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Cancel
               </button>
@@ -803,7 +803,7 @@ function TaxGroupsTab() {
                 type="button"
                 onClick={handleSaveEdit}
                 disabled={editSaving}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 {editSaving ? 'Saving...' : 'Save'}
               </button>
@@ -833,10 +833,10 @@ export default function TaxesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">Tax Management</h1>
+      <h1 className="text-xl font-semibold text-foreground">Tax Management</h1>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-border">
         <nav className="-mb-px flex gap-6">
           {([
             { key: 'rates' as Tab, label: 'Tax Rates' },
@@ -849,7 +849,7 @@ export default function TaxesPage() {
               className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               {tab.label}

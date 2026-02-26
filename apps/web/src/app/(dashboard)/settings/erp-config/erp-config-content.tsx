@@ -48,12 +48,12 @@ export default function ErpConfigContent() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">ERP Configuration</h1>
-      <p className="mt-1 text-sm text-gray-500">
+      <h1 className="text-2xl font-bold text-foreground">ERP Configuration</h1>
+      <p className="mt-1 text-sm text-muted-foreground">
         Configure business tier, workflow behavior, and auto-close settings
       </p>
 
-      <div className="mt-6 border-b border-gray-200">
+      <div className="mt-6 border-b border-border">
         <nav className="-mb-px flex gap-6 overflow-x-auto">
           {tabs.map((tab) => (
             <button
@@ -63,7 +63,7 @@ export default function ErpConfigContent() {
               className={`flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               <tab.icon className="h-4 w-4" />
@@ -114,13 +114,13 @@ function TierTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (!tier) {
-    return <p className="text-sm text-gray-500">Unable to load tier information.</p>;
+    return <p className="text-sm text-muted-foreground">Unable to load tier information.</p>;
   }
 
   return (
@@ -143,7 +143,7 @@ function TierTab() {
 
       {/* Section D: Tier Comparison */}
       <div>
-        <h3 className="mb-3 text-sm font-medium text-gray-900">Tier Comparison</h3>
+        <h3 className="mb-3 text-sm font-medium text-foreground">Tier Comparison</h3>
         <TierComparisonTable currentTier={tier.businessTier} />
       </div>
 
@@ -196,7 +196,7 @@ function WorkflowsTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -207,7 +207,7 @@ function WorkflowsTab() {
     <div className="space-y-8">
       {Object.entries(WORKFLOW_KEYS).map(([moduleKey, workflowKeys]) => (
         <div key={moduleKey}>
-          <h3 className="mb-3 text-sm font-semibold text-gray-900">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">
             {MODULE_LABELS[moduleKey] ?? moduleKey}
           </h3>
           <div className="space-y-2">
@@ -290,7 +290,7 @@ function AutoCloseTab() {
   if (settingsLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -298,13 +298,13 @@ function AutoCloseTab() {
   return (
     <div className="space-y-6">
       {/* Auto-Close Schedule */}
-      <div className="rounded-lg border border-gray-200 p-6">
+      <div className="rounded-lg border border-border p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-gray-500" />
+            <Clock className="h-4 w-4 text-muted-foreground" />
             <div>
-              <h3 className="text-sm font-medium text-gray-900">Auto-Close Schedule</h3>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <h3 className="text-sm font-medium text-foreground">Auto-Close Schedule</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Automatically run the close orchestrator at a scheduled time each day.
                 Posts draft journal entries and checks all closing steps.
               </p>
@@ -318,20 +318,20 @@ function AutoCloseTab() {
               disabled={updateSettings.isPending}
               className="peer sr-only"
             />
-            <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-disabled:opacity-50" />
+            <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-disabled:opacity-50" />
           </label>
         </div>
 
         {settings?.autoCloseEnabled && (
-          <div className="mt-4 flex flex-wrap items-end gap-4 border-t border-gray-100 pt-4">
+          <div className="mt-4 flex flex-wrap items-end gap-4 border-t border-border pt-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700">Auto-Close Time</label>
+              <label className="block text-xs font-medium text-foreground">Auto-Close Time</label>
               <input
                 type="time"
                 value={settings.autoCloseTime}
                 onChange={(e) => handleAutoCloseTimeChange(e.target.value)}
                 disabled={updateSettings.isPending}
-                className="mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                className="mt-1 rounded-lg border border-border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
               />
             </div>
             <label className="flex items-center gap-2 pb-2">
@@ -340,22 +340,22 @@ function AutoCloseTab() {
                 checked={settings.autoCloseSkipHolidays}
                 onChange={(e) => handleSkipHolidaysToggle(e.target.checked)}
                 disabled={updateSettings.isPending}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
               />
-              <span className="text-xs text-gray-700">Skip holidays</span>
+              <span className="text-xs text-foreground">Skip holidays</span>
             </label>
           </div>
         )}
       </div>
 
       {/* Day End Close */}
-      <div className="rounded-lg border border-gray-200 p-6">
+      <div className="rounded-lg border border-border p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2">
-            <Moon className="h-4 w-4 text-gray-500" />
+            <Moon className="h-4 w-4 text-muted-foreground" />
             <div>
-              <h3 className="text-sm font-medium text-gray-900">Day End Close</h3>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <h3 className="text-sm font-medium text-foreground">Day End Close</h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Run the close orchestrator at the end of each business day.
                 Triggers before the auto-close to finalize the current day&apos;s operations.
               </p>
@@ -369,20 +369,20 @@ function AutoCloseTab() {
               disabled={updateSettings.isPending}
               className="peer sr-only"
             />
-            <div className="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-disabled:opacity-50" />
+            <div className="peer h-5 w-9 rounded-full bg-muted after:absolute after:left-0.5 after:top-0.5 after:h-4 after:w-4 after:rounded-full after:border after:border-border after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-disabled:opacity-50" />
           </label>
         </div>
 
         {settings?.dayEndCloseEnabled && (
-          <div className="mt-4 border-t border-gray-100 pt-4">
+          <div className="mt-4 border-t border-border pt-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700">Day End Close Time</label>
+              <label className="block text-xs font-medium text-foreground">Day End Close Time</label>
               <input
                 type="time"
                 value={settings.dayEndCloseTime}
                 onChange={(e) => handleDayEndTimeChange(e.target.value)}
                 disabled={updateSettings.isPending}
-                className="mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
+                className="mt-1 rounded-lg border border-border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 disabled:opacity-50"
               />
             </div>
           </div>
@@ -390,27 +390,27 @@ function AutoCloseTab() {
       </div>
 
       {/* Manual Close Trigger */}
-      <div className="rounded-lg border border-gray-200 p-6">
-        <h3 className="text-sm font-medium text-gray-900">Manual Close Trigger</h3>
-        <p className="mt-1 text-xs text-gray-500">
+      <div className="rounded-lg border border-border p-6">
+        <h3 className="text-sm font-medium text-foreground">Manual Close Trigger</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
           Run the close orchestrator for a specific business date. This will auto-execute any steps
           that are configured for automatic mode.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700">Business Date</label>
+            <label className="block text-xs font-medium text-foreground">Business Date</label>
             <input
               type="date"
               value={businessDate}
               onChange={(e) => setBusinessDate(e.target.value)}
-              className="mt-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              className="mt-1 rounded-lg border border-border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
           </div>
           <button
             type="button"
             onClick={handleTrigger}
             disabled={triggerClose.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {triggerClose.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -424,13 +424,13 @@ function AutoCloseTab() {
 
       {/* Recent Runs */}
       <div>
-        <h3 className="mb-3 text-sm font-medium text-gray-900">Recent Close Runs</h3>
+        <h3 className="mb-3 text-sm font-medium text-foreground">Recent Close Runs</h3>
         {runsLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-lg border border-gray-200 p-8 text-center text-sm text-gray-500">
+          <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
             No close orchestrator runs yet. Trigger a manual run above or enable a scheduled close.
           </div>
         ) : (

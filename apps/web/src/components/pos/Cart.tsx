@@ -93,7 +93,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
                 >
                   {mod.name}
                   {mod.priceAdjustment !== 0 && (
-                    <span className="ml-1 text-gray-400">
+                    <span className="ml-1 text-muted-foreground">
                       +{formatMoney(mod.priceAdjustment)}
                     </span>
                   )}
@@ -104,7 +104,7 @@ function FnbLineItem({ line, onRemove, onUpdateQty }: LineRendererProps) {
 
           {/* Special instructions */}
           {line.specialInstructions && (
-            <p className="mt-1 text-xs italic text-amber-600">
+            <p className="mt-1 text-xs italic text-amber-500">
               &ldquo;{line.specialInstructions}&rdquo;
             </p>
           )}
@@ -187,7 +187,7 @@ function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty
             <span className="text-xs text-muted-foreground line-through">
               {formatMoney(line.originalUnitPrice)}
             </span>
-            <span className="text-xs font-medium text-gray-700">
+            <span className="text-xs font-medium text-foreground">
               {formatMoney(line.unitPrice)}
             </span>
             {line.priceOverrideReason && (
@@ -200,7 +200,7 @@ function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty
 
         {/* Selected options (e.g., Size: L, Color: Navy) */}
         {line.selectedOptions && Object.keys(line.selectedOptions).length > 0 && (
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {Object.entries(line.selectedOptions)
               .map(([key, val]) => `${key}: ${val}`)
               .join(' \u00B7 ')}
@@ -216,13 +216,13 @@ function RetailLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQty
       <div className="flex items-start gap-1 shrink-0">
         <div className="text-right">
           <div
-            className="text-sm font-semibold text-gray-900"
+            className="text-sm font-semibold text-foreground"
             style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
             {formatMoney(line.lineTotal)}
           </div>
           {line.lineTax > 0 && (
-            <div className="text-[10px] text-gray-400">
+            <div className="text-[10px] text-muted-foreground">
               tax {formatMoney(line.lineTax)}
             </div>
           )}
@@ -253,7 +253,7 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
           {line.catalogItemName}
         </span>
         {durationMinutes && (
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {durationMinutes} min
           </p>
         )}
@@ -264,7 +264,7 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
             <span className="text-xs text-muted-foreground line-through">
               {formatMoney(line.originalUnitPrice)}
             </span>
-            <span className="text-xs font-medium text-gray-700">
+            <span className="text-xs font-medium text-foreground">
               {formatMoney(line.unitPrice)}
             </span>
             {line.priceOverrideReason && (
@@ -284,13 +284,13 @@ function ServiceLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
       <div className="flex items-start gap-1 shrink-0">
         <div className="text-right">
           <div
-            className="text-sm font-semibold text-gray-900"
+            className="text-sm font-semibold text-foreground"
             style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
             {formatMoney(line.lineTotal)}
           </div>
           {line.lineTax > 0 && (
-            <div className="text-[10px] text-gray-400">
+            <div className="text-[10px] text-muted-foreground">
               tax {formatMoney(line.lineTax)}
             </div>
           )}
@@ -325,7 +325,7 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
             <span className="text-xs text-muted-foreground line-through">
               {formatMoney(line.originalUnitPrice)}
             </span>
-            <span className="text-xs font-medium text-gray-700">
+            <span className="text-xs font-medium text-foreground">
               {formatMoney(line.unitPrice)}
             </span>
             {line.priceOverrideReason && (
@@ -338,7 +338,7 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
 
         {/* Package components */}
         {line.packageComponents && line.packageComponents.length > 0 && (
-          <p className="mt-0.5 text-xs text-gray-500">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Includes:{' '}
             {line.packageComponents
               .map((c) => c.itemName)
@@ -355,13 +355,13 @@ function PackageLineItem({ line, onRemove }: Omit<LineRendererProps, 'onUpdateQt
       <div className="flex items-start gap-1 shrink-0">
         <div className="text-right">
           <div
-            className="text-sm font-semibold text-gray-900"
+            className="text-sm font-semibold text-foreground"
             style={{ fontSize: 'calc(0.875rem * var(--pos-font-scale, 1))' }}
           >
             {formatMoney(line.lineTotal)}
           </div>
           {line.lineTax > 0 && (
-            <div className="text-[10px] text-gray-400">
+            <div className="text-[10px] text-muted-foreground">
               tax {formatMoney(line.lineTax)}
             </div>
           )}
@@ -682,7 +682,7 @@ export const Cart = memo(function Cart({
                         checked={selectedLineIds?.has(group.displayLine.id) ?? false}
                         onChange={() => onToggleSelect?.(group.displayLine.id)}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-border text-indigo-600 focus:ring-indigo-500"
                       />
                     )}
                     <div className="flex-1 min-w-0">
@@ -737,7 +737,7 @@ export const Cart = memo(function Cart({
                           checked={selectedLineIds?.has(group.displayLine.id) ?? false}
                           onChange={() => onToggleSelect?.(group.displayLine.id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          className="mt-1 h-4 w-4 shrink-0 rounded border-border text-indigo-600 focus:ring-indigo-500"
                         />
                         <div className="flex-1 min-w-0">
                           <CartLineItem

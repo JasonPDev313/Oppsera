@@ -34,14 +34,14 @@ export default function VendorsPage() {
       key: 'name',
       header: 'Vendor Name',
       render: (row: VendorRow) => (
-        <span className="font-medium text-gray-900">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     {
       key: 'accountNumber',
       header: 'Account #',
       render: (row: VendorRow) => (
-        <span className="text-sm text-gray-500">{row.accountNumber ?? '\u2014'}</span>
+        <span className="text-sm text-muted-foreground">{row.accountNumber ?? '\u2014'}</span>
       ),
     },
     {
@@ -49,9 +49,9 @@ export default function VendorsPage() {
       header: 'Contact',
       render: (row: VendorRow) => (
         <div>
-          <span className="text-sm text-gray-700">{row.contactName ?? '\u2014'}</span>
+          <span className="text-sm text-foreground">{row.contactName ?? '\u2014'}</span>
           {row.contactEmail && (
-            <span className="ml-2 text-xs text-gray-400">{row.contactEmail}</span>
+            <span className="ml-2 text-xs text-muted-foreground">{row.contactEmail}</span>
           )}
         </div>
       ),
@@ -60,14 +60,14 @@ export default function VendorsPage() {
       key: 'itemCount',
       header: 'Items',
       render: (row: VendorRow) => (
-        <span className="text-sm text-gray-700">{row.itemCount}</span>
+        <span className="text-sm text-foreground">{row.itemCount}</span>
       ),
     },
     {
       key: 'lastReceiptDate',
       header: 'Last Receipt',
       render: (row: VendorRow) => (
-        <span className="text-sm text-gray-500">{row.lastReceiptDate ?? 'Never'}</span>
+        <span className="text-sm text-muted-foreground">{row.lastReceiptDate ?? 'Never'}</span>
       ),
     },
     {
@@ -82,15 +82,15 @@ export default function VendorsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Vendors</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-semibold text-foreground">Vendors</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage your suppliers and vendor catalogs
           </p>
         </div>
         <button
           type="button"
           onClick={() => router.push('/vendors/new')}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           New Vendor
@@ -135,7 +135,7 @@ export default function VendorsPage() {
               <button
                 type="button"
                 onClick={loadMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Load More
               </button>

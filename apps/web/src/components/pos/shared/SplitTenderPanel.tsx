@@ -28,9 +28,9 @@ function todayBusinessDate(): string {
 type TenderType = 'cash' | 'card' | 'check';
 
 const TENDER_OPTIONS: { type: TenderType; label: string; icon: typeof Banknote; color: string }[] = [
-  { type: 'cash', label: 'Cash', icon: Banknote, color: 'text-green-600 bg-green-500/10 border-green-500/30 hover:bg-green-500/20' },
-  { type: 'card', label: 'Card', icon: CreditCard, color: 'text-blue-600 bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20' },
-  { type: 'check', label: 'Check', icon: FileText, color: 'text-purple-600 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20' },
+  { type: 'cash', label: 'Cash', icon: Banknote, color: 'text-green-500 bg-green-500/10 border-green-500/30 hover:bg-green-500/20' },
+  { type: 'card', label: 'Card', icon: CreditCard, color: 'text-blue-500 bg-blue-500/10 border-blue-500/30 hover:bg-blue-500/20' },
+  { type: 'check', label: 'Check', icon: FileText, color: 'text-purple-500 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20' },
 ];
 
 type PanelStep = 'summary' | 'pick-type' | 'enter-amount';
@@ -290,7 +290,7 @@ export function SplitTenderPanel({
                   {/* Running total */}
                   <div className="flex items-center justify-between border-t border-border pt-2 px-1">
                     <span className="text-sm text-muted-foreground">Total Paid</span>
-                    <span className="text-sm font-semibold text-green-600">
+                    <span className="text-sm font-semibold text-green-500">
                       {formatMoney(totalTendered)}
                     </span>
                   </div>
@@ -317,7 +317,7 @@ export function SplitTenderPanel({
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Remaining Balance
                 </p>
-                <p className={`mt-1 text-3xl font-bold ${isFullyPaid ? 'text-green-600' : 'text-foreground'}`}>
+                <p className={`mt-1 text-3xl font-bold ${isFullyPaid ? 'text-green-500' : 'text-foreground'}`}>
                   {isFullyPaid ? '$0.00' : formatMoney(remaining)}
                 </p>
               </div>
@@ -368,9 +368,9 @@ export function SplitTenderPanel({
             <div className="space-y-4">
               {/* Sub-tender header */}
               <div className="flex items-center gap-2">
-                {selectedType === 'cash' && <Banknote className="h-5 w-5 text-green-600" />}
-                {selectedType === 'card' && <CreditCard className="h-5 w-5 text-blue-600" />}
-                {selectedType === 'check' && <FileText className="h-5 w-5 text-purple-600" />}
+                {selectedType === 'cash' && <Banknote className="h-5 w-5 text-green-500" />}
+                {selectedType === 'card' && <CreditCard className="h-5 w-5 text-blue-500" />}
+                {selectedType === 'check' && <FileText className="h-5 w-5 text-purple-500" />}
                 <span className="text-sm font-semibold text-foreground capitalize">
                   {selectedType} Payment
                 </span>
@@ -384,7 +384,7 @@ export function SplitTenderPanel({
                 <p className="text-xs font-medium text-muted-foreground mb-1">Amount</p>
                 <p className="text-2xl font-bold text-foreground">${amount || '0.00'}</p>
                 {selectedType === 'cash' && amountCents > remaining && remaining > 0 && (
-                  <p className="mt-1 text-sm font-semibold text-green-600">
+                  <p className="mt-1 text-sm font-semibold text-green-500">
                     Change: {formatMoney(amountCents - remaining)}
                   </p>
                 )}
@@ -417,7 +417,7 @@ export function SplitTenderPanel({
                   type="button"
                   onClick={handleSubmitTender}
                   disabled={isSubmitting || amountCents <= 0}
-                  className="flex-[2] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-indigo-600/50"
+                  className="flex-[2] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-indigo-600/50"
                 >
                   {isSubmitting
                     ? 'Processing...'

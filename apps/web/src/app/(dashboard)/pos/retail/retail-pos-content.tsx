@@ -117,7 +117,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-gray-400 hover:text-muted-foreground"
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -127,11 +127,11 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
         <div className="max-h-[50vh] overflow-y-auto px-6 py-4">
           {heldOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8">
-              <History aria-hidden="true" className="h-10 w-10 text-gray-300" />
+              <History aria-hidden="true" className="h-10 w-10 text-muted-foreground" />
               <p className="mt-3 text-sm text-muted-foreground">
                 No held orders found for this terminal
               </p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Orders held on this terminal will appear here
               </p>
             </div>
@@ -142,7 +142,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
                   key={held.id}
                   type="button"
                   onClick={() => onRecall(held.id)}
-                  className="flex w-full items-center justify-between rounded-lg border border-border px-4 py-3 text-left transition-colors hover:border-indigo-300 hover:bg-indigo-500/10"
+                  className="flex w-full items-center justify-between rounded-lg border border-border px-4 py-3 text-left transition-colors hover:border-indigo-500/30 hover:bg-indigo-500/10"
                 >
                   <div>
                     <p className="text-sm font-semibold text-foreground">
@@ -157,7 +157,7 @@ function RecallDialog({ open, onClose, onRecall, heldOrderCount }: RecallDialogP
                     <p className="text-sm font-semibold text-foreground">
                       {formatMoney(held.total)}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-muted-foreground">
                       {new Date(held.heldAt).toLocaleTimeString([], {
                         hour: 'numeric',
                         minute: '2-digit',
@@ -830,7 +830,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 className={`rounded-md p-1.5 transition-colors ${
                   catalogViewMode === 'grid'
                     ? 'bg-surface text-foreground shadow-sm'
-                    : 'text-gray-400 hover:text-muted-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 title="Grid view"
               >
@@ -842,7 +842,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 className={`rounded-md p-1.5 transition-colors ${
                   catalogViewMode === 'list'
                     ? 'bg-surface text-foreground shadow-sm'
-                    : 'text-gray-400 hover:text-muted-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
                 title="List view"
               >
@@ -995,7 +995,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                           <button
                             type="button"
                             onClick={() => catalog.setDepartment(catalog.departments[0]?.id ?? null)}
-                            className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
                           >
                             View All Items
                           </button>
@@ -1004,7 +1004,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
                       {displayItems.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16">
-                          <p className="text-sm text-gray-400">
+                          <p className="text-sm text-muted-foreground">
                             {catalog.searchQuery.trim()
                               ? 'No items match your search'
                               : 'No items in this category'}
@@ -1049,6 +1049,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
               shiftId={shift.currentShift?.id}
               onPaymentComplete={handlePaymentComplete}
               onCancel={handlePaymentCancel}
+              ensureOrderReady={pos.ensureOrderReady}
             />
           ) : (
             /* ── ORDER VIEW (Cart + actions) ───────────────────────── */
@@ -1120,7 +1121,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     disabled={!hasItems}
                     className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                       pos.currentOrder?.taxExempt
-                        ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                        ? 'border-purple-500/30 bg-purple-500/10 text-purple-500 hover:bg-purple-500/10'
                         : 'border-border text-foreground hover:bg-accent'
                     }`}
                   >
@@ -1153,7 +1154,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                     type="button"
                     onClick={handlePayClick}
                     disabled={!hasItems}
-                    className="flex flex-[1.5] items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                    className="flex flex-[1.5] items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
                   >
                     Pay
                     {(remainingBalance ?? pos.currentOrder?.total) ? (
@@ -1286,7 +1287,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs font-medium text-green-700">Shift Open</span>
+              <span className="text-xs font-medium text-green-500">Shift Open</span>
             </span>
             {posPerms.shiftManage && (
               <button
@@ -1343,7 +1344,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 <button
                   type="button"
                   onClick={() => setPackageItem(null)}
-                  className="rounded-md p-1 text-gray-400 hover:text-muted-foreground"
+                  className="rounded-md p-1 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1381,7 +1382,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   onClick={() =>
                     handlePackageAdd({ catalogItemId: packageItem.id, qty: 1 })
                   }
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
                 >
                   Add to Cart
                 </button>
@@ -1437,7 +1438,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   value={voidReason}
                   onChange={(e) => setVoidReason(e.target.value)}
                   placeholder="e.g., Customer changed mind"
-                  className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   autoFocus
                 />
               </div>
@@ -1497,8 +1498,8 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
         }}
       />
 
-      {/* Tender Dialog (Cash / Voucher / Check) — only render when order has a real ID (not placeholder '') */}
-      {pos.currentOrder && pos.currentOrder.id && config && (
+      {/* Tender Dialog (Cash / Voucher / Check) */}
+      {pos.currentOrder && config && (
         <TenderDialog
           open={showTenderDialog}
           onClose={() => setShowTenderDialog(false)}
@@ -1508,6 +1509,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
           shiftId={shift.currentShift?.id}
           onPaymentComplete={handlePaymentComplete}
           onPartialPayment={handlePartialPayment}
+          ensureOrderReady={pos.ensureOrderReady}
         />
       )}
 

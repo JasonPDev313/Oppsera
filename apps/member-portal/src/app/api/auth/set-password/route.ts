@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
         email: String(customer.email),
       },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Set password error:', err);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Failed to set password' } },

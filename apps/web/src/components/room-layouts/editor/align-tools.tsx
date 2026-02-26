@@ -53,13 +53,13 @@ export function AlignTools() {
   ];
 
   return (
-    <div className="flex items-center gap-0.5 rounded bg-gray-100 px-1 py-0.5">
+    <div className="flex items-center gap-0.5 rounded bg-muted px-1 py-0.5">
       {tools.map((tool) => (
         <button
           key={tool.title}
           onClick={() => apply(tool.fn)}
           disabled={tool.minCount ? selectedObjs.length < tool.minCount : false}
-          className="rounded p-1 text-gray-500 hover:bg-gray-200 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
           title={tool.title}
         >
           <tool.icon className="h-3.5 w-3.5" />

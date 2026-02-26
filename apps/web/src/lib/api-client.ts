@@ -154,8 +154,13 @@ export async function apiFetch<T = unknown>(
   options: RequestInit = {},
 ): Promise<T> {
   // Circuit breaker: if we've had too many recent failures, fail fast
-  // to prevent thundering herd retries. Skip for auth paths (login/refresh).
-  if (isCircuitOpen() && !path.includes('/auth/')) {
+  // to prevent thundering herd retries. Skip for auth paths (login/refresh)
+  // and the /me endpoint — fetchMe is the auth identity source, and if the
+  // circuit breaker blocks it, the entire app unmounts (user=null → redirect
+  // to login). The /me endpoint must always be allowed through so the auth
+  // layer can independently determine if the session is valid.
+  const isCriticalPath = path.includes('/auth/') || path === '/api/v1/me';
+  if (isCircuitOpen() && !isCriticalPath) {
     throw new ApiError(
       'SERVICE_UNAVAILABLE',
       'Connection issues — please wait a moment and try again',
@@ -189,11 +194,12 @@ export async function apiFetch<T = unknown>(
     }
   }
 
-  // Auth paths (/auth/login, /auth/signup, /auth/logout, /auth/refresh) are
-  // excluded from circuit breaker failure counting.  A logout→signup transition
-  // can produce several rapid 401s/errors that are normal and expected — they
-  // should never trip the breaker and block unrelated API calls for all users.
-  const isAuthPath = path.includes('/auth/');
+  // Auth paths and /me are excluded from circuit breaker failure counting.
+  // A logout→signup transition can produce several rapid 401s/errors that are
+  // normal and expected — they should never trip the breaker. /me failures
+  // (cold start, DB timeout) should not contribute to tripping the breaker
+  // for data calls, and vice versa.
+  const isAuthPath = isCriticalPath;
 
   let response: Response;
   try {

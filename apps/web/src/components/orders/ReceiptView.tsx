@@ -311,16 +311,16 @@ export function ReceiptView({
       {/* Screen modal (hidden on print) */}
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 no-print">
         <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-        <div className="relative flex max-h-[90vh] w-full max-w-sm flex-col rounded-2xl bg-gray-100 shadow-xl">
+        <div className="relative flex max-h-[90vh] w-full max-w-sm flex-col rounded-2xl bg-muted shadow-xl">
           {/* Toolbar */}
-          <div className="flex items-center justify-between border-b border-gray-200 bg-surface px-4 py-3 rounded-t-2xl">
-            <h2 className="text-sm font-semibold text-gray-900">Receipt Preview</h2>
+          <div className="flex items-center justify-between border-b border-border bg-surface px-4 py-3 rounded-t-2xl">
+            <h2 className="text-sm font-semibold text-foreground">Receipt Preview</h2>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handlePrint}
                 disabled={isLoading}
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 <Printer className="h-3.5 w-3.5" />
                 Print
@@ -328,7 +328,7 @@ export function ReceiptView({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -339,10 +339,10 @@ export function ReceiptView({
           <div className="flex-1 overflow-y-auto p-4">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-gray-600" />
               </div>
             ) : (
-              <div className="rounded-lg border border-gray-200 bg-surface shadow-sm">
+              <div className="rounded-lg border border-border bg-surface shadow-sm">
                 <ReceiptPreview receiptLines={receiptLines} receiptRef={receiptRef} />
               </div>
             )}

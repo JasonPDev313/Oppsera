@@ -369,11 +369,11 @@ export default function ItemDetailPage() {
   if (!item) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
-        <p className="text-sm text-gray-500">Item not found</p>
+        <p className="text-sm text-muted-foreground">Item not found</p>
         <button
           type="button"
           onClick={() => router.push('/catalog')}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           Back to Items
         </button>
@@ -415,7 +415,7 @@ export default function ItemDetailPage() {
       <button
         type="button"
         onClick={() => router.push('/catalog')}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back to Items
@@ -424,14 +424,14 @@ export default function ItemDetailPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-gray-900">{item.name}</h1>
+          <h1 className="text-xl font-semibold text-foreground">{item.name}</h1>
           <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>
         </div>
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setShowHistory(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             <History className="h-4 w-4" aria-hidden="true" />
             History
@@ -439,7 +439,7 @@ export default function ItemDetailPage() {
           <button
             type="button"
             onClick={() => router.push(`/catalog/items/${itemId}/edit`)}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             <Edit className="h-4 w-4" aria-hidden="true" />
             Edit
@@ -457,7 +457,7 @@ export default function ItemDetailPage() {
             <button
               type="button"
               onClick={() => setShowReactivate(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-green-500/40 px-4 py-2 text-sm font-medium text-green-600 transition-colors hover:bg-green-500/10 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-green-500/40 px-4 py-2 text-sm font-medium text-green-500 transition-colors hover:bg-green-500/10 focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               <RotateCcw className="h-4 w-4" aria-hidden="true" />
               Reactivate
@@ -468,14 +468,14 @@ export default function ItemDetailPage() {
 
       {/* Inactive banner */}
       {item.archivedAt && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm font-medium text-amber-500">
           This item is inactive
         </div>
       )}
 
       {/* Details card */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
-        <h2 className="mb-4 text-base font-semibold text-gray-900">Details</h2>
+      <div className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="mb-4 text-base font-semibold text-foreground">Details</h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           {/* Left column */}
           <div className="space-y-4">
@@ -490,8 +490,8 @@ export default function ItemDetailPage() {
             <DetailRow label="Price" value={formatCurrency(item.defaultPrice)} />
             <DetailRow label="Cost" value={formatCurrency(item.cost)} />
             <DetailRow label="Margin" value={calcMargin(item.defaultPrice, item.cost)} />
-            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-              <span className="text-sm font-medium text-gray-500">Status</span>
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <span className="text-sm font-medium text-muted-foreground">Status</span>
               <Badge variant={!item.archivedAt ? 'success' : 'neutral'}>
                 {!item.archivedAt ? 'Active' : 'Inactive'}
               </Badge>
@@ -504,12 +504,12 @@ export default function ItemDetailPage() {
       {typeGroup === 'fnb' && (
         <>
           {/* Modifiers card */}
-          <div className="rounded-lg border border-gray-200 bg-surface p-6">
-            <h2 className="mb-4 text-base font-semibold text-gray-900">Modifiers</h2>
+          <div className="rounded-lg border border-border bg-surface p-6">
+            <h2 className="mb-4 text-base font-semibold text-foreground">Modifiers</h2>
 
             {defaultModGroups.length > 0 && (
               <div className="mb-4">
-                <h3 className="mb-2 text-sm font-medium text-gray-700">Default Groups</h3>
+                <h3 className="mb-2 text-sm font-medium text-foreground">Default Groups</h3>
                 <div className="space-y-3">
                   {defaultModGroups.map((g) => (
                     <ModifierGroupCard key={g.id} group={g} />
@@ -520,7 +520,7 @@ export default function ItemDetailPage() {
 
             {optionalModGroups.length > 0 && (
               <div>
-                <h3 className="mb-2 text-sm font-medium text-gray-700">Optional Groups</h3>
+                <h3 className="mb-2 text-sm font-medium text-foreground">Optional Groups</h3>
                 <div className="space-y-3">
                   {optionalModGroups.map((g) => (
                     <ModifierGroupCard key={g.id} group={g} />
@@ -530,20 +530,20 @@ export default function ItemDetailPage() {
             )}
 
             {defaultModGroups.length === 0 && optionalModGroups.length === 0 && (
-              <p className="text-sm text-gray-500">No modifier groups configured</p>
+              <p className="text-sm text-muted-foreground">No modifier groups configured</p>
             )}
           </div>
 
           {/* F&B Options card */}
-          <div className="rounded-lg border border-gray-200 bg-surface p-6">
-            <h2 className="mb-4 text-base font-semibold text-gray-900">F&B Options</h2>
+          <div className="rounded-lg border border-border bg-surface p-6">
+            <h2 className="mb-4 text-base font-semibold text-foreground">F&B Options</h2>
             <div className="space-y-3">
               <DetailRow
                 label="Special Instructions"
                 value={fnbMeta?.allowSpecialInstructions ? 'Yes' : 'No'}
               />
-              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                <span className="text-sm font-medium text-gray-500">Allowed Fractions</span>
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <span className="text-sm font-medium text-muted-foreground">Allowed Fractions</span>
                 <div className="flex gap-1.5">
                   {fnbMeta?.allowedFractions && fnbMeta.allowedFractions.length > 0 ? (
                     fnbMeta.allowedFractions.map((f) => (
@@ -552,7 +552,7 @@ export default function ItemDetailPage() {
                       </Badge>
                     ))
                   ) : (
-                    <span className="text-sm text-gray-900">None</span>
+                    <span className="text-sm text-foreground">None</span>
                   )}
                 </div>
               </div>
@@ -565,13 +565,13 @@ export default function ItemDetailPage() {
         <>
           {/* Option Sets card */}
           {retailMeta?.optionSets && retailMeta.optionSets.length > 0 && (
-            <div className="rounded-lg border border-gray-200 bg-surface p-6">
-              <h2 className="mb-4 text-base font-semibold text-gray-900">Option Sets</h2>
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <h2 className="mb-4 text-base font-semibold text-foreground">Option Sets</h2>
               <div className="space-y-4">
                 {retailMeta.optionSets.map((set, idx) => (
-                  <div key={idx} className="rounded-lg border border-gray-100 p-4">
+                  <div key={idx} className="rounded-lg border border-border p-4">
                     <div className="mb-2 flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{set.name}</span>
+                      <span className="text-sm font-medium text-foreground">{set.name}</span>
                       {set.required && <Badge variant="warning">Required</Badge>}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -590,8 +590,8 @@ export default function ItemDetailPage() {
       )}
 
       {typeGroup === 'service' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-6">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">Service Details</h2>
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="mb-4 text-base font-semibold text-foreground">Service Details</h2>
           <div className="space-y-3">
             <DetailRow
               label="Duration"
@@ -606,8 +606,8 @@ export default function ItemDetailPage() {
       )}
 
       {typeGroup === 'package' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-6">
-          <h2 className="mb-4 text-base font-semibold text-gray-900">Package Components</h2>
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <h2 className="mb-4 text-base font-semibold text-foreground">Package Components</h2>
           {packageMeta?.packageComponents && packageMeta.packageComponents.length > 0 ? (
             <>
               <DataTable
@@ -616,7 +616,7 @@ export default function ItemDetailPage() {
                     key: 'itemName',
                     header: 'Item Name',
                     render: (row) => (
-                      <span className="font-medium text-gray-900">{row.itemName as string}</span>
+                      <span className="font-medium text-foreground">{row.itemName as string}</span>
                     ),
                   },
                   {
@@ -641,7 +641,7 @@ export default function ItemDetailPage() {
                   })) as (Record<string, unknown> & { id: string })[]
                 }
               />
-              <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+              <div className="mt-3 flex items-center justify-between text-sm text-muted-foreground">
                 <span>
                   Total components: {packageMeta.packageComponents.reduce((sum, c) => sum + c.qty, 0)}
                 </span>
@@ -654,7 +654,7 @@ export default function ItemDetailPage() {
               </div>
             </>
           ) : (
-            <p className="text-sm text-gray-500">No components configured</p>
+            <p className="text-sm text-muted-foreground">No components configured</p>
           )}
         </div>
       )}
@@ -663,13 +663,13 @@ export default function ItemDetailPage() {
       <StockSection catalogItemId={itemId} isTrackable={item.isTrackable} />
 
       {/* Modifier Group Assignments section (junction-table-based) */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900">Modifier Group Assignments</h2>
+          <h2 className="text-base font-semibold text-foreground">Modifier Group Assignments</h2>
           <button
             type="button"
             onClick={() => setShowAddModGroup(true)}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Add Group
           </button>
@@ -680,7 +680,7 @@ export default function ItemDetailPage() {
             <LoadingSpinner size="sm" />
           </div>
         ) : modAssignments.length === 0 ? (
-          <p className="py-4 text-center text-sm text-gray-500">
+          <p className="py-4 text-center text-sm text-muted-foreground">
             No modifier groups assigned. Add groups to enable modifier selection in POS.
           </p>
         ) : (
@@ -688,10 +688,10 @@ export default function ItemDetailPage() {
             {modAssignments
               .sort((a, b) => a.promptOrder - b.promptOrder)
               .map((assignment) => (
-                <div key={assignment.modifierGroupId} className="rounded-lg border border-gray-100 p-4">
+                <div key={assignment.modifierGroupId} className="rounded-lg border border-border p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{assignment.groupName}</span>
+                      <span className="text-sm font-medium text-foreground">{assignment.groupName}</span>
                       <Badge variant={
                         (assignment.overrideRequired ?? assignment.isRequired) ? 'warning' : 'neutral'
                       }>
@@ -704,14 +704,14 @@ export default function ItemDetailPage() {
                         </Badge>
                       )}
                       {assignment.promptOrder > 0 && (
-                        <span className="text-xs text-gray-400">#{assignment.promptOrder}</span>
+                        <span className="text-xs text-muted-foreground">#{assignment.promptOrder}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => startEditAssignment(assignment)}
-                        className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-400"
                       >
                         Override
                       </button>
@@ -719,7 +719,7 @@ export default function ItemDetailPage() {
                         type="button"
                         onClick={() => handleRemoveModGroup(assignment.modifierGroupId)}
                         disabled={modMutating}
-                        className="text-xs font-medium text-red-600 hover:text-red-700"
+                        className="text-xs font-medium text-red-500 hover:text-red-400"
                       >
                         Remove
                       </button>
@@ -727,13 +727,13 @@ export default function ItemDetailPage() {
                   </div>
 
                   {/* Selection constraints */}
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Selections: {assignment.overrideMinSelections ?? assignment.minSelections}
                     {(assignment.overrideMaxSelections ?? assignment.maxSelections) > 0
                       ? ` - ${assignment.overrideMaxSelections ?? assignment.maxSelections}`
                       : '+'}
                     {assignment.overrideRequired !== null && (
-                      <span className="ml-2 text-amber-600">(override)</span>
+                      <span className="ml-2 text-amber-500">(override)</span>
                     )}
                   </p>
 
@@ -750,7 +750,7 @@ export default function ItemDetailPage() {
                             </span>
                           )}
                           {m.extraPriceDelta && Number(m.extraPriceDelta) !== 0 && (
-                            <span className="ml-1 text-xs text-amber-600">
+                            <span className="ml-1 text-xs text-amber-500">
                               extra:+${Number(m.extraPriceDelta).toFixed(2)}
                             </span>
                           )}
@@ -764,9 +764,9 @@ export default function ItemDetailPage() {
       </div>
 
       {/* Tax Groups section */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-base font-semibold text-gray-900">Tax Groups</h2>
+          <h2 className="text-base font-semibold text-foreground">Tax Groups</h2>
           <Select
             options={locationOptions}
             value={taxLocationId}
@@ -791,7 +791,7 @@ export default function ItemDetailPage() {
                         key: 'taxGroupName',
                         header: 'Group Name',
                         render: (row) => (
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-foreground">
                             {row.taxGroupName as string}
                           </span>
                         ),
@@ -825,7 +825,7 @@ export default function ItemDetailPage() {
                     emptyMessage="No tax groups assigned"
                   />
                 ) : (
-                  <p className="py-4 text-center text-sm text-gray-500">
+                  <p className="py-4 text-center text-sm text-muted-foreground">
                     No tax groups assigned at this location
                   </p>
                 )}
@@ -833,7 +833,7 @@ export default function ItemDetailPage() {
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     {effectiveTaxInfo && (
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Effective tax rate at{' '}
                         <span className="font-medium">
                           {locationMap.get(taxLocationId) ?? taxLocationId}
@@ -845,7 +845,7 @@ export default function ItemDetailPage() {
                   <button
                     type="button"
                     onClick={() => setShowTaxEdit(true)}
-                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
                   >
                     Edit Tax Groups
                   </button>
@@ -857,13 +857,13 @@ export default function ItemDetailPage() {
       </div>
 
       {/* Location Prices section */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900">Location Prices</h2>
+          <h2 className="text-base font-semibold text-foreground">Location Prices</h2>
           <button
             type="button"
             onClick={() => setShowAddPrice(true)}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Set Location Price
           </button>
@@ -876,7 +876,7 @@ export default function ItemDetailPage() {
                 key: 'locationId',
                 header: 'Location Name',
                 render: (row) => (
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-foreground">
                     {locationMap.get(row.locationId as string) ?? (row.locationId as string)}
                   </span>
                 ),
@@ -900,7 +900,7 @@ export default function ItemDetailPage() {
                         locationName: locationMap.get(row.locationId as string) ?? (row.locationId as string),
                       });
                     }}
-                    className="text-sm font-medium text-red-600 hover:text-red-700"
+                    className="text-sm font-medium text-red-500 hover:text-red-400"
                   >
                     Remove
                   </button>
@@ -916,7 +916,7 @@ export default function ItemDetailPage() {
             emptyMessage="No location price overrides"
           />
         ) : (
-          <p className="py-4 text-center text-sm text-gray-500">No location price overrides</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">No location price overrides</p>
         )}
       </div>
 
@@ -937,13 +937,13 @@ export default function ItemDetailPage() {
         isLoading={deactivating}
       >
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Reason (optional)
           </label>
           <textarea
             value={deactivateReason}
             onChange={(e) => setDeactivateReason(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             rows={3}
             placeholder="e.g., Product discontinued by manufacturer"
           />
@@ -966,8 +966,8 @@ export default function ItemDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowTaxEdit(false)} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Edit Tax Groups</h3>
-            <p className="mt-1 text-xs text-gray-500">
+            <h3 className="text-lg font-semibold text-foreground">Edit Tax Groups</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
               All selected groups must use the same calculation mode (V1 constraint).
             </p>
             <div className="mt-4">
@@ -991,7 +991,7 @@ export default function ItemDetailPage() {
                   }
                 }}
                 disabled={savingTaxGroups}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 Cancel
               </button>
@@ -999,7 +999,7 @@ export default function ItemDetailPage() {
                 type="button"
                 onClick={handleSaveTaxGroups}
                 disabled={savingTaxGroups}
-                className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+                className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
                   savingTaxGroups ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
@@ -1015,7 +1015,7 @@ export default function ItemDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setShowAddPrice(false)} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Set Location Price</h3>
+            <h3 className="text-lg font-semibold text-foreground">Set Location Price</h3>
             <div className="mt-4 space-y-4">
               <FormField label="Location" required>
                 <Select
@@ -1042,7 +1042,7 @@ export default function ItemDetailPage() {
                   setPriceValue(null);
                 }}
                 disabled={savingPrice}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
               >
                 Cancel
               </button>
@@ -1050,7 +1050,7 @@ export default function ItemDetailPage() {
                 type="button"
                 onClick={handleSetPrice}
                 disabled={savingPrice || !priceLocationId || priceValue == null}
-                className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+                className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
                   savingPrice || !priceLocationId || priceValue == null
                     ? 'cursor-not-allowed opacity-50'
                     : ''
@@ -1080,16 +1080,16 @@ export default function ItemDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => { setShowAddModGroup(false); setAddModGroupId(''); }} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Add Modifier Group</h3>
+            <h3 className="text-lg font-semibold text-foreground">Add Modifier Group</h3>
             {unassignedGroups.length === 0 ? (
-              <p className="mt-4 text-sm text-gray-500">All modifier groups are already assigned to this item.</p>
+              <p className="mt-4 text-sm text-muted-foreground">All modifier groups are already assigned to this item.</p>
             ) : (
               <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Modifier Group</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Modifier Group</label>
                 <select
                   value={addModGroupId}
                   onChange={(e) => setAddModGroupId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
                   <option value="">Select a group...</option>
                   {unassignedGroups.map((g) => (
@@ -1104,7 +1104,7 @@ export default function ItemDetailPage() {
               <button
                 type="button"
                 onClick={() => { setShowAddModGroup(false); setAddModGroupId(''); }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Cancel
               </button>
@@ -1113,7 +1113,7 @@ export default function ItemDetailPage() {
                   type="button"
                   onClick={handleAddModGroup}
                   disabled={!addModGroupId || modMutating}
-                  className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+                  className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
                     !addModGroupId || modMutating ? 'cursor-not-allowed opacity-50' : ''
                   }`}
                 >
@@ -1130,20 +1130,20 @@ export default function ItemDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/50" onClick={() => setEditingAssignment(null)} />
           <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900">Assignment Overrides</h3>
-            <p className="mt-1 text-xs text-gray-500">
+            <h3 className="text-lg font-semibold text-foreground">Assignment Overrides</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
               These overrides apply only for this item, not the group globally.
             </p>
             <div className="mt-4 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Required</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Required</label>
                 <select
                   value={editOverrides.overrideRequired === null ? '' : editOverrides.overrideRequired ? 'true' : 'false'}
                   onChange={(e) => {
                     const v = e.target.value;
                     setEditOverrides((p) => ({ ...p, overrideRequired: v === '' ? null : v === 'true' }));
                   }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
                   <option value="">Use group default</option>
                   <option value="true">Required</option>
@@ -1152,7 +1152,7 @@ export default function ItemDetailPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Min Selections</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Min Selections</label>
                   <input
                     type="number"
                     min={0}
@@ -1162,11 +1162,11 @@ export default function ItemDetailPage() {
                       setEditOverrides((p) => ({ ...p, overrideMinSelections: v === '' ? null : parseInt(v, 10) }));
                     }}
                     placeholder="Group default"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Selections</label>
+                  <label className="block text-sm font-medium text-foreground mb-1">Max Selections</label>
                   <input
                     type="number"
                     min={0}
@@ -1176,18 +1176,18 @@ export default function ItemDetailPage() {
                       setEditOverrides((p) => ({ ...p, overrideMaxSelections: v === '' ? null : parseInt(v, 10) }));
                     }}
                     placeholder="Group default"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Instruction Mode</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Instruction Mode</label>
                 <select
                   value={editOverrides.overrideInstructionMode ?? ''}
                   onChange={(e) => {
                     setEditOverrides((p) => ({ ...p, overrideInstructionMode: e.target.value || null }));
                   }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
                   <option value="">Use group default</option>
                   <option value="none">Off</option>
@@ -1196,22 +1196,22 @@ export default function ItemDetailPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Prompt Order</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Prompt Order</label>
                 <input
                   type="number"
                   min={0}
                   value={editOverrides.promptOrder}
                   onChange={(e) => setEditOverrides((p) => ({ ...p, promptOrder: parseInt(e.target.value, 10) || 0 }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 />
-                <p className="mt-1 text-xs text-gray-500">Controls display order in POS modifier prompts</p>
+                <p className="mt-1 text-xs text-muted-foreground">Controls display order in POS modifier prompts</p>
               </div>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setEditingAssignment(null)}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Cancel
               </button>
@@ -1219,7 +1219,7 @@ export default function ItemDetailPage() {
                 type="button"
                 onClick={handleSaveAssignment}
                 disabled={modMutating}
-                className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+                className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
                   modMutating ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
@@ -1253,25 +1253,25 @@ function DetailRow({
   mono?: boolean;
 }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-gray-100 pb-3">
-      <span className="text-sm font-medium text-gray-500">{label}</span>
-      <span className={`text-sm text-gray-900 ${mono ? 'font-mono' : ''}`}>{value}</span>
+    <div className="flex items-baseline justify-between border-b border-border pb-3">
+      <span className="text-sm font-medium text-muted-foreground">{label}</span>
+      <span className={`text-sm text-foreground ${mono ? 'font-mono' : ''}`}>{value}</span>
     </div>
   );
 }
 
 function ModifierGroupCard({ group }: { group: ModifierGroupDetail }) {
   return (
-    <div className="rounded-lg border border-gray-100 p-4">
+    <div className="rounded-lg border border-border p-4">
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-sm font-medium text-gray-900">{group.name}</span>
+        <span className="text-sm font-medium text-foreground">{group.name}</span>
         <Badge variant={group.isRequired ? 'warning' : 'neutral'}>
           {group.isRequired ? 'Required' : 'Optional'}
         </Badge>
         <Badge variant="info">{group.selectionType}</Badge>
       </div>
       {group.minSelections != null || group.maxSelections != null ? (
-        <p className="mb-2 text-xs text-gray-500">
+        <p className="mb-2 text-xs text-muted-foreground">
           Selections: {group.minSelections ?? 0}
           {group.maxSelections != null ? ` - ${group.maxSelections}` : '+'}
         </p>

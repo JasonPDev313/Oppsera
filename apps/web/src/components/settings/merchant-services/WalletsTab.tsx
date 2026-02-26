@@ -223,7 +223,7 @@ export default function WalletsTab() {
         <button
           onClick={handleSave}
           disabled={mutations.updateProvider.isPending || !selectedProviderId || !googlePayValid}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {mutations.updateProvider.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Save Wallet Settings

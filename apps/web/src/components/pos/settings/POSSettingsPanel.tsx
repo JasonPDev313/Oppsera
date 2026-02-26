@@ -75,7 +75,7 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
 
   return (
     <POSSlidePanel open={open} onClose={onClose} title="POS Settings" width={420}>
-      <div className="relative space-y-1 divide-y divide-gray-100">
+      <div className="relative space-y-1 divide-y divide-border">
         {/* Save indicator */}
         {showSaved && (
           <div className="fixed right-6 top-20 z-10 flex items-center gap-1.5 rounded-full bg-green-500/20 px-3 py-1 text-xs font-medium text-green-500 shadow-sm animate-[cart-slide-in_0.2s_ease-out]">
@@ -100,10 +100,10 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
         {/* ── Receipt ────────────────────────────────────────── */}
         <details className="group">
           <summary className="flex cursor-pointer items-center gap-3 py-3 select-none">
-            <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
             <div>
               <h4 className="text-sm font-semibold text-foreground">Receipts</h4>
-              <p className="text-xs text-gray-500">Choose how receipts are delivered after payment</p>
+              <p className="text-xs text-muted-foreground">Choose how receipts are delivered after payment</p>
             </div>
           </summary>
           <div className="pb-4 pl-7">
@@ -121,7 +121,7 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
                   className={`flex flex-col items-start rounded-lg border-2 px-3 py-2 text-left transition-colors ${
                     config.receiptMode === opt.value
                       ? 'border-indigo-500 bg-indigo-500/10'
-                      : 'border-border hover:border-gray-300'
+                      : 'border-border hover:border-muted-foreground'
                   }`}
                 >
                   <span className={`text-sm font-medium ${
@@ -129,7 +129,7 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
                   }`}>
                     {opt.label}
                   </span>
-                  <span className="text-[10px] text-gray-400">{opt.desc}</span>
+                  <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
                 </button>
               ))}
             </div>
@@ -139,20 +139,20 @@ export const POSSettingsPanel = memo(function POSSettingsPanel({
         {/* ── Quick Menu ─────────────────────────────────────── */}
         <details className="group">
           <summary className="flex cursor-pointer items-center gap-3 py-3 select-none">
-            <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
             <div>
               <h4 className="text-sm font-semibold text-foreground">Quick Menu</h4>
-              <p className="text-xs text-gray-500">Customize the Hot Sellers grid layout</p>
+              <p className="text-xs text-muted-foreground">Customize the Hot Sellers grid layout</p>
             </div>
           </summary>
           <div className="pb-4 pl-7">
-            <p className="mb-3 text-xs text-gray-500">
+            <p className="mb-3 text-xs text-muted-foreground">
               Create a custom grid of your most-used items, categories, and actions for the Hot Sellers view.
             </p>
             <button
               type="button"
               onClick={onOpenQuickMenuEditor}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               <Palette className="h-4 w-4" />
               Open Quick Menu Editor

@@ -79,7 +79,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
 
             {/* Party size badge */}
             {table.partySize != null && table.partySize > 0 && (
-              <span className="absolute top-1 right-1 flex items-center gap-0.5 text-[9px] text-gray-500">
+              <span className="absolute top-1 right-1 flex items-center gap-0.5 text-[9px] text-muted-foreground">
                 <Users className="h-2.5 w-2.5" />
                 {table.partySize}
               </span>
@@ -87,7 +87,7 @@ export function TableGridView({ tables, selectedTableId, onTap, onLongPress, onA
 
             {/* Timer badge */}
             {elapsed && (
-              <span className="absolute bottom-1 right-1 flex items-center gap-0.5 text-[9px] text-gray-400">
+              <span className="absolute bottom-1 right-1 flex items-center gap-0.5 text-[9px] text-muted-foreground">
                 <Clock className="h-2.5 w-2.5" />
                 {elapsed}
               </span>

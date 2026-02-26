@@ -182,7 +182,7 @@ export default function ReservationListView({
         header: 'Confirmation #',
         width: '130px',
         render: (row: ReservationRow) => (
-          <span className="font-mono text-xs font-semibold text-gray-900">
+          <span className="font-mono text-xs font-semibold text-foreground">
             {shortId(row.id as string)}
           </span>
         ),
@@ -191,7 +191,7 @@ export default function ReservationListView({
         key: 'guest',
         header: 'Guest Name',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-900">
+          <span className="text-sm text-foreground">
             {guestName((row as Reservation).primaryGuestJson)}
           </span>
         ),
@@ -200,7 +200,7 @@ export default function ReservationListView({
         key: 'roomTypeName',
         header: 'Room Type',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {(row as Reservation).roomTypeName ?? '\u2014'}
           </span>
         ),
@@ -210,7 +210,7 @@ export default function ReservationListView({
         header: 'Room #',
         width: '80px',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {(row as Reservation).roomNumber ?? '\u2014'}
           </span>
         ),
@@ -220,7 +220,7 @@ export default function ReservationListView({
         header: 'Check-In',
         width: '110px',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">{(row as Reservation).checkInDate}</span>
+          <span className="text-sm text-foreground">{(row as Reservation).checkInDate}</span>
         ),
       },
       {
@@ -228,7 +228,7 @@ export default function ReservationListView({
         header: 'Check-Out',
         width: '110px',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">{(row as Reservation).checkOutDate}</span>
+          <span className="text-sm text-foreground">{(row as Reservation).checkOutDate}</span>
         ),
       },
       {
@@ -246,7 +246,7 @@ export default function ReservationListView({
         header: 'Nightly Rate',
         width: '110px',
         render: (row: ReservationRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {formatMoney((row as Reservation).nightlyRateCents)}
           </span>
         ),
@@ -282,15 +282,15 @@ export default function ReservationListView({
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             placeholder="From"
           />
-          <span className="text-gray-400">&ndash;</span>
+          <span className="text-muted-foreground">&ndash;</span>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             placeholder="To"
           />
         </div>
@@ -298,7 +298,7 @@ export default function ReservationListView({
           <button
             type="button"
             onClick={clearFilters}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             Clear filters
           </button>
@@ -327,7 +327,7 @@ export default function ReservationListView({
                 type="button"
                 onClick={handleLoadMore}
                 disabled={isLoadingMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isLoadingMore ? 'Loading...' : 'Load More'}
               </button>

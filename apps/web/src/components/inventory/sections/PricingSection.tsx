@@ -211,7 +211,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
             <button
               type="button"
               onClick={() => setShowScheduleForm(!showScheduleForm)}
-              className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+              className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-500"
             >
               <Plus className="h-3 w-3" />
               Add
@@ -244,7 +244,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                     <button
                       type="button"
                       onClick={() => toggleScheduleActive(sched.id)}
-                      className="rounded p-1 text-muted-foreground hover:text-muted-foreground"
+                      className="rounded p-1 text-muted-foreground hover:text-foreground"
                       title={sched.isActive ? 'Deactivate' : 'Activate'}
                     >
                       <span className="text-[10px] font-medium">{sched.isActive ? 'ON' : 'OFF'}</span>
@@ -352,7 +352,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
                   type="button"
                   onClick={addSchedule}
                   disabled={!newSchedule.overridePrice || !newSchedule.startDate}
-                  className="rounded bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="rounded bg-indigo-600 px-3 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                   Add Schedule
                 </button>
@@ -368,7 +368,7 @@ export function PricingSection({ form, onUpdate, onUpdateMetadata, itemId }: Pri
               type="checkbox"
               checked={form.priceIncludesTax}
               onChange={(e) => onUpdate({ priceIncludesTax: e.target.checked })}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
             />
             <span className="text-xs font-medium text-foreground">Price Includes Tax</span>
           </label>

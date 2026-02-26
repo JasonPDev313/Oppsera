@@ -57,7 +57,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent/50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -68,7 +68,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
             <div className="rounded-lg bg-purple-500/10 px-3 py-2">
               <p className="text-sm font-medium text-purple-500">{itemName}</p>
               {amountCents != null && (
-                <p className="text-xs text-purple-600">
+                <p className="text-xs text-purple-500">
                   Comp amount: ${(amountCents / 100).toFixed(2)}
                 </p>
               )}
@@ -87,7 +87,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
                   className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                     category === cat.value
                       ? 'bg-purple-600 text-white'
-                      : 'bg-gray-100/80 hover:bg-gray-200/80'
+                      : 'bg-muted/80 hover:bg-accent/80'
                   }`}
                 >
                   {cat.label}
@@ -108,7 +108,7 @@ export function CompDialog({ open, onClose, onComp, itemName, amountCents }: Com
                   className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
                     reason === r
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100/80 hover:bg-gray-200/80'
+                      : 'bg-muted/80 hover:bg-accent/80'
                   }`}
                 >
                   {r}

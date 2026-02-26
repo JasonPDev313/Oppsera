@@ -24,8 +24,8 @@ export function useMembershipAging(asOfDate?: string) {
       const qs = buildQueryString({ asOfDate });
       const res = await apiFetch<{ data: MembershipAgingReport }>(`/api/v1/membership/reports/aging${qs}`);
       setData(res.data);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load aging report');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load aging report');
     } finally {
       setIsLoading(false);
     }
@@ -48,8 +48,8 @@ export function useMembershipCompliance(periodKey: string) {
       const qs = buildQueryString({ periodKey });
       const res = await apiFetch<{ data: MembershipComplianceReportData }>(`/api/v1/membership/reports/compliance${qs}`);
       setData(res.data);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load compliance report');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load compliance report');
     } finally {
       setIsLoading(false);
     }
@@ -72,8 +72,8 @@ export function useMembershipSpend(periodKey: string, membershipAccountId?: stri
       const qs = buildQueryString({ periodKey, membershipAccountId });
       const res = await apiFetch<{ data: MembershipSpendReportData }>(`/api/v1/membership/reports/spend${qs}`);
       setData(res.data);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load spend report');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load spend report');
     } finally {
       setIsLoading(false);
     }
@@ -95,8 +95,8 @@ export function useMembershipChurn(riskLevel?: string) {
       const qs = buildQueryString({ riskLevel });
       const res = await apiFetch<{ data: MembershipChurnReportData }>(`/api/v1/membership/reports/churn${qs}`);
       setData(res.data);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load churn report');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load churn report');
     } finally {
       setIsLoading(false);
     }
@@ -118,8 +118,8 @@ export function useMembershipPortfolio(asOfDate?: string) {
       const qs = buildQueryString({ asOfDate });
       const res = await apiFetch<{ data: MembershipPortfolioData }>(`/api/v1/membership/reports/portfolio${qs}`);
       setData(res.data);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load portfolio report');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load portfolio report');
     } finally {
       setIsLoading(false);
     }
@@ -140,8 +140,8 @@ export function useMembershipInsights() {
     try {
       const res = await apiFetch<{ data: MembershipPredictiveInsights }>('/api/v1/membership/reports/insights');
       setData(res.data);
-    } catch (e: any) {
-      setError(e.message ?? 'Failed to load insights');
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load insights');
     } finally {
       setIsLoading(false);
     }

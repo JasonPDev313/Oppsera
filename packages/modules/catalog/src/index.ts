@@ -166,8 +166,12 @@ export type {
   ExecuteImportInput,
 } from './validation-import';
 
-// Re-export import service types
+// Re-export import services
+export { analyzeColumns } from './services/inventory-import-analyzer';
 export type { ColumnMapping, AnalysisResult, TargetField } from './services/inventory-import-analyzer';
+export { parseCsv } from './services/inventory-import-parser';
+export type { CsvParseResult, CsvParseError } from './services/inventory-import-parser';
+export { validateImport } from './services/inventory-import-validator';
 export type { ParsedItem, ValidationResult, ValidationStats } from './services/inventory-import-validator';
 
 // Re-export tax calculation

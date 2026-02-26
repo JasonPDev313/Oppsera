@@ -118,7 +118,7 @@ export function ProfileDocumentsTab({ customerId }: ProfileDocumentsTabProps) {
         <button
           type="button"
           onClick={handleUpload}
-          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Upload className="h-3.5 w-3.5" />
           Upload File
@@ -191,7 +191,7 @@ export function ProfileDocumentsTab({ customerId }: ProfileDocumentsTabProps) {
                   <button
                     type="button"
                     onClick={() => handleDownload(doc)}
-                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-muted-foreground"
+                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     title="Download"
                   >
                     <Download className="h-4 w-4" />

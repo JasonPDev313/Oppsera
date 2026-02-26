@@ -36,10 +36,10 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   if (!active || !payload?.length) return null;
   const row = payload[0]!.payload;
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-3 text-sm shadow-lg">
-      <p className="font-semibold text-gray-900">{row.label}</p>
-      <p className="text-gray-600">Booked: {row.slotsBooked}</p>
-      <p className="text-gray-600">Share: {formatBasisPoints(row.pctOfTotalBps)}</p>
+    <div className="rounded-lg border border-border bg-surface p-3 text-sm shadow-lg">
+      <p className="font-semibold text-foreground">{row.label}</p>
+      <p className="text-muted-foreground">Booked: {row.slotsBooked}</p>
+      <p className="text-muted-foreground">Share: {formatBasisPoints(row.pctOfTotalBps)}</p>
     </div>
   );
 }
@@ -73,7 +73,7 @@ export function PaceOpsTab({ dateFrom, dateTo, courseId, locationId }: PaceOpsTa
       {/* Daypart Chart */}
       {!dayparts.isLoading && dayparts.data.length > 0 && (
         <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
-          <h3 className="mb-4 text-sm font-medium text-gray-500">Bookings by Daypart</h3>
+          <h3 className="mb-4 text-sm font-medium text-muted-foreground">Bookings by Daypart</h3>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={dayparts.data} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -111,8 +111,8 @@ export function PaceOpsTab({ dateFrom, dateTo, courseId, locationId }: PaceOpsTa
 function MiniCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-surface p-3 ring-1 ring-gray-950/5">
-      <p className="text-xs font-medium text-gray-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-gray-900">{value}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg font-bold text-foreground">{value}</p>
     </div>
   );
 }

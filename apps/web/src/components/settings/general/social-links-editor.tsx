@@ -101,7 +101,7 @@ export function SocialLinksEditor({ value, onChange, disabled = false }: SocialL
         <button
           type="button"
           onClick={() => setShowAll(!showAll)}
-          className="flex items-center gap-1 text-sm text-indigo-500 hover:text-indigo-500"
+          className="flex items-center gap-1 text-sm text-indigo-500 hover:text-indigo-400"
         >
           {showAll ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           {showAll ? 'Show fewer platforms' : `Show all platforms (${secondaryPlatforms.length} more)`}

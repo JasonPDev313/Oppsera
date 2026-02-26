@@ -176,7 +176,7 @@ export default function TipPayoutsContent() {
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => handlePayOut(b)}
-                        className="text-sm font-medium text-indigo-500 hover:text-indigo-500"
+                        className="text-sm font-medium text-indigo-500 hover:text-indigo-400"
                       >
                         Pay Out
                       </button>
@@ -260,7 +260,7 @@ export default function TipPayoutsContent() {
                             {p.glJournalEntryId ? (
                               <a
                                 href={`/accounting/journals?id=${p.glJournalEntryId}`}
-                                className="text-indigo-500 hover:text-indigo-500"
+                                className="text-indigo-500 hover:text-indigo-400"
                               >
                                 View
                               </a>
@@ -271,7 +271,7 @@ export default function TipPayoutsContent() {
                               <button
                                 onClick={() => handleVoid(p.id)}
                                 disabled={mutating}
-                                className="text-sm font-medium text-red-500 hover:text-red-500 disabled:opacity-50"
+                                className="text-sm font-medium text-red-500 hover:text-red-400 disabled:opacity-50"
                               >
                                 Void
                               </button>
@@ -286,7 +286,7 @@ export default function TipPayoutsContent() {
                   <div className="p-4 text-center border-t border-border">
                     <button
                       onClick={loadMore}
-                      className="text-sm font-medium text-indigo-500 hover:text-indigo-500"
+                      className="text-sm font-medium text-indigo-500 hover:text-indigo-400"
                     >
                       Load more
                     </button>

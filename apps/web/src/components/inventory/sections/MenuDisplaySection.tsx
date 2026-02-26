@@ -54,7 +54,7 @@ export function MenuDisplaySection({ metadata, onUpdateMetadata }: MenuDisplaySe
     <CollapsibleSection id="menu-display" title="Menu Display" defaultOpen={false}>
       <div className="space-y-3">
         <div>
-          <label className="mb-2 block text-xs font-medium text-gray-700">
+          <label className="mb-2 block text-xs font-medium text-foreground">
             Button Color
           </label>
           <div className="grid grid-cols-8 gap-2">
@@ -68,7 +68,7 @@ export function MenuDisplaySection({ metadata, onUpdateMetadata }: MenuDisplaySe
                   className={`h-8 w-full rounded-md border-2 transition-all ${
                     isSelected
                       ? 'border-indigo-500 ring-2 ring-indigo-500/20'
-                      : 'border-gray-200 hover:border-gray-400'
+                      : 'border-border hover:border-muted-foreground'
                   }`}
                   style={{ backgroundColor: color.value }}
                   title={color.label}
@@ -82,12 +82,12 @@ export function MenuDisplaySection({ metadata, onUpdateMetadata }: MenuDisplaySe
         {/* Preview */}
         {currentColor && currentColor !== '#FFFFFF' && (
           <div>
-            <p className="mb-1.5 text-xs font-medium text-gray-700">Preview</p>
+            <p className="mb-1.5 text-xs font-medium text-foreground">Preview</p>
             {(() => {
               const textColor = getContrastTextColor(currentColor);
               return (
                 <div
-                  className="flex h-[80px] w-[120px] flex-col overflow-hidden rounded-lg border border-gray-200 shadow-sm"
+                  className="flex h-[80px] w-[120px] flex-col overflow-hidden rounded-lg border border-border shadow-sm"
                   style={{ backgroundColor: currentColor }}
                 >
                   <div className="h-1 w-full bg-indigo-500" />

@@ -225,7 +225,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                   type="button"
                   onClick={handleSearch}
                   disabled={isSearching || !searchQuery.trim()}
-                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                   <Search className="h-4 w-4" />
                   Search
@@ -413,7 +413,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                 type="button"
                 onClick={() => setStep('reason')}
                 disabled={selectedCount === 0}
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 Next ({selectedCount} items)
                 <ChevronRight className="h-4 w-4" />
@@ -424,7 +424,7 @@ export function ReturnDialog({ open, onClose, onComplete }: ReturnDialogProps) {
                 type="button"
                 onClick={() => setStep('confirm')}
                 disabled={!allReasonsProvided}
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 Review
                 <ChevronRight className="h-4 w-4" />

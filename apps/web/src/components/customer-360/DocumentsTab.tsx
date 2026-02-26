@@ -132,7 +132,7 @@ function FileCard({
                 href={`/storage/${file.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+                className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 title="Download"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -141,7 +141,7 @@ function FileCard({
                 type="button"
                 onClick={handleDelete}
                 disabled={isLoading}
-                className="rounded p-1.5 text-muted-foreground hover:bg-red-500/100/10 hover:text-red-500 disabled:opacity-50"
+                className="rounded p-1.5 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50"
                 title="Delete"
               >
                 <Trash2 className="h-3.5 w-3.5" />
@@ -256,7 +256,7 @@ function UploadForm({
         <button
           type="button"
           onClick={() => setIsOpen(false)}
-          className="rounded p-1 text-muted-foreground hover:text-muted-foreground"
+          className="rounded p-1 text-muted-foreground hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
@@ -326,7 +326,7 @@ function UploadForm({
             type="button"
             onClick={handleUpload}
             disabled={!name.trim() || isLoading}
-            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Upload
@@ -353,7 +353,7 @@ export default function DocumentsTab({ customerId }: { customerId: string }) {
         <button
           type="button"
           onClick={() => mutate()}
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <RefreshCw className="h-3 w-3" />
           Refresh
@@ -377,7 +377,7 @@ export default function DocumentsTab({ customerId }: { customerId: string }) {
           <button
             type="button"
             onClick={() => mutate()}
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Retry

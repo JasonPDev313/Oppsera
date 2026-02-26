@@ -58,7 +58,7 @@ function TooltipContent({ evidence }: { evidence: EvidencePayload }) {
       {evidence.conditionDetails.length > 0 && (
         <table className="w-full text-[11px]">
           <thead>
-            <tr className="border-b border-gray-700 text-left text-gray-400">
+            <tr className="border-b border-gray-700 text-left text-muted-foreground">
               <th className="pb-1 pr-2 font-medium">Metric</th>
               <th className="pb-1 pr-2 font-medium">Threshold</th>
               <th className="pb-1 pr-2 font-medium">Actual</th>
@@ -68,8 +68,8 @@ function TooltipContent({ evidence }: { evidence: EvidencePayload }) {
           <tbody>
             {evidence.conditionDetails.map((c, i) => (
               <tr key={i} className="border-b border-gray-800 last:border-0">
-                <td className="py-1 pr-2 text-gray-300">{c.metric}</td>
-                <td className="py-1 pr-2 text-gray-300">
+                <td className="py-1 pr-2 text-muted-foreground">{c.metric}</td>
+                <td className="py-1 pr-2 text-muted-foreground">
                   {formatOperator(c.operator)} {String(c.threshold)}
                 </td>
                 <td className="py-1 pr-2 font-medium text-white">
@@ -89,7 +89,7 @@ function TooltipContent({ evidence }: { evidence: EvidencePayload }) {
       )}
 
       {evidence.evaluatedAt && (
-        <p className="mt-2 text-[10px] text-gray-500">
+        <p className="mt-2 text-[10px] text-muted-foreground">
           Evaluated{' '}
           {new Date(evidence.evaluatedAt).toLocaleDateString(undefined, {
             month: 'short',

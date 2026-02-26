@@ -165,12 +165,12 @@ export function TagManagementContent() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Tag className="h-6 w-6 text-indigo-500" />
-          <h1 className="text-2xl font-semibold text-gray-900">Tag Management</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Tag Management</h1>
         </div>
         <button
           type="button"
           onClick={() => setCreateDialogOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           <Plus className="h-4 w-4" />
           Add Tag
@@ -178,7 +178,7 @@ export function TagManagementContent() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg border border-gray-200 bg-gray-50/50 p-1">
+      <div className="flex gap-1 rounded-lg border border-border bg-muted/50 p-1">
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -186,8 +186,8 @@ export function TagManagementContent() {
             onClick={() => setActiveTab(tab.key)}
             className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? 'bg-surface text-gray-900 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-surface text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {tab.label}
@@ -197,13 +197,13 @@ export function TagManagementContent() {
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search tags by name..."
-          className="w-full rounded-lg border border-gray-300 bg-surface py-2 pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="w-full rounded-lg border border-border bg-surface py-2 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
 
@@ -223,7 +223,7 @@ export function TagManagementContent() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-500" />
-              <h2 className="text-lg font-semibold text-gray-900">Smart Tag Rules</h2>
+              <h2 className="text-lg font-semibold text-foreground">Smart Tag Rules</h2>
             </div>
             <button
               type="button"
@@ -231,7 +231,7 @@ export function TagManagementContent() {
                 setEditRuleId(null);
                 setRuleBuilderOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
             >
               <Settings2 className="h-4 w-4" />
               New Rule
@@ -241,34 +241,34 @@ export function TagManagementContent() {
           {rulesLoading ? (
             <RulesSkeleton />
           ) : rules.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-gray-200 bg-surface py-12">
-              <Sparkles className="h-8 w-8 text-gray-300" />
-              <p className="mt-2 text-sm text-gray-500">No smart tag rules yet</p>
+            <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-12">
+              <Sparkles className="h-8 w-8 text-muted-foreground" />
+              <p className="mt-2 text-sm text-muted-foreground">No smart tag rules yet</p>
               <button
                 type="button"
                 onClick={() => {
                   setEditRuleId(null);
                   setRuleBuilderOpen(true);
                 }}
-                className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                className="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-500"
               >
                 Create your first rule
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <div className="overflow-x-auto rounded-lg border border-border">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50/50">
-                    <th className="px-4 py-3 font-medium text-gray-600">Rule Name</th>
-                    <th className="px-4 py-3 font-medium text-gray-600">Tag</th>
-                    <th className="px-4 py-3 font-medium text-gray-600">Status</th>
-                    <th className="px-4 py-3 font-medium text-gray-600">Last Evaluated</th>
-                    <th className="px-4 py-3 font-medium text-gray-600 text-right">Customers Matched</th>
-                    <th className="px-4 py-3 font-medium text-gray-600 text-right">Actions</th>
+                  <tr className="border-b border-border bg-muted/50">
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Rule Name</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Tag</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground">Last Evaluated</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground text-right">Customers Matched</th>
+                    <th className="px-4 py-3 font-medium text-muted-foreground text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-border">
                   {rules.map((rule) => (
                     <SmartRuleRow
                       key={rule.id}
@@ -331,11 +331,11 @@ function SmartRuleRow({
   isSubmitting: boolean;
 }) {
   return (
-    <tr className="transition-colors hover:bg-gray-50/50">
+    <tr className="transition-colors hover:bg-accent/50">
       <td className="px-4 py-3">
-        <span className="font-medium text-gray-900">{rule.name}</span>
+        <span className="font-medium text-foreground">{rule.name}</span>
         {rule.description && (
-          <p className="mt-0.5 text-xs text-gray-500 line-clamp-1">{rule.description}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-1">{rule.description}</p>
         )}
       </td>
       <td className="px-4 py-3">
@@ -344,7 +344,7 @@ function SmartRuleRow({
             className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
             style={{ backgroundColor: rule.tagColor }}
           />
-          <span className="text-gray-700">{rule.tagName}</span>
+          <span className="text-foreground">{rule.tagName}</span>
         </div>
       </td>
       <td className="px-4 py-3">
@@ -355,7 +355,7 @@ function SmartRuleRow({
           disabled={isSubmitting}
           onClick={() => onToggle(rule)}
           className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-            rule.isActive ? 'bg-indigo-600' : 'bg-gray-200'
+            rule.isActive ? 'bg-indigo-600' : 'bg-muted'
           }`}
         >
           <span
@@ -365,12 +365,12 @@ function SmartRuleRow({
           />
         </button>
       </td>
-      <td className="px-4 py-3 text-gray-500">
+      <td className="px-4 py-3 text-muted-foreground">
         {rule.lastEvaluatedAt
           ? new Date(rule.lastEvaluatedAt).toLocaleString()
           : '\u2014'}
       </td>
-      <td className="px-4 py-3 text-right tabular-nums text-gray-700">
+      <td className="px-4 py-3 text-right tabular-nums text-foreground">
         {rule.customersMatched.toLocaleString()}
       </td>
       <td className="px-4 py-3">
@@ -380,7 +380,7 @@ function SmartRuleRow({
             onClick={() => onEdit(rule)}
             disabled={isSubmitting}
             title="Edit rule"
-            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Settings2 className="h-4 w-4" />
           </button>
@@ -389,7 +389,7 @@ function SmartRuleRow({
             onClick={() => onEvaluate(rule)}
             disabled={isSubmitting}
             title="Evaluate now"
-            className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-green-50 hover:text-green-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-green-500/10 hover:text-green-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Play className="h-4 w-4" />
           </button>
@@ -405,43 +405,43 @@ function SmartRuleRow({
 
 function RulesSkeleton() {
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200">
+    <div className="overflow-hidden rounded-lg border border-border">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50/50">
-            <th className="px-4 py-3 font-medium text-gray-600">Rule Name</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Tag</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Status</th>
-            <th className="px-4 py-3 font-medium text-gray-600">Last Evaluated</th>
-            <th className="px-4 py-3 font-medium text-gray-600 text-right">Customers Matched</th>
-            <th className="px-4 py-3 font-medium text-gray-600 text-right">Actions</th>
+          <tr className="border-b border-border bg-muted/50">
+            <th className="px-4 py-3 font-medium text-muted-foreground">Rule Name</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Tag</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Status</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground">Last Evaluated</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground text-right">Customers Matched</th>
+            <th className="px-4 py-3 font-medium text-muted-foreground text-right">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-border">
           {Array.from({ length: 3 }).map((_, i) => (
             <tr key={i}>
               <td className="px-4 py-3">
-                <div className="h-4 w-36 animate-pulse rounded bg-gray-200" />
+                <div className="h-4 w-36 animate-pulse rounded bg-muted" />
               </td>
               <td className="px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-gray-200" />
-                  <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
+                  <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-muted" />
+                  <div className="h-4 w-20 animate-pulse rounded bg-muted" />
                 </div>
               </td>
               <td className="px-4 py-3">
-                <div className="h-5 w-9 animate-pulse rounded-full bg-gray-200" />
+                <div className="h-5 w-9 animate-pulse rounded-full bg-muted" />
               </td>
               <td className="px-4 py-3">
-                <div className="h-4 w-28 animate-pulse rounded bg-gray-200" />
+                <div className="h-4 w-28 animate-pulse rounded bg-muted" />
               </td>
               <td className="px-4 py-3 text-right">
-                <div className="ml-auto h-4 w-10 animate-pulse rounded bg-gray-200" />
+                <div className="ml-auto h-4 w-10 animate-pulse rounded bg-muted" />
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="ml-auto flex gap-1">
-                  <div className="h-7 w-7 animate-pulse rounded-md bg-gray-200" />
-                  <div className="h-7 w-7 animate-pulse rounded-md bg-gray-200" />
+                  <div className="h-7 w-7 animate-pulse rounded-md bg-muted" />
+                  <div className="h-7 w-7 animate-pulse rounded-md bg-muted" />
                 </div>
               </td>
             </tr>

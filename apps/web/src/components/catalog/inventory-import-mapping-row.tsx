@@ -49,11 +49,11 @@ interface MappingRowProps {
 export function InventoryImportMappingRow({ column, usedTargets, onUpdateMapping }: MappingRowProps) {
   const confidenceColor =
     column.confidence >= 80
-      ? 'bg-green-500/20 text-green-600'
+      ? 'bg-green-500/20 text-green-500'
       : column.confidence >= 50
-        ? 'bg-yellow-500/20 text-yellow-600'
+        ? 'bg-yellow-500/20 text-yellow-500'
         : column.confidence > 0
-          ? 'bg-red-500/20 text-red-600'
+          ? 'bg-red-500/20 text-red-500'
           : 'bg-muted text-muted-foreground';
 
   const isRequired = column.targetField === 'name' || column.targetField === 'defaultPrice';

@@ -39,9 +39,11 @@ interface TenderDialogProps {
   shiftId?: string;
   onPaymentComplete: (result: RecordTenderResult) => void;
   onPartialPayment?: (remaining: number, version: number) => void;
+  /** If the order has no server ID yet, await this to let order creation finish */
+  ensureOrderReady?: () => Promise<Order>;
 }
 
-export function TenderDialog({ open, onClose, order, config, tenderType, shiftId, onPaymentComplete, onPartialPayment }: TenderDialogProps) {
+export function TenderDialog({ open, onClose, order, config, tenderType, shiftId, onPaymentComplete, onPartialPayment, ensureOrderReady }: TenderDialogProps) {
   const { user } = useAuthContext();
   const { toast } = useToast();
   const locationHeaders = { 'X-Location-Id': order.locationId };
@@ -198,7 +200,17 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       toast.error('Select a stored card to charge');
       return;
     }
-    if (!order.id) {
+    let orderId = order.id;
+    if (!orderId && ensureOrderReady) {
+      try {
+        const ready = await ensureOrderReady();
+        orderId = ready.id;
+      } catch {
+        toast.error('Failed to create order — please try again');
+        return;
+      }
+    }
+    if (!orderId) {
       toast.error('Order is still being created — please wait');
       return;
     }
@@ -209,7 +221,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       const body: Record<string, unknown> = {
         clientRequestId: crypto.randomUUID(),
         placeClientRequestId: crypto.randomUUID(),
-        orderId: order.id,
+        orderId: orderId,
         tenderType,
         amountGiven: submitAmountCents,
         tipAmount: tipCents,
@@ -232,7 +244,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       }
 
       const res = await apiFetch<{ data: RecordTenderResult }>(
-        `/api/v1/orders/${order.id}/place-and-pay`,
+        `/api/v1/orders/${orderId}/place-and-pay`,
         {
           method: 'POST',
           headers: locationHeaders,
@@ -280,7 +292,17 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
       toast.error('Amount must be greater than zero');
       return;
     }
-    if (!order.id) {
+    let cardOrderId = order.id;
+    if (!cardOrderId && ensureOrderReady) {
+      try {
+        const ready = await ensureOrderReady();
+        cardOrderId = ready.id;
+      } catch {
+        toast.error('Failed to create order — please try again');
+        return;
+      }
+    }
+    if (!cardOrderId) {
       toast.error('Order is still being created — please wait');
       return;
     }
@@ -303,7 +325,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
             amountCents: submitAmountCents,
             tipCents: tipCents,
             capture: 'Y',
-            orderId: order.id,
+            orderId: cardOrderId,
             ...(surchargeAmountCents > 0 ? { surchargeAmountCents } : {}),
           }),
         },
@@ -319,7 +341,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         const body: Record<string, unknown> = {
           clientRequestId: crypto.randomUUID(),
           placeClientRequestId: crypto.randomUUID(),
-          orderId: order.id,
+          orderId: cardOrderId,
           tenderType: 'card',
           amountGiven: submitAmountCents,
           tipAmount: tipCents,
@@ -334,7 +356,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
         };
 
         const tenderRes = await apiFetch<{ data: RecordTenderResult }>(
-          `/api/v1/orders/${order.id}/place-and-pay`,
+          `/api/v1/orders/${cardOrderId}/place-and-pay`,
           {
             method: 'POST',
             headers: { 'X-Location-Id': order.locationId },
@@ -413,7 +435,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
           </div>
           <h2 className="mt-4 text-xl font-bold text-foreground">Payment Complete</h2>
           {tenderType === 'cash' && lastResult.changeGiven > 0 && (
-            <p className="mt-2 text-2xl font-bold text-green-600">
+            <p className="mt-2 text-2xl font-bold text-green-500">
               Change: {formatMoney(lastResult.changeGiven)}
             </p>
           )}
@@ -425,7 +447,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
   }
 
   const HeaderIcon = tenderType === 'card' ? CreditCard : tenderType === 'check' ? FileText : DollarSign;
-  const headerColor = tenderType === 'card' ? 'text-indigo-600' : tenderType === 'check' ? 'text-blue-600' : 'text-green-600';
+  const headerColor = tenderType === 'card' ? 'text-indigo-600' : tenderType === 'check' ? 'text-blue-500' : 'text-green-500';
 
   return createPortal(
     <div className="fixed inset-0 z-60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="tender-dialog-title">
@@ -452,7 +474,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
             {tenderSummary && tenderSummary.summary.totalTendered > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Already Paid</span>
-                <span className="font-medium text-green-600">{formatMoney(tenderSummary.summary.totalTendered)}</span>
+                <span className="font-medium text-green-500">{formatMoney(tenderSummary.summary.totalTendered)}</span>
               </div>
             )}
             <div className="flex justify-between text-base font-bold border-t border-border pt-2">
@@ -556,7 +578,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                         className={`w-full flex items-center justify-between rounded-lg border px-4 py-3 text-left transition-colors ${
                           selectedPaymentMethodId === method.id
                             ? 'border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-500/20'
-                            : 'border-border bg-surface hover:border-border hover:bg-accent'
+                            : 'border-border bg-surface hover:border-muted-foreground hover:bg-accent'
                         }`}
                       >
                         <div className="flex items-center gap-3">
@@ -707,7 +729,7 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
                       const current = Math.round(parseFloat(prev || '0') * 100);
                       return ((current + cents) / 100).toFixed(2);
                     })}
-                    className="rounded-lg border border-border bg-surface px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:border-border"
+                    className="rounded-lg border border-border bg-surface px-3 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:border-muted-foreground"
                   >
                     +{formatMoney(cents)}
                   </button>
@@ -760,14 +782,14 @@ export function TenderDialog({ open, onClose, order, config, tenderType, shiftId
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-red-500/40 px-4 py-3 text-sm font-medium text-red-600 transition-colors hover:bg-red-500/10"
+            className="flex-1 rounded-lg border border-red-500/40 px-4 py-3 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={() => { setAmountGiven(''); setTipAmount(''); }}
-            className="flex-1 rounded-lg border border-orange-500/40 px-4 py-3 text-sm font-medium text-orange-600 transition-colors hover:bg-orange-500/10"
+            className="flex-1 rounded-lg border border-orange-500/40 px-4 py-3 text-sm font-medium text-orange-500 transition-colors hover:bg-orange-500/10"
           >
             Clear
           </button>

@@ -65,15 +65,15 @@ function PayLandingInner() {
       {/* Header */}
       <div className="px-6 pt-12 pb-6 text-center">
         <div className="text-4xl mb-3">🧾</div>
-        <h1 className="text-xl font-bold text-gray-900">Pay Your Check</h1>
-        <p className="text-sm text-gray-500 mt-2">
+        <h1 className="text-xl font-bold text-foreground">Pay Your Check</h1>
+        <p className="text-sm text-muted-foreground mt-2">
           Enter the 6-character code from your receipt
         </p>
       </div>
 
       {/* Code input form */}
       <form onSubmit={handleSubmit} className="px-6">
-        <label htmlFor="check-code" className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor="check-code" className="block text-sm font-medium text-foreground mb-2">
           Check Code
         </label>
         <input
@@ -86,16 +86,16 @@ function PayLandingInner() {
           value={code}
           onChange={handleInputChange}
           placeholder="A3F7K2"
-          className="w-full text-center text-2xl tracking-[0.3em] font-mono text-gray-900
-                     border border-gray-300 rounded-lg px-4 py-3 bg-white
+          className="w-full text-center text-2xl tracking-[0.3em] font-mono text-foreground
+                     border border-border rounded-lg px-4 py-3 bg-surface
                      focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500
-                     placeholder:text-gray-400 placeholder:tracking-[0.3em]"
+                     placeholder:text-muted-foreground placeholder:tracking-[0.3em]"
           disabled={isLoading}
         />
 
         {error && (
-          <div className="mt-3 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="mt-3 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
+            <p className="text-sm text-red-500">{error}</p>
           </div>
         )}
 
@@ -104,7 +104,7 @@ function PayLandingInner() {
           disabled={isLoading || code.length !== 6}
           className="w-full mt-4 bg-green-600 text-white font-semibold py-3 px-4 rounded-lg
                      hover:bg-green-700 transition-colors
-                     disabled:bg-gray-300 disabled:cursor-not-allowed"
+                     disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
         >
           {isLoading ? (
             <span className="flex items-center justify-center gap-2">
@@ -119,7 +119,7 @@ function PayLandingInner() {
 
       {/* Help text */}
       <div className="px-6 mt-8 text-center">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-muted-foreground">
           The code is printed on your receipt below the QR code.
           <br />
           Ask your server if you need help.
@@ -128,7 +128,7 @@ function PayLandingInner() {
 
       {/* Footer */}
       <div className="mt-auto px-6 pb-6 text-center">
-        <p className="text-xs text-gray-400">Powered by OppsEra</p>
+        <p className="text-xs text-muted-foreground">Powered by OppsEra</p>
       </div>
     </div>
   );

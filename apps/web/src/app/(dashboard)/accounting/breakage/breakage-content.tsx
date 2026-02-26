@@ -95,7 +95,7 @@ function ReviewDialog({
             type="button"
             onClick={() => handleAction('approve')}
             disabled={isSubmitting}
-            className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             Approve
           </button>

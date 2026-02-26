@@ -99,7 +99,7 @@ export function CorrelationChart({ correlations, className }: CorrelationChartPr
           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
             strongOnly
               ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:bg-gray-200/50 hover:text-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
           }`}
         >
           <Filter className="h-3 w-3" />

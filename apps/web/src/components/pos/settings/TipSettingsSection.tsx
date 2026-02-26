@@ -36,20 +36,20 @@ function EditableChip({
   isLast: boolean;
 }) {
   return (
-    <div className="group flex items-center gap-1 rounded-lg bg-indigo-100 px-3 py-1.5 text-sm font-medium text-indigo-700">
+    <div className="group flex items-center gap-1 rounded-lg bg-indigo-500/10 px-3 py-1.5 text-sm font-medium text-indigo-500">
       <span>{label}</span>
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!isFirst && onMoveUp && (
-          <button type="button" onClick={onMoveUp} className="rounded p-0.5 hover:bg-indigo-200">
+          <button type="button" onClick={onMoveUp} className="rounded p-0.5 hover:bg-indigo-500/20">
             <ChevronUp className="h-3 w-3" />
           </button>
         )}
         {!isLast && onMoveDown && (
-          <button type="button" onClick={onMoveDown} className="rounded p-0.5 hover:bg-indigo-200">
+          <button type="button" onClick={onMoveDown} className="rounded p-0.5 hover:bg-indigo-500/20">
             <ChevronDown className="h-3 w-3" />
           </button>
         )}
-        <button type="button" onClick={onRemove} className="rounded p-0.5 hover:bg-red-200 hover:text-red-600">
+        <button type="button" onClick={onRemove} className="rounded p-0.5 hover:bg-red-500/10 hover:text-red-500">
           <X className="h-3 w-3" />
         </button>
       </div>
@@ -138,10 +138,10 @@ export const TipSettingsSection = memo(function TipSettingsSection({
   return (
     <details className="group" open>
       <summary className="flex cursor-pointer items-center gap-3 py-3 select-none">
-        <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
         <div>
-          <h4 className="text-sm font-semibold text-gray-900">Tips</h4>
-          <p className="text-xs text-gray-500">Configure tip prompts shown during payment</p>
+          <h4 className="text-sm font-semibold text-foreground">Tips</h4>
+          <p className="text-xs text-muted-foreground">Configure tip prompts shown during payment</p>
         </div>
       </summary>
 
@@ -152,16 +152,16 @@ export const TipSettingsSection = memo(function TipSettingsSection({
             type="checkbox"
             checked={tipEnabled}
             onChange={handleToggleEnabled}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
           />
-          <span className="text-sm text-gray-700">Enable tip prompts on payment</span>
+          <span className="text-sm text-foreground">Enable tip prompts on payment</span>
         </label>
 
         {tipEnabled && (
           <>
             {/* Percentage presets */}
             <div>
-              <label className="mb-2 block text-xs font-medium text-gray-600">Percentage Presets</label>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">Percentage Presets</label>
               <div className="flex flex-wrap gap-2">
                 {settings.percentageOptions.map((pct, i) => (
                   <EditableChip
@@ -186,16 +186,16 @@ export const TipSettingsSection = memo(function TipSettingsSection({
                         if (e.key === 'Escape') setAddingPercent(false);
                       }}
                       placeholder="e.g. 22"
-                      className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-16 rounded-md border border-border px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       autoFocus
                     />
-                    <span className="text-xs text-gray-500">%</span>
+                    <span className="text-xs text-muted-foreground">%</span>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => setAddingPercent(true)}
-                    className="flex items-center gap-1 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:border-indigo-400 hover:text-indigo-600"
+                    className="flex items-center gap-1 rounded-lg border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-indigo-400 hover:text-indigo-600"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -205,7 +205,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
 
             {/* Dollar amounts */}
             <div>
-              <label className="mb-2 block text-xs font-medium text-gray-600">Dollar Amounts</label>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">Dollar Amounts</label>
               <div className="flex flex-wrap gap-2">
                 {settings.dollarAmounts.map((amt, i) => (
                   <EditableChip
@@ -219,7 +219,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
                 ))}
                 {addingDollar ? (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-500">$</span>
+                    <span className="text-xs text-muted-foreground">$</span>
                     <input
                       type="number"
                       value={newDollarValue}
@@ -229,7 +229,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
                         if (e.key === 'Escape') setAddingDollar(false);
                       }}
                       placeholder="e.g. 5"
-                      className="w-16 rounded-md border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="w-16 rounded-md border border-border px-2 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       autoFocus
                     />
                   </div>
@@ -237,7 +237,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
                   <button
                     type="button"
                     onClick={() => setAddingDollar(true)}
-                    className="flex items-center gap-1 rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-500 transition-colors hover:border-indigo-400 hover:text-indigo-600"
+                    className="flex items-center gap-1 rounded-lg border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:border-indigo-400 hover:text-indigo-600"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -251,14 +251,14 @@ export const TipSettingsSection = memo(function TipSettingsSection({
                 type="checkbox"
                 checked={settings.calculateBeforeTax}
                 onChange={() => updateSettings({ calculateBeforeTax: !settings.calculateBeforeTax })}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
-              <span className="text-sm text-gray-700">Calculate tip on pre-tax amount</span>
+              <span className="text-sm text-foreground">Calculate tip on pre-tax amount</span>
             </label>
 
             {/* Default selection */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">Default Selection</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Default Selection</label>
               <select
                 value={settings.defaultSelectionIndex ?? ''}
                 onChange={(e) =>
@@ -266,7 +266,7 @@ export const TipSettingsSection = memo(function TipSettingsSection({
                     defaultSelectionIndex: e.target.value === '' ? null : parseInt(e.target.value, 10),
                   })
                 }
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="rounded-md border border-border px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               >
                 <option value="">None (customer chooses)</option>
                 {settings.percentageOptions.map((pct, i) => (
@@ -278,14 +278,14 @@ export const TipSettingsSection = memo(function TipSettingsSection({
             </div>
 
             {/* Auto-gratuity — future */}
-            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 opacity-60">
+            <div className="rounded-lg border border-border bg-muted p-3 opacity-60">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-600">Auto-Gratuity</span>
-                <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                <span className="text-sm font-medium text-muted-foreground">Auto-Gratuity</span>
+                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500">
                   Coming Soon
                 </span>
               </div>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="mt-1 text-xs text-muted-foreground">
                 Automatically add gratuity for parties of 6 or more
               </p>
             </div>

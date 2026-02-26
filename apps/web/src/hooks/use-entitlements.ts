@@ -35,7 +35,7 @@ export function useEntitlements() {
   const [entitlements, setEntitlements] = useState<Map<string, EntitlementInfo>>(cached?.entitlements ?? new Map());
   const [isLoading, setIsLoading] = useState(!cached);
 
-  const fetchEntitlements = useCallback(async () => {
+  const fetchEntitlements = useCallback(async (skipCache = false) => {
     if (!isAuthenticated) {
       setEntitlements(new Map());
       _entCache = null;
@@ -44,7 +44,7 @@ export function useEntitlements() {
     }
 
     // Return cached data if still fresh (avoids refetch on re-mount)
-    if (_entCache && (Date.now() - _entCache.ts) < ENT_CACHE_TTL) {
+    if (!skipCache && _entCache && (Date.now() - _entCache.ts) < ENT_CACHE_TTL) {
       setEntitlements(_entCache.entitlements);
       setIsLoading(false);
       return;
@@ -104,6 +104,6 @@ export function useEntitlements() {
     getAccessMode,
     getLimit,
     isLoading,
-    refetch: fetchEntitlements,
+    refetch: () => fetchEntitlements(true),
   };
 }

@@ -227,7 +227,7 @@ export function ScheduledReportsPanel({
                       <span>Last: {formatDateTime(schedule.lastDeliveredAt)}</span>
                     )}
                     {schedule.nextDeliveryAt && schedule.isActive && (
-                      <span className={overdue ? 'text-amber-600 font-medium' : ''}>
+                      <span className={overdue ? 'text-amber-500 font-medium' : ''}>
                         Next: {getCountdown(schedule.nextDeliveryAt)}
                       </span>
                     )}
@@ -241,7 +241,7 @@ export function ScheduledReportsPanel({
                     type="button"
                     onClick={() => onToggle(schedule.id, !schedule.isActive)}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      schedule.isActive ? 'bg-emerald-500' : 'bg-gray-300'
+                      schedule.isActive ? 'bg-emerald-500' : 'bg-muted'
                     }`}
                     title={schedule.isActive ? 'Pause' : 'Activate'}
                   >

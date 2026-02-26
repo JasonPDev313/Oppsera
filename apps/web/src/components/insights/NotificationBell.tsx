@@ -248,7 +248,7 @@ const NotificationPanel = forwardRef<HTMLDivElement, NotificationPanelProps>(
             <button
               type="button"
               onClick={onMarkAllRead}
-              className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+              className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-500 font-medium transition-colors"
             >
               <Check className="h-3 w-3" />
               Mark all read

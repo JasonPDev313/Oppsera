@@ -3,7 +3,6 @@ import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { AppError } from '@oppsera/shared';
 import { getModifierPerformance } from '@oppsera/module-reporting';
-import { parseLimit } from '@/lib/api-params';
 
 export const GET = withMiddleware(
   async (request: NextRequest, ctx) => {
@@ -24,7 +23,7 @@ export const GET = withMiddleware(
       catalogItemId: url.searchParams.get('catalogItemId') ?? undefined,
       sortBy: (url.searchParams.get('sortBy') as any) ?? undefined,
       sortDir: (url.searchParams.get('sortDir') as any) ?? undefined,
-      limit: parseLimit(url.searchParams.get('limit')),
+      limit: Math.min(parseInt(url.searchParams.get('limit') || '') || 50, 100),
     });
 
     return NextResponse.json({ data: rows });

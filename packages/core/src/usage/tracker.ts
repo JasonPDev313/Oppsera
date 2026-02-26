@@ -42,6 +42,8 @@ let buffer = new Map<string, BucketData>();
 
 const FLUSH_INTERVAL_MS = 30_000;
 const MAX_BUFFER_SIZE = 5_000;
+const MAX_UNIQUE_USERS_PER_BUCKET = 500;
+const MAX_WORKFLOWS_PER_BUCKET = 200;
 
 function getHourBucket(ts: number): string {
   const d = new Date(ts);
@@ -101,7 +103,9 @@ export function recordUsage(event: UsageEvent): void {
   if (isError(event.statusCode)) {
     bucket.errorCount++;
   }
-  bucket.uniqueUsers.add(event.userId);
+  if (bucket.uniqueUsers.size < MAX_UNIQUE_USERS_PER_BUCKET) {
+    bucket.uniqueUsers.add(event.userId);
+  }
   bucket.totalDurationMs += event.durationMs;
   bucket.maxDurationMs = Math.max(bucket.maxDurationMs, event.durationMs);
 
@@ -109,12 +113,20 @@ export function recordUsage(event: UsageEvent): void {
   if (event.workflowKey) {
     let wf = bucket.workflows.get(event.workflowKey);
     if (!wf) {
-      wf = { requestCount: 0, errorCount: 0, uniqueUsers: new Set() };
-      bucket.workflows.set(event.workflowKey, wf);
+      if (bucket.workflows.size >= MAX_WORKFLOWS_PER_BUCKET) {
+        // Skip tracking new workflows once cap is hit — existing ones still increment
+      } else {
+        wf = { requestCount: 0, errorCount: 0, uniqueUsers: new Set() };
+        bucket.workflows.set(event.workflowKey, wf);
+      }
     }
-    wf.requestCount++;
-    if (isError(event.statusCode)) wf.errorCount++;
-    wf.uniqueUsers.add(event.userId);
+    if (wf) {
+      wf.requestCount++;
+      if (isError(event.statusCode)) wf.errorCount++;
+      if (wf.uniqueUsers.size < MAX_UNIQUE_USERS_PER_BUCKET) {
+        wf.uniqueUsers.add(event.userId);
+      }
+    }
   }
 
   // Overflow trigger
@@ -289,7 +301,12 @@ async function flushToDb(snapshot: Map<string, BucketData>): Promise<void> {
     const adopt = adoptionMap.get(adoptionKey);
     if (adopt) {
       adopt.requests += data.requestCount;
-      for (const u of data.uniqueUsers) adopt.users.add(u);
+      if (adopt.users.size < MAX_UNIQUE_USERS_PER_BUCKET) {
+        for (const u of data.uniqueUsers) {
+          if (adopt.users.size >= MAX_UNIQUE_USERS_PER_BUCKET) break;
+          adopt.users.add(u);
+        }
+      }
       adopt.timestamp = Math.max(adopt.timestamp, new Date(hourBucket).getTime());
       adopt.dates.add(usageDate);
     } else {

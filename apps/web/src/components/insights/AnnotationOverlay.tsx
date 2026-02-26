@@ -179,7 +179,7 @@ export function AnnotationOverlay({
                 <button
                   type="button"
                   onClick={() => handleAddClick(date)}
-                  className="p-0.5 rounded text-muted-foreground/30 hover:text-primary hover:bg-gray-200/50 transition-colors"
+                  className="p-0.5 rounded text-muted-foreground/30 hover:text-primary hover:bg-accent/50 transition-colors"
                   title={`Add annotation at ${formatDateShort(date)}`}
                 >
                   <Plus className="h-3 w-3" />

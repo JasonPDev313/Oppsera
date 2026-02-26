@@ -138,7 +138,7 @@ export function TierEvaluationSection({
           type="button"
           onClick={handleEvaluate}
           disabled={isEvaluating}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isEvaluating ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -182,7 +182,7 @@ export function TierEvaluationSection({
                 <button
                   type="button"
                   onClick={() => onRequestChange(evaluation)}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
                 >
                   Change Tier
                   <ArrowRight className="h-4 w-4" />

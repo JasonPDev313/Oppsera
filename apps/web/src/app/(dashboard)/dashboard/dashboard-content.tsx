@@ -201,7 +201,7 @@ export default function DashboardContent() {
           <h1 className="text-2xl font-bold text-foreground">
             {greeting}, {user?.name?.split(' ')[0] ?? 'there'}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             {tenant?.name} &middot; {primaryLocation?.name ?? 'No location'} &middot; {formatDate(new Date())}
           </p>
         </div>
@@ -209,7 +209,7 @@ export default function DashboardContent() {
           type="button"
           onClick={handleRefresh}
           disabled={isLoading}
-          className="inline-flex items-center gap-2 self-start rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="inline-flex items-center gap-2 self-start rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
           Refresh
@@ -273,7 +273,7 @@ export default function DashboardContent() {
                 <h2 className="text-sm font-semibold text-foreground">Recent Orders</h2>
                 <Link
                   href="/orders"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-indigo-500 hover:text-indigo-500"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-indigo-500 hover:text-indigo-400"
                 >
                   View all <ArrowRight className="h-3 w-3" aria-hidden="true" />
                 </Link>
@@ -281,10 +281,10 @@ export default function DashboardContent() {
               <div className="divide-y divide-border">
                 {ordersLoading && recentOrders.length === 0 ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
                 ) : recentOrders.length === 0 ? (
-                  <div className="px-6 py-8 text-center text-sm text-gray-400">
+                  <div className="px-6 py-8 text-center text-sm text-muted-foreground">
                     No orders yet
                   </div>
                 ) : (
@@ -296,11 +296,11 @@ export default function DashboardContent() {
                     >
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-                          <ShoppingCart className="h-4 w-4 text-gray-500" aria-hidden="true" />
+                          <ShoppingCart className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         </div>
                         <div>
                           <p className="text-sm font-medium text-foreground">#{order.orderNumber}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             {order.customerId && ' · Customer attached'}
                           </p>
@@ -332,10 +332,10 @@ export default function DashboardContent() {
                   value={notes}
                   onChange={(e) => handleNotesChange(e.target.value)}
                   placeholder="Quick notes, reminders, daily specials..."
-                  className="w-full resize-none rounded-lg border border-border bg-transparent p-3 text-sm text-foreground placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                  className="w-full resize-none rounded-lg border border-border bg-transparent p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                   rows={5}
                 />
-                <p className="mt-1 text-right text-xs text-gray-400">Auto-saved locally</p>
+                <p className="mt-1 text-right text-xs text-muted-foreground">Auto-saved locally</p>
               </div>
             </div>
           )}
@@ -350,7 +350,7 @@ export default function DashboardContent() {
                 </div>
                 <Link
                   href="/catalog"
-                  className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
+                  className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
                 >
                   View all
                 </Link>
@@ -364,14 +364,14 @@ export default function DashboardContent() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">{item.name}</p>
-                        {item.sku && <p className="text-xs text-gray-500">{item.sku}</p>}
+                        {item.sku && <p className="text-xs text-muted-foreground">{item.sku}</p>}
                       </div>
                     </div>
                     <div className="text-right">
                       <p className={`text-sm font-semibold ${item.onHand <= 0 ? 'text-red-500' : 'text-amber-500'}`}>
                         {item.onHand}
                       </p>
-                      <p className="text-xs text-gray-400">on hand</p>
+                      <p className="text-xs text-muted-foreground">on hand</p>
                     </div>
                   </div>
                 ))}
@@ -382,7 +382,7 @@ export default function DashboardContent() {
       </div>
 
       {/* Footer */}
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-muted-foreground">
         <Clock className="mr-1 inline h-3 w-3" aria-hidden="true" />
         Last refreshed {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
@@ -414,13 +414,13 @@ function MetricCard({
           <Icon className="h-5 w-5" aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-gray-500">{label}</p>
+          <p className="text-sm font-medium text-muted-foreground">{label}</p>
           {value === null ? (
-            <div className="mt-1 h-7 w-20 animate-pulse rounded bg-gray-200" />
+            <div className="mt-1 h-7 w-20 animate-pulse rounded bg-muted" />
           ) : (
             <p className="truncate text-2xl font-bold text-foreground">{value}</p>
           )}
-          {trend && <p className="mt-0.5 text-xs text-gray-400">{trend}</p>}
+          {trend && <p className="mt-0.5 text-xs text-muted-foreground">{trend}</p>}
         </div>
       </div>
     </div>
@@ -527,7 +527,7 @@ function OrderStatusBadge({ status }: { status: string }) {
     paid: { label: 'Paid', classes: 'bg-green-500/20 text-green-500' },
     voided: { label: 'Voided', classes: 'bg-red-500/20 text-red-500' },
   };
-  const c = config[status] ?? { label: status, classes: 'bg-muted text-gray-600' };
+  const c = config[status] ?? { label: status, classes: 'bg-muted text-muted-foreground' };
   return (
     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.classes}`}>
       {c.label}

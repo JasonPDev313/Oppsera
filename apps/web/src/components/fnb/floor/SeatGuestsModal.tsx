@@ -93,7 +93,7 @@ export function SeatGuestsModal({ open, onClose, tableNumber, tableCapacity, onC
           <button
             type="button"
             onClick={() => { onConfirm(partySize); onClose(); }}
-            className="flex-1 rounded-lg py-3 text-sm font-bold text-white transition-colors bg-indigo-600 hover:bg-indigo-700"
+            className="flex-1 rounded-lg py-3 text-sm font-bold text-white transition-colors bg-indigo-600 hover:bg-indigo-500"
           >
             Seat {partySize} Guests
           </button>

@@ -24,7 +24,7 @@ export function AccountingEmptyState({
   onAction,
 }: AccountingEmptyStateProps) {
   const btnClass =
-    'mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none';
+    'mt-4 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none';
 
   const resolvedLabel = action?.label ?? actionLabel;
   const resolvedOnClick = action?.onClick ?? onAction;

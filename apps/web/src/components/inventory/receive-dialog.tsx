@@ -92,8 +92,8 @@ export function ReceiveDialog({ open, onClose, inventoryItemId, onSuccess }: Rec
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900">Receive Stock</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <h3 className="text-lg font-semibold text-foreground">Receive Stock</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
           Record incoming inventory for this item.
         </p>
 
@@ -106,7 +106,7 @@ export function ReceiveDialog({ open, onClose, inventoryItemId, onSuccess }: Rec
               placeholder="0"
               min="0"
               step="any"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -118,7 +118,7 @@ export function ReceiveDialog({ open, onClose, inventoryItemId, onSuccess }: Rec
               placeholder="0.00"
               min="0"
               step="0.01"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -128,7 +128,7 @@ export function ReceiveDialog({ open, onClose, inventoryItemId, onSuccess }: Rec
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Purchase order #1234"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -137,7 +137,7 @@ export function ReceiveDialog({ open, onClose, inventoryItemId, onSuccess }: Rec
               type="date"
               value={businessDate}
               onChange={(e) => setBusinessDate(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
         </div>
@@ -147,7 +147,7 @@ export function ReceiveDialog({ open, onClose, inventoryItemId, onSuccess }: Rec
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Cancel
           </button>
@@ -155,7 +155,7 @@ export function ReceiveDialog({ open, onClose, inventoryItemId, onSuccess }: Rec
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >

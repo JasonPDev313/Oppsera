@@ -72,7 +72,7 @@ export function ManagerPinModal({ open, onClose, onVerify, error, title = 'Manag
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent/50"
           >
             <X className="h-4 w-4" />
           </button>
@@ -83,7 +83,7 @@ export function ManagerPinModal({ open, onClose, onVerify, error, title = 'Manag
           {[0, 1, 2, 3].map((i) => (
             <div
               key={i}
-              className={`h-4 w-4 rounded-full border-2 border-gray-300/50 ${
+              className={`h-4 w-4 rounded-full border-2 border-border/50 ${
                 i < pin.length ? 'bg-indigo-600' : 'bg-transparent'
               }`}
             />
@@ -119,7 +119,7 @@ export function ManagerPinModal({ open, onClose, onVerify, error, title = 'Manag
               }}
               disabled={!key || isVerifying}
               className={`flex h-12 items-center justify-center rounded-lg text-lg font-bold transition-colors disabled:opacity-20 ${
-                key ? 'bg-gray-100/80 hover:bg-gray-200/80' : ''
+                key ? 'bg-muted/80 hover:bg-accent/80' : ''
               }`}
             >
               {key === 'del' ? '⌫' : key}
@@ -132,7 +132,7 @@ export function ManagerPinModal({ open, onClose, onVerify, error, title = 'Manag
           type="button"
           onClick={handleSubmit}
           disabled={pin.length < 4 || isVerifying}
-          className="w-full rounded-lg bg-indigo-600 py-3 text-sm font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-40"
+          className="w-full rounded-lg bg-indigo-600 py-3 text-sm font-bold text-white transition-colors hover:bg-indigo-500 disabled:opacity-40"
         >
           {isVerifying ? 'Verifying...' : 'Confirm'}
         </button>

@@ -31,7 +31,7 @@ export function ReconciliationComparison({ data }: ReconciliationComparisonProps
       }`}>
         {data.isBalanced ? (
           <>
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
+            <CheckCircle2 className="h-5 w-5 text-green-500" />
             <div>
               <p className="text-sm font-medium text-green-500">Balanced</p>
               <p className="text-xs text-green-500/80">
@@ -41,7 +41,7 @@ export function ReconciliationComparison({ data }: ReconciliationComparisonProps
           </>
         ) : (
           <>
-            <AlertTriangle className="h-5 w-5 text-yellow-600" />
+            <AlertTriangle className="h-5 w-5 text-yellow-500" />
             <div>
               <p className="text-sm font-medium text-yellow-500">
                 Differences Detected

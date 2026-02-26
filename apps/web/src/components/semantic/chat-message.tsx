@@ -51,6 +51,15 @@ function formatInline(text: string): React.ReactNode {
 
 // ── QueryResultTable ──────────────────────────────────────────────
 
+function formatCellValue(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'object') {
+    // Flatten nested objects/arrays for display instead of [object Object]
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
 function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[]; rowCount: number }) {
   const [expanded, setExpanded] = useState(false);
   const visibleRows = expanded ? rows : rows.slice(0, 5);
@@ -61,7 +70,24 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
     );
   }
 
-  const columns = Object.keys(rows[0]!);
+  // Flatten nested object columns — if a row has { data: { total: 100, count: 5 } },
+  // expand into { data_total: 100, data_count: 5 } for readable table display.
+  const flattenedRows = visibleRows.map((row) => {
+    const flat: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(row)) {
+      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+        // Expand nested object into prefixed columns
+        for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
+          flat[`${key}_${subKey}`] = subValue;
+        }
+      } else {
+        flat[key] = value;
+      }
+    }
+    return flat;
+  });
+
+  const columns = Object.keys(flattenedRows[0]!);
 
   return (
     <div className="mt-2">
@@ -80,11 +106,11 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {visibleRows.map((row, i) => (
+            {flattenedRows.map((row, i) => (
               <tr key={i} className="hover:bg-accent">
                 {columns.map((col) => (
                   <td key={col} className="px-3 py-2 text-foreground whitespace-nowrap">
-                    {String(row[col] ?? '')}
+                    {formatCellValue(row[col])}
                   </td>
                 ))}
               </tr>
@@ -469,6 +495,22 @@ export function ChatMessageBubble({ message, showDebug = false, onFollowUpSelect
             <div className="prose prose-sm max-w-none text-card-foreground">
               {renderMarkdown(message.content)}
             </div>
+
+            {/* Clarification option buttons — clickable guided responses */}
+            {message.isClarification && message.clarificationOptions && message.clarificationOptions.length > 0 && onFollowUpSelect && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {message.clarificationOptions.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => onFollowUpSelect(option)}
+                    className="text-left px-3 py-2.5 text-sm bg-surface border border-border rounded-xl hover:border-primary/50 hover:bg-accent transition-colors text-foreground"
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Inline chart (if chart config returned) */}
             {message.chartConfig && message.rows && message.rows.length > 0 && (

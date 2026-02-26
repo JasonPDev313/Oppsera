@@ -9,6 +9,23 @@ import { chargeMemberAccount, chargeMemberAccountSchema } from '@oppsera/module-
 import { recordArTransaction } from '@oppsera/module-customers';
 import { getSessionInternalByToken } from '@/lib/guest-pay-member-lookup';
 
+// Simple in-memory rate limiter for member-charge endpoint
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const MAX_REQUESTS = 10;
+const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= MAX_REQUESTS) return false;
+  entry.count++;
+  return true;
+}
+
 /**
  * Build a synthetic RequestContext for guest pay AR transactions.
  * Guests have no auth session, so we create a system-level context.
@@ -38,6 +55,15 @@ function buildGuestPayCtx(tenantId: string, locationId?: string): RequestContext
  */
 export const POST = withMiddleware(
   async (request: NextRequest) => {
+    // Rate limit by IP
+    const ip = request.headers.get('x-forwarded-for') ?? request.headers.get('x-real-ip') ?? 'unknown';
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { error: { code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment and try again.' } },
+        { status: 429 },
+      );
+    }
+
     const url = new URL(request.url);
     const segments = url.pathname.split('/');
     const token = segments[segments.length - 2]!; // before /member-charge
@@ -51,23 +77,13 @@ export const POST = withMiddleware(
       );
     }
 
-    // Get session
+    // Get session — use consistent 404 for ALL invalid/expired/inactive sessions
+    // to prevent token enumeration attacks
     const session = await getSessionInternalByToken(token);
-    if (!session || session.status !== 'active') {
-      const statusMap: Record<string, number> = {
-        SESSION_NOT_FOUND: 404,
-        expired: 410,
-      };
+    if (!session || session.status !== 'active' || session.expiresAt <= new Date()) {
       return NextResponse.json(
-        { error: { code: 'SESSION_NOT_ACTIVE', message: 'Session not found or not active' } },
-        { status: session ? (statusMap[session.status] ?? 409) : 404 },
-      );
-    }
-
-    if (session.expiresAt <= new Date()) {
-      return NextResponse.json(
-        { error: { code: 'SESSION_EXPIRED', message: 'Session has expired' } },
-        { status: 410 },
+        { error: { code: 'SESSION_NOT_FOUND', message: 'Payment session not found' } },
+        { status: 404 },
       );
     }
 

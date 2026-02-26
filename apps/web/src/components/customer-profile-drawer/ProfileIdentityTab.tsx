@@ -103,7 +103,7 @@ export function ProfileIdentityTab({ customerId }: ProfileIdentityTabProps) {
     );
   }
 
-  const { customer, contacts, identifiers, externalIds } = data;
+  const { customer, contacts = [], identifiers = [], externalIds = [] } = data;
 
   const emailContacts = contacts.filter((c) => c.contactType === 'email');
   const phoneContacts = contacts.filter((c) => c.contactType === 'phone');
@@ -360,11 +360,11 @@ function ContactGroup({
               {contact.isVerified ? (
                 <CheckCircle className="h-4 w-4 text-green-500" />
               ) : (
-                <XCircle className="h-4 w-4 text-gray-300" />
+                <XCircle className="h-4 w-4 text-muted-foreground" />
               )}
               <button
                 type="button"
-                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <Edit2 className="h-3.5 w-3.5" />
               </button>

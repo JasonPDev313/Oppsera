@@ -102,8 +102,8 @@ function ReconciliationCard({
     <div
       className={`rounded-lg border p-6 ${
         result.isReconciled
-          ? 'border-green-500/30 bg-green-500/10/50'
-          : 'border-red-500/30 bg-red-500/10/50'
+          ? 'border-green-500/30 bg-green-500/10'
+          : 'border-red-500/30 bg-red-500/10'
       }`}
     >
       <div className="flex items-center justify-between">

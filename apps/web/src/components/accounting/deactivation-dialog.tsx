@@ -74,7 +74,7 @@ export function DeactivationDialog({ open, onClose, account, onSuccess }: Deacti
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>

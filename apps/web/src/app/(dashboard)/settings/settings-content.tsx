@@ -114,7 +114,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -153,7 +153,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
               <button
                 type="button"
                 onClick={() => setShowComparison(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
               >
                 Compare {compareSelection.size} Roles
               </button>
@@ -163,7 +163,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
               <button
                 type="button"
                 onClick={() => setEditorMode('create')}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
               >
                 <Plus className="h-4 w-4" />
                 Create Role
@@ -219,7 +219,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                   <tr
                     key={role.id}
                     onClick={() => compareMode ? handleToggleCompare(role.id) : handleSelectRole(role.id)}
-                    className={`cursor-pointer hover:bg-muted ${
+                    className={`cursor-pointer hover:bg-accent ${
                       compareSelection.has(role.id) ? 'bg-indigo-500/10' : ''
                     }`}
                   >
@@ -272,7 +272,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                         <button
                           type="button"
                           onClick={() => setActionsOpenId(isActionsOpen ? null : role.id)}
-                          className="rounded p-1 text-gray-400 hover:bg-accent hover:text-foreground"
+                          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
@@ -288,7 +288,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                                     setActionsOpenId(null);
                                     handleEdit(role.id);
                                   }}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
                                 >
                                   <Check className="h-3.5 w-3.5" />
                                   Edit
@@ -300,7 +300,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                                   setActionsOpenId(null);
                                   handleDuplicate(role.id);
                                 }}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted"
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-accent"
                               >
                                 <Copy className="h-3.5 w-3.5" />
                                 Duplicate
@@ -380,7 +380,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                 </button>
               )}
               <button type="button" onClick={() => setSelectedRole(null)}>
-                <X className="h-4 w-4 text-gray-400" />
+                <X className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
           </div>
@@ -407,7 +407,7 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                         <span className="inline-block h-3 w-3 rounded-full border-2 border-amber-400" />
                       )}
                       <span className="text-xs font-semibold text-foreground">{group.label}</span>
-                      <span className="text-xs text-gray-400">{active.length}/{allPerms.length}</span>
+                      <span className="text-xs text-muted-foreground">{active.length}/{allPerms.length}</span>
                     </div>
                     {!isFullGroup && (
                       <div className="ml-5 mt-0.5 flex flex-wrap gap-1">
@@ -461,11 +461,11 @@ export function RolesTab({ canManage }: { canManage: boolean }) {
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-foreground">{user.name}</span>
-                  <span className="text-xs text-gray-400">{user.email}</span>
+                  <span className="text-xs text-muted-foreground">{user.email}</span>
                 </div>
               ))}
               {selectedRole.assignedUsers.length === 0 && (
-                <p className="text-xs text-gray-400">No users assigned</p>
+                <p className="text-xs text-muted-foreground">No users assigned</p>
               )}
             </div>
           </div>
@@ -560,17 +560,17 @@ function RoleAccessSection({
       </div>
 
       {isLoading ? (
-        <div className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
           Loading...
         </div>
       ) : !access ? (
-        <p className="mt-2 text-xs text-gray-400">Unable to load access config</p>
+        <p className="mt-2 text-xs text-muted-foreground">Unable to load access config</p>
       ) : (
         <div className="mt-2 space-y-2">
           {/* Locations */}
           <div className="flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 text-gray-400" />
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs text-foreground">
               {access.locationIds.length === 0 ? (
                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500">
@@ -585,7 +585,7 @@ function RoleAccessSection({
           </div>
           {/* Profit Centers */}
           <div className="flex items-center gap-2">
-            <Store className="h-3.5 w-3.5 text-gray-400" />
+            <Store className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs text-foreground">
               {access.profitCenterIds.length === 0 ? (
                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500">
@@ -600,7 +600,7 @@ function RoleAccessSection({
           </div>
           {/* Terminals */}
           <div className="flex items-center gap-2">
-            <Monitor className="h-3.5 w-3.5 text-gray-400" />
+            <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs text-foreground">
               {access.terminalIds.length === 0 ? (
                 <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500">
@@ -703,7 +703,7 @@ function ModuleActions({
         type="button"
         onClick={() => onEnable(mod.key)}
         disabled={enablingModule === mod.key}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
       >
         {enablingModule === mod.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
         Enable
@@ -716,7 +716,7 @@ function ModuleActions({
         type="button"
         onClick={() => onToggle(mod.key, true)}
         disabled={togglingModule === mod.key}
-        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
       >
         {togglingModule === mod.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
         Enable
@@ -729,7 +729,7 @@ function ModuleActions({
         type="button"
         onClick={() => onToggle(mod.key, false)}
         disabled={togglingModule === mod.key}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/100/10 disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/40 bg-surface px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10 disabled:opacity-50"
       >
         {togglingModule === mod.key ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
         Disable
@@ -793,7 +793,7 @@ export function ModulesTab() {
           <button
             type="button"
             onClick={() => setViewMode('grid')}
-            className={`rounded-md p-1.5 ${viewMode === 'grid' ? 'bg-gray-200/70 text-foreground' : 'text-gray-400 hover:text-foreground'}`}
+            className={`rounded-md p-1.5 ${viewMode === 'grid' ? 'bg-muted/70 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             title="Grid view"
           >
             <Grid3X3 className="h-4 w-4" />
@@ -801,7 +801,7 @@ export function ModulesTab() {
           <button
             type="button"
             onClick={() => setViewMode('list')}
-            className={`rounded-md p-1.5 ${viewMode === 'list' ? 'bg-gray-200/70 text-foreground' : 'text-gray-400 hover:text-foreground'}`}
+            className={`rounded-md p-1.5 ${viewMode === 'list' ? 'bg-muted/70 text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             title="List view"
           >
             <List className="h-4 w-4" />
@@ -830,12 +830,12 @@ export function ModulesTab() {
                 }`}
               >
                 <div className="flex items-start justify-between">
-                  <h3 className={`text-sm font-semibold ${enabled ? 'text-foreground' : 'text-gray-400'}`}>
+                  <h3 className={`text-sm font-semibold ${enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
                     {mod.name}
                   </h3>
                   <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} />
                 </div>
-                <p className={`mt-1.5 text-xs ${enabled ? 'text-muted-foreground' : 'text-gray-400'}`}>
+                <p className={`mt-1.5 text-xs ${enabled ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}>
                   {mod.description}
                 </p>
                 {ent && enabled && ent.limits && Object.keys(ent.limits).length > 0 && (
@@ -851,7 +851,7 @@ export function ModulesTab() {
                   </div>
                 )}
                 {ent && (
-                  <p className="mt-2 text-xs text-gray-400">
+                  <p className="mt-2 text-xs text-muted-foreground">
                     Plan: {ent.planTier}
                   </p>
                 )}
@@ -895,10 +895,10 @@ export function ModulesTab() {
                 const canDisable = enabled && !isCore && can('settings.update');
 
                 return (
-                  <tr key={mod.key} className="hover:bg-gray-200/30">
+                  <tr key={mod.key} className="hover:bg-accent/30">
                     <td className="px-4 py-3">
-                      <p className={`text-sm font-medium ${enabled ? 'text-foreground' : 'text-gray-400'}`}>{mod.name}</p>
-                      <p className={`mt-0.5 text-xs ${enabled ? 'text-muted-foreground' : 'text-gray-400'}`}>{mod.description}</p>
+                      <p className={`text-sm font-medium ${enabled ? 'text-foreground' : 'text-muted-foreground'}`}>{mod.name}</p>
+                      <p className={`mt-0.5 text-xs ${enabled ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}>{mod.description}</p>
                     </td>
                     <td className="px-4 py-3">
                       <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} />
@@ -907,7 +907,7 @@ export function ModulesTab() {
                       {ent ? (
                         <span className="text-xs text-muted-foreground">{ent.planTier}</span>
                       ) : (
-                        <span className="text-xs text-gray-400">&mdash;</span>
+                        <span className="text-xs text-muted-foreground">&mdash;</span>
                       )}
                     </td>
                     <td className="hidden px-4 py-3 md:table-cell">
@@ -923,7 +923,7 @@ export function ModulesTab() {
                           ))}
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-400">&mdash;</span>
+                        <span className="text-xs text-muted-foreground">&mdash;</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -1029,7 +1029,7 @@ export function DashboardSettingsTab() {
         <h3 className="text-sm font-medium text-foreground">Widgets</h3>
         <div className="space-y-3">
           {widgets.map((w) => (
-            <label key={w.key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4 hover:bg-muted/50">
+            <label key={w.key} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-4 hover:bg-accent/50">
               <input
                 type="checkbox"
                 checked={prefs[w.key]}
@@ -1055,10 +1055,10 @@ export function DashboardSettingsTab() {
           value={notes}
           onChange={(e) => handleNotesChange(e.target.value)}
           placeholder="Quick notes, reminders, daily specials..."
-          className="mt-3 w-full resize-y rounded-lg border border-border bg-transparent p-3 text-sm text-foreground placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          className="mt-3 w-full resize-y rounded-lg border border-border bg-transparent p-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           rows={6}
         />
-        <p className="mt-1 text-xs text-gray-400">Saved to this browser (localStorage)</p>
+        <p className="mt-1 text-xs text-muted-foreground">Saved to this browser (localStorage)</p>
       </div>
     </div>
   );

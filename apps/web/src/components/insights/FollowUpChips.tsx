@@ -52,7 +52,7 @@ export function FollowUpChips({ suggestions, onSelect, className }: FollowUpChip
           key={question}
           type="button"
           onClick={() => onSelect(question)}
-          className="px-3 py-1.5 text-sm rounded-full border border-indigo-200 text-indigo-700 hover:bg-indigo-50 transition-colors cursor-pointer"
+          className="px-3 py-1.5 text-sm rounded-full border border-indigo-500/30 text-indigo-500 hover:bg-indigo-500/10 transition-colors cursor-pointer"
         >
           {question}
         </button>

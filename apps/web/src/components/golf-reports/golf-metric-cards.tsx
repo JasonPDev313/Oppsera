@@ -35,21 +35,21 @@ const CARDS: {
     key: 'todayRoundsPlayed',
     label: 'Rounds Today',
     icon: Flag,
-    iconColor: 'bg-green-100 text-green-600',
+    iconColor: 'bg-green-500/10 text-green-500',
     format: formatRoundCount,
   },
   {
     key: 'todayRevenue',
     label: 'Revenue Today',
     icon: DollarSign,
-    iconColor: 'bg-emerald-100 text-emerald-600',
+    iconColor: 'bg-emerald-500/10 text-emerald-500',
     format: formatGolfMoney,
   },
   {
     key: 'utilizationBps',
     label: 'Utilization',
     icon: BarChart3,
-    iconColor: 'bg-blue-100 text-blue-600',
+    iconColor: 'bg-blue-500/10 text-blue-500',
     format: formatBasisPoints,
     warnWhen: (v) => bpsStatus(v, 7000, 5000, 'below') !== 'ok',
   },
@@ -57,7 +57,7 @@ const CARDS: {
     key: 'avgRoundDurationMin',
     label: 'Avg Round Duration',
     icon: Clock,
-    iconColor: 'bg-indigo-100 text-indigo-600',
+    iconColor: 'bg-indigo-500/10 text-indigo-600',
     format: formatDuration,
     warnWhen: (v) => bpsStatus(v, 270, 300, 'above') !== 'ok',
   },
@@ -65,7 +65,7 @@ const CARDS: {
     key: 'cancelRateBps',
     label: 'Cancel Rate',
     icon: XCircle,
-    iconColor: 'bg-orange-100 text-orange-600',
+    iconColor: 'bg-orange-500/10 text-orange-500',
     format: formatBasisPoints,
     warnWhen: (v) => bpsStatus(v, 1500, 2500, 'above') !== 'ok',
   },
@@ -73,7 +73,7 @@ const CARDS: {
     key: 'noShowRateBps',
     label: 'No-Show Rate',
     icon: UserX,
-    iconColor: 'bg-red-100 text-red-600',
+    iconColor: 'bg-red-500/10 text-red-500',
     format: formatBasisPoints,
     warnWhen: (v) => bpsStatus(v, 500, 1000, 'above') !== 'ok',
   },
@@ -81,7 +81,7 @@ const CARDS: {
     key: 'onlinePctBps',
     label: 'Online Booking',
     icon: Globe,
-    iconColor: 'bg-cyan-100 text-cyan-600',
+    iconColor: 'bg-cyan-500/20 text-cyan-500',
     format: formatBasisPoints,
   },
 ];
@@ -106,17 +106,17 @@ export function GolfMetricCards({ data, isLoading }: GolfMetricCardsProps) {
             <div className="flex items-center gap-4">
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                  isWarning ? 'bg-amber-100 text-amber-600' : card.iconColor
+                  isWarning ? 'bg-amber-500/10 text-amber-500' : card.iconColor
                 }`}
               >
                 <Icon className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-medium text-gray-500">{card.label}</p>
+                <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
                 {isLoading || value === null ? (
-                  <div className="mt-1 h-7 w-20 animate-pulse rounded bg-gray-200" />
+                  <div className="mt-1 h-7 w-20 animate-pulse rounded bg-muted" />
                 ) : (
-                  <p className="truncate text-2xl font-bold text-gray-900">
+                  <p className="truncate text-2xl font-bold text-foreground">
                     {card.format(value)}
                   </p>
                 )}

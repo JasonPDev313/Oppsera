@@ -25,19 +25,19 @@ function getToday(): string {
 }
 
 function StatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-xs text-gray-400">-</span>;
+  if (!status) return <span className="text-xs text-muted-foreground">-</span>;
   const cfg: Record<string, string> = {
-    open: 'bg-blue-100 text-blue-700',
-    closed: 'bg-green-100 text-green-700',
-    posted: 'bg-green-100 text-green-700',
-    locked: 'bg-gray-100 text-gray-700',
-    in_progress: 'bg-yellow-100 text-yellow-700',
-    reconciled: 'bg-emerald-100 text-emerald-700',
-    pending: 'bg-yellow-100 text-yellow-700',
-    deposited: 'bg-blue-100 text-blue-700',
+    open: 'bg-blue-500/10 text-blue-500',
+    closed: 'bg-green-500/10 text-green-500',
+    posted: 'bg-green-500/10 text-green-500',
+    locked: 'bg-muted text-foreground',
+    in_progress: 'bg-yellow-500/10 text-yellow-500',
+    reconciled: 'bg-emerald-500/10 text-emerald-500',
+    pending: 'bg-yellow-500/10 text-yellow-500',
+    deposited: 'bg-blue-500/10 text-blue-500',
   };
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cfg[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${cfg[status] ?? 'bg-muted text-muted-foreground'}`}>
       {status.replace(/_/g, ' ')}
     </span>
   );
@@ -55,7 +55,7 @@ function ReadinessIcon({ ready }: { ready: boolean }) {
 
 function TerminalStatusGrid({ terminals }: { terminals: TerminalCloseStatusItem[] }) {
   if (terminals.length === 0) {
-    return <p className="text-sm text-gray-400 italic">No active terminals</p>;
+    return <p className="text-sm text-muted-foreground italic">No active terminals</p>;
   }
 
   return (
@@ -63,21 +63,21 @@ function TerminalStatusGrid({ terminals }: { terminals: TerminalCloseStatusItem[
       {terminals.map((t) => (
         <div
           key={t.terminalId}
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface px-3 py-2"
+          className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2"
         >
           <div className="flex items-center gap-2">
-            <Monitor className="h-4 w-4 text-gray-400" />
-            <span className="text-sm font-medium text-gray-900">
+            <Monitor className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">
               {t.terminalName ?? t.terminalId.slice(0, 8)}
             </span>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-xs text-gray-500">Drawer</p>
+              <p className="text-xs text-muted-foreground">Drawer</p>
               <StatusBadge status={t.drawerSessionStatus} />
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500">Close</p>
+              <p className="text-xs text-muted-foreground">Close</p>
               <StatusBadge status={t.closeBatchStatus} />
             </div>
           </div>
@@ -101,7 +101,7 @@ function DepositSlipList({
   isActing: boolean;
 }) {
   if (deposits.length === 0) {
-    return <p className="text-sm text-gray-400 italic">No deposit slips</p>;
+    return <p className="text-sm text-muted-foreground italic">No deposit slips</p>;
   }
 
   return (
@@ -109,14 +109,14 @@ function DepositSlipList({
       {deposits.map((d) => (
         <div
           key={d.id}
-          className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface px-4 py-3"
+          className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3"
         >
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-900">{d.businessDate}</span>
+              <span className="text-sm font-medium text-foreground">{d.businessDate}</span>
               <StatusBadge status={d.status} />
             </div>
-            <p className="mt-0.5 text-sm text-gray-500">
+            <p className="mt-0.5 text-sm text-muted-foreground">
               {formatMoney(d.totalAmountCents)} &middot; {d.depositType}
               {d.retailCloseBatchIds.length > 0 && ` · ${d.retailCloseBatchIds.length} retail batch${d.retailCloseBatchIds.length !== 1 ? 'es' : ''}`}
               {d.fnbCloseBatchId && ' · F&B batch'}
@@ -175,28 +175,28 @@ function CreateDepositForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-surface p-4">
-      <h3 className="text-sm font-semibold text-gray-900">New Deposit Slip</h3>
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border bg-surface p-4">
+      <h3 className="text-sm font-semibold text-foreground">New Deposit Slip</h3>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Amount ($)</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Amount ($)</label>
           <input
             type="number"
             step="0.01"
             min="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             placeholder="0.00"
             required
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Type</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Type</label>
           <select
             value={depositType}
             onChange={(e) => setDepositType(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm"
           >
             <option value="cash">Cash</option>
             <option value="check">Check</option>
@@ -204,12 +204,12 @@ function CreateDepositForm({
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Notes</label>
           <input
             type="text"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             placeholder="Optional"
           />
         </div>
@@ -225,7 +225,7 @@ function CreateDepositForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent transition-colors"
         >
           Cancel
         </button>
@@ -285,14 +285,14 @@ export default function CloseDashboardContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Close Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500">Monitor terminal and F&B close status, manage deposits</p>
+          <h1 className="text-xl font-bold text-foreground">Close Dashboard</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Monitor terminal and F&B close status, manage deposits</p>
         </div>
         <div className="flex items-center gap-3">
           <select
             value={selectedLocationId}
             onChange={(e) => setSelectedLocationId(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           >
             {locations.map((loc) => (
               <option key={loc.id} value={loc.id}>{loc.name}</option>
@@ -302,11 +302,11 @@ export default function CloseDashboardContent() {
             type="date"
             value={businessDate}
             onChange={(e) => setBusinessDate(e.target.value)}
-            className="rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
           <button
             onClick={handleRefresh}
-            className="rounded-lg border border-gray-300 p-2 text-gray-500 hover:bg-gray-50 transition-colors"
+            className="rounded-lg border border-border p-2 text-muted-foreground hover:bg-accent transition-colors"
           >
             <RefreshCw className="h-4 w-4" />
           </button>
@@ -316,11 +316,11 @@ export default function CloseDashboardContent() {
       {/* Readiness Summary Cards */}
       {closeStatus && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-surface p-4">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
             <ReadinessIcon ready={closeStatus.allTerminalsClosed} />
             <div>
-              <p className="text-sm font-medium text-gray-900">Retail Terminals</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm font-medium text-foreground">Retail Terminals</p>
+              <p className="text-xs text-muted-foreground">
                 {closeStatus.allTerminalsClosed
                   ? 'All closed'
                   : `${closeStatus.retailTerminals.filter((t) => t.closeBatchStatus && ['posted', 'locked'].includes(t.closeBatchStatus)).length} of ${closeStatus.retailTerminals.length} closed`}
@@ -328,21 +328,21 @@ export default function CloseDashboardContent() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-surface p-4">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
             <ReadinessIcon ready={closeStatus.fnbClosed} />
             <div>
-              <p className="text-sm font-medium text-gray-900">F&B Close</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm font-medium text-foreground">F&B Close</p>
+              <p className="text-xs text-muted-foreground">
                 {closeStatus.fnbBatchStatus ? `Status: ${closeStatus.fnbBatchStatus}` : 'No F&B batch'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-surface p-4">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4">
             <ReadinessIcon ready={closeStatus.depositReady} />
             <div>
-              <p className="text-sm font-medium text-gray-900">Deposit Ready</p>
-              <p className="text-xs text-gray-500">
+              <p className="text-sm font-medium text-foreground">Deposit Ready</p>
+              <p className="text-xs text-muted-foreground">
                 {closeStatus.depositReady
                   ? closeStatus.depositSlipStatus
                     ? `Deposit: ${closeStatus.depositSlipStatus}`
@@ -357,7 +357,7 @@ export default function CloseDashboardContent() {
       {isLoading && !closeStatus && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       )}
@@ -365,48 +365,48 @@ export default function CloseDashboardContent() {
       {/* Two-column layout: Terminal Status + Deposits */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Terminal Status */}
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
+        <div className="rounded-lg border border-border bg-surface p-4">
           <div className="flex items-center gap-2 mb-4">
-            <Monitor className="h-4 w-4 text-gray-500" />
-            <h2 className="text-sm font-semibold text-gray-900">Retail Terminal Status</h2>
+            <Monitor className="h-4 w-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold text-foreground">Retail Terminal Status</h2>
           </div>
           {closeStatus ? (
             <TerminalStatusGrid terminals={closeStatus.retailTerminals} />
           ) : statusLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-12 animate-pulse rounded-lg bg-gray-100" />
+                <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-400 italic">Select a location</p>
+            <p className="text-sm text-muted-foreground italic">Select a location</p>
           )}
 
           {/* F&B Status */}
           {closeStatus && (
             <div className="mt-6">
               <div className="flex items-center gap-2 mb-3">
-                <UtensilsCrossed className="h-4 w-4 text-gray-500" />
-                <h3 className="text-sm font-semibold text-gray-900">F&B Close Batch</h3>
+                <UtensilsCrossed className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold text-foreground">F&B Close Batch</h3>
               </div>
               {closeStatus.fnbBatchStatus ? (
-                <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-surface px-3 py-2">
-                  <span className="text-sm text-gray-700">Batch {closeStatus.fnbBatchId?.slice(0, 8)}</span>
+                <div className="flex items-center justify-between rounded-lg border border-border bg-surface px-3 py-2">
+                  <span className="text-sm text-foreground">Batch {closeStatus.fnbBatchId?.slice(0, 8)}</span>
                   <StatusBadge status={closeStatus.fnbBatchStatus} />
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 italic">No F&B close batch for this date</p>
+                <p className="text-sm text-muted-foreground italic">No F&B close batch for this date</p>
               )}
             </div>
           )}
         </div>
 
         {/* Deposit Slips */}
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
+        <div className="rounded-lg border border-border bg-surface p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Banknote className="h-4 w-4 text-gray-500" />
-              <h2 className="text-sm font-semibold text-gray-900">Deposit Slips</h2>
+              <Banknote className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Deposit Slips</h2>
             </div>
             {!showCreateForm && closeStatus?.depositReady && (
               <button
@@ -433,7 +433,7 @@ export default function CloseDashboardContent() {
           {depositsLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="h-16 animate-pulse rounded-lg bg-gray-100" />
+                <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />
               ))}
             </div>
           ) : (

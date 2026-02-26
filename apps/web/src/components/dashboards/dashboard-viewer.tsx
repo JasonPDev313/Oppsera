@@ -107,12 +107,12 @@ export function DashboardViewer({ dashboardId }: DashboardViewerProps) {
   if (isDashboardLoading) {
     return (
       <div className="space-y-4 p-6">
-        <div className="h-8 w-64 animate-pulse rounded bg-gray-200" />
+        <div className="h-8 w-64 animate-pulse rounded bg-muted" />
         <div className="grid grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <div
               key={i}
-              className="h-48 animate-pulse rounded-lg bg-gray-200"
+              className="h-48 animate-pulse rounded-lg bg-muted"
             />
           ))}
         </div>
@@ -123,11 +123,11 @@ export function DashboardViewer({ dashboardId }: DashboardViewerProps) {
   if (!dashboard) {
     return (
       <div className="flex flex-col items-center justify-center p-12">
-        <p className="text-sm text-gray-500">Dashboard not found.</p>
+        <p className="text-sm text-muted-foreground">Dashboard not found.</p>
         <button
           type="button"
           onClick={() => router.push('/dashboards')}
-          className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           Back to Dashboards
         </button>
@@ -140,18 +140,18 @@ export function DashboardViewer({ dashboardId }: DashboardViewerProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-foreground">
             {dashboard.name}
           </h1>
           {dashboard.description && (
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               {dashboard.description}
             </p>
           )}
         </div>
         <div className="flex items-center gap-2">
           {lastRefreshed && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-muted-foreground">
               Updated {lastRefreshed.toLocaleTimeString()}
             </span>
           )}
@@ -159,7 +159,7 @@ export function DashboardViewer({ dashboardId }: DashboardViewerProps) {
             <button
               type="button"
               onClick={() => router.push(`/dashboards/${dashboardId}/edit`)}
-              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               <Pencil className="h-4 w-4" />
               Edit
@@ -184,15 +184,15 @@ export function DashboardViewer({ dashboardId }: DashboardViewerProps) {
 
       {/* Grid */}
       {dashboard.tiles.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 py-20">
-          <p className="text-sm text-gray-500">
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border py-20">
+          <p className="text-sm text-muted-foreground">
             This dashboard has no tiles.
           </p>
           {can('reports.custom.manage') && (
             <button
               type="button"
               onClick={() => router.push(`/dashboards/${dashboardId}/edit`)}
-              className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               Add Tiles
             </button>

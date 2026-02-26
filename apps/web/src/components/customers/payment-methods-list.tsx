@@ -79,11 +79,11 @@ export function PaymentMethodsList({ customerId }: PaymentMethodsListProps) {
   if (error) {
     return (
       <div className="p-6 text-center">
-        <p className="text-sm text-red-600">Failed to load payment methods.</p>
+        <p className="text-sm text-red-500">Failed to load payment methods.</p>
         <button
           type="button"
           onClick={mutate}
-          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+          className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
           Try again
         </button>
@@ -161,7 +161,7 @@ export function PaymentMethodsList({ customerId }: PaymentMethodsListProps) {
           <button
             type="button"
             onClick={() => setShowAddBank(true)}
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-500/10"
+            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-emerald-500 transition-colors hover:bg-emerald-500/10"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Bank Account
@@ -224,7 +224,7 @@ export function PaymentMethodsList({ customerId }: PaymentMethodsListProps) {
             <button
               type="button"
               onClick={() => setShowAddCard(true)}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500"
             >
               Add Card
             </button>

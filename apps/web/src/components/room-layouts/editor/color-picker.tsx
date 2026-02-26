@@ -50,10 +50,10 @@ export function ColorPicker({ value, onChange, onCommit, label }: ColorPickerPro
 
   return (
     <div className="space-y-1.5">
-      {label && <label className="text-xs font-medium text-gray-500">{label}</label>}
+      {label && <label className="text-xs font-medium text-muted-foreground">{label}</label>}
       <div className="flex items-center gap-2">
         <div
-          className="h-6 w-6 shrink-0 rounded border border-gray-300"
+          className="h-6 w-6 shrink-0 rounded border border-border"
           style={{ backgroundColor: value }}
         />
         <input
@@ -61,7 +61,7 @@ export function ColorPicker({ value, onChange, onCommit, label }: ColorPickerPro
           value={hexInput}
           onChange={handleHexChange}
           onBlur={handleHexBlur}
-          className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-xs text-gray-900"
+          className="w-full rounded border border-border bg-surface px-2 py-1 text-xs text-foreground"
           placeholder="#000000"
         />
       </div>
@@ -69,7 +69,7 @@ export function ColorPicker({ value, onChange, onCommit, label }: ColorPickerPro
         {SWATCHES.map((color) => (
           <button
             key={color}
-            className="h-5 w-5 rounded border border-gray-300 hover:ring-2 hover:ring-indigo-400"
+            className="h-5 w-5 rounded border border-border hover:ring-2 hover:ring-indigo-400"
             style={{ backgroundColor: color }}
             onClick={() => handleSwatchClick(color)}
             title={color}

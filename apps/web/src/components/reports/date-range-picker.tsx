@@ -31,7 +31,7 @@ export function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerP
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
-        <label htmlFor="dateFrom" className="text-sm font-medium text-gray-500">
+        <label htmlFor="dateFrom" className="text-sm font-medium text-muted-foreground">
           From
         </label>
         <input
@@ -39,11 +39,11 @@ export function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerP
           type="date"
           value={dateFrom}
           onChange={(e) => onChange(e.target.value, dateTo)}
-          className="rounded-lg border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
       </div>
       <div className="flex items-center gap-2">
-        <label htmlFor="dateTo" className="text-sm font-medium text-gray-500">
+        <label htmlFor="dateTo" className="text-sm font-medium text-muted-foreground">
           To
         </label>
         <input
@@ -51,7 +51,7 @@ export function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerP
           type="date"
           value={dateTo}
           onChange={(e) => onChange(dateFrom, e.target.value)}
-          className="rounded-lg border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
       </div>
       <div className="flex items-center gap-1.5">
@@ -60,7 +60,7 @@ export function DateRangePicker({ dateFrom, dateTo, onChange }: DateRangePickerP
             key={r.label}
             type="button"
             onClick={() => onChange(r.from(), r.to())}
-            className="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200"
+            className="rounded-md bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
           >
             {r.label}
           </button>

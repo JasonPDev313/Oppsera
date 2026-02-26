@@ -275,7 +275,7 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -283,7 +283,7 @@ export function AccountDialog({ open, onClose, account, onSuccess }: AccountDial
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isSubmitting ? 'Saving...' : isEdit ? 'Update Account' : 'Create Account'}
           </button>

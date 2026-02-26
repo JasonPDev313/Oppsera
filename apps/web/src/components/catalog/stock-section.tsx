@@ -218,7 +218,7 @@ export function StockSection({ catalogItemId, isTrackable }: StockSectionProps) 
                 <button
                   type="button"
                   onClick={() => setShowReceive(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
                   <PackagePlus className="h-3.5 w-3.5" />
                   Receive

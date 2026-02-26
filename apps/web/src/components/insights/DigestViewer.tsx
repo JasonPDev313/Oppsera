@@ -131,7 +131,7 @@ export function DigestViewer({
             type="button"
             onClick={onRefresh}
             disabled={isLoading}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary hover:bg-gray-200/50 rounded-md transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent/50 rounded-md transition-colors disabled:opacity-50"
           >
             {isLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -195,7 +195,7 @@ export function DigestViewer({
                             {formatKpiValue(kpi.value, kpi.format)}
                           </p>
                           {kpi.delta !== 0 && (
-                            <p className={`text-[10px] font-medium ${kpi.delta >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                            <p className={`text-[10px] font-medium ${kpi.delta >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
                               {kpi.delta >= 0 ? '+' : ''}{kpi.delta.toFixed(1)}%
                             </p>
                           )}

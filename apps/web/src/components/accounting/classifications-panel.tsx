@@ -101,7 +101,7 @@ export function ClassificationsPanel({ open, onClose }: ClassificationsPanelProp
                   <button
                     type="button"
                     onClick={() => { setAddingType(type); setNewName(''); }}
-                    className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
+                    className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
                   >
                     <Plus className="inline h-3.5 w-3.5" /> Add
                   </button>
@@ -153,7 +153,7 @@ export function ClassificationsPanel({ open, onClose }: ClassificationsPanelProp
                       <button
                         type="button"
                         onClick={() => handleCreate(type)}
-                        className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700"
+                        className="rounded bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-500"
                       >
                         Add
                       </button>

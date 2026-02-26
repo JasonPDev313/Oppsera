@@ -15,15 +15,17 @@ const EXCLUDED_TABLES = new Set([
 /**
  * Discover all user tables in the public schema.
  * Returns table names with estimated row counts and sizes.
+ * Uses a safe size estimation that catches per-table errors.
  */
 export async function discoverTables(): Promise<TableInfo[]> {
+  // Step 1: Get table names + estimated row counts (never fails)
   const result = await db.execute(sql`
     SELECT
       t.table_name,
-      COALESCE(c.reltuples::bigint, 0) AS estimated_row_count,
-      COALESCE(pg_total_relation_size(quote_ident(t.table_name)::regclass)::bigint, 0) AS estimated_size_bytes
+      COALESCE(c.reltuples::bigint, 0) AS estimated_row_count
     FROM information_schema.tables t
-    LEFT JOIN pg_class c ON c.relname = t.table_name
+    LEFT JOIN pg_class c
+      ON c.relname = t.table_name AND c.relkind = 'r'
     WHERE t.table_schema = 'public'
       AND t.table_type = 'BASE TABLE'
     ORDER BY t.table_name
@@ -32,15 +34,37 @@ export async function discoverTables(): Promise<TableInfo[]> {
   const rows = Array.from(result as Iterable<{
     table_name: string;
     estimated_row_count: string;
-    estimated_size_bytes: string;
   }>);
+
+  // Step 2: Get sizes separately (may fail on some Supabase roles)
+  let sizeMap = new Map<string, number>();
+  try {
+    const sizeResult = await db.execute(sql`
+      SELECT
+        c.relname AS table_name,
+        pg_total_relation_size(c.oid)::bigint AS size_bytes
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r'
+    `);
+    const sizeRows = Array.from(sizeResult as Iterable<{
+      table_name: string;
+      size_bytes: string;
+    }>);
+    for (const r of sizeRows) {
+      sizeMap.set(r.table_name, Number(r.size_bytes));
+    }
+  } catch {
+    // pg_total_relation_size may fail on restricted roles — sizes will be 0
+    console.warn('[backup] Could not fetch table sizes — using 0 estimates');
+  }
 
   return rows
     .filter((r) => !EXCLUDED_TABLES.has(r.table_name))
     .map((r) => ({
       name: r.table_name,
       estimatedRowCount: Number(r.estimated_row_count),
-      estimatedSizeBytes: Number(r.estimated_size_bytes),
+      estimatedSizeBytes: sizeMap.get(r.table_name) ?? 0,
     }));
 }
 

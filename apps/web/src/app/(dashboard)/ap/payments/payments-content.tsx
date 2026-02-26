@@ -28,7 +28,7 @@ export default function PaymentsContent() {
       actions={
         <Link
           href="/ap/payments/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           New Payment
@@ -100,10 +100,10 @@ export default function PaymentsContent() {
               </thead>
               <tbody>
                 {payments.map((pmt) => (
-                  <tr key={pmt.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                  <tr key={pmt.id} className="border-b border-border last:border-0 hover:bg-accent/50">
                     <td className="px-4 py-3 text-sm text-foreground">{pmt.paymentDate}</td>
                     <td className="px-4 py-3 text-sm">
-                      <Link href={`/ap/payments/${pmt.id}`} className="font-medium text-indigo-600 hover:text-indigo-800">
+                      <Link href={`/ap/payments/${pmt.id}`} className="font-medium text-indigo-600 hover:text-indigo-500">
                         {pmt.vendorName ?? '—'}
                       </Link>
                     </td>
@@ -127,7 +127,7 @@ export default function PaymentsContent() {
               <Link
                 key={pmt.id}
                 href={`/ap/payments/${pmt.id}`}
-                className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-border"
+                className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-muted-foreground"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-indigo-600">{pmt.vendorName ?? '—'}</span>

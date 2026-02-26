@@ -11,7 +11,7 @@ import {
   getPgVersion,
   getSchemaVersion,
 } from './table-discovery';
-import { getBackupStorage, buildStoragePath } from './storage';
+import { getBackupStorage, buildStoragePath, detectStorageDriver } from './storage';
 import type {
   CreateBackupInput,
   CreateBackupResult,
@@ -33,13 +33,15 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
   const backupId = generateUlid();
   const now = new Date();
 
+  const storageDriver = detectStorageDriver();
+
   // Insert pending record
   await db.insert(platformBackups).values({
     id: backupId,
     type: input.type,
     status: 'in_progress',
     label: input.label ?? `${input.type} backup`,
-    storageDriver: 'local',
+    storageDriver,
     retentionTag: input.retentionTag ?? null,
     expiresAt: input.expiresAt ?? null,
     initiatedByAdminId: input.adminId ?? null,
@@ -63,8 +65,34 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
     let totalRows = 0;
 
     await db.transaction(async (tx) => {
-      // Bypass RLS for this transaction — SET LOCAL scopes to this transaction only
-      await tx.execute(sql`SET LOCAL role = 'postgres'`);
+      // Extend statement timeout — backup may take minutes for large DBs
+      await tx.execute(sql`SET LOCAL statement_timeout = '600s'`);
+      await tx.execute(sql`SET LOCAL idle_in_transaction_session_timeout = '660s'`);
+
+      // Bypass RLS for this transaction.
+      // Try multiple approaches since Supavisor may restrict SET ROLE.
+      let rlsBypassed = false;
+      try {
+        await tx.execute(sql`SET LOCAL role = 'postgres'`);
+        rlsBypassed = true;
+      } catch {
+        // SET ROLE to postgres failed — try supabase_admin (Supabase-specific)
+        try {
+          await tx.execute(sql`SET LOCAL role = 'supabase_admin'`);
+          rlsBypassed = true;
+        } catch {
+          // Neither role works. Try disabling RLS directly (requires superuser).
+          try {
+            await tx.execute(sql`SET LOCAL row_security = 'off'`);
+            rlsBypassed = true;
+          } catch {
+            console.warn(
+              '[backup] Could not bypass RLS — backup may have incomplete data. ' +
+              'Tables with FORCE ROW LEVEL SECURITY will return 0 rows.',
+            );
+          }
+        }
+      }
 
       for (const tableName of orderedNames) {
         const rows = await exportTableInTx(tx, tableName);
@@ -102,9 +130,9 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
     // 6. Checksum
     const checksum = createHash('sha256').update(compressed).digest('hex');
 
-    // 7. Write to storage
+    // 7. Write to storage (uses driver detected at start of function)
     const storagePath = buildStoragePath(backupId, now);
-    const storage = getBackupStorage('local');
+    const storage = getBackupStorage(storageDriver);
     await storage.write(storagePath, compressed);
 
     // 8. Update record

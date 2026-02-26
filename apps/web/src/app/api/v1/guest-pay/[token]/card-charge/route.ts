@@ -6,6 +6,14 @@ import { getGuestPaySessionByToken } from '@oppsera/module-fnb';
 import { hasPaymentsGateway, getPaymentsGatewayApi } from '@oppsera/core/helpers/payments-gateway-api';
 import { db } from '@oppsera/db';
 import { sql } from 'drizzle-orm';
+import { z } from 'zod';
+
+// ── Zod schema for card-charge request body ─────────────────
+const cardChargeSchema = z.object({
+  token: z.string().min(1, 'Card token is required').max(500),
+  tipAmountCents: z.coerce.number().int().min(0).max(999_999).default(0),
+  expiry: z.string().max(10).optional(),
+});
 
 /**
  * POST /api/v1/guest-pay/:token/card-charge
@@ -30,12 +38,14 @@ export const POST = withMiddleware(
     const token = segments[segments.length - 2]!;
 
     const body = await request.json();
-    const cardToken = body.token as string | undefined;
-    const tipAmountCents = Number(body.tipAmountCents ?? 0);
-
-    if (!cardToken || typeof cardToken !== 'string' || cardToken.trim().length === 0) {
-      throw new AppError('VALIDATION_ERROR', 'Card token is required', 400);
+    const parsed = cardChargeSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0]?.message ?? 'Invalid input', details: parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })) } },
+        { status: 400 },
+      );
     }
+    const { token: cardToken, tipAmountCents } = parsed.data;
 
     // 1. Look up session by token
     const session = await getGuestPaySessionByToken(token);

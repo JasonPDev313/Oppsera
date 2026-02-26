@@ -23,7 +23,7 @@ export function TaxExemptDialog({ open, onClose, onConfirm }: TaxExemptDialogPro
   return (
     <POSSlidePanel open={open} onClose={onClose} title="Tax Exempt Reason">
       <div className="space-y-4">
-        <div className="flex items-center gap-2 text-purple-600">
+        <div className="flex items-center gap-2 text-purple-500">
           <ShieldOff className="h-5 w-5" />
           <p className="text-sm font-medium">Tax Exemption</p>
         </div>

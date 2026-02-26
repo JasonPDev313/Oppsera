@@ -100,11 +100,11 @@ export function CreateHousekeeperUserDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <div className="relative z-50 w-full max-w-lg rounded-lg bg-surface border border-gray-200/50 shadow-xl max-h-[90vh] flex flex-col">
+      <div className="relative z-50 w-full max-w-lg rounded-lg bg-surface border border-border/50 shadow-xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/30">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border/30">
           <h2 className="text-lg font-semibold">Create New Housekeeper</h2>
-          <button onClick={handleClose} className="p-1 rounded hover:bg-gray-200/50" aria-label="Close">
+          <button onClick={handleClose} className="p-1 rounded hover:bg-accent/50" aria-label="Close">
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
@@ -123,7 +123,7 @@ export function CreateHousekeeperUserDialog({
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-gray-300/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                className="w-full px-3 py-2 rounded-md border border-border/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                 autoFocus
               />
               {errors.firstName && <p className="text-xs text-red-500 mt-1">{errors.firstName}</p>}
@@ -134,7 +134,7 @@ export function CreateHousekeeperUserDialog({
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                className="w-full px-3 py-2 rounded-md border border-gray-300/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                className="w-full px-3 py-2 rounded-md border border-border/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
               />
               {errors.lastName && <p className="text-xs text-red-500 mt-1">{errors.lastName}</p>}
             </div>
@@ -147,7 +147,7 @@ export function CreateHousekeeperUserDialog({
               type="email"
               value={email}
               onChange={(e) => handleEmailChange(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-gray-300/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2 rounded-md border border-border/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
@@ -159,7 +159,7 @@ export function CreateHousekeeperUserDialog({
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-gray-300/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2 rounded-md border border-border/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
             {errors.username && <p className="text-xs text-red-500 mt-1">{errors.username}</p>}
           </div>
@@ -172,7 +172,7 @@ export function CreateHousekeeperUserDialog({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Leave blank to send invite"
-              className="w-full px-3 py-2 rounded-md border border-gray-300/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2 rounded-md border border-border/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
             {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password}</p>}
             <p className="text-xs text-muted-foreground mt-1">If blank, an invite email will be sent.</p>
@@ -185,7 +185,7 @@ export function CreateHousekeeperUserDialog({
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-3 py-2 rounded-md border border-gray-300/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+              className="w-full px-3 py-2 rounded-md border border-border/50 bg-surface text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             />
           </div>
 
@@ -200,17 +200,17 @@ export function CreateHousekeeperUserDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200/30">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-border/30">
           <button
             onClick={handleClose}
-            className="px-4 py-2 text-sm rounded-md border border-gray-300/50 hover:bg-gray-200/50"
+            className="px-4 py-2 text-sm rounded-md border border-border/50 hover:bg-accent/50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <UserPlus className="w-4 h-4" />
             {isSubmitting ? 'Creating...' : 'Create Housekeeper'}

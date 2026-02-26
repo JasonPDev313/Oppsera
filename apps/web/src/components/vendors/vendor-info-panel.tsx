@@ -15,8 +15,8 @@ export function VendorInfoPanel({ vendor }: { vendor: VendorDetail }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
       {/* Contact Info */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-5">
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">Contact Information</h3>
+      <div className="rounded-lg border border-border bg-surface p-5">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Contact Information</h3>
         <dl className="space-y-3">
           {vendor.contactName && (
             <InfoRow label="Contact" value={vendor.contactName} />
@@ -24,7 +24,7 @@ export function VendorInfoPanel({ vendor }: { vendor: VendorDetail }) {
           {vendor.contactEmail && (
             <InfoRow
               label="Email"
-              icon={<Mail className="h-4 w-4 text-gray-400" />}
+              icon={<Mail className="h-4 w-4 text-muted-foreground" />}
               value={
                 <a href={`mailto:${vendor.contactEmail}`} className="text-indigo-600 hover:underline">
                   {vendor.contactEmail}
@@ -35,14 +35,14 @@ export function VendorInfoPanel({ vendor }: { vendor: VendorDetail }) {
           {vendor.contactPhone && (
             <InfoRow
               label="Phone"
-              icon={<Phone className="h-4 w-4 text-gray-400" />}
+              icon={<Phone className="h-4 w-4 text-muted-foreground" />}
               value={vendor.contactPhone}
             />
           )}
           {vendor.website && (
             <InfoRow
               label="Website"
-              icon={<Globe className="h-4 w-4 text-gray-400" />}
+              icon={<Globe className="h-4 w-4 text-muted-foreground" />}
               value={
                 <a href={vendor.website} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
                   {vendor.website.replace(/^https?:\/\//, '')}
@@ -51,14 +51,14 @@ export function VendorInfoPanel({ vendor }: { vendor: VendorDetail }) {
             />
           )}
           {!vendor.contactName && !vendor.contactEmail && !vendor.contactPhone && !vendor.website && (
-            <p className="text-sm text-gray-400">No contact information</p>
+            <p className="text-sm text-muted-foreground">No contact information</p>
           )}
         </dl>
       </div>
 
       {/* Business Details */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-5">
-        <h3 className="mb-4 text-sm font-semibold text-gray-900">Business Details</h3>
+      <div className="rounded-lg border border-border bg-surface p-5">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Business Details</h3>
         <dl className="space-y-3">
           {vendor.accountNumber && (
             <InfoRow label="Account #" value={vendor.accountNumber} />
@@ -72,24 +72,24 @@ export function VendorInfoPanel({ vendor }: { vendor: VendorDetail }) {
           {address && (
             <InfoRow
               label="Address"
-              icon={<MapPin className="h-4 w-4 text-gray-400" />}
+              icon={<MapPin className="h-4 w-4 text-muted-foreground" />}
               value={<span className="whitespace-pre-line">{address}</span>}
             />
           )}
           {!vendor.accountNumber && !vendor.taxId && !vendor.paymentTerms && !address && (
-            <p className="text-sm text-gray-400">No business details</p>
+            <p className="text-sm text-muted-foreground">No business details</p>
           )}
         </dl>
       </div>
 
       {/* Notes */}
       {vendor.notes && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-5 lg:col-span-2">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-900">
-            <FileText className="h-4 w-4 text-gray-400" />
+        <div className="rounded-lg border border-border bg-surface p-5 lg:col-span-2">
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+            <FileText className="h-4 w-4 text-muted-foreground" />
             Notes
           </h3>
-          <p className="whitespace-pre-wrap text-sm text-gray-600">{vendor.notes}</p>
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">{vendor.notes}</p>
         </div>
       )}
     </div>
@@ -109,8 +109,8 @@ function InfoRow({
     <div className="flex items-start gap-2">
       {icon && <div className="mt-0.5 shrink-0">{icon}</div>}
       <div className="min-w-0">
-        <dt className="text-xs font-medium text-gray-500">{label}</dt>
-        <dd className="mt-0.5 text-sm text-gray-900">{value}</dd>
+        <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+        <dd className="mt-0.5 text-sm text-foreground">{value}</dd>
       </div>
     </div>
   );

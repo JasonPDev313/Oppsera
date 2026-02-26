@@ -67,7 +67,7 @@ export function PaymentButton({
     <button
       type="button"
       onClick={onMemberAuth}
-      className="block w-full text-center text-sm text-green-600 hover:text-green-700 mt-3 font-medium"
+      className="block w-full text-center text-sm text-green-500 hover:text-green-400 mt-3 font-medium"
     >
       Club Member? Charge to your account &rarr;
     </button>
@@ -85,7 +85,7 @@ export function PaymentButton({
         >
           Simulate Payment
         </button>
-        <p className="text-center text-xs text-amber-600 mt-2 font-medium">
+        <p className="text-center text-xs text-amber-500 mt-2 font-medium">
           Development Mode — No real charge
         </p>
         {memberLink}
@@ -110,7 +110,7 @@ export function PaymentButton({
 
         {/* Token status */}
         {tokenResult && !displayError && (
-          <div className="flex items-center gap-2 text-sm text-green-600">
+          <div className="flex items-center gap-2 text-sm text-green-500">
             <svg viewBox="0 0 16 16" className="h-4 w-4 fill-current">
               <path d="M8 0a8 8 0 110 16A8 8 0 018 0zm3.78 5.22a.75.75 0 00-1.06 0L7 8.94 5.28 7.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.06 0l4.25-4.25a.75.75 0 000-1.06z" />
             </svg>

@@ -14,7 +14,17 @@ function makeQueryClient() {
         staleTime: 60_000,          // 1 minute (was 30s — reduces refetch frequency)
         gcTime: 5 * 60 * 1000,
         refetchOnWindowFocus: false, // disabled globally — we handle this manually below
-        retry: 1,
+        // Retry 3 times with exponential backoff for transient errors (cold starts,
+        // DB pool contention, circuit breaker 503s). Skip retries for auth failures
+        // (401/403) and client errors (4xx) since those won't self-heal.
+        retry: (failureCount, error) => {
+          if (failureCount >= 3) return false;
+          // Don't retry auth or client errors — they won't self-heal
+          const status = (error as { statusCode?: number })?.statusCode;
+          if (status && status >= 400 && status < 500) return false;
+          return true;
+        },
+        retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000), // 1s, 2s, 4s
       },
     },
   });

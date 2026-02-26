@@ -42,7 +42,7 @@ export function ToolsView({
   return (
     <div className="flex h-full">
       {/* Tool sidebar */}
-      <div className="flex w-44 shrink-0 flex-col border-r border-gray-200 bg-gray-50">
+      <div className="flex w-44 shrink-0 flex-col border-r border-border bg-muted">
         <div className="p-2">
           {TOOLS.map((tool) => {
             const Icon = tool.icon;
@@ -55,10 +55,10 @@ export function ToolsView({
                 className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-gray-700 hover:bg-gray-200'
+                    : 'text-foreground hover:bg-accent'
                 }`}
               >
-                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                <Icon className={`h-4 w-4 ${isActive ? 'text-white' : 'text-muted-foreground'}`} />
                 {tool.label}
               </button>
             );

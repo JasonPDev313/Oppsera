@@ -182,7 +182,7 @@ export default function InvoiceFormContent() {
             <button
               type="button"
               onClick={addLine}
-              className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800"
+              className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-500"
             >
               <Plus className="h-4 w-4" /> Add Line
             </button>

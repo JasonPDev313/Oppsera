@@ -56,7 +56,7 @@ function trafficLightColor(percent: number): {
   if (percent >= 100) {
     return {
       bg: 'bg-green-500/20',
-      fill: 'bg-green-500/100',
+      fill: 'bg-green-500',
       text: 'text-green-500',
       label: 'Met',
     };
@@ -64,14 +64,14 @@ function trafficLightColor(percent: number): {
   if (percent >= 50) {
     return {
       bg: 'bg-amber-500/20',
-      fill: 'bg-amber-500/100',
+      fill: 'bg-amber-500',
       text: 'text-amber-500',
       label: 'At Risk',
     };
   }
   return {
     bg: 'bg-red-500/20',
-    fill: 'bg-red-500/100',
+    fill: 'bg-red-500',
     text: 'text-red-500',
     label: 'Below',
   };
@@ -275,7 +275,7 @@ function AssignMinimumModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -283,7 +283,7 @@ function AssignMinimumModal({
             type="button"
             onClick={handleSubmit}
             disabled={!selectedRuleId || isLoading}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isLoading ? (
               <span className="flex items-center gap-2">
@@ -345,7 +345,7 @@ export default function MinimumsSubTab({ accountId }: { accountId: string }) {
         <button
           type="button"
           onClick={() => setShowAssign(true)}
-          className="mt-1 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          className="mt-1 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
         >
           Assign Minimum
         </button>
@@ -382,14 +382,14 @@ export default function MinimumsSubTab({ accountId }: { accountId: string }) {
             <button
               type="button"
               onClick={() => setShowAssign(true)}
-              className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+              className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent"
             >
               + Assign Rule
             </button>
             <button
               type="button"
               onClick={() => setShowHistory((v) => !v)}
-              className="flex items-center gap-1 rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+              className="flex items-center gap-1 rounded-md border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent"
             >
               <History className="h-3 w-3" />
               History
@@ -519,7 +519,7 @@ function HistorySection({ accountId }: { accountId: string }) {
               <th className="pb-2 font-medium">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border">
             {items.map((entry) => (
               <HistoryRow key={entry.id} entry={entry} />
             ))}

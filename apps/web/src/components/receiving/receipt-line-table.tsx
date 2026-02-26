@@ -25,8 +25,8 @@ export function ReceiptLineTable({ lines, isDraft, onRemoveLine, isRemoving }: R
       header: 'Item',
       render: (row: LineRow) => (
         <div>
-          <div className="font-medium text-gray-900">{row.itemName}</div>
-          {row.itemSku && <div className="text-xs text-gray-500">{row.itemSku}</div>}
+          <div className="font-medium text-foreground">{row.itemName}</div>
+          {row.itemSku && <div className="text-xs text-muted-foreground">{row.itemSku}</div>}
         </div>
       ),
     },
@@ -37,7 +37,7 @@ export function ReceiptLineTable({ lines, isDraft, onRemoveLine, isRemoving }: R
         <span className="text-sm">
           {row.quantityReceived} {row.uomCode}
           {row.baseQty !== row.quantityReceived && (
-            <span className="ml-1 text-xs text-gray-400">({row.baseQty} base)</span>
+            <span className="ml-1 text-xs text-muted-foreground">({row.baseQty} base)</span>
           )}
         </span>
       ),
@@ -56,7 +56,7 @@ export function ReceiptLineTable({ lines, isDraft, onRemoveLine, isRemoving }: R
       key: 'shipping',
       header: 'Shipping',
       render: (row: LineRow) => (
-        <span className="text-sm text-gray-500">{formatMoney(row.allocatedShipping)}</span>
+        <span className="text-sm text-muted-foreground">{formatMoney(row.allocatedShipping)}</span>
       ),
     },
     {
@@ -65,7 +65,7 @@ export function ReceiptLineTable({ lines, isDraft, onRemoveLine, isRemoving }: R
       render: (row: LineRow) => (
         <div>
           <div className="text-sm font-medium">{formatMoney(row.landedCost)}</div>
-          <div className="text-xs text-gray-500">{formatMoney(row.landedUnitCost)}/ea</div>
+          <div className="text-xs text-muted-foreground">{formatMoney(row.landedUnitCost)}/ea</div>
         </div>
       ),
     },
@@ -86,7 +86,7 @@ export function ReceiptLineTable({ lines, isDraft, onRemoveLine, isRemoving }: R
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onRemoveLine(row.id); }}
                   disabled={isRemoving === row.id}
-                  className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-50"
+                  className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50"
                   title="Remove line"
                 >
                   <Trash2 className="h-4 w-4" />

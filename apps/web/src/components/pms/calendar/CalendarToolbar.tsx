@@ -321,7 +321,7 @@ export default function CalendarToolbar({
           {onNewReservation && (
             <button
               onClick={onNewReservation}
-              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+              className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500"
             >
               <Plus className="h-3.5 w-3.5" />
               New Reservation

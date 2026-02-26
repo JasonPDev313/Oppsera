@@ -95,6 +95,7 @@ export async function listGlAccounts(
                  a.is_control_account, a.control_account_type, a.is_contra_account,
                  a.allow_manual_posting, a.description
         ORDER BY a.account_number
+        LIMIT 2000
       `);
 
       const items = Array.from(rows as Iterable<Record<string, unknown>>).map((row) => ({
@@ -145,6 +146,7 @@ export async function listGlAccounts(
         ${isActiveFilter}
         ${isControlFilter}
       ORDER BY a.account_number
+      LIMIT 2000
     `);
 
     const items = Array.from(rows as Iterable<Record<string, unknown>>).map((row) => ({

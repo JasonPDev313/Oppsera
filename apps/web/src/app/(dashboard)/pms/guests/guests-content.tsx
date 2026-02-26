@@ -154,7 +154,7 @@ export default function GuestsContent() {
           )}
           <button
             onClick={() => router.push('/pms/guests/new')}
-            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
           >
             <Plus className="h-3.5 w-3.5" />
             New Guest
@@ -170,7 +170,7 @@ export default function GuestsContent() {
           value={searchInput}
           onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Search by name, email, or phone..."
-          className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+          className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500/30 focus:outline-none focus:ring-1 focus:ring-indigo-300"
         />
       </div>
 
@@ -222,7 +222,7 @@ export default function GuestsContent() {
               <tr
                 key={g.id}
                 onClick={() => router.push(`/pms/guests/${g.id}`)}
-                className="cursor-pointer hover:bg-gray-200/30 transition-colors"
+                className="cursor-pointer hover:bg-accent/30 transition-colors"
               >
                 <td className="border-b border-border px-4 py-3">
                   <span className="text-sm font-medium text-foreground">
@@ -278,7 +278,7 @@ export default function GuestsContent() {
         <div className="flex justify-center">
           <button
             onClick={loadMore}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent/50"
           >
             Load more
           </button>

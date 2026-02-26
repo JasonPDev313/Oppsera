@@ -109,8 +109,8 @@ function CreateAccountDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">Create Billing Account</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-lg font-semibold text-foreground">Create Billing Account</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Set up a new billing account for house charge and AR tracking.
         </p>
 
@@ -121,7 +121,7 @@ function CreateAccountDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Smith Family Account"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -136,7 +136,7 @@ function CreateAccountDialog({
               value={primaryCustomerId}
               onChange={(e) => setPrimaryCustomerId(e.target.value)}
               placeholder="Customer UUID"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -152,7 +152,7 @@ function CreateAccountDialog({
             <select
               value={billingCycle}
               onChange={(e) => setBillingCycle(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             >
               <option value="monthly">Monthly</option>
               <option value="biweekly">Biweekly</option>
@@ -167,7 +167,7 @@ function CreateAccountDialog({
               onChange={(e) => setDueDays(e.target.value)}
               placeholder="30"
               min="0"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
         </div>
@@ -177,7 +177,7 @@ function CreateAccountDialog({
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -185,7 +185,7 @@ function CreateAccountDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
@@ -218,14 +218,14 @@ export default function BillingContent() {
       key: 'name',
       header: 'Account Name',
       render: (row: AccountRow) => (
-        <span className="font-medium text-gray-900">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     {
       key: 'primaryCustomerId',
       header: 'Primary Customer',
       render: (row: AccountRow) => (
-        <span className="text-sm text-gray-600">{row.billingContactName || row.primaryCustomerId}</span>
+        <span className="text-sm text-muted-foreground">{row.billingContactName || row.primaryCustomerId}</span>
       ),
     },
     {
@@ -240,7 +240,7 @@ export default function BillingContent() {
       key: 'currentBalanceCents',
       header: 'Balance',
       render: (row: AccountRow) => (
-        <span className={`font-medium ${row.currentBalanceCents > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+        <span className={`font-medium ${row.currentBalanceCents > 0 ? 'text-red-500' : 'text-foreground'}`}>
           {formatMoney(row.currentBalanceCents)}
         </span>
       ),
@@ -249,7 +249,7 @@ export default function BillingContent() {
       key: 'creditLimitCents',
       header: 'Credit Limit',
       render: (row: AccountRow) => (
-        <span className="text-gray-600">
+        <span className="text-muted-foreground">
           {row.creditLimitCents !== null ? formatMoney(row.creditLimitCents) : '\u2014'}
         </span>
       ),
@@ -258,7 +258,7 @@ export default function BillingContent() {
       key: 'billingCycle',
       header: 'Cycle',
       render: (row: AccountRow) => (
-        <span className="text-sm capitalize text-gray-600">{row.billingCycle}</span>
+        <span className="text-sm capitalize text-muted-foreground">{row.billingCycle}</span>
       ),
     },
   ];
@@ -266,11 +266,11 @@ export default function BillingContent() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Billing Accounts</h1>
+        <h1 className="text-xl font-semibold text-foreground">Billing Accounts</h1>
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           Create Account
@@ -281,7 +281,7 @@ export default function BillingContent() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+          className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
         >
           {statusFilterOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -293,7 +293,7 @@ export default function BillingContent() {
           <button
             type="button"
             onClick={() => setStatusFilter('')}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             Clear filter
           </button>
@@ -321,7 +321,7 @@ export default function BillingContent() {
               <button
                 type="button"
                 onClick={loadMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Load More
               </button>

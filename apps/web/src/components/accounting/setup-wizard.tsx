@@ -124,7 +124,7 @@ export function SetupWizard({ onClose }: { onClose?: () => void }) {
                 ) : (
                   <Link
                     href={current.href}
-                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
                   >
                     Configure <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -161,7 +161,7 @@ export function SetupWizard({ onClose }: { onClose?: () => void }) {
         ) : (
           <button
             onClick={() => setCurrentStep(Math.min(steps.length - 1, currentStep + 1))}
-            className="flex items-center gap-1 text-sm font-medium text-indigo-500 hover:text-indigo-500"
+            className="flex items-center gap-1 text-sm font-medium text-indigo-500 hover:text-indigo-400"
           >
             Next <ArrowRight className="h-4 w-4" />
           </button>

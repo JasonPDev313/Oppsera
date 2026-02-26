@@ -65,6 +65,12 @@ function setCachedAuthUser(authProviderId: string, user: AuthUser) {
   }
 }
 
+// In-flight deduplication: when N concurrent requests arrive for the same uncached user,
+// only the first executes the DB queries — the others await the same Promise.
+// This prevents cache stampedes when multiple users from the same tenant are active
+// and Vercel cold-starts a new instance (empty cache, burst of requests).
+const _inFlightValidations = new Map<string, Promise<AuthUser | null>>();
+
 export class SupabaseAuthAdapter implements AuthAdapter {
   private _supabase: ReturnType<typeof createSupabaseAdmin> | null = null;
 
@@ -84,55 +90,24 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       const authProviderId = decoded.sub;
       if (!authProviderId) return null;
 
-      // Check cache first — avoids 3 sequential DB queries on hot POS paths
+      // Check cache first — avoids 2 DB queries on hot POS paths
       const cached = getCachedAuthUser(authProviderId);
       if (cached) return cached;
 
-      // Look up user by auth_provider_id
-      const user = await db.query.users.findFirst({
-        where: eq(users.authProviderId, authProviderId),
-      });
-      if (!user) return null;
+      // Deduplicate concurrent DB lookups for the same user.
+      // When 10 requests arrive simultaneously with a cold cache, only
+      // the first executes the queries — the other 9 await the same Promise.
+      const inFlight = _inFlightValidations.get(authProviderId);
+      if (inFlight) return inFlight;
 
-      // Look up active membership + tenant in one query (saves 1 DB round-trip on cold start)
-      const membershipRows = await db
-        .select({
-          membershipStatus: memberships.status,
-          tenantId: memberships.tenantId,
-          tenantStatus: tenants.status,
-        })
-        .from(memberships)
-        .innerJoin(tenants, eq(tenants.id, memberships.tenantId))
-        .where(and(eq(memberships.userId, user.id), eq(memberships.status, 'active')))
-        .orderBy(asc(memberships.createdAt))
-        .limit(1);
+      const lookupPromise = this._lookupAuthUser(authProviderId);
+      _inFlightValidations.set(authProviderId, lookupPromise);
 
-      const membershipRow = membershipRows[0];
-
-      if (!membershipRow) {
-        // User exists but has no tenant — needs onboarding
-        const result: AuthUser = {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          tenantId: '',
-          tenantStatus: 'none',
-          membershipStatus: 'none',
-        };
-        setCachedAuthUser(authProviderId, result);
-        return result;
+      try {
+        return await lookupPromise;
+      } finally {
+        _inFlightValidations.delete(authProviderId);
       }
-
-      const result: AuthUser = {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        tenantId: membershipRow.tenantId,
-        tenantStatus: membershipRow.tenantStatus,
-        membershipStatus: membershipRow.membershipStatus,
-      };
-      setCachedAuthUser(authProviderId, result);
-      return result;
     } catch (error) {
       // JWT errors are auth failures → return null → 401
       if (error instanceof jwt.JsonWebTokenError) {
@@ -149,6 +124,45 @@ export class SupabaseAuthAdapter implements AuthAdapter {
       console.error('Token validation server error:', error);
       throw error;
     }
+  }
+
+  /** Extracted DB lookup — called once per authProviderId, shared across concurrent requests. */
+  private async _lookupAuthUser(authProviderId: string): Promise<AuthUser | null> {
+    // Single query: user LEFT JOIN membership LEFT JOIN tenant.
+    // Combines what was 2 sequential queries into 1 — critical with max:2 pool on Vercel.
+    // LEFT JOIN handles users without a membership (needs onboarding).
+    const rows = await db
+      .select({
+        userId: users.id,
+        email: users.email,
+        name: users.name,
+        tenantId: memberships.tenantId,
+        membershipStatus: memberships.status,
+        tenantStatus: tenants.status,
+      })
+      .from(users)
+      .leftJoin(
+        memberships,
+        and(eq(memberships.userId, users.id), eq(memberships.status, 'active')),
+      )
+      .leftJoin(tenants, eq(tenants.id, memberships.tenantId))
+      .where(eq(users.authProviderId, authProviderId))
+      .orderBy(asc(memberships.createdAt))
+      .limit(1);
+
+    const row = rows[0];
+    if (!row) return null;
+
+    const result: AuthUser = {
+      id: row.userId,
+      email: row.email,
+      name: row.name,
+      tenantId: row.tenantId ?? '',
+      tenantStatus: row.tenantStatus ?? 'none',
+      membershipStatus: row.membershipStatus ?? 'none',
+    };
+    setCachedAuthUser(authProviderId, result);
+    return result;
   }
 
   async signUp(

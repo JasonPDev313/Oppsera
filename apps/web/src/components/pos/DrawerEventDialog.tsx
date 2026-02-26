@@ -13,9 +13,9 @@ const EVENT_TYPES: Array<{
   color: string;
   requiresAmount: boolean;
 }> = [
-  { type: 'paid_in', label: 'Paid In', icon: ArrowDownCircle, color: 'text-green-600', requiresAmount: true },
-  { type: 'paid_out', label: 'Paid Out', icon: ArrowUpCircle, color: 'text-red-600', requiresAmount: true },
-  { type: 'cash_drop', label: 'Cash Drop', icon: DollarSign, color: 'text-blue-600', requiresAmount: true },
+  { type: 'paid_in', label: 'Paid In', icon: ArrowDownCircle, color: 'text-green-500', requiresAmount: true },
+  { type: 'paid_out', label: 'Paid Out', icon: ArrowUpCircle, color: 'text-red-500', requiresAmount: true },
+  { type: 'cash_drop', label: 'Cash Drop', icon: DollarSign, color: 'text-blue-500', requiresAmount: true },
   { type: 'no_sale', label: 'No Sale', icon: Ban, color: 'text-muted-foreground', requiresAmount: false },
 ];
 
@@ -95,7 +95,7 @@ export function DrawerEventDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent/50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -189,7 +189,7 @@ export function DrawerEventDialog({
               type="button"
               onClick={handleSubmit}
               disabled={isSubmitting || !canSubmit}
-              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
             >
               {isSubmitting ? 'Recording...' : 'Record'}
             </button>

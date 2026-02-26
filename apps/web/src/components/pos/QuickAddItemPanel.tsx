@@ -89,12 +89,12 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-gray-200 px-4 py-3">
+      <div className="border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <PackagePlus className="h-4.5 w-4.5 text-indigo-500" />
           <h3 className="text-sm font-semibold text-foreground">Quick Add Item</h3>
         </div>
-        <p className="mt-0.5 text-xs text-gray-500">
+        <p className="mt-0.5 text-xs text-muted-foreground">
           Create a new catalog item from the register
         </p>
       </div>
@@ -112,7 +112,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Diet Coke"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               autoFocus
             />
           </div>
@@ -127,7 +127,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
                 id="qai-type"
                 value={itemType}
                 onChange={(e) => setItemType(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
                 {ITEM_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
@@ -139,7 +139,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
                 Price <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
                 <input
                   id="qai-price"
                   type="number"
@@ -148,7 +148,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
                   value={defaultPrice}
                   onChange={(e) => setDefaultPrice(e.target.value)}
                   placeholder="0.00"
-                  className="w-full rounded-lg border border-gray-300 bg-surface py-2 pl-7 pr-3 text-sm text-right placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full rounded-lg border border-border bg-surface py-2 pl-7 pr-3 text-sm text-right placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
             </div>
@@ -164,7 +164,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 placeholder="Optional"
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
             <div>
@@ -175,7 +175,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
                 value={barcode}
                 onChange={(e) => setBarcode(e.target.value)}
                 placeholder="Optional"
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
           </div>
@@ -184,7 +184,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
           <div>
             <label htmlFor="qai-cost" className="mb-1 block text-xs font-medium text-foreground">Cost</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
               <input
                 id="qai-cost"
                 type="number"
@@ -193,22 +193,22 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
                 value={cost}
                 onChange={(e) => setCost(e.target.value)}
                 placeholder="Optional"
-                className="w-full rounded-lg border border-gray-300 bg-surface py-2 pl-7 pr-3 text-sm text-right placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-lg border border-border bg-surface py-2 pl-7 pr-3 text-sm text-right placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               />
             </div>
           </div>
 
           {/* Track Inventory toggle */}
-          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-gray-200 px-3 py-2.5">
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-3 py-2.5">
             <input
               type="checkbox"
               checked={isTrackable}
               onChange={(e) => setIsTrackable(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
             />
             <div>
               <span className="text-sm font-medium text-foreground">Track Inventory</span>
-              <p className="text-xs text-gray-500">Enable stock tracking for this item</p>
+              <p className="text-xs text-muted-foreground">Enable stock tracking for this item</p>
             </div>
           </label>
 
@@ -232,7 +232,7 @@ export function QuickAddItemPanel({ onItemCreated }: QuickAddItemPanelProps) {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !name.trim() || !defaultPrice}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? (
               <span className="flex items-center justify-center gap-2">

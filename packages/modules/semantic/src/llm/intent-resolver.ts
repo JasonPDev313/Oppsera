@@ -142,14 +142,16 @@ Respond with a single JSON object — no markdown fences, no prose before/after.
   } | null,
   "confidence": number,           // 0.0–1.0, your certainty the plan is correct
   "clarificationNeeded": boolean, // true if you cannot resolve without more info
-  "clarificationMessage": string | null  // the question to ask the user (if clarificationNeeded)
+  "clarificationMessage": string | null,  // the question to ask the user (if clarificationNeeded)
+  "clarificationOptions": string[] | null // 3-5 clickable option buttons for the user to choose from (if clarificationNeeded). Each option should be a complete, ready-to-send question that directly resolves the ambiguity. Make options specific and actionable, not generic.
 }
 \`\`\`
 
 ## Mode Routing Rules
-- Use **mode="metrics"** when the question is about sales analytics, revenue, order counts, item performance, inventory KPIs, or any topic that maps cleanly to the Available Metrics below. This mode is faster and more reliable for these queries.
+- Use **mode="metrics"** when the question is about sales analytics, revenue, order counts, item performance, or any topic that maps cleanly to the Available Metrics below. This mode is faster and more reliable for these queries.
 - Use **mode="sql"** when the question is about specific records, data exploration, operational details, entity lookups, configuration, or anything NOT covered by the Available Metrics. Examples: "how many users do I have", "list my vendors", "which catalog items have no inventory", "show me orders from customer X", "what tables need setup".
 - **Also use mode="sql"** when the question involves period comparisons ("compare to last week", "vs previous month", "week over week") — SQL mode handles CTEs for multi-period comparison better than metrics mode.
+- **IMPORTANT: Use mode="sql" for inventory questions** — questions about inventory items, stock levels, low stock, reorder points, what items we have, item counts, catalog items, etc. The inventory read model (rm_inventory_on_hand) may be empty, but operational tables (inventory_items, inventory_movements, catalog_items) have the live data. SQL mode queries these directly and gives accurate results.
 - When in doubt, prefer **mode="sql"** — it can answer any question about the database.
 - For mode="sql", still fill in the plan with "intent" and "rationale" fields (metrics/dimensions can be empty arrays).
 
@@ -224,6 +226,7 @@ interface RawIntentResponse {
   confidence: number;
   clarificationNeeded: boolean;
   clarificationMessage?: string | null;
+  clarificationOptions?: string[] | null;
 }
 
 function parseIntentResponse(raw: string): RawIntentResponse {
@@ -278,6 +281,10 @@ function parseIntentResponse(raw: string): RawIntentResponse {
     clarificationNeeded: obj.clarificationNeeded as boolean,
     clarificationMessage:
       typeof obj.clarificationMessage === 'string' ? obj.clarificationMessage : null,
+    clarificationOptions:
+      Array.isArray(obj.clarificationOptions)
+        ? (obj.clarificationOptions as unknown[]).filter((o): o is string => typeof o === 'string').slice(0, 5)
+        : null,
   };
 }
 
@@ -408,6 +415,7 @@ export async function resolveIntent(
     confidence: parsed.confidence,
     isClarification,
     clarificationText: parsed.clarificationMessage ?? undefined,
+    clarificationOptions: parsed.clarificationOptions ?? undefined,
     rawResponse: response.content,
     tokensInput: response.tokensInput,
     tokensOutput: response.tokensOutput,

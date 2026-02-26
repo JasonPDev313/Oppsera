@@ -219,8 +219,9 @@ export function validateStaffImport(input: {
       const existing = emailsSeenInFile.get(email);
       if (existing) {
         existing.push(rowNumber);
-        if (!matchType) matchType = 'duplicate_in_file';
-        warnings.push({ field: 'email', code: 'DUPLICATE_IN_FILE', message: `Email "${email}" appears multiple times in the file` });
+        matchType = 'duplicate_in_file';
+        // Don't set matchedUserId — the first occurrence hasn't been committed yet
+        warnings.push({ field: 'email', code: 'DUPLICATE_IN_FILE', message: `Email "${email}" already appears in row ${existing[0]} — this row will be skipped` });
       } else {
         emailsSeenInFile.set(email, [rowNumber]);
       }
@@ -230,6 +231,9 @@ export function validateStaffImport(input: {
     let action: ValidatedStaffRow['action'] = 'error';
     if (errors.length > 0) {
       action = 'error';
+    } else if (matchType === 'duplicate_in_file') {
+      // Same email already appeared earlier in the file — skip to avoid unique constraint violation
+      action = 'skip';
     } else if (matchedUserId) {
       if (importMode === 'create_only') {
         action = 'skip';

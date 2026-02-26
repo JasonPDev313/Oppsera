@@ -45,7 +45,7 @@ export default function JournalsContent() {
       actions={
         <Link
           href="/accounting/journals/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           New Entry
@@ -193,7 +193,7 @@ function JournalRow({ entry, onRefresh: _onRefresh }: { entry: JournalEntry; onR
   return (
     <tr className="border-b border-border last:border-0 hover:bg-accent">
       <td className="px-4 py-3 text-sm">
-        <Link href={`/accounting/journals/${entry.id}`} className="font-medium text-indigo-500 hover:text-indigo-500">
+        <Link href={`/accounting/journals/${entry.id}`} className="font-medium text-indigo-500 hover:text-indigo-400">
           #{entry.journalNumber}
         </Link>
       </td>
@@ -279,7 +279,7 @@ function JournalCard({ entry }: { entry: JournalEntry }) {
   return (
     <Link
       href={`/accounting/journals/${entry.id}`}
-      className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-border"
+      className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-muted-foreground"
     >
       <div className="flex items-center justify-between">
         <span className="font-medium text-indigo-500">#{entry.journalNumber}</span>

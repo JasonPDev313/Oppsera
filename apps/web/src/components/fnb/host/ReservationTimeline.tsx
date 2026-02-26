@@ -163,7 +163,7 @@ export function ReservationTimeline({
             {laterToday.length > 0 && (
               <ReservationSection
                 title="Later Today"
-                accentDot="bg-gray-300"
+                accentDot="bg-gray-400"
                 items={laterToday}
                 onCheckIn={onCheckIn}
                 onCancel={onCancel}
@@ -243,7 +243,7 @@ function ReservationCard({
       aria-selected={false}
       aria-label={`${reservation.guestName}, party of ${reservation.partySize}, ${formatTime(reservation.reservationTime)}`}
       tabIndex={0}
-      className="rounded-xl p-3.5 transition-all duration-150 hover:shadow-md focus-visible:ring-2 focus-visible:ring-indigo-500 outline-none bg-muted border border-border hover:border-gray-400/30"
+      className="rounded-xl p-3.5 transition-all duration-150 hover:shadow-md focus-visible:ring-2 focus-visible:ring-indigo-500 outline-none bg-muted border border-border hover:border-muted-foreground"
     >
       {/* Top row: time + name + badges */}
       <div className="flex items-center gap-2 mb-2">

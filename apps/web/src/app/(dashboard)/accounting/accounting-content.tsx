@@ -180,7 +180,7 @@ export default function AccountingDashboardContent() {
             <h2 className="text-sm font-semibold text-foreground">Recent Journal Entries</h2>
             <Link
               href="/accounting/journals"
-              className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
+              className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
             >
               View all
             </Link>
@@ -218,7 +218,7 @@ export default function AccountingDashboardContent() {
                   <p className="mt-2 text-sm text-muted-foreground">No journal entries yet</p>
                   <Link
                     href="/accounting/journals/new"
-                    className="mt-2 text-sm font-medium text-indigo-500 hover:text-indigo-500"
+                    className="mt-2 text-sm font-medium text-indigo-500 hover:text-indigo-400"
                   >
                     Create your first entry
                   </Link>
@@ -257,7 +257,7 @@ export default function AccountingDashboardContent() {
             <h3 className="text-sm font-semibold text-foreground">Mapping Coverage</h3>
             <Link
               href="/accounting/mappings"
-              className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
+              className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
             >
               Configure
             </Link>
@@ -291,7 +291,7 @@ export default function AccountingDashboardContent() {
             <h3 className="text-sm font-semibold text-foreground">Current Period</h3>
             <Link
               href="/accounting/close"
-              className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
+              className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
             >
               Close workflow
             </Link>

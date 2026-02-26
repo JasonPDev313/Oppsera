@@ -27,7 +27,7 @@ export function ReorderSuggestionsPanel({ suggestions, isLoading, onQuickReceive
   return (
     <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
       <div className="flex items-center gap-2 mb-3">
-        <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <AlertTriangle className="h-4 w-4 text-amber-500" />
         <h3 className="text-sm font-semibold text-amber-500">
           {suggestions.length} item{suggestions.length !== 1 ? 's' : ''} below reorder point
         </h3>
@@ -47,7 +47,7 @@ export function ReorderSuggestionsPanel({ suggestions, isLoading, onQuickReceive
               <button
                 type="button"
                 onClick={() => onQuickReceive(s)}
-                className="ml-2 flex shrink-0 items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700"
+                className="ml-2 flex shrink-0 items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500"
               >
                 <Plus className="h-3 w-3" />
                 Quick Receive

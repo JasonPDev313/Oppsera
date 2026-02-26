@@ -89,7 +89,7 @@ function WaterfallTooltip({ active, payload }: WaterfallTooltipProps) {
       <p className="text-muted-foreground">
         Current: {currencyFormatter.format(item.currentValue)}
       </p>
-      <p className={`font-medium ${item.direction === 'up' ? 'text-emerald-600' : 'text-red-500'}`}>
+      <p className={`font-medium ${item.direction === 'up' ? 'text-emerald-500' : 'text-red-500'}`}>
         Impact: {formatChange(item.contribution)} ({formatPct(item.contributionPct)})
       </p>
     </div>
@@ -261,7 +261,7 @@ function ContributorsTable({
                 ? Math.round((Math.abs(c.contribution) / Math.abs(totalChange)) * 100)
                 : 0;
             return (
-              <tr key={idx} className="hover:bg-gray-200/50 transition-colors">
+              <tr key={idx} className="hover:bg-accent/50 transition-colors">
                 <td className="px-3 py-2 text-foreground font-medium">
                   {humanizeKey(c.dimension)}
                 </td>
@@ -274,7 +274,7 @@ function ContributorsTable({
                 </td>
                 <td
                   className={`px-3 py-2 text-right font-medium ${
-                    c.direction === 'up' ? 'text-emerald-600' : 'text-red-500'
+                    c.direction === 'up' ? 'text-emerald-500' : 'text-red-500'
                   }`}
                 >
                   {formatChange(c.contribution)}

@@ -39,7 +39,7 @@ export default function AchSettingsTab() {
             <button
               key={p.id}
               onClick={() => setSelectedProviderId(p.id)}
-              className="flex w-full items-center gap-3 rounded-lg border border-border px-4 py-3 text-left hover:bg-muted"
+              className="flex w-full items-center gap-3 rounded-lg border border-border px-4 py-3 text-left hover:bg-accent"
             >
               <CreditCard className="h-5 w-5 text-muted-foreground" />
               <div>
@@ -139,7 +139,7 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
     <div className="rounded-lg border border-border p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Landmark className="h-5 w-5 text-emerald-600" />
+          <Landmark className="h-5 w-5 text-emerald-500" />
           <h3 className="text-base font-semibold text-foreground">{mid.displayName}</h3>
           <span className="text-xs text-muted-foreground">MID: {mid.merchantId}</span>
         </div>
@@ -150,7 +150,7 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
             type="checkbox"
             checked={achEnabled}
             onChange={(e) => setAchEnabled(e.target.checked)}
-            className="h-4 w-4 rounded text-emerald-600"
+            className="h-4 w-4 rounded text-emerald-500"
           />
         </label>
       </div>
@@ -203,7 +203,7 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
                   className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${
                     secCode === opt.value
                       ? 'border-indigo-500/30 bg-indigo-500/10'
-                      : 'border-border hover:bg-muted'
+                      : 'border-border hover:bg-accent'
                   }`}
                 >
                   <input
@@ -233,7 +233,7 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
                   className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 ${
                     verificationMode === opt.value
                       ? 'border-indigo-500/30 bg-indigo-500/10'
-                      : 'border-border hover:bg-muted'
+                      : 'border-border hover:bg-accent'
                   }`}
                 >
                   <input
@@ -260,7 +260,7 @@ function AchMidSettingsCard({ mid }: { mid: MerchantAccountInfo }) {
         <button
           onClick={handleSave}
           disabled={isSaving || (achEnabled && !companyName)}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
           Save ACH Settings

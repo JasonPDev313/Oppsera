@@ -171,9 +171,9 @@ export function PalettePanel() {
   );
 
   return (
-    <div className="flex h-full w-60 flex-col border-r border-gray-200 bg-surface">
-      <div className="border-b border-gray-200 px-3 py-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Objects</h3>
+    <div className="flex h-full w-60 flex-col border-r border-border bg-surface">
+      <div className="border-b border-border px-3 py-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Objects</h3>
       </div>
       <div className="flex-1 overflow-y-auto">
         {paletteGroups.map((group) => {
@@ -182,7 +182,7 @@ export function PalettePanel() {
             <div key={group.name}>
               <button
                 onClick={() => toggleGroup(group.name)}
-                className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent"
               >
                 {group.name}
                 {isExpanded ? (
@@ -199,7 +199,7 @@ export function PalettePanel() {
                       onClick={() => handleAddItem(item)}
                       draggable
                       onDragStart={(e) => handleDragStart(e, item)}
-                      className="flex flex-col items-center gap-1 rounded-lg border border-gray-200 px-2 py-2 text-gray-600 transition-colors hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                      className="flex flex-col items-center gap-1 rounded-lg border border-border px-2 py-2 text-muted-foreground transition-colors hover:border-indigo-500/30 hover:bg-indigo-500/10 hover:text-indigo-600"
                     >
                       <item.icon className="h-5 w-5" />
                       <span className="text-[10px] leading-tight text-center">{item.name}</span>

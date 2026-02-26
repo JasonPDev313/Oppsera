@@ -59,7 +59,7 @@ export default function AchStatusContent() {
           type="button"
           onClick={() => poll.mutate({})}
           disabled={poll.isPending}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
         >
           {poll.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -72,7 +72,7 @@ export default function AchStatusContent() {
 
       {/* Poll result banner */}
       {poll.isSuccess && (
-        <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-600">
+        <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-500">
           Polling complete — {poll.data.totalSettled} settled, {poll.data.totalOriginated} originated, {poll.data.totalReturned} returned
         </div>
       )}

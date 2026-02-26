@@ -172,7 +172,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
         <button
           type="button"
           onClick={step === 'complete' ? () => { handleClose(); onSuccess(); } : handleClose}
-          className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
         >
           {step === 'complete' ? 'Done' : 'Cancel'}
         </button>
@@ -181,7 +181,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
             <button
               type="button"
               onClick={reset}
-              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
             >
               Upload Different File
             </button>
@@ -190,7 +190,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
             <button
               type="button"
               onClick={handleImport}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               Import {validation.accountCount} Accounts
             </button>
@@ -199,7 +199,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
             <button
               type="button"
               onClick={() => { handleClose(); onSuccess(); }}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               View Accounts
             </button>
@@ -262,7 +262,7 @@ export function CsvImportFlow({ open, onClose, onSuccess }: CsvImportFlowProps) 
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-indigo-500 hover:text-indigo-500"
+                className="text-indigo-500 hover:text-indigo-400"
               >
                 browse
               </button>

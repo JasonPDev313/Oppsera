@@ -54,9 +54,9 @@ export function InventoryTab({
           type="checkbox"
           checked={belowThresholdOnly}
           onChange={(e) => onToggleThreshold(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
         />
-        <span className="text-sm font-medium text-gray-700">Show low stock only</span>
+        <span className="text-sm font-medium text-foreground">Show low stock only</span>
       </label>
 
       {/* Table */}

@@ -82,10 +82,10 @@ function StepIndicator({
       onClick={onClick}
       className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
         isCurrent
-          ? 'bg-indigo-50 text-indigo-700 font-medium'
+          ? 'bg-indigo-500/10 text-indigo-500 font-medium'
           : isCompleted || isPast
-            ? 'text-gray-600 hover:bg-gray-50'
-            : 'text-gray-400'
+            ? 'text-muted-foreground hover:bg-accent'
+            : 'text-muted-foreground'
       }`}
     >
       {isCompleted ? (
@@ -124,18 +124,18 @@ function TotalsSummary({
   ];
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
-      <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide mb-3">
         Cycle Totals
       </h3>
       <div className="space-y-2">
         {items.map((item) => (
           <div key={item.label} className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-2 text-gray-600">
+            <div className="flex items-center gap-2 text-muted-foreground">
               <item.icon className="h-3.5 w-3.5" />
               <span>{item.label}</span>
             </div>
-            <span className="font-medium text-gray-900">{item.value}</span>
+            <span className="font-medium text-foreground">{item.value}</span>
           </div>
         ))}
       </div>
@@ -163,15 +163,15 @@ function StepContent({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">{step.label}</h2>
-        <p className="mt-1 text-sm text-gray-500">{step.description}</p>
+        <h2 className="text-lg font-semibold text-foreground">{step.label}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
       </div>
 
       {/* Show preview info when available */}
       {step.name === 'preview_dues' && previewSummary && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-4 text-sm">
-          <p className="text-gray-600">
-            <span className="font-medium text-gray-900">
+        <div className="rounded-lg border border-border bg-muted/50 p-4 text-sm">
+          <p className="text-muted-foreground">
+            <span className="font-medium text-foreground">
               {Number(
                 (previewSummary.duesPreview as Record<string, unknown>)?.count ?? previewSummary.totalAccounts ?? 0,
               )}
@@ -182,14 +182,14 @@ function StepContent({
       )}
 
       {step.name === 'exception_review' && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50/50 p-4 text-sm text-yellow-800">
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4 text-sm text-yellow-500">
           Review the billing preview and mark any accounts to exclude before proceeding.
           Exceptions can be added during this step.
         </div>
       )}
 
       {step.name === 'review_close' && (
-        <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 text-sm text-blue-800">
+        <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 text-sm text-blue-500">
           This is the final step. Once closed, the billing cycle cannot be undone.
           Review all totals carefully before proceeding.
         </div>
@@ -198,7 +198,7 @@ function StepContent({
       {/* Status + action */}
       <div className="flex items-center gap-3">
         {isCompleted ? (
-          <div className="flex items-center gap-2 text-sm text-green-600">
+          <div className="flex items-center gap-2 text-sm text-green-500">
             <CheckCircle2 className="h-4 w-4" />
             <span>Step completed</span>
           </div>
@@ -207,7 +207,7 @@ function StepContent({
             type="button"
             onClick={onExecute}
             disabled={isExecuting}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isExecuting ? (
               <>
@@ -255,20 +255,20 @@ function CreateCyclePanel({
   return (
     <div className="flex flex-col items-center justify-center py-16">
       <div className="mx-auto max-w-md text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-500/10">
           <CalendarDays className="h-6 w-6 text-indigo-600" />
         </div>
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-foreground">
           Start New Billing Cycle
         </h2>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-muted-foreground">
           Create a billing cycle preview to review dues, initiation installments,
           minimums, statements, and autopay before closing the period.
         </p>
 
         <div className="mt-6 flex flex-col items-center gap-4">
           <div className="w-full max-w-xs">
-            <label htmlFor="cycleDate" className="block text-left text-sm font-medium text-gray-700">
+            <label htmlFor="cycleDate" className="block text-left text-sm font-medium text-foreground">
               Cycle Date
             </label>
             <input
@@ -276,14 +276,14 @@ function CreateCyclePanel({
               type="date"
               value={cycleDate}
               onChange={(e) => setCycleDate(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
           <button
             type="button"
             onClick={handleCreate}
             disabled={isLoading || !cycleDate}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? (
               <>
@@ -347,12 +347,12 @@ export function BillingCommandCenter() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div className="h-7 w-64 animate-pulse rounded bg-gray-200" />
+          <div className="h-7 w-64 animate-pulse rounded bg-muted" />
         </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-          <div className="h-96 animate-pulse rounded-lg bg-gray-100" />
-          <div className="h-96 animate-pulse rounded-lg bg-gray-100 lg:col-span-2" />
-          <div className="h-96 animate-pulse rounded-lg bg-gray-100" />
+          <div className="h-96 animate-pulse rounded-lg bg-muted" />
+          <div className="h-96 animate-pulse rounded-lg bg-muted lg:col-span-2" />
+          <div className="h-96 animate-pulse rounded-lg bg-muted" />
         </div>
       </div>
     );
@@ -362,7 +362,7 @@ export function BillingCommandCenter() {
   if (!run) {
     return (
       <div className="space-y-6">
-        <h1 className="text-xl font-semibold text-gray-900">Billing Command Center</h1>
+        <h1 className="text-xl font-semibold text-foreground">Billing Command Center</h1>
         <CreateCyclePanel onCreated={refresh} />
       </div>
     );
@@ -376,10 +376,10 @@ export function BillingCommandCenter() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">
+          <h1 className="text-xl font-semibold text-foreground">
             Billing Command Center
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Cycle Date: {formatDate(run.cycleDate)}
           </p>
         </div>
@@ -400,7 +400,7 @@ export function BillingCommandCenter() {
           <button
             type="button"
             onClick={refresh}
-            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Refresh"
           >
             <RotateCcw className="h-4 w-4" />
@@ -410,8 +410,8 @@ export function BillingCommandCenter() {
 
       {/* Completed banner */}
       {isCompleted && (
-        <div className="rounded-lg border border-green-200 bg-green-50/50 p-4">
-          <div className="flex items-center gap-2 text-sm text-green-700">
+        <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+          <div className="flex items-center gap-2 text-sm text-green-500">
             <CheckCircle2 className="h-5 w-5" />
             <span className="font-medium">
               Billing cycle completed on {formatDate(run.completedAt ?? null)}
@@ -423,8 +423,8 @@ export function BillingCommandCenter() {
       {/* Main layout: sidebar steps + content + totals */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
         {/* Step sidebar */}
-        <div className="rounded-lg border border-gray-200 bg-surface p-3">
-          <h3 className="mb-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="rounded-lg border border-border bg-surface p-3">
+          <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             Steps
           </h3>
           <nav className="space-y-0.5">
@@ -442,7 +442,7 @@ export function BillingCommandCenter() {
         </div>
 
         {/* Step content */}
-        <div className="rounded-lg border border-gray-200 bg-surface p-6 lg:col-span-2">
+        <div className="rounded-lg border border-border bg-surface p-6 lg:col-span-2">
           {STEPS[currentStep] && (
             <StepContent
               step={STEPS[currentStep]}

@@ -58,9 +58,9 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
   if (!active || !payload?.length) return null;
   const item = payload[0]!.payload;
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-3 text-sm shadow-lg">
-      <p className="font-semibold text-gray-900">{item.name}</p>
-      <p className="text-gray-600">
+    <div className="rounded-lg border border-border bg-surface p-3 text-sm shadow-lg">
+      <p className="font-semibold text-foreground">{item.name}</p>
+      <p className="text-muted-foreground">
         {item.mode === 'revenue'
           ? formatReportMoney(item.value)
           : `${item.value} sold`}
@@ -100,15 +100,15 @@ export function ItemsTab({ data, isLoading, dateFrom, dateTo, locationId }: Item
       {!isLoading && data.length > 0 && (
         <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-medium text-gray-500">Top 10 Items</h3>
-            <div className="flex rounded-lg bg-gray-100 p-0.5">
+            <h3 className="text-sm font-medium text-muted-foreground">Top 10 Items</h3>
+            <div className="flex rounded-lg bg-muted p-0.5">
               <button
                 type="button"
                 onClick={() => setChartMode('quantity')}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   chartMode === 'quantity'
-                    ? 'bg-surface text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-surface text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 By Quantity
@@ -118,8 +118,8 @@ export function ItemsTab({ data, isLoading, dateFrom, dateTo, locationId }: Item
                 onClick={() => setChartMode('revenue')}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   chartMode === 'revenue'
-                    ? 'bg-surface text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
+                    ? 'bg-surface text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 By Revenue
@@ -167,7 +167,7 @@ export function ItemsTab({ data, isLoading, dateFrom, dateTo, locationId }: Item
         <button
           type="button"
           onClick={handleExport}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Download className="h-4 w-4" />
           Export CSV

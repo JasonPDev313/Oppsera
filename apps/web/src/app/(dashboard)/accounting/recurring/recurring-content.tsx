@@ -240,7 +240,7 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
               <button
                 type="button"
                 onClick={addLine}
-                className="text-xs text-indigo-500 hover:text-indigo-500 font-medium"
+                className="text-xs text-indigo-500 hover:text-indigo-400 font-medium"
               >
                 + Add Line
               </button>
@@ -349,7 +349,7 @@ function TemplateFormDialog({ open, onClose, onSave, initial, isSaving }: Templa
               type="button"
               onClick={handleSubmit}
               disabled={isSaving}
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50"
             >
               {isSaving ? 'Saving...' : initial ? 'Update Template' : 'Create Template'}
             </button>
@@ -460,7 +460,7 @@ function ExecuteDialog({
               onClose();
             }}
             disabled={isExecuting}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500 disabled:opacity-50"
           >
             {isExecuting ? 'Posting...' : 'Post Entry'}
           </button>
@@ -526,7 +526,7 @@ export default function RecurringContent() {
               setEditingTemplate(null);
               setShowForm(true);
             }}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" />
             New Template
@@ -636,7 +636,7 @@ export default function RecurringContent() {
                         <button
                           type="button"
                           onClick={() => setExecuteTemplate(template)}
-                          className="p-1.5 text-muted-foreground hover:text-indigo-500 rounded hover:bg-indigo-500/100/10"
+                          className="p-1.5 text-muted-foreground hover:text-indigo-500 rounded hover:bg-indigo-500/10"
                           title="Execute now"
                         >
                           <Play className="h-4 w-4" />

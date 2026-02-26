@@ -168,7 +168,7 @@ export function RemapPreviewDialog({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
                 >
                   Cancel
                 </button>
@@ -176,7 +176,7 @@ export function RemapPreviewDialog({
                   type="button"
                   onClick={handlePreview}
                   disabled={selected.size === 0 || previewLoading}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {previewLoading ? (
                     <span className="flex items-center gap-2">
@@ -277,14 +277,14 @@ export function RemapPreviewDialog({
                 <button
                   type="button"
                   onClick={() => setStep('select')}
-                  className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={handleExecute}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
                 >
                   Execute Remap ({selected.size} tender{selected.size !== 1 ? 's' : ''})
                 </button>
@@ -336,7 +336,7 @@ export function RemapPreviewDialog({
                 <button
                   type="button"
                   onClick={handleDone}
-                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
                 >
                   Done
                 </button>

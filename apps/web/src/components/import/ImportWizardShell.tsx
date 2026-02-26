@@ -81,7 +81,7 @@ export function ImportWizardShell({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="rounded-md p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-500"
+              className="rounded-md p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>

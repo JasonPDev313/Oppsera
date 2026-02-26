@@ -54,13 +54,13 @@ function StatusStepper({ status }: { status: string }) {
         return (
           <div key={step.key} className="flex items-center gap-1">
             {i > 0 && (
-              <div className={`h-0.5 w-6 ${isComplete ? 'bg-green-500' : 'bg-gray-200'}`} />
+              <div className={`h-0.5 w-6 ${isComplete ? 'bg-green-500' : 'bg-muted'}`} />
             )}
             <div
               className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
                 isComplete
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-500'
+                  ? 'bg-green-500/10 text-green-500'
+                  : 'bg-muted text-muted-foreground'
               } ${isCurrent ? 'ring-2 ring-green-400 ring-offset-1' : ''}`}
             >
               {isComplete && <Check className="h-3 w-3" />}
@@ -82,35 +82,35 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
     <div className="space-y-4 print:text-sm">
       <div className="text-center font-mono">
         <div className="text-lg font-bold">Z-REPORT</div>
-        <div className="text-sm text-gray-500">{batch.businessDate}</div>
+        <div className="text-sm text-muted-foreground">{batch.businessDate}</div>
       </div>
 
       {/* Sales Summary */}
-      <div className="rounded-lg border border-gray-200 p-4">
-        <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Sales Summary</h3>
+      <div className="rounded-lg border border-border p-4">
+        <h3 className="mb-2 text-sm font-semibold text-muted-foreground uppercase">Sales Summary</h3>
         <div className="grid grid-cols-2 gap-y-1.5 text-sm">
-          <span className="text-gray-500">Orders</span>
+          <span className="text-muted-foreground">Orders</span>
           <span className="text-right font-medium">{batch.orderCount}</span>
-          <span className="text-gray-500">Gross Sales</span>
+          <span className="text-muted-foreground">Gross Sales</span>
           <span className="text-right font-medium">{formatMoney(batch.grossSalesCents)}</span>
-          <span className="text-gray-500">Discounts</span>
-          <span className="text-right font-medium text-red-600">-{formatMoney(batch.discountTotalCents)}</span>
-          <span className="text-gray-500 font-semibold">Net Sales</span>
+          <span className="text-muted-foreground">Discounts</span>
+          <span className="text-right font-medium text-red-500">-{formatMoney(batch.discountTotalCents)}</span>
+          <span className="text-muted-foreground font-semibold">Net Sales</span>
           <span className="text-right font-bold">{formatMoney(batch.netSalesCents)}</span>
-          <div className="col-span-2 border-t border-gray-100 my-1" />
-          <span className="text-gray-500">Tax Collected</span>
+          <div className="col-span-2 border-t border-border my-1" />
+          <span className="text-muted-foreground">Tax Collected</span>
           <span className="text-right font-medium">{formatMoney(batch.taxCollectedCents)}</span>
-          <span className="text-gray-500">Service Charges</span>
+          <span className="text-muted-foreground">Service Charges</span>
           <span className="text-right font-medium">{formatMoney(batch.serviceChargeCents)}</span>
-          <span className="text-gray-500">Tips (Credit)</span>
+          <span className="text-muted-foreground">Tips (Credit)</span>
           <span className="text-right font-medium">{formatMoney(batch.tipsCreditCents)}</span>
-          <span className="text-gray-500">Tips (Cash)</span>
+          <span className="text-muted-foreground">Tips (Cash)</span>
           <span className="text-right font-medium">{formatMoney(batch.tipsCashCents)}</span>
           {batch.voidCount > 0 && (
             <>
-              <div className="col-span-2 border-t border-gray-100 my-1" />
-              <span className="text-gray-500">Voids</span>
-              <span className="text-right font-medium text-red-600">
+              <div className="col-span-2 border-t border-border my-1" />
+              <span className="text-muted-foreground">Voids</span>
+              <span className="text-right font-medium text-red-500">
                 {batch.voidCount} ({formatMoney(batch.voidTotalCents)})
               </span>
             </>
@@ -120,8 +120,8 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
 
       {/* Tender Breakdown */}
       {tenderBreakdown.length > 0 && (
-        <div className="rounded-lg border border-gray-200 p-4">
-          <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Tender Breakdown</h3>
+        <div className="rounded-lg border border-border p-4">
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground uppercase">Tender Breakdown</h3>
           <div className="space-y-1.5">
             {tenderBreakdown.map((t) => (
               <div key={t.tenderType} className="flex justify-between text-sm">
@@ -135,8 +135,8 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
 
       {/* Sales by Department */}
       {salesByDept.length > 0 && (
-        <div className="rounded-lg border border-gray-200 p-4">
-          <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Sales by Department</h3>
+        <div className="rounded-lg border border-border p-4">
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground uppercase">Sales by Department</h3>
           <div className="space-y-1.5">
             {salesByDept.map((d) => (
               <div key={d.departmentName} className="flex justify-between text-sm">
@@ -149,25 +149,25 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
       )}
 
       {/* Cash Accountability */}
-      <div className="rounded-lg border border-gray-200 p-4">
-        <h3 className="mb-2 text-sm font-semibold text-gray-500 uppercase">Cash Accountability</h3>
+      <div className="rounded-lg border border-border p-4">
+        <h3 className="mb-2 text-sm font-semibold text-muted-foreground uppercase">Cash Accountability</h3>
         <div className="grid grid-cols-2 gap-y-1.5 text-sm">
-          <span className="text-gray-500">Expected Cash</span>
+          <span className="text-muted-foreground">Expected Cash</span>
           <span className="text-right font-medium">{formatMoney(batch.cashExpectedCents)}</span>
-          <span className="text-gray-500">Counted Cash</span>
+          <span className="text-muted-foreground">Counted Cash</span>
           <span className="text-right font-medium">
             {batch.cashCountedCents != null ? formatMoney(batch.cashCountedCents) : '—'}
           </span>
           {batch.cashOverShortCents != null && (
             <>
-              <span className="text-gray-500 font-semibold">Over / Short</span>
+              <span className="text-muted-foreground font-semibold">Over / Short</span>
               <span
                 className={`text-right font-bold ${
                   batch.cashOverShortCents === 0
-                    ? 'text-green-600'
+                    ? 'text-green-500'
                     : batch.cashOverShortCents > 0
-                      ? 'text-blue-600'
-                      : 'text-red-600'
+                      ? 'text-blue-500'
+                      : 'text-red-500'
                 }`}
               >
                 {batch.cashOverShortCents === 0
@@ -181,7 +181,7 @@ function ZReport({ batch }: { batch: RetailCloseBatch }) {
 
       {/* GL Reference */}
       {batch.glJournalEntryId && (
-        <div className="text-center text-xs text-gray-400">
+        <div className="text-center text-xs text-muted-foreground">
           GL Journal: {batch.glJournalEntryId}
         </div>
       )}
@@ -209,15 +209,15 @@ function CashCountForm({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg bg-gray-100/50 p-3 text-center">
-        <div className="text-sm text-gray-500">Expected Cash in Drawer</div>
+      <div className="rounded-lg bg-muted/50 p-3 text-center">
+        <div className="text-sm text-muted-foreground">Expected Cash in Drawer</div>
         <div className="text-lg font-semibold">{formatMoney(expectedCents)}</div>
       </div>
 
       <button
         type="button"
         onClick={() => setShowDenominations(!showDenominations)}
-        className="flex w-full items-center justify-between rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium transition-colors hover:bg-gray-50"
+        className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
       >
         <span>Count by Denomination</span>
         {showDenominations ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -234,7 +234,7 @@ function CashCountForm({
                   onClick={() =>
                     setCounts((p) => ({ ...p, [d.value]: Math.max(0, (p[d.value] ?? 0) - 1) }))
                   }
-                  className="h-8 w-8 rounded-lg border border-gray-300 text-sm font-bold transition-colors hover:bg-gray-100"
+                  className="h-8 w-8 rounded-lg border border-border text-sm font-bold transition-colors hover:bg-accent"
                 >
                   −
                 </button>
@@ -246,11 +246,11 @@ function CashCountForm({
                   onClick={() =>
                     setCounts((p) => ({ ...p, [d.value]: (p[d.value] ?? 0) + 1 }))
                   }
-                  className="h-8 w-8 rounded-lg border border-gray-300 text-sm font-bold transition-colors hover:bg-gray-100"
+                  className="h-8 w-8 rounded-lg border border-border text-sm font-bold transition-colors hover:bg-accent"
                 >
                   +
                 </button>
-                <span className="w-20 text-right text-sm text-gray-500">
+                <span className="w-20 text-right text-sm text-muted-foreground">
                   {formatMoney((counts[d.value] ?? 0) * d.value)}
                 </span>
               </div>
@@ -259,19 +259,19 @@ function CashCountForm({
         </div>
       )}
 
-      <div className="rounded-lg bg-indigo-50 p-3 text-center">
+      <div className="rounded-lg bg-indigo-500/10 p-3 text-center">
         <div className="text-sm text-indigo-600">Counted Cash</div>
-        <div className="text-2xl font-bold text-indigo-700">{formatMoney(totalCents)}</div>
+        <div className="text-2xl font-bold text-indigo-500">{formatMoney(totalCents)}</div>
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-500">Notes (optional)</label>
+        <label className="mb-1.5 block text-sm font-medium text-muted-foreground">Notes (optional)</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Any notes about this close..."
           rows={2}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm transition-colors focus:border-indigo-500 focus:outline-none bg-surface"
         />
       </div>
 
@@ -279,7 +279,7 @@ function CashCountForm({
         type="button"
         onClick={() => onSubmit(totalCents, notes || undefined)}
         disabled={isSubmitting}
-        className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+        className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
       >
         {isSubmitting ? 'Reconciling...' : 'Submit Cash Count'}
       </button>
@@ -360,13 +360,13 @@ export default function CloseContent() {
           <button
             type="button"
             onClick={() => router.back()}
-            className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent/50"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
             <h1 className="text-xl font-bold">End-of-Day Close</h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
             </p>
           </div>
@@ -375,7 +375,7 @@ export default function CloseContent() {
           <button
             type="button"
             onClick={handlePrint}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 print:hidden"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent print:hidden"
           >
             <FileText className="h-3.5 w-3.5" />
             Print Z-Report
@@ -392,14 +392,14 @@ export default function CloseContent() {
 
       {/* No batch yet — start one */}
       {!close.batch && (
-        <div className="rounded-2xl border border-gray-200 bg-surface p-8 text-center">
-          <FileText className="mx-auto h-12 w-12 text-gray-300" />
+        <div className="rounded-2xl border border-border bg-surface p-8 text-center">
+          <FileText className="mx-auto h-12 w-12 text-muted-foreground" />
           <h2 className="mt-4 text-lg font-semibold">No Close Batch for Today</h2>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-muted-foreground">
             Start the end-of-day close to generate the Z-report and reconcile cash.
           </p>
           {shift.isOpen && (
-            <p className="mt-2 text-sm text-amber-600 font-medium">
+            <p className="mt-2 text-sm text-amber-500 font-medium">
               Note: Close the shift first before starting the EOD close.
             </p>
           )}
@@ -407,7 +407,7 @@ export default function CloseContent() {
             type="button"
             onClick={handleStartClose}
             disabled={close.isActing || shift.isOpen}
-            className="mt-4 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="mt-4 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             {close.isActing ? 'Starting...' : 'Start Close'}
           </button>
@@ -418,13 +418,13 @@ export default function CloseContent() {
       {close.batch && (
         <div className="space-y-6">
           {/* Z-Report */}
-          <div className="rounded-2xl border border-gray-200 bg-surface p-6">
+          <div className="rounded-2xl border border-border bg-surface p-6">
             <ZReport batch={close.batch} />
           </div>
 
           {/* Cash Count (only for in_progress status) */}
           {close.batch.status === 'in_progress' && (
-            <div className="rounded-2xl border border-gray-200 bg-surface p-6 print:hidden">
+            <div className="rounded-2xl border border-border bg-surface p-6 print:hidden">
               <h2 className="mb-4 text-lg font-semibold">Cash Count</h2>
               <CashCountForm
                 expectedCents={close.batch.cashExpectedCents}
@@ -441,7 +441,7 @@ export default function CloseContent() {
                 type="button"
                 onClick={handlePost}
                 disabled={close.isActing}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
               >
                 <Check className="h-4 w-4" />
                 {close.isActing ? 'Posting...' : 'Post to GL'}
@@ -461,7 +461,7 @@ export default function CloseContent() {
             )}
 
             {close.batch.status === 'locked' && (
-              <div className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-50 px-4 py-2.5 text-sm font-medium text-green-700">
+              <div className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-500/10 px-4 py-2.5 text-sm font-medium text-green-500">
                 <Lock className="h-4 w-4" />
                 Batch Locked — Close Complete
               </div>

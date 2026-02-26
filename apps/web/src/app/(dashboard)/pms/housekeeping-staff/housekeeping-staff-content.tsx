@@ -105,7 +105,7 @@ export function HousekeepingStaffContent() {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-500"
             >
               <UserPlus className="w-4 h-4" />
               Add Housekeeper
@@ -115,7 +115,7 @@ export function HousekeepingStaffContent() {
               <div className="absolute right-0 mt-1 w-56 rounded-md bg-surface border border-border shadow-lg z-10">
                 <button
                   onClick={() => { setShowDropdown(false); setShowLinkDialog(true); }}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-gray-200/50 rounded-t-md"
+                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-accent/50 rounded-t-md"
                 >
                   <Link2 className="w-4 h-4 text-muted-foreground" />
                   <div>
@@ -125,7 +125,7 @@ export function HousekeepingStaffContent() {
                 </button>
                 <button
                   onClick={() => { setShowDropdown(false); setShowCreateDialog(true); }}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-gray-200/50 rounded-b-md"
+                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-left hover:bg-accent/50 rounded-b-md"
                 >
                   <UserPlus className="w-4 h-4 text-muted-foreground" />
                   <div>
@@ -153,7 +153,7 @@ export function HousekeepingStaffContent() {
           </p>
           <button
             onClick={() => setShowLinkDialog(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-500"
           >
             <UserPlus className="w-4 h-4" />
             Add Housekeeper

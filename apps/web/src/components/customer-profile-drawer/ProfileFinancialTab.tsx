@@ -80,14 +80,14 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
   }
 
   const {
-    billingAccounts,
-    arAging,
-    openInvoices,
-    recentPayments,
-    walletAccounts,
-    walletBalanceCents,
+    billingAccounts = [],
+    arAging = { total: 0, current: 0, thirtyDay: 0, sixtyDay: 0, ninetyDay: 0, overHundredTwenty: 0 },
+    openInvoices = [],
+    recentPayments = [],
+    walletAccounts = [],
+    walletBalanceCents = 0,
     loyaltyTier,
-    loyaltyPointsBalance,
+    loyaltyPointsBalance = 0,
   } = data;
 
   return (
@@ -178,7 +178,7 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
                   key={inv.id}
                   className={`flex items-center justify-between rounded-lg border px-3 py-2 ${
                     isOverdue
-                      ? 'border-red-500/30 bg-red-500/100/10'
+                      ? 'border-red-500/30 bg-red-500/10'
                       : 'border-border'
                   }`}
                 >
@@ -266,7 +266,7 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Wallet Accounts
           </h3>
-          <div className="mb-2 flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/100/10 p-3">
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3">
             <Wallet className="h-5 w-5 text-indigo-600" aria-hidden="true" />
             <div>
               <p className="text-sm font-semibold text-indigo-400">
@@ -315,7 +315,7 @@ export function ProfileFinancialTab({ customerId }: ProfileFinancialTabProps) {
           <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Loyalty
           </h3>
-          <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/100/10 p-3">
+          <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
             <Star className="h-5 w-5 text-amber-500" aria-hidden="true" />
             <div>
               {loyaltyTier && (

@@ -78,7 +78,7 @@ export function OnboardingStep({ step, inlineContent, onMarkDone }: OnboardingSt
               <button
                 type="button"
                 onClick={onMarkDone}
-                className="text-xs text-muted-foreground hover:text-muted-foreground"
+                className="text-xs text-muted-foreground hover:text-foreground"
                 title="Undo manual completion"
               >
                 Undo
@@ -107,7 +107,7 @@ export function OnboardingStep({ step, inlineContent, onMarkDone }: OnboardingSt
             step.href ? (
               <Link
                 href={step.href}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
               >
                 Open {step.label}
                 <ArrowRight className="h-4 w-4" />

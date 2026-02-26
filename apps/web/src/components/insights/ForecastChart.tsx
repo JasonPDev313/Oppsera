@@ -46,7 +46,7 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 });
 
 const TREND_CONFIG: Record<string, { icon: typeof TrendingUp; label: string; color: string }> = {
-  up: { icon: TrendingUp, label: 'Up', color: 'text-emerald-600' },
+  up: { icon: TrendingUp, label: 'Up', color: 'text-emerald-500' },
   down: { icon: TrendingDown, label: 'Down', color: 'text-red-500' },
   flat: { icon: Minus, label: 'Flat', color: 'text-muted-foreground' },
 };

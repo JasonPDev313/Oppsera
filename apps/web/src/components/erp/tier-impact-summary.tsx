@@ -79,9 +79,9 @@ function WorkflowList({
     <div>
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 ${color}`} />
-        <span className="text-sm font-medium text-gray-700">{label}</span>
+        <span className="text-sm font-medium text-foreground">{label}</span>
       </div>
-      <p className="ml-6 mt-1 text-sm text-gray-500">{items.join(', ')}</p>
+      <p className="ml-6 mt-1 text-sm text-muted-foreground">{items.join(', ')}</p>
     </div>
   );
 }
@@ -92,45 +92,45 @@ export function TierImpactSummary({ businessTier }: { businessTier: string }) {
   const grouped = groupWorkflows(tier);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-6">
+    <div className="rounded-lg border border-border bg-surface p-6">
       <div className="flex items-center gap-2">
         <Info className="h-5 w-5 text-indigo-600" />
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h3 className="text-sm font-semibold text-foreground">
           What {tier === 'SMB' ? 'SMB' : tier === 'MID_MARKET' ? 'Mid-Market' : 'Enterprise'} Tier Means for You
         </h3>
       </div>
 
-      <p className="mt-3 text-sm font-medium text-gray-900">{desc.headline}</p>
-      <p className="mt-1 text-sm text-gray-500">{desc.detail}</p>
+      <p className="mt-3 text-sm font-medium text-foreground">{desc.headline}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{desc.detail}</p>
 
       <div className="mt-4 space-y-3">
         <WorkflowList
           items={grouped.automatic}
           icon={CheckCircle2}
           label="Automatic"
-          color="text-green-600"
+          color="text-green-500"
         />
         <WorkflowList
           items={grouped.manual}
           icon={Settings2}
           label="Manual"
-          color="text-blue-600"
+          color="text-blue-500"
         />
         <WorkflowList
           items={grouped.manualWithApproval}
           icon={ShieldCheck}
           label="Manual with approval"
-          color="text-purple-600"
+          color="text-purple-500"
         />
       </div>
 
       {tier === 'SMB' && (
-        <p className="mt-4 text-xs text-gray-400">
+        <p className="mt-4 text-xs text-muted-foreground">
           Accounting workflows are hidden from your sidebar at this tier. Upgrade to Mid-Market to see and control them.
         </p>
       )}
       {tier === 'MID_MARKET' && (
-        <p className="mt-4 text-xs text-gray-400">
+        <p className="mt-4 text-xs text-muted-foreground">
           Approval workflows are available on the Enterprise tier for additional oversight.
         </p>
       )}

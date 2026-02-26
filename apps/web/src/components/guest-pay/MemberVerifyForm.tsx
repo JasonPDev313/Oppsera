@@ -146,7 +146,7 @@ export function MemberVerifyForm({
       </div>
 
       {attemptsLeft != null && attemptsLeft > 0 && (
-        <p className="text-center text-xs text-amber-600 mb-4">
+        <p className="text-center text-xs text-amber-500 mb-4">
           {attemptsLeft} attempt{attemptsLeft !== 1 ? 's' : ''} remaining
         </p>
       )}
@@ -168,7 +168,7 @@ export function MemberVerifyForm({
           type="button"
           onClick={handleResend}
           disabled={resendCooldown > 0}
-          className="w-full py-2 text-sm text-green-600 hover:text-green-700 disabled:text-gray-400"
+          className="w-full py-2 text-sm text-green-500 hover:text-green-400 disabled:text-muted-foreground"
         >
           {resendCooldown > 0
             ? `Resend code in ${resendCooldown}s`

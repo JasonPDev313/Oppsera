@@ -76,7 +76,7 @@ function FnbPOSPage({ isActive = true }: FnbPOSContentProps) {
   if (!isModuleEnabled('pos_fnb')) {
     return (
       <div className="flex h-full items-center justify-center bg-surface">
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-muted-foreground">
           F&B POS module is not enabled for this location.
         </p>
       </div>

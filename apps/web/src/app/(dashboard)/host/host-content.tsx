@@ -281,20 +281,20 @@ function HostContentInner() {
             type="button"
             onClick={() => router.push('/pos/fnb')}
             aria-label="Back to F&B POS"
-            className="flex items-center justify-center rounded-xl h-9 w-9 border border-border bg-card text-gray-500 hover:bg-accent transition-all active:scale-95"
+            className="flex items-center justify-center rounded-xl h-9 w-9 border border-border bg-card text-muted-foreground hover:bg-accent transition-all active:scale-95"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-indigo-50">
+            <div className="flex items-center justify-center h-9 w-9 rounded-xl bg-indigo-500/10">
               <Users className="h-[18px] w-[18px] text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-[15px] font-bold text-gray-900 leading-tight">
+              <h1 className="text-[15px] font-bold text-foreground leading-tight">
                 Host Stand
               </h1>
               <p
-                className="text-[11px] font-medium text-gray-400 leading-tight"
+                className="text-[11px] font-medium text-muted-foreground leading-tight"
                 aria-live="polite"
               >
                 {new Date().toLocaleDateString(undefined, {

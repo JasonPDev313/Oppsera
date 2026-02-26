@@ -414,7 +414,7 @@ export default function SurchargingTab() {
                   </button>
                   <button
                     onClick={() => setConfirmDelete(false)}
-                    className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+                    className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
                   >
                     Cancel
                   </button>
@@ -433,7 +433,7 @@ export default function SurchargingTab() {
         <button
           onClick={handleSave}
           disabled={surchargeMutations.saveSurcharge.isPending || !selectedProviderId || (isEnabled && (!rateValid || !maxRateValid || rateExceedsMax))}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {surchargeMutations.saveSurcharge.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
           Save Surcharge Settings

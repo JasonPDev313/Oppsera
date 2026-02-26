@@ -184,7 +184,7 @@ export function PreviewStep({
               const color = ACTION_COLORS[row.action] ?? '';
               return (
                 <tr key={row.rowNumber} className={!row.isValid ? 'bg-red-500/5' : ''}>
-                  <td className="py-2 pr-3 text-gray-400 text-xs">{row.rowNumber}</td>
+                  <td className="py-2 pr-3 text-muted-foreground text-xs">{row.rowNumber}</td>
                   <td className="py-2 pr-3">
                     <span className={`inline-flex items-center gap-1 text-xs font-medium ${color}`}>
                       <Icon className="w-3.5 h-3.5" />
@@ -226,7 +226,7 @@ export function PreviewStep({
           </tbody>
         </table>
         {filteredRows.length > 100 && (
-          <p className="text-xs text-gray-400 mt-2 text-center">
+          <p className="text-xs text-muted-foreground mt-2 text-center">
             Showing first 100 of {filteredRows.length} rows
           </p>
         )}
@@ -253,7 +253,7 @@ export function PreviewStep({
               type="checkbox"
               checked={acknowledged}
               onChange={(e) => setAcknowledged(e.target.checked)}
-              className="rounded border-yellow-400 text-yellow-600"
+              className="rounded border-yellow-400 text-yellow-500"
             />
             I understand that {skippedTotal} row{skippedTotal === 1 ? '' : 's'} will be skipped
           </label>
@@ -296,7 +296,7 @@ export function PreviewStep({
           <button
             onClick={handleImportClick}
             disabled={isLoading || summary.createCount + summary.updateCount === 0}
-            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-50"
           >
             {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
             Import {summary.createCount + summary.updateCount} Users

@@ -79,7 +79,7 @@ export function ApplyTemplateDialog({ roomId, onClose, onApplied }: ApplyTemplat
           <button
             onClick={handleApply}
             disabled={isApplying}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
               isApplying ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >

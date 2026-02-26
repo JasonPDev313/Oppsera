@@ -74,7 +74,7 @@ export function GuestPayConfirmation({
           : 'Payment Confirmed'}
       </h1>
 
-      <div className="text-3xl font-bold text-green-600 mb-4">
+      <div className="text-3xl font-bold text-green-500 mb-4">
         ${(totalCents / 100).toFixed(2)}
       </div>
 

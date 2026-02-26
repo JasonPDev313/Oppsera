@@ -84,8 +84,8 @@ export default function OnboardingContent() {
       <div className="mx-auto max-w-3xl">
         <div className="rounded-lg border border-green-500/30 bg-green-500/5 p-6 text-center">
           <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-          <h1 className="mt-4 text-2xl font-bold text-gray-900">Business Setup Complete</h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <h1 className="mt-4 text-2xl font-bold text-foreground">Business Setup Complete</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             Onboarding was completed on{' '}
             {new Date(status.completedAt).toLocaleDateString(undefined, {
               year: 'numeric',
@@ -99,7 +99,7 @@ export default function OnboardingContent() {
               try { localStorage.removeItem('oppsera_onboarding_completed_at'); } catch { /* ignore */ }
               window.location.reload();
             }}
-            className="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            className="mt-4 text-sm font-medium text-indigo-600 hover:text-indigo-500"
           >
             Review setup guide again
           </button>
@@ -118,8 +118,8 @@ export default function OnboardingContent() {
               <Rocket className="h-5 w-5 text-indigo-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Business Setup Guide</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-2xl font-bold text-foreground">Business Setup Guide</h1>
+              <p className="text-sm text-muted-foreground">
                 Get your business fully configured and ready to go
               </p>
             </div>
@@ -129,7 +129,7 @@ export default function OnboardingContent() {
           type="button"
           onClick={status.refresh}
           disabled={status.isLoading}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-500/20 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-500/10 disabled:opacity-50"
+          className="flex items-center gap-1.5 rounded-lg border border-gray-500/20 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent disabled:opacity-50"
           title="Refresh completion status"
         >
           {status.isLoading ? (
@@ -144,8 +144,8 @@ export default function OnboardingContent() {
       {/* Overall Progress */}
       <div className="mt-6 rounded-lg border border-gray-500/20 bg-surface p-4">
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-gray-700">Overall Progress</span>
-          <span className="font-semibold text-gray-900">{status.overallPercentage}%</span>
+          <span className="font-medium text-foreground">Overall Progress</span>
+          <span className="font-semibold text-foreground">{status.overallPercentage}%</span>
         </div>
         <div className="mt-2 h-3 rounded-full bg-gray-500/10">
           <div
@@ -161,10 +161,10 @@ export default function OnboardingContent() {
       {status.isComplete && (
         <div className="mt-4 rounded-lg border border-green-500/30 bg-green-500/5 p-6 text-center">
           <PartyPopper className="mx-auto h-10 w-10 text-green-500" />
-          <h2 className="mt-3 text-lg font-bold text-green-700">
+          <h2 className="mt-3 text-lg font-bold text-green-500">
             Your business is ready to go live!
           </h2>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-muted-foreground">
             All setup phases are complete. You can start processing real transactions.
           </p>
           <button
@@ -245,7 +245,7 @@ export default function OnboardingContent() {
 
       {/* Bottom note */}
       <div className="mt-8 rounded-lg border border-gray-500/10 bg-gray-500/5 p-4 text-center">
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           Most steps are detected automatically based on your data.
           Steps without automatic detection can be marked as done manually.
           You can skip entire phases that don&apos;t apply to your business.
@@ -271,7 +271,7 @@ function renderBootstrapInline(
     <button
       type="button"
       onClick={() => setShowWizard(true)}
-      className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+      className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
     >
       <Rocket className="h-4 w-4" />
       Start Accounting Setup

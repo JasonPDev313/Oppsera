@@ -84,6 +84,8 @@ export function useAuth() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const retryCount = useRef(0);
+  const recoveryCycles = useRef(0);
+  const recoveryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchMe = useCallback(async () => {
     const token = getStoredToken();
@@ -103,32 +105,49 @@ export function useAuth() {
         if (stored) setImpersonation(stored);
       }
       retryCount.current = 0;
+      recoveryCycles.current = 0;
+      // Clear any pending recovery timer — we're healthy now
+      if (recoveryTimer.current) {
+        clearTimeout(recoveryTimer.current);
+        recoveryTimer.current = null;
+      }
     } catch (err) {
       // Only clear tokens on actual auth failures (401).
       // Transient server errors (500, network, DB timeout) should NOT log the user out.
       const isAuthFailure = err instanceof ApiError && err.statusCode === 401;
-      // Circuit breaker tripped — don't retry, just show the error state
-      const isCircuitOpen = err instanceof ApiError && err.code === 'SERVICE_UNAVAILABLE';
 
       if (isAuthFailure) {
         setUser(null);
         setTenant(null);
         setLocations([]);
         clearTokens();
-      } else if (!isCircuitOpen && retryCount.current < 2) {
+      } else if (retryCount.current < 2) {
         // Retry up to 2 times for transient errors (cold start, DB pool exhaustion).
-        // Skip retries when the circuit breaker is open — the backend is down and
-        // retrying just makes the thundering herd worse.
+        // /me now bypasses the circuit breaker, so always retry here.
         retryCount.current += 1;
         const delay = retryCount.current * 1500; // 1.5s, 3s
         setTimeout(() => { fetchMe(); }, delay);
         return; // Don't set isLoading false yet — still retrying
       } else {
-        // Exhausted retries or circuit open — clear state but keep tokens so user can refresh
-        setUser(null);
-        setTenant(null);
-        setLocations([]);
+        // Exhausted retries — keep tokens AND keep existing user state.
+        // If we already have user data from a prior successful fetchMe,
+        // preserve it so the dashboard doesn't unmount. The user's session
+        // is still valid (tokens in localStorage), the backend is just
+        // temporarily unreachable.
+        // Only clear state if we never had a user (first load failed).
         retryCount.current = 0;
+
+        // Schedule a background recovery attempt — if the backend comes
+        // back, the user doesn't need to manually refresh.
+        // Cap at 6 cycles (~90s total) to avoid polling indefinitely.
+        if (!recoveryTimer.current && recoveryCycles.current < 6) {
+          recoveryCycles.current += 1;
+          recoveryTimer.current = setTimeout(() => {
+            recoveryTimer.current = null;
+            retryCount.current = 0;
+            fetchMe();
+          }, 10_000); // retry in 10s
+        }
       }
     } finally {
       setIsLoading(false);
@@ -137,6 +156,13 @@ export function useAuth() {
 
   useEffect(() => {
     fetchMe();
+    return () => {
+      // Clean up recovery timer on unmount
+      if (recoveryTimer.current) {
+        clearTimeout(recoveryTimer.current);
+        recoveryTimer.current = null;
+      }
+    };
   }, [fetchMe]);
 
   const login = useCallback(async (email: string, password: string): Promise<{ needsOnboarding: boolean }> => {

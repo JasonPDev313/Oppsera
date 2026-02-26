@@ -52,8 +52,8 @@ export default function VendorDetailPage() {
       toast.success('Vendor updated');
       refreshVendor();
       setActiveTab('info');
-    } catch (err: any) {
-      toast.error(err.message ?? 'Failed to update vendor');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update vendor');
     }
   }, [vendorId, updateVendor, refreshVendor, toast]);
 
@@ -68,8 +68,8 @@ export default function VendorDetailPage() {
         toast.success('Vendor reactivated');
       }
       refreshVendor();
-    } catch (err: any) {
-      toast.error(err.message ?? 'Failed to update vendor status');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update vendor status');
     }
   }, [vendor, vendorId, deactivateVendor, reactivateVendor, refreshVendor, toast]);
 
@@ -80,8 +80,8 @@ export default function VendorDetailPage() {
       setShowAddDialog(false);
       refreshCatalog();
       refreshVendor();
-    } catch (err: any) {
-      toast.error(err.message ?? 'Failed to add catalog item');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add catalog item');
     }
   }, [vendorId, addCatalogItem, refreshCatalog, refreshVendor, toast]);
 
@@ -91,8 +91,8 @@ export default function VendorDetailPage() {
       toast.success('Catalog item updated');
       setEditEntry(null);
       refreshCatalog();
-    } catch (err: any) {
-      toast.error(err.message ?? 'Failed to update catalog item');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update catalog item');
     }
   }, [vendorId, updateCatalogItem, refreshCatalog, toast]);
 
@@ -102,15 +102,15 @@ export default function VendorDetailPage() {
       toast.success('Item removed from catalog');
       refreshCatalog();
       refreshVendor();
-    } catch (err: any) {
-      toast.error(err.message ?? 'Failed to remove catalog item');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to remove catalog item');
     }
   }, [vendorId, removeCatalogItem, refreshCatalog, refreshVendor, toast]);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-indigo-600" />
       </div>
     );
   }
@@ -118,11 +118,11 @@ export default function VendorDetailPage() {
   if (error || !vendor) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-sm text-red-600">{error ?? 'Vendor not found'}</p>
+        <p className="text-sm text-red-500">{error ?? 'Vendor not found'}</p>
         <button
           type="button"
           onClick={() => router.push('/vendors')}
-          className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           Back to Vendors
         </button>
@@ -144,17 +144,17 @@ export default function VendorDetailPage() {
           <button
             type="button"
             onClick={() => router.push('/vendors')}
-            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-gray-900">{vendor.name}</h1>
+              <h1 className="text-xl font-semibold text-foreground">{vendor.name}</h1>
               <VendorStatusBadge isActive={vendor.isActive} />
             </div>
             {vendor.accountNumber && (
-              <p className="mt-0.5 text-sm text-gray-500">Account: {vendor.accountNumber}</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">Account: {vendor.accountNumber}</p>
             )}
           </div>
         </div>
@@ -166,8 +166,8 @@ export default function VendorDetailPage() {
             disabled={isSubmitting}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
               vendor.isActive
-                ? 'border-red-200 text-red-600 hover:bg-red-50'
-                : 'border-green-200 text-green-600 hover:bg-green-50'
+                ? 'border-red-500/30 text-red-500 hover:bg-red-500/10'
+                : 'border-green-500/30 text-green-500 hover:bg-green-500/10'
             }`}
           >
             {vendor.isActive ? (
@@ -185,7 +185,7 @@ export default function VendorDetailPage() {
           <button
             type="button"
             onClick={() => setActiveTab('edit')}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
           >
             <Pencil className="h-4 w-4" />
             Edit
@@ -197,7 +197,7 @@ export default function VendorDetailPage() {
       <VendorSummaryCards vendor={vendor} />
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-border">
         <nav className="flex gap-6">
           {tabs.map((tab) => (
             <button
@@ -207,7 +207,7 @@ export default function VendorDetailPage() {
               className={`border-b-2 pb-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               {tab.label}
@@ -222,11 +222,11 @@ export default function VendorDetailPage() {
       {activeTab === 'catalog' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-900">Vendor Catalog</h2>
+            <h2 className="text-sm font-semibold text-foreground">Vendor Catalog</h2>
             <button
               type="button"
               onClick={() => setShowAddDialog(true)}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               <Plus className="h-4 w-4" />
               Add Item
@@ -245,7 +245,7 @@ export default function VendorDetailPage() {
       )}
 
       {activeTab === 'edit' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-6">
+        <div className="rounded-lg border border-border bg-surface p-6">
           <VendorForm
             vendor={vendor}
             onSubmit={handleUpdate}

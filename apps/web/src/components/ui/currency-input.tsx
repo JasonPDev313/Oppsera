@@ -49,7 +49,7 @@ export function CurrencyInput({
 
   return (
     <div className={`relative ${className}`}>
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
         $
       </span>
       <input
@@ -60,10 +60,10 @@ export function CurrencyInput({
         onChange={(e) => handleChange(e.target.value)}
         onBlur={handleBlur}
         placeholder={placeholder}
-        className={`w-full rounded-lg border py-2 pl-7 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:outline-none ${
+        className={`w-full rounded-lg border bg-surface py-2 pl-7 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:outline-none ${
           error
-            ? 'border-red-300 focus:border-red-500 focus:ring-red-500'
-            : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
+            ? 'border-red-500/30 focus:border-red-500 focus:ring-red-500'
+            : 'border-border focus:border-indigo-500 focus:ring-indigo-500'
         }`}
       />
     </div>

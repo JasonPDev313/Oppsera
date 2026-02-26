@@ -8,10 +8,10 @@ import { sql } from 'drizzle-orm';
 /**
  * POST /api/v1/reports/backfill
  *
- * One-time backfill of reporting read models (rm_daily_sales, rm_item_sales)
- * from operational orders, order_lines, and tenders tables.
+ * One-time backfill of reporting read models (rm_daily_sales, rm_item_sales,
+ * rm_inventory_on_hand) from operational tables.
  *
- * Use this when orders were created directly (e.g., seed data) without going
+ * Use this when data was created directly (e.g., seed data) without going
  * through the event system, so the CQRS read models are empty.
  *
  * Safe to run multiple times — uses DELETE + INSERT (full rebuild).
@@ -27,6 +27,9 @@ export const POST = withMiddleware(
       `);
       await (tx as any).execute(sql`
         DELETE FROM rm_item_sales WHERE tenant_id = ${tenantId}
+      `);
+      await (tx as any).execute(sql`
+        DELETE FROM rm_inventory_on_hand WHERE tenant_id = ${tenantId}
       `);
 
       // 2. Backfill rm_daily_sales from orders + tenders
@@ -126,17 +129,54 @@ export const POST = withMiddleware(
         GROUP BY ol.tenant_id, o.location_id, o.business_date, ol.catalog_item_id
       `);
 
-      // 4. Count what was backfilled
+      // 4. Backfill rm_inventory_on_hand from inventory_items + inventory_movements
+      // on_hand = SUM(quantity_delta) from inventory_movements (gotcha #18)
+      // low_stock_threshold from inventory_items.reorder_point
+      await (tx as any).execute(sql`
+        INSERT INTO rm_inventory_on_hand (
+          id, tenant_id, location_id, inventory_item_id, item_name,
+          on_hand, low_stock_threshold, is_below_threshold,
+          updated_at
+        )
+        SELECT
+          gen_random_uuid()::text,
+          ii.tenant_id,
+          ii.location_id,
+          ii.id,
+          ii.name,
+          coalesce(mv.total_on_hand, 0)::int,
+          coalesce(ii.reorder_point, '0')::int,
+          coalesce(mv.total_on_hand, 0) < coalesce(ii.reorder_point::numeric, 0),
+          NOW()
+        FROM inventory_items ii
+        LEFT JOIN (
+          SELECT
+            inventory_item_id,
+            SUM(quantity_delta) AS total_on_hand
+          FROM inventory_movements
+          WHERE tenant_id = ${tenantId}
+          GROUP BY inventory_item_id
+        ) mv ON mv.inventory_item_id = ii.id
+        WHERE ii.tenant_id = ${tenantId}
+          AND ii.status = 'active'
+          AND ii.track_inventory = true
+      `);
+
+      // 5. Count what was backfilled
       const [dailyCount] = await (tx as any).execute(sql`
         SELECT count(*)::int AS cnt FROM rm_daily_sales WHERE tenant_id = ${tenantId}
       `);
       const [itemCount] = await (tx as any).execute(sql`
         SELECT count(*)::int AS cnt FROM rm_item_sales WHERE tenant_id = ${tenantId}
       `);
+      const [inventoryCount] = await (tx as any).execute(sql`
+        SELECT count(*)::int AS cnt FROM rm_inventory_on_hand WHERE tenant_id = ${tenantId}
+      `);
 
       return {
         dailySalesRows: (dailyCount as any)?.cnt ?? 0,
         itemSalesRows: (itemCount as any)?.cnt ?? 0,
+        inventoryOnHandRows: (inventoryCount as any)?.cnt ?? 0,
       };
     });
 

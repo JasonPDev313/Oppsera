@@ -48,7 +48,7 @@ export function ProfitCenterCard({ profitCenter: pc, onEdit }: Props) {
         </button>
         <button
           onClick={() => router.push(`/settings/profit-centers/${pc.id}`)}
-          className="rounded-md px-3 py-1 text-sm font-medium text-muted-foreground hover:bg-muted"
+          className="rounded-md px-3 py-1 text-sm font-medium text-muted-foreground hover:bg-accent"
         >
           Terminals &rarr;
         </button>

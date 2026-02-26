@@ -235,7 +235,7 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
                   type="button"
                   onClick={loadMoreVisits}
                   disabled={loadingMore}
-                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
                 >
                   <ChevronDown className="h-4 w-4" />
                   {loadingMore ? 'Loading...' : 'Load more'}
@@ -285,7 +285,7 @@ export function ProfileActivityTab({ customerId }: ProfileActivityTabProps) {
                   type="button"
                   onClick={loadMoreActivities}
                   disabled={loadingMore}
-                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
                 >
                   <ChevronDown className="h-4 w-4" />
                   {loadingMore ? 'Loading...' : 'Load more'}

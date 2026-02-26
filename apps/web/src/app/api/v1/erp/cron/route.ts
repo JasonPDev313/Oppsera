@@ -15,11 +15,16 @@ import type { RequestContext } from '@oppsera/core/auth/context';
  * Auth: CRON_SECRET header (not user auth — this is a system job).
  */
 export async function POST(request: NextRequest) {
-  // Verify cron secret
+  // Verify cron secret — MUST be configured in env
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    console.error('[erp/cron] CRON_SECRET is not configured — rejecting request. Set CRON_SECRET in environment variables.');
+    return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 });
+  }
+
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

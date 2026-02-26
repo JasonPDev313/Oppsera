@@ -113,6 +113,7 @@ export const POST = withMiddleware(
         // Conversational state
         isClarification: output.isClarification,
         clarificationText: output.clarificationText,
+        clarificationOptions: output.clarificationOptions ?? [],
 
         // Eval turn — used by FeedbackWidget to submit user ratings
         evalTurnId: output.evalTurnId ?? null,

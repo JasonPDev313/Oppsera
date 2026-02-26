@@ -123,7 +123,7 @@ export function SemanticAuthoringPanel({
         <button
           type="button"
           onClick={() => { setIsAdding(true); setEditingSlug(null); }}
-          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-primary hover:bg-gray-200/50 rounded-md transition-colors"
+          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-primary hover:bg-accent/50 rounded-md transition-colors"
         >
           <Plus className="h-3 w-3" />
           Add New

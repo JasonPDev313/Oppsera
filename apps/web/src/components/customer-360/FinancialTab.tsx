@@ -121,9 +121,9 @@ function collectionStatusVariant(status: string): string {
 }
 
 function utilizationColor(pct: number): string {
-  if (pct > 80) return 'bg-red-500/100';
-  if (pct > 50) return 'bg-amber-500/100';
-  return 'bg-green-500/100';
+  if (pct > 80) return 'bg-red-500';
+  if (pct > 50) return 'bg-amber-500';
+  return 'bg-green-500';
 }
 
 function utilizationTextColor(pct: number): string {
@@ -307,7 +307,7 @@ function AccountCard({
         <button
           type="button"
           onClick={() => onAdjust(account.id)}
-          className="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-500/100/10"
+          className="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-500/10"
         >
           <DollarSign className="h-3 w-3" />
           Adjust
@@ -315,7 +315,7 @@ function AccountCard({
         <button
           type="button"
           onClick={() => onTransfer(account.id)}
-          className="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+          className="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
         >
           <ArrowRightLeft className="h-3 w-3" />
           Transfer
@@ -323,7 +323,7 @@ function AccountCard({
         <button
           type="button"
           onClick={() => onHold(account.id)}
-          className="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/100/10"
+          className="inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/10"
         >
           <Pause className="h-3 w-3" />
           Hold
@@ -507,7 +507,7 @@ function LedgerGrid({
         <button
           type="button"
           onClick={() => setShowFilters((p) => !p)}
-          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+          className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
         >
           <Filter className="h-3.5 w-3.5" />
           Filters
@@ -602,7 +602,7 @@ function LedgerGrid({
             <button
               type="button"
               onClick={handleResetFilters}
-              className="rounded px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+              className="rounded px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
             >
               Clear
             </button>
@@ -660,7 +660,7 @@ function LedgerGrid({
             type="button"
             onClick={handleLoadMore}
             disabled={isLoading}
-            className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             {isLoading ? 'Loading...' : 'Load More'}
           </button>
@@ -674,7 +674,7 @@ function LedgerRow({ tx }: { tx: LedgerTransactionEntry }) {
   const amountColor = tx.amountCents < 0 ? 'text-red-500' : 'text-green-500';
 
   return (
-    <tr className="border-b border-gray-50 transition-colors hover:bg-muted/50">
+    <tr className="border-b border-gray-50 transition-colors hover:bg-accent/50">
       <td className="whitespace-nowrap px-5 py-2.5 text-xs text-muted-foreground">
         {tx.businessDate ? formatDate(tx.businessDate) : formatDate(tx.createdAt)}
       </td>
@@ -768,7 +768,7 @@ function AdjustmentForm({
         <button
           type="button"
           onClick={onClose}
-          className="rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-muted-foreground"
+          className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
         >
           <ChevronUp className="h-4 w-4" />
         </button>
@@ -856,7 +856,7 @@ function AdjustmentForm({
             type="button"
             onClick={handleSubmit}
             disabled={mutations.isLoading}
-            className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             {mutations.isLoading ? 'Posting...' : 'Post Adjustment'}
           </button>
@@ -864,7 +864,7 @@ function AdjustmentForm({
             type="button"
             onClick={onClose}
             disabled={mutations.isLoading}
-            className="rounded border border-input px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+            className="rounded border border-input px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
           >
             Cancel
           </button>
@@ -1107,7 +1107,7 @@ export default function FinancialTab({
         <button
           type="button"
           onClick={() => accountsHook.mutate()}
-          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Retry
@@ -1156,7 +1156,7 @@ export default function FinancialTab({
             <button
               type="button"
               onClick={() => setTransferOpen(false)}
-              className="rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-muted-foreground"
+              className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
             >
               <ChevronUp className="h-4 w-4" />
             </button>
@@ -1223,7 +1223,7 @@ export default function FinancialTab({
                 type="button"
                 onClick={handleTransferSubmit}
                 disabled={mutations.isLoading}
-                className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
               >
                 {mutations.isLoading ? 'Transferring...' : 'Transfer'}
               </button>
@@ -1231,7 +1231,7 @@ export default function FinancialTab({
                 type="button"
                 onClick={() => setTransferOpen(false)}
                 disabled={mutations.isLoading}
-                className="rounded border border-input px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                className="rounded border border-input px-4 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
               >
                 Cancel
               </button>

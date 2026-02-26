@@ -90,7 +90,7 @@ export function DataTable<T extends Record<string, unknown>>({
           <button
             type="button"
             onClick={emptyAction.onClick}
-            className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             {emptyAction.label}
           </button>

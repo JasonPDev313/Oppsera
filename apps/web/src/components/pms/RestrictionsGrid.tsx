@@ -219,13 +219,13 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
         </select>
 
         <div className="ml-auto flex items-center gap-1">
-          <button onClick={goBack} className="rounded p-1 hover:bg-gray-200/50" title="Previous week" aria-label="Previous week">
+          <button onClick={goBack} className="rounded p-1 hover:bg-accent/50" title="Previous week" aria-label="Previous week">
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           </button>
-          <button onClick={goToday} className="rounded px-2 py-1 text-xs hover:bg-gray-200/50">
+          <button onClick={goToday} className="rounded px-2 py-1 text-xs hover:bg-accent/50">
             Today
           </button>
-          <button onClick={goForward} className="rounded p-1 hover:bg-gray-200/50" title="Next week" aria-label="Next week">
+          <button onClick={goForward} className="rounded p-1 hover:bg-accent/50" title="Next week" aria-label="Next week">
             <ChevronRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
@@ -237,7 +237,7 @@ export default function RestrictionsGrid({ propertyId, roomTypes, ratePlans }: R
           <button
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" />
             Save {pendingChanges.size} change{pendingChanges.size > 1 ? 's' : ''}

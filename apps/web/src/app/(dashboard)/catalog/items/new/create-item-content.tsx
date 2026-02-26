@@ -160,11 +160,11 @@ function flattenZodErrors(err: z.ZodError): FieldErrors {
 }
 
 const inputClassName =
-  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none';
+  'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-surface';
 const inputErrorClassName =
-  'w-full rounded-lg border border-red-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500 focus:outline-none';
+  'w-full rounded-lg border border-red-500/40 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500 focus:outline-none bg-surface';
 const checkboxClassName =
-  'rounded border-gray-300 text-indigo-600 focus:ring-indigo-500';
+  'rounded border-border text-indigo-600 focus:ring-indigo-500';
 
 // ── Main Page ───────────────────────────────────────────────────
 
@@ -537,19 +537,19 @@ export default function CreateItemContent() {
 
   if (step === 1) {
     return (
-      <div className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="min-h-screen bg-muted px-4 py-8">
         <div className="mx-auto max-w-2xl">
           <button
             type="button"
             onClick={() => router.push('/catalog')}
-            className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700"
+            className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft aria-hidden="true" className="h-4 w-4" />
             Back to Items
           </button>
 
-          <h1 className="mb-2 text-xl font-semibold text-gray-900">Create New Item</h1>
-          <p className="mb-8 text-sm text-gray-500">
+          <h1 className="mb-2 text-xl font-semibold text-foreground">Create New Item</h1>
+          <p className="mb-8 text-sm text-muted-foreground">
             Choose the type of item you want to create.
           </p>
 
@@ -561,13 +561,13 @@ export default function CreateItemContent() {
                   key={card.key}
                   type="button"
                   onClick={() => handleSelectType(card.key)}
-                  className="group rounded-xl border border-gray-200 bg-surface p-6 text-left shadow-sm transition-all hover:border-indigo-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+                  className="group rounded-xl border border-border bg-surface p-6 text-left shadow-sm transition-all hover:border-indigo-500/40 hover:shadow-md focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
                 >
-                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-100">
+                  <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-500 transition-colors group-hover:bg-indigo-500/20">
                     <Icon aria-hidden="true" className="h-5 w-5" />
                   </div>
-                  <h3 className="text-sm font-semibold text-gray-900">{card.title}</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-gray-500">
+                  <h3 className="text-sm font-semibold text-foreground">{card.title}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                     {card.description}
                   </p>
                 </button>
@@ -584,21 +584,21 @@ export default function CreateItemContent() {
   const typeBadge = selectedType ? ITEM_TYPE_BADGES[selectedType] : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 py-8">
+    <div className="min-h-screen bg-muted px-4 py-8">
       <div className="mx-auto max-w-2xl">
         <button
           type="button"
           onClick={() => router.push('/catalog')}
-          className="mb-6 inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-700"
+          className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft aria-hidden="true" className="h-4 w-4" />
           Back to Items
         </button>
 
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">Create New Item</h1>
+        <h1 className="mb-6 text-xl font-semibold text-foreground">Create New Item</h1>
 
         <form onSubmit={handleSubmit}>
-          <div className="rounded-xl border border-gray-200 bg-surface p-6 shadow-sm">
+          <div className="rounded-xl border border-border bg-surface p-6 shadow-sm">
             <div className="space-y-4">
               {/* Type badge + change link */}
               <div className="flex items-center gap-3">
@@ -702,9 +702,9 @@ export default function CreateItemContent() {
               )}
 
               {/* Tax info note */}
-              <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-3">
+              <div className="flex items-start gap-2 rounded-lg bg-blue-500/10 p-3">
                 <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-                <p className="text-xs text-blue-700">
+                <p className="text-xs text-blue-500">
                   Tax groups are assigned per-location on the item detail page after creation.
                 </p>
               </div>
@@ -785,18 +785,18 @@ export default function CreateItemContent() {
             </div>
 
             {/* Submit */}
-            <div className="mt-6 flex items-center justify-end gap-3 border-t border-gray-100 pt-6">
+            <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-6">
               <button
                 type="button"
                 onClick={() => router.push('/catalog')}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? 'Creating...' : 'Create Item'}
               </button>
@@ -842,21 +842,21 @@ function FnbFields({
   const fractionOptions = [1.0, 0.5, 0.25];
 
   return (
-    <div className="space-y-4 border-t border-gray-100 pt-4">
-      <h3 className="text-sm font-semibold text-gray-900">F&B Options</h3>
+    <div className="space-y-4 border-t border-border pt-4">
+      <h3 className="text-sm font-semibold text-foreground">F&B Options</h3>
 
       {/* Sub-type */}
       <FormField label="Sub-type" required>
         <div className="flex gap-4">
           {(['food', 'beverage'] as const).map((val) => (
-            <label key={val} className="flex items-center gap-2 text-sm text-gray-700">
+            <label key={val} className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="radio"
                 name="fnbSubType"
                 value={val}
                 checked={subType === val}
                 onChange={() => onSubTypeChange(val)}
-                className="border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="border-border text-indigo-600 focus:ring-indigo-500"
               />
               {val === 'food' ? 'Food' : 'Beverage'}
             </label>
@@ -865,7 +865,7 @@ function FnbFields({
       </FormField>
 
       {/* Allow Special Instructions */}
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <label className="flex items-center gap-2 text-sm text-foreground">
         <input
           type="checkbox"
           checked={allowSpecialInstructions}
@@ -883,7 +883,7 @@ function FnbFields({
       >
         <div className="flex gap-4">
           {fractionOptions.map((f) => (
-            <label key={f} className="flex items-center gap-2 text-sm text-gray-700">
+            <label key={f} className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={allowedFractions.includes(f)}
@@ -963,11 +963,11 @@ function RetailFields({
   errors: _errors,
 }: RetailFieldsProps) {
   return (
-    <div className="space-y-4 border-t border-gray-100 pt-4">
-      <h3 className="text-sm font-semibold text-gray-900">Retail Options</h3>
+    <div className="space-y-4 border-t border-border pt-4">
+      <h3 className="text-sm font-semibold text-foreground">Retail Options</h3>
 
       {/* Track Inventory */}
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <label className="flex items-center gap-2 text-sm text-foreground">
         <input
           type="checkbox"
           checked={trackInventory}
@@ -981,7 +981,7 @@ function RetailFields({
       {/* TODO: Backend retail_option_groups table not yet available — storing in metadata.optionSets */}
       <div>
         <div className="mb-2 flex items-center justify-between">
-          <label className="block text-sm font-medium text-gray-700">Option Sets</label>
+          <label className="block text-sm font-medium text-foreground">Option Sets</label>
           <button
             type="button"
             onClick={() => onShowOptionSetForm(true)}
@@ -998,19 +998,19 @@ function RetailFields({
             {optionSets.map((os, idx) => (
               <div
                 key={idx}
-                className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2"
+                className="flex items-center justify-between rounded-lg border border-border bg-muted px-3 py-2"
               >
                 <div>
-                  <span className="text-sm font-medium text-gray-900">{os.name}</span>
+                  <span className="text-sm font-medium text-foreground">{os.name}</span>
                   {os.required && (
                     <span className="ml-2 text-xs text-red-500">Required</span>
                   )}
-                  <p className="text-xs text-gray-500">{os.options.join(' \u00B7 ')}</p>
+                  <p className="text-xs text-muted-foreground">{os.options.join(' \u00B7 ')}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => onRemoveOptionSet(idx)}
-                  className="rounded p-1 text-gray-400 hover:text-red-500"
+                  className="rounded p-1 text-muted-foreground hover:text-red-500"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1021,7 +1021,7 @@ function RetailFields({
 
         {/* Inline option set form */}
         {showOptionSetForm && (
-          <div className="mt-2 space-y-3 rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
+          <div className="mt-2 space-y-3 rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4">
             <FormField label="Option Set Name" required>
               <input
                 type="text"
@@ -1033,17 +1033,17 @@ function RetailFields({
             </FormField>
 
             <FormField label="Options" helpText="Type an option and press Enter">
-              <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-3 py-2">
+              <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-2">
                 {newOptionSetOptions.map((opt) => (
                   <span
                     key={opt}
-                    className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700"
+                    className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-500"
                   >
                     {opt}
                     <button
                       type="button"
                       onClick={() => onRemoveOptionTag(opt)}
-                      className="text-indigo-400 hover:text-indigo-600"
+                      className="text-indigo-400 hover:text-indigo-500"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1055,12 +1055,12 @@ function RetailFields({
                   onChange={(e) => onNewOptionInputChange(e.target.value)}
                   onKeyDown={onAddOptionTag}
                   placeholder={newOptionSetOptions.length === 0 ? 'Type and press Enter...' : ''}
-                  className="min-w-[100px] flex-1 border-none bg-transparent p-0 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-0 focus:outline-none"
+                  className="min-w-[100px] flex-1 border-none bg-transparent p-0 text-sm text-foreground placeholder:text-muted-foreground focus:ring-0 focus:outline-none"
                 />
               </div>
             </FormField>
 
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={newOptionSetRequired}
@@ -1075,14 +1075,14 @@ function RetailFields({
                 type="button"
                 onClick={onSaveOptionSet}
                 disabled={!newOptionSetName.trim() || newOptionSetOptions.length === 0}
-                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Save Option Set
               </button>
               <button
                 type="button"
                 onClick={() => onShowOptionSetForm(false)}
-                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Cancel
               </button>
@@ -1092,9 +1092,9 @@ function RetailFields({
       </div>
 
       {/* Info note */}
-      <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-3">
+      <div className="flex items-start gap-2 rounded-lg bg-blue-500/10 p-3">
         <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-        <p className="text-xs text-blue-700">
+        <p className="text-xs text-blue-500">
           Retail items are sold as 1 unit per line item.
         </p>
       </div>
@@ -1120,8 +1120,8 @@ function ServiceFields({
   errors,
 }: ServiceFieldsProps) {
   return (
-    <div className="space-y-4 border-t border-gray-100 pt-4">
-      <h3 className="text-sm font-semibold text-gray-900">Service Options</h3>
+    <div className="space-y-4 border-t border-border pt-4">
+      <h3 className="text-sm font-semibold text-foreground">Service Options</h3>
 
       <FormField
         label="Duration (minutes)"
@@ -1139,7 +1139,7 @@ function ServiceFields({
         />
       </FormField>
 
-      <label className="flex items-center gap-2 text-sm text-gray-700">
+      <label className="flex items-center gap-2 text-sm text-foreground">
         <input
           type="checkbox"
           checked={requiresBooking}
@@ -1150,9 +1150,9 @@ function ServiceFields({
       </label>
 
       {/* Info note */}
-      <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-3">
+      <div className="flex items-start gap-2 rounded-lg bg-blue-500/10 p-3">
         <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-        <p className="text-xs text-blue-700">
+        <p className="text-xs text-blue-500">
           Services are sold as 1 unit per line item.
         </p>
       </div>
@@ -1217,8 +1217,8 @@ function PackageFields({
   }
 
   return (
-    <div className="space-y-4 border-t border-gray-100 pt-4">
-      <h3 className="text-sm font-semibold text-gray-900">Package Components</h3>
+    <div className="space-y-4 border-t border-border pt-4">
+      <h3 className="text-sm font-semibold text-foreground">Package Components</h3>
 
       {/* TODO: Backend does not have package_components table — storing in metadata.packageComponents */}
 
@@ -1226,7 +1226,7 @@ function PackageFields({
       <button
         type="button"
         onClick={() => onShowSearch(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-indigo-300 hover:text-indigo-600"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-indigo-500/40 hover:text-indigo-500"
       >
         <Plus aria-hidden="true" className="h-4 w-4" />
         Add Component
@@ -1234,16 +1234,16 @@ function PackageFields({
 
       {/* Search dialog */}
       {showSearch && (
-        <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 p-4">
+        <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4">
           <SearchInput
             value={searchQuery}
             onChange={onSearchChange}
             placeholder="Search items..."
           />
           {searchQuery && (
-            <ul className="mt-2 max-h-48 divide-y divide-gray-100 overflow-auto rounded-lg border border-gray-200 bg-surface">
+            <ul className="mt-2 max-h-48 divide-y divide-border overflow-auto rounded-lg border border-border bg-surface">
               {searchResults.length === 0 && (
-                <li className="px-3 py-2 text-sm text-gray-500">No items found</li>
+                <li className="px-3 py-2 text-sm text-muted-foreground">No items found</li>
               )}
               {searchResults.map((item) => {
                 const group = getItemTypeGroup(item.itemType, item.metadata);
@@ -1255,9 +1255,9 @@ function PackageFields({
                       type="button"
                       onClick={() => onAddComponent(item)}
                       disabled={alreadyAdded}
-                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      <span className="text-gray-900">{item.name}</span>
+                      <span className="text-foreground">{item.name}</span>
                       <Badge variant={badge.variant}>{badge.label}</Badge>
                     </button>
                   </li>
@@ -1271,7 +1271,7 @@ function PackageFields({
               onShowSearch(false);
               onSearchChange('');
             }}
-            className="mt-2 text-sm text-gray-500 hover:text-gray-700"
+            className="mt-2 text-sm text-muted-foreground hover:text-foreground"
           >
             Close
           </button>
@@ -1279,7 +1279,7 @@ function PackageFields({
       )}
 
       {/* Pricing mode toggle */}
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
         <input
           type="checkbox"
           checked={pricingMode === 'sum_of_components'}
@@ -1293,28 +1293,28 @@ function PackageFields({
 
       {/* Component list */}
       {errors.packageComponents && (
-        <p className="text-xs text-red-600">{errors.packageComponents}</p>
+        <p className="text-xs text-red-500">{errors.packageComponents}</p>
       )}
 
       {components.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="min-w-full divide-y divide-border">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Item Name</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Type</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Qty</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Item Name</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Type</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground">Qty</th>
                 {pricingMode === 'sum_of_components' && (
                   <>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Unit Price</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Extended</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500">Alloc %</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">Unit Price</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">Extended</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground">Alloc %</th>
                   </>
                 )}
                 <th className="px-4 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 bg-surface">
+            <tbody className="divide-y divide-border bg-surface">
               {components.map((comp, idx) => {
                 const group = getItemTypeGroup(comp.itemType);
                 const badge = ITEM_TYPE_BADGES[group];
@@ -1329,7 +1329,7 @@ function PackageFields({
 
                 return (
                   <tr key={comp.catalogItemId}>
-                    <td className="px-4 py-2 text-sm text-gray-900">{comp.itemName}</td>
+                    <td className="px-4 py-2 text-sm text-foreground">{comp.itemName}</td>
                     <td className="px-4 py-2">
                       <Badge variant={badge.variant}>{badge.label}</Badge>
                     </td>
@@ -1340,7 +1340,7 @@ function PackageFields({
                           onChange={(e) =>
                             onQtyChange(comp.catalogItemId, parseFloat(e.target.value))
                           }
-                          className="rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          className="rounded border border-border px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         >
                           {qtyOpts.map((opt) => (
                             <option key={opt.value} value={opt.value}>
@@ -1360,7 +1360,7 @@ function PackageFields({
                               Math.max(1, parseInt(e.target.value, 10) || 1),
                             )
                           }
-                          className="w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          className="w-20 rounded border border-border px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         />
                       )}
                     </td>
@@ -1380,17 +1380,17 @@ function PackageFields({
                                 )
                               }
                               placeholder="0.00"
-                              className={`w-24 rounded border px-2 py-1 text-right text-sm focus:ring-1 focus:outline-none ${priceError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'}`}
+                              className={`w-24 rounded border px-2 py-1 text-right text-sm focus:ring-1 focus:outline-none ${priceError ? 'border-red-500/40 focus:border-red-500 focus:ring-red-500' : 'border-border focus:border-indigo-500 focus:ring-indigo-500'}`}
                             />
                             {priceError && (
-                              <span className="text-xs text-red-600">Required</span>
+                              <span className="text-xs text-red-500">Required</span>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-2 text-right text-sm text-gray-700">
+                        <td className="px-4 py-2 text-right text-sm text-foreground">
                           ${extended.toFixed(2)}
                         </td>
-                        <td className="px-4 py-2 text-right text-sm text-gray-500">
+                        <td className="px-4 py-2 text-right text-sm text-muted-foreground">
                           {allocPct != null ? `${allocPct}%` : '—'}
                         </td>
                       </>
@@ -1399,7 +1399,7 @@ function PackageFields({
                       <button
                         type="button"
                         onClick={() => onRemoveComponent(comp.catalogItemId)}
-                        className="rounded p-1 text-gray-400 hover:text-red-500"
+                        className="rounded p-1 text-muted-foreground hover:text-red-500"
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -1409,18 +1409,18 @@ function PackageFields({
               })}
             </tbody>
             {pricingMode === 'sum_of_components' && components.length > 0 && (
-              <tfoot className="bg-gray-50">
+              <tfoot className="bg-muted">
                 <tr>
-                  <td colSpan={3} className="px-4 py-2 text-sm font-medium text-gray-700">
+                  <td colSpan={3} className="px-4 py-2 text-sm font-medium text-foreground">
                     Components Total
                   </td>
-                  <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">
+                  <td className="px-4 py-2 text-right text-sm font-semibold text-foreground">
                     —
                   </td>
                   <td className="px-4 py-2 text-right text-sm font-semibold text-indigo-600">
                     ${componentsSubtotal.toFixed(2)}
                   </td>
-                  <td className="px-4 py-2 text-right text-sm text-gray-500">100%</td>
+                  <td className="px-4 py-2 text-right text-sm text-muted-foreground">100%</td>
                   <td />
                 </tr>
               </tfoot>
@@ -1444,7 +1444,7 @@ function PackageFields({
             label="Package Price"
             helpText="Automatically derived from component sum"
           >
-            <div className="flex h-9.5 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-medium text-gray-700">
+            <div className="flex h-9.5 items-center rounded-lg border border-border bg-muted px-3 text-sm font-medium text-foreground">
               ${componentsSubtotal.toFixed(2)}
             </div>
           </FormField>

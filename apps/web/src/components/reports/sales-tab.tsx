@@ -82,11 +82,11 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Array<
   if (!active || !payload?.length) return null;
   const row = payload[0]!.payload;
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-3 text-sm shadow-lg">
-      <p className="font-semibold text-gray-900">{formatDateShort(row.businessDate)}</p>
-      <p className="text-gray-600">Net Sales: {formatReportMoney(row.netSales)}</p>
-      <p className="text-gray-600">Gross Sales: {formatReportMoney(row.grossSales)}</p>
-      <p className="text-gray-600">Orders: {row.orderCount}</p>
+    <div className="rounded-lg border border-border bg-surface p-3 text-sm shadow-lg">
+      <p className="font-semibold text-foreground">{formatDateShort(row.businessDate)}</p>
+      <p className="text-muted-foreground">Net Sales: {formatReportMoney(row.netSales)}</p>
+      <p className="text-muted-foreground">Gross Sales: {formatReportMoney(row.grossSales)}</p>
+      <p className="text-muted-foreground">Orders: {row.orderCount}</p>
     </div>
   );
 }
@@ -115,7 +115,7 @@ export function SalesTab({ data, isLoading, dateFrom, dateTo, locationId }: Sale
       {/* Chart */}
       {!isLoading && data.length > 0 && (
         <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
-          <h3 className="mb-4 text-sm font-medium text-gray-500">Net Sales Trend</h3>
+          <h3 className="mb-4 text-sm font-medium text-muted-foreground">Net Sales Trend</h3>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -156,7 +156,7 @@ export function SalesTab({ data, isLoading, dateFrom, dateTo, locationId }: Sale
         <button
           type="button"
           onClick={handleExport}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Download className="h-4 w-4" />
           Export CSV

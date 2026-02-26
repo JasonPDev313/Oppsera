@@ -151,10 +151,11 @@ async function main() {
       if (count !== 0 && count !== '?') {
         console.log(`  ✓ ${table}: ${count} rows deleted`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Table might not exist or have no tenant_id — skip silently
-      if (!err.message?.includes('does not exist') && !err.message?.includes('tenant_id')) {
-        console.warn(`  ⚠ ${table}: ${err.message}`);
+      const msg = err instanceof Error ? err.message : '';
+      if (!msg.includes('does not exist') && !msg.includes('tenant_id')) {
+        console.warn(`  ⚠ ${table}: ${msg}`);
       }
     }
   }

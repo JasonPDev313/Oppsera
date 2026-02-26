@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   UtensilsCrossed,
@@ -18,7 +18,7 @@ import {
   Hotel,
   type LucideIcon,
 } from 'lucide-react';
-import { apiFetch, ApiError } from '@/lib/api-client';
+import { apiFetch, ApiError, getStoredToken, refreshTokenIfNeeded } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 import {
   SMB_BUSINESS_TYPES,
@@ -77,8 +77,8 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
                   isCompleted
                     ? 'bg-indigo-600 text-white'
                     : isCurrent
-                      ? 'border-2 border-indigo-600 bg-indigo-50 text-indigo-600'
-                      : 'border-2 border-gray-300 text-gray-400'
+                      ? 'border-2 border-indigo-600 bg-indigo-500/10 text-indigo-600'
+                      : 'border-2 border-border text-muted-foreground'
                 }`}
               >
                 {isCompleted ? (
@@ -91,7 +91,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
               </div>
               <span
                 className={`mt-1 text-xs ${
-                  isCurrent ? 'font-medium text-indigo-600' : 'text-gray-400'
+                  isCurrent ? 'font-medium text-indigo-600' : 'text-muted-foreground'
                 }`}
               >
                 {label}
@@ -100,7 +100,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
             {index < STEP_LABELS.length - 1 && (
               <div
                 className={`mb-5 h-0.5 w-8 ${
-                  stepNum < currentStep ? 'bg-indigo-600' : 'bg-gray-300'
+                  stepNum < currentStep ? 'bg-indigo-600' : 'bg-muted'
                 }`}
               />
             )}
@@ -144,20 +144,20 @@ function OtherBusinessTypesPicker({
         Back to categories
       </button>
 
-      <h2 className="text-lg font-bold text-gray-900">Browse Industries</h2>
-      <p className="mt-1 text-sm text-gray-500">
+      <h2 className="text-lg font-bold text-foreground">Browse Industries</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
         Find the configuration that best fits your business.
       </p>
 
       {/* Search */}
       <div className="relative mt-4">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search industries..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+          className="w-full rounded-lg border border-border py-2.5 pl-10 pr-4 text-sm text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         />
       </div>
 
@@ -174,26 +174,26 @@ function OtherBusinessTypesPicker({
               onClick={() => onSelect(bt.key)}
               className={`flex w-full items-center gap-4 rounded-lg border-2 px-4 py-3.5 text-left transition-all ${
                 isSelected
-                  ? 'border-indigo-600 bg-indigo-50 shadow-sm'
-                  : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
+                  ? 'border-indigo-600 bg-indigo-500/10 shadow-sm'
+                  : 'border-border bg-surface hover:border-border hover:bg-accent'
               }`}
             >
               <div
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-                  isSelected ? 'bg-indigo-100' : 'bg-gray-100'
+                  isSelected ? 'bg-indigo-500/10' : 'bg-muted'
                 }`}
               >
                 {Icon && (
-                  <Icon className={`h-5 w-5 ${isSelected ? 'text-indigo-600' : 'text-gray-500'}`} />
+                  <Icon className={`h-5 w-5 ${isSelected ? 'text-indigo-600' : 'text-muted-foreground'}`} />
                 )}
               </div>
               <div className="min-w-0">
                 <span
-                  className={`text-sm font-semibold ${isSelected ? 'text-indigo-900' : 'text-gray-900'}`}
+                  className={`text-sm font-semibold ${isSelected ? 'text-indigo-500' : 'text-foreground'}`}
                 >
                   {bt.name}
                 </span>
-                <p className="mt-0.5 text-xs text-gray-500">{bt.description}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{bt.description}</p>
               </div>
               {isSelected && (
                 <div className="ml-auto shrink-0">
@@ -207,16 +207,16 @@ function OtherBusinessTypesPicker({
         })}
 
         {filtered.length === 0 && (
-          <div className="rounded-lg border border-dashed border-gray-300 py-8 text-center">
-            <p className="text-sm text-gray-500">No matching industries found.</p>
-            <p className="mt-1 text-xs text-gray-400">
+          <div className="rounded-lg border border-dashed border-border py-8 text-center">
+            <p className="text-sm text-muted-foreground">No matching industries found.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
               Try a different search, or choose &ldquo;Multi-Purpose Venue&rdquo; for a flexible setup.
             </p>
           </div>
         )}
 
         {/* More coming soon indicator */}
-        <div className="flex items-center gap-3 rounded-lg border border-dashed border-gray-200 px-4 py-3 text-gray-400">
+        <div className="flex items-center gap-3 rounded-lg border border-dashed border-border px-4 py-3 text-muted-foreground">
           <MoreHorizontal className="h-5 w-5" />
           <span className="text-sm">More industries coming soon</span>
         </div>
@@ -254,19 +254,19 @@ function BusinessTypeStep({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">What type of business do you run?</h1>
-      <p className="mt-2 text-sm text-gray-600">
+      <h1 className="text-2xl font-bold text-foreground">What type of business do you run?</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
         This helps us configure the best experience for you.
       </p>
 
       {/* ─── SMB Section ─── */}
       <div className="mt-6">
         <div className="mb-3 flex items-center gap-2">
-          <div className="h-px flex-1 bg-gray-200" />
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <div className="h-px flex-1 bg-muted" />
+          <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Small &amp; Medium Business
           </span>
-          <div className="h-px flex-1 bg-gray-200" />
+          <div className="h-px flex-1 bg-muted" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -281,8 +281,8 @@ function BusinessTypeStep({
                 onClick={() => onSelect(bt.key)}
                 className={`group relative flex flex-col items-center rounded-xl border-2 p-5 text-center transition-all ${
                   isSelected
-                    ? 'border-indigo-600 bg-indigo-50 shadow-md shadow-indigo-100'
-                    : 'border-gray-200 bg-surface hover:border-indigo-300 hover:shadow-sm'
+                    ? 'border-indigo-600 bg-indigo-500/10 shadow-md shadow-indigo-500/20'
+                    : 'border-border bg-surface hover:border-indigo-500/30 hover:shadow-sm'
                 }`}
               >
                 {isSelected && (
@@ -295,26 +295,26 @@ function BusinessTypeStep({
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-xl transition-colors ${
                     isSelected
-                      ? 'bg-indigo-100'
-                      : 'bg-gray-100 group-hover:bg-indigo-50'
+                      ? 'bg-indigo-500/10'
+                      : 'bg-muted group-hover:bg-indigo-500/10'
                   }`}
                 >
                   {Icon && (
                     <Icon
                       className={`h-6 w-6 transition-colors ${
-                        isSelected ? 'text-indigo-600' : 'text-gray-500 group-hover:text-indigo-500'
+                        isSelected ? 'text-indigo-600' : 'text-muted-foreground group-hover:text-indigo-500'
                       }`}
                     />
                   )}
                 </div>
                 <span
                   className={`mt-3 text-sm font-semibold ${
-                    isSelected ? 'text-indigo-900' : 'text-gray-900'
+                    isSelected ? 'text-indigo-500' : 'text-foreground'
                   }`}
                 >
                   {bt.name}
                 </span>
-                <span className="mt-1 text-xs text-gray-500">{bt.description}</span>
+                <span className="mt-1 text-xs text-muted-foreground">{bt.description}</span>
               </button>
             );
           })}
@@ -325,8 +325,8 @@ function BusinessTypeStep({
             onClick={() => setShowOther(true)}
             className={`group relative flex flex-col items-center rounded-xl border-2 p-5 text-center transition-all ${
               isOtherTypeSelected
-                ? 'border-indigo-600 bg-indigo-50 shadow-md shadow-indigo-100'
-                : 'border-gray-200 bg-surface hover:border-indigo-300 hover:shadow-sm'
+                ? 'border-indigo-600 bg-indigo-500/10 shadow-md shadow-indigo-500/20'
+                : 'border-border bg-surface hover:border-indigo-500/30 hover:shadow-sm'
             }`}
           >
             {isOtherTypeSelected && (
@@ -339,26 +339,26 @@ function BusinessTypeStep({
             <div
               className={`flex h-12 w-12 items-center justify-center rounded-xl transition-colors ${
                 isOtherTypeSelected
-                  ? 'bg-indigo-100'
-                  : 'bg-gray-100 group-hover:bg-indigo-50'
+                  ? 'bg-indigo-500/10'
+                  : 'bg-muted group-hover:bg-indigo-500/10'
               }`}
             >
               <Search
                 className={`h-6 w-6 transition-colors ${
-                  isOtherTypeSelected ? 'text-indigo-600' : 'text-gray-500 group-hover:text-indigo-500'
+                  isOtherTypeSelected ? 'text-indigo-600' : 'text-muted-foreground group-hover:text-indigo-500'
                 }`}
               />
             </div>
             <span
               className={`mt-3 text-sm font-semibold ${
-                isOtherTypeSelected ? 'text-indigo-900' : 'text-gray-900'
+                isOtherTypeSelected ? 'text-indigo-500' : 'text-foreground'
               }`}
             >
               {isOtherTypeSelected
                 ? BUSINESS_TYPES.find((bt) => bt.key === selected)?.name ?? 'Other'
                 : 'Other'}
             </span>
-            <span className="mt-1 text-xs text-gray-500">
+            <span className="mt-1 text-xs text-muted-foreground">
               {isOtherTypeSelected
                 ? 'Tap to change'
                 : 'Hotels, golf, spa & more'}
@@ -370,11 +370,11 @@ function BusinessTypeStep({
       {/* ─── Enterprise Section ─── */}
       <div className="mt-6">
         <div className="mb-3 flex items-center gap-2">
-          <div className="h-px flex-1 bg-gray-200" />
-          <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-400">
+          <div className="h-px flex-1 bg-muted" />
+          <span className="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Enterprise
           </span>
-          <div className="h-px flex-1 bg-gray-200" />
+          <div className="h-px flex-1 bg-muted" />
         </div>
 
         <button
@@ -382,8 +382,8 @@ function BusinessTypeStep({
           onClick={() => onSelect('enterprise' as BusinessTypeKey)}
           className={`relative w-full overflow-hidden rounded-xl border-2 p-5 text-left transition-all ${
             selected === 'enterprise'
-              ? 'border-indigo-600 bg-indigo-50 shadow-md shadow-indigo-100'
-              : 'border-gray-200 bg-linear-to-br from-gray-50 to-gray-100 hover:border-indigo-300 hover:shadow-sm'
+              ? 'border-indigo-600 bg-indigo-500/10 shadow-md shadow-indigo-500/20'
+              : 'border-border bg-linear-to-br from-gray-50 to-gray-100 hover:border-indigo-500/30 hover:shadow-sm'
           }`}
         >
           <div className="flex items-center gap-4">
@@ -392,11 +392,11 @@ function BusinessTypeStep({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <span className={`text-sm font-semibold ${selected === 'enterprise' ? 'text-indigo-900' : 'text-gray-900'}`}>
+                <span className={`text-sm font-semibold ${selected === 'enterprise' ? 'text-indigo-500' : 'text-foreground'}`}>
                   Enterprise
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 Multi-location chains, franchises &amp; large organizations with advanced accounting, consolidated reporting, and dedicated support.
               </p>
             </div>
@@ -415,14 +415,14 @@ function BusinessTypeStep({
 
         {/* ─── Enterprise Info Box ─── */}
         {selected === 'enterprise' && (
-          <div className="mt-4 rounded-xl border border-indigo-200 bg-indigo-50/50 p-5">
+          <div className="mt-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-5">
             <div className="flex items-start gap-3">
               <Info className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
               <div>
-                <h3 className="text-sm font-semibold text-indigo-900">
+                <h3 className="text-sm font-semibold text-indigo-500">
                   How Enterprise mode works
                 </h3>
-                <p className="mt-1.5 text-xs leading-relaxed text-gray-600">
+                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
                   Enterprise accounts are configured with accounting best practices for
                   larger organizations. Key differences from standard accounts:
                 </p>
@@ -431,10 +431,10 @@ function BusinessTypeStep({
                   <div className="flex items-start gap-2.5">
                     <FileCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
                     <div>
-                      <span className="text-xs font-medium text-gray-900">
+                      <span className="text-xs font-medium text-foreground">
                         Draft-first GL posting
                       </span>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Journal entries start as drafts for review before posting, instead of auto-posting immediately.
                       </p>
                     </div>
@@ -442,10 +442,10 @@ function BusinessTypeStep({
                   <div className="flex items-start gap-2.5">
                     <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
                     <div>
-                      <span className="text-xs font-medium text-gray-900">
+                      <span className="text-xs font-medium text-foreground">
                         Approval workflows
                       </span>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         AP payments, refunds, and period closes require approval before execution.
                         Revenue recognition and breakage income are manually controlled.
                       </p>
@@ -454,10 +454,10 @@ function BusinessTypeStep({
                   <div className="flex items-start gap-2.5">
                     <Settings className="mt-0.5 h-4 w-4 shrink-0 text-indigo-500" />
                     <div>
-                      <span className="text-xs font-medium text-gray-900">
+                      <span className="text-xs font-medium text-foreground">
                         Fully customizable
                       </span>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Every setting can be switched back to automatic after setup.
                         Your team keeps full control over which workflows run automatically and which require review.
                       </p>
@@ -489,6 +489,17 @@ export default function OnboardPage() {
   const [modules, setModules] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  // Redirect to login if the user has no valid session.
+  // This catches the case where someone bookmarks /onboard or their token
+  // expires while filling out the form.  We send to /login (not /signup)
+  // because they already have an account if they reached onboarding.
+  useEffect(() => {
+    if (!auth.isLoading && !auth.isAuthenticated) {
+      router.replace('/login');
+    }
+  }, [auth.isLoading, auth.isAuthenticated, router]);
 
   function validateStep(): boolean {
     setError('');
@@ -562,6 +573,23 @@ export default function OnboardPage() {
     setIsSubmitting(true);
     setError('');
 
+    // Proactively check token — user may have spent minutes on the form
+    // while their session expired.  Catch this early with a clear message
+    // instead of letting the API call fail with a cryptic 401.
+    const token = getStoredToken();
+    if (!token) {
+      setSessionExpired(true);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Refresh the token if it's about to expire (within 5 min)
+    try {
+      await refreshTokenIfNeeded();
+    } catch {
+      // Best effort — the API call's 401 handler is the backstop
+    }
+
     try {
       await apiFetch('/api/v1/onboard', {
         method: 'POST',
@@ -590,7 +618,13 @@ export default function OnboardPage() {
       }
       router.push('/dashboard');
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.statusCode === 401) {
+        // Session expired between page load and Launch click.
+        // Show a clear message with a sign-in button instead of the
+        // cryptic "Authentication required" error.
+        setSessionExpired(true);
+        setError('');
+      } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError('An unexpected error occurred');
@@ -612,7 +646,7 @@ export default function OnboardPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-muted">
       <div className="w-full max-w-2xl rounded-xl bg-surface p-8 shadow-lg">
         {/* Step Indicator */}
         <StepIndicator currentStep={step} />
@@ -630,11 +664,11 @@ export default function OnboardPage() {
           {/* Step 2: Company Details */}
           {step === 2 && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Company Details</h1>
-              <p className="mt-2 text-sm text-gray-600">Tell us about your company.</p>
+              <h1 className="text-2xl font-bold text-foreground">Company Details</h1>
+              <p className="mt-2 text-sm text-muted-foreground">Tell us about your company.</p>
 
               <div className="mt-6">
-                <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="companyName" className="block text-sm font-medium text-foreground">
                   Company Name
                 </label>
                 <input
@@ -644,7 +678,7 @@ export default function OnboardPage() {
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Acme Inc."
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+                  className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
                 />
               </div>
             </div>
@@ -653,14 +687,14 @@ export default function OnboardPage() {
           {/* Step 3: Location Details */}
           {step === 3 && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Location Details</h1>
-              <p className="mt-2 text-sm text-gray-600">
+              <h1 className="text-2xl font-bold text-foreground">Location Details</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
                 Set up your first location. You can add more later.
               </p>
 
               <div className="mt-6 space-y-5">
                 <div>
-                  <label htmlFor="locationName" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="locationName" className="block text-sm font-medium text-foreground">
                     Location Name
                   </label>
                   <input
@@ -670,19 +704,19 @@ export default function OnboardPage() {
                     value={locationName}
                     onChange={(e) => setLocationName(e.target.value)}
                     placeholder="Main"
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+                    className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="timezone" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="timezone" className="block text-sm font-medium text-foreground">
                     Timezone
                   </label>
                   <select
                     id="timezone"
                     value={timezone}
                     onChange={(e) => setTimezone(e.target.value)}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+                    className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
                   >
                     {TIMEZONES.map((tz) => (
                       <option key={tz.value} value={tz.value}>
@@ -694,7 +728,7 @@ export default function OnboardPage() {
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="address" className="block text-sm font-medium text-foreground">
                       Address
                     </label>
                     <input
@@ -703,12 +737,12 @@ export default function OnboardPage() {
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       placeholder="123 Main St"
-                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+                      className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="city" className="block text-sm font-medium text-gray-700">
+                    <label htmlFor="city" className="block text-sm font-medium text-foreground">
                       City
                     </label>
                     <input
@@ -717,13 +751,13 @@ export default function OnboardPage() {
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       placeholder="Springfield"
-                      className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+                      className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="state" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="state" className="block text-sm font-medium text-foreground">
                         State
                       </label>
                       <input
@@ -732,12 +766,12 @@ export default function OnboardPage() {
                         value={state}
                         onChange={(e) => setState(e.target.value)}
                         placeholder="IL"
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+                        className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="zip" className="block text-sm font-medium text-gray-700">
+                      <label htmlFor="zip" className="block text-sm font-medium text-foreground">
                         Zip
                       </label>
                       <input
@@ -746,7 +780,7 @@ export default function OnboardPage() {
                         value={zip}
                         onChange={(e) => setZip(e.target.value)}
                         placeholder="62701"
-                        className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+                        className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
                       />
                     </div>
                   </div>
@@ -758,8 +792,8 @@ export default function OnboardPage() {
           {/* Step 4: Modules */}
           {step === 4 && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Select Modules</h1>
-              <p className="mt-2 text-sm text-gray-600">
+              <h1 className="text-2xl font-bold text-foreground">Select Modules</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
                 Choose the features you need. We've pre-selected the recommended modules for your
                 business type.
               </p>
@@ -775,18 +809,18 @@ export default function OnboardPage() {
                       onClick={() => toggleModule(mod.key)}
                       className={`flex flex-col rounded-lg border-2 p-4 text-left transition-colors ${
                         isSelected
-                          ? 'border-indigo-600 bg-indigo-50'
-                          : 'border-gray-200 bg-surface hover:border-gray-300 hover:bg-gray-50'
+                          ? 'border-indigo-600 bg-indigo-500/10'
+                          : 'border-border bg-surface hover:border-border hover:bg-accent'
                       }`}
                     >
                       <span
                         className={`text-sm font-semibold ${
-                          isSelected ? 'text-indigo-900' : 'text-gray-900'
+                          isSelected ? 'text-indigo-500' : 'text-foreground'
                         }`}
                       >
                         {mod.name}
                       </span>
-                      <span className="mt-1 text-xs text-gray-500">{mod.description}</span>
+                      <span className="mt-1 text-xs text-muted-foreground">{mod.description}</span>
                     </button>
                   );
                 })}
@@ -797,36 +831,36 @@ export default function OnboardPage() {
           {/* Step 5: Review & Launch */}
           {step === 5 && (
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Review & Launch</h1>
-              <p className="mt-2 text-sm text-gray-600">
+              <h1 className="text-2xl font-bold text-foreground">Review & Launch</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
                 Everything look good? Hit Launch to get started.
               </p>
 
-              <div className="mt-6 space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-6">
+              <div className="mt-6 space-y-4 rounded-lg border border-border bg-muted p-6">
                 <div>
-                  <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Business Type
                   </span>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">{getBusinessTypeName()}</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{getBusinessTypeName()}</p>
                 </div>
 
-                <div className="border-t border-gray-200 pt-4">
-                  <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                <div className="border-t border-border pt-4">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Company Name
                   </span>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">{companyName}</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{companyName}</p>
                 </div>
 
-                <div className="border-t border-gray-200 pt-4">
-                  <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                <div className="border-t border-border pt-4">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Location
                   </span>
-                  <p className="mt-1 text-sm font-semibold text-gray-900">{locationName}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="mt-1 text-sm font-semibold text-foreground">{locationName}</p>
+                  <p className="text-sm text-muted-foreground">
                     {TIMEZONES.find((tz) => tz.value === timezone)?.label ?? timezone}
                   </p>
                   {(address || city || state || zip) && (
-                    <p className="mt-1 text-sm text-gray-500">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       {[address, city, [state, zip].filter(Boolean).join(' ')]
                         .filter(Boolean)
                         .join(', ')}
@@ -834,15 +868,15 @@ export default function OnboardPage() {
                   )}
                 </div>
 
-                <div className="border-t border-gray-200 pt-4">
-                  <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                <div className="border-t border-border pt-4">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Modules
                   </span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {getModuleNames().map((name) => (
                       <span
                         key={name}
-                        className="inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-medium text-indigo-700"
+                        className="inline-flex rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-500"
                       >
                         {name}
                       </span>
@@ -854,9 +888,26 @@ export default function OnboardPage() {
           )}
         </div>
 
+        {/* Session expired — show sign-in prompt instead of cryptic error */}
+        {sessionExpired && (
+          <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+            <p className="text-sm font-medium text-amber-500">Your session has expired</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Please sign in again to continue. Your selections will be saved in the setup wizard.
+            </p>
+            <button
+              type="button"
+              onClick={() => router.push('/login')}
+              className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-500"
+            >
+              Sign in again
+            </button>
+          </div>
+        )}
+
         {/* Error Message */}
-        {error && (
-          <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        {error && !sessionExpired && (
+          <div className="mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-500">{error}</div>
         )}
 
         {/* Navigation Buttons */}
@@ -866,7 +917,7 @@ export default function OnboardPage() {
               type="button"
               onClick={handleBack}
               disabled={isSubmitting}
-              className="rounded-lg border border-gray-300 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
+              className="rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
             >
               Back
             </button>
@@ -895,7 +946,7 @@ export default function OnboardPage() {
         </div>
 
         {/* Start over option for stuck users */}
-        <p className="mt-6 text-center text-sm text-gray-500">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           Wrong account?{' '}
           <button
             type="button"

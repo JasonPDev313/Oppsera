@@ -585,7 +585,7 @@ export default function RevenueManagementContent() {
                 e.stopPropagation();
                 openEdit(rule);
               }}
-              className="rounded p-1 text-muted-foreground transition-colors hover:bg-gray-200/50 hover:text-muted-foreground"
+              className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
               title="Edit rule"
             >
               <Pencil className="h-4 w-4" />
@@ -632,7 +632,7 @@ export default function RevenueManagementContent() {
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" />
             Create Rule
@@ -657,7 +657,7 @@ export default function RevenueManagementContent() {
             <button
               type="button"
               onClick={openCreate}
-              className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               Create First Rule
             </button>
@@ -774,7 +774,7 @@ export default function RevenueManagementContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
+                  className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -884,7 +884,7 @@ export default function RevenueManagementContent() {
                             className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                               formDaysOfWeek.includes(idx)
                                 ? 'border-indigo-600 bg-indigo-600 text-white'
-                                : 'border-border bg-surface text-foreground hover:bg-gray-200/50'
+                                : 'border-border bg-surface text-foreground hover:bg-accent/50'
                             }`}
                           >
                             {label}
@@ -1054,7 +1054,7 @@ export default function RevenueManagementContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
                 >
                   Cancel
                 </button>
@@ -1062,7 +1062,7 @@ export default function RevenueManagementContent() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {isSubmitting

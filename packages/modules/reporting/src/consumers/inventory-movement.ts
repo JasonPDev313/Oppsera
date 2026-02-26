@@ -9,6 +9,7 @@ interface InventoryMovementData {
   itemName: string;
   delta: number;
   newOnHand?: number;
+  reorderPoint?: number;
 }
 
 const CONSUMER_NAME = 'reporting.inventoryMovement';
@@ -18,8 +19,9 @@ const CONSUMER_NAME = 'reporting.inventoryMovement';
  *
  * Atomically:
  * 1. Insert processed_events (idempotency)
- * 2. Upsert rm_inventory_on_hand — set absolute onHand if provided, else += delta
- * 3. Recompute isBelowThreshold every time
+ * 2. Fetch reorder point from inventory_items if not in event payload
+ * 3. Upsert rm_inventory_on_hand — set absolute onHand if provided, else += delta
+ * 4. Always update low_stock_threshold + recompute isBelowThreshold
  */
 export async function handleInventoryMovement(event: EventEnvelope): Promise<void> {
   const data = event.data as unknown as InventoryMovementData;
@@ -35,7 +37,20 @@ export async function handleInventoryMovement(event: EventEnvelope): Promise<voi
     const rows = Array.from(inserted as Iterable<{ id: string }>);
     if (rows.length === 0) return;
 
-    // Step 2: Upsert rm_inventory_on_hand
+    // Step 2: Resolve reorder point — prefer event payload, fall back to inventory_items
+    let threshold = data.reorderPoint ?? null;
+    if (threshold === null) {
+      const rpResult = await (tx as any).execute(sql`
+        SELECT COALESCE(reorder_point, '0')::int AS rp
+        FROM inventory_items
+        WHERE id = ${data.inventoryItemId}
+        LIMIT 1
+      `);
+      const rpRows = Array.from(rpResult as Iterable<{ rp: number }>);
+      threshold = rpRows[0]?.rp ?? 0;
+    }
+
+    // Step 3: Upsert rm_inventory_on_hand
     const locationId = data.locationId || event.locationId || '';
     const itemName = data.itemName;
 
@@ -43,26 +58,28 @@ export async function handleInventoryMovement(event: EventEnvelope): Promise<voi
       // Absolute value provided — set directly
       const onHand = data.newOnHand;
       await (tx as any).execute(sql`
-        INSERT INTO rm_inventory_on_hand (id, tenant_id, location_id, inventory_item_id, item_name, on_hand, is_below_threshold, updated_at)
-        VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${data.inventoryItemId}, ${itemName}, ${onHand}, ${onHand} < 0, NOW())
+        INSERT INTO rm_inventory_on_hand (id, tenant_id, location_id, inventory_item_id, item_name, on_hand, low_stock_threshold, is_below_threshold, updated_at)
+        VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${data.inventoryItemId}, ${itemName}, ${onHand}, ${threshold}, ${onHand < threshold!}, NOW())
         ON CONFLICT (tenant_id, location_id, inventory_item_id)
         DO UPDATE SET
           on_hand = ${onHand},
           item_name = ${itemName},
-          is_below_threshold = ${onHand} < rm_inventory_on_hand.low_stock_threshold,
+          low_stock_threshold = ${threshold},
+          is_below_threshold = ${onHand} < ${threshold},
           updated_at = NOW()
       `);
     } else {
       // Delta mode — add to existing
       const delta = data.delta;
       await (tx as any).execute(sql`
-        INSERT INTO rm_inventory_on_hand (id, tenant_id, location_id, inventory_item_id, item_name, on_hand, is_below_threshold, updated_at)
-        VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${data.inventoryItemId}, ${itemName}, ${delta}, ${delta} < 0, NOW())
+        INSERT INTO rm_inventory_on_hand (id, tenant_id, location_id, inventory_item_id, item_name, on_hand, low_stock_threshold, is_below_threshold, updated_at)
+        VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${data.inventoryItemId}, ${itemName}, ${delta}, ${threshold}, ${delta < threshold!}, NOW())
         ON CONFLICT (tenant_id, location_id, inventory_item_id)
         DO UPDATE SET
           on_hand = rm_inventory_on_hand.on_hand + ${delta},
           item_name = ${itemName},
-          is_below_threshold = (rm_inventory_on_hand.on_hand + ${delta}) < rm_inventory_on_hand.low_stock_threshold,
+          low_stock_threshold = ${threshold},
+          is_below_threshold = (rm_inventory_on_hand.on_hand + ${delta}) < ${threshold},
           updated_at = NOW()
       `);
     }

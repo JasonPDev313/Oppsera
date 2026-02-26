@@ -132,20 +132,20 @@ export function AddTagPopover({
         createPortal(
           <div
             ref={popoverRef}
-            className="fixed z-50 w-64 rounded-lg border border-gray-200/80 bg-surface shadow-lg"
+            className="fixed z-50 w-64 rounded-lg border border-border/80 bg-surface shadow-lg"
             style={{ top: position.top, left: position.left }}
           >
             {/* Search input */}
-            <div className="border-b border-gray-200/60 p-2">
+            <div className="border-b border-border/60 p-2">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <input
                   ref={searchRef}
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search tags..."
-                  className="w-full rounded-md border border-gray-200 bg-transparent py-1.5 pl-8 pr-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20"
+                  className="w-full rounded-md border border-border bg-transparent py-1.5 pl-8 pr-3 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20"
                 />
               </div>
             </div>
@@ -153,13 +153,13 @@ export function AddTagPopover({
             {/* Tag list */}
             <div className="max-h-48 overflow-y-auto p-1">
               {tagsLoading && (
-                <div className="px-3 py-4 text-center text-xs text-gray-500">
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                   Loading tags...
                 </div>
               )}
 
               {!tagsLoading && filteredTags.length === 0 && (
-                <div className="px-3 py-4 text-center text-xs text-gray-500">
+                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
                   {search ? 'No matching tags' : 'No tags available'}
                 </div>
               )}
@@ -167,14 +167,14 @@ export function AddTagPopover({
               {filteredTags.map((tag) => (
                 <div
                   key={tag.id}
-                  className="flex items-center justify-between rounded-md px-2.5 py-1.5 transition-colors hover:bg-gray-100/60"
+                  className="flex items-center justify-between rounded-md px-2.5 py-1.5 transition-colors hover:bg-accent/60"
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: tag.color || '#6b7280' }}
                     />
-                    <span className="truncate text-sm text-gray-700">
+                    <span className="truncate text-sm text-foreground">
                       {tag.name}
                     </span>
                   </div>
@@ -182,7 +182,7 @@ export function AddTagPopover({
                     type="button"
                     onClick={() => handleApply(tag.id)}
                     disabled={isSubmitting}
-                    className="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50/60 disabled:opacity-50"
+                    className="shrink-0 rounded-md px-2 py-0.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-500/10 disabled:opacity-50"
                   >
                     Apply
                   </button>

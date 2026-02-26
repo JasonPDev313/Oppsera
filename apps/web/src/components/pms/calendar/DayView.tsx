@@ -73,8 +73,8 @@ export default function DayView({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="Occupied" value={occupancy.occupied} />
           <StatCard label="Available" value={occupancy.available} />
-          <StatCard label="Arrivals" value={occupancy.arrivals} valueClass="text-green-600" />
-          <StatCard label="Departures" value={occupancy.departures} valueClass="text-amber-600" />
+          <StatCard label="Arrivals" value={occupancy.arrivals} valueClass="text-green-500" />
+          <StatCard label="Departures" value={occupancy.departures} valueClass="text-amber-500" />
         </div>
       )}
 
@@ -107,7 +107,7 @@ export default function DayView({
                   {/* Room number with status dot */}
                   <td className="border-b border-border px-4 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${ROOM_STATUS_COLORS[room.status] ?? 'bg-gray-300'}`} />
+                      <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${ROOM_STATUS_COLORS[room.status] ?? 'bg-muted'}`} />
                       <span className="text-sm font-medium text-foreground">{room.roomNumber}</span>
                       {room.floor && <span className="text-[10px] text-muted-foreground">F{room.floor}</span>}
                     </div>
@@ -137,8 +137,8 @@ export default function DayView({
                       <span className="inline-flex items-center gap-1.5 text-xs font-medium">
                         <span className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT_COLORS[seg.status] ?? 'bg-gray-400'}`} />
                         {seg.status.replace('_', ' ')}
-                        {isArrival && <span className="text-green-600">&#9654;</span>}
-                        {isDeparture && <span className="text-amber-600">&#9664;</span>}
+                        {isArrival && <span className="text-green-500">&#9654;</span>}
+                        {isDeparture && <span className="text-amber-500">&#9664;</span>}
                       </span>
                     ) : isOoo ? (
                       <span className="text-xs text-muted-foreground">OOO</span>

@@ -31,6 +31,8 @@ interface PaymentPanelProps {
   shiftId?: string;
   onPaymentComplete: (result: RecordTenderResult) => void;
   onCancel: () => void;
+  /** If the order has no server ID yet, await this to let order creation finish */
+  ensureOrderReady?: () => Promise<Order>;
 }
 
 // ── Tender Type Selector ──────────────────────────────────────────
@@ -48,7 +50,7 @@ const QUICK_AMOUNTS = [2000, 5000, 10000]; // $20, $50, $100
 
 // ── Payment Panel ─────────────────────────────────────────────────
 
-export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCancel }: PaymentPanelProps) {
+export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCancel, ensureOrderReady }: PaymentPanelProps) {
   const { user } = useAuthContext();
   const { toast } = useToast();
   const locationHeaders = { 'X-Location-Id': order.locationId };
@@ -124,7 +126,17 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
       toast.error('Card token is required');
       return;
     }
-    if (!order.id) {
+    let orderId = order.id;
+    if (!orderId && ensureOrderReady) {
+      try {
+        const ready = await ensureOrderReady();
+        orderId = ready.id;
+      } catch {
+        toast.error('Failed to create order — please try again');
+        return;
+      }
+    }
+    if (!orderId) {
       toast.error('Order is still being created — please wait');
       return;
     }
@@ -133,7 +145,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
       const body: Record<string, unknown> = {
         clientRequestId: crypto.randomUUID(),
         placeClientRequestId: crypto.randomUUID(),
-        orderId: order.id,
+        orderId: orderId,
         tenderType: selectedType,
         amountGiven: submitCents,
         tipAmount: tipCents,
@@ -151,7 +163,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
       }
 
       const res = await apiFetch<{ data: RecordTenderResult }>(
-        `/api/v1/orders/${order.id}/place-and-pay`,
+        `/api/v1/orders/${orderId}/place-and-pay`,
         { method: 'POST', headers: locationHeaders, body: JSON.stringify(body) },
       );
       const result = res.data;
@@ -210,13 +222,13 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
             <path d="M16 28l8 8 16-16" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="payment-success-check" />
           </svg>
         </div>
-        <h2 className="mt-4 text-xl font-bold text-gray-900">Payment Complete</h2>
+        <h2 className="mt-4 text-xl font-bold text-foreground">Payment Complete</h2>
         {selectedType === 'cash' && paymentSuccess.changeGiven > 0 && (
-          <p className="mt-2 text-3xl font-bold text-green-600">
+          <p className="mt-2 text-3xl font-bold text-green-500">
             Change: {formatMoney(paymentSuccess.changeGiven)}
           </p>
         )}
-        <p className="mt-3 text-sm text-gray-400">Tap anywhere to continue</p>
+        <p className="mt-3 text-sm text-muted-foreground">Tap anywhere to continue</p>
       </div>
     );
   }
@@ -226,22 +238,22 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
   if (!selectedType) {
     return (
       <div className="flex h-full flex-col">
-        <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:scale-[0.97]"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
-            <h2 className="text-base font-semibold text-gray-900">Payment</h2>
-            <p className="text-sm text-gray-500">Total: {formatMoney(order.total)}</p>
+            <h2 className="text-base font-semibold text-foreground">Payment</h2>
+            <p className="text-sm text-muted-foreground">Total: {formatMoney(order.total)}</p>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          <p className="text-xs font-medium uppercase text-gray-500">Select Payment Method</p>
+          <p className="text-xs font-medium uppercase text-muted-foreground">Select Payment Method</p>
           {TENDER_TYPES.map(({ type, label, icon: Icon, color }) => (
             <button
               key={type}
@@ -266,7 +278,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-3">
+      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <button
           type="button"
           onClick={() => {
@@ -276,12 +288,12 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
             setCheckNumber('');
             setCardToken('');
           }}
-          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:scale-[0.97]"
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1">
-          <h2 className="text-base font-semibold text-gray-900 capitalize">
+          <h2 className="text-base font-semibold text-foreground capitalize">
             {selectedType} Payment
           </h2>
         </div>
@@ -290,28 +302,28 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Remaining balance */}
         <div className="rounded-xl bg-muted p-4 text-center">
-          <p className="text-xs font-medium uppercase text-gray-500">
+          <p className="text-xs font-medium uppercase text-muted-foreground">
             {tenderSummary && tenderSummary.summary.totalTendered > 0 ? 'Remaining' : 'Total Due'}
           </p>
-          <p className="mt-1 text-3xl font-bold text-gray-900">{formatMoney(remaining)}</p>
+          <p className="mt-1 text-3xl font-bold text-foreground">{formatMoney(remaining)}</p>
           {tenderSummary && tenderSummary.summary.totalTendered > 0 && (
-            <p className="mt-1 text-xs text-green-600">
+            <p className="mt-1 text-xs text-green-500">
               Paid: {formatMoney(tenderSummary.summary.totalTendered)}
             </p>
           )}
         </div>
 
         {/* Amount display */}
-        <div className="rounded-xl border border-gray-200 p-3 text-center">
-          <p className="text-xs font-medium text-gray-500 mb-1">
+        <div className="rounded-xl border border-border p-3 text-center">
+          <p className="text-xs font-medium text-muted-foreground mb-1">
             {selectedType === 'cash' ? 'Amount Given' : 'Amount'}
           </p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-2xl font-bold text-foreground">
             ${amount || '0.00'}
           </p>
           {/* Change preview */}
           {selectedType === 'cash' && amountCents > remaining && (
-            <p className="mt-1 text-sm font-semibold text-green-600">
+            <p className="mt-1 text-sm font-semibold text-green-500">
               Change: {formatMoney(amountCents - remaining)}
             </p>
           )}
@@ -320,7 +332,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         {/* Check number input */}
         {selectedType === 'check' && (
           <div>
-            <label htmlFor="pp-check-num" className="block text-xs font-medium text-gray-500 mb-1">
+            <label htmlFor="pp-check-num" className="block text-xs font-medium text-muted-foreground mb-1">
               Check Number
             </label>
             <input
@@ -329,7 +341,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
               value={checkNumber}
               onChange={(e) => setCheckNumber(e.target.value)}
               placeholder="Enter check number"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none"
             />
           </div>
         )}
@@ -337,7 +349,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         {/* Card token input (V1: manual token from CardSecure iframe or device) */}
         {selectedType === 'card' && (
           <div>
-            <label htmlFor="pp-card-token" className="block text-xs font-medium text-gray-500 mb-1">
+            <label htmlFor="pp-card-token" className="block text-xs font-medium text-muted-foreground mb-1">
               Card Token
             </label>
             <input
@@ -346,10 +358,10 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
               value={cardToken}
               onChange={(e) => setCardToken(e.target.value)}
               placeholder="Scan card or enter token"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none"
               autoFocus
             />
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-muted-foreground">
               Token from card reader or CardSecure hosted field
             </p>
           </div>
@@ -391,7 +403,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         {/* Tip section */}
         {config.tipEnabled && (selectedType === 'cash' || selectedType === 'card') && (
           <div>
-            <label htmlFor="pp-tip" className="block text-xs font-medium text-gray-500 mb-1">
+            <label htmlFor="pp-tip" className="block text-xs font-medium text-muted-foreground mb-1">
               Tip
             </label>
             {/* Percentage quick-select buttons from tip settings */}
@@ -428,7 +440,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
               </div>
             )}
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
               <input
                 id="pp-tip"
                 type="number"
@@ -436,7 +448,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
                 min="0"
                 value={tipAmount}
                 onChange={(e) => setTipAmount(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 py-2.5 pl-8 pr-4 text-right text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface py-2.5 pl-8 pr-4 text-right text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none"
                 placeholder="0.00"
               />
             </div>
@@ -445,7 +457,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
       </div>
 
       {/* Footer: Cancel / Pay */}
-      <div className="flex gap-3 border-t border-gray-200 px-4 py-3">
+      <div className="flex gap-3 border-t border-border px-4 py-3">
         <button
           type="button"
           onClick={onCancel}
@@ -457,7 +469,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
           type="button"
           onClick={() => handleSubmit()}
           disabled={isSubmitting || amountCents <= 0 || (selectedType === 'check' && !checkNumber.trim()) || (selectedType === 'card' && !cardToken.trim())}
-          className="flex-[2] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 active:scale-[0.97] disabled:cursor-not-allowed disabled:bg-indigo-300"
+          className="flex-[2] rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? 'Processing...' : `Pay ${amountCents > 0 ? formatMoney(Math.min(amountCents, remaining)) : ''}`}
         </button>

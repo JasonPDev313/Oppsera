@@ -119,14 +119,14 @@ export default function EditorContent() {
   if (isLoading || !editorData) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-indigo-600" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center text-red-600">
+      <div className="flex h-full items-center justify-center text-red-500">
         <p>Failed to load editor data. Please try again.</p>
       </div>
     );

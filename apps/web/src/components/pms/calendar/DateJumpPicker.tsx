@@ -166,16 +166,16 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
         tabIndex={0}
         onClick={() => setOpen(!open)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(!open); } }}
-        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-gray-200/50"
+        className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-accent/50"
         title="Jump to date"
       >
         {children}
-        <Calendar className="h-3.5 w-3.5 text-gray-400" />
+        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
       </div>
 
       {/* Popover */}
       {open && (
-        <div className="absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 rounded-xl border border-gray-200 bg-surface shadow-xl">
+        <div className="absolute left-1/2 top-full z-50 mt-2 -translate-x-1/2 rounded-xl border border-border bg-surface shadow-xl">
           <div className="w-[300px] p-3">
             {/* ── Days level ──────────────────────────────── */}
             {level === 'days' && (
@@ -184,7 +184,7 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                 <div className="mb-2 flex items-center justify-between">
                   <button
                     onClick={prevMonth}
-                    className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-200/50 hover:text-gray-700"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
@@ -192,13 +192,13 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setLevel('months')}
-                      className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-900 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                      className="rounded-lg px-2 py-1 text-sm font-semibold text-foreground transition-colors hover:bg-indigo-500/10 hover:text-indigo-500"
                     >
                       {MONTHS[cursorMonth]}
                     </button>
                     <button
                       onClick={() => setLevel('years')}
-                      className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-900 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                      className="rounded-lg px-2 py-1 text-sm font-semibold text-foreground transition-colors hover:bg-indigo-500/10 hover:text-indigo-500"
                     >
                       {cursorYear}
                     </button>
@@ -206,7 +206,7 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
 
                   <button
                     onClick={nextMonth}
-                    className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-200/50 hover:text-gray-700"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -215,7 +215,7 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                 {/* Weekday headers */}
                 <div className="mb-1 grid grid-cols-7 gap-0">
                   {WEEKDAYS.map((wd) => (
-                    <div key={wd} className="py-1 text-center text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                    <div key={wd} className="py-1 text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                       {wd}
                     </div>
                   ))}
@@ -238,8 +238,8 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                             : isToday
                               ? 'font-semibold text-indigo-600'
                               : cell.isCurrentMonth
-                                ? 'text-gray-900 hover:bg-gray-100/70'
-                                : 'text-gray-300 hover:bg-gray-100/50 hover:text-gray-500'
+                                ? 'text-foreground hover:bg-accent/70'
+                                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                         }`}
                       >
                         {cell.day}
@@ -252,11 +252,11 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                 </div>
 
                 {/* Footer: Today shortcut */}
-                <div className="mt-2 flex items-center justify-between border-t border-gray-100 pt-2">
-                  <span className="text-[10px] text-gray-400">Click month or year to jump</span>
+                <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
+                  <span className="text-[10px] text-muted-foreground">Click month or year to jump</span>
                   <button
                     onClick={handleTodayClick}
-                    className="rounded-md bg-gray-100/80 px-3 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-200/80"
+                    className="rounded-md bg-muted/80 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent/80"
                   >
                     Today
                   </button>
@@ -270,21 +270,21 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                 <div className="mb-3 flex items-center justify-between">
                   <button
                     onClick={() => setCursorYear((y) => y - 1)}
-                    className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-200/50 hover:text-gray-700"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
 
                   <button
                     onClick={() => setLevel('years')}
-                    className="rounded-lg px-3 py-1 text-sm font-semibold text-gray-900 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
+                    className="rounded-lg px-3 py-1 text-sm font-semibold text-foreground transition-colors hover:bg-indigo-500/10 hover:text-indigo-500"
                   >
                     {cursorYear}
                   </button>
 
                   <button
                     onClick={() => setCursorYear((y) => y + 1)}
-                    className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-200/50 hover:text-gray-700"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -303,8 +303,8 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                           isCurrentMonth
                             ? 'bg-indigo-600 text-white shadow-sm'
                             : isNowMonth
-                              ? 'bg-indigo-50 font-semibold text-indigo-700 hover:bg-indigo-100'
-                              : 'text-gray-700 hover:bg-gray-100/70'
+                              ? 'bg-indigo-500/10 font-semibold text-indigo-500 hover:bg-indigo-500/20'
+                              : 'text-foreground hover:bg-accent/70'
                         }`}
                       >
                         {m}
@@ -313,10 +313,10 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                   })}
                 </div>
 
-                <div className="mt-2 border-t border-gray-100 pt-2">
+                <div className="mt-2 border-t border-border pt-2">
                   <button
                     onClick={() => setLevel('days')}
-                    className="text-xs text-gray-500 transition-colors hover:text-indigo-600"
+                    className="text-xs text-muted-foreground transition-colors hover:text-indigo-600"
                   >
                     &larr; Back to days
                   </button>
@@ -330,18 +330,18 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                 <div className="mb-3 flex items-center justify-between">
                   <button
                     onClick={() => setCursorYear((y) => y - 12)}
-                    className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-200/50 hover:text-gray-700"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
 
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-semibold text-foreground">
                     {yearRangeStart} &ndash; {yearRangeStart + 11}
                   </span>
 
                   <button
                     onClick={() => setCursorYear((y) => y + 12)}
-                    className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-200/50 hover:text-gray-700"
+                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
                     <ChevronRight className="h-4 w-4" />
                   </button>
@@ -360,8 +360,8 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                           isCurrentYear
                             ? 'bg-indigo-600 text-white shadow-sm'
                             : isNowYear
-                              ? 'bg-indigo-50 font-semibold text-indigo-700 hover:bg-indigo-100'
-                              : 'text-gray-700 hover:bg-gray-100/70'
+                              ? 'bg-indigo-500/10 font-semibold text-indigo-500 hover:bg-indigo-500/20'
+                              : 'text-foreground hover:bg-accent/70'
                         }`}
                       >
                         {yr}
@@ -370,10 +370,10 @@ export default function DateJumpPicker({ value, onSelect, children }: DateJumpPi
                   })}
                 </div>
 
-                <div className="mt-2 border-t border-gray-100 pt-2">
+                <div className="mt-2 border-t border-border pt-2">
                   <button
                     onClick={() => setLevel('months')}
-                    className="text-xs text-gray-500 transition-colors hover:text-indigo-600"
+                    className="text-xs text-muted-foreground transition-colors hover:text-indigo-600"
                   >
                     &larr; Back to months
                   </button>

@@ -15,16 +15,18 @@ interface NavPreferencesResponse {
  * Uses sessionStorage as a write-through cache for instant sidebar renders.
  */
 export function useNavPreferences() {
-  const [itemOrder, setItemOrder] = useState<NavItemPreference[] | null>(() => {
-    if (typeof window === 'undefined') return null;
+  // Always start as null to avoid hydration mismatch — sessionStorage is
+  // client-only but useState initializers run during SSR too.
+  const [itemOrder, setItemOrder] = useState<NavItemPreference[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Hydrate from sessionStorage after mount (client-only)
+  useEffect(() => {
     try {
       const cached = sessionStorage.getItem(CACHE_KEY);
-      return cached ? JSON.parse(cached) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [isLoading, setIsLoading] = useState(true);
+      if (cached) setItemOrder(JSON.parse(cached));
+    } catch { /* ignore */ }
+  }, []);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

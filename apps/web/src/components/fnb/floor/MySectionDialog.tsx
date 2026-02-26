@@ -151,7 +151,7 @@ export function MySectionDialog({ open, onClose, tables, section }: MySectionDia
 
                     {/* Claimed by label */}
                     {isClaimed && (
-                      <span className="text-[9px] font-medium text-gray-500 mt-0.5 truncate max-w-full px-0.5">
+                      <span className="text-[9px] font-medium text-muted-foreground mt-0.5 truncate max-w-full px-0.5">
                         {claimedBy}
                       </span>
                     )}
@@ -192,7 +192,7 @@ export function MySectionDialog({ open, onClose, tables, section }: MySectionDia
               type="button"
               onClick={handleSave}
               disabled={saving || section.isLoading}
-              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50"
             >
               {saving ? (
                 <Loader2 className="h-3 w-3 animate-spin" />

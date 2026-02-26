@@ -81,17 +81,17 @@ export function PosInsightCard({ className }: PosInsightCardProps) {
 
   return (
     <div
-      className={`rounded-lg border border-indigo-200/60 bg-indigo-50/50 px-3 py-2 flex items-center gap-2 text-sm ${className ?? ''}`}
+      className={`rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-3 py-2 flex items-center gap-2 text-sm ${className ?? ''}`}
     >
       <Sparkles className="h-4 w-4 shrink-0 text-indigo-500" />
 
-      <p className="flex-1 min-w-0 text-gray-700 line-clamp-2 leading-snug">
+      <p className="flex-1 min-w-0 text-foreground line-clamp-2 leading-snug">
         {insight}
       </p>
 
       <Link
         href="/insights"
-        className="shrink-0 flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors whitespace-nowrap"
+        className="shrink-0 flex items-center gap-0.5 text-xs font-medium text-indigo-600 hover:text-indigo-500 transition-colors whitespace-nowrap"
       >
         Ask AI
         <ArrowRight className="h-3 w-3" />
@@ -100,7 +100,7 @@ export function PosInsightCard({ className }: PosInsightCardProps) {
       <button
         type="button"
         onClick={() => setDismissed(true)}
-        className="shrink-0 p-0.5 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-200/50 transition-colors"
+        className="shrink-0 p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
         aria-label="Dismiss insight"
       >
         <X className="h-3.5 w-3.5" />

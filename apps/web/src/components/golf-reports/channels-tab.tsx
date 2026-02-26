@@ -40,12 +40,12 @@ export function ChannelsTab({ dateFrom, dateTo, courseId, locationId }: Channels
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-lg bg-surface p-3 ring-1 ring-gray-950/5">
-              <div className="h-3 w-16 animate-pulse rounded bg-gray-200" />
-              <div className="mt-2 h-5 w-12 animate-pulse rounded bg-gray-200" />
+              <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+              <div className="mt-2 h-5 w-12 animate-pulse rounded bg-muted" />
             </div>
           ))}
         </div>
-        <div className="h-[300px] animate-pulse rounded-xl bg-gray-100" />
+        <div className="h-[300px] animate-pulse rounded-xl bg-muted" />
       </div>
     );
   }
@@ -77,7 +77,7 @@ export function ChannelsTab({ dateFrom, dateTo, courseId, locationId }: Channels
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Channel Distribution Chart */}
         <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
-          <h3 className="mb-4 text-sm font-medium text-gray-500">Booking Channels</h3>
+          <h3 className="mb-4 text-sm font-medium text-muted-foreground">Booking Channels</h3>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={channelBars}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -106,7 +106,7 @@ export function ChannelsTab({ dateFrom, dateTo, courseId, locationId }: Channels
         {/* Player Mix Pie */}
         {playerMix.length > 0 && (
           <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
-            <h3 className="mb-4 text-sm font-medium text-gray-500">Player Mix</h3>
+            <h3 className="mb-4 text-sm font-medium text-muted-foreground">Player Mix</h3>
             <ResponsiveContainer width="100%" height={250}>
               <PieChart>
                 <Pie
@@ -143,8 +143,8 @@ export function ChannelsTab({ dateFrom, dateTo, courseId, locationId }: Channels
 function MiniCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-surface p-3 ring-1 ring-gray-950/5">
-      <p className="text-xs font-medium text-gray-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-gray-900">{value}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg font-bold text-foreground">{value}</p>
     </div>
   );
 }

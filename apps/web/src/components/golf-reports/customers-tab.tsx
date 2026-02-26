@@ -91,7 +91,7 @@ export function CustomersTab() {
 
       {/* Sort Controls */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm text-gray-500">Sort by:</span>
+        <span className="text-sm text-muted-foreground">Sort by:</span>
         {[
           { key: 'totalRevenue', label: 'Revenue' },
           { key: 'totalRounds', label: 'Rounds' },
@@ -104,8 +104,8 @@ export function CustomersTab() {
             onClick={() => handleSort(opt.key)}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
               sortBy === opt.key
-                ? 'bg-indigo-100 text-indigo-700'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-indigo-500/10 text-indigo-500'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
             {opt.label}
@@ -131,7 +131,7 @@ export function CustomersTab() {
             type="button"
             onClick={handlePrevPage}
             disabled={cursorStack.length === 0}
-            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ChevronLeft className="h-4 w-4" />
             Previous
@@ -140,7 +140,7 @@ export function CustomersTab() {
             type="button"
             onClick={handleNextPage}
             disabled={!customers.hasMore}
-            className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
           >
             Next
             <ChevronRight className="h-4 w-4" />
@@ -152,7 +152,7 @@ export function CustomersTab() {
           <button
             type="button"
             onClick={handleExport}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -166,8 +166,8 @@ export function CustomersTab() {
 function MiniCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg bg-surface p-3 ring-1 ring-gray-950/5">
-      <p className="text-xs font-medium text-gray-500">{label}</p>
-      <p className="mt-1 text-lg font-bold text-gray-900">{value}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg font-bold text-foreground">{value}</p>
     </div>
   );
 }

@@ -134,7 +134,7 @@ export const QuickMenuGrid = memo(function QuickMenuGrid({
   if (!currentPage || pages.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-gray-400">No quick menu configured</p>
+        <p className="text-sm text-muted-foreground">No quick menu configured</p>
       </div>
     );
   }
@@ -151,7 +151,7 @@ export const QuickMenuGrid = memo(function QuickMenuGrid({
             type="button"
             onClick={goPrev}
             disabled={pageIndex === 0}
-            className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 disabled:opacity-30"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -162,7 +162,7 @@ export const QuickMenuGrid = memo(function QuickMenuGrid({
                 type="button"
                 onClick={() => setPageIndex(i)}
                 className={`h-2 rounded-full transition-colors ${
-                  i === pageIndex ? 'w-6 bg-indigo-500' : 'w-2 bg-gray-300'
+                  i === pageIndex ? 'w-6 bg-indigo-500' : 'w-2 bg-muted'
                 }`}
               />
             ))}
@@ -171,7 +171,7 @@ export const QuickMenuGrid = memo(function QuickMenuGrid({
             type="button"
             onClick={goNext}
             disabled={pageIndex === pages.length - 1}
-            className="rounded-md p-1 text-gray-400 transition-colors hover:bg-gray-100 disabled:opacity-30"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
           >
             <ChevronRight className="h-5 w-5" />
           </button>

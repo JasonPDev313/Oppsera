@@ -294,7 +294,7 @@ export default function RatePlansContent() {
           <button
             type="button"
             onClick={() => router.push('/pms/rate-plans?action=new')}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" />
             New Rate Plan
@@ -313,7 +313,7 @@ export default function RatePlansContent() {
           <button
             type="button"
             onClick={() => router.push('/pms/rate-plans?action=new')}
-            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             Create Rate Plan
           </button>
@@ -357,7 +357,7 @@ export default function RatePlansContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
+                  className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -474,7 +474,7 @@ export default function RatePlansContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
                 >
                   Cancel
                 </button>
@@ -482,7 +482,7 @@ export default function RatePlansContent() {
                   type="button"
                   onClick={handleCreate}
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {isSubmitting ? 'Creating...' : 'Create Rate Plan'}

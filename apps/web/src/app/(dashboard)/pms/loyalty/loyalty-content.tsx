@@ -114,7 +114,7 @@ export default function LoyaltyContent() {
           className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === 'programs'
               ? 'bg-indigo-600 text-white'
-              : 'text-muted-foreground hover:bg-gray-200/50 hover:text-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
           }`}
         >
           <Star className="h-4 w-4" aria-hidden="true" />
@@ -126,7 +126,7 @@ export default function LoyaltyContent() {
           className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
             activeTab === 'members'
               ? 'bg-indigo-600 text-white'
-              : 'text-muted-foreground hover:bg-gray-200/50 hover:text-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
           }`}
         >
           <Users className="h-4 w-4" aria-hidden="true" />
@@ -200,7 +200,7 @@ function ProgramsTab() {
         <button
           type="button"
           onClick={openCreate}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Create Program
@@ -232,7 +232,7 @@ function ProgramsTab() {
           <button
             type="button"
             onClick={openCreate}
-            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             Create Program
           </button>
@@ -299,7 +299,7 @@ function ProgramsTab() {
                       <button
                         type="button"
                         onClick={() => openEdit(p)}
-                        className="rounded-lg border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
+                        className="rounded-lg border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/50"
                       >
                         Edit
                       </button>
@@ -332,7 +332,7 @@ function ProgramsTab() {
                 <button
                   type="button"
                   onClick={() => openEdit(p)}
-                  className="w-full rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
+                  className="w-full rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent/50"
                 >
                   Edit
                 </button>
@@ -490,7 +490,7 @@ function ProgramDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
+            className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -586,7 +586,7 @@ function ProgramDialog({
               <button
                 type="button"
                 onClick={addTier}
-                className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
+                className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/50"
               >
                 <Plus className="h-3 w-3" aria-hidden="true" />
                 Add Tier
@@ -658,7 +658,7 @@ function ProgramDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -666,7 +666,7 @@ function ProgramDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {isSubmitting
@@ -786,13 +786,13 @@ function MembersTab() {
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by guest name..."
-            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500/30 focus:outline-none focus:ring-1 focus:ring-indigo-300"
           />
         </div>
         <button
           type="button"
           onClick={() => setEnrollOpen(true)}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Enroll Guest
@@ -1006,7 +1006,7 @@ function MemberRow({
             <button
               type="button"
               onClick={onAdjust}
-              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
+              className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/50"
             >
               <Minus className="h-3 w-3" aria-hidden="true" />
               Adjust
@@ -1083,7 +1083,7 @@ function MemberCard({
         <button
           type="button"
           onClick={onAdjust}
-          className="flex flex-1 items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-gray-200/50"
+          className="flex flex-1 items-center justify-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent/50"
         >
           <Minus className="h-3 w-3" aria-hidden="true" />
           Adjust
@@ -1204,7 +1204,7 @@ function MemberTransactions({ memberId }: { memberId: string }) {
             type="button"
             onClick={() => fetchTransactions(true)}
             disabled={isLoading}
-            className="rounded-md border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-gray-200/50 disabled:opacity-50"
+            className="rounded-md border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/50 disabled:opacity-50"
           >
             {isLoading ? 'Loading...' : 'Load More'}
           </button>
@@ -1271,7 +1271,7 @@ function AdjustPointsDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
+            className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -1324,7 +1324,7 @@ function AdjustPointsDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -1332,7 +1332,7 @@ function AdjustPointsDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {isSubmitting ? 'Adjusting...' : 'Adjust Points'}
@@ -1403,7 +1403,7 @@ function EarnPointsDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
+            className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -1466,7 +1466,7 @@ function EarnPointsDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -1564,7 +1564,7 @@ function EnrollDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
+            className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -1623,7 +1623,7 @@ function EnrollDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -1631,7 +1631,7 @@ function EnrollDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || programs.length === 0}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {isSubmitting ? 'Enrolling...' : 'Enroll Guest'}

@@ -24,15 +24,15 @@ function formatDate(iso: string): string {
 function statusBadge(status: string) {
   switch (status) {
     case 'active':
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">Active</span>;
+      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-500/10 text-green-500">Active</span>;
     case 'frozen':
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">Frozen</span>;
+      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-500/10 text-blue-500">Frozen</span>;
     case 'suspended':
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700">Suspended</span>;
+      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-500/10 text-amber-500">Suspended</span>;
     case 'terminated':
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">Terminated</span>;
+      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-500/10 text-red-500">Terminated</span>;
     default:
-      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600">{status}</span>;
+      return <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-muted text-muted-foreground">{status}</span>;
   }
 }
 
@@ -98,30 +98,30 @@ export function RiskSubTab({ accountId, accountStatus, creditLimitCents, holdCha
   return (
     <div className="space-y-6">
       {/* Account Risk Summary */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <div className="flex items-center gap-2 mb-4">
-          <Shield className="h-4 w-4 text-gray-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Risk Summary</h3>
+          <Shield className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground">Risk Summary</h3>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
           <div>
-            <span className="text-gray-500">Account Status</span>
+            <span className="text-muted-foreground">Account Status</span>
             <div className="mt-1">{statusBadge(accountStatus ?? 'unknown')}</div>
           </div>
           <div>
-            <span className="text-gray-500">Credit Limit</span>
-            <p className="font-medium text-gray-900">
+            <span className="text-muted-foreground">Credit Limit</span>
+            <p className="font-medium text-foreground">
               {creditLimitCents != null ? formatMoney(creditLimitCents) : '--'}
             </p>
           </div>
           <div>
-            <span className="text-gray-500">Charging Hold</span>
-            <p className="font-medium text-gray-900">
+            <span className="text-muted-foreground">Charging Hold</span>
+            <p className="font-medium text-foreground">
               {holdCharging ? (
-                <span className="text-red-600">On Hold</span>
+                <span className="text-red-500">On Hold</span>
               ) : (
-                <span className="text-green-600">Clear</span>
+                <span className="text-green-500">Clear</span>
               )}
             </p>
           </div>
@@ -131,7 +131,7 @@ export function RiskSubTab({ accountId, accountStatus, creditLimitCents, holdCha
         <div className="mt-4 flex gap-2">
           <button
             onClick={() => setShowHoldForm(!showHoldForm)}
-            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 bg-surface text-gray-700 hover:bg-gray-200/50 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-accent/50 transition-colors"
           >
             <Lock className="h-3 w-3" />
             Place Hold
@@ -150,13 +150,13 @@ export function RiskSubTab({ accountId, accountStatus, creditLimitCents, holdCha
 
         {/* Place Hold Form */}
         {showHoldForm && (
-          <div className="mt-4 rounded-md border border-gray-200 bg-surface p-3 space-y-3">
+          <div className="mt-4 rounded-md border border-border bg-surface p-3 space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Hold Type</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Hold Type</label>
               <select
                 value={holdType}
                 onChange={(e) => setHoldType(e.target.value as 'charging' | 'full' | 'billing')}
-                className="w-full rounded-md border border-gray-300 bg-surface px-2 py-1.5 text-sm"
+                className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
               >
                 <option value="charging">Charging Hold</option>
                 <option value="full">Full Hold</option>
@@ -164,20 +164,20 @@ export function RiskSubTab({ accountId, accountStatus, creditLimitCents, holdCha
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Reason</label>
+              <label className="block text-xs font-medium text-foreground mb-1">Reason</label>
               <input
                 type="text"
                 value={holdReason}
                 onChange={(e) => setHoldReason(e.target.value)}
                 placeholder="Enter reason for placing hold"
-                className="w-full rounded-md border border-gray-300 bg-surface px-2 py-1.5 text-sm"
+                className="w-full rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
               />
             </div>
             <div className="flex gap-2">
               <button
                 onClick={handlePlaceHold}
                 disabled={!holdReason.trim() || actionLoading === 'place'}
-                className="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                className="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
               >
                 {actionLoading === 'place' ? 'Placing...' : 'Confirm Hold'}
               </button>
@@ -186,7 +186,7 @@ export function RiskSubTab({ accountId, accountStatus, creditLimitCents, holdCha
                   setShowHoldForm(false);
                   setHoldReason('');
                 }}
-                className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 bg-surface text-gray-700 hover:bg-gray-200/50 transition-colors"
+                className="px-3 py-1.5 text-xs font-medium rounded-md border border-border bg-surface text-foreground hover:bg-accent/50 transition-colors"
               >
                 Cancel
               </button>
@@ -196,45 +196,45 @@ export function RiskSubTab({ accountId, accountStatus, creditLimitCents, holdCha
       </div>
 
       {/* Active Holds */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-4">
+      <div className="rounded-lg border border-border bg-surface p-4">
         <div className="flex items-center gap-2 mb-4">
           <AlertTriangle className="h-4 w-4 text-amber-500" />
-          <h3 className="text-sm font-semibold text-gray-900">Active Holds</h3>
-          <span className="ml-auto text-xs text-gray-500">
-            {holds.length} active
+          <h3 className="text-sm font-semibold text-foreground">Active Holds</h3>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {(holds ?? []).length} active
           </span>
         </div>
 
-        {isLoading ? (
+        {isLoading || !holds ? (
           <div className="animate-pulse space-y-3">
             {[1, 2].map((i) => (
-              <div key={i} className="h-12 bg-gray-200 rounded" />
+              <div key={i} className="h-12 bg-muted rounded" />
             ))}
           </div>
         ) : holds.length === 0 ? (
-          <p className="text-sm text-gray-500">No active holds on this account.</p>
+          <p className="text-sm text-muted-foreground">No active holds on this account.</p>
         ) : (
           <div className="space-y-2">
             {holds.map((hold) => (
               <div
                 key={hold.id}
-                className="flex items-center justify-between rounded-md border border-gray-200 bg-surface px-3 py-2"
+                className="flex items-center justify-between rounded-md border border-border bg-surface px-3 py-2"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="inline-block px-1.5 py-0.5 text-xs font-medium rounded bg-amber-100 text-amber-700">
+                    <span className="inline-block px-1.5 py-0.5 text-xs font-medium rounded bg-amber-500/10 text-amber-500">
                       {hold.holdType}
                     </span>
-                    <span className="text-sm text-gray-900 truncate">{hold.reason}</span>
+                    <span className="text-sm text-foreground truncate">{hold.reason}</span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Placed {formatDate(hold.placedAt)}
                   </p>
                 </div>
                 <button
                   onClick={() => handleLiftHold(hold.id)}
                   disabled={actionLoading === hold.id}
-                  className="flex items-center gap-1 ml-3 px-2 py-1 text-xs font-medium rounded border border-gray-300 bg-surface text-gray-700 hover:bg-gray-200/50 transition-colors"
+                  className="flex items-center gap-1 ml-3 px-2 py-1 text-xs font-medium rounded border border-border bg-surface text-foreground hover:bg-accent/50 transition-colors"
                 >
                   <Unlock className="h-3 w-3" />
                   {actionLoading === hold.id ? 'Lifting...' : 'Lift'}

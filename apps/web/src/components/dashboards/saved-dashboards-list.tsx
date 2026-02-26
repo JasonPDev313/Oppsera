@@ -48,7 +48,7 @@ export function SavedDashboardsList() {
       key: 'name',
       header: 'Name',
       render: (row: SavedDashboard) => (
-        <span className="font-medium text-gray-900">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     {
@@ -56,7 +56,7 @@ export function SavedDashboardsList() {
       header: 'Tiles',
       width: '100px',
       render: (row: SavedDashboard) => (
-        <span className="text-gray-600">{row.tiles.length}</span>
+        <span className="text-muted-foreground">{row.tiles.length}</span>
       ),
     },
     {
@@ -64,7 +64,7 @@ export function SavedDashboardsList() {
       header: 'Created',
       width: '150px',
       render: (row: SavedDashboard) => (
-        <span className="text-gray-500">{formatDate(row.createdAt)}</span>
+        <span className="text-muted-foreground">{formatDate(row.createdAt)}</span>
       ),
     },
     {
@@ -106,12 +106,12 @@ export function SavedDashboardsList() {
     <div className="space-y-4 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Dashboards</h1>
+        <h1 className="text-xl font-semibold text-foreground">Dashboards</h1>
         {canManage && (
           <button
             type="button"
             onClick={() => router.push('/dashboards/new')}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" />
             New Dashboard
@@ -142,7 +142,7 @@ export function SavedDashboardsList() {
           <button
             type="button"
             onClick={loadMore}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Load More
           </button>

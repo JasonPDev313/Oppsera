@@ -122,7 +122,7 @@ export function InventorySection({ form, onUpdate, inventoryData, inventoryItemI
             type="checkbox"
             checked={form.isTrackable}
             onChange={(e) => onUpdate({ isTrackable: e.target.checked })}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
           />
           <div>
             <span className="text-sm font-medium text-foreground">Track Inventory</span>
@@ -138,7 +138,7 @@ export function InventorySection({ form, onUpdate, inventoryData, inventoryItemI
             onChange={(e) => onUpdate({
               metadata: { ...form.metadata, allowNegative: e.target.checked },
             })}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
           />
           <div>
             <span className="text-sm font-medium text-foreground">Allow Negative Quantity</span>

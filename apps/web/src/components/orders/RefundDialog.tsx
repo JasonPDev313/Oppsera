@@ -119,7 +119,7 @@ export function RefundDialog({ open, onClose, orderId, orderNumber, locationId, 
       <div className="relative w-full max-w-md rounded-2xl bg-surface shadow-xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
-            <RotateCcw className="h-5 w-5 text-orange-600" />
+            <RotateCcw className="h-5 w-5 text-orange-500" />
             <h2 className="text-lg font-semibold text-foreground">Refund Order #{orderNumber}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">

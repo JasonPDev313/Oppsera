@@ -106,7 +106,7 @@ export function ReceiptActions({ token }: ReceiptActionsProps) {
           </button>
         </div>
         {emailError && (
-          <p className="text-xs text-red-600">{emailError}</p>
+          <p className="text-xs text-red-500">{emailError}</p>
         )}
         <button
           type="button"

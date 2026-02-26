@@ -98,8 +98,8 @@ export function FnbSplitView({ userId: _userId }: FnbSplitViewProps) {
       // Navigate to payment after split
       store.clearSplit();
       store.navigateTo('payment');
-    } catch (err: any) {
-      console.error('Split failed:', err?.message);
+    } catch (err: unknown) {
+      console.error('Split failed:', err instanceof Error ? err.message : err);
     } finally {
       setIsSaving(false);
     }

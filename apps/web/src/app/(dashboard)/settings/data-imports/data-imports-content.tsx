@@ -39,14 +39,14 @@ export function DataImportsContent() {
 
       {/* API error banner */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <p className="text-sm text-red-700">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+          <p className="text-sm text-red-500">
             Failed to load import history: {error}
           </p>
           <button
             type="button"
             onClick={refresh}
-            className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+            className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
           >
             Try again
           </button>
@@ -90,7 +90,7 @@ export function DataImportsContent() {
       {/* Import type cards grouped by category */}
       {grouped.map((group) => (
         <section key={group.category}>
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             {group.categoryLabel}
           </h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -119,10 +119,10 @@ export function DataImportsContent() {
 
       {/* Recent imports table */}
       <section>
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Recent Imports
         </h2>
-        <div className="rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+        <div className="rounded-lg border border-border p-4">
           <RecentImportsTable
             imports={recentImports}
             isLoading={isLoading}
@@ -148,22 +148,22 @@ function StatCard({
   format?: 'number';
 }) {
   const colorMap: Record<string, string> = {
-    green: 'text-green-600 bg-green-500/10',
-    blue: 'text-blue-600 bg-blue-500/10',
-    amber: 'text-amber-600 bg-amber-500/10',
-    gray: 'text-gray-400 bg-gray-500/10',
+    green: 'text-green-500 bg-green-500/10',
+    blue: 'text-blue-500 bg-blue-500/10',
+    amber: 'text-amber-500 bg-amber-500/10',
+    gray: 'text-muted-foreground bg-gray-500/10',
     indigo: 'text-indigo-600 bg-indigo-500/10',
   };
   const cls = colorMap[color] ?? colorMap.gray!;
   const [textCls, bgCls] = cls.split(' ');
 
   return (
-    <div className="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+    <div className="rounded-lg border border-border p-3">
       <div className="flex items-center gap-2">
         <div className={`flex h-7 w-7 items-center justify-center rounded-md ${bgCls}`}>
           <Icon className={`h-4 w-4 ${textCls}`} />
         </div>
-        <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+        <span className="text-xs text-muted-foreground">{label}</span>
       </div>
       <p className={`mt-2 text-xl font-bold tabular-nums ${textCls}`}>
         {format === 'number' ? value.toLocaleString() : value}

@@ -136,8 +136,8 @@ function ActionButton({ onClick, icon: Icon, label, variant = 'default' }: {
   variant?: 'default' | 'danger';
 }) {
   const cls = variant === 'danger'
-    ? 'text-red-500 hover:bg-red-500/100/100/10'
-    : 'text-muted-foreground hover:bg-muted/50';
+    ? 'text-red-500 hover:bg-red-500/10'
+    : 'text-muted-foreground hover:bg-accent/50';
   return (
     <button
       type="button"
@@ -159,7 +159,7 @@ function SaveCancelButtons({ onSave, onCancel, saving }: {
         type="button"
         onClick={onSave}
         disabled={saving}
-        className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+        className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
       >
         {saving ? 'Saving...' : 'Save'}
       </button>
@@ -246,7 +246,7 @@ function EmailSection({ customerId, emails, onRefresh }: {
       <div className="space-y-2">
         {emails.map((entry) =>
           editingId === entry.id ? (
-            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/100/10 p-3 space-y-3">
+            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-3">
               <p className="text-sm font-medium text-foreground">{entry.email}</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <InlineSelect
@@ -420,7 +420,7 @@ function PhoneSection({ customerId, phones, onRefresh }: {
       <div className="space-y-2">
         {phones.map((entry) =>
           editingId === entry.id ? (
-            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/100/10 p-3 space-y-3">
+            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-3">
               <p className="text-sm font-medium text-foreground">{formatPhone(entry.phoneE164, entry.phoneDisplay)}</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <InlineSelect
@@ -700,7 +700,7 @@ function AddressSection({ customerId, addresses, onRefresh }: {
       <div className="space-y-2">
         {addresses.map((entry) =>
           editingId === entry.id ? (
-            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/100/10 p-3 space-y-3">
+            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-3">
               {renderAddressForm(editForm, (patch) => setEditForm((p) => ({ ...p, ...patch })))}
               <SaveCancelButtons
                 onSave={() => handleUpdate(entry.id)}
@@ -876,7 +876,7 @@ function EmergencyContactsSection({ customerId, contacts, onRefresh }: {
       <div className="space-y-2">
         {contacts.map((entry) =>
           editingId === entry.id ? (
-            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/100/10 p-3 space-y-3">
+            <div key={entry.id} className="rounded border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-3">
               {renderEmergencyForm(editForm, (patch) => setEditForm((p) => ({ ...p, ...patch })))}
               <SaveCancelButtons
                 onSave={() => handleUpdate(entry.id)}
@@ -950,7 +950,7 @@ export default function ContactIdentityTab({ customerId }: { customerId: string 
 
   if (contacts.error) {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/100/10 p-4 text-sm text-red-500">
+      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">
         Failed to load contact information. Please try again.
       </div>
     );

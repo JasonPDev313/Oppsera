@@ -112,7 +112,7 @@ export function EditableCell({
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         onBlur={commit}
-        className="w-full rounded border border-indigo-400 bg-surface px-2 py-1 text-right text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+        className="w-full rounded border border-indigo-400 bg-surface px-2 py-1 text-right text-sm text-foreground focus:ring-2 focus:ring-indigo-500 focus:outline-none"
         style={{ minWidth: 60 }}
       />
     );
@@ -137,8 +137,8 @@ export function EditableCell({
       disabled={disabled}
       className={`w-full rounded px-2 py-1 text-right text-sm transition-colors ${
         disabled
-          ? 'cursor-default text-gray-500'
-          : 'cursor-pointer text-gray-900 hover:bg-indigo-50 focus:bg-indigo-50 focus:ring-2 focus:ring-indigo-500 focus:outline-none'
+          ? 'cursor-default text-muted-foreground'
+          : 'cursor-pointer text-foreground hover:bg-indigo-500/10 focus:bg-indigo-500/10 focus:ring-2 focus:ring-indigo-500 focus:outline-none'
       }`}
       tabIndex={disabled ? -1 : 0}
       onKeyDown={(e) => {

@@ -42,15 +42,15 @@ const ROLE_ORDER = ['owner', 'manager', 'supervisor', 'cashier', 'server', 'staf
 
 function RoleBadge({ role }: { role: string }) {
   const colors: Record<string, string> = {
-    owner: 'bg-purple-100 text-purple-700',
-    manager: 'bg-indigo-100 text-indigo-700',
-    supervisor: 'bg-blue-100 text-blue-700',
-    cashier: 'bg-green-100 text-green-700',
-    server: 'bg-amber-100 text-amber-700',
-    staff: 'bg-gray-100 text-gray-700',
+    owner: 'bg-purple-500/20 text-purple-500',
+    manager: 'bg-indigo-500/20 text-indigo-500',
+    supervisor: 'bg-blue-500/20 text-blue-500',
+    cashier: 'bg-green-500/20 text-green-500',
+    server: 'bg-amber-500/20 text-amber-500',
+    staff: 'bg-muted text-foreground',
   };
   return (
-    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${colors[role] ?? 'bg-gray-100 text-gray-700'}`}>
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${colors[role] ?? 'bg-muted text-foreground'}`}>
       {role}
     </span>
   );
@@ -60,13 +60,13 @@ function RoleBadge({ role }: { role: string }) {
 
 function PermissionRow({ perm }: { perm: PermissionDefinition }) {
   return (
-    <tr className="border-t border-gray-100 hover:bg-gray-50/50 transition-colors">
+    <tr className="border-t border-border hover:bg-accent/50 transition-colors">
       <td className="py-2.5 pl-4 pr-2 text-sm">
-        <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-gray-700">
+        <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono text-foreground">
           {perm.key}
         </code>
       </td>
-      <td className="px-2 py-2.5 text-sm text-gray-600">{perm.description}</td>
+      <td className="px-2 py-2.5 text-sm text-muted-foreground">{perm.description}</td>
       <td className="px-2 py-2.5">
         <div className="flex flex-wrap gap-1">
           {ROLE_ORDER.filter((r) => perm.defaultRoles.includes(r)).map((role) => (
@@ -105,26 +105,26 @@ function ModuleSection({
   const auditCount = permissions.filter((p) => p.requiresAudit).length;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface overflow-hidden">
+    <div className="rounded-lg border border-border bg-surface overflow-hidden">
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-gray-50/50 transition-colors"
+        className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-accent/50 transition-colors"
       >
         <div className="flex items-center gap-3">
           {isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-gray-400" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-gray-400" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           )}
-          <span className="text-sm font-semibold text-gray-900">
+          <span className="text-sm font-semibold text-foreground">
             {MODULE_LABELS[module] ?? module}
           </span>
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             {permissions.length}
           </span>
         </div>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {pinCount > 0 && (
             <span className="flex items-center gap-1">
               <KeyRound className="h-3.5 w-3.5 text-amber-500" />
@@ -143,20 +143,20 @@ function ModuleSection({
       {isExpanded && (
         <table className="w-full text-left">
           <thead>
-            <tr className="border-t border-gray-200 bg-gray-50/80">
-              <th className="py-2 pl-4 pr-2 text-xs font-medium text-gray-500 uppercase tracking-wider w-[200px]">
+            <tr className="border-t border-border bg-muted/80">
+              <th className="py-2 pl-4 pr-2 text-xs font-medium text-muted-foreground uppercase tracking-wider w-[200px]">
                 Permission
               </th>
-              <th className="px-2 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-2 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Description
               </th>
-              <th className="px-2 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider w-[240px]">
+              <th className="px-2 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider w-[240px]">
                 Default Roles
               </th>
-              <th className="px-2 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-[60px]">
+              <th className="px-2 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center w-[60px]">
                 PIN
               </th>
-              <th className="px-2 py-2 pr-4 text-xs font-medium text-gray-500 uppercase tracking-wider text-center w-[60px]">
+              <th className="px-2 py-2 pr-4 text-xs font-medium text-muted-foreground uppercase tracking-wider text-center w-[60px]">
                 Audit
               </th>
             </tr>
@@ -239,8 +239,8 @@ export default function PermissionsContent() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Permissions Matrix</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-semibold text-foreground">Permissions Matrix</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             All {PERMISSION_MATRIX.length} system permissions across {PERMISSION_MODULES.length} modules
           </p>
         </div>
@@ -248,14 +248,14 @@ export default function PermissionsContent() {
           <button
             type="button"
             onClick={expandAll}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
           >
             Expand All
           </button>
           <button
             type="button"
             onClick={collapseAll}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
           >
             Collapse All
           </button>
@@ -291,20 +291,20 @@ export default function PermissionsContent() {
       {/* Filters */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search permissions..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 bg-surface py-2 pl-9 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
         <select
           value={filterModule}
           onChange={(e) => setFilterModule(e.target.value)}
-          className="rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           <option value="all">All Modules</option>
           {PERMISSION_MODULES.map((mod) => (
@@ -317,7 +317,7 @@ export default function PermissionsContent() {
         <select
           value={filterFlag}
           onChange={(e) => setFilterFlag(e.target.value as 'all' | 'pin' | 'audit')}
-          className="rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         >
           <option value="all">All Permissions</option>
           <option value="pin">Manager PIN Required</option>
@@ -327,7 +327,7 @@ export default function PermissionsContent() {
 
       {/* Results count */}
       {(search || filterModule !== 'all' || filterFlag !== 'all') && (
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Showing {totalShown} of {PERMISSION_MATRIX.length} permissions
         </p>
       )}
@@ -345,17 +345,17 @@ export default function PermissionsContent() {
         ))}
 
         {Object.keys(filteredByModule).length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 py-12 text-center">
-            <ShieldAlert className="h-8 w-8 text-gray-300" />
-            <p className="mt-2 text-sm text-gray-500">No permissions match your filters</p>
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-12 text-center">
+            <ShieldAlert className="h-8 w-8 text-muted-foreground" />
+            <p className="mt-2 text-sm text-muted-foreground">No permissions match your filters</p>
           </div>
         )}
       </div>
 
       {/* Legend */}
-      <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Legend</h3>
-        <div className="mt-2 flex flex-wrap gap-4 text-xs text-gray-600">
+      <div className="rounded-lg border border-border bg-surface px-4 py-3">
+        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Legend</h3>
+        <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <KeyRound className="h-3.5 w-3.5 text-amber-500" />
             Manager PIN — requires manager override to execute
@@ -392,15 +392,15 @@ function SummaryCard({
     ? 'text-amber-500'
     : accent === 'blue'
       ? 'text-blue-500'
-      : 'text-gray-400';
+      : 'text-muted-foreground';
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-center gap-2">
         <Icon className={`h-4 w-4 ${iconColor}`} />
-        <span className="text-xs font-medium text-gray-500">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
       </div>
-      <p className="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{value}</p>
+      <p className="mt-1 text-2xl font-semibold tabular-nums text-foreground">{value}</p>
     </div>
   );
 }

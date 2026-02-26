@@ -32,6 +32,7 @@ import { preloadPOSCatalog } from '@/hooks/use-catalog-for-pos';
 import { apiFetch } from '@/lib/api-client';
 import { TerminalSessionProvider, useTerminalSession, TERMINAL_SKIP_KEY } from '@/components/terminal-session-provider';
 import { TerminalSelectionScreen } from '@/components/terminal-selection-screen';
+import { getInitials } from '@oppsera/shared';
 import { CommandPalette } from '@/components/command-palette';
 import { ImpersonationBanner } from '@/components/impersonation-banner';
 import type { NavItem } from '@/lib/navigation';
@@ -42,14 +43,7 @@ import { filterNavByTier } from '@/lib/navigation-filter';
 
 const SIDEBAR_KEY = 'sidebar_collapsed';
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
+
 
 function useLiveClock(): { time: string; date: string } {
   const [now, setNow] = useState<Date | null>(null);
@@ -74,12 +68,12 @@ function LiveClockDisplay() {
   return (
     <>
       <div className="hidden items-center gap-1.5 md:flex">
-        <CalendarDays className="h-4 w-4 text-gray-400" aria-hidden="true" />
-        <span className="text-sm font-medium text-gray-600">{clock.date}</span>
+        <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <span className="text-sm font-medium text-muted-foreground">{clock.date}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <Clock className="h-4 w-4 text-gray-400" aria-hidden="true" />
-        <span className="text-sm font-medium tabular-nums text-gray-600">{clock.time}</span>
+        <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+        <span className="text-sm font-medium tabular-nums text-muted-foreground">{clock.time}</span>
       </div>
     </>
   );
@@ -94,11 +88,11 @@ function SidebarActions({
 }) {
   const { theme, toggleTheme } = useTheme();
   return (
-    <div className={`border-t border-gray-200 ${collapsed ? 'space-y-1 px-2 py-3' : 'space-y-1 px-3 py-3'}`}>
+    <div className={`border-t border-border ${collapsed ? 'space-y-1 px-2 py-3' : 'space-y-1 px-3 py-3'}`}>
       <button
         type="button"
         onClick={toggleTheme}
-        className={`flex w-full items-center rounded-lg text-sm font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 ${
+        className={`flex w-full items-center rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
           collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2'
         }`}
         title={collapsed ? (theme === 'dark' ? 'Light mode' : 'Dark mode') : undefined}
@@ -118,7 +112,7 @@ function SidebarActions({
       <button
         type="button"
         onClick={onToggleCollapse}
-        className={`flex w-full items-center rounded-lg text-sm font-medium text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 ${
+        className={`flex w-full items-center rounded-lg text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${
           collapsed ? 'justify-center px-2 py-2' : 'gap-3 px-3 py-2'
         }`}
         title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -273,12 +267,12 @@ function SidebarContent({
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}
-      <div className={`flex h-16 shrink-0 items-center border-b border-gray-200 ${collapsed ? 'justify-center px-2' : 'px-6'}`}>
+      <div className={`flex h-16 shrink-0 items-center border-b border-border ${collapsed ? 'justify-center px-2' : 'px-6'}`}>
         <Link href="/dashboard" className="flex items-center gap-2" onClick={onLinkClick}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600">
             <span className="text-sm font-bold text-white">O</span>
           </div>
-          {!collapsed && <span className="text-lg font-bold text-gray-900">OppsEra</span>}
+          {!collapsed && <span className="text-lg font-bold text-foreground">OppsEra</span>}
         </Link>
       </div>
 
@@ -312,12 +306,12 @@ function SidebarContent({
                   } ${
                     isParentActive
                       ? 'bg-indigo-600/10 text-indigo-600'
-                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   }`}
                 >
                   <item.icon
                     className={`h-5 w-5 shrink-0 ${
-                      isParentActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'
+                      isParentActive ? 'text-indigo-600' : 'text-muted-foreground group-hover:text-foreground'
                     }`}
                     aria-hidden="true"
                   />
@@ -327,7 +321,7 @@ function SidebarContent({
                       <ChevronDown
                         className={`ml-auto h-4 w-4 shrink-0 transition-transform ${
                           isExpanded ? 'rotate-180' : ''
-                        } ${isParentActive ? 'text-indigo-600' : 'text-gray-400'}`}
+                        } ${isParentActive ? 'text-indigo-600' : 'text-muted-foreground'}`}
                         aria-hidden="true"
                       />
                     </>
@@ -335,7 +329,7 @@ function SidebarContent({
                 </button>
                 {/* Expanded: inline children */}
                 {isExpanded && !collapsed && (
-                  <div id={`nav-section-${item.name.replace(/\s+/g, '-').toLowerCase()}`} className={`ml-6 mt-1 border-l border-gray-200 pl-3 ${item.collapsibleGroups ? '' : 'space-y-1'}`}>
+                  <div id={`nav-section-${item.name.replace(/\s+/g, '-').toLowerCase()}`} className={`ml-6 mt-1 border-l border-border pl-3 ${item.collapsibleGroups ? '' : 'space-y-1'}`}>
                     {item.collapsibleGroups ? (
                       // Collapsible accordion groups (e.g., Property Mgmt categories)
                       (() => {
@@ -364,7 +358,7 @@ function SidebarContent({
                                 <button
                                   type="button"
                                   onClick={() => toggleGroup(item.name, group.name)}
-                                  className="mt-1 flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400 transition-colors hover:text-gray-600"
+                                  className="mt-1 flex w-full items-center justify-between rounded-md px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
                                 >
                                   <span>{group.name}</span>
                                   <ChevronDown
@@ -384,7 +378,7 @@ function SidebarContent({
                                           className={`block rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                                             isChildActive
                                               ? 'text-indigo-600'
-                                              : 'text-gray-500 hover:text-gray-900'
+                                              : 'text-muted-foreground hover:text-foreground'
                                           }`}
                                         >
                                           {child.name}
@@ -413,7 +407,7 @@ function SidebarContent({
                           return (
                             <div key={child.href}>
                               {showGroupHeader && (
-                                <p className="mt-2 mb-1 px-3 text-xs font-semibold text-gray-400 uppercase tracking-wide">{child.group}</p>
+                                <p className="mt-2 mb-1 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{child.group}</p>
                               )}
                               <Link
                                 href={child.href}
@@ -422,10 +416,10 @@ function SidebarContent({
                                 className={`group flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                                   isChildActive
                                     ? 'text-indigo-600'
-                                    : 'text-gray-500 hover:text-gray-900'
+                                    : 'text-muted-foreground hover:text-foreground'
                                 }`}
                               >
-                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} aria-hidden="true" />
+                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-muted-foreground'}`} aria-hidden="true" />
                                 {child.name}
                               </Link>
                             </div>
@@ -438,8 +432,8 @@ function SidebarContent({
                 {/* Collapsed: hover flyout — pl-3 creates invisible bridge so mouse can cross the gap */}
                 {collapsed && (
                   <div className="absolute left-full top-0 z-50 hidden pl-3 group-hover/nav:block">
-                    <div className="min-w-44 rounded-lg border border-gray-200 bg-surface py-1.5 shadow-lg">
-                      <p className="px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase">{item.name}</p>
+                    <div className="min-w-44 rounded-lg border border-border bg-surface py-1.5 shadow-lg">
+                      <p className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase">{item.name}</p>
                       {(() => {
                         const filtered = item.children!.filter((child) =>
                           (!child.moduleKey || isModuleEnabled(child.moduleKey)) &&
@@ -454,7 +448,7 @@ function SidebarContent({
                           return (
                             <div key={child.href}>
                               {showGroupHeader && (
-                                <p className="mt-1 px-3 py-1 text-xs font-semibold text-gray-400 uppercase border-t border-gray-100">{child.group}</p>
+                                <p className="mt-1 px-3 py-1 text-xs font-semibold text-muted-foreground uppercase border-t border-border">{child.group}</p>
                               )}
                               <Link
                                 href={child.href}
@@ -463,10 +457,10 @@ function SidebarContent({
                                 className={`flex items-center gap-2 px-3 py-2 text-sm font-medium transition-colors ${
                                   isChildActive
                                     ? 'bg-indigo-600/10 text-indigo-600'
-                                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                                 }`}
                               >
-                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-gray-400'}`} aria-hidden="true" />
+                                <child.icon className={`h-4 w-4 shrink-0 ${isChildActive ? 'text-indigo-600' : 'text-muted-foreground'}`} aria-hidden="true" />
                                 {child.name}
                               </Link>
                             </div>
@@ -492,12 +486,12 @@ function SidebarContent({
               } ${
                 isParentActive
                   ? 'bg-indigo-600/10 text-indigo-600'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
               }`}
             >
               <item.icon
                 className={`h-5 w-5 shrink-0 ${
-                  isParentActive ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-600'
+                  isParentActive ? 'text-indigo-600' : 'text-muted-foreground group-hover:text-foreground'
                 }`}
                 aria-hidden="true"
               />
@@ -513,7 +507,7 @@ function SidebarContent({
       )}
 
       {/* Sidebar footer */}
-      <div className={`border-t border-gray-200 ${collapsed ? 'p-2' : 'p-4'}`}>
+      <div className={`border-t border-border ${collapsed ? 'p-2' : 'p-4'}`}>
         <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600" title={collapsed ? userName : undefined}>
             <span className="text-sm font-medium text-white">{getInitials(userName)}</span>
@@ -521,13 +515,13 @@ function SidebarContent({
           {!collapsed && (
             <>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-900">{userName}</p>
-                <p className="truncate text-xs text-gray-500">{userEmail}</p>
+                <p className="truncate text-sm font-medium text-foreground">{userName}</p>
+                <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
               </div>
               <button
                 type="button"
                 onClick={onLogout}
-                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Sign out"
               >
                 <LogOut className="h-4 w-4" aria-hidden="true" />
@@ -654,7 +648,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     <ContextMenuProvider>
     <ProfileDrawerProvider>
     <ItemEditDrawerProvider>
-    <div className="flex h-screen flex-col overflow-hidden bg-gray-50">
+    <div className="flex h-screen flex-col overflow-hidden bg-muted">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <ImpersonationBanner />
       <div className="flex flex-1 overflow-hidden">
@@ -703,7 +697,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         }`}
       >
         <div
-          className={`flex flex-col border-r border-gray-200 bg-surface transition-all duration-200 ease-in-out ${
+          className={`flex flex-col border-r border-border bg-surface transition-all duration-200 ease-in-out ${
             collapsed ? 'w-16' : 'w-64'
           }`}
         >
@@ -729,18 +723,18 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
           container. */}
       <div className="relative z-0 flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-surface px-4 md:px-6">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-surface px-4 md:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 md:hidden"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground md:hidden"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open navigation"
             >
               <Menu className="h-5 w-5" aria-hidden="true" />
             </button>
-            <span className="text-sm font-semibold text-gray-700 md:hidden">{tenantName}</span>
-            <span className="hidden text-sm font-semibold text-gray-700 md:block">
+            <span className="text-sm font-semibold text-foreground md:hidden">{tenantName}</span>
+            <span className="hidden text-sm font-semibold text-foreground md:block">
               {tenantName}
             </span>
           </div>
@@ -749,7 +743,7 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
               {isFullscreen ? <Minimize2 className="h-5 w-5" aria-hidden="true" /> : <Maximize2 className="h-5 w-5" aria-hidden="true" />}

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { PMS_EVENTS } from '../events/types';
-import type { PmsEventType } from '../events/types';
 import type {
   ReservationCreatedPayload,
   ReservationUpdatedPayload,

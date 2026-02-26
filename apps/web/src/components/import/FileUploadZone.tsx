@@ -104,7 +104,7 @@ export function FileUploadZone({
         className={`relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors ${
           isDragOver
             ? 'border-indigo-500 bg-indigo-500/10'
-            : 'border-border hover:border-gray-400'
+            : 'border-border hover:border-muted-foreground'
         } ${isDisabled ? 'pointer-events-none opacity-50' : 'cursor-pointer'}`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -127,7 +127,7 @@ export function FileUploadZone({
                 e.stopPropagation();
                 clearFile();
               }}
-              className="rounded p-1 hover:bg-gray-200/50"
+              className="rounded p-1 hover:bg-accent/50"
             >
               <X className="h-4 w-4" />
             </button>
@@ -153,7 +153,7 @@ export function FileUploadZone({
           disabled={isDisabled}
         />
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-500">{error}</p>}
       {reassurance && !selectedFile && !error && (
         <p className="text-xs text-muted-foreground text-center italic">
           {reassurance}

@@ -33,18 +33,18 @@ const STATUS_CONFIG: Record<string, { icon: typeof Clock; color: string; label: 
   validated: { icon: CheckCircle2, color: 'text-green-500', label: 'Validated' },
   ready: { icon: CheckCircle2, color: 'text-green-500', label: 'Ready' },
   importing: { icon: Clock, color: 'text-indigo-500', label: 'Importing' },
-  complete: { icon: CheckCircle2, color: 'text-green-600', label: 'Completed' },
-  completed: { icon: CheckCircle2, color: 'text-green-600', label: 'Completed' },
+  complete: { icon: CheckCircle2, color: 'text-green-500', label: 'Completed' },
+  completed: { icon: CheckCircle2, color: 'text-green-500', label: 'Completed' },
   failed: { icon: XCircle, color: 'text-red-500', label: 'Failed' },
-  cancelled: { icon: AlertTriangle, color: 'text-gray-500', label: 'Cancelled' },
+  cancelled: { icon: AlertTriangle, color: 'text-muted-foreground', label: 'Cancelled' },
 };
 
 // ── Module badge config ────────────────────────────────────────
 const MODULE_CONFIG: Record<string, { icon: typeof Users; color: string; bg: string }> = {
-  customers: { icon: Users, color: 'text-blue-700 dark:text-blue-300', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-  catalog: { icon: Package, color: 'text-green-700 dark:text-green-300', bg: 'bg-green-50 dark:bg-green-900/20' },
-  accounting: { icon: Landmark, color: 'text-purple-700 dark:text-purple-300', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-  transactions: { icon: FileText, color: 'text-amber-700 dark:text-amber-300', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+  customers: { icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+  catalog: { icon: Package, color: 'text-green-500', bg: 'bg-green-500/10' },
+  accounting: { icon: Landmark, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+  transactions: { icon: FileText, color: 'text-amber-500', bg: 'bg-amber-500/10' },
 };
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ function NewImportDropdown() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+        className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
       >
         <Upload className="h-4 w-4" />
         New Import
@@ -132,7 +132,7 @@ function NewImportDropdown() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-gray-200 bg-surface shadow-lg dark:border-gray-700">
+        <div className="absolute right-0 z-20 mt-2 w-80 rounded-lg border border-border bg-surface shadow-lg">
           {items.map((item) => {
             const Icon = item.icon;
             return (
@@ -143,12 +143,12 @@ function NewImportDropdown() {
                   setOpen(false);
                   router.push(item.href);
                 }}
-                className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors first:rounded-t-lg last:rounded-b-lg hover:bg-accent"
               >
-                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.label}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{item.description}</p>
+                  <p className="text-sm font-medium text-foreground">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.description}</p>
                 </div>
               </button>
             );
@@ -165,24 +165,24 @@ function ImportRow({ log }: { log: UnifiedImportLog }) {
   const StatusIcon = config.icon;
 
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-gray-200 p-4 dark:border-gray-700">
+    <div className="flex items-center gap-4 rounded-lg border border-border p-4">
       <StatusIcon className={`h-5 w-5 shrink-0 ${config.color}`} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+          <p className="truncate text-sm font-medium text-foreground">
             {log.fileName}
           </p>
           <ModuleBadge module={log.module} label={log.moduleLabel} />
         </div>
-        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-0.5 text-xs text-muted-foreground">
           {formatDate(log.startedAt)}
         </p>
       </div>
       <div className="text-right">
         <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
         {(log.status === 'complete' || log.status === 'completed') && (
-          <div className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            <span className="text-green-600 dark:text-green-400">{log.successRows.toLocaleString()} ok</span>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            <span className="text-green-500">{log.successRows.toLocaleString()} ok</span>
             {log.errorRows > 0 && (
               <span className="ml-1 text-red-500">{log.errorRows} errors</span>
             )}
@@ -203,27 +203,27 @@ function LegacyImportRow({ job }: { job: { id: string; name: string; fileName: s
     <button
       type="button"
       onClick={() => router.push(`/settings/import/${job.id}`)}
-      className="flex w-full items-center gap-4 rounded-lg border border-gray-200 p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+      className="flex w-full items-center gap-4 rounded-lg border border-border p-4 text-left transition-colors hover:bg-accent"
     >
       <StatusIcon className={`h-5 w-5 shrink-0 ${config.color}`} />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+          <p className="truncate text-sm font-medium text-foreground">
             {job.name}
           </p>
           <ModuleBadge module="transactions" label="Transactions" />
         </div>
-        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+        <p className="mt-0.5 text-xs text-muted-foreground">
           {job.fileName}
           {job.sourceSystem && ` — ${job.sourceSystem}`}
         </p>
       </div>
       <div className="text-right">
         <span className={`text-xs font-medium ${config.color}`}>{config.label}</span>
-        <p className="mt-0.5 text-xs text-gray-400">{formatDate(job.createdAt)}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{formatDate(job.createdAt)}</p>
         {job.status === 'completed' && (
-          <div className="text-xs text-gray-500">
-            <span className="text-green-600 dark:text-green-400">{job.importedRows.toLocaleString()} imported</span>
+          <div className="text-xs text-muted-foreground">
+            <span className="text-green-500">{job.importedRows.toLocaleString()} imported</span>
             {job.errorRows > 0 && (
               <span className="ml-1 text-red-500">{job.errorRows} errors</span>
             )}
@@ -292,14 +292,14 @@ export default function ImportContent() {
             return (
               <div
                 key={card.label}
-                className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 opacity-60 dark:border-gray-700"
+                className="flex items-center gap-3 rounded-lg border border-border p-4 opacity-60"
               >
-                <Icon className="h-7 w-7 shrink-0 text-gray-400" />
+                <Icon className="h-7 w-7 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{card.label}</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">{card.description}</p>
+                  <p className="text-sm font-medium text-muted-foreground">{card.label}</p>
+                  <p className="text-xs text-muted-foreground">{card.description}</p>
                 </div>
-                <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                   Coming soon
                 </span>
               </div>
@@ -310,14 +310,14 @@ export default function ImportContent() {
               key={card.label}
               type="button"
               onClick={() => router.push(card.href!)}
-              className="flex items-center gap-3 rounded-lg border border-gray-200 p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+              className="flex items-center gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:bg-accent"
             >
               <Icon className="h-7 w-7 shrink-0 text-indigo-500" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{card.label}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{card.description}</p>
+                <p className="text-sm font-medium text-foreground">{card.label}</p>
+                <p className="text-xs text-muted-foreground">{card.description}</p>
               </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-gray-400" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
             </button>
           );
         })}
@@ -325,19 +325,19 @@ export default function ImportContent() {
 
       {/* Stats bar */}
       {totalCompleted > 0 && (
-        <div className="flex flex-wrap items-center gap-6 rounded-lg border border-gray-200 bg-gray-500/5 px-4 py-3 text-sm dark:border-gray-700">
+        <div className="flex flex-wrap items-center gap-6 rounded-lg border border-border bg-gray-500/5 px-4 py-3 text-sm">
           <div>
-            <span className="text-gray-500 dark:text-gray-400">Completed imports:</span>{' '}
-            <span className="font-medium text-gray-900 dark:text-gray-100">{totalCompleted}</span>
+            <span className="text-muted-foreground">Completed imports:</span>{' '}
+            <span className="font-medium text-foreground">{totalCompleted}</span>
           </div>
           <div>
-            <span className="text-gray-500 dark:text-gray-400">Total records imported:</span>{' '}
-            <span className="font-medium text-gray-900 dark:text-gray-100">{totalRecords.toLocaleString()}</span>
+            <span className="text-muted-foreground">Total records imported:</span>{' '}
+            <span className="font-medium text-foreground">{totalRecords.toLocaleString()}</span>
           </div>
           {lastImportDate && (
             <div>
-              <span className="text-gray-500 dark:text-gray-400">Last import:</span>{' '}
-              <span className="font-medium text-gray-900 dark:text-gray-100">{formatDate(lastImportDate)}</span>
+              <span className="text-muted-foreground">Last import:</span>{' '}
+              <span className="font-medium text-foreground">{formatDate(lastImportDate)}</span>
             </div>
           )}
         </div>
@@ -349,17 +349,17 @@ export default function ImportContent() {
       {isLoading && !hasAnyData && (
         <div className="animate-pulse space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 rounded-lg bg-gray-200 dark:bg-gray-700" />
+            <div key={i} className="h-20 rounded-lg bg-muted" />
           ))}
         </div>
       )}
 
       {/* Empty state */}
       {!isLoading && !hasAnyData && (
-        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-16 dark:border-gray-600">
-          <Upload className="mb-3 h-10 w-10 text-gray-400" />
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">No imports yet</p>
-          <p className="mt-1 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border py-16">
+          <Upload className="mb-3 h-10 w-10 text-muted-foreground" />
+          <p className="text-sm font-medium text-foreground">No imports yet</p>
+          <p className="mt-1 text-center text-sm text-muted-foreground">
             Import your first data — customers, inventory items, or chart of accounts.
             <br />
             We&apos;ll auto-match columns and you review everything before we import.
@@ -370,7 +370,7 @@ export default function ImportContent() {
       {/* Module imports (Customers, Catalog, Accounting) */}
       {unifiedLogs.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Recent Imports
           </h2>
           {unifiedLogs.map((log) => (
@@ -382,7 +382,7 @@ export default function ImportContent() {
       {/* Legacy transaction imports */}
       {legacyJobs.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Legacy Transaction Imports
           </h2>
           {legacyJobs.map((job) => (
@@ -393,7 +393,7 @@ export default function ImportContent() {
               type="button"
               onClick={loadMore}
               disabled={legacyLoading}
-              className="w-full rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-500 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+              className="w-full rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent"
             >
               {legacyLoading ? 'Loading...' : 'Load more'}
             </button>

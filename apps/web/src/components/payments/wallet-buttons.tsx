@@ -63,9 +63,9 @@ export function WalletButtons({
     <div className="space-y-3">
       {/* Divider */}
       <div className="flex items-center gap-3">
-        <div className="h-px flex-1 bg-gray-200" />
-        <span className="text-xs text-gray-400">or pay with</span>
-        <div className="h-px flex-1 bg-gray-200" />
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted-foreground">or pay with</span>
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       {/* Wallet buttons */}

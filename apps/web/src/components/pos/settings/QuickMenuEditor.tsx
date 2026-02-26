@@ -145,13 +145,13 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
       {/* Search (items only) */}
       {mode === 'item' && (
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search items..."
-            className="w-full rounded-md border border-gray-300 py-1.5 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="w-full rounded-md border border-border py-1.5 pl-9 pr-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             autoFocus
           />
         </div>
@@ -177,7 +177,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
               className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-accent"
             >
               <span className="truncate">{item.name}</span>
-              <span className="ml-2 shrink-0 text-xs text-gray-400">{formatPrice(item.price)}</span>
+              <span className="ml-2 shrink-0 text-xs text-muted-foreground">{formatPrice(item.price)}</span>
             </button>
           ))}
 
@@ -198,7 +198,7 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
               }}
               className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-accent"
             >
-              <FolderOpen className="mr-2 h-3.5 w-3.5 text-gray-400" />
+              <FolderOpen className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
               {catId}
             </button>
           ))}
@@ -220,13 +220,13 @@ function TileTypePicker({ allItems, onAdd, onClose }: TileTypePickerProps) {
               }}
               className="flex w-full items-center px-3 py-2 text-left text-sm hover:bg-accent"
             >
-              <Zap className="mr-2 h-3.5 w-3.5 text-gray-400" />
+              <Zap className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
               {action.label}
             </button>
           ))}
 
         {mode === 'item' && filteredItems.length === 0 && (
-          <p className="px-3 py-4 text-center text-xs text-gray-400">No items found</p>
+          <p className="px-3 py-4 text-center text-xs text-muted-foreground">No items found</p>
         )}
       </div>
     </div>
@@ -249,18 +249,18 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
 
       {/* Label */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-gray-600">Label</label>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Label</label>
         <input
           type="text"
           value={tile.label}
           onChange={(e) => onUpdate({ label: e.target.value })}
-          className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="w-full rounded-md border border-border px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
       </div>
 
       {/* Color */}
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-600">Color</label>
+        <label className="mb-2 block text-xs font-medium text-muted-foreground">Color</label>
         <div className="flex flex-wrap gap-2">
           {PRESET_COLORS.map((color) => (
             <button
@@ -278,7 +278,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
 
       {/* Size */}
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-600">Size (columns)</label>
+        <label className="mb-2 block text-xs font-medium text-muted-foreground">Size (columns)</label>
         <div className="flex gap-2">
           {[1, 2, 3, 4].map((span) => (
             <button
@@ -288,7 +288,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
               className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                 (tile.colSpan ?? 1) === span
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
               {span}
@@ -299,7 +299,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
 
       {/* Row span */}
       <div>
-        <label className="mb-2 block text-xs font-medium text-gray-600">Height (rows)</label>
+        <label className="mb-2 block text-xs font-medium text-muted-foreground">Height (rows)</label>
         <div className="flex gap-2">
           {[1, 2].map((span) => (
             <button
@@ -309,7 +309,7 @@ function TileInspector({ tile, onUpdate, onDelete, onDuplicate }: TileInspectorP
               className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                 (tile.rowSpan ?? 1) === span
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-muted text-muted-foreground hover:bg-accent'
               }`}
             >
               {span === 1 ? 'Normal' : 'Tall'}
@@ -494,7 +494,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
       <div className="flex shrink-0 items-center justify-between border-b border-border px-6 py-4">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Quick Menu Editor</h2>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Design your custom Hot Sellers grid. Changes save automatically.
           </p>
         </div>
@@ -505,14 +505,14 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
               handleSave();
               onClose();
             }}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             Done
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-2 text-gray-400 transition-colors hover:text-gray-600"
+            className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -564,7 +564,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
               <button
                 type="button"
                 onClick={() => setShowTilePicker(true)}
-                className="flex items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-gray-400 transition-colors hover:border-indigo-400 hover:text-indigo-500"
+                className="flex items-center justify-center rounded-lg border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-indigo-400 hover:text-indigo-500"
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -577,7 +577,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
               type="button"
               onClick={() => setPageIndex((i) => Math.max(i - 1, 0))}
               disabled={pageIndex === 0}
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-accent disabled:opacity-30"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -589,14 +589,14 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
                   type="button"
                   onClick={() => setPageIndex(i)}
                   className={`h-2 rounded-full transition-colors ${
-                    i === pageIndex ? 'w-6 bg-indigo-500' : 'w-2 bg-gray-300 hover:bg-gray-400'
+                    i === pageIndex ? 'w-6 bg-indigo-500' : 'w-2 bg-muted hover:bg-muted-foreground'
                   }`}
                 />
               ))}
               <button
                 type="button"
                 onClick={addPage}
-                className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-gray-300 text-gray-400 transition-colors hover:border-indigo-400 hover:text-indigo-500"
+                className="flex h-6 w-6 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground transition-colors hover:border-indigo-400 hover:text-indigo-500"
               >
                 <Plus className="h-3 w-3" />
               </button>
@@ -606,7 +606,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
               type="button"
               onClick={() => setPageIndex((i) => Math.min(i + 1, pages.length - 1))}
               disabled={pageIndex === pages.length - 1}
-              className="rounded-md p-1.5 text-gray-400 transition-colors hover:bg-accent disabled:opacity-30"
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -627,7 +627,7 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
                 });
                 markDirty();
               }}
-              className="rounded-md border border-gray-300 px-3 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="rounded-md border border-border px-3 py-1 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             {pages.length > 1 && (
               <button
@@ -643,13 +643,13 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
 
           {/* Add tile picker */}
           {showTilePicker && (
-            <div className="rounded-lg border border-gray-200 bg-surface p-4 shadow-sm">
+            <div className="rounded-lg border border-border bg-surface p-4 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <h4 className="text-sm font-semibold text-foreground">Add Tile</h4>
                 <button
                   type="button"
                   onClick={() => setShowTilePicker(false)}
-                  className="rounded-md p-1 text-gray-400 hover:text-gray-600"
+                  className="rounded-md p-1 text-muted-foreground hover:text-foreground"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -674,11 +674,11 @@ export const QuickMenuEditor = memo(function QuickMenuEditor({
             />
           ) : (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="mb-3 rounded-full bg-gray-200 p-3">
-                <Package className="h-5 w-5 text-gray-400" />
+              <div className="mb-3 rounded-full bg-muted p-3">
+                <Package className="h-5 w-5 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-gray-500">Select a tile</p>
-              <p className="mt-1 text-xs text-gray-400">
+              <p className="text-sm font-medium text-muted-foreground">Select a tile</p>
+              <p className="mt-1 text-xs text-muted-foreground">
                 Click a tile in the grid to edit its properties
               </p>
             </div>

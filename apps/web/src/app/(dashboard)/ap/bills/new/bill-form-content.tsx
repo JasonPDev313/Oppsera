@@ -227,7 +227,7 @@ export default function BillFormContent() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Bill Lines</h2>
-            <button type="button" onClick={addLine} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted">
+            <button type="button" onClick={addLine} className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent">
               <Plus className="h-3.5 w-3.5" /> Add Line
             </button>
           </div>
@@ -331,11 +331,11 @@ export default function BillFormContent() {
 
         {/* Submit */}
         <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:justify-end">
-          <button type="button" onClick={() => router.push('/ap/bills')} className="rounded-lg border border-border px-6 py-2.5 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
+          <button type="button" onClick={() => router.push('/ap/bills')} className="rounded-lg border border-border px-6 py-2.5 text-sm font-medium text-foreground hover:bg-accent">Cancel</button>
           <button type="button" onClick={() => handleSubmit(false)} disabled={isSaving} className="rounded-lg border border-indigo-500/30 px-6 py-2.5 text-sm font-medium text-indigo-500 hover:bg-indigo-500/10 disabled:opacity-50">
             {isSaving ? 'Saving...' : 'Save Draft'}
           </button>
-          <button type="button" onClick={() => handleSubmit(true)} disabled={isSaving} className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+          <button type="button" onClick={() => handleSubmit(true)} disabled={isSaving} className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
             {isSaving ? 'Saving...' : 'Save & Post'}
           </button>
         </div>

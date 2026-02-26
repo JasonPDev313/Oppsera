@@ -84,7 +84,7 @@ export function AccountChangeLog({ open, onClose, accountId, accountLabel }: Acc
               Change History{accountLabel ? ` — ${accountLabel}` : ''}
             </h2>
           </div>
-          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-muted-foreground" aria-label="Close">
+          <button type="button" onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>

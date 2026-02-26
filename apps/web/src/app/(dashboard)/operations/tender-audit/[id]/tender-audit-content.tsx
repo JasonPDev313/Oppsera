@@ -29,21 +29,21 @@ const STAGE_ICONS: Record<string, React.ComponentType<{ className?: string }>> =
 const STATUS_CONFIG = {
   complete: {
     icon: CheckCircle2,
-    color: 'text-green-600',
-    bg: 'bg-green-100',
+    color: 'text-green-500',
+    bg: 'bg-green-500/10',
     line: 'bg-green-300',
   },
   pending: {
     icon: Clock,
-    color: 'text-amber-600',
-    bg: 'bg-amber-100',
+    color: 'text-amber-500',
+    bg: 'bg-amber-500/10',
     line: 'bg-amber-300',
   },
   missing: {
     icon: XCircle,
-    color: 'text-gray-400',
-    bg: 'bg-gray-100',
-    line: 'bg-gray-200',
+    color: 'text-muted-foreground',
+    bg: 'bg-muted',
+    line: 'bg-muted',
   },
 };
 
@@ -57,8 +57,8 @@ export default function TenderAuditContent() {
   if (isLoading) {
     return (
       <div className="space-y-6 p-6">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-100" />
-        <div className="h-96 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-96 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
@@ -68,13 +68,13 @@ export default function TenderAuditContent() {
       <div className="p-6">
         <button
           onClick={() => router.back()}
-          className="mb-4 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          className="mb-4 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
-        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-6 text-center">
           <XCircle className="mx-auto h-8 w-8 text-red-400" />
-          <p className="mt-2 text-sm text-red-600">
+          <p className="mt-2 text-sm text-red-500">
             {error ? 'Failed to load tender audit trail' : 'Tender not found'}
           </p>
         </div>
@@ -88,13 +88,13 @@ export default function TenderAuditContent() {
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div>
           <h1 className="text-xl font-semibold">Tender Audit Trail</h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {trail.tenderType} — {formatMoney(trail.amountCents)}
             {trail.tipAmountCents > 0 && ` (+ ${formatMoney(trail.tipAmountCents)} tip)`}
           </p>
@@ -104,19 +104,19 @@ export default function TenderAuditContent() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-lg border bg-surface p-3">
-          <div className="text-xs text-gray-500">Order</div>
+          <div className="text-xs text-muted-foreground">Order</div>
           <div className="text-sm font-medium">{trail.orderNumber ? `#${trail.orderNumber}` : trail.orderId.slice(-8)}</div>
         </div>
         <div className="rounded-lg border bg-surface p-3">
-          <div className="text-xs text-gray-500">Amount</div>
+          <div className="text-xs text-muted-foreground">Amount</div>
           <div className="text-sm font-medium">{formatMoney(trail.amountCents)}</div>
         </div>
         <div className="rounded-lg border bg-surface p-3">
-          <div className="text-xs text-gray-500">Date</div>
+          <div className="text-xs text-muted-foreground">Date</div>
           <div className="text-sm font-medium">{trail.businessDate}</div>
         </div>
         <div className="rounded-lg border bg-surface p-3">
-          <div className="text-xs text-gray-500">Type</div>
+          <div className="text-xs text-muted-foreground">Type</div>
           <div className="text-sm font-medium capitalize">{trail.tenderType.replace(/_/g, ' ')}</div>
         </div>
       </div>
@@ -152,15 +152,15 @@ export default function TenderAuditContent() {
                     <StatusIcon className={`h-4 w-4 ${config.color}`} />
                   </div>
                   {step.detail && (
-                    <p className="mt-0.5 text-sm text-gray-500">{step.detail}</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{step.detail}</p>
                   )}
                   {step.timestamp && (
-                    <p className="mt-0.5 text-xs text-gray-400">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       {new Date(step.timestamp).toLocaleString()}
                     </p>
                   )}
                   {step.referenceId && (
-                    <p className="mt-0.5 text-xs text-gray-300">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                       Ref: {step.referenceId.slice(-12)}
                     </p>
                   )}

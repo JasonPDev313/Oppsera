@@ -134,16 +134,16 @@ export function ContextMenu({
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-45 rounded-md border border-gray-200 bg-surface py-1 shadow-lg"
+      className="fixed z-50 min-w-45 rounded-md border border-border bg-surface py-1 shadow-lg"
       style={{ left: x, top: y }}
     >
       {items.map((item, i) => (
         <div key={item.label}>
           {item.separator && i > 0 && (
-            <div className="my-1 border-t border-gray-200" />
+            <div className="my-1 border-t border-border" />
           )}
           <button
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-gray-900 hover:bg-gray-200/50 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-40"
             onClick={item.onClick}
             disabled={item.disabled}
           >

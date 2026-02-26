@@ -93,18 +93,18 @@ export function ReceiptHeader({
           <button
             type="button"
             onClick={onBack}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-foreground">
                 {receipt.receiptNumber}
               </h1>
               <ReceiptStatusBadge status={receipt.status} />
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {receipt.vendorName} | {receipt.receivedDate}
             </p>
           </div>
@@ -126,7 +126,7 @@ export function ReceiptHeader({
             <button
               type="button"
               onClick={onVoid}
-              className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
             >
               <Ban className="h-4 w-4" />
               Void
@@ -139,10 +139,10 @@ export function ReceiptHeader({
       {isDraft && (
         <div className="space-y-4">
           {/* Row 1: Core fields */}
-          <div className="grid grid-cols-1 gap-4 rounded-lg border border-gray-200 bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5">
             {/* Vendor */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
                 Vendor
               </label>
               <Select
@@ -155,7 +155,7 @@ export function ReceiptHeader({
 
             {/* Invoice # */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
                 Invoice #
               </label>
               <input
@@ -168,26 +168,26 @@ export function ReceiptHeader({
                   )
                 }
                 placeholder="Optional"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
 
             {/* Received Date */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
                 Received Date
               </label>
               <input
                 type="date"
                 value={receipt.receivedDate}
                 onChange={(e) => onHeaderChange('receivedDate', e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
 
             {/* Freight Mode */}
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className="block text-xs font-medium text-muted-foreground mb-1">
                 Freight Mode
               </label>
               <Select
@@ -201,7 +201,7 @@ export function ReceiptHeader({
             {/* Allocation Method (only in ALLOCATE mode) */}
             {!isExpenseMode && (
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className="block text-xs font-medium text-muted-foreground mb-1">
                   Allocation
                 </label>
                 <Select
@@ -215,16 +215,16 @@ export function ReceiptHeader({
           </div>
 
           {/* Row 2: Charges section */}
-          <div className="rounded-lg border border-gray-200 bg-surface p-4">
+          <div className="rounded-lg border border-border bg-surface p-4">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-gray-700">
+              <h3 className="text-sm font-medium text-foreground">
                 {isExpenseMode ? 'Freight / Shipping Charges (Expense to GL)' : 'Freight / Shipping Charges'}
               </h3>
               {onAddCharge && (
                 <button
                   type="button"
                   onClick={() => setShowAddCharge(true)}
-                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10 transition-colors"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Add Charge
@@ -238,29 +238,29 @@ export function ReceiptHeader({
                 {charges.map((charge) => (
                   <div
                     key={charge.id}
-                    className="flex items-center gap-3 rounded-md border border-gray-100 bg-gray-50/50 px-3 py-2"
+                    className="flex items-center gap-3 rounded-md border border-border bg-muted/50 px-3 py-2"
                   >
-                    <span className="rounded bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 capitalize">
+                    <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
                       {charge.chargeType}
                     </span>
                     {charge.description && (
-                      <span className="text-sm text-gray-600 truncate flex-1">
+                      <span className="text-sm text-muted-foreground truncate flex-1">
                         {charge.description}
                       </span>
                     )}
                     {isExpenseMode && charge.glAccountCode && (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         GL: {charge.glAccountCode}
                       </span>
                     )}
-                    <span className="ml-auto text-sm font-medium text-gray-900 tabular-nums">
+                    <span className="ml-auto text-sm font-medium text-foreground tabular-nums">
                       {formatMoney(charge.amount)}
                     </span>
                     {onRemoveCharge && (
                       <button
                         type="button"
                         onClick={() => onRemoveCharge(charge.id)}
-                        className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                        className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 transition-colors"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -268,31 +268,31 @@ export function ReceiptHeader({
                   </div>
                 ))}
                 {/* Total */}
-                <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-200">
-                  <span className="text-xs font-medium text-gray-500 uppercase">
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-border">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">
                     Total Charges
                   </span>
-                  <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                  <span className="text-sm font-semibold text-foreground tabular-nums">
                     {formatMoney(charges.reduce((s, c) => s + c.amount, 0))}
                   </span>
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 No charges added. {isExpenseMode ? 'Add shipping/freight charges to expense to GL accounts.' : 'Add charges to allocate across receipt lines.'}
               </p>
             )}
 
             {/* Add charge form */}
             {showAddCharge && (
-              <div className="mt-3 rounded-md border border-indigo-200 bg-indigo-50/30 p-3 space-y-2">
+              <div className="mt-3 rounded-md border border-indigo-500/30 bg-indigo-500/10 p-3 space-y-2">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-0.5">Type</label>
+                    <label className="block text-xs text-muted-foreground mb-0.5">Type</label>
                     <select
                       value={newChargeType}
                       onChange={(e) => setNewChargeType(e.target.value)}
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      className="w-full rounded border border-border px-2 py-1.5 text-sm"
                     >
                       {CHARGE_TYPE_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
@@ -300,7 +300,7 @@ export function ReceiptHeader({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-0.5">Amount</label>
+                    <label className="block text-xs text-muted-foreground mb-0.5">Amount</label>
                     <input
                       type="number"
                       step="0.01"
@@ -308,17 +308,17 @@ export function ReceiptHeader({
                       value={newChargeAmount}
                       onChange={(e) => setNewChargeAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      className="w-full rounded border border-border px-2 py-1.5 text-sm"
                     />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-xs text-gray-500 mb-0.5">Description</label>
+                    <label className="block text-xs text-muted-foreground mb-0.5">Description</label>
                     <input
                       type="text"
                       value={newChargeDesc}
                       onChange={(e) => setNewChargeDesc(e.target.value)}
                       placeholder="Optional"
-                      className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                      className="w-full rounded border border-border px-2 py-1.5 text-sm"
                     />
                   </div>
                 </div>
@@ -327,23 +327,23 @@ export function ReceiptHeader({
                 {isExpenseMode && (
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-0.5">GL Account Code</label>
+                      <label className="block text-xs text-muted-foreground mb-0.5">GL Account Code</label>
                       <input
                         type="text"
                         value={newChargeGlCode}
                         onChange={(e) => setNewChargeGlCode(e.target.value)}
                         placeholder="e.g., 5100"
-                        className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                        className="w-full rounded border border-border px-2 py-1.5 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-0.5">GL Account Name</label>
+                      <label className="block text-xs text-muted-foreground mb-0.5">GL Account Name</label>
                       <input
                         type="text"
                         value={newChargeGlName}
                         onChange={(e) => setNewChargeGlName(e.target.value)}
                         placeholder="e.g., Freight Expense"
-                        className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
+                        className="w-full rounded border border-border px-2 py-1.5 text-sm"
                       />
                     </div>
                   </div>
@@ -354,14 +354,14 @@ export function ReceiptHeader({
                     type="button"
                     onClick={handleAddCharge}
                     disabled={!newChargeAmount || parseFloat(newChargeAmount) <= 0}
-                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition-colors"
                   >
                     Add
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowAddCharge(false)}
-                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent transition-colors"
                   >
                     Cancel
                   </button>
@@ -374,21 +374,21 @@ export function ReceiptHeader({
 
       {/* Read-only charges display for non-draft */}
       {!isDraft && charges.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <h3 className="text-sm font-medium text-foreground mb-2">
             Charges ({receipt.freightMode === 'expense' ? 'Expensed to GL' : 'Allocated to Items'})
           </h3>
           <div className="space-y-1.5">
             {charges.map((charge) => (
               <div key={charge.id} className="flex items-center gap-3 text-sm">
-                <span className="rounded bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 capitalize">
+                <span className="rounded bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground capitalize">
                   {charge.chargeType}
                 </span>
                 {charge.description && (
-                  <span className="text-gray-600">{charge.description}</span>
+                  <span className="text-muted-foreground">{charge.description}</span>
                 )}
                 {charge.glAccountCode && (
-                  <span className="text-xs text-gray-500">GL: {charge.glAccountCode}</span>
+                  <span className="text-xs text-muted-foreground">GL: {charge.glAccountCode}</span>
                 )}
                 <span className="ml-auto font-medium tabular-nums">{formatMoney(charge.amount)}</span>
               </div>

@@ -65,6 +65,7 @@ import {
   tenders,
   rmDailySales,
   rmItemSales,
+  fnbKitchenStations,
 } from './schema';
 
 async function seed() {
@@ -2042,6 +2043,38 @@ async function seed() {
   }
   console.log(`Folios:     ${folioIds.length} created with charges + entries`);
 
+  // ── Default KDS Stations (F&B) ────────────────────────────────
+  const kdsStationIds = [generateUlid(), generateUlid()];
+  await db.insert(fnbKitchenStations).values([
+    {
+      id: kdsStationIds[0]!,
+      tenantId,
+      locationId: locationIds[0]!,
+      name: 'kitchen_main',
+      displayName: 'Main Kitchen',
+      stationType: 'prep',
+      color: '#ef4444',
+      sortOrder: 1,
+      isActive: true,
+      warningThresholdSeconds: 300,
+      criticalThresholdSeconds: 600,
+    },
+    {
+      id: kdsStationIds[1]!,
+      tenantId,
+      locationId: locationIds[0]!,
+      name: 'bar_main',
+      displayName: 'Bar',
+      stationType: 'bar',
+      color: '#3b82f6',
+      sortOrder: 2,
+      isActive: true,
+      warningThresholdSeconds: 180,
+      criticalThresholdSeconds: 420,
+    },
+  ]);
+  console.log(`KDS Stations: 2 created (Main Kitchen + Bar) for venue ${locationIds[0]}`);
+
   // ── Summary ────────────────────────────────────────────────────
   console.log('\n=== Seed Summary ===');
   console.log(`Tenant ID:      ${tenantId}`);
@@ -2058,6 +2091,7 @@ async function seed() {
   console.log('Locations:      1 site, 2 venues (Main Clubhouse, South Course Pro Shop)');
   console.log('Terminals:      2 profit centers, 2 terminals (1 per venue)');
   console.log('Payments:       1 provider (CardPointe), 1 MID (496160873888 UAT)');
+  console.log('KDS Stations:   2 (Main Kitchen prep, Bar)');
   console.log('── Sales ──');
   console.log(`Orders:         ${allOrderInserts.length} (14 days of history, mix of paid + voided)`);
   console.log(`Order Lines:    ${allLineInserts.length}`);

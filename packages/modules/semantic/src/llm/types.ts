@@ -61,6 +61,7 @@ export interface ResolvedIntent {
   confidence: number;          // 0–1, LLM's self-reported confidence
   isClarification: boolean;    // true if LLM asked a question instead of planning
   clarificationText?: string;  // the clarification question
+  clarificationOptions?: string[];  // clickable option buttons for the user
   rawResponse: string;         // raw LLM JSON output
   tokensInput: number;
   tokensOutput: number;
@@ -134,6 +135,7 @@ export interface PipelineOutput {
   plan: QueryPlan | null;
   isClarification: boolean;
   clarificationText: string | null;
+  clarificationOptions?: string[];  // clickable option buttons for clarifications
   // Eval turn ID — ULID of the captured turn, null if capture failed or was skipped
   evalTurnId: string | null;
   // Metadata for eval capture

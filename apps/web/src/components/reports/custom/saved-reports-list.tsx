@@ -68,7 +68,7 @@ export function SavedReportsList() {
         key: 'name',
         header: 'Name',
         render: (row: Record<string, unknown>) => (
-          <span className="font-medium text-gray-900">
+          <span className="font-medium text-foreground">
             {row.name as string}
           </span>
         ),
@@ -145,11 +145,11 @@ export function SavedReportsList() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Custom Reports</h1>
+        <h1 className="text-xl font-semibold text-foreground">Custom Reports</h1>
         <button
           type="button"
           onClick={() => router.push('/reports/custom/new')}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           New Report
@@ -178,7 +178,7 @@ export function SavedReportsList() {
           <button
             type="button"
             onClick={loadMore}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Load More
           </button>

@@ -63,7 +63,7 @@ export default function ProvidersTab({
         <h2 className="text-lg font-medium text-foreground">Payment Providers</h2>
         <button
           onClick={() => setShowAddProvider(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" /> Add Provider
         </button>
@@ -78,7 +78,7 @@ export default function ProvidersTab({
           </p>
           <button
             onClick={() => setShowAddProvider(true)}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" /> Add Provider
           </button>
@@ -109,7 +109,7 @@ export default function ProvidersTab({
                       </span>
                     )}
                     {p.isSandbox && (
-                      <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                      <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-500">
                         Sandbox
                       </span>
                     )}
@@ -121,7 +121,7 @@ export default function ProvidersTab({
                 <div className="relative">
                   <button
                     onClick={(e) => e.stopPropagation()}
-                    className="rounded p-1 hover:bg-muted"
+                    className="rounded p-1 hover:bg-accent"
                   >
                     <MoreVertical className="h-4 w-4 text-muted-foreground" />
                   </button>
@@ -146,7 +146,7 @@ export default function ProvidersTab({
                     setSelectedProviderId(p.id);
                     setShowCredentials(true);
                   }}
-                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent"
                 >
                   <Shield className="mr-1 inline-block h-3 w-3" />
                   Credentials
@@ -164,7 +164,7 @@ export default function ProvidersTab({
                     );
                   }}
                   disabled={mutations.testConnection.isPending || !p.hasCredentials}
-                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent disabled:opacity-50"
                 >
                   {mutations.testConnection.isPending ? (
                     <Loader2 className="mr-1 inline-block h-3 w-3 animate-spin" />
@@ -178,7 +178,7 @@ export default function ProvidersTab({
                     e.stopPropagation();
                     mutations.updateProvider.mutate({ providerId: p.id, isActive: !p.isActive });
                   }}
-                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                  className="rounded border border-input px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent"
                 >
                   {p.isActive ? 'Deactivate' : 'Activate'}
                 </button>
@@ -338,7 +338,7 @@ function CredentialsDialogWrapper({
             })
           }
           disabled={mutations.testConnection.isPending || !site || !username || !password}
-          className="inline-flex items-center gap-1.5 rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
         >
           {mutations.testConnection.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -350,7 +350,7 @@ function CredentialsDialogWrapper({
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -362,7 +362,7 @@ function CredentialsDialogWrapper({
               )
             }
             disabled={mutations.saveCredentials.isPending || !site || !username || !password}
-            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {mutations.saveCredentials.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
             Save Credentials
@@ -407,7 +407,7 @@ function AddProviderDialog({
                 selected === option.code
                   ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500'
                   : option.available && !alreadyAdded
-                    ? 'border-border hover:border-input hover:bg-muted'
+                    ? 'border-border hover:border-input hover:bg-accent'
                     : 'border-border bg-muted opacity-60'
               }`}
             >
@@ -445,7 +445,7 @@ function AddProviderDialog({
       <div className="mt-6 flex justify-end gap-3">
         <button
           onClick={onClose}
-          className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+          className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
         >
           Cancel
         </button>
@@ -460,7 +460,7 @@ function AddProviderDialog({
             }
           }}
           disabled={isLoading || !selectedOption || !selectedOption.available || isAlreadyAdded}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
           Add Provider

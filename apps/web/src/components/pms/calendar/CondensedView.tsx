@@ -150,16 +150,16 @@ export default function CondensedView({
             onClick={() => setSelectedTypeId('__all__')}
             className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-colors ${
               activeTypeId === '__all__'
-                ? 'border border-amber-600/60 bg-amber-50/50'
-                : 'border border-transparent hover:bg-gray-100/50'
+                ? 'border border-amber-600/60 bg-amber-500/10'
+                : 'border border-transparent hover:bg-accent/50'
             }`}
           >
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-gray-900">Combined View</div>
-              <div className="text-[11px] text-gray-500">{rooms.length} total rooms</div>
+              <div className="truncate text-sm font-semibold text-foreground">Combined View</div>
+              <div className="text-[11px] text-muted-foreground">{rooms.length} total rooms</div>
             </div>
             <span className={`ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-              activeTypeId === '__all__' ? 'bg-amber-700 text-white' : 'bg-gray-200/80 text-gray-600'
+              activeTypeId === '__all__' ? 'bg-amber-700 text-white' : 'bg-muted/80 text-muted-foreground'
             }`}>
               {rooms.length}
             </span>

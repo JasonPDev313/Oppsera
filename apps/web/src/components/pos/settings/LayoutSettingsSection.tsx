@@ -33,17 +33,17 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
   return (
     <details className="group">
       <summary className="flex cursor-pointer items-center gap-3 py-3 select-none">
-        <ChevronDown className="h-4 w-4 text-gray-400 transition-transform group-open:rotate-180" />
+        <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
         <div>
           <h4 className="text-sm font-semibold text-foreground">Layout</h4>
-          <p className="text-xs text-gray-500">Adjust the POS screen layout and tile sizes</p>
+          <p className="text-xs text-muted-foreground">Adjust the POS screen layout and tile sizes</p>
         </div>
       </summary>
 
       <div className="space-y-5 pb-4 pl-7">
         {/* Split ratio slider */}
         <div>
-          <label className="mb-2 block text-xs font-medium text-gray-600">
+          <label className="mb-2 block text-xs font-medium text-muted-foreground">
             Catalog / Cart Width
           </label>
           <div className="space-y-2">
@@ -72,7 +72,7 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
                 {splitRatio}/{100 - splitRatio}
               </span>
             </div>
-            <div className="flex justify-between text-[10px] text-gray-400">
+            <div className="flex justify-between text-[10px] text-muted-foreground">
               <span>Catalog</span>
               <span>Cart</span>
             </div>
@@ -81,7 +81,7 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
 
         {/* Item tile size */}
         <div>
-          <label className="mb-2 block text-xs font-medium text-gray-600">Item Tile Size</label>
+          <label className="mb-2 block text-xs font-medium text-muted-foreground">Item Tile Size</label>
           <div className="flex gap-2">
             {TILE_SIZES.map((size) => (
               <button
@@ -91,11 +91,11 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
                 className={`flex flex-col items-center gap-1 rounded-lg border-2 px-4 py-2 transition-colors ${
                   tileSize === size.value
                     ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
-                    : 'border-border text-muted-foreground hover:border-gray-300'
+                    : 'border-border text-muted-foreground hover:border-muted-foreground'
                 }`}
               >
                 <span className="text-sm font-semibold">{size.label}</span>
-                <span className="text-[10px] text-gray-400">{size.px}</span>
+                <span className="text-[10px] text-muted-foreground">{size.px}</span>
               </button>
             ))}
           </div>
@@ -103,15 +103,15 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
 
         {/* Default view mode */}
         <div>
-          <label className="mb-2 block text-xs font-medium text-gray-600">Default View Mode</label>
+          <label className="mb-2 block text-xs font-medium text-muted-foreground">Default View Mode</label>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => update({ defaultViewMode: 'grid' })}
               className={`flex items-center gap-2 rounded-lg border-2 px-4 py-2 transition-colors ${
                 viewMode === 'grid'
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                  : 'border-border text-muted-foreground hover:border-muted-foreground'
               }`}
             >
               <LayoutGrid className="h-4 w-4" />
@@ -122,8 +122,8 @@ export const LayoutSettingsSection = memo(function LayoutSettingsSection({
               onClick={() => update({ defaultViewMode: 'list' })}
               className={`flex items-center gap-2 rounded-lg border-2 px-4 py-2 transition-colors ${
                 viewMode === 'list'
-                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                  : 'border-border text-muted-foreground hover:border-muted-foreground'
               }`}
             >
               <List className="h-4 w-4" />

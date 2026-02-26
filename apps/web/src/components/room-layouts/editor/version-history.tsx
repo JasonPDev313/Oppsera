@@ -167,7 +167,7 @@ export function VersionHistory({ roomId, open, onClose, onRevert }: VersionHisto
               </button>
               <button
                 onClick={handleRevertConfirm}
-                className="rounded bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-700"
+                className="rounded bg-indigo-600 px-3 py-1.5 text-sm text-white hover:bg-indigo-500"
               >
                 Revert
               </button>

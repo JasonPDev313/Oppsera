@@ -28,7 +28,7 @@ export default function DevicesTab() {
         <h2 className="text-lg font-medium text-foreground">Payment Devices</h2>
         <button
           onClick={() => setShowAssign(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" /> Assign Device
         </button>
@@ -46,7 +46,7 @@ export default function DevicesTab() {
           </p>
           <button
             onClick={() => setShowAssign(true)}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" /> Assign Device
           </button>
@@ -66,7 +66,7 @@ export default function DevicesTab() {
             </thead>
             <tbody className="divide-y divide-border bg-surface">
               {devices.map((d) => (
-                <tr key={d.id} className="hover:bg-muted/50">
+                <tr key={d.id} className="hover:bg-accent/50">
                   <td className="px-4 py-3 text-sm text-foreground">{d.terminalName || d.terminalId}</td>
                   <td className="px-4 py-3 text-sm font-mono text-foreground">{d.hsn}</td>
                   <td className="px-4 py-3 text-sm text-foreground">{getDeviceDisplayName(d.deviceModel)}</td>
@@ -90,7 +90,7 @@ export default function DevicesTab() {
                     <div className="flex items-center justify-end gap-1">
                       <button
                         onClick={() => setEditing(d)}
-                        className="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                         title="Edit"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -108,7 +108,7 @@ export default function DevicesTab() {
                           </button>
                           <button
                             onClick={() => setConfirmRemove(null)}
-                            className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                            className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
                           >
                             Cancel
                           </button>
@@ -262,7 +262,7 @@ function AssignDeviceDialog({
         </div>
       </div>
       <div className="mt-6 flex justify-end gap-3">
-        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
+        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">Cancel</button>
         <button
           onClick={() =>
             onSubmit({
@@ -274,7 +274,7 @@ function AssignDeviceDialog({
             })
           }
           disabled={isLoading || !terminalId || !providerId || !hsn}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
           Assign Device
@@ -357,7 +357,7 @@ function EditDeviceDialog({
         </label>
       </div>
       <div className="mt-6 flex justify-end gap-3">
-        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
+        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">Cancel</button>
         <button
           onClick={() =>
             onSubmit({
@@ -368,7 +368,7 @@ function EditDeviceDialog({
             })
           }
           disabled={isLoading || !hsn}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
           Save Changes

@@ -29,7 +29,7 @@ export default function InvoicesContent() {
       actions={
         <Link
           href="/ar/invoices/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           New Invoice
@@ -114,9 +114,9 @@ export default function InvoicesContent() {
                   const isOverdue = inv.dueDate < today! && ['posted', 'partial'].includes(inv.status);
                   const src = SOURCE_BADGES[inv.sourceType];
                   return (
-                    <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                    <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-accent/50">
                       <td className="px-4 py-3 text-sm">
-                        <Link href={`/ar/invoices/${inv.id}`} className="font-medium text-indigo-600 hover:text-indigo-800">
+                        <Link href={`/ar/invoices/${inv.id}`} className="font-medium text-indigo-600 hover:text-indigo-500">
                           {inv.invoiceNumber}
                         </Link>
                       </td>
@@ -155,7 +155,7 @@ export default function InvoicesContent() {
               <Link
                 key={inv.id}
                 href={`/ar/invoices/${inv.id}`}
-                className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-border"
+                className="block rounded-lg border border-border bg-surface p-4 space-y-2 hover:border-muted-foreground"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-indigo-600">{inv.invoiceNumber}</span>

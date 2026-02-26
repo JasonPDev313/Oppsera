@@ -89,7 +89,7 @@ export function CloseShiftDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent/50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -123,7 +123,7 @@ export function CloseShiftDialog({
               <div className="text-muted-foreground">Counted Cash</div>
               <div className="text-right font-medium">{formatMoney(summary.closingCountCents ?? 0)}</div>
               <div className="text-muted-foreground font-semibold">Variance</div>
-              <div className={`text-right font-bold ${(summary.varianceCents ?? 0) === 0 ? 'text-green-600' : (summary.varianceCents ?? 0) > 0 ? 'text-blue-600' : 'text-red-600'}`}>
+              <div className={`text-right font-bold ${(summary.varianceCents ?? 0) === 0 ? 'text-green-500' : (summary.varianceCents ?? 0) > 0 ? 'text-blue-500' : 'text-red-500'}`}>
                 {(summary.varianceCents ?? 0) === 0 ? 'Balanced' : formatMoney(summary.varianceCents ?? 0)}
               </div>
             </div>
@@ -143,7 +143,7 @@ export function CloseShiftDialog({
             <button
               type="button"
               onClick={onClose}
-              className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="mt-4 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               Done
             </button>
@@ -223,7 +223,7 @@ export function CloseShiftDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
+                className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
               >
                 Cancel
               </button>

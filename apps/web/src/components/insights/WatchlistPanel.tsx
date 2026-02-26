@@ -173,7 +173,7 @@ export function WatchlistPanel({
                     <span
                       className={`text-xs font-medium ${
                         isPositive
-                          ? 'text-emerald-600'
+                          ? 'text-emerald-500'
                           : metric.changePct < 0
                           ? 'text-red-500'
                           : 'text-muted-foreground'

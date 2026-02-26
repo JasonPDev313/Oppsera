@@ -93,7 +93,7 @@ export function BranchTree({
         <button
           type="button"
           onClick={() => setShowCreate(!showCreate)}
-          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary hover:bg-gray-200/50 rounded-md transition-colors"
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary hover:bg-accent/50 rounded-md transition-colors"
         >
           <Plus className="h-3 w-3" />
           Fork
@@ -186,7 +186,7 @@ export function BranchTree({
                     className={`w-full text-left pl-10 pr-4 py-2 transition-colors ${
                       isActive
                         ? 'bg-primary/10'
-                        : 'hover:bg-gray-200/50'
+                        : 'hover:bg-accent/50'
                     }`}
                   >
                     {/* Branch connector dot */}

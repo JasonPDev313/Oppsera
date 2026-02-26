@@ -57,18 +57,18 @@ function ImpersonateContent() {
   }, [searchParams, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
+    <div className="flex min-h-screen items-center justify-center bg-muted">
       <div className="w-full max-w-md rounded-xl bg-surface p-8 shadow-lg text-center">
         {isProcessing ? (
           <>
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
-            <p className="mt-4 text-sm text-gray-600">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-border border-t-indigo-600" />
+            <p className="mt-4 text-sm text-muted-foreground">
               Starting impersonation session...
             </p>
           </>
         ) : (
           <>
-            <p className="text-red-600 text-sm">{error}</p>
+            <p className="text-red-500 text-sm">{error}</p>
             <button
               onClick={() => window.close()}
               className="mt-4 inline-block text-sm text-indigo-600 hover:underline"
@@ -86,8 +86,8 @@ export default function ImpersonatePage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-gray-50">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+        <div className="flex min-h-screen items-center justify-center bg-muted">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-border border-t-indigo-600" />
         </div>
       }
     >

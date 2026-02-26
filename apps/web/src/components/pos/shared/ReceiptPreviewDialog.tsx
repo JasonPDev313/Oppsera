@@ -140,7 +140,7 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
                   <span>{formatMoney(order.subtotal)}</span>
                 </div>
                 {order.discountTotal > 0 && (
-                  <div className="flex justify-between text-green-600">
+                  <div className="flex justify-between text-green-500">
                     <span>Discount</span>
                     <span>-{formatMoney(order.discountTotal)}</span>
                   </div>
@@ -184,7 +184,7 @@ export const ReceiptPreviewDialog = memo(function ReceiptPreviewDialog({
             type="button"
             onClick={handlePrint}
             disabled={!order}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
+            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
           >
             <Printer className="h-4 w-4" aria-hidden="true" />
             Print

@@ -32,7 +32,7 @@ export function LoginHistoryModal({ userId, userName, onClose }: LoginHistoryMod
             <button
               type="button"
               onClick={refresh}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50"
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent/50"
               title="Refresh"
             >
               <RefreshCw className="h-4 w-4" />
@@ -40,7 +40,7 @@ export function LoginHistoryModal({ userId, userName, onClose }: LoginHistoryMod
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50"
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent/50"
             >
               <X className="h-5 w-5" />
             </button>
@@ -94,7 +94,7 @@ export function LoginHistoryModal({ userId, userName, onClose }: LoginHistoryMod
             <button
               type="button"
               onClick={loadMore}
-              className="text-sm font-medium text-indigo-500 hover:text-indigo-500"
+              className="text-sm font-medium text-indigo-500 hover:text-indigo-400"
             >
               Load More
             </button>

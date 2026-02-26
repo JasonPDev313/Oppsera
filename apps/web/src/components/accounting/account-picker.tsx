@@ -682,7 +682,7 @@ export function AccountPicker({
                       onChange(acc.id);
                       handleClose();
                     }}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted ${
+                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-accent ${
                       acc.id === value ? 'bg-indigo-500/10 text-indigo-500' :
                       isSuggested ? 'bg-indigo-500/10' : 'text-foreground'
                     }`}
@@ -741,7 +741,7 @@ export function AccountPicker({
                   onChange(null);
                 }
               }}
-              className="text-muted-foreground hover:text-muted-foreground"
+              className="text-muted-foreground hover:text-foreground"
             >
               <X className="h-3.5 w-3.5" />
             </span>

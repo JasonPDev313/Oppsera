@@ -104,7 +104,7 @@ export function AccountTreeView({
                     <div
                       key={acc.id}
                       onClick={() => onEditAccount(acc)}
-                      className={`flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3 transition-colors last:border-0 hover:bg-muted ${
+                      className={`flex cursor-pointer items-center gap-3 border-b border-border px-4 py-3 transition-colors last:border-0 hover:bg-accent ${
                         !acc.isActive ? 'opacity-50' : ''
                       }`}
                       style={{ paddingLeft: `${1 + acc.depth * 1.5}rem` }}

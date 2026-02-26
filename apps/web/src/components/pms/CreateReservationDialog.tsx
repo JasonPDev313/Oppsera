@@ -447,9 +447,9 @@ export default function CreateReservationDialog({
                           key={c.id}
                           type="button"
                           onClick={() => handleSelectCustomer(c)}
-                          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-gray-200/50 first:rounded-t-lg last:rounded-b-lg"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-accent/50 first:rounded-t-lg last:rounded-b-lg"
                         >
-                          <UserPlus className="h-4 w-4 text-gray-400 shrink-0" />
+                          <UserPlus className="h-4 w-4 text-muted-foreground shrink-0" />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-foreground truncate">{c.displayName}</p>
                             <p className="text-xs text-muted-foreground truncate">
@@ -653,7 +653,7 @@ export default function CreateReservationDialog({
               </div>
             </div>
             {ratePlanBaseRate != null && formNightlyRate && parseFloat(formNightlyRate) > 0 && Math.round(parseFloat(formNightlyRate) * 100) !== ratePlanBaseRate && (
-              <p className="text-xs text-amber-600">
+              <p className="text-xs text-amber-500">
                 Rate plan base: ${(ratePlanBaseRate / 100).toFixed(2)}/night &mdash; overriding to ${parseFloat(formNightlyRate).toFixed(2)}/night
               </p>
             )}
@@ -732,7 +732,7 @@ export default function CreateReservationDialog({
             type="button"
             onClick={handleCreateReservation}
             disabled={isSubmitting || roomTypes.length === 0}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {isSubmitting ? 'Creating...' : 'Create Reservation'}

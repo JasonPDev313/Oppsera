@@ -292,7 +292,7 @@ export function RoleEditorPanel({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+              className="rounded-lg border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
             >
               Cancel
             </button>
@@ -300,7 +300,7 @@ export function RoleEditorPanel({
               type="button"
               onClick={handleSubmit}
               disabled={isSaving || !name.trim()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               {isEditing ? 'Save Changes' : 'Create Role'}
@@ -349,7 +349,7 @@ export function RoleEditorPanel({
               <button
                 type="button"
                 onClick={expandAll}
-                className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
+                className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
               >
                 Expand All
               </button>
@@ -357,7 +357,7 @@ export function RoleEditorPanel({
               <button
                 type="button"
                 onClick={collapseAll}
-                className="text-xs font-medium text-indigo-500 hover:text-indigo-500"
+                className="text-xs font-medium text-indigo-500 hover:text-indigo-400"
               >
                 Collapse All
               </button>
@@ -385,7 +385,7 @@ export function RoleEditorPanel({
                   className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                     activeCategoryTab === tab.key
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-muted text-muted-foreground hover:bg-muted'
+                      : 'bg-muted text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   {tab.label}
@@ -419,7 +419,7 @@ export function RoleEditorPanel({
                           return next;
                         });
                       }}
-                      className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
+                      className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
                     >
                       Enable All
                     </button>
@@ -447,7 +447,7 @@ export function RoleEditorPanel({
                         return next;
                       });
                     }}
-                    className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
+                    className="rounded-md border border-input px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
                   >
                     Enable All
                   </button>
@@ -589,7 +589,7 @@ export function RoleEditorPanel({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+                  className="rounded-lg border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
                 >
                   Cancel
                 </button>
@@ -597,7 +597,7 @@ export function RoleEditorPanel({
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSaving}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   Save Changes
@@ -646,7 +646,7 @@ function PermissionItem({
 }) {
   const label = getPermLabel(permKey);
   return (
-    <label className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted cursor-pointer">
+    <label className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover:bg-accent cursor-pointer">
       <input
         type="checkbox"
         checked={checked}

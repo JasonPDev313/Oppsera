@@ -356,7 +356,7 @@ export default function RoomsContent() {
               e.stopPropagation();
               openEditDialog(row as Room);
             }}
-            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-gray-200/50 hover:text-foreground"
+            className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
             title="Edit room"
           >
             <Pencil className="h-4 w-4" />
@@ -390,7 +390,7 @@ export default function RoomsContent() {
           <button
             type="button"
             onClick={() => router.push('/pms/rooms?action=new')}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" />
             Add Room
@@ -454,7 +454,7 @@ export default function RoomsContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-foreground"
+                  className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -531,7 +531,7 @@ export default function RoomsContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
                 >
                   Cancel
                 </button>
@@ -539,7 +539,7 @@ export default function RoomsContent() {
                   type="button"
                   onClick={handleCreateRoom}
                   disabled={isSubmitting || roomTypes.length === 0}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {isSubmitting ? 'Creating...' : 'Create Room'}
@@ -566,7 +566,7 @@ export default function RoomsContent() {
                 <button
                   type="button"
                   onClick={closeEditDialog}
-                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-foreground"
+                  className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -643,7 +643,7 @@ export default function RoomsContent() {
                 <button
                   type="button"
                   onClick={closeEditDialog}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
                 >
                   Cancel
                 </button>
@@ -651,7 +651,7 @@ export default function RoomsContent() {
                   type="button"
                   onClick={handleUpdateRoom}
                   disabled={isEditSubmitting || editRoomTypes.length === 0}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isEditSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {isEditSubmitting ? 'Saving...' : 'Save Changes'}

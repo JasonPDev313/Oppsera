@@ -43,7 +43,7 @@ export function withPortalAuth(handler: PortalHandler): (request: NextRequest) =
         { error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } },
         { status: 401 },
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Portal auth error:', err);
       return NextResponse.json(
         { error: { code: 'INTERNAL_ERROR', message: 'Authentication error' } },

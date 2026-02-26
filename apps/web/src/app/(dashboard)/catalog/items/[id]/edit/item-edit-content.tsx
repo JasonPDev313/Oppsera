@@ -162,7 +162,7 @@ export default function EditItemPage() {
 
   if (!item) {
     return (
-      <div className="py-12 text-center text-sm text-gray-500">Item not found</div>
+      <div className="py-12 text-center text-sm text-muted-foreground">Item not found</div>
     );
   }
 
@@ -170,16 +170,16 @@ export default function EditItemPage() {
     <div className="mx-auto w-full max-w-[40vw] min-w-[640px] space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href={`/catalog/items/${itemId}`} className="rounded-lg p-1 text-gray-400 hover:text-gray-600">
+          <Link href={`/catalog/items/${itemId}`} className="rounded-lg p-1 text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-xl font-semibold text-gray-900">Edit {item.name}</h1>
+          <h1 className="text-xl font-semibold text-foreground">Edit {item.name}</h1>
           {typeBadge && <Badge variant={typeBadge.variant}>{typeBadge.label}</Badge>}
         </div>
         <div className="flex gap-3">
           <Link
             href={`/catalog/items/${itemId}`}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
             Cancel
           </Link>
@@ -187,14 +187,14 @@ export default function EditItemPage() {
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>
 
-      <div className="rounded-lg border border-gray-200 bg-surface p-5 shadow-sm">
+      <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
@@ -203,7 +203,7 @@ export default function EditItemPage() {
                   type="text"
                   value={name}
                   onChange={(e) => { setName(e.target.value); setErrors((p) => ({ ...p, name: '' })); }}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </FormField>
             </div>
@@ -213,7 +213,7 @@ export default function EditItemPage() {
                 value={sku}
                 onChange={(e) => setSku(e.target.value)}
                 onBlur={() => setSku(sku.toUpperCase())}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
           </div>
@@ -223,7 +223,7 @@ export default function EditItemPage() {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -264,8 +264,8 @@ export default function EditItemPage() {
 
       {/* Type-specific fields */}
       {typeGroup === 'fnb' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-gray-900">F&B Options</h3>
+        <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">F&B Options</h3>
           <div className="space-y-3">
             <div className="flex items-center gap-6">
               <label className="flex items-center gap-2 text-sm">
@@ -273,14 +273,14 @@ export default function EditItemPage() {
                   type="checkbox"
                   checked={allowSpecialInstructions}
                   onChange={(e) => setAllowSpecialInstructions(e.target.checked)}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="rounded border-border text-indigo-600 focus:ring-indigo-500"
                 />
                 Allow Special Instructions
               </label>
-              <div className="flex items-center gap-1 text-sm text-gray-600">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
                 <span className="mr-1 font-medium">Portions:</span>
                 {[1.0, 0.5, 0.25].map((f) => (
-                  <label key={f} className="flex items-center gap-1 rounded border border-gray-200 px-2 py-0.5 text-xs">
+                  <label key={f} className="flex items-center gap-1 rounded border border-border px-2 py-0.5 text-xs">
                     <input
                       type="checkbox"
                       checked={allowedFractions.includes(f)}
@@ -291,7 +291,7 @@ export default function EditItemPage() {
                             : allowedFractions.filter((v) => v !== f),
                         );
                       }}
-                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      className="rounded border-border text-indigo-600 focus:ring-indigo-500"
                     />
                     {f}
                   </label>
@@ -323,32 +323,32 @@ export default function EditItemPage() {
       )}
 
       {typeGroup === 'retail' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-gray-900">Retail Options</h3>
+        <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Retail Options</h3>
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={isTrackable}
                 onChange={(e) => setIsTrackable(e.target.checked)}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
               Track Inventory
             </label>
             {optionSets.length > 0 && (
               <div>
-                <p className="mb-1 text-sm font-medium text-gray-700">Option Sets</p>
+                <p className="mb-1 text-sm font-medium text-foreground">Option Sets</p>
                 {optionSets.map((os, idx) => (
-                  <div key={idx} className="mb-1 flex items-center justify-between rounded-lg border border-gray-200 px-3 py-2">
+                  <div key={idx} className="mb-1 flex items-center justify-between rounded-lg border border-border px-3 py-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">{os.name}</span>
-                      {os.required && <span className="text-xs text-gray-500">(required)</span>}
-                      <span className="text-xs text-gray-400">{os.options.join(' · ')}</span>
+                      <span className="text-sm font-medium text-foreground">{os.name}</span>
+                      {os.required && <span className="text-xs text-muted-foreground">(required)</span>}
+                      <span className="text-xs text-muted-foreground">{os.options.join(' · ')}</span>
                     </div>
                     <button
                       type="button"
                       onClick={() => setOptionSets(optionSets.filter((_, i) => i !== idx))}
-                      className="text-gray-400 hover:text-red-500"
+                      className="text-muted-foreground hover:text-red-500"
                     >
                       ×
                     </button>
@@ -356,14 +356,14 @@ export default function EditItemPage() {
                 ))}
               </div>
             )}
-            <p className="text-xs text-gray-500">Retail items are sold as 1 unit per line item</p>
+            <p className="text-xs text-muted-foreground">Retail items are sold as 1 unit per line item</p>
           </div>
         </div>
       )}
 
       {typeGroup === 'service' && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-5 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-gray-900">Service Details</h3>
+        <div className="rounded-lg border border-border bg-surface p-5 shadow-sm">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">Service Details</h3>
           <div className="flex items-end gap-4">
             <div className="w-48">
               <FormField label="Duration (minutes)">
@@ -372,7 +372,7 @@ export default function EditItemPage() {
                   value={durationMinutes ?? ''}
                   onChange={(e) => setDurationMinutes(e.target.value ? Number(e.target.value) : undefined)}
                   min={0}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </FormField>
             </div>
@@ -381,7 +381,7 @@ export default function EditItemPage() {
                 type="checkbox"
                 checked={requiresBooking}
                 onChange={(e) => setRequiresBooking(e.target.checked)}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
               Requires Booking
             </label>

@@ -50,7 +50,7 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent/50"
           >
             <X className="h-5 w-5" />
           </button>
@@ -61,7 +61,7 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
             <div className="rounded-lg bg-red-500/10 px-3 py-2">
               <p className="text-sm font-medium text-red-500">{itemName}</p>
               {amountCents != null && (
-                <p className="text-xs text-red-600">
+                <p className="text-xs text-red-500">
                   Amount: ${(amountCents / 100).toFixed(2)}
                 </p>
               )}
@@ -80,7 +80,7 @@ export function VoidLineDialog({ open, onClose, onVoid, itemName, amountCents }:
                   className={`rounded-full px-2.5 py-1 text-xs transition-colors ${
                     reason === r
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-gray-100/80 hover:bg-gray-200/80'
+                      : 'bg-muted/80 hover:bg-accent/80'
                   }`}
                 >
                   {r}

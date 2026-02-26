@@ -29,7 +29,7 @@ export function RoomTabs({ rooms, activeRoomId, onSelect }: RoomTabsProps) {
               fnb-touch-min
               ${isActive
                 ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
               }
             `}
           >

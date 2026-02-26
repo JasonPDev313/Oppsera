@@ -454,7 +454,7 @@ describe('validateStaffImport', () => {
       expect(result.rows[0]!.matchedUserId).toBe('user-003');
     });
 
-    it('detects duplicate emails within the file', () => {
+    it('skips duplicate emails within the file', () => {
       const result = validateStaffImport({
         rows: [
           ['John', 'Doe', 'john@test.com'],
@@ -470,7 +470,36 @@ describe('validateStaffImport', () => {
       });
 
       expect(result.summary.duplicateEmailsInFile).toContain('john@test.com');
+      // First occurrence creates, second is skipped (not an error)
+      expect(result.rows[0]!.isValid).toBe(true);
+      expect(result.rows[0]!.action).toBe('create');
+      expect(result.rows[1]!.isValid).toBe(true);
+      expect(result.rows[1]!.action).toBe('skip');
       expect(result.rows[1]!.warnings.some((w) => w.code === 'DUPLICATE_IN_FILE')).toBe(true);
+    });
+
+    it('skips triple-duplicate emails within the file', () => {
+      const result = validateStaffImport({
+        rows: [
+          ['Keira', 'Nadolsky', 'keira@test.com'],
+          ['Keira BevCart', 'Nadolsky', 'keira@test.com'],
+          ['Keira Bar', 'Nadolsky', 'keira@test.com'],
+        ],
+        columnMappings: buildMappings(['firstName', 'lastName', 'email']),
+        valueMappings: emptyValueMappings(),
+        existingUsers: emptyLookup(),
+        importMode: 'upsert',
+        autoGenerateUsername: true,
+        defaultRoleId: null,
+        defaultLocationIds: [],
+      });
+
+      // First occurrence creates, second and third are skipped
+      expect(result.rows[0]!.action).toBe('create');
+      expect(result.rows[1]!.action).toBe('skip');
+      expect(result.rows[2]!.action).toBe('skip');
+      expect(result.summary.duplicateEmailsInFile).toContain('keira@test.com');
+      expect(result.summary.skipCount).toBe(2);
     });
   });
 

@@ -162,7 +162,7 @@ function ChangePlanModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -170,7 +170,7 @@ function ChangePlanModal({
             type="button"
             onClick={handleSubmit}
             disabled={!selectedPlanId || isSubmitting}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
@@ -240,7 +240,7 @@ function CurrentSubscriptionCard({
           <button
             type="button"
             onClick={onChangePlan}
-            className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+            className="flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
           >
             <ArrowRightLeft className="h-3.5 w-3.5" />
             Change Plan
@@ -321,7 +321,7 @@ export default function DuesSubTab({ accountId }: { accountId: string }) {
                   <th className="pb-2 font-medium">End</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-border">
                 {pastSubscriptions.map((sub) => (
                   <tr key={sub.id}>
                     <td className="py-2 pr-4 text-foreground">

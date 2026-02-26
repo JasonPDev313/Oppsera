@@ -48,7 +48,7 @@ export function FormField({
       {helpText && !error && (
         <p id={helpId} className="text-xs text-muted-foreground">{helpText}</p>
       )}
-      {error && <p id={errorId} role="alert" className="text-xs text-red-600">{error}</p>}
+      {error && <p id={errorId} role="alert" className="text-xs text-red-500">{error}</p>}
     </div>
   );
 }

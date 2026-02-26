@@ -90,7 +90,7 @@ export function ResultsScreen({ result, onClose, onViewCustomers }: ResultsScree
         <div className="flex gap-2">
           <button
             onClick={onViewCustomers}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
           >
             View Customers
           </button>

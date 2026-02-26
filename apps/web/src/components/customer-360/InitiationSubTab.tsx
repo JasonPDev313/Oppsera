@@ -101,16 +101,16 @@ function ProgressBar({ percent }: { percent: number }) {
   const capped = Math.min(Math.max(percent, 0), 100);
   const color =
     capped >= 100
-      ? 'bg-green-500/100'
+      ? 'bg-green-500'
       : capped >= 50
-        ? 'bg-indigo-500/100'
-        : 'bg-amber-500/100';
+        ? 'bg-indigo-500'
+        : 'bg-amber-500';
   const bgColor =
     capped >= 100
-      ? 'bg-green-500/100/20'
+      ? 'bg-green-500/20'
       : capped >= 50
-        ? 'bg-indigo-500/100/20'
-        : 'bg-amber-500/100/20';
+        ? 'bg-indigo-500/20'
+        : 'bg-amber-500/20';
 
   return (
     <div className="mt-2">
@@ -311,7 +311,7 @@ function ContractCard({
           <button
             type="button"
             onClick={() => setShowCancel((v) => !v)}
-            className="rounded-md border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-500/100/10"
+            className="rounded-md border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-500 hover:bg-red-500/10"
           >
             Cancel
           </button>
@@ -320,7 +320,7 @@ function ContractCard({
 
       {/* Error display */}
       {actionError && (
-        <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/100/10 px-3 py-2 text-sm text-red-500">
+        <div className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
           {actionError}
         </div>
       )}
@@ -342,14 +342,14 @@ function ContractCard({
             type="button"
             onClick={handleExtraPayment}
             disabled={mutating || !extraAmount}
-            className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-md bg-indigo-600 px-3 py-1 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {mutating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
           </button>
           <button
             type="button"
             onClick={() => { setShowExtraPayment(false); setExtraAmount(''); }}
-            className="text-sm text-muted-foreground hover:text-muted-foreground"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             Cancel
           </button>
@@ -358,7 +358,7 @@ function ContractCard({
 
       {/* Cancel inline form */}
       {showCancel && (
-        <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/100/10 p-3">
+        <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/10 p-3">
           <label className="mb-1 block text-sm font-medium text-red-500">
             Cancellation Reason
           </label>
@@ -381,7 +381,7 @@ function ContractCard({
             <button
               type="button"
               onClick={() => { setShowCancel(false); setCancelReason(''); }}
-              className="text-sm text-muted-foreground hover:text-muted-foreground"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
               Dismiss
             </button>
@@ -436,7 +436,7 @@ function AmortizationTable({
       </div>
 
       {billError && (
-        <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/100/10 px-3 py-2 text-sm text-red-500">
+        <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
           {billError}
         </div>
       )}
@@ -460,7 +460,7 @@ function AmortizationTable({
               return (
                 <tr
                   key={entry.id}
-                  className={isNext ? 'bg-indigo-500/100/10' : ''}
+                  className={isNext ? 'bg-indigo-500/10' : ''}
                 >
                   <td className="py-2 pr-3 text-muted-foreground">{entry.periodIndex + 1}</td>
                   <td className="py-2 pr-3 text-foreground">{formatDate(entry.dueDate)}</td>
@@ -482,7 +482,7 @@ function AmortizationTable({
                         type="button"
                         onClick={() => handleBill(entry.periodIndex)}
                         disabled={mutating && billingIndex === entry.periodIndex}
-                        className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                        className="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                       >
                         {mutating && billingIndex === entry.periodIndex ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -561,7 +561,7 @@ function PayoffCalculator({
           )}
 
           {error && (
-            <div className="rounded-md border border-red-500/30 bg-red-500/100/10 px-3 py-2 text-sm text-red-500">
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
               {error.message}
             </div>
           )}
@@ -628,7 +628,7 @@ function DeferredRevenueSection({ accountId }: { accountId: string }) {
           )}
 
           {error && (
-            <div className="rounded-md border border-red-500/30 bg-red-500/100/10 px-3 py-2 text-sm text-red-500">
+            <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
               {error.message}
             </div>
           )}
@@ -651,7 +651,7 @@ function DeferredRevenueSection({ accountId }: { accountId: string }) {
                 </div>
               </div>
 
-              {data.entries.length === 0 ? (
+              {(data.entries ?? []).length === 0 ? (
                 <p className="text-center text-sm text-muted-foreground">No deferred revenue entries.</p>
               ) : (
                 <div className="overflow-x-auto">
@@ -667,7 +667,7 @@ function DeferredRevenueSection({ accountId }: { accountId: string }) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {data.entries.map((entry) => (
+                      {(data.entries ?? []).map((entry) => (
                         <tr key={entry.contractId}>
                           <td className="py-2 pr-3 text-foreground">
                             {formatDate(entry.contractDate)}

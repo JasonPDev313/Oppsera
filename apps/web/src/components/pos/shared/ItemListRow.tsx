@@ -22,22 +22,22 @@ export const ItemListRow = memo(function ItemListRow({ item, onTap }: ItemListRo
     <button
       type="button"
       onClick={handleClick}
-      className={`flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:bg-gray-50 active:scale-[0.99] ${
+      className={`flex w-full items-center gap-3 rounded-md border border-transparent px-3 py-2 text-left transition-colors hover:bg-accent active:scale-[0.99] ${
         isOutOfStock ? 'opacity-50' : ''
       }`}
     >
       {/* Name */}
-      <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
         {item.name}
       </span>
 
       {/* SKU */}
-      <span className="w-24 shrink-0 truncate text-xs font-mono text-gray-400">
+      <span className="w-24 shrink-0 truncate text-xs font-mono text-muted-foreground">
         {item.sku ?? ''}
       </span>
 
       {/* Price */}
-      <span className="w-20 shrink-0 text-right text-sm font-semibold text-gray-700">
+      <span className="w-20 shrink-0 text-right text-sm font-semibold text-foreground">
         {formatPrice(item.price)}
       </span>
 

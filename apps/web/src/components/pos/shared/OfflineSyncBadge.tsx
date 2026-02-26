@@ -98,7 +98,7 @@ function OfflineSyncBadgeComponent() {
             </div>
 
             {!navigator.onLine && (
-              <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-600">
+              <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-sm text-amber-500">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 Still offline. Transactions will sync when connection is restored.
               </div>

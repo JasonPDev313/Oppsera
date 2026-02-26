@@ -19,7 +19,7 @@ import type { CanvasObject } from '@oppsera/shared';
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</h4>
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
       {children}
     </div>
   );
@@ -28,7 +28,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <label className="shrink-0 text-xs text-gray-500">{label}</label>
+      <label className="shrink-0 text-xs text-muted-foreground">{label}</label>
       <div className="flex-1">{children}</div>
     </div>
   );
@@ -62,7 +62,7 @@ function NumInput({
       step={step}
       min={min}
       max={max}
-      className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-right text-xs text-gray-900"
+      className="w-full rounded border border-border bg-surface px-2 py-1 text-right text-xs text-foreground"
     />
   );
 }
@@ -82,7 +82,7 @@ function SelectInput({
     <select
       value={value}
       onChange={(e) => { onChange(e.target.value); onCommit(); }}
-      className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-xs text-gray-900"
+      className="w-full rounded border border-border bg-surface px-2 py-1 text-xs text-foreground"
     >
       {options.map((opt) => (
         <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -118,28 +118,28 @@ function RoomProperties() {
             type="text"
             value={roomName}
             onChange={(e) => setRoomName(e.target.value)}
-            className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-xs text-gray-900"
+            className="w-full rounded border border-border bg-surface px-2 py-1 text-xs text-foreground"
           />
         </Field>
         <Field label="Width (ft)">
-          <span className="text-xs text-gray-700">{widthFt}</span>
+          <span className="text-xs text-foreground">{widthFt}</span>
         </Field>
         <Field label="Height (ft)">
-          <span className="text-xs text-gray-700">{heightFt}</span>
+          <span className="text-xs text-foreground">{heightFt}</span>
         </Field>
         <Field label="Grid Size">
-          <span className="text-xs text-gray-700">{gridSizeFt} ft</span>
+          <span className="text-xs text-foreground">{gridSizeFt} ft</span>
         </Field>
         <Field label="Scale">
-          <span className="text-xs text-gray-700">{scalePxPerFt} px/ft</span>
+          <span className="text-xs text-foreground">{scalePxPerFt} px/ft</span>
         </Field>
       </Section>
       <Section title="Summary">
         <Field label="Objects">
-          <span className="text-xs text-gray-700">{objects.length}</span>
+          <span className="text-xs text-foreground">{objects.length}</span>
         </Field>
         <Field label="Capacity">
-          <span className="text-xs text-gray-700">{totalCapacity} seats</span>
+          <span className="text-xs text-foreground">{totalCapacity} seats</span>
         </Field>
       </Section>
     </div>
@@ -226,19 +226,19 @@ function ObjectProperties({ objs }: { objs: CanvasObject[] }) {
     <div className="space-y-4">
       {isSingle ? (
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium capitalize text-gray-900">
+          <span className="text-sm font-medium capitalize text-foreground">
             {obj.type.replace('_', ' ')}
           </span>
           <button
             onClick={() => { handleChange('locked', !obj.locked); commit(); }}
-            className="rounded p-1 hover:bg-gray-100"
+            className="rounded p-1 hover:bg-accent"
             title={obj.locked ? 'Unlock' : 'Lock'}
           >
-            {obj.locked ? <Lock className="h-3.5 w-3.5 text-gray-500" /> : <Unlock className="h-3.5 w-3.5 text-gray-400" />}
+            {obj.locked ? <Lock className="h-3.5 w-3.5 text-muted-foreground" /> : <Unlock className="h-3.5 w-3.5 text-muted-foreground" />}
           </button>
         </div>
       ) : (
-        <p className="text-sm font-medium text-gray-700">{objs.length} objects selected</p>
+        <p className="text-sm font-medium text-foreground">{objs.length} objects selected</p>
       )}
 
       <Section title="Position & Size">
@@ -259,7 +259,7 @@ function ObjectProperties({ objs }: { objs: CanvasObject[] }) {
         <Field label="Rotation">
           <div className="flex items-center gap-1">
             <NumInput value={obj.rotation} onChange={(v) => handleChange('rotation', v)} onCommit={commit} step={15} min={0} max={360} />
-            <span className="text-xs text-gray-400">deg</span>
+            <span className="text-xs text-muted-foreground">deg</span>
           </div>
         </Field>
       </Section>
@@ -286,10 +286,10 @@ function ObjectProperties({ objs }: { objs: CanvasObject[] }) {
         </Field>
         {isSingle && (
           <div className="flex gap-1">
-            <button onClick={handleBringToFront} className="flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 hover:bg-gray-200" title="Bring to Front">
+            <button onClick={handleBringToFront} className="flex items-center gap-1 rounded bg-muted px-2 py-1 text-xs text-foreground hover:bg-accent" title="Bring to Front">
               <ArrowUpToLine className="h-3 w-3" /> Front
             </button>
-            <button onClick={handleSendToBack} className="flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 hover:bg-gray-200" title="Send to Back">
+            <button onClick={handleSendToBack} className="flex items-center gap-1 rounded bg-muted px-2 py-1 text-xs text-foreground hover:bg-accent" title="Send to Back">
               <ArrowDownToLine className="h-3 w-3" /> Back
             </button>
           </div>
@@ -299,7 +299,7 @@ function ObjectProperties({ objs }: { objs: CanvasObject[] }) {
       {isSingle && obj.type === 'table' && (
         <Section title="Table Settings">
           <Field label="Table #">
-            <input type="text" value={String(props.tableNumber ?? '')} onChange={(e) => handlePropChange('tableNumber', e.target.value)} onBlur={commit} className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-xs text-gray-900" />
+            <input type="text" value={String(props.tableNumber ?? '')} onChange={(e) => handlePropChange('tableNumber', e.target.value)} onBlur={commit} className="w-full rounded border border-border bg-surface px-2 py-1 text-xs text-foreground" />
           </Field>
           <Field label="Shape">
             <SelectInput value={String(props.shape ?? 'square')} options={[{ value: 'square', label: 'Square' }, { value: 'round', label: 'Round' }, { value: 'rectangle', label: 'Rectangle' }, { value: 'oval', label: 'Oval' }]} onChange={(v) => handlePropChange('shape', v)} onCommit={commit} />
@@ -347,8 +347,8 @@ function ObjectProperties({ objs }: { objs: CanvasObject[] }) {
       {isSingle && obj.type === 'text_label' && (
         <Section title="Text Settings">
           <div>
-            <label className="text-xs text-gray-500">Content</label>
-            <textarea value={String(props.text ?? '')} onChange={(e) => handlePropChange('text', e.target.value)} onBlur={commit} rows={2} className="mt-1 w-full rounded border border-gray-300 bg-surface px-2 py-1 text-xs text-gray-900" />
+            <label className="text-xs text-muted-foreground">Content</label>
+            <textarea value={String(props.text ?? '')} onChange={(e) => handlePropChange('text', e.target.value)} onBlur={commit} rows={2} className="mt-1 w-full rounded border border-border bg-surface px-2 py-1 text-xs text-foreground" />
           </div>
           <Field label="Font Size">
             <NumInput value={Number(props.fontSize ?? 16)} onChange={(v) => handlePropChange('fontSize', v)} onCommit={commit} step={1} min={8} max={72} />
@@ -359,7 +359,7 @@ function ObjectProperties({ objs }: { objs: CanvasObject[] }) {
           <Field label="Align">
             <div className="flex gap-1">
               {(['left', 'center', 'right'] as const).map((align) => (
-                <button key={align} onClick={() => { handlePropChange('textAlign', align); commit(); }} className={`rounded p-1 ${String(props.textAlign ?? 'center') === align ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:bg-gray-100'}`}>
+                <button key={align} onClick={() => { handlePropChange('textAlign', align); commit(); }} className={`rounded p-1 ${String(props.textAlign ?? 'center') === align ? 'bg-indigo-500/10 text-indigo-600' : 'text-muted-foreground hover:bg-accent'}`}>
                   {align === 'left' && <AlignLeft className="h-3.5 w-3.5" />}
                   {align === 'center' && <AlignCenter className="h-3.5 w-3.5" />}
                   {align === 'right' && <AlignRight className="h-3.5 w-3.5" />}
@@ -373,7 +373,7 @@ function ObjectProperties({ objs }: { objs: CanvasObject[] }) {
       {isSingle && obj.type === 'service_zone' && (
         <Section title="Zone Settings">
           <Field label="Name">
-            <input type="text" value={String(props.zoneName ?? '')} onChange={(e) => handlePropChange('zoneName', e.target.value)} onBlur={commit} className="w-full rounded border border-gray-300 bg-surface px-2 py-1 text-xs text-gray-900" />
+            <input type="text" value={String(props.zoneName ?? '')} onChange={(e) => handlePropChange('zoneName', e.target.value)} onBlur={commit} className="w-full rounded border border-border bg-surface px-2 py-1 text-xs text-foreground" />
           </Field>
           <Field label="Type">
             <SelectInput value={String(props.zoneType ?? 'wait_service')} options={[{ value: 'bar_service', label: 'Bar Service' }, { value: 'wait_service', label: 'Wait Service' }, { value: 'self_service', label: 'Self Service' }, { value: 'kitchen_service', label: 'Kitchen Service' }]} onChange={(v) => handlePropChange('zoneType', v)} onCommit={commit} />
@@ -392,9 +392,9 @@ export function InspectorPanel() {
   const selectedObjects = objects.filter((o) => selectedIds.includes(o.id));
 
   return (
-    <div className="flex h-full w-70 flex-col border-l border-gray-200 bg-surface">
-      <div className="border-b border-gray-200 px-3 py-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Inspector</h3>
+    <div className="flex h-full w-70 flex-col border-l border-border bg-surface">
+      <div className="border-b border-border px-3 py-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Inspector</h3>
       </div>
       <div className="flex-1 overflow-y-auto p-3">
         {selectedObjects.length === 0 ? (

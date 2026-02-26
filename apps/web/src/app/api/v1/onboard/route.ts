@@ -32,6 +32,7 @@ import {
   erpWorkflowConfigs,
   erpWorkflowConfigChangeLog,
   accountingSettings,
+  fnbKitchenStations,
 } from '@oppsera/db';
 import type { Database } from '@oppsera/db';
 import { TIER_WORKFLOW_DEFAULTS, getAllWorkflowKeys } from '@oppsera/shared';
@@ -309,6 +310,27 @@ export const POST = withMiddleware(
           await bootstrapTenantCoa(txDb, tenantId, coaTemplateKey);
         } catch (err) {
           console.error('[onboard] Accounting bootstrap failed (non-blocking):', err);
+        }
+      }
+
+      // 8c. Create default KDS station if F&B module is selected
+      if (moduleSet.has('pos_fnb')) {
+        try {
+          await tx.insert(fnbKitchenStations).values({
+            id: generateUlid(),
+            tenantId,
+            locationId,
+            name: 'kitchen_main',
+            displayName: 'Main Kitchen',
+            stationType: 'prep',
+            color: '#ef4444',
+            sortOrder: 1,
+            isActive: true,
+            warningThresholdSeconds: 300,
+            criticalThresholdSeconds: 600,
+          });
+        } catch (err) {
+          console.error('[onboard] KDS station creation failed (non-blocking):', err);
         }
       }
 

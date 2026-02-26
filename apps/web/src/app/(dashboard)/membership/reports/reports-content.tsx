@@ -78,15 +78,15 @@ function KpiCard({
   subtitle?: string;
 }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-center gap-3">
         <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${color}`}>
           <Icon className="h-5 w-5 text-white" />
         </div>
         <div>
-          <div className="text-xs font-medium uppercase tracking-wider text-gray-500">{title}</div>
-          <div className="text-xl font-bold text-gray-900">{value}</div>
-          {subtitle && <div className="text-xs text-gray-400">{subtitle}</div>}
+          <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</div>
+          <div className="text-xl font-bold text-foreground">{value}</div>
+          {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
         </div>
       </div>
     </div>
@@ -98,10 +98,10 @@ function KpiCard({
 function ComplianceRow({ entry }: { entry: MinimumComplianceEntry }) {
   const progressColor =
     entry.progressPercent >= 100
-      ? 'text-green-700'
+      ? 'text-green-500'
       : entry.progressPercent >= 50
-        ? 'text-amber-700'
-        : 'text-red-700';
+        ? 'text-amber-500'
+        : 'text-red-500';
 
   const barColor =
     entry.progressPercent >= 100
@@ -112,23 +112,23 @@ function ComplianceRow({ entry }: { entry: MinimumComplianceEntry }) {
 
   const barBg =
     entry.progressPercent >= 100
-      ? 'bg-green-100'
+      ? 'bg-green-500/10'
       : entry.progressPercent >= 50
-        ? 'bg-amber-100'
-        : 'bg-red-100';
+        ? 'bg-amber-500/10'
+        : 'bg-red-500/10';
 
   return (
-    <tr className="border-b border-gray-50 hover:bg-gray-50/50">
-      <td className="py-3 pr-4 text-sm text-gray-900">
+    <tr className="border-b border-gray-50 hover:bg-accent/50">
+      <td className="py-3 pr-4 text-sm text-foreground">
         {entry.customerId.slice(0, 12)}...
       </td>
-      <td className="py-3 pr-4 text-sm text-gray-600">
+      <td className="py-3 pr-4 text-sm text-muted-foreground">
         {formatDate(entry.periodStart)} - {formatDate(entry.periodEnd)}
       </td>
-      <td className="py-3 pr-4 text-right text-sm font-medium text-gray-900">
+      <td className="py-3 pr-4 text-right text-sm font-medium text-foreground">
         {formatMoney(entry.requiredCents)}
       </td>
-      <td className="py-3 pr-4 text-right text-sm text-gray-900">
+      <td className="py-3 pr-4 text-right text-sm text-foreground">
         {formatMoney(entry.satisfiedCents)}
       </td>
       <td className="py-3 pr-4">
@@ -146,9 +146,9 @@ function ComplianceRow({ entry }: { entry: MinimumComplianceEntry }) {
       </td>
       <td className="py-3 pr-4 text-right text-sm">
         {entry.shortfallCents > 0 ? (
-          <span className="text-red-600">{formatMoney(entry.shortfallCents)}</span>
+          <span className="text-red-500">{formatMoney(entry.shortfallCents)}</span>
         ) : (
-          <span className="text-green-600">$0.00</span>
+          <span className="text-green-500">$0.00</span>
         )}
       </td>
       <td className="py-3">
@@ -211,13 +211,13 @@ export default function ReportsContent() {
   if (isLoading && !dashboard) {
     return (
       <div className="mx-auto max-w-7xl space-y-6 p-6">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-100" />
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
-        <div className="h-64 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-64 animate-pulse rounded-lg bg-muted" />
       </div>
     );
   }
@@ -225,14 +225,14 @@ export default function ReportsContent() {
   // Error
   if (error) {
     return (
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-3 p-12 text-gray-500">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-3 p-12 text-muted-foreground">
         <AlertCircle className="h-10 w-10 text-red-400" />
         <p className="text-sm font-medium">Failed to load compliance data</p>
-        <p className="text-xs text-gray-400">{error.message}</p>
+        <p className="text-xs text-muted-foreground">{error.message}</p>
         <button
           type="button"
           onClick={mutate}
-          className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700"
+          className="flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-500"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Retry
@@ -246,8 +246,8 @@ export default function ReportsContent() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Minimum Spend Compliance</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-xl font-bold text-foreground">Minimum Spend Compliance</h1>
+          <p className="text-sm text-muted-foreground">
             Track member progress toward minimum spending requirements
           </p>
         </div>
@@ -255,7 +255,7 @@ export default function ReportsContent() {
           <button
             type="button"
             onClick={mutate}
-            className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Refresh
@@ -264,7 +264,7 @@ export default function ReportsContent() {
             <button
               type="button"
               onClick={() => exportCsv(filteredEntries)}
-              className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               <Download className="h-3.5 w-3.5" />
               Export CSV
@@ -274,35 +274,35 @@ export default function ReportsContent() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-surface p-4">
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-surface p-4">
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-400" />
-          <span className="text-sm font-medium text-gray-700">Filters</span>
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground">Filters</span>
         </div>
         <div>
-          <label className="block text-xs text-gray-500">Period Start</label>
+          <label className="block text-xs text-muted-foreground">Period Start</label>
           <input
             type="date"
             value={periodStart}
             onChange={(e) => setPeriodStart(e.target.value)}
-            className="rounded-md border border-gray-300 bg-surface px-2.5 py-1.5 text-sm text-gray-900"
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500">Period End</label>
+          <label className="block text-xs text-muted-foreground">Period End</label>
           <input
             type="date"
             value={periodEnd}
             onChange={(e) => setPeriodEnd(e.target.value)}
-            className="rounded-md border border-gray-300 bg-surface px-2.5 py-1.5 text-sm text-gray-900"
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-500">Status</label>
+          <label className="block text-xs text-muted-foreground">Status</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-md border border-gray-300 bg-surface px-2.5 py-1.5 text-sm text-gray-900"
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
           >
             <option value="">All</option>
             <option value="open">Open</option>
@@ -311,11 +311,11 @@ export default function ReportsContent() {
           </select>
         </div>
         <div>
-          <label className="block text-xs text-gray-500">Compliance</label>
+          <label className="block text-xs text-muted-foreground">Compliance</label>
           <select
             value={trafficFilter}
             onChange={(e) => setTrafficFilter(e.target.value as 'all' | 'green' | 'amber' | 'red')}
-            className="rounded-md border border-gray-300 bg-surface px-2.5 py-1.5 text-sm text-gray-900"
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
           >
             <option value="all">All</option>
             <option value="green">Met (100%+)</option>
@@ -373,27 +373,27 @@ export default function ReportsContent() {
       {/* Aggregate totals */}
       {dashboard && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 text-center">
-            <div className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <div className="rounded-lg border border-border bg-surface p-4 text-center">
+            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Total Required
             </div>
-            <div className="mt-1 text-lg font-bold text-gray-900">
+            <div className="mt-1 text-lg font-bold text-foreground">
               {formatMoney(dashboard.totalRequiredCents)}
             </div>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 text-center">
-            <div className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <div className="rounded-lg border border-border bg-surface p-4 text-center">
+            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Total Satisfied
             </div>
-            <div className="mt-1 text-lg font-bold text-gray-900">
+            <div className="mt-1 text-lg font-bold text-foreground">
               {formatMoney(dashboard.totalSatisfiedCents)}
             </div>
           </div>
-          <div className="rounded-lg border border-gray-200 bg-surface p-4 text-center">
-            <div className="text-xs font-medium uppercase tracking-wider text-gray-500">
+          <div className="rounded-lg border border-border bg-surface p-4 text-center">
+            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Total Shortfall
             </div>
-            <div className={`mt-1 text-lg font-bold ${dashboard.totalShortfallCents > 0 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className={`mt-1 text-lg font-bold ${dashboard.totalShortfallCents > 0 ? 'text-red-500' : 'text-green-500'}`}>
               {formatMoney(dashboard.totalShortfallCents)}
             </div>
           </div>
@@ -402,15 +402,15 @@ export default function ReportsContent() {
 
       {/* Compliance Table */}
       {dashboard && (
-        <div className="rounded-lg border border-gray-200 bg-surface">
-          <div className="border-b border-gray-200 px-4 py-3">
-            <h2 className="text-sm font-semibold text-gray-900">
+        <div className="rounded-lg border border-border bg-surface">
+          <div className="border-b border-border px-4 py-3">
+            <h2 className="text-sm font-semibold text-foreground">
               Member Compliance Detail ({filteredEntries.length})
             </h2>
           </div>
 
           {filteredEntries.length === 0 ? (
-            <div className="flex h-48 flex-col items-center justify-center gap-2 text-gray-400">
+            <div className="flex h-48 flex-col items-center justify-center gap-2 text-muted-foreground">
               <Target className="h-6 w-6" />
               <p className="text-sm">No compliance records found for the selected filters.</p>
             </div>
@@ -418,7 +418,7 @@ export default function ReportsContent() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-xs text-gray-500">
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
                     <th className="px-4 py-3 font-medium">Customer</th>
                     <th className="px-4 py-3 font-medium">Period</th>
                     <th className="px-4 py-3 text-right font-medium">Required</th>

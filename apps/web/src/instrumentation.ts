@@ -175,6 +175,9 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('fnb.payment.check_comped.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
       bus.subscribe('fnb.payment.check_discounted.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
       bus.subscribe('fnb.payment.check_voided.v1', (event) => fnb.handleFnbDiscountComp(event.tenantId, event.data as any));
+      // KDS ticket creation: course sent/fired → create kitchen tickets
+      bus.subscribe('fnb.course.sent.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any));
+      bus.subscribe('fnb.course.fired.v1', (event) => fnb.handleCourseSent(event.tenantId, event.data as any));
     }),
 
     // Golf Reporting consumers

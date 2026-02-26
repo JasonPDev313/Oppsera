@@ -207,10 +207,10 @@ export default function ModifiersContent() {
   if (isLoading) {
     return (
       <div className="p-6">
-        <div className="h-8 w-48 rounded bg-gray-200/50 animate-pulse mb-6" />
+        <div className="h-8 w-48 rounded bg-muted/50 animate-pulse mb-6" />
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 rounded-lg bg-gray-200/30 animate-pulse" />
+            <div key={i} className="h-20 rounded-lg bg-muted/30 animate-pulse" />
           ))}
         </div>
       </div>
@@ -228,16 +228,16 @@ export default function ModifiersContent() {
   return (
     <div className="flex h-full">
       {/* Left panel: Category tree */}
-      <div className="w-56 shrink-0 border-r border-gray-200/60 overflow-y-auto p-3">
+      <div className="w-56 shrink-0 border-r border-border/60 overflow-y-auto p-3">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Categories</h3>
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categories</h3>
           <button
             type="button"
             onClick={() => {
               setEditingCategory(null);
               setCategoryFormOpen(true);
             }}
-            className="rounded p-1 text-gray-400 hover:text-indigo-600 hover:bg-indigo-500/10 transition-colors"
+            className="rounded p-1 text-muted-foreground hover:text-indigo-600 hover:bg-indigo-500/10 transition-colors"
             title="Add category"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -251,7 +251,7 @@ export default function ModifiersContent() {
           className={`w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors mb-1 ${
             selectedCategoryId === null
               ? 'bg-indigo-500/15 text-indigo-600'
-              : 'text-gray-600 hover:bg-gray-200/50'
+              : 'text-muted-foreground hover:bg-accent/50'
           }`}
         >
           All Groups
@@ -267,7 +267,7 @@ export default function ModifiersContent() {
                 className={`flex-1 text-left rounded-lg px-3 py-1.5 text-sm font-medium transition-colors truncate ${
                   selectedCategoryId === root.id
                     ? 'bg-indigo-500/15 text-indigo-600'
-                    : 'text-gray-600 hover:bg-gray-200/50'
+                    : 'text-muted-foreground hover:bg-accent/50'
                 }`}
               >
                 <FolderTree className="h-3.5 w-3.5 inline mr-1.5 opacity-50" />
@@ -279,7 +279,7 @@ export default function ModifiersContent() {
                   setEditingCategory({ id: root.id, name: root.name });
                   setCategoryFormOpen(true);
                 }}
-                className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-gray-400 hover:text-gray-600 transition-opacity"
+                className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-foreground transition-opacity"
                 title="Edit"
               >
                 <MoreVertical className="h-3 w-3" />
@@ -295,7 +295,7 @@ export default function ModifiersContent() {
                   className={`flex-1 text-left rounded-lg px-3 py-1 text-xs font-medium transition-colors truncate ${
                     selectedCategoryId === child.id
                       ? 'bg-indigo-500/15 text-indigo-600'
-                      : 'text-gray-500 hover:bg-gray-200/50'
+                      : 'text-muted-foreground hover:bg-accent/50'
                   }`}
                 >
                   {child.name}
@@ -303,7 +303,7 @@ export default function ModifiersContent() {
                 <button
                   type="button"
                   onClick={() => handleDeleteCategory(child.id)}
-                  className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-gray-400 hover:text-red-500 transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 rounded p-0.5 text-muted-foreground hover:text-red-500 transition-opacity"
                   title="Delete"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -319,8 +319,8 @@ export default function ModifiersContent() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Modifier Groups</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <h1 className="text-xl font-bold text-foreground">Modifier Groups</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
               Manage modifier groups for menu items (e.g., Toppings, Temperatures, Sides).
             </p>
           </div>
@@ -328,14 +328,14 @@ export default function ModifiersContent() {
             <button
               type="button"
               onClick={() => setBulkAssignOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-gray-300/60 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg border border-border/60 px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors"
             >
               Bulk Assign
             </button>
             <button
               type="button"
               onClick={handleCreate}
-              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
             >
               <Plus className="h-4 w-4" />
               New Group
@@ -345,32 +345,32 @@ export default function ModifiersContent() {
 
         {/* Search bar */}
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search groups or options..."
-            className="w-full rounded-lg border border-gray-300/60 bg-surface pl-9 pr-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+            className="w-full rounded-lg border border-border/60 bg-surface pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
           />
         </div>
 
         {/* Groups list */}
         {filteredGroups.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-gray-300/60 p-12 text-center">
-            <p className="text-sm font-medium text-gray-600 mb-1">
+          <div className="rounded-lg border border-dashed border-border/60 p-12 text-center">
+            <p className="text-sm font-medium text-muted-foreground mb-1">
               {searchTerm ? 'No matching groups found' : 'No modifier groups yet'}
             </p>
             {!searchTerm && (
               <>
-                <p className="text-xs text-gray-400 mb-4">
+                <p className="text-xs text-muted-foreground mb-4">
                   Create modifier groups like &quot;Cooking Temperature&quot;, &quot;Extra
                   Toppings&quot;, or &quot;Sides&quot;.
                 </p>
                 <button
                   type="button"
                   onClick={handleCreate}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 transition-colors"
                 >
                   <Plus className="h-4 w-4" />
                   Create First Group
@@ -388,7 +388,7 @@ export default function ModifiersContent() {
               return (
                 <div
                   key={group.id}
-                  className="rounded-lg border border-gray-200/60 bg-surface overflow-hidden transition-shadow hover:shadow-sm"
+                  className="rounded-lg border border-border/60 bg-surface overflow-hidden transition-shadow hover:shadow-sm"
                 >
                   {/* Group header */}
                   <div className="flex items-center gap-3 px-4 py-3">
@@ -398,9 +398,9 @@ export default function ModifiersContent() {
                       className="shrink-0"
                     >
                       {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                       ) : (
-                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
                       )}
                     </button>
 
@@ -410,8 +410,8 @@ export default function ModifiersContent() {
                       className="flex-1 min-w-0 text-left"
                     >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm text-gray-900">{group.name}</span>
-                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-gray-200/50 text-gray-600">
+                        <span className="font-semibold text-sm text-foreground">{group.name}</span>
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted/50 text-muted-foreground">
                           {group.selectionType === 'single' ? 'Single' : 'Multi'}
                         </span>
                         {group.isRequired && (
@@ -425,7 +425,7 @@ export default function ModifiersContent() {
                           </span>
                         )}
                       </div>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-muted-foreground">
                         {modCount} option{modCount !== 1 ? 's' : ''}
                         {group.minSelections > 0 && ` · Min ${group.minSelections}`}
                         {group.maxSelections > 0 && ` · Max ${group.maxSelections}`}
@@ -437,7 +437,7 @@ export default function ModifiersContent() {
                       <button
                         type="button"
                         onClick={() => setMenuOpenId(menuOpenId === group.id ? null : group.id)}
-                        className="rounded p-1.5 text-gray-400 hover:bg-gray-200/50 transition-colors"
+                        className="rounded p-1.5 text-muted-foreground hover:bg-accent/50 transition-colors"
                       >
                         <MoreVertical className="h-4 w-4" />
                       </button>
@@ -448,18 +448,18 @@ export default function ModifiersContent() {
                             className="fixed inset-0 z-10"
                             onClick={() => setMenuOpenId(null)}
                           />
-                          <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-lg border border-gray-200/60 bg-surface py-1 shadow-lg">
+                          <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-lg border border-border/60 bg-surface py-1 shadow-lg">
                             <button
                               type="button"
                               onClick={() => handleEdit(group)}
-                              className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200/50"
+                              className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent/50"
                             >
                               Edit
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDuplicate(group)}
-                              className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-200/50 flex items-center gap-2"
+                              className="w-full text-left px-3 py-1.5 text-sm text-foreground hover:bg-accent/50 flex items-center gap-2"
                             >
                               <Copy className="h-3.5 w-3.5" />
                               Duplicate
@@ -472,24 +472,24 @@ export default function ModifiersContent() {
 
                   {/* Expanded: show modifier options */}
                   {isExpanded && group.modifiers && (
-                    <div className="px-4 pb-3 border-t border-gray-200/40">
+                    <div className="px-4 pb-3 border-t border-border/40">
                       <div className="mt-2 space-y-1">
                         {group.modifiers
                           .filter((m) => m.isActive)
                           .map((mod) => (
                             <div
                               key={mod.id}
-                              className="flex items-center justify-between rounded px-3 py-1.5 text-sm bg-gray-200/30"
+                              className="flex items-center justify-between rounded px-3 py-1.5 text-sm bg-muted/30"
                             >
                               <div className="flex items-center gap-2">
-                                <span className="text-gray-700">{mod.name}</span>
+                                <span className="text-foreground">{mod.name}</span>
                                 {mod.kitchenLabel && (
-                                  <span className="text-[10px] text-gray-400">
+                                  <span className="text-[10px] text-muted-foreground">
                                     KDS: {mod.kitchenLabel}
                                   </span>
                                 )}
                                 {mod.isDefaultOption && (
-                                  <span className="rounded px-1 py-0.5 text-[9px] font-medium bg-green-500/10 text-green-600">
+                                  <span className="rounded px-1 py-0.5 text-[9px] font-medium bg-green-500/10 text-green-500">
                                     Default
                                   </span>
                                 )}
@@ -501,7 +501,7 @@ export default function ModifiersContent() {
                                       Extra +${Number(mod.extraPriceDelta).toFixed(2)}
                                     </span>
                                   )}
-                                <span className="text-xs font-mono text-gray-500">
+                                <span className="text-xs font-mono text-muted-foreground">
                                   {Number(mod.priceAdjustment) > 0
                                     ? `+$${Number(mod.priceAdjustment).toFixed(2)}`
                                     : 'No charge'}
@@ -587,7 +587,7 @@ function CategoryFormModal({
       style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
     >
       <div className="bg-surface rounded-xl shadow-2xl w-full max-w-sm p-5">
-        <h3 className="text-sm font-bold text-gray-900 mb-3">
+        <h3 className="text-sm font-bold text-foreground mb-3">
           {editing ? 'Edit Category' : 'New Category'}
         </h3>
         <input
@@ -599,7 +599,7 @@ function CategoryFormModal({
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleSubmit();
           }}
-          className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none mb-3"
+          className="w-full rounded-lg border border-border/60 bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none mb-3"
         />
         <div className="flex gap-2">
           {editing && onDelete && (
@@ -618,7 +618,7 @@ function CategoryFormModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300/60 px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-200/50 transition-colors"
+            className="rounded-lg border border-border/60 px-4 py-2 text-xs font-medium text-foreground hover:bg-accent/50 transition-colors"
           >
             Cancel
           </button>
@@ -626,7 +626,7 @@ function CategoryFormModal({
             type="button"
             onClick={handleSubmit}
             disabled={saving || !name.trim()}
-            className="rounded-lg px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="rounded-lg px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
@@ -811,14 +811,14 @@ function ModifierGroupModal({
     >
       <div className="bg-surface rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200/60">
-          <h2 className="text-base font-bold text-gray-900">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
+          <h2 className="text-base font-bold text-foreground">
             {isEditing ? 'Edit Modifier Group' : 'New Modifier Group'}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-200/50 transition-colors"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent/50 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -829,21 +829,21 @@ function ModifierGroupModal({
           {/* Row 1: Group name + Category */}
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Group Name</label>
+              <label className="block text-xs font-semibold text-foreground mb-1">Group Name</label>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => updateField('name', e.target.value)}
                 placeholder="e.g., Cooking Temperature, Extra Toppings"
-                className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="w-full rounded-lg border border-border/60 bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               />
             </div>
             <div className="w-48">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Category</label>
+              <label className="block text-xs font-semibold text-foreground mb-1">Category</label>
               <select
                 value={form.categoryId}
                 onChange={(e) => updateField('categoryId', e.target.value)}
-                className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                className="w-full rounded-lg border border-border/60 bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
               >
                 <option value="">None</option>
                 {categories.map((c) => (
@@ -859,17 +859,17 @@ function ModifierGroupModal({
           {/* Row 2: Selection type + Required */}
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="flex items-center gap-1 text-xs font-semibold text-gray-700 mb-1">
+              <label className="flex items-center gap-1 text-xs font-semibold text-foreground mb-1">
                 Selection Type
                 <span className="relative group">
-                  <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                  <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
                   <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 hidden group-hover:block w-52 rounded-lg bg-gray-900 text-white text-[11px] font-normal leading-snug p-2 shadow-lg z-50 pointer-events-none">
                     <strong>Single Choice:</strong> Customer picks exactly one option (e.g. burger temperature).<br /><br />
                     <strong>Multiple Choice:</strong> Customer can pick several options (e.g. pizza toppings). Unlocks min/max selection limits.
                   </span>
                 </span>
               </label>
-              <div className="flex rounded-lg overflow-hidden border border-gray-300/60">
+              <div className="flex rounded-lg overflow-hidden border border-border/60">
                 <button
                   type="button"
                   onClick={() => {
@@ -879,7 +879,7 @@ function ModifierGroupModal({
                   className={`flex-1 py-2 text-xs font-medium transition-colors ${
                     form.selectionType === 'single'
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-surface text-gray-600 hover:bg-gray-200/50'
+                      : 'bg-surface text-muted-foreground hover:bg-accent/50'
                   }`}
                 >
                   Single Choice
@@ -893,7 +893,7 @@ function ModifierGroupModal({
                   className={`flex-1 py-2 text-xs font-medium transition-colors ${
                     form.selectionType === 'multiple'
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-surface text-gray-600 hover:bg-gray-200/50'
+                      : 'bg-surface text-muted-foreground hover:bg-accent/50'
                   }`}
                 >
                   Multiple Choice
@@ -902,7 +902,7 @@ function ModifierGroupModal({
             </div>
 
             <div className="flex-1">
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Required?</label>
+              <label className="block text-xs font-semibold text-foreground mb-1">Required?</label>
               <button
                 type="button"
                 onClick={() => {
@@ -910,14 +910,14 @@ function ModifierGroupModal({
                   updateField('isRequired', next);
                   if (next && form.minSelections < 1) updateField('minSelections', 1);
                 }}
-                className="flex items-center gap-2 rounded-lg border border-gray-300/60 px-3 py-2 w-full"
+                className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 w-full"
               >
                 {form.isRequired ? (
                   <ToggleRight className="h-5 w-5 text-indigo-600" />
                 ) : (
-                  <ToggleLeft className="h-5 w-5 text-gray-400" />
+                  <ToggleLeft className="h-5 w-5 text-muted-foreground" />
                 )}
-                <span className="text-xs font-medium text-gray-700">
+                <span className="text-xs font-medium text-foreground">
                   {form.isRequired ? 'Required' : 'Optional'}
                 </span>
               </button>
@@ -928,7 +928,7 @@ function ModifierGroupModal({
           {form.selectionType === 'multiple' && (
             <div className="flex gap-4">
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Min Selections
                 </label>
                 <input
@@ -936,11 +936,11 @@ function ModifierGroupModal({
                   min={0}
                   value={form.minSelections}
                   onChange={(e) => updateField('minSelections', parseInt(e.target.value) || 0)}
-                  className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className="w-full rounded-lg border border-border/60 bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Max Selections
                 </label>
                 <input
@@ -948,7 +948,7 @@ function ModifierGroupModal({
                   min={1}
                   value={form.maxSelections}
                   onChange={(e) => updateField('maxSelections', parseInt(e.target.value) || 1)}
-                  className="w-full rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                  className="w-full rounded-lg border border-border/60 bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                 />
               </div>
             </div>
@@ -958,7 +958,7 @@ function ModifierGroupModal({
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+            className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-400"
           >
             {showAdvanced ? (
               <ChevronDown className="h-3.5 w-3.5" />
@@ -969,13 +969,13 @@ function ModifierGroupModal({
           </button>
 
           {showAdvanced && (
-            <div className="space-y-4 rounded-lg border border-gray-200/60 p-4 bg-gray-200/20">
+            <div className="space-y-4 rounded-lg border border-border/60 p-4 bg-muted/20">
               {/* Instruction mode */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Instruction Mode
                 </label>
-                <div className="flex rounded-lg overflow-hidden border border-gray-300/60">
+                <div className="flex rounded-lg overflow-hidden border border-border/60">
                   {(['none', 'all', 'per_option'] as const).map((mode) => (
                     <button
                       key={mode}
@@ -984,7 +984,7 @@ function ModifierGroupModal({
                       className={`flex-1 py-2 text-xs font-medium transition-colors ${
                         form.instructionMode === mode
                           ? 'bg-indigo-600 text-white'
-                          : 'bg-surface text-gray-600 hover:bg-gray-200/50'
+                          : 'bg-surface text-muted-foreground hover:bg-accent/50'
                       }`}
                     >
                       {mode === 'none'
@@ -995,24 +995,24 @@ function ModifierGroupModal({
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">
+                <p className="text-[10px] text-muted-foreground mt-1">
                   Enable None/Extra/On Side instruction buttons in POS
                 </p>
               </div>
 
               {/* Default behavior */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Default Behavior
                 </label>
-                <div className="flex rounded-lg overflow-hidden border border-gray-300/60">
+                <div className="flex rounded-lg overflow-hidden border border-border/60">
                   <button
                     type="button"
                     onClick={() => updateField('defaultBehavior', 'none')}
                     className={`flex-1 py-2 text-xs font-medium transition-colors ${
                       form.defaultBehavior === 'none'
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-surface text-gray-600 hover:bg-gray-200/50'
+                        : 'bg-surface text-muted-foreground hover:bg-accent/50'
                     }`}
                   >
                     None
@@ -1023,7 +1023,7 @@ function ModifierGroupModal({
                     className={`flex-1 py-2 text-xs font-medium transition-colors ${
                       form.defaultBehavior === 'auto_select_defaults'
                         ? 'bg-indigo-600 text-white'
-                        : 'bg-surface text-gray-600 hover:bg-gray-200/50'
+                        : 'bg-surface text-muted-foreground hover:bg-accent/50'
                     }`}
                   >
                     Auto-Select Defaults
@@ -1033,7 +1033,7 @@ function ModifierGroupModal({
 
               {/* Channel visibility */}
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                <label className="block text-xs font-semibold text-foreground mb-1">
                   Channel Visibility
                 </label>
                 <div className="flex gap-2">
@@ -1045,7 +1045,7 @@ function ModifierGroupModal({
                         onChange={() => toggleChannel(ch)}
                         className="h-3.5 w-3.5 rounded text-indigo-600"
                       />
-                      <span className="text-xs text-gray-700 capitalize">{ch}</span>
+                      <span className="text-xs text-foreground capitalize">{ch}</span>
                     </label>
                   ))}
                 </div>
@@ -1056,11 +1056,11 @@ function ModifierGroupModal({
           {/* Modifier options */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-semibold text-gray-700">Options</label>
+              <label className="text-xs font-semibold text-foreground">Options</label>
               <button
                 type="button"
                 onClick={addModifier}
-                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-400"
               >
                 <Plus className="h-3 w-3" />
                 Add Option
@@ -1071,7 +1071,7 @@ function ModifierGroupModal({
               {form.modifiers.map((mod, index) => (
                 <div
                   key={index}
-                  className="rounded-lg border border-gray-200/60 p-3 bg-gray-200/20 space-y-2"
+                  className="rounded-lg border border-border/60 p-3 bg-muted/20 space-y-2"
                 >
                   {/* Row 1: Name + Price + Reorder + Delete */}
                   <div className="flex items-center gap-2">
@@ -1080,7 +1080,7 @@ function ModifierGroupModal({
                         type="button"
                         onClick={() => moveModifier(index, -1)}
                         disabled={index === 0}
-                        className="text-gray-300 hover:text-gray-500 disabled:opacity-30"
+                        className="text-muted-foreground hover:text-foreground disabled:opacity-30"
                         title="Move up"
                       >
                         <GripVertical className="h-3 w-3" />
@@ -1092,11 +1092,11 @@ function ModifierGroupModal({
                       value={mod.name}
                       onChange={(e) => updateModifier(index, { name: e.target.value })}
                       placeholder="Option name"
-                      className="flex-1 rounded-lg border border-gray-300/60 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                      className="flex-1 rounded-lg border border-border/60 bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                     />
 
                     <div className="relative w-24 shrink-0">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                         +$
                       </span>
                       <input
@@ -1107,7 +1107,7 @@ function ModifierGroupModal({
                         onChange={(e) =>
                           updateModifier(index, { priceAdjustment: e.target.value })
                         }
-                        className="w-full rounded-lg border border-gray-300/60 bg-surface pl-7 pr-2 py-2 text-sm text-gray-900 text-right focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
+                        className="w-full rounded-lg border border-border/60 bg-surface pl-7 pr-2 py-2 text-sm text-foreground text-right focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none"
                       />
                     </div>
 
@@ -1121,7 +1121,7 @@ function ModifierGroupModal({
                           }
                           className="h-3.5 w-3.5 rounded text-indigo-600"
                         />
-                        <span className="text-[10px] text-gray-500">Default</span>
+                        <span className="text-[10px] text-muted-foreground">Default</span>
                       </label>
                     )}
 
@@ -1129,7 +1129,7 @@ function ModifierGroupModal({
                       type="button"
                       onClick={() => removeModifier(index)}
                       disabled={form.modifiers.length <= 1}
-                      className="shrink-0 rounded p-1 text-gray-400 hover:text-red-500 hover:bg-red-500/10 disabled:opacity-30 transition-colors"
+                      className="shrink-0 rounded p-1 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 disabled:opacity-30 transition-colors"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -1140,7 +1140,7 @@ function ModifierGroupModal({
                     <div className="flex items-center gap-3 ml-5">
                       {/* Extra price delta */}
                       <div className="relative w-24">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
                           Extra$
                         </span>
                         <input
@@ -1152,7 +1152,7 @@ function ModifierGroupModal({
                             updateModifier(index, { extraPriceDelta: e.target.value })
                           }
                           placeholder="—"
-                          className="w-full rounded border border-gray-300/60 bg-surface pl-12 pr-1 py-1 text-xs text-gray-900 text-right placeholder:text-gray-400 focus:border-indigo-500 outline-none"
+                          className="w-full rounded border border-border/60 bg-surface pl-12 pr-1 py-1 text-xs text-foreground text-right placeholder:text-muted-foreground focus:border-indigo-500 outline-none"
                         />
                       </div>
 
@@ -1164,7 +1164,7 @@ function ModifierGroupModal({
                           updateModifier(index, { kitchenLabel: e.target.value })
                         }
                         placeholder="Kitchen label"
-                        className="w-28 rounded border border-gray-300/60 bg-surface px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 outline-none"
+                        className="w-28 rounded border border-border/60 bg-surface px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:border-indigo-500 outline-none"
                       />
 
                       {/* Per-option instruction flags */}
@@ -1180,7 +1180,7 @@ function ModifierGroupModal({
                                 }
                                 className="h-3 w-3 rounded text-indigo-600"
                               />
-                              <span className="text-[10px] text-gray-500">
+                              <span className="text-[10px] text-muted-foreground">
                                 {flag === 'allowNone'
                                   ? 'None'
                                   : flag === 'allowExtra'
@@ -1207,11 +1207,11 @@ function ModifierGroupModal({
         </div>
 
         {/* Footer */}
-        <div className="flex gap-2 px-5 py-4 border-t border-gray-200/60">
+        <div className="flex gap-2 px-5 py-4 border-t border-border/60">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-300/60 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200/50 transition-colors"
+            className="flex-1 rounded-lg border border-border/60 py-2.5 text-sm font-medium text-foreground hover:bg-accent/50 transition-colors"
           >
             Cancel
           </button>
@@ -1219,7 +1219,7 @@ function ModifierGroupModal({
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 rounded-lg py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="flex-1 rounded-lg py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Group'}
           </button>

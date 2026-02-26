@@ -82,14 +82,14 @@ export function FilterBuilder({
         type="button"
         onClick={addFilter}
         disabled={filterableFields.length === 0}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="h-4 w-4" />
         Add Filter
       </button>
 
       {filters.length === 0 && (
-        <p className="text-sm text-gray-400">No filters applied</p>
+        <p className="text-sm text-muted-foreground">No filters applied</p>
       )}
 
       <div className="space-y-2">
@@ -105,7 +105,7 @@ export function FilterBuilder({
           return (
             <div
               key={index}
-              className="flex flex-wrap items-start gap-2 rounded-lg border border-gray-200 bg-surface p-3"
+              className="flex flex-wrap items-start gap-2 rounded-lg border border-border bg-surface p-3"
             >
               {/* Field selector */}
               <div className="w-full sm:w-auto sm:min-w-[180px]">
@@ -153,7 +153,7 @@ export function FilterBuilder({
               <button
                 type="button"
                 onClick={() => removeFilter(index)}
-                className="mt-1 shrink-0 rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                className="mt-1 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 aria-label="Remove filter"
               >
                 <X className="h-4 w-4" />
@@ -178,7 +178,7 @@ function FilterValueInput({
   onChange: (value: ReportFilter['value']) => void;
 }) {
   const baseClasses =
-    'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none';
+    'w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none';
 
   // Boolean toggle
   if (dataType === 'boolean') {
@@ -188,13 +188,13 @@ function FilterValueInput({
         onClick={() => onChange(value === true ? false : true)}
         className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
           value === true
-            ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-500'
+            : 'border-border text-foreground hover:bg-accent'
         }`}
       >
         <span
           className={`inline-block h-3 w-3 rounded-full ${
-            value === true ? 'bg-indigo-600' : 'bg-gray-300'
+            value === true ? 'bg-indigo-600' : 'bg-muted'
           }`}
         />
         {value === true ? 'True' : 'False'}

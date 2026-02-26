@@ -88,12 +88,12 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
   const zoomPercent = Math.round(zoom * 100);
 
   return (
-    <div className="flex h-12 items-center justify-between border-b border-gray-200 bg-surface px-3">
+    <div className="flex h-12 items-center justify-between border-b border-border bg-surface px-3">
       {/* Left: Back + Room name */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => router.push('/settings/room-layouts')}
-          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           title="Back to Room Layouts"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -107,12 +107,12 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
             onBlur={handleNameBlur}
             onKeyDown={handleNameKeyDown}
             autoFocus
-            className="rounded border border-indigo-300 px-2 py-0.5 text-sm font-medium text-gray-900 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded border border-indigo-500/30 px-2 py-0.5 text-sm font-medium text-foreground focus:ring-1 focus:ring-indigo-500 focus:outline-none"
           />
         ) : (
           <button
             onClick={handleNameClick}
-            className="rounded px-2 py-0.5 text-sm font-medium text-gray-900 hover:bg-gray-100"
+            className="rounded px-2 py-0.5 text-sm font-medium text-foreground hover:bg-accent"
             title="Click to rename"
           >
             {roomName}
@@ -122,11 +122,11 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         {/* Mode selector */}
         {modes && modes.length > 0 && onModeChange && (
           <>
-            <div className="mx-1 h-5 w-px bg-gray-200" />
+            <div className="mx-1 h-5 w-px bg-muted" />
             <select
               value={currentMode ?? ''}
               onChange={(e) => onModeChange(e.target.value)}
-              className="rounded border border-gray-200 bg-transparent px-2 py-0.5 text-xs font-medium text-gray-600 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 focus:outline-none"
+              className="rounded border border-border bg-transparent px-2 py-0.5 text-xs font-medium text-muted-foreground focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 focus:outline-none"
               title="Room mode"
             >
               {modes.map((m) => (
@@ -136,7 +136,7 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
             {onManageModes && (
               <button
                 onClick={onManageModes}
-                className="text-[10px] text-indigo-500 hover:text-indigo-700"
+                className="text-[10px] text-indigo-500 hover:text-indigo-400"
               >
                 Manage
               </button>
@@ -150,7 +150,7 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         <button
           onClick={undo}
           disabled={!canUndo()}
-          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
+          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
           title="Undo (Ctrl+Z)"
         >
           <Undo2 className="h-4 w-4" />
@@ -158,34 +158,34 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         <button
           onClick={redo}
           disabled={!canRedo()}
-          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-30"
+          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
           title="Redo (Ctrl+Shift+Z)"
         >
           <Redo2 className="h-4 w-4" />
         </button>
 
-        <div className="mx-2 h-5 w-px bg-gray-200" />
+        <div className="mx-2 h-5 w-px bg-muted" />
 
         <button
           onClick={zoomOut}
-          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           title="Zoom Out"
         >
           <ZoomOut className="h-4 w-4" />
         </button>
-        <span className="w-12 text-center text-xs font-medium text-gray-600 tabular-nums">
+        <span className="w-12 text-center text-xs font-medium text-muted-foreground tabular-nums">
           {zoomPercent}%
         </span>
         <button
           onClick={zoomIn}
-          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           title="Zoom In"
         >
           <ZoomIn className="h-4 w-4" />
         </button>
         <button
           onClick={zoomToFit}
-          className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           title="Zoom to Fit"
         >
           <Maximize className="h-4 w-4" />
@@ -198,8 +198,8 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
           onClick={toggleGrid}
           className={`rounded p-1.5 transition-colors ${
             showGrid
-              ? 'bg-indigo-100 text-indigo-600'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+              ? 'bg-indigo-500/10 text-indigo-600'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
           }`}
           title={showGrid ? 'Hide Grid' : 'Show Grid'}
         >
@@ -209,20 +209,20 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
           onClick={toggleSnap}
           className={`rounded p-1.5 transition-colors ${
             snapToGrid
-              ? 'bg-indigo-100 text-indigo-600'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+              ? 'bg-indigo-500/10 text-indigo-600'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
           }`}
           title={snapToGrid ? 'Disable Snap' : 'Enable Snap'}
         >
           <Magnet className="h-4 w-4" />
         </button>
 
-        <div className="mx-2 h-5 w-px bg-gray-200" />
+        <div className="mx-2 h-5 w-px bg-muted" />
 
         {onSaveAsTemplate && (
           <button
             onClick={onSaveAsTemplate}
-            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Save as Template"
           >
             <BookmarkPlus className="h-4 w-4" />
@@ -231,7 +231,7 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         {onApplyTemplate && (
           <button
             onClick={onApplyTemplate}
-            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Apply Template"
           >
             <LayoutTemplate className="h-4 w-4" />
@@ -240,7 +240,7 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         {onExportPNG && (
           <button
             onClick={onExportPNG}
-            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Export as PNG"
           >
             <Image className="h-4 w-4" />
@@ -249,7 +249,7 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         {onExportJSON && (
           <button
             onClick={onExportJSON}
-            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Export as JSON"
           >
             <FileJson className="h-4 w-4" />
@@ -258,7 +258,7 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         {onOpenHistory && (
           <button
             onClick={onOpenHistory}
-            className="rounded p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             title="Version History (Ctrl+H)"
           >
             <Clock className="h-4 w-4" />
@@ -266,16 +266,16 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         )}
 
         {lastSavedAt && !isDirty && !isSaving && (
-          <span className="mr-2 text-xs text-green-600">Saved</span>
+          <span className="mr-2 text-xs text-green-500">Saved</span>
         )}
 
         <button
           onClick={onSave}
           disabled={isSaving || !isDirty}
-          className={`inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium transition-colors ${
+          className={`inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium transition-colors ${
             isSaving || !isDirty
-              ? 'cursor-not-allowed opacity-50 text-gray-400'
-              : 'text-gray-700 hover:bg-gray-50'
+              ? 'cursor-not-allowed opacity-50 text-muted-foreground'
+              : 'text-foreground hover:bg-accent'
           }`}
         >
           <Save className="h-3.5 w-3.5" />
@@ -285,7 +285,7 @@ export function Toolbar({ onSave, onPublish, onOpenHistory, onSaveAsTemplate, on
         <button
           onClick={onPublish}
           disabled={isPublishing}
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700 ${
+          className={`inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 ${
             isPublishing ? 'cursor-not-allowed opacity-50' : ''
           }`}
         >

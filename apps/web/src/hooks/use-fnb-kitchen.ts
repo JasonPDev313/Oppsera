@@ -49,9 +49,9 @@ export function useKdsView({
       );
       setKdsView(json.data);
       setError(null);
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
-        setError(err?.message ?? 'Failed to load KDS view');
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Failed to load KDS view');
       }
     } finally {
       setIsLoading(false);
@@ -172,9 +172,9 @@ export function useExpoView({
       );
       setExpoView(json.data);
       setError(null);
-    } catch (err: any) {
-      if (err?.name !== 'AbortError') {
-        setError(err?.message ?? 'Failed to load expo view');
+    } catch (err: unknown) {
+      if (!(err instanceof DOMException && err.name === 'AbortError')) {
+        setError(err instanceof Error ? err.message : 'Failed to load expo view');
       }
     } finally {
       setIsLoading(false);
@@ -244,4 +244,89 @@ export function useStations({ locationId }: UseStationsOptions) {
   }, [locationId]);
 
   return { stations, isLoading };
+}
+
+// ── Station Management Hook ─────────────────────────────────────
+
+interface UseStationManagementOptions {
+  locationId?: string;
+}
+
+export function useStationManagement({ locationId }: UseStationManagementOptions) {
+  const [stations, setStations] = useState<FnbStation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActing, setIsActing] = useState(false);
+
+  const fetchStations = useCallback(async () => {
+    if (!locationId) return;
+    try {
+      const json = await apiFetch<{ data: FnbStation[] }>(
+        `/api/v1/fnb/stations?locationId=${locationId}`,
+      );
+      setStations(json.data ?? []);
+    } catch {
+      // ignore
+    } finally {
+      setIsLoading(false);
+    }
+  }, [locationId]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetchStations();
+  }, [fetchStations]);
+
+  const createStation = useCallback(async (input: {
+    name: string;
+    displayName: string;
+    stationType?: string;
+    color?: string;
+    sortOrder?: number;
+    warningThresholdSeconds?: number;
+    criticalThresholdSeconds?: number;
+  }) => {
+    setIsActing(true);
+    try {
+      await apiFetch('/api/v1/fnb/stations', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...input,
+          clientRequestId: `create-station-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        }),
+      });
+      await fetchStations();
+    } finally {
+      setIsActing(false);
+    }
+  }, [fetchStations]);
+
+  const updateStation = useCallback(async (stationId: string, input: {
+    displayName?: string;
+    stationType?: string;
+    color?: string | null;
+    sortOrder?: number;
+    warningThresholdSeconds?: number;
+    criticalThresholdSeconds?: number;
+    isActive?: boolean;
+  }) => {
+    setIsActing(true);
+    try {
+      await apiFetch(`/api/v1/fnb/stations/${stationId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ...input,
+          clientRequestId: `update-station-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        }),
+      });
+      await fetchStations();
+    } finally {
+      setIsActing(false);
+    }
+  }, [fetchStations]);
+
+  const deactivateStation = useCallback(async (stationId: string) => {
+    await updateStation(stationId, { isActive: false });
+  }, [updateStation]);
+
+  return { stations, isLoading, isActing, createStation, updateStation, deactivateStation, refresh: fetchStations };
 }

@@ -220,7 +220,7 @@ export function FnbTableNode({
 
       {/* Party size badge (status mode) */}
       {displayMode === 'status' && table.partySize != null && table.partySize > 0 && !serverInitials && (
-        <span className="absolute top-1 right-1 flex items-center gap-0.5 text-[9px] text-gray-500">
+        <span className="absolute top-1 right-1 flex items-center gap-0.5 text-[9px] text-muted-foreground">
           <Users className="h-2.5 w-2.5" />
           {table.partySize}
         </span>
@@ -228,7 +228,7 @@ export function FnbTableNode({
 
       {/* Party size badge (when server initials are shown — push party size to after server) */}
       {displayMode === 'status' && table.partySize != null && table.partySize > 0 && serverInitials && !checkTotalCents && (
-        <span className="absolute top-1 right-1 flex items-center gap-0.5 text-[9px] text-gray-500">
+        <span className="absolute top-1 right-1 flex items-center gap-0.5 text-[9px] text-muted-foreground">
           <Users className="h-2.5 w-2.5" />
           {table.partySize}
         </span>
@@ -236,7 +236,7 @@ export function FnbTableNode({
 
       {/* Timer badge */}
       {displayMode === 'status' && elapsed && (
-        <span className="absolute bottom-1 right-1 flex items-center gap-0.5 text-[9px] text-gray-400">
+        <span className="absolute bottom-1 right-1 flex items-center gap-0.5 text-[9px] text-muted-foreground">
           <Clock className="h-2.5 w-2.5" />
           {elapsed}
         </span>

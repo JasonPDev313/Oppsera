@@ -19,7 +19,7 @@ export const InventoryIndicator = memo(function InventoryIndicator({
 
   if (onHand === 0) {
     return (
-      <span className="text-xs font-medium text-red-600">
+      <span className="text-xs font-medium text-red-500">
         {compact ? '0' : 'Out of stock'}
       </span>
     );
@@ -27,14 +27,14 @@ export const InventoryIndicator = memo(function InventoryIndicator({
 
   if (onHand <= 10) {
     return (
-      <span className="text-xs font-medium text-amber-600">
+      <span className="text-xs font-medium text-amber-500">
         {compact ? String(onHand) : `${onHand} in stock`}
       </span>
     );
   }
 
   return (
-    <span className="text-xs font-medium text-green-600">
+    <span className="text-xs font-medium text-green-500">
       {compact ? String(onHand) : `${onHand} in stock`}
     </span>
   );

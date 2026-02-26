@@ -109,7 +109,7 @@ export function GuestReceiptFull({
           )}
 
           {discountCents > 0 && (
-            <div className="flex justify-between text-sm text-green-600">
+            <div className="flex justify-between text-sm text-green-500">
               <span>Discount</span>
               <span>-{fmt(discountCents)}</span>
             </div>

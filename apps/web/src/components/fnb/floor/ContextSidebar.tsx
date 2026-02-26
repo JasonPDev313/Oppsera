@@ -55,9 +55,9 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
   ];
 
   return (
-    <div className="hidden sm:flex flex-col h-full border-l border-gray-200 bg-surface" style={{ width: '260px' }}>
+    <div className="hidden sm:flex flex-col h-full border-l border-border bg-surface" style={{ width: '260px' }}>
       {/* Mode tabs */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-border">
         {modes.map((m) => (
           <button
             key={m.key}
@@ -65,8 +65,8 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
             onClick={() => onModeChange(m.key)}
             className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
               mode === m.key
-                ? 'text-gray-900 border-b-2 border-indigo-600'
-                : 'text-gray-400 border-b-2 border-transparent'
+                ? 'text-foreground border-b-2 border-indigo-600'
+                : 'text-muted-foreground border-b-2 border-transparent'
             }`}
           >
             {m.label}
@@ -79,7 +79,7 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
         {mode === 'my-tables' && (
           <div className="flex flex-col gap-1">
             {activeTables.length === 0 && (
-              <p className="text-xs p-3 text-center text-gray-400">
+              <p className="text-xs p-3 text-center text-muted-foreground">
                 No active tables
               </p>
             )}
@@ -90,10 +90,10 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
                   key={table.tableId}
                   type="button"
                   onClick={() => onTableTap(table.tableId)}
-                  className="flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors bg-gray-50 hover:bg-gray-100"
+                  className="flex items-center gap-3 rounded-lg p-2.5 text-left transition-colors bg-muted hover:bg-accent"
                 >
                   <div
-                    className="flex items-center justify-center rounded-md font-bold text-sm text-gray-900"
+                    className="flex items-center justify-center rounded-md font-bold text-sm text-foreground"
                     style={{
                       width: '36px',
                       height: '36px',
@@ -109,18 +109,18 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
                         {FNB_TABLE_STATUS_LABELS[table.status]}
                       </span>
                       {table.partySize && (
-                        <span className="flex items-center gap-0.5 text-[10px] text-gray-400">
+                        <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
                           <Users className="h-2.5 w-2.5" /> {table.partySize}
                         </span>
                       )}
                     </div>
                     {table.seatedAt && (
-                      <span className="flex items-center gap-0.5 text-[10px] mt-0.5 text-gray-400">
+                      <span className="flex items-center gap-0.5 text-[10px] mt-0.5 text-muted-foreground">
                         <Clock className="h-2.5 w-2.5" /> {formatElapsed(table.seatedAt)}
                       </span>
                     )}
                   </div>
-                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 </button>
               );
             })}
@@ -136,12 +136,12 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
                 <button
                   type="button"
                   onClick={() => setExpandedStatus(expandedStatus === status ? null : status)}
-                  className="flex items-center justify-between w-full rounded-lg p-2.5 text-left transition-colors bg-gray-50 hover:bg-gray-100"
+                  className="flex items-center justify-between w-full rounded-lg p-2.5 text-left transition-colors bg-muted hover:bg-accent"
                 >
                   <span className="text-xs font-semibold" style={{ color: FNB_TABLE_STATUS_COLORS[s] ?? '#6b7280' }}>
                     {FNB_TABLE_STATUS_LABELS[s] ?? status}
                   </span>
-                  <span className="text-xs font-bold text-gray-900">
+                  <span className="text-xs font-bold text-foreground">
                     {group.length}
                   </span>
                 </button>
@@ -152,7 +152,7 @@ export function ContextSidebar({ mode, onModeChange, tables, mySectionOnly, curr
                         key={t.tableId}
                         type="button"
                         onClick={() => onTableTap(t.tableId)}
-                        className="text-left text-xs py-1 px-2 rounded text-gray-600 hover:bg-gray-100"
+                        className="text-left text-xs py-1 px-2 rounded text-muted-foreground hover:bg-accent"
                       >
                         Table {t.tableNumber} {t.partySize ? `(${t.partySize})` : ''}
                       </button>

@@ -32,19 +32,19 @@ export function ImportResultsSummary({ job, onDownloadErrors, onViewOrders, onRe
   const statusConfig = {
     success: {
       border: 'border-green-500/30 bg-green-500/10',
-      icon: <CheckCircle2 className="h-6 w-6 text-green-600" />,
+      icon: <CheckCircle2 className="h-6 w-6 text-green-500" />,
       title: 'Import Complete',
       titleColor: 'text-green-500',
     },
     partial: {
       border: 'border-amber-500/30 bg-amber-500/10',
-      icon: <AlertTriangle className="h-6 w-6 text-amber-600" />,
+      icon: <AlertTriangle className="h-6 w-6 text-amber-500" />,
       title: 'Import Completed with Issues',
       titleColor: 'text-amber-500',
     },
     failed: {
       border: 'border-red-500/30 bg-red-500/10',
-      icon: <AlertTriangle className="h-6 w-6 text-red-600" />,
+      icon: <AlertTriangle className="h-6 w-6 text-red-500" />,
       title: 'Import Failed',
       titleColor: 'text-red-500',
     },
@@ -156,7 +156,7 @@ export function ImportResultsSummary({ job, onDownloadErrors, onViewOrders, onRe
           <button
             type="button"
             onClick={onViewOrders}
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm text-white hover:bg-indigo-500"
           >
             View Imported Orders
             <ArrowRight className="h-4 w-4" />
@@ -178,11 +178,11 @@ function ResultCard({
 }) {
   const textColor =
     color === 'green'
-      ? 'text-green-600'
+      ? 'text-green-500'
       : color === 'yellow'
-        ? 'text-yellow-600'
+        ? 'text-yellow-500'
         : color === 'red'
-          ? 'text-red-600'
+          ? 'text-red-500'
           : '';
 
   return (

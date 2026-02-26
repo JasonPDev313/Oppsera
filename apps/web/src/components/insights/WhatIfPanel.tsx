@@ -86,7 +86,7 @@ function ScenarioTooltip({ active, payload }: ScenarioTooltipProps) {
       <p className="font-medium text-foreground mb-1">{item.label}</p>
       <p className="text-muted-foreground">Value: {currencyFormatter.format(item.value)}</p>
       {item.delta !== 0 && (
-        <p className={item.delta >= 0 ? 'text-emerald-600' : 'text-red-500'}>
+        <p className={item.delta >= 0 ? 'text-emerald-500' : 'text-red-500'}>
           {item.delta >= 0 ? '+' : ''}{currencyFormatter.format(item.delta)} ({item.deltaPct >= 0 ? '+' : ''}{item.deltaPct.toFixed(1)}%)
         </p>
       )}
@@ -233,7 +233,7 @@ export function WhatIfPanel({
                   />
                   <span
                     className={`text-xs font-mono font-medium w-12 text-right ${
-                      scenario.changePct >= 0 ? 'text-emerald-600' : 'text-red-500'
+                      scenario.changePct >= 0 ? 'text-emerald-500' : 'text-red-500'
                     }`}
                   >
                     {scenario.changePct >= 0 ? '+' : ''}
@@ -248,7 +248,7 @@ export function WhatIfPanel({
             <button
               type="button"
               onClick={addScenario}
-              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:bg-gray-200/50 rounded-md transition-colors"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-primary hover:bg-accent/50 rounded-md transition-colors"
             >
               <Plus className="h-3 w-3" />
               Add Scenario
@@ -313,7 +313,7 @@ export function WhatIfPanel({
                   <span className="text-xs font-medium text-foreground">{s.label}</span>
                   <span
                     className={`text-xs font-medium ${
-                      s.deltaAbsolute >= 0 ? 'text-emerald-600' : 'text-red-500'
+                      s.deltaAbsolute >= 0 ? 'text-emerald-500' : 'text-red-500'
                     }`}
                   >
                     {s.deltaAbsolute >= 0 ? '+' : ''}

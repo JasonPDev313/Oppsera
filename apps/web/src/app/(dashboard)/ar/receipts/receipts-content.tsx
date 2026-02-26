@@ -20,7 +20,7 @@ export default function ReceiptsContent() {
       actions={
         <Link
           href="/ar/receipts/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           New Receipt
@@ -87,7 +87,7 @@ export default function ReceiptsContent() {
               </thead>
               <tbody>
                 {receipts.map((rcpt) => (
-                  <tr key={rcpt.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                  <tr key={rcpt.id} className="border-b border-border last:border-0 hover:bg-accent/50">
                     <td className="px-4 py-3 text-sm text-foreground">{rcpt.receiptDate}</td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{rcpt.customerName ?? '—'}</td>
                     <td className="px-4 py-3 text-sm capitalize text-foreground">{rcpt.paymentMethod}</td>

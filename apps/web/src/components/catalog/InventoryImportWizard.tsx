@@ -125,7 +125,7 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
           <button
             onClick={confirmMappings}
             disabled={!hasName || !hasPrice || isLoading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Validate & Preview
             <ArrowRight className="w-4 h-4" />
@@ -136,7 +136,7 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
           <button
             onClick={handleImport}
             disabled={!isValid || isLoading}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -238,9 +238,9 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
               </p>
             </div>
             <div className="flex items-center gap-2 text-xs">
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-500/20 text-green-600">High</span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-600">Medium</span>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-500/20 text-red-600">Low</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-green-500/20 text-green-500">High</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-500">Medium</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-red-500/20 text-red-500">Low</span>
             </div>
           </div>
 
@@ -440,7 +440,7 @@ export function InventoryImportWizard({ open, onClose, onSuccess }: InventoryImp
                 handleClose();
                 onSuccess();
               }}
-              className="px-6 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+              className="px-6 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-500 transition-colors"
             >
               View Items
             </button>

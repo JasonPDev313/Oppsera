@@ -480,7 +480,7 @@ function FailedPaymentRow({
         <div className="flex items-center justify-end gap-1">
           <button
             onClick={onRetry}
-            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-indigo-600 hover:bg-indigo-500/10"
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-indigo-500 hover:bg-indigo-500/10"
             title="Retry payment"
           >
             <RotateCcw className="h-3.5 w-3.5" />
@@ -488,7 +488,7 @@ function FailedPaymentRow({
           </button>
           <button
             onClick={onResolve}
-            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-500/10"
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-green-500 hover:bg-green-500/10"
             title="Mark as resolved"
           >
             <CheckCircle className="h-3.5 w-3.5" />

@@ -170,7 +170,7 @@ export function ColumnMappingTable({
                     }
                     className={`rounded p-1 ${
                       m.isConfirmed
-                        ? 'text-green-600 hover:bg-green-500/20'
+                        ? 'text-green-500 hover:bg-green-500/20'
                         : 'text-muted-foreground hover:bg-accent'
                     }`}
                   >

@@ -476,7 +476,7 @@ export function ModifierDialog({
                   {group.name}
                   {group.isRequired ? (
                     <span
-                      className={`ml-1 text-xs font-normal ${isMissing ? 'text-red-500' : 'text-green-600'}`}
+                      className={`ml-1 text-xs font-normal ${isMissing ? 'text-red-500' : 'text-green-500'}`}
                     >
                       {isMissing ? '(required — select one)' : '(required)'}
                     </span>
@@ -606,7 +606,7 @@ export function ModifierDialog({
               disabled={!canAdd}
               className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
                 canAdd
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-500'
                   : 'cursor-not-allowed bg-muted text-muted-foreground'
               }`}
             >

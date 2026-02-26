@@ -81,7 +81,7 @@ export default function ReceiptDetailPage() {
   if (editor.isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600" />
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-indigo-600" />
       </div>
     );
   }
@@ -92,7 +92,7 @@ export default function ReceiptDetailPage() {
         <button
           type="button"
           onClick={() => router.push('/inventory/receiving')}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           Back to Receiving
         </button>

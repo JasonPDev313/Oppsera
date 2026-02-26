@@ -264,7 +264,7 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
               type="button"
               onClick={handleNext}
               disabled={isSubmitting}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               Next
               <ChevronRight className="h-4 w-4" />
@@ -274,7 +274,7 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
               type="button"
               onClick={handleSave}
               disabled={isSubmitting}
-              className={`inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 ${
+              className={`inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 ${
                 isSubmitting ? 'cursor-not-allowed opacity-50' : ''
               }`}
             >
@@ -446,7 +446,7 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
               value={form.scheduleCron}
               onChange={(e) => onUpdate('scheduleCron', e.target.value)}
               placeholder="0 2 * * *"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm font-mono text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm font-mono text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
           {errors.scheduleCron && <p className="text-xs text-red-500">{errors.scheduleCron}</p>}

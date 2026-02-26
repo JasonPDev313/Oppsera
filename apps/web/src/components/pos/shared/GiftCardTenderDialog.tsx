@@ -154,7 +154,7 @@ export function GiftCardTenderDialog({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50 active:scale-[0.97]"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent/50 active:scale-[0.97]"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
@@ -217,7 +217,7 @@ export function GiftCardTenderDialog({
               </span>
             </div>
             {balance.balanceCents < remainingBalanceCents && (
-              <p className="mt-1 text-xs text-green-600">
+              <p className="mt-1 text-xs text-green-500">
                 Full balance will be applied. Remaining{' '}
                 {formatMoney(remainingBalanceCents - balance.balanceCents)} due
                 after.

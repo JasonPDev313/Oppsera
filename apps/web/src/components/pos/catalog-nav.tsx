@@ -24,7 +24,7 @@ export function DepartmentTabs({ departments, selectedId, onSelect, size = 'norm
         className={`shrink-0 rounded-lg ${sizeClasses} font-medium transition-colors ${
           selectedId === null
             ? 'bg-indigo-600 text-white'
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            : 'bg-muted text-muted-foreground hover:bg-accent'
         }`}
       >
         All
@@ -37,7 +37,7 @@ export function DepartmentTabs({ departments, selectedId, onSelect, size = 'norm
           className={`shrink-0 rounded-lg ${sizeClasses} font-medium transition-colors ${
             selectedId === dept.id
               ? 'bg-indigo-600 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              : 'bg-muted text-muted-foreground hover:bg-accent'
           }`}
         >
           {dept.name}
@@ -130,14 +130,14 @@ interface CatalogBreadcrumbProps {
 
 export function CatalogBreadcrumb({ breadcrumb, onNavigate }: CatalogBreadcrumbProps) {
   return (
-    <nav className="flex items-center gap-1 text-xs text-gray-500">
+    <nav className="flex items-center gap-1 text-xs text-muted-foreground">
       {breadcrumb.map((crumb, idx) => (
         <span key={crumb.id} className="flex items-center gap-1">
-          {idx > 0 && <span className="text-gray-300">/</span>}
+          {idx > 0 && <span className="text-muted-foreground">/</span>}
           <button
             type="button"
             onClick={() => onNavigate(crumb.level)}
-            className="font-medium text-gray-600 hover:text-indigo-600 transition-colors"
+            className="font-medium text-muted-foreground hover:text-indigo-600 transition-colors"
           >
             {crumb.name}
           </button>
@@ -213,7 +213,7 @@ export function QuickMenuTab({
 
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-sm text-gray-400">{emptyMessage}</p>
+          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
       ) : (
         <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}>

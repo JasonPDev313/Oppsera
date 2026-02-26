@@ -6,3 +6,4 @@ export { getItemTypeGroup, ITEM_TYPE_MAP } from './item-types';
 export type { ItemTypeGroup } from './item-types';
 export { computePackageAllocations } from './package-allocation';
 export type { ComponentAllocationInput, ComponentAllocation } from './package-allocation';
+export { getInitials, formatPhone } from './format';

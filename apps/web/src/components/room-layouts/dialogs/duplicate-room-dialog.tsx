@@ -54,8 +54,8 @@ export function DuplicateRoomDialog({ room, onClose, onDuplicated }: DuplicateRo
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900">Duplicate Room</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <h3 className="text-lg font-semibold text-foreground">Duplicate Room</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
           Create a copy of &ldquo;{room.name}&rdquo; with all its layout objects.
         </p>
 
@@ -65,7 +65,7 @@ export function DuplicateRoomDialog({ room, onClose, onDuplicated }: DuplicateRo
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -74,7 +74,7 @@ export function DuplicateRoomDialog({ room, onClose, onDuplicated }: DuplicateRo
               <select
                 value={locationId}
                 onChange={(e) => setLocationId(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               >
                 {locations.map((loc) => (
                   <option key={loc.id} value={loc.id}>{loc.name}</option>
@@ -89,7 +89,7 @@ export function DuplicateRoomDialog({ room, onClose, onDuplicated }: DuplicateRo
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -97,7 +97,7 @@ export function DuplicateRoomDialog({ room, onClose, onDuplicated }: DuplicateRo
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >

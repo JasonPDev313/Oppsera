@@ -209,7 +209,7 @@ export function BulkAssignModifiersDialog({ open, onClose, onSuccess }: BulkAssi
               <span
                 className={`rounded-full px-3 py-1 text-xs font-medium ${
                   s === step
-                    ? 'bg-indigo-500/100/20 text-indigo-500'
+                    ? 'bg-indigo-500/20 text-indigo-500'
                     : i < stepIndex
                       ? 'bg-green-500/20 text-green-500'
                       : 'bg-muted text-muted-foreground'
@@ -313,7 +313,7 @@ export function BulkAssignModifiersDialog({ open, onClose, onSuccess }: BulkAssi
                 type="button"
                 onClick={goNext}
                 disabled={!canAdvance}
-                className={`inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+                className={`inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
                   !canAdvance ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
@@ -325,7 +325,7 @@ export function BulkAssignModifiersDialog({ open, onClose, onSuccess }: BulkAssi
                 type="button"
                 onClick={handleSubmit}
                 disabled={assigning}
-                className={`inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+                className={`inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
                   assigning ? 'cursor-not-allowed opacity-50' : ''
                 }`}
               >
@@ -473,7 +473,7 @@ function ItemSelectionStep({
           <button
             type="button"
             onClick={onSelectAll}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
           >
             Select all visible ({items.length})
           </button>

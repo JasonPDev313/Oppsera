@@ -701,7 +701,7 @@ export default function ReportsContent() {
         <button
           type="button"
           onClick={handleRefresh}
-          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           <RefreshCw className="h-4 w-4" />
           Refresh

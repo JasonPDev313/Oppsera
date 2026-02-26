@@ -193,7 +193,7 @@ function TypeCellTooltip({
       </div>
       <div className="mt-2">
         <div className="flex items-center gap-2">
-          <div className="relative h-3 flex-1 rounded-full bg-gray-200/60 overflow-hidden">
+          <div className="relative h-3 flex-1 rounded-full bg-muted/60 overflow-hidden">
             <div
               className="absolute inset-y-0 left-0 rounded-full"
               style={{
@@ -433,7 +433,7 @@ export default function UtilizationContent() {
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-l-lg ${
                   viewMode === 'room-type'
                     ? 'bg-indigo-600 text-white'
-                    : 'text-muted-foreground hover:bg-gray-200/50'
+                    : 'text-muted-foreground hover:bg-accent/50'
                 }`}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
@@ -444,7 +444,7 @@ export default function UtilizationContent() {
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-r-lg ${
                   viewMode === 'room'
                     ? 'bg-indigo-600 text-white'
-                    : 'text-muted-foreground hover:bg-gray-200/50'
+                    : 'text-muted-foreground hover:bg-accent/50'
                 }`}
               >
                 <Rows3 className="h-3.5 w-3.5" />
@@ -457,7 +457,7 @@ export default function UtilizationContent() {
               <button
                 onClick={handleZoomOut}
                 disabled={zoom <= 1}
-                className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="rounded p-1 text-muted-foreground hover:bg-accent/50 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ZoomOut className="h-4 w-4" />
               </button>
@@ -467,7 +467,7 @@ export default function UtilizationContent() {
               <button
                 onClick={handleZoomIn}
                 disabled={zoom >= 4}
-                className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                className="rounded p-1 text-muted-foreground hover:bg-accent/50 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ZoomIn className="h-4 w-4" />
               </button>
@@ -492,7 +492,7 @@ export default function UtilizationContent() {
           <div className="flex items-center gap-0.5">
             <button
               onClick={handlePrev}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-gray-200/50"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent/50"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -505,7 +505,7 @@ export default function UtilizationContent() {
 
             <button
               onClick={handleNext}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-gray-200/50"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent/50"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -514,7 +514,7 @@ export default function UtilizationContent() {
           {/* Today button */}
           <button
             onClick={handleToday}
-            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-semibold text-foreground hover:bg-accent/50"
           >
             Today
           </button>
@@ -528,7 +528,7 @@ export default function UtilizationContent() {
                 className={`px-3.5 py-2 text-sm font-semibold first:rounded-l-lg last:rounded-r-lg ${
                   viewDays === d
                     ? 'bg-indigo-600 text-white'
-                    : 'text-muted-foreground hover:bg-gray-200/50'
+                    : 'text-muted-foreground hover:bg-accent/50'
                 }`}
               >
                 {d}d
@@ -552,7 +552,7 @@ export default function UtilizationContent() {
               className="w-16 bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground"
             />
             {guestCount !== null && (
-              <button onClick={() => setGuestCount(null)} className="text-muted-foreground hover:text-muted-foreground">
+              <button onClick={() => setGuestCount(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
@@ -615,7 +615,7 @@ export default function UtilizationContent() {
               {dates.map((date) => {
                 const today = isToday(date);
                 return (
-                  <tr key={date} className={today ? 'bg-indigo-50/30' : ''}>
+                  <tr key={date} className={today ? 'bg-indigo-500/10' : ''}>
                     <td
                       className="sticky left-0 z-10 bg-surface border-r border-border whitespace-nowrap"
                       style={{ padding: `${6 * scale}px ${16 * scale}px`, minWidth: `${130 * scale}px` }}
@@ -707,7 +707,7 @@ export default function UtilizationContent() {
               {dates.map((date) => {
                 const today = isToday(date);
                 return (
-                  <tr key={date} className={today ? 'bg-indigo-50/30' : ''}>
+                  <tr key={date} className={today ? 'bg-indigo-500/10' : ''}>
                     <td
                       className="sticky left-0 z-10 bg-surface border-r border-border whitespace-nowrap"
                       style={{ padding: `${6 * scale}px ${16 * scale}px`, minWidth: `${130 * scale}px` }}

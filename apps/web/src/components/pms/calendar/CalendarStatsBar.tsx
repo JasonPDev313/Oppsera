@@ -12,15 +12,15 @@ export default function CalendarStatsBar({ totalRooms, occupancy, lastUpdatedAt 
   if (!occupancy) return null;
 
   const pct = totalRooms > 0 ? Math.round((occupancy.occupied / totalRooms) * 100) : 0;
-  const pctColor = pct >= 90 ? 'text-red-600' : pct >= 70 ? 'text-amber-600' : 'text-green-600';
+  const pctColor = pct >= 90 ? 'text-red-500' : pct >= 70 ? 'text-amber-500' : 'text-green-500';
 
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 rounded-lg border border-border bg-surface px-4 py-2">
       <StatItem label="Total Rooms" value={totalRooms} />
       <StatItem label="Occupied" value={occupancy.occupied} />
       <StatItem label="Available" value={occupancy.available} />
-      <StatItem label="Arrivals" value={occupancy.arrivals} valueClass="text-green-600" />
-      <StatItem label="Departures" value={occupancy.departures} valueClass="text-amber-600" />
+      <StatItem label="Arrivals" value={occupancy.arrivals} valueClass="text-green-500" />
+      <StatItem label="Departures" value={occupancy.departures} valueClass="text-amber-500" />
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Occ%</span>
         <span className={`text-sm font-semibold ${pctColor}`}>{pct}%</span>

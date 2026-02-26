@@ -41,14 +41,14 @@ export const QuickMenuTab = memo(function QuickMenuTab({
   return (
     <div className="flex flex-col gap-3">
       {/* Sub-tabs */}
-      <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+      <div className="flex gap-1 rounded-lg bg-muted p-1">
         <button
           type="button"
           onClick={() => onTabChange('favorites')}
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors ${
             activeTab === 'favorites'
-              ? 'bg-surface text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Star className="h-4 w-4" />
@@ -59,8 +59,8 @@ export const QuickMenuTab = memo(function QuickMenuTab({
           onClick={() => onTabChange('recent')}
           className={`flex flex-1 items-center justify-center gap-1.5 rounded-md py-2 text-sm font-medium transition-colors ${
             activeTab === 'recent'
-              ? 'bg-surface text-gray-900 shadow-sm'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'bg-surface text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <Clock className="h-4 w-4" />
@@ -71,7 +71,7 @@ export const QuickMenuTab = memo(function QuickMenuTab({
       {/* Items grid */}
       {items.length === 0 ? (
         <div className="flex items-center justify-center py-12">
-          <p className="text-sm text-gray-400">{emptyMessage}</p>
+          <p className="text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">

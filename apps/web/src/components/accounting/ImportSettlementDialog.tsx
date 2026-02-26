@@ -65,7 +65,7 @@ export function ImportSettlementDialog({
       <div className="relative bg-surface rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Import Settlement</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-muted-foreground" aria-label="Close">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>

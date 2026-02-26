@@ -29,10 +29,10 @@ export default function StaffImportContent() {
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+        <h1 className="text-2xl font-bold text-foreground">
           Import Staff / Employees
         </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           Bring your existing staff data with you. Upload a CSV or Excel export from any
           system &mdash; we&apos;ll auto-map columns, detect duplicates, and show you a
           preview before anything changes.
@@ -48,15 +48,15 @@ export default function StaffImportContent() {
           return (
             <div key={s.key} className="flex items-center gap-2">
               {idx > 0 && (
-                <div className={`w-8 h-px ${isComplete ? 'bg-indigo-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                <div className={`w-8 h-px ${isComplete ? 'bg-indigo-500' : 'bg-muted'}`} />
               )}
               <div
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   isActive
                     ? 'bg-indigo-600 text-white'
                     : isComplete
-                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                      : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                      ? 'bg-indigo-500/10 text-indigo-500'
+                      : 'bg-muted text-muted-foreground'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -69,7 +69,7 @@ export default function StaffImportContent() {
 
       {/* Error banner */}
       {wizard.error && (
-        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+        <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-500">
           {wizard.error}
         </div>
       )}

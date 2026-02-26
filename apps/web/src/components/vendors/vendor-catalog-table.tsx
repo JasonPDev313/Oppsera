@@ -156,7 +156,7 @@ export function VendorCatalogTable({
           <button
             type="button"
             onClick={onLoadMore}
-            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Load More
           </button>

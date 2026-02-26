@@ -294,7 +294,7 @@ export function DashboardBuilder({
             <button
               type="button"
               onClick={() => setAddModalOpen(true)}
-              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               <Plus className="h-4 w-4" />
               Add Your First Tile
@@ -352,7 +352,7 @@ export function DashboardBuilder({
               type="button"
               onClick={handleSave}
               disabled={isSaving || !name.trim()}
-              className={`inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+              className={`inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
                 isSaving || !name.trim() ? 'cursor-not-allowed opacity-50' : ''
               }`}
             >

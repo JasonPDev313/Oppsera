@@ -122,7 +122,7 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
           type="button"
           onClick={copyToAll}
           disabled={disabled}
-          className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-500 disabled:opacity-50"
+          className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-400 disabled:opacity-50"
         >
           <Copy className="h-3 w-3" />
           Copy Monday to all
@@ -193,7 +193,7 @@ export function BusinessHoursEditor({ value, onChange, disabled = false }: Busin
                       type="button"
                       onClick={() => addPeriod(key)}
                       disabled={disabled}
-                      className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-500"
+                      className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-400"
                     >
                       <Plus className="h-3 w-3" />
                       Add hours

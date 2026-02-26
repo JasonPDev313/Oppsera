@@ -1,6 +1,13 @@
-import { pgTable, text, boolean, timestamp, jsonb, integer, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, timestamp, jsonb, integer, index, customType } from 'drizzle-orm/pg-core';
 import { generateUlid } from '@oppsera/shared';
 import { platformAdmins } from './platform';
+
+// Custom BYTEA type for storing compressed backup data
+const bytea = customType<{ data: Buffer }>({
+  dataType() {
+    return 'bytea';
+  },
+});
 
 // ── Platform Backups ─────────────────────────────────────────────
 // SQL-based database backups. NOT tenant-scoped, NO RLS.
@@ -21,12 +28,14 @@ export const platformBackups = pgTable(
     checksum: text('checksum'),
     // SHA-256 of the compressed file
     storageDriver: text('storage_driver').notNull().default('local'),
-    // 'local' | 's3'
+    // 'local' | 'database' | 's3'
     storagePath: text('storage_path'),
     retentionTag: text('retention_tag'),
     // 'daily' | 'weekly' | 'monthly' | null (transient)
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     errorMessage: text('error_message'),
+    compressedData: bytea('compressed_data'),
+    // Inline storage for database-backed backups (Vercel/serverless)
     metadata: jsonb('metadata'),
     // { tableManifest: [...], schemaVersion, pgVersion }
     initiatedByAdminId: text('initiated_by_admin_id')

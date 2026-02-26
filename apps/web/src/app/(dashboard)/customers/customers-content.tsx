@@ -118,11 +118,11 @@ function CreateCustomerDialog({
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Add Customer</h3>
+          <h3 className="text-lg font-semibold text-foreground">Add Customer</h3>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -131,15 +131,15 @@ function CreateCustomerDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Type Toggle */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Type</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Type</label>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, type: 'person' }))}
                 className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   form.type === 'person'
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    ? 'border-indigo-600 bg-indigo-500/10 text-indigo-500'
+                    : 'border-border text-foreground hover:bg-accent'
                 }`}
               >
                 Person
@@ -149,8 +149,8 @@ function CreateCustomerDialog({
                 onClick={() => setForm((f) => ({ ...f, type: 'organization' }))}
                 className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                   form.type === 'organization'
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700'
-                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    ? 'border-indigo-600 bg-indigo-500/10 text-indigo-500'
+                    : 'border-border text-foreground hover:bg-accent'
                 }`}
               >
                 Organization
@@ -162,88 +162,88 @@ function CreateCustomerDialog({
           {form.type === 'person' ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-foreground">
                   First Name
                 </label>
                 <input
                   type="text"
                   value={form.firstName}
                   onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
+                <label className="mb-1 block text-sm font-medium text-foreground">
                   Last Name
                 </label>
                 <input
                   type="text"
                   value={form.lastName}
                   onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </div>
             </div>
           ) : (
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
+              <label className="mb-1 block text-sm font-medium text-foreground">
                 Organization Name
               </label>
               <input
                 type="text"
                 value={form.organizationName}
                 onChange={(e) => setForm((f) => ({ ...f, organizationName: e.target.value }))}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
               />
             </div>
           )}
 
           {/* Email */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Email</label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
               placeholder="name@example.com"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
           {/* Phone */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Phone</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Phone</label>
             <input
               type="tel"
               value={form.phone}
               onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
               placeholder="(555) 123-4567"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
           {/* Notes */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Notes</label>
+            <label className="mb-1 block text-sm font-medium text-foreground">Notes</label>
             <textarea
               value={form.notes}
               onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
           {/* Tags */}
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              Tags <span className="font-normal text-gray-400">(comma-separated)</span>
+            <label className="mb-1 block text-sm font-medium text-foreground">
+              Tags <span className="font-normal text-muted-foreground">(comma-separated)</span>
             </label>
             <input
               type="text"
               value={form.tags}
               onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
               placeholder="vip, member"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
 
@@ -252,14 +252,14 @@ function CreateCustomerDialog({
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
             >
               {isSaving ? 'Creating...' : 'Create Customer'}
             </button>
@@ -297,8 +297,8 @@ export default function CustomersPage() {
       header: 'Name',
       render: (row: CustomerRow) => (
         <div>
-          <div className="font-medium text-gray-900">{row.displayName}</div>
-          {row.email && <div className="text-xs text-gray-500">{row.email}</div>}
+          <div className="font-medium text-foreground">{row.displayName}</div>
+          {row.email && <div className="text-xs text-muted-foreground">{row.email}</div>}
         </div>
       ),
     },
@@ -314,7 +314,7 @@ export default function CustomersPage() {
       key: 'phone',
       header: 'Contact',
       render: (row: CustomerRow) => (
-        <span className="text-sm text-gray-600">{row.phone || '\u2014'}</span>
+        <span className="text-sm text-muted-foreground">{row.phone || '\u2014'}</span>
       ),
     },
     {
@@ -322,9 +322,9 @@ export default function CustomersPage() {
       header: 'Visits / Spend',
       render: (row: CustomerRow) => (
         <div>
-          <span className="font-medium text-gray-900">{row.totalVisits}</span>
-          <span className="mx-1 text-gray-400">/</span>
-          <span className="text-gray-600">{formatMoney(row.totalSpend)}</span>
+          <span className="font-medium text-foreground">{row.totalVisits}</span>
+          <span className="mx-1 text-muted-foreground">/</span>
+          <span className="text-muted-foreground">{formatMoney(row.totalSpend)}</span>
         </div>
       ),
     },
@@ -332,7 +332,7 @@ export default function CustomersPage() {
       key: 'lastVisitAt',
       header: 'Last Visit',
       render: (row: CustomerRow) => (
-        <span className="text-sm text-gray-600">
+        <span className="text-sm text-muted-foreground">
           {row.lastVisitAt ? formatDate(row.lastVisitAt) : '\u2014'}
         </span>
       ),
@@ -362,8 +362,8 @@ export default function CustomersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Customers</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-semibold text-foreground">Customers</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage your customer profiles, memberships, and billing
           </p>
         </div>
@@ -371,7 +371,7 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             <Upload className="h-4 w-4" />
             Import CSV
@@ -379,7 +379,7 @@ export default function CustomersPage() {
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
           >
             Add Customer
           </button>
@@ -418,7 +418,7 @@ export default function CustomersPage() {
               <button
                 type="button"
                 onClick={loadMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Load More
               </button>

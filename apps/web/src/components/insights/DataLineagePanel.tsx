@@ -52,7 +52,7 @@ function highlightSql(sql: string): React.ReactNode[] {
           // String literals
           if (token.startsWith("'") || token.startsWith('"')) {
             return (
-              <span key={tokIdx} className="text-amber-600">
+              <span key={tokIdx} className="text-amber-500">
                 {token}
               </span>
             );
@@ -60,7 +60,7 @@ function highlightSql(sql: string): React.ReactNode[] {
           // Numbers
           if (/^\d+(\.\d+)?$/.test(token)) {
             return (
-              <span key={tokIdx} className="text-emerald-600">
+              <span key={tokIdx} className="text-emerald-500">
                 {token}
               </span>
             );
@@ -96,7 +96,7 @@ export function DataLineagePanel({
       <button
         type="button"
         onClick={() => setExpanded((p) => !p)}
-        className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-200/50 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-accent/50 transition-colors"
       >
         <div className="flex items-center gap-2">
           <Database className="h-3.5 w-3.5 text-muted-foreground" />

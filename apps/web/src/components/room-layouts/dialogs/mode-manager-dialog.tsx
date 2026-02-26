@@ -215,7 +215,7 @@ export function ModeManagerDialog({
               <button
                 onClick={handleAddMode}
                 disabled={isSubmitting || !newModeName.trim()}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? 'Creating...' : 'Add Mode'}
               </button>

@@ -384,3 +384,192 @@ describe('Infrastructure (66-70)', () => {
     expect(isMobile(1200)).toBe(false);
   });
 });
+
+// ===========================================================================
+// Rapid-Fire Sale Transitions (71-77)
+// ===========================================================================
+
+describe('Rapid-Fire Sale Transitions (71-77)', () => {
+  // Simulates the refs and state that usePOS manages internally
+  interface MockPOSState {
+    currentOrder: { id: string; lines: unknown[] } | null;
+    batchQueue: unknown[];
+    batchTimerRef: ReturnType<typeof setTimeout> | null;
+    openOrderPromise: Promise<{ id: string; lines?: unknown[] }> | null;
+    placingPromise: Promise<{ id: string }> | null;
+    pendingAddItems: Promise<void>[];
+  }
+
+  function createMockState(): MockPOSState {
+    return {
+      currentOrder: null,
+      batchQueue: [],
+      batchTimerRef: null,
+      openOrderPromise: null,
+      placingPromise: null,
+      pendingAddItems: [],
+    };
+  }
+
+  function clearOrder(state: MockPOSState): void {
+    if (state.batchTimerRef) {
+      clearTimeout(state.batchTimerRef);
+      state.batchTimerRef = null;
+    }
+    state.batchQueue = [];
+    state.openOrderPromise = null;
+    state.placingPromise = null;
+    state.pendingAddItems = [];
+    state.currentOrder = null;
+  }
+
+  async function ensureOrderReady(state: MockPOSState): Promise<{ id: string; lines?: unknown[] }> {
+    let order: { id: string; lines?: unknown[] } | null = state.currentOrder;
+
+    // Wait for openOrder to finish if placeholder (id === '')
+    if (order && !order.id && state.openOrderPromise) {
+      const created = await state.openOrderPromise;
+      order = (state.currentOrder?.id ? state.currentOrder : null) ?? created;
+    }
+
+    // Flush batch if needed
+    if (order && !order.id && state.batchQueue.length > 0) {
+      if (state.batchTimerRef) {
+        clearTimeout(state.batchTimerRef);
+        state.batchTimerRef = null;
+      }
+      // Simulate flushBatch
+      state.batchQueue = [];
+    }
+
+    // Wait for pending add items
+    if (state.pendingAddItems.length > 0) {
+      await Promise.allSettled(state.pendingAddItems);
+      order = state.currentOrder;
+    }
+
+    if (!order || !order.id) {
+      throw new Error('Order creation failed');
+    }
+    return order;
+  }
+
+  // Test 71: clearOrder resets all async state
+  it('71: clearOrder resets batch queue, timers, and promises', () => {
+    const state = createMockState();
+    state.currentOrder = { id: 'order-1', lines: [] };
+    state.batchQueue = [{ input: {}, tempId: 't1' }];
+    state.batchTimerRef = setTimeout(() => {}, 50000);
+    state.openOrderPromise = Promise.resolve({ id: 'order-1' });
+    state.placingPromise = Promise.resolve({ id: 'order-1' });
+    state.pendingAddItems = [Promise.resolve()];
+
+    clearOrder(state);
+
+    expect(state.currentOrder).toBeNull();
+    expect(state.batchQueue).toHaveLength(0);
+    expect(state.batchTimerRef).toBeNull();
+    expect(state.openOrderPromise).toBeNull();
+    expect(state.placingPromise).toBeNull();
+    expect(state.pendingAddItems).toHaveLength(0);
+  });
+
+  // Test 72: clearOrder does NOT leave stale timers that fire later
+  it('72: clearOrder cancels pending batch timer', async () => {
+    const state = createMockState();
+    let timerFired = false;
+    state.batchTimerRef = setTimeout(() => { timerFired = true; }, 10);
+
+    clearOrder(state);
+
+    // Wait long enough for the timer to have fired (if not cancelled)
+    await new Promise(r => setTimeout(r, 50));
+    expect(timerFired).toBe(false);
+  });
+
+  // Test 73: ensureOrderReady waits for in-flight openOrder
+  it('73: ensureOrderReady resolves after openOrder completes', async () => {
+    const state = createMockState();
+    // Simulate a placeholder order with empty id (optimistic, server hasn't responded)
+    state.currentOrder = { id: '', lines: [{ id: 'temp-1' }] };
+
+    // Simulate openOrder in flight — resolves after 50ms
+    state.openOrderPromise = new Promise(resolve => {
+      setTimeout(() => {
+        state.currentOrder = { id: 'server-order-1', lines: [] };
+        resolve({ id: 'server-order-1' });
+      }, 50);
+    });
+
+    const result = await ensureOrderReady(state);
+    expect(result.id).toBe('server-order-1');
+  });
+
+  // Test 74: ensureOrderReady uses promise return value when ref is stale
+  it('74: ensureOrderReady uses promise value if state not yet updated', async () => {
+    const state = createMockState();
+    state.currentOrder = { id: '', lines: [] };
+
+    // Simulate: openOrder resolves but React hasn't re-rendered (currentOrder still has empty id)
+    state.openOrderPromise = new Promise(resolve => {
+      setTimeout(() => {
+        // DON'T update state.currentOrder — simulates React batching delay
+        resolve({ id: 'created-but-not-in-state' });
+      }, 20);
+    });
+
+    const result = await ensureOrderReady(state);
+    expect(result.id).toBe('created-but-not-in-state');
+  });
+
+  // Test 75: ensureOrderReady throws when order creation fails
+  it('75: ensureOrderReady throws when no order exists', async () => {
+    const state = createMockState();
+    state.currentOrder = null;
+
+    await expect(ensureOrderReady(state)).rejects.toThrow('Order creation failed');
+  });
+
+  // Test 76: After clearOrder, next sale starts clean
+  it('76: after clearOrder, new order has fresh state', () => {
+    const state = createMockState();
+    // Complete first sale
+    state.currentOrder = { id: 'order-1', lines: [{ id: 'l1' }] };
+    state.batchQueue = [{ input: {}, tempId: 't2' }];
+    state.openOrderPromise = Promise.resolve({ id: 'order-1' });
+    state.pendingAddItems = [Promise.resolve()];
+
+    // Clear (simulates handlePaymentComplete → clearOrder)
+    clearOrder(state);
+
+    // Start next sale
+    state.currentOrder = { id: '', lines: [{ id: 'temp-new' }] };
+
+    // Verify no stale state from previous sale
+    expect(state.batchQueue).toHaveLength(0);
+    expect(state.openOrderPromise).toBeNull();
+    expect(state.placingPromise).toBeNull();
+    expect(state.pendingAddItems).toHaveLength(0);
+    expect(state.currentOrder.id).toBe('');
+    expect(state.currentOrder.lines).toHaveLength(1);
+  });
+
+  // Test 77: ensureOrderReady waits for pending batch items
+  it('77: ensureOrderReady waits for pending add-item promises', async () => {
+    const state = createMockState();
+    state.currentOrder = { id: 'order-1', lines: [] };
+
+    let batchDone = false;
+    state.pendingAddItems = [
+      new Promise<void>(resolve => {
+        setTimeout(() => {
+          batchDone = true;
+          resolve();
+        }, 30);
+      }),
+    ];
+
+    await ensureOrderReady(state);
+    expect(batchDone).toBe(true);
+  });
+});

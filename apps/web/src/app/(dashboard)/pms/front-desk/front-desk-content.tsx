@@ -147,7 +147,7 @@ export default function FrontDeskContent() {
           <button
             onClick={refreshAll}
             disabled={isRefreshing}
-            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-gray-200/50 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent/50 disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -226,7 +226,7 @@ export default function FrontDeskContent() {
                     <button
                       onClick={() => handleCheckIn(r)}
                       disabled={actionId === r.id}
-                      className="shrink-0 flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                      className="shrink-0 flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                     >
                       {actionId === r.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

@@ -22,8 +22,8 @@ export default function LoginPage() {
       await login(email, password);
       localStorage.setItem('portal_last_slug', tenantSlug);
       router.push(`/${tenantSlug}/dashboard`);
-    } catch (err: any) {
-      setError(err.message ?? 'Login failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setIsSubmitting(false);
     }

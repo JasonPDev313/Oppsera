@@ -307,17 +307,17 @@ export function ItemEditDrawer() {
         }`}
       >
         {/* Header */}
-        <div className="shrink-0 border-b border-gray-200 px-5 py-4">
+        <div className="shrink-0 border-b border-border px-5 py-4">
           <div className="flex items-start justify-between">
             <div className="min-w-0 flex-1">
               {showSkeleton ? (
                 <>
-                  <div className="h-5 w-48 animate-pulse rounded bg-gray-200" />
-                  <div className="mt-2 h-4 w-24 animate-pulse rounded bg-gray-100" />
+                  <div className="h-5 w-48 animate-pulse rounded bg-muted" />
+                  <div className="mt-2 h-4 w-24 animate-pulse rounded bg-muted" />
                 </>
               ) : (
                 <>
-                  <h2 className="text-lg font-semibold leading-tight text-gray-900">
+                  <h2 className="text-lg font-semibold leading-tight text-foreground">
                     {form?.name || preSeed?.name || item?.name || 'Loading...'}
                   </h2>
                   <div className="mt-1.5 flex items-center gap-2">
@@ -328,10 +328,10 @@ export function ItemEditDrawer() {
                       compact={false}
                     />
                     {isDirty && (
-                      <span className="text-xs font-medium text-amber-600">Unsaved changes</span>
+                      <span className="text-xs font-medium text-amber-500">Unsaved changes</span>
                     )}
                     {!hasFullDataRef.current && isLoading && (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-400" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                     )}
                   </div>
                 </>
@@ -341,7 +341,7 @@ export function ItemEditDrawer() {
               <button
                 type="button"
                 onClick={attemptClose}
-                className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title="Close"
               >
                 <X className="h-5 w-5" />
@@ -356,18 +356,18 @@ export function ItemEditDrawer() {
             <div className="space-y-4 p-5">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="space-y-2">
-                  <div className="h-4 w-24 animate-pulse rounded bg-gray-200" />
-                  <div className="h-9 w-full animate-pulse rounded bg-gray-100" />
+                  <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                  <div className="h-9 w-full animate-pulse rounded bg-muted" />
                 </div>
               ))}
             </div>
           ) : error && !form ? (
             <div className="p-6 text-center">
-              <p className="text-sm text-red-600">Failed to load item.</p>
+              <p className="text-sm text-red-500">Failed to load item.</p>
               <button
                 type="button"
                 onClick={() => refetchItem()}
-                className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                className="mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-500"
               >
                 Try again
               </button>
@@ -394,12 +394,12 @@ export function ItemEditDrawer() {
 
         {/* Footer action bar */}
         {form && (
-          <div className="shrink-0 border-t border-gray-200 px-5 py-3">
+          <div className="shrink-0 border-t border-border px-5 py-3">
             <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={attemptClose}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Cancel
               </button>
@@ -408,7 +408,7 @@ export function ItemEditDrawer() {
                   type="button"
                   onClick={() => handleSave(true)}
                   disabled={isSaving || !isDirty}
-                  className="rounded-lg border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-lg border border-indigo-500/30 px-4 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Save & Close
                 </button>
@@ -416,7 +416,7 @@ export function ItemEditDrawer() {
                   type="button"
                   onClick={() => handleSave(false)}
                   disabled={isSaving || !isDirty}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -440,15 +440,15 @@ export function ItemEditDrawer() {
               onClick={() => setShowDiscardDialog(false)}
             />
             <div className="relative w-full max-w-sm rounded-lg bg-surface p-6 shadow-xl">
-              <h3 className="text-base font-semibold text-gray-900">Unsaved changes</h3>
-              <p className="mt-2 text-sm text-gray-600">
+              <h3 className="text-base font-semibold text-foreground">Unsaved changes</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
                 You have unsaved changes. Are you sure you want to close?
               </p>
               <div className="mt-4 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setShowDiscardDialog(false)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
                 >
                   Keep Editing
                 </button>

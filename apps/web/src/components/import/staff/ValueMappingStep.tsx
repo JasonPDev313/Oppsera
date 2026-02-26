@@ -106,7 +106,7 @@ export function ValueMappingStep({
         </p>
 
         {valueMappings.roles.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">No role column was detected in the file.</p>
+          <p className="text-sm text-muted-foreground italic">No role column was detected in the file.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -185,7 +185,7 @@ export function ValueMappingStep({
         </p>
 
         {valueMappings.locations.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">No location column was detected in the file.</p>
+          <p className="text-sm text-muted-foreground italic">No location column was detected in the file.</p>
         ) : (
           <div className="space-y-3">
             {valueMappings.locations.map((lm, idx) => (
@@ -206,11 +206,11 @@ export function ValueMappingStep({
                         type="checkbox"
                         checked={lm.oppsEraLocationIds.includes(loc.id)}
                         onChange={() => toggleLocation(idx, loc.id)}
-                        className="rounded border-gray-300 text-indigo-600"
+                        className="rounded border-border text-indigo-600"
                       />
                       <span className="text-foreground">
                         {loc.name}
-                        <span className="text-gray-400 ml-1">({loc.location_type})</span>
+                        <span className="text-muted-foreground ml-1">({loc.location_type})</span>
                       </span>
                     </label>
                   ))}
@@ -230,7 +230,7 @@ export function ValueMappingStep({
                   type="checkbox"
                   checked={defaultLocationIds.includes(loc.id)}
                   onChange={() => toggleDefaultLocation(loc.id)}
-                  className="rounded border-gray-300 text-indigo-600"
+                  className="rounded border-border text-indigo-600"
                 />
                 <span className="text-foreground">{loc.name}</span>
               </label>
@@ -251,7 +251,7 @@ export function ValueMappingStep({
         <button
           onClick={onNext}
           disabled={isLoading}
-          className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+          className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500 disabled:opacity-50"
         >
           {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
           Validate & Preview

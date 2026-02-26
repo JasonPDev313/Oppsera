@@ -109,8 +109,8 @@ export function useReceivingEditor(receiptId: string): UseReceivingEditorReturn 
         `/api/v1/inventory/receiving/${receiptId}`,
       );
       applyReceiptData(res.data);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load receipt');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load receipt');
     } finally {
       setIsLoading(false);
     }

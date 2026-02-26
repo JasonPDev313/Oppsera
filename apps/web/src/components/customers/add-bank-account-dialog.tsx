@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Landmark, Loader2 } from 'lucide-react';
+import { X, Landmark, Loader2, Lock } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 
 interface AddBankAccountDialogProps {
@@ -38,6 +38,13 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
   const accountsMatch = accountNumber === confirmAccount;
   const canSubmit = routingValid && accountValid && accountsMatch && !isSubmitting;
 
+  /** Wipe all sensitive fields from component state */
+  const clearSensitiveState = useCallback(() => {
+    setRoutingNumber('');
+    setAccountNumber('');
+    setConfirmAccount('');
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
@@ -46,7 +53,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
     setError(null);
 
     try {
-      // 1. Tokenize the bank account
+      // 1. Tokenize via payment gateway — raw numbers are sent once and never stored
       const tokenRes = await apiFetch<{ data: { token: string; bankLast4: string } }>(
         '/api/v1/payments/bank-accounts/tokenize',
         {
@@ -55,15 +62,22 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
         },
       );
 
-      // 2. Add the bank account with the token
+      // Capture last-4 before clearing sensitive state
+      const rLast4 = routingNumber.slice(-4);
+      const aLast4 = accountNumber.slice(-4);
+
+      // Clear raw numbers from memory immediately after tokenization
+      clearSensitiveState();
+
+      // 2. Add the bank account using only the token + last-4 digits
       await apiFetch('/api/v1/payments/bank-accounts', {
         method: 'POST',
         body: JSON.stringify({
           clientRequestId: `add-bank-${Date.now()}`,
           customerId,
           token: tokenRes.data.token,
-          routingLast4: routingNumber.slice(-4),
-          accountLast4: accountNumber.slice(-4),
+          routingLast4: rLast4,
+          accountLast4: aLast4,
           accountType,
           bankName: bankName || undefined,
           nickname: nickname || undefined,
@@ -79,8 +93,13 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
     }
   };
 
+  const handleClose = useCallback(() => {
+    clearSensitiveState();
+    onClose();
+  }, [clearSensitiveState, onClose]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') onClose();
+    if (e.key === 'Escape') handleClose();
   };
 
   return createPortal(
@@ -89,46 +108,56 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
       onKeyDown={handleKeyDown}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
 
       {/* Dialog */}
       <div className="relative mx-4 w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <Landmark className="h-5 w-5 text-emerald-600" />
+            <Landmark className="h-5 w-5 text-emerald-500" />
             <h2 className="text-lg font-semibold text-foreground">Add Bank Account</h2>
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Security notice */}
+        <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5 mb-1">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+          <p className="text-xs text-muted-foreground">
+            Your bank details are sent directly to our payment processor for tokenization.
+            Only a secure token and the last 4 digits are stored — full account numbers are never saved or visible to staff.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
           {/* Routing Number */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
               Routing Number
             </label>
             <input
-              type="text"
+              type="password"
               inputMode="numeric"
               maxLength={9}
+              autoComplete="new-password"
               value={routingNumber}
               onChange={(e) => setRoutingNumber(e.target.value.replace(/\D/g, '').slice(0, 9))}
-              placeholder="123456789"
-              className={`w-full rounded-lg border px-3 py-2 text-sm ${
+              placeholder="9-digit routing number"
+              className={`w-full rounded-lg border px-3 py-2 text-sm bg-surface text-foreground ${
                 routingNumber.length === 9 && !routingValid
-                  ? 'border-red-300 focus:ring-red-500'
+                  ? 'border-red-500/30 focus:ring-red-500'
                   : 'border-input focus:ring-indigo-500'
               } focus:outline-none focus:ring-2`}
             />
             {routingNumber.length === 9 && !routingValid && (
-              <p className="mt-1 text-xs text-red-600">Invalid routing number</p>
+              <p className="mt-1 text-xs text-red-500">Invalid routing number</p>
             )}
           </div>
 
@@ -141,10 +170,11 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
               type="password"
               inputMode="numeric"
               maxLength={17}
+              autoComplete="new-password"
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17))}
               placeholder="Account number"
-              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-input bg-surface text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -157,17 +187,18 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
               type="password"
               inputMode="numeric"
               maxLength={17}
+              autoComplete="new-password"
               value={confirmAccount}
               onChange={(e) => setConfirmAccount(e.target.value.replace(/\D/g, '').slice(0, 17))}
               placeholder="Re-enter account number"
-              className={`w-full rounded-lg border px-3 py-2 text-sm ${
+              className={`w-full rounded-lg border px-3 py-2 text-sm bg-surface text-foreground ${
                 confirmAccount.length > 0 && !accountsMatch
-                  ? 'border-red-300 focus:ring-red-500'
+                  ? 'border-red-500/30 focus:ring-red-500'
                   : 'border-input focus:ring-indigo-500'
               } focus:outline-none focus:ring-2`}
             />
             {confirmAccount.length > 0 && !accountsMatch && (
-              <p className="mt-1 text-xs text-red-600">Account numbers do not match</p>
+              <p className="mt-1 text-xs text-red-500">Account numbers do not match</p>
             )}
           </div>
 
@@ -209,11 +240,12 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
             </label>
             <input
               type="text"
+              autoComplete="off"
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
               placeholder="e.g. Chase, Wells Fargo"
               maxLength={100}
-              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-input bg-surface text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -224,11 +256,12 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
             </label>
             <input
               type="text"
+              autoComplete="off"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               placeholder="e.g. My Checking"
               maxLength={50}
-              className="w-full rounded-lg border border-input px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full rounded-lg border border-input bg-surface text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
@@ -254,7 +287,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
             >
               Cancel
@@ -262,7 +295,7 @@ export function AddBankAccountDialog({ customerId, onClose, onSuccess }: AddBank
             <button
               type="submit"
               disabled={!canSubmit}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Add Bank Account

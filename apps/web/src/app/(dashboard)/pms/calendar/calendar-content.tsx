@@ -558,7 +558,7 @@ export default function CalendarContent() {
 
           {isLoading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           )}
 
@@ -694,7 +694,7 @@ export default function CalendarContent() {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-      <CalendarDays className="mb-2 h-10 w-10 text-gray-300" />
+      <CalendarDays className="mb-2 h-10 w-10 text-muted-foreground" />
       <p className="text-sm">No rooms found for this property.</p>
     </div>
   );

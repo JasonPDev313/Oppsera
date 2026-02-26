@@ -14,8 +14,8 @@ function usePortalQuery<T>(url: string) {
     try {
       const res = await portalFetch<{ data: T }>(url);
       setData(res.data);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load data');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setIsLoading(false);
     }

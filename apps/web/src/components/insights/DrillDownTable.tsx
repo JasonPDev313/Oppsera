@@ -158,7 +158,7 @@ export function DrillDownTable({
                 return (
                   <th
                     key={col}
-                    className="px-3 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap cursor-pointer select-none hover:bg-gray-200/50 transition-colors"
+                    className="px-3 py-2.5 text-left font-medium text-muted-foreground whitespace-nowrap cursor-pointer select-none hover:bg-accent/50 transition-colors"
                     onClick={() => handleSort(col)}
                   >
                     <span className="inline-flex items-center gap-1">
@@ -189,7 +189,7 @@ export function DrillDownTable({
             {visibleRows.map((row, rowIdx) => (
               <tr
                 key={rowIdx}
-                className="group hover:bg-gray-200/50 cursor-pointer transition-colors"
+                className="group hover:bg-accent/50 cursor-pointer transition-colors"
                 onClick={() => onDrillDown(row, columns[0] ?? '')}
               >
                 {columns.map((col) => (

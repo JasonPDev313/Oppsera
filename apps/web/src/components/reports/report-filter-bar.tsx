@@ -109,14 +109,14 @@ export function ReportFilterBar({
 
   return (
     <div
-      className={`relative sticky top-0 z-30 -mx-4 border-b border-gray-200 bg-surface px-4 py-3 md:-mx-6 md:px-6 ${className ?? ''}`}
+      className={`relative sticky top-0 z-30 -mx-4 border-b border-border bg-surface px-4 py-3 md:-mx-6 md:px-6 ${className ?? ''}`}
     >
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         {/* Preset dropdown */}
         <select
           value={preset}
           onChange={handlePresetChange}
-          className="rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm font-medium text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           aria-label="Date range preset"
         >
           <optgroup label="Relative">
@@ -147,7 +147,7 @@ export function ReportFilterBar({
         <button
           type="button"
           onClick={handleShiftBack}
-          className="rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
+          className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:bg-accent"
           aria-label="Previous period"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -160,23 +160,23 @@ export function ReportFilterBar({
           onChange={handleDateFromChange}
           max={dateTo}
           aria-label="Start date"
-          className="rounded-lg border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
-        <span className="text-sm text-gray-400">&ndash;</span>
+        <span className="text-sm text-muted-foreground">&ndash;</span>
         <input
           type="date"
           value={dateTo}
           onChange={handleDateToChange}
           min={dateFrom}
           aria-label="End date"
-          className="rounded-lg border border-gray-200 bg-surface px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
 
         {/* Shift forward */}
         <button
           type="button"
           onClick={handleShiftForward}
-          className="rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
+          className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:bg-accent"
           aria-label="Next period"
         >
           <ChevronRight className="h-4 w-4" />
@@ -190,7 +190,7 @@ export function ReportFilterBar({
           <select
             value={locationId}
             onChange={(e) => onLocationChange(e.target.value)}
-            className="rounded-lg border border-gray-200 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             aria-label="Location"
           >
             <option value="">All Locations</option>
@@ -207,7 +207,7 @@ export function ReportFilterBar({
           <button
             type="button"
             onClick={onRefresh}
-            className="rounded-lg border border-gray-200 p-2 text-gray-600 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:bg-accent"
             aria-label="Refresh"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -219,7 +219,7 @@ export function ReportFilterBar({
           <button
             type="button"
             onClick={onReset}
-            className="rounded-lg border border-gray-200 p-2 text-gray-500 transition-colors hover:bg-gray-50"
+            className="rounded-lg border border-border p-2 text-muted-foreground transition-colors hover:bg-accent"
             aria-label="Reset filters"
           >
             <RotateCcw className="h-4 w-4" />

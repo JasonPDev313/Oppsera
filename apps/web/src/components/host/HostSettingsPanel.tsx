@@ -385,7 +385,7 @@ function TagList({ tags, onChange, label, placeholder }: { tags: string[]; onCha
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } }}
           className="flex-1 rounded border border-border bg-surface px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
-        <button type="button" onClick={add} className="rounded bg-indigo-600 text-white px-2 py-1 text-xs hover:bg-indigo-700 transition-colors">
+        <button type="button" onClick={add} className="rounded bg-indigo-600 text-white px-2 py-1 text-xs hover:bg-indigo-500 transition-colors">
           <Plus className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -408,7 +408,7 @@ function DayCheckboxes({ selected, onChange }: { selected: string[]; onChange: (
             key={d.key}
             type="button"
             onClick={() => toggle(d.key)}
-            className={`w-8 h-8 rounded-full text-xs font-medium transition-colors ${selected.includes(d.key) ? 'bg-red-500/20 text-red-600 border border-red-500/30' : 'bg-surface border border-border text-muted-foreground hover:bg-accent'}`}
+            className={`w-8 h-8 rounded-full text-xs font-medium transition-colors ${selected.includes(d.key) ? 'bg-red-500/20 text-red-500 border border-red-500/30' : 'bg-surface border border-border text-muted-foreground hover:bg-accent'}`}
           >
             {d.label}
           </button>
@@ -556,7 +556,7 @@ export default function HostSettingsPanel({ locationId }: { locationId: string }
           <button
             onClick={save}
             disabled={!isDirty || isSaving}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 transition-all active:scale-[0.97]"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-40 transition-all active:scale-[0.97]"
             aria-label="Save settings"
           >
             <Save className="h-3.5 w-3.5" />

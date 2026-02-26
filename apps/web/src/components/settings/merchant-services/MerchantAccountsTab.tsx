@@ -126,7 +126,7 @@ export default function MerchantAccountsTab() {
           <button
             onClick={() => setShowAddMid(true)}
             disabled={!selectedProviderId}
-            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" /> Add MID
           </button>
@@ -161,7 +161,7 @@ export default function MerchantAccountsTab() {
             </thead>
             <tbody className="divide-y divide-border bg-surface">
               {accounts.map((a) => (
-                <tr key={a.id} className="hover:bg-muted/50">
+                <tr key={a.id} className="hover:bg-accent/50">
                   <td className="px-4 py-3 text-sm font-mono text-foreground">
                     {a.merchantId}
                     {a.isDefault && (
@@ -196,14 +196,14 @@ export default function MerchantAccountsTab() {
                               isDefault: true,
                             })
                           }
-                          className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                          className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
                         >
                           Set Default
                         </button>
                       )}
                       <button
                         onClick={() => setEditingMid(a)}
-                        className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+                        className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
                       >
                         Edit
                       </button>
@@ -324,11 +324,11 @@ function AddMidDialog({
         </label>
       </div>
       <div className="mt-6 flex justify-end gap-3">
-        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
+        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">Cancel</button>
         <button
           onClick={() => onSubmit({ merchantId, displayName, isDefault })}
           disabled={isLoading || !merchantId || !displayName}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
           Add MID
@@ -373,11 +373,11 @@ function EditMidDialog({
         </label>
       </div>
       <div className="mt-6 flex justify-end gap-3">
-        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
+        <button onClick={onClose} className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent">Cancel</button>
         <button
           onClick={() => onSubmit({ displayName, isDefault })}
           disabled={isLoading || !displayName}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
           Save Changes
@@ -502,7 +502,7 @@ function MerchantAccountSetupPanel({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={onBack} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground" aria-label="Back">
+        <button onClick={onBack} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Back">
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </button>
         <div>
@@ -724,7 +724,7 @@ function MerchantAccountSetupPanel({
 
       {/* Save Bar */}
       <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-4">
-        <button onClick={handleSave} disabled={isSaving || !displayName} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
+        <button onClick={handleSave} disabled={isSaving || !displayName} className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50">
           {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
         </button>
         <button onClick={() => setShowVerify(true)} disabled={!hasSavedCreds} className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-4 py-2.5 text-sm font-medium text-indigo-400 hover:bg-indigo-500/20 disabled:opacity-50">
@@ -909,7 +909,7 @@ function VerifyCredentialsReport({ providerId, onClose }: { providerId: string; 
               <p className="text-sm text-muted-foreground">Testing connectivity for all credential types</p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground" aria-label="Close">
+          <button onClick={onClose} className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground" aria-label="Close">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
@@ -923,7 +923,7 @@ function VerifyCredentialsReport({ providerId, onClose }: { providerId: string; 
             <div className="py-12 text-center">
               <XCircle className="mx-auto h-10 w-10 text-red-400" />
               <p className="mt-3 text-sm font-medium text-red-500">{error instanceof Error ? error.message : 'Failed to verify credentials'}</p>
-              <button onClick={() => verify()} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">Retry</button>
+              <button onClick={() => verify()} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Retry</button>
             </div>
           ) : result ? (
             <div className="space-y-3">
@@ -953,7 +953,7 @@ function VerifyCredentialsReport({ providerId, onClose }: { providerId: string; 
                   </thead>
                   <tbody className="divide-y divide-border bg-surface">
                     {result.rows.map((row, idx) => (
-                      <tr key={`${row.merchantAccountId}-${row.accountType}`} className="hover:bg-muted/50">
+                      <tr key={`${row.merchantAccountId}-${row.accountType}`} className="hover:bg-accent/50">
                         <td className="px-4 py-2.5 text-sm text-foreground">
                           {idx === 0 || result.rows[idx - 1]!.merchantAccountId !== row.merchantAccountId ? (
                             <div><span className="font-medium">{row.displayName}</span><span className="ml-2 font-mono text-xs text-muted-foreground">{row.merchantId}</span></div>
@@ -982,7 +982,7 @@ function VerifyCredentialsReport({ providerId, onClose }: { providerId: string; 
           <p className="text-xs text-muted-foreground">Tests each credential type by calling the CardPointe inquire endpoint.</p>
           <div className="flex items-center gap-2">
             {result && (
-              <button onClick={() => verify()} disabled={isVerifying} className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50">
+              <button onClick={() => verify()} disabled={isVerifying} className="inline-flex items-center gap-1.5 rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50">
                 <ShieldCheck className="h-4 w-4" /> Re-test
               </button>
             )}

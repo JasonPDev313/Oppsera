@@ -24,6 +24,7 @@ import {
   ClipboardList,
   Wallet,
 } from 'lucide-react';
+import { getInitials, formatPhone } from '@oppsera/shared';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/toast';
 import { apiFetch } from '@/lib/api-client';
@@ -79,7 +80,7 @@ function TabSkeleton() {
   return (
     <div className="space-y-4 p-6">
       {[...Array(4)].map((_, i) => (
-        <div key={i} className="h-20 animate-pulse rounded-lg bg-gray-100" />
+        <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />
       ))}
     </div>
   );
@@ -111,30 +112,11 @@ function formatMoneyDollars(dollars: number): string {
   return dollars.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
-
-function formatPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10)
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  if (digits.length === 11 && digits[0] === '1')
-    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-  return phone;
-}
-
 const FLAG_COLORS: Record<string, string> = {
-  critical: 'bg-red-100 text-red-800',
-  high: 'bg-orange-100 text-orange-800',
-  medium: 'bg-yellow-100 text-yellow-800',
-  low: 'bg-blue-100 text-blue-800',
+  critical: 'bg-red-500/20 text-red-500',
+  high: 'bg-orange-500/20 text-orange-500',
+  medium: 'bg-yellow-500/20 text-yellow-500',
+  low: 'bg-blue-500/20 text-blue-500',
 };
 
 // ── Customer Header Component ───────────────────────────────────────
@@ -147,12 +129,12 @@ function CustomerProfileHeader({
 }) {
   if (isLoading || !header) {
     return (
-      <div className="border-b border-gray-200 bg-surface px-6 py-4">
+      <div className="border-b border-border bg-surface px-6 py-4">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 animate-pulse rounded-full bg-gray-200" />
+          <div className="h-16 w-16 animate-pulse rounded-full bg-muted" />
           <div className="space-y-2">
-            <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
-            <div className="h-4 w-32 animate-pulse rounded bg-gray-100" />
+            <div className="h-6 w-48 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-32 animate-pulse rounded bg-muted" />
           </div>
         </div>
       </div>
@@ -160,7 +142,7 @@ function CustomerProfileHeader({
   }
 
   return (
-    <div className="border-b border-gray-200 bg-surface px-6 py-4">
+    <div className="border-b border-border bg-surface px-6 py-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         {/* Left: Avatar + Identity */}
         <div className="flex items-start gap-4">
@@ -168,20 +150,20 @@ function CustomerProfileHeader({
             <img
               src={header.profileImageUrl}
               alt={header.displayName}
-              className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-indigo-100"
+              className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-indigo-500/20"
             />
           ) : (
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-lg font-semibold text-indigo-700 ring-2 ring-indigo-50">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-lg font-semibold text-indigo-500 ring-2 ring-indigo-500/10">
               {getInitials(header.displayName)}
             </div>
           )}
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-foreground">
                 {header.displayName}
               </h1>
               {header.memberNumber && (
-                <span className="flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                <span className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                   <Hash className="h-3 w-3" aria-hidden="true" />
                   {header.memberNumber}
                 </span>
@@ -205,19 +187,19 @@ function CustomerProfileHeader({
                 </Badge>
               )}
               {header.ghinNumber && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   GHIN: {header.ghinNumber}
                 </span>
               )}
             </div>
             {/* Contact pills */}
-            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-gray-600">
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
               {header.primaryEmail && (
                 <a
                   href={`mailto:${header.primaryEmail}`}
-                  className="flex items-center gap-1 hover:text-indigo-600"
+                  className="flex items-center gap-1 hover:text-indigo-500"
                 >
-                  <Mail className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+                  <Mail className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   <span className="max-w-50 truncate">
                     {header.primaryEmail}
                   </span>
@@ -226,9 +208,9 @@ function CustomerProfileHeader({
               {header.primaryPhone && (
                 <a
                   href={`tel:${header.primaryPhone}`}
-                  className="flex items-center gap-1 hover:text-indigo-600"
+                  className="flex items-center gap-1 hover:text-indigo-500"
                 >
-                  <Phone className="h-3.5 w-3.5 text-gray-400" aria-hidden="true" />
+                  <Phone className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
                   {header.primaryPhoneDisplay || formatPhone(header.primaryPhone)}
                 </a>
               )}
@@ -240,24 +222,24 @@ function CustomerProfileHeader({
         <div className="flex flex-col items-end gap-2">
           <div className="flex items-center gap-4 text-sm">
             <div className="text-right">
-              <div className="text-xs text-gray-500">Balance</div>
+              <div className="text-xs text-muted-foreground">Balance</div>
               <div
-                className={`font-semibold ${header.outstandingBalance > 0 ? 'text-red-600' : 'text-gray-900'}`}
+                className={`font-semibold ${header.outstandingBalance > 0 ? 'text-red-500' : 'text-foreground'}`}
               >
                 {formatMoneyDollars(header.outstandingBalance)}
               </div>
             </div>
             {header.creditLimit > 0 && (
               <div className="text-right">
-                <div className="text-xs text-gray-500">Credit</div>
-                <div className="font-semibold text-gray-900">
+                <div className="text-xs text-muted-foreground">Credit</div>
+                <div className="font-semibold text-foreground">
                   {formatMoneyDollars(header.creditLimit)}
                 </div>
               </div>
             )}
             <div className="text-right">
-              <div className="text-xs text-gray-500">Lifetime</div>
-              <div className="font-semibold text-gray-900">
+              <div className="text-xs text-muted-foreground">Lifetime</div>
+              <div className="font-semibold text-foreground">
                 {formatMoney(header.totalSpend)}
               </div>
             </div>
@@ -306,13 +288,13 @@ function QuickActionsBar({ customerId }: { customerId: string }) {
   ];
 
   return (
-    <div className="flex items-center gap-2 border-b border-gray-200 bg-surface px-6 py-2">
+    <div className="flex items-center gap-2 border-b border-border bg-surface px-6 py-2">
       {actions.map((action) => (
         <button
           key={action.label}
           type="button"
           onClick={action.onClick}
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
           <action.icon className="h-4 w-4" aria-hidden="true" />
           {action.label}
@@ -382,11 +364,11 @@ export default function CustomerDetailContent() {
   return (
     <div className="flex h-full flex-col">
       {/* Back button */}
-      <div className="flex items-center gap-2 border-b border-gray-200 bg-surface px-6 py-2">
+      <div className="flex items-center gap-2 border-b border-border bg-surface px-6 py-2">
         <button
           type="button"
           onClick={() => router.push('/customers')}
-          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Customers
@@ -400,7 +382,7 @@ export default function CustomerDetailContent() {
       <QuickActionsBar customerId={customerId} />
 
       {/* Tab Navigation */}
-      <div className="shrink-0 border-b border-gray-200 bg-surface">
+      <div className="shrink-0 border-b border-border bg-surface">
         <nav className="flex overflow-x-auto px-6" aria-label="Profile tabs">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -412,7 +394,7 @@ export default function CustomerDetailContent() {
                 className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
                   activeTab === tab.key
                     ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                    : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
                 }`}
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />

@@ -78,17 +78,17 @@ function SortableNavRow({
       style={style}
       className={`flex items-center gap-3 rounded-lg border p-3 transition-colors ${
         isDragging
-          ? 'z-10 border-indigo-300 bg-indigo-50/50 shadow-lg'
+          ? 'z-10 border-indigo-500/30 bg-indigo-500/10 shadow-lg'
           : item.hidden
-            ? 'border-gray-200/60 bg-gray-50/50'
-            : 'border-gray-200 bg-surface hover:border-gray-300'
+            ? 'border-border/60 bg-muted/50'
+            : 'border-border bg-surface hover:border-border'
       }`}
     >
       {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
-        className="cursor-grab touch-none rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing"
+        className="cursor-grab touch-none rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
         aria-label={`Drag to reorder ${item.name}`}
       >
         <GripVertical className="h-5 w-5" />
@@ -97,7 +97,7 @@ function SortableNavRow({
       {/* Icon */}
       <Icon
         className={`h-5 w-5 shrink-0 ${
-          item.hidden ? 'text-gray-300' : 'text-gray-500'
+          item.hidden ? 'text-muted-foreground/60' : 'text-muted-foreground'
         }`}
       />
 
@@ -105,8 +105,8 @@ function SortableNavRow({
       <span
         className={`flex-1 text-sm font-medium ${
           item.hidden
-            ? 'text-gray-400 line-through'
-            : 'text-gray-900'
+            ? 'text-muted-foreground line-through'
+            : 'text-foreground'
         }`}
       >
         {item.name}
@@ -114,7 +114,7 @@ function SortableNavRow({
 
       {/* Module badge */}
       {item.moduleKey && (
-        <span className="hidden rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-500 sm:inline-block">
+        <span className="hidden rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground sm:inline-block">
           {item.moduleKey}
         </span>
       )}
@@ -122,7 +122,7 @@ function SortableNavRow({
       {/* Visibility toggle or pin indicator */}
       {item.pinned ? (
         <span
-          className="rounded p-1.5 text-gray-300"
+          className="rounded p-1.5 text-muted-foreground"
           title="This item is always visible"
         >
           <Lock className="h-4 w-4" />
@@ -132,8 +132,8 @@ function SortableNavRow({
           onClick={onToggleHidden}
           className={`rounded p-1.5 transition-colors ${
             item.hidden
-              ? 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+              ? 'text-muted-foreground/60 hover:bg-accent hover:text-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
           }`}
           title={item.hidden ? 'Show in sidebar' : 'Hide from sidebar'}
         >
@@ -153,10 +153,10 @@ function SortableNavRow({
 function DragOverlayItem({ item }: { item: BuilderItem }) {
   const Icon = item.icon;
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-indigo-300 bg-white p-3 shadow-xl">
+    <div className="flex items-center gap-3 rounded-lg border border-indigo-500/40 bg-surface p-3 shadow-xl">
       <GripVertical className="h-5 w-5 text-indigo-400" />
-      <Icon className="h-5 w-5 shrink-0 text-gray-500" />
-      <span className="flex-1 text-sm font-medium text-gray-900">
+      <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
+      <span className="flex-1 text-sm font-medium text-foreground">
         {item.name}
       </span>
     </div>
@@ -301,11 +301,11 @@ export default function NavigationBuilderContent() {
   if (isLoading || !items) {
     return (
       <div className="mx-auto max-w-2xl space-y-4">
-        <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
-        <div className="h-4 w-80 animate-pulse rounded bg-gray-100" />
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-4 w-80 animate-pulse rounded bg-muted" />
         <div className="space-y-2 pt-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-14 animate-pulse rounded-lg border border-gray-200 bg-gray-50" />
+            <div key={i} className="h-14 animate-pulse rounded-lg border border-border bg-muted" />
           ))}
         </div>
       </div>
@@ -318,8 +318,8 @@ export default function NavigationBuilderContent() {
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Navigation Menu</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <h1 className="text-2xl font-bold text-foreground">Navigation Menu</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
               Drag items to reorder your sidebar navigation. Toggle visibility to hide items you don&apos;t need.
             </p>
           </div>
@@ -330,7 +330,7 @@ export default function NavigationBuilderContent() {
           <button
             onClick={handleReset}
             disabled={isSaving}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-50"
           >
             <RotateCcw className="h-4 w-4" />
             Reset to Default
@@ -338,7 +338,7 @@ export default function NavigationBuilderContent() {
           <button
             onClick={handleSave}
             disabled={!isDirty || isSaving}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             {isSaving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -348,15 +348,15 @@ export default function NavigationBuilderContent() {
             {isSaving ? 'Saving...' : 'Save Changes'}
           </button>
           {isDirty && (
-            <span className="text-xs text-amber-600">Unsaved changes</span>
+            <span className="text-xs text-amber-500">Unsaved changes</span>
           )}
         </div>
       </div>
 
       {/* Info bar */}
-      <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3">
+      <div className="mb-4 flex items-start gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 p-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-        <p className="text-xs text-blue-700">
+        <p className="text-xs text-blue-500">
           Items marked with a lock icon are always visible and cannot be hidden. Modules that are disabled
           in your entitlements will not appear here. Changes apply to all users in your organization.
         </p>

@@ -210,10 +210,13 @@ export async function compilePlan(input: CompilerInput): Promise<CompiledQuery> 
   const { metrics: metaDefs, dimensions: dimensionDefs } = validation;
 
   // ── 5. Check date range requirement ───────────────────────────
+  // Snapshot tables are point-in-time (no date dimension) — skip warning
+  const SNAPSHOT_TABLES = new Set(['rm_inventory_on_hand', 'rm_customer_activity']);
+
   if (!skipDateRangeCheck && !plan.dateRange) {
     // Check if any metric requires a date range (time-series metrics)
     const requiresDate = metaDefs.some(
-      (m) => m.requiresDimensions?.includes('date') || m.sqlTable.startsWith('rm_'),
+      (m) => m.requiresDimensions?.includes('date') || (m.sqlTable.startsWith('rm_') && !SNAPSHOT_TABLES.has(m.sqlTable)),
     );
     // If dimensions include a time dimension, date range is strongly recommended
     const hasTimeDim = dimensionDefs.some((d) => d.isTimeDimension);

@@ -45,9 +45,9 @@ function formatQty(val: number): string {
 }
 
 function getStockColor(onHand: number, reorderPoint: number | null): string {
-  if (onHand < 0) return 'text-red-600';
-  if (reorderPoint !== null && onHand <= reorderPoint) return 'text-amber-600';
-  return 'text-green-600';
+  if (onHand < 0) return 'text-red-500';
+  if (reorderPoint !== null && onHand <= reorderPoint) return 'text-amber-500';
+  return 'text-green-500';
 }
 
 type EnrichedRow = CatalogItemRow & {
@@ -200,8 +200,8 @@ export default function CatalogPage() {
       header: 'Name',
       render: (row: EnrichedRow) => (
         <div>
-          <span className="font-medium text-gray-900">{row.name}</span>
-          {row.sku && <div className="text-xs text-gray-500">{row.sku}</div>}
+          <span className="font-medium text-foreground">{row.name}</span>
+          {row.sku && <div className="text-xs text-muted-foreground">{row.sku}</div>}
         </div>
       ),
     },
@@ -223,7 +223,7 @@ export default function CatalogPage() {
       key: 'onHand',
       header: 'On Hand',
       render: (row: EnrichedRow) => {
-        if (row.onHand === undefined) return <span className="text-sm text-gray-400">-</span>;
+        if (row.onHand === undefined) return <span className="text-sm text-muted-foreground">-</span>;
         const reorderPt = row.reorderPoint ? parseFloat(row.reorderPoint) : null;
         return (
           <span className={`font-semibold ${getStockColor(row.onHand, reorderPt)}`}>
@@ -236,7 +236,7 @@ export default function CatalogPage() {
       key: 'reorderPoint',
       header: 'Reorder Pt',
       render: (row: EnrichedRow) => (
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-muted-foreground">
           {row.reorderPoint ? parseFloat(row.reorderPoint).toString() : '\u2014'}
         </span>
       ),
@@ -245,7 +245,7 @@ export default function CatalogPage() {
       key: 'categoryName',
       header: 'Category',
       render: (row: EnrichedRow) => (
-        <span className="text-gray-500">{row.categoryName || '-'}</span>
+        <span className="text-muted-foreground">{row.categoryName || '-'}</span>
       ),
     },
     {
@@ -271,12 +271,12 @@ export default function CatalogPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Inventory Items</h1>
+        <h1 className="text-xl font-semibold text-foreground">Inventory Items</h1>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowImportWizard(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-gray-300 bg-surface px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100/50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             <Upload className="w-4 h-4" />
             Import
@@ -284,7 +284,7 @@ export default function CatalogPage() {
           <button
             type="button"
             onClick={() => router.push('/catalog/items/new')}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Add Item
           </button>
@@ -333,22 +333,22 @@ export default function CatalogPage() {
           placeholder="All Types"
           className="w-full md:w-36"
         />
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
           <input
             type="checkbox"
             checked={lowStockOnly}
             onChange={(e) => setLowStockOnly(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="rounded border-border text-indigo-600 focus:ring-indigo-500"
           />
           <AlertTriangle className="h-4 w-4 text-amber-500" />
           Low Stock Only
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
           <input
             type="checkbox"
             checked={showAll}
             onChange={(e) => setShowAll(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="rounded border-border text-indigo-600 focus:ring-indigo-500"
           />
           Include Inactive
         </label>
@@ -376,7 +376,7 @@ export default function CatalogPage() {
               <button
                 type="button"
                 onClick={loadMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Load More
               </button>
@@ -399,13 +399,13 @@ export default function CatalogPage() {
         }}
       >
         <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-foreground mb-1">
             Reason (optional)
           </label>
           <textarea
             value={deactivateReason}
             onChange={(e) => setDeactivateReason(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             rows={3}
             placeholder="e.g., Product discontinued by manufacturer"
           />

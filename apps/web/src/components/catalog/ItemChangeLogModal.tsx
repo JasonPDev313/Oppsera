@@ -116,10 +116,10 @@ function FieldChangeRow({
 
   return (
     <div className="flex items-start gap-2 py-1.5 text-sm">
-      <span className="w-32 shrink-0 text-gray-500 font-medium">{display.label}</span>
-      <span className="text-gray-400 line-through">{oldStr}</span>
-      <ArrowRight className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
-      <span className="text-gray-900 font-medium">{newStr}</span>
+      <span className="w-32 shrink-0 text-muted-foreground font-medium">{display.label}</span>
+      <span className="text-muted-foreground line-through">{oldStr}</span>
+      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+      <span className="text-foreground font-medium">{newStr}</span>
     </div>
   );
 }
@@ -134,19 +134,19 @@ function ChangeLogEntryCard({ entry }: { entry: ChangeLogEntry }) {
   const hasChanges = fieldKeys.length > 0;
 
   return (
-    <div className="border border-gray-200 rounded-lg">
+    <div className="border border-border rounded-lg">
       <button
         type="button"
         onClick={() => hasChanges && setExpanded(!expanded)}
         className={`w-full flex items-center gap-3 px-4 py-3 text-left ${
-          hasChanges ? 'cursor-pointer hover:bg-gray-50' : 'cursor-default'
+          hasChanges ? 'cursor-pointer hover:bg-accent' : 'cursor-default'
         }`}
       >
         {hasChanges ? (
           expanded ? (
-            <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+            <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
           ) : (
-            <ChevronRight className="h-4 w-4 text-gray-400 shrink-0" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
           )
         ) : (
           <div className="w-4 shrink-0" />
@@ -154,11 +154,11 @@ function ChangeLogEntryCard({ entry }: { entry: ChangeLogEntry }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant={badge.variant}>{badge.label}</Badge>
-            <span className="text-sm text-gray-900">
+            <span className="text-sm text-foreground">
               {entry.summary ?? badge.label}
             </span>
           </div>
-          <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+          <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
             <span>{formatDate(entry.changedAt)}</span>
             {entry.changedByName && (
               <>
@@ -177,7 +177,7 @@ function ChangeLogEntryCard({ entry }: { entry: ChangeLogEntry }) {
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 px-4 py-3 pl-11 space-y-0">
+        <div className="border-t border-border px-4 py-3 pl-11 space-y-0">
           {fieldKeys.map((key) => (
             <FieldChangeRow
               key={key}
@@ -186,8 +186,8 @@ function ChangeLogEntryCard({ entry }: { entry: ChangeLogEntry }) {
             />
           ))}
           {entry.notes && (
-            <div className="mt-2 pt-2 border-t border-gray-100 text-sm text-gray-600">
-              <span className="font-medium text-gray-500">Note:</span>{' '}
+            <div className="mt-2 pt-2 border-t border-border text-sm text-muted-foreground">
+              <span className="font-medium text-muted-foreground">Note:</span>{' '}
               {entry.notes}
             </div>
           )}
@@ -242,27 +242,27 @@ export function ItemChangeLogModal({
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-2xl max-h-[80vh] flex flex-col rounded-lg bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-2">
-            <History className="h-5 w-5 text-gray-500" />
-            <h2 className="text-lg font-semibold text-gray-900">
+            <History className="h-5 w-5 text-muted-foreground" />
+            <h2 className="text-lg font-semibold text-foreground">
               Change History
             </h2>
-            <span className="text-sm text-gray-500 truncate max-w-[200px]">
+            <span className="text-sm text-muted-foreground truncate max-w-[200px]">
               &mdash; {itemName}
             </span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3 px-6 py-3 border-b border-gray-100 bg-gray-50/50">
+        <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-muted/50">
           <select
             value={filters.actionType ?? ''}
             onChange={(e) =>
@@ -271,7 +271,7 @@ export function ItemChangeLogModal({
                 actionType: e.target.value || undefined,
               }))
             }
-            className="rounded-md border border-gray-300 bg-surface px-2.5 py-1.5 text-sm text-gray-700"
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
           >
             {ACTION_TYPE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -286,7 +286,7 @@ export function ItemChangeLogModal({
               setFilters((f) => ({ ...f, dateFrom: e.target.value || undefined }))
             }
             placeholder="From"
-            className="rounded-md border border-gray-300 bg-surface px-2.5 py-1.5 text-sm text-gray-700"
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
           />
           <input
             type="date"
@@ -295,7 +295,7 @@ export function ItemChangeLogModal({
               setFilters((f) => ({ ...f, dateTo: e.target.value || undefined }))
             }
             placeholder="To"
-            className="rounded-md border border-gray-300 bg-surface px-2.5 py-1.5 text-sm text-gray-700"
+            className="rounded-md border border-border bg-surface px-2.5 py-1.5 text-sm text-foreground"
           />
         </div>
 
@@ -303,10 +303,10 @@ export function ItemChangeLogModal({
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : entries.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <History className="h-10 w-10 mb-2" />
               <p className="text-sm">No change history found</p>
             </div>

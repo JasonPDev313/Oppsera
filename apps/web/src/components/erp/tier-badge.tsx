@@ -1,9 +1,9 @@
 'use client';
 
 const TIER_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  SMB: { bg: 'bg-green-500/15', text: 'text-green-700', label: 'SMB' },
-  MID_MARKET: { bg: 'bg-blue-500/15', text: 'text-blue-700', label: 'Mid-Market' },
-  ENTERPRISE: { bg: 'bg-purple-500/15', text: 'text-purple-700', label: 'Enterprise' },
+  SMB: { bg: 'bg-green-500/15', text: 'text-green-500', label: 'SMB' },
+  MID_MARKET: { bg: 'bg-blue-500/15', text: 'text-blue-500', label: 'Mid-Market' },
+  ENTERPRISE: { bg: 'bg-purple-500/15', text: 'text-purple-500', label: 'Enterprise' },
 };
 
 export function TierBadge({ tier, size = 'sm' }: { tier: string; size?: 'sm' | 'lg' }) {

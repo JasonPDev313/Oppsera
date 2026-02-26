@@ -56,8 +56,8 @@ function NumpadComponent({ value, onChange, showDecimal = true, disabled = false
             disabled={disabled}
             className={`flex h-14 items-center justify-center rounded-lg text-lg font-bold transition-all active:scale-[0.97] ${
               key === 'C'
-                ? 'bg-red-500/10 text-red-600 hover:bg-red-500/20'
-                : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
+                : 'bg-muted text-foreground hover:bg-accent'
             } disabled:opacity-40`}
           >
             {key}
@@ -70,7 +70,7 @@ function NumpadComponent({ value, onChange, showDecimal = true, disabled = false
           type="button"
           onClick={() => handleKey('.')}
           disabled={disabled || value.includes('.')}
-          className="flex h-14 items-center justify-center rounded-lg bg-gray-100 text-lg font-bold text-gray-900 transition-all hover:bg-gray-200 active:scale-[0.97] disabled:opacity-40"
+          className="flex h-14 items-center justify-center rounded-lg bg-muted text-lg font-bold text-foreground transition-all hover:bg-accent active:scale-[0.97] disabled:opacity-40"
         >
           .
         </button>
@@ -80,7 +80,7 @@ function NumpadComponent({ value, onChange, showDecimal = true, disabled = false
         type="button"
         onClick={() => handleKey('backspace')}
         disabled={disabled || !value}
-        className="col-span-2 flex h-14 items-center justify-center rounded-lg bg-gray-100 text-gray-600 transition-all hover:bg-gray-200 active:scale-[0.97] disabled:opacity-40"
+        className="col-span-2 flex h-14 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-all hover:bg-accent active:scale-[0.97] disabled:opacity-40"
       >
         <Delete className="h-5 w-5" />
       </button>

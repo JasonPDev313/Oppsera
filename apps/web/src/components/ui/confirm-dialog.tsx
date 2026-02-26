@@ -53,7 +53,7 @@ export function ConfirmDialog({
         className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl"
       >
         <h3 id={titleId} className="text-lg font-semibold text-foreground">{title}</h3>
-        {description && <p id={descId} className="mt-2 text-sm text-gray-500">{description}</p>}
+        {description && <p id={descId} className="mt-2 text-sm text-muted-foreground">{description}</p>}
         {children}
         <div className="mt-6 flex justify-end gap-3">
           <button
@@ -73,7 +73,7 @@ export function ConfirmDialog({
             className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none ${
               destructive
                 ? 'bg-red-600 hover:bg-red-700 focus-visible:ring-red-500'
-                : 'bg-indigo-600 hover:bg-indigo-700 focus-visible:ring-indigo-500'
+                : 'bg-indigo-600 hover:bg-indigo-500 focus-visible:ring-indigo-500'
             } ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isLoading ? 'Loading...' : confirmLabel}

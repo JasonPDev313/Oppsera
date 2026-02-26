@@ -1450,6 +1450,20 @@
       "when": 1708100206000,
       "tag": "0206_host_module_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1708100207000,
+      "tag": "0207_fk_index_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 208,
+      "version": "7",
+      "when": 1708100208000,
+      "tag": "0208_backup_inline_storage",
+      "breakpoints": true
     }
   ]
 }

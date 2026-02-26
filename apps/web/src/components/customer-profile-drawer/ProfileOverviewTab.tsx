@@ -94,7 +94,16 @@ export function ProfileOverviewTab({
     );
   }
 
-  const { customer, contacts, identifiers, serviceFlags, activeAlerts, stats, household, memberships } = profile;
+  const {
+    customer,
+    contacts = [],
+    identifiers = [],
+    serviceFlags = [],
+    activeAlerts = [],
+    stats = { totalVisits: 0, avgSpendCents: 0, visitFrequency: '', lifetimeValueCents: 0, totalSpendCents: 0, lastVisitAt: null, revenueByCategory: {} },
+    household,
+    memberships,
+  } = profile;
 
   // Extract contact info
   const primaryEmail = contacts.find((c) => c.contactType === 'email' && c.isPrimary)
@@ -152,10 +161,10 @@ export function ProfileOverviewTab({
                 key={alert.id}
                 className={`flex items-start gap-2 rounded-lg border p-3 text-sm ${
                   alert.severity === 'critical'
-                    ? 'border-red-500/30 bg-red-500/100/10 text-red-500'
+                    ? 'border-red-500/30 bg-red-500/10 text-red-500'
                     : alert.severity === 'warning'
-                      ? 'border-amber-500/30 bg-amber-500/100/10 text-amber-500'
-                      : 'border-blue-500/30 bg-blue-500/100/10 text-blue-500'
+                      ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+                      : 'border-blue-500/30 bg-blue-500/10 text-blue-500'
                 }`}
               >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
@@ -223,7 +232,7 @@ export function ProfileOverviewTab({
             {(primaryEmail || customer.email) && (
               <a
                 href={`mailto:${primaryEmail?.value ?? customer.email}`}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-indigo-500/100/100/10 hover:text-indigo-600"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-indigo-500/10 hover:text-indigo-600"
               >
                 <Mail className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span className="truncate">{primaryEmail?.value ?? customer.email}</span>
@@ -235,7 +244,7 @@ export function ProfileOverviewTab({
             {(primaryPhone || customer.phone) && (
               <a
                 href={`tel:${primaryPhone?.value ?? customer.phone}`}
-                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-indigo-500/100/100/10 hover:text-indigo-600"
+                className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-indigo-500/10 hover:text-indigo-600"
               >
                 <Phone className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span>{formatPhone(primaryPhone?.value ?? customer.phone ?? '')}</span>
@@ -334,7 +343,7 @@ export function ProfileOverviewTab({
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Membership
           </h3>
-          <div className="flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/100/10 p-3">
+          <div className="flex items-center gap-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-3">
             <CreditCard className="h-5 w-5 text-indigo-600" aria-hidden="true" />
             <div>
               <p className="text-sm font-medium text-indigo-400">

@@ -177,7 +177,7 @@ function NoteItem({
                 type="button"
                 onClick={handleSaveEdit}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 <Check className="h-3 w-3" />
                 Save
@@ -185,7 +185,7 @@ function NoteItem({
               <button
                 type="button"
                 onClick={() => { setIsEditing(false); setEditContent(note.content); }}
-                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
+                className="inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-accent"
               >
                 <X className="h-3 w-3" />
                 Cancel
@@ -201,7 +201,7 @@ function NoteItem({
               type="button"
               onClick={handleTogglePin}
               disabled={isLoading}
-              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground disabled:opacity-50"
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
               title={note.isPinned ? 'Unpin' : 'Pin'}
             >
               {note.isPinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
@@ -209,7 +209,7 @@ function NoteItem({
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-muted-foreground"
+              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
               title="Edit"
             >
               <Edit3 className="h-3.5 w-3.5" />
@@ -218,7 +218,7 @@ function NoteItem({
               type="button"
               onClick={handleDelete}
               disabled={isLoading}
-              className="rounded p-1 text-muted-foreground hover:bg-red-500/100/10 hover:text-red-500 disabled:opacity-50"
+              className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500 disabled:opacity-50"
               title="Delete"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -283,7 +283,7 @@ function AddNoteForm({
           type="button"
           onClick={handleSubmit}
           disabled={!content.trim() || isLoading}
-          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
           Add Note
@@ -320,7 +320,7 @@ export default function ActivityTab({ customerId }: { customerId: string }) {
           <button
             type="button"
             onClick={handleRefreshAll}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <RefreshCw className="h-3 w-3" />
             Refresh
@@ -383,7 +383,7 @@ export default function ActivityTab({ customerId }: { customerId: string }) {
             <button
               type="button"
               onClick={refreshFeed}
-              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+              className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               Retry
@@ -405,7 +405,7 @@ export default function ActivityTab({ customerId }: { customerId: string }) {
                 <button
                   type="button"
                   onClick={() => setFeedCursor(feedData.cursor ?? undefined)}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
                 >
                   <ChevronDown className="h-4 w-4" />
                   Load more

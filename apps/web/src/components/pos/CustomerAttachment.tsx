@@ -171,7 +171,7 @@ export function CustomerAttachment({
             setShowChangeSearch(true);
             setQuery('');
           }}
-          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700"
+          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           title="Change or detach customer"
         >
           <RefreshCw className="h-3 w-3" />
@@ -186,18 +186,18 @@ export function CustomerAttachment({
     <div ref={containerRef} className="relative">
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={handleFocus}
             placeholder={customerId ? 'Search for a different customer...' : 'Search customer by name, phone, or email...'}
-            className="h-8 w-full rounded-md border border-gray-300 bg-surface pl-8 pr-8 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className="h-8 w-full rounded-md border border-border bg-surface pl-8 pr-8 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             autoFocus={showChangeSearch}
           />
           {isLoading && (
-            <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-gray-400" />
+            <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
           )}
         </div>
         {customerId && showChangeSearch && (
@@ -208,13 +208,13 @@ export function CustomerAttachment({
               setQuery('');
               setShowDropdown(false);
             }}
-            className="shrink-0 text-xs font-medium text-gray-500 hover:text-gray-700"
+            className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             Cancel
           </button>
         )}
         {!customerId && (
-          <div className="flex shrink-0 items-center gap-1 text-xs text-gray-400">
+          <div className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
             <UserPlus className="h-3.5 w-3.5" />
             Attach Customer
           </div>
@@ -223,7 +223,7 @@ export function CustomerAttachment({
 
       {/* Search results dropdown */}
       {showDropdown && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-surface shadow-lg">
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-border bg-surface shadow-lg">
           {/* If changing customer, show "Remove customer" option */}
           {customerId && showChangeSearch && (
             <button
@@ -241,7 +241,7 @@ export function CustomerAttachment({
             </button>
           )}
           {filtered.length === 0 && !isLoading ? (
-            <div className="px-3 py-3 text-center text-sm text-gray-400">
+            <div className="px-3 py-3 text-center text-sm text-muted-foreground">
               {allCustomers.length === 0 && !query.trim() ? (
                 <button
                   type="button"
@@ -261,7 +261,7 @@ export function CustomerAttachment({
               )}
             </div>
           ) : filtered.length === 0 && isLoading ? (
-            <div className="px-3 py-3 text-center text-sm text-gray-400">
+            <div className="px-3 py-3 text-center text-sm text-muted-foreground">
               Loading customers...
             </div>
           ) : (
@@ -279,7 +279,7 @@ export function CustomerAttachment({
                   <p className="truncate text-sm font-medium text-foreground">
                     {customer.displayName}
                   </p>
-                  <p className="truncate text-xs text-gray-500">
+                  <p className="truncate text-xs text-muted-foreground">
                     {[customer.email, customer.phone].filter(Boolean).join(' \u00B7 ') || customer.type}
                   </p>
                 </div>

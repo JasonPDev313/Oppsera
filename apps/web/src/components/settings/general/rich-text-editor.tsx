@@ -104,7 +104,7 @@ function ToolbarButton({
       type="button"
       onClick={onClick}
       title={title}
-      className="rounded p-1.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+      className="rounded p-1.5 text-muted-foreground hover:bg-accent/60 hover:text-foreground"
     >
       {icon}
     </button>

@@ -41,12 +41,12 @@ export default function GolfAnalyticsContent() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-100 text-green-600">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10 text-green-500">
           <Flag className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Golf Analytics</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Golf Analytics</h1>
+          <p className="text-sm text-muted-foreground">
             Track utilization, revenue, pace, and customer performance
           </p>
         </div>
@@ -70,7 +70,7 @@ export default function GolfAnalyticsContent() {
       <GolfMetricCards data={dashboard.data} isLoading={dashboard.isLoading} />
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-border">
         <nav className="-mb-px flex gap-6 overflow-x-auto">
           {TABS.map((tab) => (
             <button
@@ -80,7 +80,7 @@ export default function GolfAnalyticsContent() {
               className={`shrink-0 border-b-2 pb-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               {tab.label}

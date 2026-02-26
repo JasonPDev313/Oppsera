@@ -41,42 +41,42 @@ function ChangeEntry({ entry }: { entry: ChangeLogEntry }) {
   const fields = Object.entries(entry.fieldChanges ?? {});
 
   return (
-    <div className="border-b border-gray-100 last:border-0">
+    <div className="border-b border-border last:border-0">
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-gray-50"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-accent"
       >
         {expanded ? (
-          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         ) : (
-          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         )}
         <Badge variant={badge.variant} className="shrink-0 text-[10px]">{badge.label}</Badge>
-        <span className="min-w-0 flex-1 truncate text-xs text-gray-700">
+        <span className="min-w-0 flex-1 truncate text-xs text-foreground">
           {entry.summary || `${fields.length} field${fields.length !== 1 ? 's' : ''} changed`}
         </span>
-        <span className="shrink-0 text-[10px] text-gray-400">
+        <span className="shrink-0 text-[10px] text-muted-foreground">
           {formatRelativeTime(entry.changedAt)}
         </span>
       </button>
 
       {expanded && fields.length > 0 && (
-        <div className="space-y-1 bg-gray-50 px-8 py-2">
+        <div className="space-y-1 bg-muted px-8 py-2">
           {fields.map(([field, change]: [string, FieldChange]) => (
             <div key={field} className="flex items-center gap-2 text-xs">
-              <span className="font-medium text-gray-600">{field}:</span>
-              <span className="text-gray-500">
+              <span className="font-medium text-muted-foreground">{field}:</span>
+              <span className="text-muted-foreground">
                 {change.oldDisplay ?? formatFieldValue(change.old)}
               </span>
-              <ArrowRight className="h-3 w-3 shrink-0 text-gray-400" />
-              <span className="font-medium text-gray-900">
+              <ArrowRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <span className="font-medium text-foreground">
                 {change.newDisplay ?? formatFieldValue(change.new)}
               </span>
             </div>
           ))}
           {entry.changedByName && (
-            <div className="mt-1 text-[10px] text-gray-400">
+            <div className="mt-1 text-[10px] text-muted-foreground">
               by {entry.changedByName}
             </div>
           )}
@@ -115,15 +115,15 @@ export function ActivitySection({ itemId, refreshKey }: ActivitySectionProps) {
       defaultOpen={false}
       onFirstExpand={() => setEnabled(true)}
     >
-      <div className="rounded-lg border border-gray-200 bg-surface">
+      <div className="rounded-lg border border-border bg-surface">
         {isLoading || !enabled ? (
           <div className="space-y-2 p-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-8 w-full animate-pulse rounded bg-gray-100" />
+              <div key={i} className="h-8 w-full animate-pulse rounded bg-muted" />
             ))}
           </div>
         ) : entries.length === 0 ? (
-          <div className="px-3 py-4 text-center text-xs text-gray-400">
+          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
             No history yet
           </div>
         ) : (
@@ -136,7 +136,7 @@ export function ActivitySection({ itemId, refreshKey }: ActivitySectionProps) {
                 type="button"
                 onClick={loadMore}
                 disabled={isLoadingMore}
-                className="w-full border-t border-gray-100 px-3 py-2 text-center text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50 disabled:opacity-50"
+                className="w-full border-t border-border px-3 py-2 text-center text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-500/10 disabled:opacity-50"
               >
                 {isLoadingMore ? 'Loading...' : 'Load More'}
               </button>

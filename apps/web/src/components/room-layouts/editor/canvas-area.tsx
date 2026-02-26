@@ -237,7 +237,7 @@ export function CanvasArea() {
   return (
     <div
       ref={containerRef}
-      className="relative flex-1 overflow-hidden bg-gray-100"
+      className="relative flex-1 overflow-hidden bg-muted"
       onDragOver={handleDragOver}
       onDrop={handleDrop}
     >

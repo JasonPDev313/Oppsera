@@ -289,7 +289,7 @@ export default function RatePlanDetailContent() {
               type="button"
               onClick={handleToggleActive}
               disabled={togglingActive}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-200/50 disabled:opacity-50"
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent/50 disabled:opacity-50"
             >
               {togglingActive ? (
                 <Loader2 className="inline h-3.5 w-3.5 animate-spin" />
@@ -303,7 +303,7 @@ export default function RatePlanDetailContent() {
               type="button"
               onClick={handleToggleDefault}
               disabled={togglingDefault}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-200/50 disabled:opacity-50"
+              className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent/50 disabled:opacity-50"
             >
               {togglingDefault ? (
                 <Loader2 className="inline h-3.5 w-3.5 animate-spin" />
@@ -316,7 +316,7 @@ export default function RatePlanDetailContent() {
             <button
               type="button"
               onClick={() => setShowEditDialog(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-200/50"
+              className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent/50"
             >
               <Pencil className="h-3.5 w-3.5" />
               Edit Details
@@ -332,7 +332,7 @@ export default function RatePlanDetailContent() {
           <button
             type="button"
             onClick={() => openSetRate()}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" />
             Set Rate
@@ -351,7 +351,7 @@ export default function RatePlanDetailContent() {
             <button
               type="button"
               onClick={() => openSetRate()}
-              className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+              className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
             >
               Set Rate
             </button>
@@ -375,7 +375,7 @@ export default function RatePlanDetailContent() {
               <button
                 type="button"
                 onClick={() => openSetRate(group.roomTypeId)}
-                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-gray-200/50"
+                className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent/50"
               >
                 <Plus className="h-3.5 w-3.5" />
                 Set Rate
@@ -442,7 +442,7 @@ export default function RatePlanDetailContent() {
             <button
               type="button"
               onClick={() => openSetRate()}
-              className="mt-3 flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              className="mt-3 flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-500"
             >
               <Plus className="h-3.5 w-3.5" />
               Set Rate
@@ -551,7 +551,7 @@ function EditHeaderDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-foreground"
+            className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -617,7 +617,7 @@ function EditHeaderDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -625,7 +625,7 @@ function EditHeaderDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {isSubmitting ? 'Saving...' : 'Save Changes'}
@@ -723,7 +723,7 @@ function SetRateDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-foreground"
+            className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -807,7 +807,7 @@ function SetRateDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -815,7 +815,7 @@ function SetRateDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
             {isSubmitting ? 'Saving...' : 'Set Rate'}

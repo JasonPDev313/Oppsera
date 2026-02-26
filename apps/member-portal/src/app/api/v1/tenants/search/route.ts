@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       data: Array.from(rows as Iterable<{ id: string; name: string; slug: string }>),
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Tenant search error:', err);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Search failed' } },

@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({ data: { success: true } });
     response.cookies.set(cookie.name, cookie.value, cookie.options as any);
     return response;
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Portal login error:', err);
     return NextResponse.json(
       { error: { code: 'INTERNAL_ERROR', message: 'Login failed' } },

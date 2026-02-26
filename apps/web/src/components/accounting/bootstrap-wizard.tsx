@@ -148,7 +148,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
           <button
             type="button"
             onClick={() => setStep(1)}
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white hover:bg-indigo-700"
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-medium text-white hover:bg-indigo-500"
           >
             Get Started <ChevronRight className="h-4 w-4" />
           </button>
@@ -183,7 +183,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <button
               type="button"
               onClick={() => setStep(0)}
-              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               Back
             </button>
@@ -191,7 +191,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
               type="button"
               onClick={() => selectedTemplate && setStep(2)}
               disabled={!selectedTemplate}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               Next
             </button>
@@ -224,14 +224,14 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               Back
             </button>
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               Next
             </button>
@@ -265,14 +265,14 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <button
               type="button"
               onClick={() => setStep(2)}
-              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               Back
             </button>
             <button
               type="button"
               onClick={() => setStep(4)}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               Next
             </button>
@@ -297,7 +297,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <button
               type="button"
               onClick={() => setStep(3)}
-              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               Back
             </button>
@@ -305,7 +305,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
               type="button"
               onClick={handleBootstrap}
               disabled={isBootstrapping}
-              className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {isBootstrapping ? 'Setting up...' : errorDetail ? 'Retry' : 'Create Accounts'}
             </button>
@@ -324,7 +324,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <Link
               href="/accounting/accounts"
               onClick={onComplete}
-              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               <BookOpen className="h-5 w-5 text-muted-foreground" />
               Review Chart of Accounts
@@ -332,7 +332,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <Link
               href="/accounting/mappings"
               onClick={onComplete}
-              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               <Settings2 className="h-5 w-5 text-muted-foreground" />
               Configure GL Mappings
@@ -340,7 +340,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
             <Link
               href="/accounting/settings"
               onClick={onComplete}
-              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-muted"
+              className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm font-medium text-muted-foreground hover:bg-accent"
             >
               <Settings2 className="h-5 w-5 text-muted-foreground" />
               Accounting Settings
@@ -349,7 +349,7 @@ export function BootstrapWizard({ onComplete }: BootstrapWizardProps) {
           <button
             type="button"
             onClick={onComplete}
-            className="mt-4 rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="mt-4 rounded-lg bg-indigo-600 px-6 py-2 text-sm font-medium text-white hover:bg-indigo-500"
           >
             Done
           </button>

@@ -92,7 +92,7 @@ export function ProfileMembershipTab({ customerId }: ProfileMembershipTabProps) 
     );
   }
 
-  const { active, history, privileges } = data;
+  const { active = null, history = [], privileges = [] } = data;
 
   return (
     <div className="space-y-6 p-6">
@@ -102,7 +102,7 @@ export function ProfileMembershipTab({ customerId }: ProfileMembershipTabProps) 
           Current Membership
         </h3>
         {active ? (
-          <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/100/10 p-4">
+          <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <Crown className="h-5 w-5 text-indigo-400" aria-hidden="true" />

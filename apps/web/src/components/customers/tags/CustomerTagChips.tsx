@@ -26,7 +26,7 @@ function TagChip({
 
   const chip = (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border border-gray-200/60 bg-gray-50/80 ${px} ${textSize} font-medium text-gray-700 transition-colors hover:bg-gray-100/80`}
+      className={`inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/80 ${px} ${textSize} font-medium text-foreground transition-colors hover:bg-accent/80`}
     >
       <span
         className={`${dotSize} shrink-0 rounded-full`}
@@ -54,7 +54,7 @@ function ShimmerChip({ compact }: { compact: boolean }) {
   const px = compact ? 'px-2 py-0.5' : 'px-2.5 py-1';
   return (
     <span
-      className={`inline-block animate-pulse rounded-full bg-gray-200/60 ${px}`}
+      className={`inline-block animate-pulse rounded-full bg-muted/60 ${px}`}
     >
       <span className="invisible text-xs font-medium">Loading tag</span>
     </span>
@@ -95,9 +95,9 @@ export function CustomerTagChips({
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className={`inline-flex items-center rounded-full border border-gray-200/60 bg-gray-50/80 ${
+          className={`inline-flex items-center rounded-full border border-border/60 bg-muted/80 ${
             compact ? 'px-2 py-0.5' : 'px-2.5 py-1'
-          } text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100/80 hover:text-gray-700`}
+          } text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/80 hover:text-foreground`}
         >
           +{hiddenCount} more
         </button>
@@ -106,9 +106,9 @@ export function CustomerTagChips({
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className={`inline-flex items-center rounded-full border border-gray-200/60 bg-gray-50/80 ${
+          className={`inline-flex items-center rounded-full border border-border/60 bg-muted/80 ${
             compact ? 'px-2 py-0.5' : 'px-2.5 py-1'
-          } text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100/80 hover:text-gray-700`}
+          } text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/80 hover:text-foreground`}
         >
           Show less
         </button>

@@ -109,10 +109,10 @@ export const ItemButton = memo(function ItemButton({
         onContextMenu={handleContextMenu}
         className={`${sizeClasses} relative flex flex-col overflow-hidden rounded-lg shadow-sm transition-all hover:shadow-md active:scale-[0.97] active:shadow-inner select-none ${
           isOutOfStock
-            ? 'border border-gray-300 opacity-60'
+            ? 'border border-border opacity-60'
             : isLowStock
-              ? 'border border-gray-200 border-b-2 border-b-amber-400 hover:border-gray-300'
-              : 'border border-gray-200 hover:border-gray-300'
+              ? 'border border-border border-b-2 border-b-amber-400 hover:border-muted-foreground'
+              : 'border border-border hover:border-muted-foreground'
         } ${hasMenuColor ? '' : 'bg-surface'}`}
         style={hasMenuColor ? { backgroundColor: menuColor } : undefined}
       >
@@ -179,7 +179,7 @@ export const ItemButton = memo(function ItemButton({
         createPortal(
           <div
             ref={menuRef}
-            className="fixed z-50 min-w-48 rounded-lg border border-gray-200 bg-surface py-1 shadow-xl"
+            className="fixed z-50 min-w-48 rounded-lg border border-border bg-surface py-1 shadow-xl"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onMouseDown={(e) => e.stopPropagation()}
             role="menu"
@@ -195,7 +195,7 @@ export const ItemButton = memo(function ItemButton({
                 }}
                 className={menuItemClass}
               >
-                <Pencil className="h-4 w-4 text-gray-400" />
+                <Pencil className="h-4 w-4 text-muted-foreground" />
                 Edit Item
               </button>
             )}
@@ -213,7 +213,7 @@ export const ItemButton = memo(function ItemButton({
               >
                 {isFavorite ? (
                   <>
-                    <StarOff className="h-4 w-4 text-gray-400" />
+                    <StarOff className="h-4 w-4 text-muted-foreground" />
                     Remove from Hot Sellers
                   </>
                 ) : (
@@ -227,7 +227,7 @@ export const ItemButton = memo(function ItemButton({
 
             {/* Divider — only show if there are items both above and below */}
             {(onToggleFavorite || (canEditItem && onEditItem)) && canEditItem && (onViewHistory || onArchiveItem) && (
-              <div className="my-1 border-t border-gray-100" role="separator" />
+              <div className="my-1 border-t border-border" role="separator" />
             )}
 
             {/* View History — requires canEditItem */}
@@ -241,7 +241,7 @@ export const ItemButton = memo(function ItemButton({
                 }}
                 className={menuItemClass}
               >
-                <History className="h-4 w-4 text-gray-400" />
+                <History className="h-4 w-4 text-muted-foreground" />
                 View History
               </button>
             )}

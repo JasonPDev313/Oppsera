@@ -17,28 +17,28 @@ const COMPARISON_ROWS = [
 function CellValue({ value }: { value: string | boolean }) {
   if (typeof value === 'boolean') {
     return value ? (
-      <Check className="mx-auto h-4 w-4 text-green-600" />
+      <Check className="mx-auto h-4 w-4 text-green-500" />
     ) : (
-      <X className="mx-auto h-4 w-4 text-gray-300" />
+      <X className="mx-auto h-4 w-4 text-muted-foreground" />
     );
   }
-  return <span className="text-sm text-gray-700">{value}</span>;
+  return <span className="text-sm text-foreground">{value}</span>;
 }
 
 export function TierComparisonTable({ currentTier }: { currentTier: string }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="overflow-hidden rounded-lg border border-border">
+      <table className="min-w-full divide-y divide-border">
+        <thead className="bg-muted">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+            <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Feature
             </th>
             {(['SMB', 'MID_MARKET', 'ENTERPRISE'] as const).map((tier) => (
               <th
                 key={tier}
-                className={`px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-500 ${
-                  tier === currentTier ? 'bg-indigo-50' : ''
+                className={`px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-muted-foreground ${
+                  tier === currentTier ? 'bg-indigo-500/10' : ''
                 }`}
               >
                 <div className="flex items-center justify-center gap-2">
@@ -51,19 +51,19 @@ export function TierComparisonTable({ currentTier }: { currentTier: string }) {
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-200 bg-surface">
+        <tbody className="divide-y divide-border bg-surface">
           {COMPARISON_ROWS.map((row) => (
             <tr key={row.label}>
-              <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-gray-900">
+              <td className="whitespace-nowrap px-4 py-3 text-sm font-medium text-foreground">
                 {row.label}
               </td>
-              <td className={`px-4 py-3 text-center ${currentTier === 'SMB' ? 'bg-indigo-50/50' : ''}`}>
+              <td className={`px-4 py-3 text-center ${currentTier === 'SMB' ? 'bg-indigo-500/10' : ''}`}>
                 <CellValue value={row.smb} />
               </td>
-              <td className={`px-4 py-3 text-center ${currentTier === 'MID_MARKET' ? 'bg-indigo-50/50' : ''}`}>
+              <td className={`px-4 py-3 text-center ${currentTier === 'MID_MARKET' ? 'bg-indigo-500/10' : ''}`}>
                 <CellValue value={row.mid} />
               </td>
-              <td className={`px-4 py-3 text-center ${currentTier === 'ENTERPRISE' ? 'bg-indigo-50/50' : ''}`}>
+              <td className={`px-4 py-3 text-center ${currentTier === 'ENTERPRISE' ? 'bg-indigo-500/10' : ''}`}>
                 <CellValue value={row.ent} />
               </td>
             </tr>

@@ -86,8 +86,8 @@ export function AdjustDialog({ open, onClose, inventoryItemId, onSuccess }: Adju
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900">Adjust Inventory</h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <h3 className="text-lg font-semibold text-foreground">Adjust Inventory</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
           Manually adjust the stock quantity. Use negative values to reduce.
         </p>
 
@@ -99,7 +99,7 @@ export function AdjustDialog({ open, onClose, inventoryItemId, onSuccess }: Adju
               onChange={(e) => setQuantityDelta(e.target.value)}
               placeholder="e.g. -5 or 10"
               step="any"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -109,7 +109,7 @@ export function AdjustDialog({ open, onClose, inventoryItemId, onSuccess }: Adju
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="e.g. Physical count correction"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -118,7 +118,7 @@ export function AdjustDialog({ open, onClose, inventoryItemId, onSuccess }: Adju
               type="date"
               value={businessDate}
               onChange={(e) => setBusinessDate(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
         </div>
@@ -128,7 +128,7 @@ export function AdjustDialog({ open, onClose, inventoryItemId, onSuccess }: Adju
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Cancel
           </button>
@@ -136,7 +136,7 @@ export function AdjustDialog({ open, onClose, inventoryItemId, onSuccess }: Adju
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >

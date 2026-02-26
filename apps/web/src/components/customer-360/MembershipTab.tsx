@@ -233,7 +233,7 @@ function MembersSection({ members }: { members: MembershipMemberEntry[] }) {
               <th className="pb-2 font-medium">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border">
             {members.map((m) => (
               <tr key={m.id}>
                 <td className="py-2 pr-4 font-medium text-foreground">
@@ -342,7 +342,7 @@ function BillingItemsSection({ items }: { items: MembershipBillingItemEntry[] })
               <th className="pb-2 font-medium">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border">
             {items.map((item) => (
               <tr key={item.id} className={item.isActive ? '' : 'opacity-50'}>
                 <td className="py-2 pr-4 text-foreground">
@@ -408,7 +408,7 @@ function AuthorizedUsersSection({ users }: { users: MembershipAuthorizedUserEntr
               <th className="pb-2 font-medium">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border">
             {users.map((u) => (
               <tr key={u.id}>
                 <td className="py-2 pr-4 font-medium text-foreground">{u.name}</td>
@@ -598,10 +598,10 @@ export default function MembershipTab({ customerId }: { customerId: string }) {
                 creditLimitCents={account.creditLimitCents}
                 holdCharging={account.holdCharging}
               />
-              <MembersSection members={account.members} />
-              <ClassesSection classes={account.classes} />
-              <BillingItemsSection items={account.billingItems} />
-              <AuthorizedUsersSection users={account.authorizedUsers} />
+              <MembersSection members={account.members ?? []} />
+              <ClassesSection classes={account.classes ?? []} />
+              <BillingItemsSection items={account.billingItems ?? []} />
+              <AuthorizedUsersSection users={account.authorizedUsers ?? []} />
             </div>
           )}
         </>

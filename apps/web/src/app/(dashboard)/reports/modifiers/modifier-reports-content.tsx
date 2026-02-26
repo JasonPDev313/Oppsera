@@ -55,13 +55,13 @@ function formatNum(v: number): string {
 
 function recommendationColor(rec: string): string {
   switch (rec) {
-    case 'keep': return 'bg-emerald-500/15 text-emerald-700';
-    case 'optimize': return 'bg-amber-500/15 text-amber-700';
-    case 'remove': return 'bg-red-500/15 text-red-700';
-    case 'investigate': return 'bg-orange-500/15 text-orange-700';
-    case 'review_prompt': return 'bg-purple-500/15 text-purple-700';
-    case 'new': return 'bg-blue-500/15 text-blue-700';
-    default: return 'bg-gray-500/15 text-gray-700';
+    case 'keep': return 'bg-emerald-500/15 text-emerald-500';
+    case 'optimize': return 'bg-amber-500/15 text-amber-500';
+    case 'remove': return 'bg-red-500/15 text-red-500';
+    case 'investigate': return 'bg-orange-500/15 text-orange-500';
+    case 'review_prompt': return 'bg-purple-500/15 text-purple-500';
+    case 'new': return 'bg-blue-500/15 text-blue-500';
+    default: return 'bg-gray-500/15 text-foreground';
   }
 }
 
@@ -81,10 +81,10 @@ function recommendationLabel(rec: string): string {
 
 function KpiCard({ label, value, subtext }: { label: string; value: string; subtext?: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-4">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-gray-900">{value}</p>
-      {subtext && <p className="mt-0.5 text-xs text-gray-400">{subtext}</p>}
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-foreground">{value}</p>
+      {subtext && <p className="mt-0.5 text-xs text-muted-foreground">{subtext}</p>}
     </div>
   );
 }
@@ -209,8 +209,8 @@ export default function ModifierReportsContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Sliders className="h-6 w-6 text-gray-500" />
-          <h1 className="text-2xl font-semibold text-gray-900">Modifier Reports</h1>
+          <Sliders className="h-6 w-6 text-muted-foreground" />
+          <h1 className="text-2xl font-semibold text-foreground">Modifier Reports</h1>
         </div>
       </div>
 
@@ -238,7 +238,7 @@ export default function ModifierReportsContent() {
       />
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-border">
         <nav className="-mb-px flex gap-4 overflow-x-auto" aria-label="Modifier report tabs">
           {TABS.map(tab => (
             <button
@@ -247,7 +247,7 @@ export default function ModifierReportsContent() {
               className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-1 pb-3 text-sm font-medium transition-colors ${
                 activeTab === tab.key
                   ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               <tab.icon className="h-4 w-4" />
@@ -274,36 +274,36 @@ export default function ModifierReportsContent() {
 
           {/* Top / Bottom 5 */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-lg border border-gray-200 bg-surface p-4">
-              <h3 className="mb-3 text-sm font-semibold text-gray-700">Top 5 — Most Selected</h3>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">Top 5 — Most Selected</h3>
               <div className="space-y-2">
                 {top5.map(r => (
                   <div key={r.modifierId} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-900">{r.modifierName}</span>
-                    <span className="font-medium text-gray-600">{formatNum(r.timesSelected)}</span>
+                    <span className="text-foreground">{r.modifierName}</span>
+                    <span className="font-medium text-muted-foreground">{formatNum(r.timesSelected)}</span>
                   </div>
                 ))}
-                {top5.length === 0 && <p className="text-sm text-gray-400">No data</p>}
+                {top5.length === 0 && <p className="text-sm text-muted-foreground">No data</p>}
               </div>
             </div>
-            <div className="rounded-lg border border-gray-200 bg-surface p-4">
-              <h3 className="mb-3 text-sm font-semibold text-gray-700">Bottom 5 — Least Selected</h3>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">Bottom 5 — Least Selected</h3>
               <div className="space-y-2">
                 {bottom5.map(r => (
                   <div key={r.modifierId} className="flex items-center justify-between text-sm">
-                    <span className="text-gray-900">{r.modifierName}</span>
-                    <span className="font-medium text-gray-600">{formatNum(r.timesSelected)}</span>
+                    <span className="text-foreground">{r.modifierName}</span>
+                    <span className="font-medium text-muted-foreground">{formatNum(r.timesSelected)}</span>
                   </div>
                 ))}
-                {bottom5.length === 0 && <p className="text-sm text-gray-400">No data</p>}
+                {bottom5.length === 0 && <p className="text-sm text-muted-foreground">No data</p>}
               </div>
             </div>
           </div>
 
           {/* Recommendation badges from group health */}
           {(health.data ?? []).length > 0 && (
-            <div className="rounded-lg border border-gray-200 bg-surface p-4">
-              <h3 className="mb-3 text-sm font-semibold text-gray-700">Group Recommendations</h3>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">Group Recommendations</h3>
               <div className="flex flex-wrap gap-2">
                 {(health.data ?? []).map(g => (
                   <span
@@ -322,10 +322,10 @@ export default function ModifierReportsContent() {
       {activeTab === 'group-health' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Modifier Group Health</h2>
+            <h2 className="text-lg font-semibold text-foreground">Modifier Group Health</h2>
             <button
               onClick={() => handleExport('/api/v1/reports/modifiers/group-health/export')}
-              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-accent"
             >
               <Download className="h-4 w-4" /> Export CSV
             </button>
@@ -333,7 +333,7 @@ export default function ModifierReportsContent() {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-500">
+                <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Group</th>
                   <th className="pb-2 pr-4 font-medium">Required</th>
                   <th className="pb-2 pr-4 font-medium text-right">Eligible</th>
@@ -346,14 +346,14 @@ export default function ModifierReportsContent() {
               </thead>
               <tbody>
                 {(health.data ?? []).map((r: ModifierGroupHealthRow) => (
-                  <tr key={r.modifierGroupId} className="border-b border-gray-100">
-                    <td className="py-2 pr-4 font-medium text-gray-900">{r.groupName}</td>
-                    <td className="py-2 pr-4 text-gray-600">{r.isRequired ? 'Yes' : 'No'}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.eligibleLineCount)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.linesWithSelection)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">
+                  <tr key={r.modifierGroupId} className="border-b border-border">
+                    <td className="py-2 pr-4 font-medium text-foreground">{r.groupName}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{r.isRequired ? 'Yes' : 'No'}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.eligibleLineCount)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.linesWithSelection)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">
                       <div className="flex items-center justify-end gap-2">
-                        <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
+                        <div className="h-2 w-16 overflow-hidden rounded-full bg-muted">
                           <div
                             className="h-full rounded-full bg-indigo-500"
                             style={{ width: `${Math.min(r.attachRate * 100, 100)}%` }}
@@ -362,8 +362,8 @@ export default function ModifierReportsContent() {
                         <span>{formatPct(r.attachRate)}</span>
                       </div>
                     </td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatMoney(r.revenueImpactDollars)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.voidCount)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatMoney(r.revenueImpactDollars)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.voidCount)}</td>
                     <td className="py-2">
                       <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${recommendationColor(r.recommendation)}`}>
                         {recommendationLabel(r.recommendation)}
@@ -374,7 +374,7 @@ export default function ModifierReportsContent() {
               </tbody>
             </table>
             {(health.data ?? []).length === 0 && !health.isLoading && (
-              <p className="py-8 text-center text-sm text-gray-400">No modifier group data for this period</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No modifier group data for this period</p>
             )}
           </div>
         </div>
@@ -383,10 +383,10 @@ export default function ModifierReportsContent() {
       {activeTab === 'item-performance' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Modifier × Item Performance</h2>
+            <h2 className="text-lg font-semibold text-foreground">Modifier × Item Performance</h2>
             <button
               onClick={() => handleExport('/api/v1/reports/modifiers/performance/export')}
-              className="flex items-center gap-1.5 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-foreground hover:bg-accent"
             >
               <Download className="h-4 w-4" /> Export CSV
             </button>
@@ -394,7 +394,7 @@ export default function ModifierReportsContent() {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-500">
+                <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Modifier</th>
                   <th className="pb-2 pr-4 font-medium">Group</th>
                   <th className="pb-2 pr-4 font-medium text-right">Times Selected</th>
@@ -409,23 +409,23 @@ export default function ModifierReportsContent() {
               </thead>
               <tbody>
                 {(perf.data ?? []).map((r: ModifierPerformanceRow) => (
-                  <tr key={`${r.modifierId}-${r.modifierGroupId}`} className="border-b border-gray-100">
-                    <td className="py-2 pr-4 font-medium text-gray-900">{r.modifierName}</td>
-                    <td className="py-2 pr-4 text-gray-600">{r.groupName}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.timesSelected)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatMoney(r.revenueDollars)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatMoney(r.extraRevenueDollars)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-400">{formatNum(r.instructionNone)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-400">{formatNum(r.instructionExtra)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-400">{formatNum(r.instructionOnSide)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-400">{formatNum(r.instructionDefault)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.voidCount)}</td>
+                  <tr key={`${r.modifierId}-${r.modifierGroupId}`} className="border-b border-border">
+                    <td className="py-2 pr-4 font-medium text-foreground">{r.modifierName}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{r.groupName}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.timesSelected)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatMoney(r.revenueDollars)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatMoney(r.extraRevenueDollars)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.instructionNone)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.instructionExtra)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.instructionOnSide)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.instructionDefault)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.voidCount)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {(perf.data ?? []).length === 0 && !perf.isLoading && (
-              <p className="py-8 text-center text-sm text-gray-400">No modifier performance data for this period</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No modifier performance data for this period</p>
             )}
           </div>
         </div>
@@ -433,11 +433,11 @@ export default function ModifierReportsContent() {
 
       {activeTab === 'upsell' && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Upsell & Margin Impact</h2>
+          <h2 className="text-lg font-semibold text-foreground">Upsell & Margin Impact</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-500">
+                <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Modifier</th>
                   <th className="pb-2 pr-4 font-medium">Group</th>
                   <th className="pb-2 pr-4 font-medium text-right">Selected</th>
@@ -449,18 +449,18 @@ export default function ModifierReportsContent() {
               </thead>
               <tbody>
                 {(upsell.data ?? []).map((r: UpsellImpactRow) => (
-                  <tr key={r.modifierId} className="border-b border-gray-100">
-                    <td className="py-2 pr-4 font-medium text-gray-900">{r.modifierName}</td>
-                    <td className="py-2 pr-4 text-gray-600">{r.groupName}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.timesSelected)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatMoney(r.revenueDollars)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">
+                  <tr key={r.modifierId} className="border-b border-border">
+                    <td className="py-2 pr-4 font-medium text-foreground">{r.modifierName}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{r.groupName}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.timesSelected)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatMoney(r.revenueDollars)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">
                       {r.costDollars != null ? formatMoney(r.costDollars) : '—'}
                     </td>
-                    <td className="py-2 pr-4 text-right text-gray-600">
+                    <td className="py-2 pr-4 text-right text-muted-foreground">
                       {r.marginDollars != null ? formatMoney(r.marginDollars) : '—'}
                     </td>
-                    <td className="py-2 pr-4 text-right text-gray-600">
+                    <td className="py-2 pr-4 text-right text-muted-foreground">
                       {r.marginPercent != null ? `${r.marginPercent.toFixed(1)}%` : '—'}
                     </td>
                   </tr>
@@ -468,7 +468,7 @@ export default function ModifierReportsContent() {
               </tbody>
             </table>
             {(upsell.data ?? []).length === 0 && !upsell.isLoading && (
-              <p className="py-8 text-center text-sm text-gray-400">No upsell data for this period</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No upsell data for this period</p>
             )}
           </div>
         </div>
@@ -476,24 +476,24 @@ export default function ModifierReportsContent() {
 
       {activeTab === 'adoption' && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Adoption Funnel</h2>
+          <h2 className="text-lg font-semibold text-foreground">Adoption Funnel</h2>
           <div className="space-y-3">
             {(health.data ?? []).map((r: ModifierGroupHealthRow) => {
               const eligiblePct = 1;
               const selectedPct = r.attachRate;
               return (
-                <div key={r.modifierGroupId} className="rounded-lg border border-gray-200 bg-surface p-4">
+                <div key={r.modifierGroupId} className="rounded-lg border border-border bg-surface p-4">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="font-medium text-gray-900">{r.groupName}</span>
+                    <span className="font-medium text-foreground">{r.groupName}</span>
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${recommendationColor(r.recommendation)}`}>
                       {recommendationLabel(r.recommendation)}
                     </span>
                   </div>
                   {/* Eligible bar */}
-                  <div className="mb-1 flex items-center gap-2 text-xs text-gray-500">
+                  <div className="mb-1 flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="w-20">Eligible</span>
                     <div className="flex-1">
-                      <div className="h-5 rounded bg-gray-200">
+                      <div className="h-5 rounded bg-muted">
                         <div
                           className="flex h-full items-center rounded bg-gray-400 px-2 text-xs text-white"
                           style={{ width: `${eligiblePct * 100}%` }}
@@ -504,10 +504,10 @@ export default function ModifierReportsContent() {
                     </div>
                   </div>
                   {/* Selected bar */}
-                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="w-20">Selected</span>
                     <div className="flex-1">
-                      <div className="h-5 rounded bg-gray-200">
+                      <div className="h-5 rounded bg-muted">
                         <div
                           className="flex h-full items-center rounded bg-indigo-500 px-2 text-xs text-white"
                           style={{ width: `${Math.max(selectedPct * 100, 2)}%` }}
@@ -521,7 +521,7 @@ export default function ModifierReportsContent() {
               );
             })}
             {(health.data ?? []).length === 0 && !health.isLoading && (
-              <p className="py-8 text-center text-sm text-gray-400">No adoption data for this period</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No adoption data for this period</p>
             )}
           </div>
         </div>
@@ -529,11 +529,11 @@ export default function ModifierReportsContent() {
 
       {activeTab === 'waste' && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-gray-900">Waste & Void Signals</h2>
+          <h2 className="text-lg font-semibold text-foreground">Waste & Void Signals</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-500">
+                <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Modifier</th>
                   <th className="pb-2 pr-4 font-medium">Group</th>
                   <th className="pb-2 pr-4 font-medium text-right">Selected</th>
@@ -544,28 +544,28 @@ export default function ModifierReportsContent() {
               </thead>
               <tbody>
                 {(waste.data ?? []).map((r: WasteSignalRow) => (
-                  <tr key={r.modifierId} className="border-b border-gray-100">
-                    <td className="py-2 pr-4 font-medium text-gray-900">{r.modifierName}</td>
-                    <td className="py-2 pr-4 text-gray-600">{r.groupName}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.timesSelected)}</td>
-                    <td className="py-2 pr-4 text-right text-red-600 font-medium">{formatNum(r.voidCount)}</td>
-                    <td className="py-2 pr-4 text-right text-red-600">{formatPct(r.voidRate)}</td>
-                    <td className="py-2 pr-4 text-right text-red-600">{formatMoney(r.voidRevenueDollars)}</td>
+                  <tr key={r.modifierId} className="border-b border-border">
+                    <td className="py-2 pr-4 font-medium text-foreground">{r.modifierName}</td>
+                    <td className="py-2 pr-4 text-muted-foreground">{r.groupName}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.timesSelected)}</td>
+                    <td className="py-2 pr-4 text-right text-red-500 font-medium">{formatNum(r.voidCount)}</td>
+                    <td className="py-2 pr-4 text-right text-red-500">{formatPct(r.voidRate)}</td>
+                    <td className="py-2 pr-4 text-right text-red-500">{formatMoney(r.voidRevenueDollars)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {(waste.data ?? []).length === 0 && !waste.isLoading && (
-              <p className="py-8 text-center text-sm text-gray-400">No waste signals — great!</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No waste signals — great!</p>
             )}
           </div>
 
           {/* Complexity table below waste */}
-          <h2 className="text-lg font-semibold text-gray-900">Operational Complexity</h2>
+          <h2 className="text-lg font-semibold text-foreground">Operational Complexity</h2>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 text-left text-gray-500">
+                <tr className="border-b border-border text-left text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Item</th>
                   <th className="pb-2 pr-4 font-medium text-right">Modifiers</th>
                   <th className="pb-2 pr-4 font-medium text-right">Groups</th>
@@ -576,19 +576,19 @@ export default function ModifierReportsContent() {
               </thead>
               <tbody>
                 {(complexity.data ?? []).map((r: ComplexityRow) => (
-                  <tr key={r.catalogItemId} className="border-b border-gray-100">
-                    <td className="py-2 pr-4 font-medium text-gray-900">{r.catalogItemName}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.distinctModifiers)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.distinctGroups)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{formatNum(r.totalSelections)}</td>
-                    <td className="py-2 pr-4 text-right text-gray-600">{r.avgModifiersPerOrder.toFixed(1)}</td>
-                    <td className="py-2 pr-4 text-right font-medium text-gray-900">{r.complexityScore.toFixed(1)}</td>
+                  <tr key={r.catalogItemId} className="border-b border-border">
+                    <td className="py-2 pr-4 font-medium text-foreground">{r.catalogItemName}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.distinctModifiers)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.distinctGroups)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{formatNum(r.totalSelections)}</td>
+                    <td className="py-2 pr-4 text-right text-muted-foreground">{r.avgModifiersPerOrder.toFixed(1)}</td>
+                    <td className="py-2 pr-4 text-right font-medium text-foreground">{r.complexityScore.toFixed(1)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             {(complexity.data ?? []).length === 0 && !complexity.isLoading && (
-              <p className="py-8 text-center text-sm text-gray-400">No complexity data for this period</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">No complexity data for this period</p>
             )}
           </div>
         </div>
@@ -609,7 +609,7 @@ export default function ModifierReportsContent() {
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                   heatmapSub === st.key
                     ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    : 'bg-muted text-foreground hover:bg-accent'
                 }`}
               >
                 {st.label}

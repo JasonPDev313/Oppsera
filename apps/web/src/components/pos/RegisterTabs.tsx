@@ -411,7 +411,7 @@ export function RegisterTabs({
           <button
             type="button"
             onClick={() => scroll('left')}
-            className="flex shrink-0 items-center justify-center px-1 py-2 text-gray-400 hover:text-gray-600"
+            className="flex shrink-0 items-center justify-center px-1 py-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
             aria-label="Scroll tabs left"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -442,7 +442,7 @@ export function RegisterTabs({
                   isActive
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : hasOrder
-                      ? 'bg-surface border border-border text-foreground hover:border-indigo-300 hover:bg-indigo-500/10'
+                      ? 'bg-surface border border-border text-foreground hover:border-indigo-500/30 hover:bg-indigo-500/10'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 }`}
               >
@@ -454,7 +454,7 @@ export function RegisterTabs({
                 <span className="whitespace-nowrap">{label}</span>
 
                 {tab.employeeName && (
-                  <span className={`ml-1 text-[10px] ${isActive ? 'text-indigo-200' : 'text-gray-400'}`}>
+                  <span className={`ml-1 text-[10px] ${isActive ? 'text-indigo-200' : 'text-muted-foreground'}`}>
                     ({tab.employeeName.split(' ')[0]})
                   </span>
                 )}
@@ -471,7 +471,7 @@ export function RegisterTabs({
                     className={`ml-0.5 shrink-0 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 ${
                       isActive
                         ? 'hover:bg-indigo-500 text-indigo-200 hover:text-white'
-                        : 'hover:bg-gray-200 text-gray-300 hover:text-gray-500'
+                        : 'hover:bg-accent text-muted-foreground hover:text-foreground'
                     }`}
                     aria-label={`Close ${label}`}
                   >
@@ -486,7 +486,7 @@ export function RegisterTabs({
           <button
             type="button"
             onClick={onAddTab}
-            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="flex shrink-0 items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             aria-label="Add new tab"
           >
             <Plus className="h-4 w-4" />
@@ -498,7 +498,7 @@ export function RegisterTabs({
           <button
             type="button"
             onClick={() => scroll('right')}
-            className="flex shrink-0 items-center justify-center px-1 py-2 text-gray-400 hover:text-gray-600"
+            className="flex shrink-0 items-center justify-center px-1 py-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded"
             aria-label="Scroll tabs right"
           >
             <ChevronRight className="h-4 w-4" />
@@ -511,7 +511,7 @@ export function RegisterTabs({
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="fixed z-50 min-w-48 rounded-lg border border-gray-200 bg-surface py-1 shadow-xl"
+            className="fixed z-50 min-w-48 rounded-lg border border-border bg-surface py-1 shadow-xl"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onMouseDown={(e) => e.stopPropagation()}
           >
@@ -521,9 +521,9 @@ export function RegisterTabs({
               onClick={() =>
                 openRename(contextMenu.tabNumber, contextMenu.x, contextMenu.y)
               }
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
             >
-              <Pencil className="h-4 w-4 text-gray-400" />
+              <Pencil className="h-4 w-4 text-muted-foreground" />
               Rename Tab
             </button>
 
@@ -532,12 +532,12 @@ export function RegisterTabs({
               <button
                 type="button"
                 onClick={handleDetachCustomer}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
               >
-                <UserMinus className="h-4 w-4 text-gray-400" />
+                <UserMinus className="h-4 w-4 text-muted-foreground" />
                 Detach Customer
                 {customerName && (
-                  <span className="ml-auto max-w-24 truncate text-xs text-gray-400">
+                  <span className="ml-auto max-w-24 truncate text-xs text-muted-foreground">
                     {customerName}
                   </span>
                 )}
@@ -552,9 +552,9 @@ export function RegisterTabs({
                     contextMenu.y,
                   )
                 }
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
               >
-                <UserPlus className="h-4 w-4 text-gray-400" />
+                <UserPlus className="h-4 w-4 text-muted-foreground" />
                 Attach Customer
               </button>
             ) : null}
@@ -567,9 +567,9 @@ export function RegisterTabs({
                   onViewProfile(customerId);
                   setContextMenu(null);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
               >
-                <Eye className="h-4 w-4 text-gray-400" />
+                <Eye className="h-4 w-4 text-muted-foreground" />
                 View Profile
               </button>
             )}
@@ -582,9 +582,9 @@ export function RegisterTabs({
                   onAddNewCustomer();
                   setContextMenu(null);
                 }}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
               >
-                <UserPlus className="h-4 w-4 text-gray-400" />
+                <UserPlus className="h-4 w-4 text-muted-foreground" />
                 Add New Customer
               </button>
             )}
@@ -600,9 +600,9 @@ export function RegisterTabs({
                     contextMenu.y,
                   )
                 }
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
               >
-                <UserCog className="h-4 w-4 text-gray-400" />
+                <UserCog className="h-4 w-4 text-muted-foreground" />
                 Change Server
               </button>
             )}
@@ -617,9 +617,9 @@ export function RegisterTabs({
                     onSaveTab(contextMenu.tabNumber);
                     setContextMenu(null);
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-gray-700 transition-colors hover:bg-accent"
+                  className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
                 >
-                  <Archive className="h-4 w-4 text-gray-400" />
+                  <Archive className="h-4 w-4 text-muted-foreground" />
                   Save Tab
                 </button>
               ) : null;
@@ -628,7 +628,7 @@ export function RegisterTabs({
             {/* Close tab (if more than 1) */}
             {tabs.length > 1 && (
               <>
-                <div className="my-1 border-t border-gray-100" />
+                <div className="my-1 border-t border-border" />
                 <button
                   type="button"
                   onClick={() => {
@@ -652,11 +652,11 @@ export function RegisterTabs({
         createPortal(
           <div
             data-rename-popover
-            className="fixed z-50 w-64 rounded-lg border border-gray-200 bg-surface p-3 shadow-xl"
+            className="fixed z-50 w-64 rounded-lg border border-border bg-surface p-3 shadow-xl"
             style={{ left: renaming.x, top: renaming.y }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <p className="mb-2 text-xs font-semibold uppercase text-gray-500">
+            <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
               Rename Tab {renaming.tabNumber}
             </p>
             <input
@@ -672,7 +672,7 @@ export function RegisterTabs({
                 }
               }}
               placeholder="e.g., White Hat, Table 5..."
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full rounded-md border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
             <div className="mt-2 flex justify-end gap-2">
               <button
@@ -681,14 +681,14 @@ export function RegisterTabs({
                   setRenaming(null);
                   setRenameValue('');
                 }}
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={commitRename}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-700"
+                className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500"
               >
                 Save
               </button>
@@ -703,17 +703,17 @@ export function RegisterTabs({
         createPortal(
           <div
             data-customer-search
-            className="fixed z-50 w-80 rounded-lg border border-gray-200 bg-surface shadow-xl"
+            className="fixed z-50 w-80 rounded-lg border border-border bg-surface shadow-xl"
             style={{ left: customerSearch.x, top: customerSearch.y }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="border-b border-gray-100 px-3 py-2">
-              <p className="text-xs font-semibold uppercase text-gray-500">
+            <div className="border-b border-border px-3 py-2">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
                 Attach Customer
               </p>
             </div>
             <div className="relative px-3 py-2">
-              <Search className="absolute left-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -726,17 +726,17 @@ export function RegisterTabs({
                   }
                 }}
                 placeholder="Search by name, phone, or email..."
-                className="w-full rounded-md border border-gray-300 py-2 pl-8 pr-8 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-md border border-border py-2 pl-8 pr-8 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               {isSearching && (
-                <Loader2 className="absolute right-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-gray-400" />
+                <Loader2 className="absolute right-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
               )}
             </div>
 
             {/* Results */}
             <div className="max-h-48 overflow-y-auto">
               {searchQuery.trim().length >= 2 && searchResults.length === 0 && !isSearching ? (
-                <div className="px-3 py-4 text-center text-sm text-gray-400">
+                <div className="px-3 py-4 text-center text-sm text-muted-foreground">
                   No customers found
                 </div>
               ) : (
@@ -754,7 +754,7 @@ export function RegisterTabs({
                       <p className="truncate text-sm font-medium text-foreground">
                         {customer.displayName}
                       </p>
-                      <p className="truncate text-xs text-gray-500">
+                      <p className="truncate text-xs text-muted-foreground">
                         {[customer.email, customer.phone]
                           .filter(Boolean)
                           .join(' \u00B7 ') || customer.type}
@@ -766,7 +766,7 @@ export function RegisterTabs({
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end border-t border-gray-100 px-3 py-2">
+            <div className="flex justify-end border-t border-border px-3 py-2">
               <button
                 type="button"
                 onClick={() => {
@@ -774,7 +774,7 @@ export function RegisterTabs({
                   setSearchQuery('');
                   setSearchResults([]);
                 }}
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
               >
                 Cancel
               </button>
@@ -789,17 +789,17 @@ export function RegisterTabs({
         createPortal(
           <div
             data-server-search
-            className="fixed z-50 w-80 rounded-lg border border-gray-200 bg-surface shadow-xl"
+            className="fixed z-50 w-80 rounded-lg border border-border bg-surface shadow-xl"
             style={{ left: serverSearch.x, top: serverSearch.y }}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="border-b border-gray-100 px-3 py-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <div className="border-b border-border px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Change Server
               </p>
             </div>
             <div className="relative px-3 py-2">
-              <Search className="absolute left-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <input
                 ref={serverSearchInputRef}
                 type="text"
@@ -812,15 +812,15 @@ export function RegisterTabs({
                   }
                 }}
                 placeholder="Search by name or email..."
-                className="w-full rounded-md border border-gray-300 py-2 pl-8 pr-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-md border border-border py-2 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
               {isServerSearching && (
-                <Loader2 className="absolute right-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-gray-400" />
+                <Loader2 className="absolute right-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-muted-foreground" />
               )}
             </div>
             <div className="max-h-48 overflow-y-auto">
               {serverSearchResults.length === 0 && !isServerSearching ? (
-                <div className="px-3 py-4 text-center text-sm text-gray-400">
+                <div className="px-3 py-4 text-center text-sm text-muted-foreground">
                   {serverSearchQuery.trim().length >= 1 ? 'No team members found' : 'Loading...'}
                 </div>
               ) : (
@@ -836,13 +836,13 @@ export function RegisterTabs({
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{member.name}</p>
-                      <p className="truncate text-xs text-gray-500">{member.email}</p>
+                      <p className="truncate text-xs text-muted-foreground">{member.email}</p>
                     </div>
                   </button>
                 ))
               )}
             </div>
-            <div className="flex justify-end border-t border-gray-100 px-3 py-2">
+            <div className="flex justify-end border-t border-border px-3 py-2">
               <button
                 type="button"
                 onClick={() => {
@@ -850,7 +850,7 @@ export function RegisterTabs({
                   setServerSearchQuery('');
                   setServerSearchResults([]);
                 }}
-                className="rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100"
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent"
               >
                 Cancel
               </button>

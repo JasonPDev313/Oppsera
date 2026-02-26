@@ -106,7 +106,7 @@ export default function TaxRemittanceContent() {
           type="button"
           onClick={handleExport}
           disabled={isExporting || !report?.rows?.length}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
           {isExporting ? 'Exporting...' : 'Export CSV'}

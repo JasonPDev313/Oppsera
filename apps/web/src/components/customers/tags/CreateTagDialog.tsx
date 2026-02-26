@@ -103,11 +103,11 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Create Tag</h3>
+          <h3 className="text-lg font-semibold text-foreground">Create Tag</h3>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -120,7 +120,7 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. VIP, High Spender, At Risk"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -133,9 +133,9 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
                   value="manual"
                   checked={tagType === 'manual'}
                   onChange={() => setTagType('manual')}
-                  className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="h-4 w-4 border-border text-indigo-600 focus:ring-indigo-500"
                 />
-                <span className="text-sm text-gray-700">Manual</span>
+                <span className="text-sm text-foreground">Manual</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -144,9 +144,9 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
                   value="smart"
                   checked={tagType === 'smart'}
                   onChange={() => setTagType('smart')}
-                  className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="h-4 w-4 border-border text-indigo-600 focus:ring-indigo-500"
                 />
-                <span className="text-sm text-gray-700">Smart</span>
+                <span className="text-sm text-foreground">Smart</span>
               </label>
             </div>
           </FormField>
@@ -157,7 +157,7 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description for this tag"
               rows={3}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none resize-none"
             />
           </FormField>
 
@@ -185,11 +185,11 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
                   value={customColor}
                   onChange={(e) => setCustomColor(e.target.value)}
                   placeholder="Custom hex (e.g. #FF5733)"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 />
                 {(customColor || color) && (
                   <span
-                    className="inline-block h-8 w-8 shrink-0 rounded-full border border-gray-200"
+                    className="inline-block h-8 w-8 shrink-0 rounded-full border border-border"
                     style={{ backgroundColor: customColor || color }}
                   />
                 )}
@@ -203,7 +203,7 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
               value={icon}
               onChange={(e) => setIcon(e.target.value)}
               placeholder="Optional icon name"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -212,7 +212,7 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               >
                 <option value="">Select a category</option>
                 {CATEGORIES.map((cat) => (
@@ -230,7 +230,7 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Cancel
           </button>
@@ -238,7 +238,7 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >

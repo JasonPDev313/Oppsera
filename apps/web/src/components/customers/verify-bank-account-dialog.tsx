@@ -75,7 +75,7 @@ export function VerifyBankAccountDialog({
       <div className="relative mx-4 w-full max-w-sm rounded-xl border border-border bg-surface p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-emerald-600" />
+            <ShieldCheck className="h-5 w-5 text-emerald-500" />
             <h2 className="text-lg font-semibold text-foreground">Verify Bank Account</h2>
           </div>
           <button
@@ -170,7 +170,7 @@ export function VerifyBankAccountDialog({
                 <button
                   type="submit"
                   disabled={!canSubmit || (result !== null && result.remainingAttempts === 0)}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   Verify

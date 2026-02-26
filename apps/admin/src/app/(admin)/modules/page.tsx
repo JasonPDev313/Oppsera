@@ -18,7 +18,7 @@ const MODE_STYLES: Record<string, { label: string; bg: string; text: string }> =
 };
 
 export default function CapabilityMatrixPage() {
-  const { rows, isLoading, load } = useCapabilityMatrix();
+  const { rows, isLoading, error, load } = useCapabilityMatrix();
   const [search, setSearch] = useState('');
   const [industry, setIndustry] = useState('');
   const [status, setStatus] = useState('');
@@ -84,7 +84,12 @@ export default function CapabilityMatrixPage() {
       </div>
 
       {/* Matrix */}
-      {isLoading && rows.length === 0 ? (
+      {error ? (
+        <div className="text-center py-12">
+          <p className="text-red-400 font-medium mb-1">Failed to load matrix</p>
+          <p className="text-sm text-slate-500">{error}</p>
+        </div>
+      ) : isLoading && rows.length === 0 ? (
         <div className="text-center py-12 text-slate-400">Loading matrix...</div>
       ) : rows.length === 0 ? (
         <div className="text-center py-12 text-slate-400">No tenants found</div>

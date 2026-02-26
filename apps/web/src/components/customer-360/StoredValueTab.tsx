@@ -215,7 +215,7 @@ function IssueForm({
           type="button"
           onClick={handleSubmit}
           disabled={isLoading || !code.trim()}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
           Issue
@@ -302,7 +302,7 @@ function InstrumentCard({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50"
+        className="flex w-full items-center justify-between p-4 text-left hover:bg-accent/50"
       >
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
@@ -319,7 +319,7 @@ function InstrumentCard({
               <span>{typeLabel}</span>
               {instrument.description && (
                 <>
-                  <span className="text-gray-300">|</span>
+                  <span className="text-muted-foreground">|</span>
                   <span>{instrument.description}</span>
                 </>
               )}
@@ -376,7 +376,7 @@ function InstrumentCard({
               <button
                 type="button"
                 onClick={() => { setShowRedeem(!showRedeem); setShowReload(false); }}
-                className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
               >
                 <CreditCard className="h-3.5 w-3.5" />
                 Redeem
@@ -384,7 +384,7 @@ function InstrumentCard({
               <button
                 type="button"
                 onClick={() => { setShowReload(!showReload); setShowRedeem(false); }}
-                className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                className="inline-flex items-center gap-1 rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
                 Reload
@@ -393,7 +393,7 @@ function InstrumentCard({
                 type="button"
                 onClick={handleVoid}
                 disabled={mutLoading}
-                className="inline-flex items-center gap-1 rounded-md border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/100/10"
+                className="inline-flex items-center gap-1 rounded-md border border-red-500/30 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-500/10"
               >
                 <Ban className="h-3.5 w-3.5" />
                 Void
@@ -421,14 +421,14 @@ function InstrumentCard({
                 type="button"
                 onClick={handleRedeem}
                 disabled={mutLoading || !redeemAmount}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 Confirm
               </button>
               <button
                 type="button"
                 onClick={() => { setShowRedeem(false); setRedeemAmount(''); }}
-                className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+                className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Cancel
               </button>
@@ -454,14 +454,14 @@ function InstrumentCard({
                 type="button"
                 onClick={handleReload}
                 disabled={mutLoading || !reloadAmount}
-                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 Confirm
               </button>
               <button
                 type="button"
                 onClick={() => { setShowReload(false); setReloadAmount(''); }}
-                className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+                className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Cancel
               </button>
@@ -637,7 +637,7 @@ export default function StoredValueTab({ customerId }: { customerId: string }) {
         <button
           type="button"
           onClick={() => setShowIssue(!showIssue)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           Issue New

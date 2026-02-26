@@ -141,7 +141,7 @@ export function ProfileCommunicationsTab({
             className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               channelFilter === ch
                 ? 'bg-indigo-600 text-white'
-                : 'bg-muted text-muted-foreground hover:bg-muted'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
             {ch === 'all' ? 'All' : ch.charAt(0).toUpperCase() + ch.slice(1)}
@@ -217,7 +217,7 @@ export function ProfileCommunicationsTab({
               type="button"
               onClick={loadMore}
               disabled={loadingMore}
-              className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-1 rounded-lg border border-border py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent disabled:opacity-50"
             >
               <ChevronDown className="h-4 w-4" />
               {loadingMore ? 'Loading...' : 'Load more'}

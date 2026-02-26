@@ -269,7 +269,7 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">
-            <X className="h-5 w-5 text-muted-foreground hover:text-muted-foreground" aria-hidden="true" />
+            <X className="h-5 w-5 text-muted-foreground hover:text-foreground" aria-hidden="true" />
           </button>
         </div>
 
@@ -542,7 +542,7 @@ export function RoleAccessDialog({ roleId, roleName, onClose, onSaved }: RoleAcc
             type="button"
             onClick={handleSave}
             disabled={isSaving || isLoading}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isSaving ? (
               <Loader2 className="h-4 w-4 animate-spin" />

@@ -45,8 +45,8 @@ export function usePortalPaymentMethods() {
     try {
       const res = await portalFetch<{ data: PortalPaymentMethod[] }>('/api/v1/payment-methods');
       setData(res.data);
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to load payment methods');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load payment methods');
     } finally {
       setIsLoading(false);
     }

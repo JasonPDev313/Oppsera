@@ -123,13 +123,13 @@ export function AddTileModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 rounded p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+          className="absolute right-4 top-4 rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
         </button>
 
-        <h2 className="text-lg font-semibold text-gray-900">Add Tile</h2>
+        <h2 className="text-lg font-semibold text-foreground">Add Tile</h2>
 
         <div className="mt-5 space-y-4">
           {/* Report selector */}
@@ -149,7 +149,7 @@ export function AddTileModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Tile title"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -166,8 +166,8 @@ export function AddTileModal({
                     onClick={() => setChartType(opt.value)}
                     className={`flex flex-1 flex-col items-center gap-1 rounded-lg border px-3 py-2.5 text-xs font-medium transition-colors ${
                       isSelected
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                        : 'border-border text-muted-foreground hover:border-border hover:bg-accent'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -190,8 +190,8 @@ export function AddTileModal({
                     onClick={() => setSizePreset(opt.value)}
                     className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                       isSelected
-                        ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                        : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'border-indigo-500 bg-indigo-500/10 text-indigo-500'
+                        : 'border-border text-muted-foreground hover:border-border hover:bg-accent'
                     }`}
                   >
                     {opt.label}
@@ -207,7 +207,7 @@ export function AddTileModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Cancel
           </button>
@@ -215,7 +215,7 @@ export function AddTileModal({
             type="button"
             onClick={handleAdd}
             disabled={!canSubmit}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
               !canSubmit ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >

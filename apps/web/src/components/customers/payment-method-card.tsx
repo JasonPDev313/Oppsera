@@ -5,8 +5,8 @@ import { useState, useRef, useEffect } from 'react';
 import type { StoredPaymentMethod } from '@/hooks/use-payment-methods';
 
 const BRAND_COLORS: Record<string, string> = {
-  visa: 'text-blue-700',
-  mastercard: 'text-red-600',
+  visa: 'text-blue-500',
+  mastercard: 'text-red-500',
   amex: 'text-blue-500',
   discover: 'text-orange-500',
 };

@@ -230,7 +230,7 @@ export default function CloseContent() {
                     ? `${failCount} checklist item${failCount !== 1 ? 's' : ''} must pass before closing`
                     : undefined
                 }
-                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Lock className="h-4 w-4" />
                 {closePeriod.isPending ? 'Closing...' : 'Close Period'}
@@ -282,7 +282,7 @@ export default function CloseContent() {
               <button
                 onClick={handleGenerateRetainedEarnings}
                 disabled={generateRetainedEarnings.isPending}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 {generateRetainedEarnings.isPending ? 'Generating...' : 'Confirm'}
               </button>

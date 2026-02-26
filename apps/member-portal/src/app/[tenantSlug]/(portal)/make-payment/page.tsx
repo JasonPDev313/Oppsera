@@ -264,8 +264,8 @@ export default function MakePaymentPage() {
       }
 
       setResult(paymentResult);
-    } catch (err: any) {
-      setError(err.message ?? 'Payment failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Payment failed');
     }
   }
 

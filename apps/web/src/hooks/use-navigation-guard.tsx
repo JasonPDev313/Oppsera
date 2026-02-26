@@ -204,14 +204,14 @@ function UnsavedChangesModal({
       {/* Modal */}
       <div className="relative w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/10">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-lg font-semibold text-foreground">
               Unsaved Changes
             </h3>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               You have unsaved changes to this report. What would you like to do?
             </p>
           </div>
@@ -223,7 +223,7 @@ function UnsavedChangesModal({
             type="button"
             onClick={onStay}
             disabled={isSaving}
-            className="order-3 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none sm:order-1"
+            className="order-3 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none sm:order-1"
           >
             Stay on Page
           </button>
@@ -233,7 +233,7 @@ function UnsavedChangesModal({
             type="button"
             onClick={onLeave}
             disabled={isSaving}
-            className="order-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="order-2 rounded-lg border border-red-500/30 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/10 focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Leave Without Saving
           </button>

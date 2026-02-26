@@ -116,7 +116,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted/50 hover:text-muted-foreground"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -283,7 +283,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -291,7 +291,7 @@ export function CreateTenderTypeDialog({ open, onClose }: CreateTenderTypeDialog
             type="button"
             onClick={handleSubmit}
             disabled={createTenderType.isPending || !name.trim() || !code.trim()}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {createTenderType.isPending ? 'Creating...' : 'Create'}
           </button>

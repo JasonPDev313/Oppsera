@@ -57,10 +57,10 @@ function WaitProgress({ estimatedMinutes, quotedMinutes }: { estimatedMinutes: n
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between text-xs mb-1.5">
-        <span className="text-gray-500">Wait estimate</span>
-        <span className="font-bold text-gray-800">~{remaining} min</span>
+        <span className="text-muted-foreground">Wait estimate</span>
+        <span className="font-bold text-foreground">~{remaining} min</span>
       </div>
-      <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-2.5 rounded-full bg-muted overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-1000"
           style={{
@@ -169,13 +169,13 @@ export default function GuestWaitlistStatusPage() {
   if (loading) {
     return (
       <div className="p-6 space-y-6 animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-40 mx-auto" />
-        <div className="h-28 w-28 bg-gray-200 rounded-full mx-auto" />
-        <div className="h-4 bg-gray-200 rounded w-60 mx-auto" />
-        <div className="h-2.5 bg-gray-200 rounded" />
+        <div className="h-6 bg-muted rounded w-40 mx-auto" />
+        <div className="h-28 w-28 bg-muted rounded-full mx-auto" />
+        <div className="h-4 bg-muted rounded w-60 mx-auto" />
+        <div className="h-2.5 bg-muted rounded" />
         <div className="space-y-3">
-          <div className="h-4 bg-gray-200 rounded w-32" />
-          <div className="h-4 bg-gray-200 rounded w-48" />
+          <div className="h-4 bg-muted rounded w-32" />
+          <div className="h-4 bg-muted rounded w-48" />
         </div>
       </div>
     );
@@ -185,9 +185,9 @@ export default function GuestWaitlistStatusPage() {
   if (invalid || !data) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-        <AlertCircle className="h-12 w-12 text-gray-300 mb-4" />
-        <h2 className="text-lg font-bold text-gray-800 mb-2">Link No Longer Valid</h2>
-        <p className="text-sm text-gray-500">This waitlist link has expired or been removed.</p>
+        <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 className="text-lg font-bold text-foreground mb-2">Link No Longer Valid</h2>
+        <p className="text-sm text-muted-foreground">This waitlist link has expired or been removed.</p>
       </div>
     );
   }
@@ -196,13 +196,13 @@ export default function GuestWaitlistStatusPage() {
   if (data.status === 'cancelled' || data.status === 'left' || data.status === 'expired') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-          <LogOut className="h-7 w-7 text-gray-400" />
+        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+          <LogOut className="h-7 w-7 text-muted-foreground" />
         </div>
-        <h2 className="text-lg font-bold text-gray-800 mb-2">
+        <h2 className="text-lg font-bold text-foreground mb-2">
           {data.status === 'expired' ? 'Your Spot Expired' : 'Removed from Waitlist'}
         </h2>
-        <p className="text-sm text-gray-500 mb-6">
+        <p className="text-sm text-muted-foreground mb-6">
           {data.status === 'expired'
             ? 'You were notified but didn\'t arrive in time.'
             : 'You\'ve been removed from the waitlist.'}
@@ -216,8 +216,8 @@ export default function GuestWaitlistStatusPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
         <PartyPopper className="h-12 w-12 text-green-500 mb-4" />
-        <h2 className="text-xl font-bold text-gray-800 mb-2">Enjoy Your Meal!</h2>
-        <p className="text-sm text-gray-500">Thank you for dining with us, {data.guestName}.</p>
+        <h2 className="text-xl font-bold text-foreground mb-2">Enjoy Your Meal!</h2>
+        <p className="text-sm text-muted-foreground">Thank you for dining with us, {data.guestName}.</p>
       </div>
     );
   }
@@ -227,19 +227,19 @@ export default function GuestWaitlistStatusPage() {
     return (
       <div className="pb-8">
         <div className="text-center pt-6 px-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{data.venueName}</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{data.venueName}</p>
         </div>
         <NotifiedBanner
           expiryMinutes={data.notificationExpiryMinutes}
           notifiedAt={data.notifiedAt}
         />
         <div className="px-6 mt-6">
-          <div className="rounded-xl bg-gray-50 p-4">
+          <div className="rounded-xl bg-muted p-4">
             <div className="flex items-center gap-2 text-sm">
-              <Users className="h-4 w-4 text-gray-400" />
-              <span className="text-gray-600">{data.guestName}</span>
-              <span className="text-gray-300">·</span>
-              <span className="text-gray-600">Party of {data.partySize}</span>
+              <Users className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">{data.guestName}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">Party of {data.partySize}</span>
             </div>
           </div>
         </div>
@@ -252,8 +252,8 @@ export default function GuestWaitlistStatusPage() {
     <div className="pb-8">
       {/* Venue name */}
       <div className="text-center pt-6 px-4 mb-6">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{data.venueName}</p>
-        <h1 className="text-lg font-bold text-gray-800 mt-1">You&apos;re on the waitlist</h1>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{data.venueName}</p>
+        <h1 className="text-lg font-bold text-foreground mt-1">You&apos;re on the waitlist</h1>
       </div>
 
       {/* Position */}
@@ -269,16 +269,16 @@ export default function GuestWaitlistStatusPage() {
 
       {/* Party info */}
       <div className="px-6 mt-6">
-        <div className="rounded-xl bg-gray-50 p-4 space-y-2">
+        <div className="rounded-xl bg-muted p-4 space-y-2">
           <div className="flex items-center gap-2 text-sm">
-            <Users className="h-4 w-4 text-gray-400" />
-            <span className="text-gray-600">{data.guestName}</span>
-            <span className="text-gray-300">·</span>
-            <span className="text-gray-600">Party of {data.partySize}</span>
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">{data.guestName}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground">Party of {data.partySize}</span>
           </div>
           <div className="flex items-center gap-2 text-sm">
-            <Clock className="h-4 w-4 text-gray-400" />
-            <span className="text-gray-500">
+            <Clock className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">
               Joined {new Date(data.joinedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
             </span>
           </div>
@@ -292,7 +292,7 @@ export default function GuestWaitlistStatusPage() {
             href={data.menuUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-between rounded-xl bg-indigo-50 p-4 transition-colors hover:bg-indigo-100"
+            className="flex items-center justify-between rounded-xl bg-indigo-500/10 p-4 transition-colors hover:bg-indigo-500/20"
           >
             <span className="text-sm font-semibold text-indigo-600">Browse Our Menu</span>
             <ChevronRight className="h-4 w-4 text-indigo-400" />
@@ -303,13 +303,13 @@ export default function GuestWaitlistStatusPage() {
       {/* Leave waitlist */}
       <div className="px-6 mt-8 text-center">
         {showLeaveConfirm ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-            <p className="text-sm text-gray-700 mb-3">Are you sure you want to leave?</p>
+          <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+            <p className="text-sm text-foreground mb-3">Are you sure you want to leave?</p>
             <div className="flex gap-2 justify-center">
               <button
                 type="button"
                 onClick={() => setShowLeaveConfirm(false)}
-                className="text-xs font-semibold rounded-lg px-4 py-2 bg-white border border-gray-200 text-gray-600"
+                className="text-xs font-semibold rounded-lg px-4 py-2 bg-surface border border-border text-muted-foreground"
               >
                 Stay
               </button>
@@ -326,7 +326,7 @@ export default function GuestWaitlistStatusPage() {
           <button
             type="button"
             onClick={() => setShowLeaveConfirm(true)}
-            className="text-xs text-gray-400 underline"
+            className="text-xs text-muted-foreground underline"
           >
             Leave Waitlist
           </button>

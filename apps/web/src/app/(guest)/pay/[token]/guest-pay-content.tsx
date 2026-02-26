@@ -260,7 +260,7 @@ export default function GuestPayContent() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
-          <p className="text-sm text-gray-500">Loading your check...</p>
+          <p className="text-sm text-muted-foreground">Loading your check...</p>
         </div>
       </div>
     );
@@ -272,9 +272,9 @@ export default function GuestPayContent() {
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="text-center">
           <div className="text-4xl mb-4">😕</div>
-          <h1 className="text-lg font-semibold text-gray-900 mb-2">Something went wrong</h1>
-          <p className="text-sm text-gray-500 mb-4">{errorMessage}</p>
-          <p className="text-xs text-gray-400">Please ask your server for assistance.</p>
+          <h1 className="text-lg font-semibold text-foreground mb-2">Something went wrong</h1>
+          <p className="text-sm text-muted-foreground mb-4">{errorMessage}</p>
+          <p className="text-xs text-muted-foreground">Please ask your server for assistance.</p>
         </div>
       </div>
     );
@@ -287,10 +287,10 @@ export default function GuestPayContent() {
       <div className="flex min-h-screen items-center justify-center p-6">
         <div className="text-center">
           <div className="text-4xl mb-4">{isSuperseded ? '🔄' : '⏰'}</div>
-          <h1 className="text-lg font-semibold text-gray-900 mb-2">
+          <h1 className="text-lg font-semibold text-foreground mb-2">
             {isSuperseded ? 'A newer receipt was printed' : 'This check has expired'}
           </h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {isSuperseded
               ? 'Your server printed an updated receipt. Please scan the new QR code.'
               : 'Please ask your server for a new check.'}
@@ -320,8 +320,8 @@ export default function GuestPayContent() {
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
           <div className="h-10 w-10 mx-auto mb-4 animate-spin rounded-full border-2 border-green-600 border-t-transparent" />
-          <p className="text-base font-medium text-gray-900">Processing payment...</p>
-          <p className="text-sm text-gray-500 mt-1">Please don't close this page.</p>
+          <p className="text-base font-medium text-foreground">Processing payment...</p>
+          <p className="text-sm text-muted-foreground mt-1">Please don't close this page.</p>
         </div>
       </div>
     );
@@ -333,7 +333,7 @@ export default function GuestPayContent() {
       <div className="flex flex-col min-h-screen">
         <div className="px-6 pt-8 pb-4 text-center">
           {session?.restaurantName && (
-            <h1 className="text-xl font-bold text-gray-900">{session.restaurantName}</h1>
+            <h1 className="text-xl font-bold text-foreground">{session.restaurantName}</h1>
           )}
         </div>
         <MemberAuthForm
@@ -356,7 +356,7 @@ export default function GuestPayContent() {
       <div className="flex flex-col min-h-screen">
         <div className="px-6 pt-8 pb-4 text-center">
           {session?.restaurantName && (
-            <h1 className="text-xl font-bold text-gray-900">{session.restaurantName}</h1>
+            <h1 className="text-xl font-bold text-foreground">{session.restaurantName}</h1>
           )}
         </div>
         <MemberVerifyForm
@@ -391,10 +391,10 @@ export default function GuestPayContent() {
       <div className="flex flex-col min-h-screen">
         <div className="px-6 pt-8 pb-4 text-center">
           {session.restaurantName && (
-            <h1 className="text-xl font-bold text-gray-900">{session.restaurantName}</h1>
+            <h1 className="text-xl font-bold text-foreground">{session.restaurantName}</h1>
           )}
           {session.tableLabel && (
-            <p className="text-sm text-gray-500 mt-1">{session.tableLabel}</p>
+            <p className="text-sm text-muted-foreground mt-1">{session.tableLabel}</p>
           )}
         </div>
 
@@ -419,18 +419,18 @@ export default function GuestPayContent() {
           </div>
         )}
 
-        <div className="px-6 mt-4 py-3 border-t border-gray-100">
+        <div className="px-6 mt-4 py-3 border-t border-border">
           <div className="flex justify-between items-center">
-            <span className="text-base font-semibold text-gray-900">Total with Tip</span>
-            <span className="text-xl font-bold text-gray-900">
+            <span className="text-base font-semibold text-foreground">Total with Tip</span>
+            <span className="text-xl font-bold text-foreground">
               ${(grandTotal / 100).toFixed(2)}
             </span>
           </div>
         </div>
 
         {errorMessage && (
-          <div className="mx-4 mt-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-            <p className="text-sm text-red-700">{errorMessage}</p>
+          <div className="mx-4 mt-2 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
+            <p className="text-sm text-red-500">{errorMessage}</p>
           </div>
         )}
 
@@ -448,7 +448,7 @@ export default function GuestPayContent() {
         </div>
 
         <div className="mt-auto px-6 pb-6 text-center">
-          <p className="text-xs text-gray-400">Powered by OppsEra</p>
+          <p className="text-xs text-muted-foreground">Powered by OppsEra</p>
         </div>
       </div>
     );
@@ -468,10 +468,10 @@ export default function GuestPayContent() {
       {/* Header */}
       <div className="px-6 pt-8 pb-4 text-center">
         {session.restaurantName && (
-          <h1 className="text-xl font-bold text-gray-900">{session.restaurantName}</h1>
+          <h1 className="text-xl font-bold text-foreground">{session.restaurantName}</h1>
         )}
         {session.tableLabel && (
-          <p className="text-sm text-gray-500 mt-1">{session.tableLabel}</p>
+          <p className="text-sm text-muted-foreground mt-1">{session.tableLabel}</p>
         )}
       </div>
 
@@ -507,10 +507,10 @@ export default function GuestPayContent() {
       )}
 
       {/* Grand total */}
-      <div className="px-6 mt-4 py-3 border-t border-gray-100">
+      <div className="px-6 mt-4 py-3 border-t border-border">
         <div className="flex justify-between items-center">
-          <span className="text-base font-semibold text-gray-900">Total with Tip</span>
-          <span className="text-xl font-bold text-gray-900">
+          <span className="text-base font-semibold text-foreground">Total with Tip</span>
+          <span className="text-xl font-bold text-foreground">
             ${(grandTotal / 100).toFixed(2)}
           </span>
         </div>
@@ -518,8 +518,8 @@ export default function GuestPayContent() {
 
       {/* Error banner */}
       {errorMessage && (
-        <div className="mx-4 mt-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-          <p className="text-sm text-red-700">{errorMessage}</p>
+        <div className="mx-4 mt-2 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3">
+          <p className="text-sm text-red-500">{errorMessage}</p>
         </div>
       )}
 
@@ -542,7 +542,7 @@ export default function GuestPayContent() {
 
       {/* Footer */}
       <div className="mt-auto px-6 pb-6 text-center">
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-muted-foreground">
           Powered by OppsEra
         </p>
       </div>

@@ -202,19 +202,19 @@ export default function ProfitCentersContent() {
       {/* Header with mode toggle */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Profit Centers</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-foreground">Profit Centers</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Manage revenue areas and terminals across your locations
           </p>
         </div>
-        <div className="flex rounded-lg border border-gray-200 bg-surface p-0.5">
+        <div className="flex rounded-lg border border-border bg-surface p-0.5">
           <button
             type="button"
             onClick={() => setMode('simple')}
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               mode === 'simple'
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:text-gray-900'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Simple
@@ -225,7 +225,7 @@ export default function ProfitCentersContent() {
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               mode === 'advanced'
                 ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:text-gray-900'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Advanced
@@ -236,8 +236,8 @@ export default function ProfitCentersContent() {
       {/* Site-level warning banner */}
       {showSiteLevelWarning && mode === 'advanced' && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-600" />
-          <p className="text-sm text-yellow-700">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-yellow-500" />
+          <p className="text-sm text-yellow-500">
             This site has venues. Profit centers are usually assigned to a specific
             venue. Select a venue, or acknowledge the site-level assignment when
             creating a profit center.

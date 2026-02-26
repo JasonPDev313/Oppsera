@@ -364,7 +364,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
       <div className="flex h-full items-center justify-center bg-surface">
         <div className="text-center">
           <div className="h-8 w-8 mx-auto mb-2 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-          <p className="text-sm text-gray-400">Loading floor plan...</p>
+          <p className="text-sm text-muted-foreground">Loading floor plan...</p>
         </div>
       </div>
     );
@@ -377,7 +377,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           <p className="text-lg font-semibold mb-2 text-foreground">
             No Rooms Configured
           </p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-muted-foreground">
             Create a room layout in Settings → Room Layouts, then sync tables to start using F&B POS.
           </p>
         </div>
@@ -392,13 +392,13 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           <p className="text-lg font-semibold mb-2 text-foreground">
             Floor Plan Error
           </p>
-          <p className="text-sm mb-3 text-gray-400">
+          <p className="text-sm mb-3 text-muted-foreground">
             {floorError}
           </p>
           <button
             type="button"
             onClick={refresh}
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors bg-indigo-600 hover:bg-indigo-700"
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors bg-indigo-600 hover:bg-indigo-500"
           >
             Retry
           </button>
@@ -431,7 +431,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           <div className="flex items-center gap-2">
             {/* Sync feedback */}
             {syncFeedback === 'success' && (
-              <span className="text-xs font-medium text-green-600">Synced</span>
+              <span className="text-xs font-medium text-green-500">Synced</span>
             )}
             {syncFeedback === 'error' && (
               <span className="text-xs font-medium text-red-500">Sync failed</span>
@@ -558,17 +558,17 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
           {tables.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <div className="text-center">
-                <p className="text-sm font-medium mb-1 text-gray-600">
+                <p className="text-sm font-medium mb-1 text-muted-foreground">
                   No tables in this room
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Sync tables from the published floor plan
                 </p>
                 <button
                   type="button"
                   onClick={handleSync}
                   disabled={actions.isActing}
-                  className="mt-3 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors bg-indigo-600 hover:bg-indigo-700 flex items-center gap-1.5 mx-auto"
+                  className="mt-3 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors bg-indigo-600 hover:bg-indigo-500 flex items-center gap-1.5 mx-auto"
                 >
                   {actions.isActing && <RefreshCw className="h-4 w-4 animate-spin" />}
                   Sync Tables
@@ -597,7 +597,7 @@ export function FnbFloorView({ userId, isActive = true }: FnbFloorViewProps) {
                 >
                   <Plus className="h-4 w-4" />
                 </button>
-                <span className="text-[10px] text-center font-medium py-0.5 text-gray-400">
+                <span className="text-[10px] text-center font-medium py-0.5 text-muted-foreground">
                   {Math.round(effectiveScale * 100)}%
                 </span>
                 <button

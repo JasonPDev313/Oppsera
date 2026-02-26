@@ -18,6 +18,7 @@ export interface ChatMessage {
   rows?: Record<string, unknown>[];
   rowCount?: number;
   isClarification?: boolean;
+  clarificationOptions?: string[];
   compiledSql?: string | null;
   compilationErrors?: string[];
   llmConfidence?: number | null;
@@ -167,6 +168,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
           rowCount: number;
           isClarification: boolean;
           clarificationText: string | null;
+          clarificationOptions: string[];
           evalTurnId: string | null;
           compiledSql: string | null;
           compilationErrors: string[];
@@ -214,6 +216,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
         rows: data.rows,
         rowCount: data.rowCount,
         isClarification: data.isClarification,
+        clarificationOptions: data.clarificationOptions ?? [],
         compiledSql: data.compiledSql,
         compilationErrors: data.compilationErrors,
         llmConfidence: data.llmConfidence,

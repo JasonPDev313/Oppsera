@@ -68,12 +68,12 @@ export function LayersPanel() {
   };
 
   return (
-    <div className="border-t border-gray-200 bg-surface">
-      <div className="flex items-center justify-between border-b border-gray-200 px-3 py-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">Layers</h3>
+    <div className="border-t border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-3 py-2">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Layers</h3>
         <button
           onClick={() => addLayer(`Layer ${layers.length + 1}`)}
-          className="rounded p-1 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+          className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           title="Add Layer"
         >
           <Plus className="h-3.5 w-3.5" />
@@ -91,21 +91,21 @@ export function LayersPanel() {
               onDragStart={() => handleDragStart(layer.id)}
               onDragOver={(e) => handleDragOver(e, layer.id)}
               onDrop={handleDrop}
-              className={`flex items-center gap-1 px-2 py-1.5 text-sm hover:bg-gray-200/30 ${
+              className={`flex items-center gap-1 px-2 py-1.5 text-sm hover:bg-accent/30 ${
                 !layer.visible ? 'opacity-50' : ''
               } ${isHighlighted ? 'bg-indigo-500/10' : ''}`}
             >
-              <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-gray-300" />
+              <GripVertical className="h-3 w-3 shrink-0 cursor-grab text-muted-foreground" />
               <button
                 onClick={() => updateLayer(layer.id, { visible: !layer.visible })}
-                className="rounded p-0.5 text-gray-400 hover:text-gray-600"
+                className="rounded p-0.5 text-muted-foreground hover:text-foreground"
                 title={layer.visible ? 'Hide' : 'Show'}
               >
-                {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-gray-300" />}
+                {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
               </button>
               <button
                 onClick={() => updateLayer(layer.id, { locked: !layer.locked })}
-                className="rounded p-0.5 text-gray-400 hover:text-gray-600"
+                className="rounded p-0.5 text-muted-foreground hover:text-foreground"
                 title={layer.locked ? 'Unlock' : 'Lock'}
               >
                 {layer.locked ? <Lock className="h-3.5 w-3.5 text-amber-500" /> : <Unlock className="h-3.5 w-3.5" />}
@@ -118,21 +118,21 @@ export function LayersPanel() {
                   onBlur={handleRenameSubmit}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleRenameSubmit(); if (e.key === 'Escape') setEditingId(null); }}
                   autoFocus
-                  className="flex-1 rounded border border-indigo-300 bg-surface px-1 py-0 text-xs text-gray-700"
+                  className="flex-1 rounded border border-indigo-500/30 bg-surface px-1 py-0 text-xs text-foreground"
                 />
               ) : (
                 <span
-                  className="flex-1 cursor-default truncate text-gray-700"
+                  className="flex-1 cursor-default truncate text-foreground"
                   onDoubleClick={() => handleDoubleClick(layer.id, layer.name)}
                 >
                   {layer.name}
                 </span>
               )}
-              <span className="text-xs text-gray-400">{objectCount}</span>
+              <span className="text-xs text-muted-foreground">{objectCount}</span>
               {layer.id !== 'default' && (
                 <button
                   onClick={() => handleDelete(layer.id)}
-                  className="rounded p-0.5 text-gray-300 hover:text-red-500"
+                  className="rounded p-0.5 text-muted-foreground hover:text-red-500"
                   title="Delete Layer"
                 >
                   <Trash2 className="h-3 w-3" />

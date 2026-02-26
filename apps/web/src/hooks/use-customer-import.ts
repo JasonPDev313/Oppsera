@@ -140,8 +140,8 @@ export function useCustomerImport() {
       setTransforms(data.transforms);
       setTotalRows(data.totalRows);
       setStep('mapping');
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to read file');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to read file');
       setStep('upload');
     }
   }, []);
@@ -195,8 +195,8 @@ export function useCustomerImport() {
       } else {
         setStep('validation_preview');
       }
-    } catch (err: any) {
-      setError(err.message ?? 'Validation request failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Validation request failed');
       setStep('mapping');
     }
   }, [csvContent, mappings, transforms]);
@@ -245,8 +245,8 @@ export function useCustomerImport() {
       const { data } = await res.json() as { data: ImportResult };
       setImportResult(data);
       setStep('results');
-    } catch (err: any) {
-      setError(err.message ?? 'Import request failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Import request failed');
       setStep('validation_preview');
     }
   }, [csvContent, mappings, transforms, duplicateResolutions, fileName, fileSizeBytes]);
@@ -286,8 +286,8 @@ export function useCustomerImport() {
       } else {
         setStep('validation_preview');
       }
-    } catch (err: any) {
-      setError(err.message ?? 'Rollback failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Rollback failed');
     } finally {
       setIsRollingBack(false);
     }

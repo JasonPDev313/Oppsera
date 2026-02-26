@@ -124,7 +124,7 @@ function StartReconciliationDialog({
           <button
             onClick={handleSubmit}
             disabled={!bankAccountId || !statementBalance || startReconciliation.isPending}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {startReconciliation.isPending ? 'Starting...' : 'Start Reconciliation'}
           </button>
@@ -235,7 +235,7 @@ function AddAdjustmentDialog({
           <button
             onClick={handleSubmit}
             disabled={!amount || !description || addAdjustment.isPending}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {addAdjustment.isPending ? 'Adding...' : 'Add Adjustment'}
           </button>
@@ -303,7 +303,7 @@ function ReconciliationWorkspace({
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="text-sm font-medium text-indigo-500 hover:text-indigo-500"
+            className="text-sm font-medium text-indigo-500 hover:text-indigo-400"
           >
             &larr; Back to List
           </button>
@@ -573,7 +573,7 @@ export default function BankReconciliationContent() {
         <div className="flex-1" />
         <button
           onClick={() => setShowStart(true)}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           New Reconciliation
@@ -592,7 +592,7 @@ export default function BankReconciliationContent() {
           <p className="text-sm text-muted-foreground">No bank reconciliations found.</p>
           <button
             onClick={() => setShowStart(true)}
-            className="mt-3 text-sm font-medium text-indigo-500 hover:text-indigo-500"
+            className="mt-3 text-sm font-medium text-indigo-500 hover:text-indigo-400"
           >
             Start your first reconciliation
           </button>

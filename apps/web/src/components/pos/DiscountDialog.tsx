@@ -14,7 +14,7 @@ function QuickButton({ label, onClick }: { label: string; onClick: () => void })
     <button
       type="button"
       onClick={onClick}
-      className="flex-1 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 active:scale-[0.97]"
+      className="flex-1 rounded-lg border border-border px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-indigo-500/10 hover:border-indigo-500/30 hover:text-indigo-500 active:scale-[0.97]"
     >
       {label}
     </button>
@@ -40,13 +40,13 @@ function CustomDiscountInput({
   };
 
   return (
-    <div className="space-y-2 border-t border-gray-100 pt-3">
-      <p className="text-xs font-medium text-gray-500 uppercase">Custom Discount</p>
+    <div className="space-y-2 border-t border-border pt-3">
+      <p className="text-xs font-medium text-muted-foreground uppercase">Custom Discount</p>
       <div className="flex gap-2">
         <select
           value={discountType}
           onChange={(e) => setDiscountType(e.target.value as 'percentage' | 'fixed')}
-          className="rounded-lg border border-gray-300 px-2 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none"
+          className="rounded-lg border border-border px-2 py-2 text-sm text-foreground focus:border-indigo-500 focus:outline-none"
         >
           <option value="percentage">%</option>
           <option value="fixed">$</option>
@@ -58,7 +58,7 @@ function CustomDiscountInput({
           placeholder={discountType === 'percentage' ? 'e.g., 10' : 'e.g., 5.00'}
           min="0"
           step={discountType === 'percentage' ? '1' : '0.01'}
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+          className="flex-1 rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none"
         />
       </div>
       <input
@@ -66,13 +66,13 @@ function CustomDiscountInput({
         value={discountReason}
         onChange={(e) => setDiscountReason(e.target.value)}
         placeholder="Reason (optional)"
-        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none"
+        className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none"
       />
       <button
         type="button"
         onClick={handleApply}
         disabled={!discountValue || parseFloat(discountValue) <= 0}
-        className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+        className="w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
       >
         Apply Discount
       </button>
@@ -98,7 +98,7 @@ export function DiscountDialog({ open, onClose, subtotalCents, onApplyDiscount }
   return (
     <POSSlidePanel open={open} onClose={onClose} title="Apply Discount">
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Subtotal: {formatMoney(subtotalCents)}
         </p>
         <div className="flex gap-2">

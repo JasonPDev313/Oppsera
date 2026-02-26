@@ -11,21 +11,21 @@ export function CostImpactPreview({ preview }: { preview: CostPreview }) {
   return (
     <div className="space-y-1 text-xs">
       <div className="flex items-center gap-1">
-        <span className="text-gray-500">Cost:</span>
-        <span className="font-medium text-gray-700">{formatMoney(preview.currentCost)}</span>
-        <ArrowRight className="h-3 w-3 text-gray-400" />
+        <span className="text-muted-foreground">Cost:</span>
+        <span className="font-medium text-foreground">{formatMoney(preview.currentCost)}</span>
+        <ArrowRight className="h-3 w-3 text-muted-foreground" />
         <span className="font-semibold text-indigo-600">{formatMoney(preview.newCost)}</span>
       </div>
       <div className="flex items-center gap-1">
-        <span className="text-gray-500">On Hand:</span>
-        <span className="font-medium text-gray-700">{preview.currentOnHand}</span>
-        <ArrowRight className="h-3 w-3 text-gray-400" />
-        <span className="font-semibold text-green-600">{preview.newOnHand}</span>
+        <span className="text-muted-foreground">On Hand:</span>
+        <span className="font-medium text-foreground">{preview.currentOnHand}</span>
+        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+        <span className="font-semibold text-green-500">{preview.newOnHand}</span>
       </div>
       {preview.marginPct !== null && (
         <div className="flex items-center gap-1">
-          <span className="text-gray-500">Margin:</span>
-          <span className="font-semibold text-gray-700">{preview.marginPct.toFixed(1)}%</span>
+          <span className="text-muted-foreground">Margin:</span>
+          <span className="font-semibold text-foreground">{preview.marginPct.toFixed(1)}%</span>
         </div>
       )}
     </div>

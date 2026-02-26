@@ -167,7 +167,7 @@ export function OptionPickerDialog({ open, onClose, item, onAdd }: OptionPickerD
             disabled={!allRequiredSelected}
             className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
               allRequiredSelected
-                ? 'bg-indigo-600 hover:bg-indigo-700'
+                ? 'bg-indigo-600 hover:bg-indigo-500'
                 : 'cursor-not-allowed bg-indigo-300'
             }`}
           >

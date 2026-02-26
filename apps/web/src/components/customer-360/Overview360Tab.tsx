@@ -58,9 +58,9 @@ function severityToVariant(severity: string): string {
 }
 
 function utilizationColor(pct: number): string {
-  if (pct > 80) return 'bg-red-500/100';
-  if (pct > 50) return 'bg-amber-500/100';
-  return 'bg-green-500/100';
+  if (pct > 80) return 'bg-red-500';
+  if (pct > 50) return 'bg-amber-500';
+  return 'bg-green-500';
 }
 
 function utilizationTextColor(pct: number): string {
@@ -76,9 +76,9 @@ function churnRiskColor(score: number): string {
 }
 
 function churnRiskBarColor(score: number): string {
-  if (score >= 70) return 'bg-red-500/100';
-  if (score >= 40) return 'bg-amber-500/100';
-  return 'bg-green-500/100';
+  if (score >= 70) return 'bg-red-500';
+  if (score >= 40) return 'bg-amber-500';
+  return 'bg-green-500';
 }
 
 // ── Skeleton ─────────────────────────────────────────────────────
@@ -508,7 +508,7 @@ export default function Overview360Tab({
         <button
           type="button"
           onClick={() => mutate()}
-          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           Retry

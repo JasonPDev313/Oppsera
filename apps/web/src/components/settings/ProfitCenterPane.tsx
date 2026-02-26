@@ -63,7 +63,7 @@ export function ProfitCenterPane({
             <div
               key={pc.id}
               onClick={() => onSelect(pc.id)}
-              className={`relative flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-muted0/10 ${
+              className={`relative flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition-colors hover:bg-accent ${
                 selectedId === pc.id ? 'bg-indigo-500/10' : ''
               }`}
             >
@@ -89,7 +89,7 @@ export function ProfitCenterPane({
                     e.stopPropagation();
                     setMenuOpen(menuOpen === pc.id ? null : pc.id);
                   }}
-                  className="rounded p-1 text-muted-foreground hover:text-muted-foreground"
+                  className="rounded p-1 text-muted-foreground hover:text-foreground"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </button>
@@ -102,7 +102,7 @@ export function ProfitCenterPane({
                         setMenuOpen(null);
                         onEdit(pc.id);
                       }}
-                      className="w-full px-3 py-1.5 text-left text-sm text-foreground hover:bg-muted0/10"
+                      className="w-full px-3 py-1.5 text-left text-sm text-foreground hover:bg-accent"
                     >
                       Edit
                     </button>

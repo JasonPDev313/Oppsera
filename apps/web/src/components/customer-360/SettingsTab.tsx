@@ -273,7 +273,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
             <button
               type="button"
               onClick={() => setShowAddPref(!showAddPref)}
-              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700"
+              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
             >
               <Plus className="h-3.5 w-3.5" />
               Add Preference
@@ -321,7 +321,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                 <button
                   type="button"
                   onClick={() => setShowAddPref(false)}
-                  className="rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                  className="rounded-md border border-input px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
                 >
                   Cancel
                 </button>
@@ -329,7 +329,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                   type="button"
                   onClick={handleAddPreference}
                   disabled={addPrefLoading || !newPrefKey.trim() || !newPrefValue.trim()}
-                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
                 >
                   Save
                 </button>
@@ -357,7 +357,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                       </h4>
                       <Badge variant="neutral" className="text-[10px]">{prefs.length}</Badge>
                     </div>
-                    <div className="divide-y divide-gray-50">
+                    <div className="divide-y divide-border">
                       {prefs.map((pref) => (
                         <div key={pref.id} className="flex items-center justify-between px-3 py-2">
                           <div className="flex items-center gap-4">
@@ -379,7 +379,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                           <button
                             type="button"
                             onClick={() => handleDeletePreference(pref.id)}
-                            className="rounded p-1 text-muted-foreground hover:bg-red-500/100/10 hover:text-red-500"
+                            className="rounded p-1 text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                             title="Remove preference"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -411,7 +411,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                   key={flag.id}
                   className={`flex items-center justify-between rounded-lg border p-3 ${
                     flag.isActive
-                      ? FLAG_SEVERITY_COLORS[flag.severity] ?? 'bg-muted text-gray-800 border-border'
+                      ? FLAG_SEVERITY_COLORS[flag.severity] ?? 'bg-muted text-foreground border-border'
                       : 'bg-muted text-muted-foreground border-border'
                   }`}
                 >
@@ -466,7 +466,7 @@ export default function SettingsTab({ customerId }: { customerId: string }) {
                 </thead>
                 <tbody>
                   {consents.map((consent) => (
-                    <tr key={consent.id} className="border-b border-gray-50">
+                    <tr key={consent.id} className="border-b border-border">
                       <td className="py-2 pr-4 font-medium text-foreground">
                         {consent.consentType.replace(/_/g, ' ')}
                       </td>

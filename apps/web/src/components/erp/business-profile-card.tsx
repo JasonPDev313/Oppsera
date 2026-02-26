@@ -7,11 +7,11 @@ import { VerticalIcon } from './vertical-icon';
 
 function StatPill({ icon: Icon, value, label }: { icon: typeof MapPin; value: number; label: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2">
-      <Icon className="h-4 w-4 text-gray-400" />
+    <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2">
+      <Icon className="h-4 w-4 text-muted-foreground" />
       <div>
-        <p className="text-lg font-semibold text-gray-900">{value}</p>
-        <p className="text-xs text-gray-500">{label}</p>
+        <p className="text-lg font-semibold text-foreground">{value}</p>
+        <p className="text-xs text-muted-foreground">{label}</p>
       </div>
     </div>
   );
@@ -24,7 +24,7 @@ export function BusinessProfileCard({ tier }: { tier: TenantTierInfo }) {
   });
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface p-6">
+    <div className="rounded-lg border border-border bg-surface p-6">
       {/* Header Row */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
@@ -34,10 +34,10 @@ export function BusinessProfileCard({ tier }: { tier: TenantTierInfo }) {
             </div>
           )}
           <div>
-            <p className="text-sm font-medium text-gray-500">
+            <p className="text-sm font-medium text-muted-foreground">
               {tier.verticalInfo?.name ?? tier.businessVertical.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
             </p>
-            <h2 className="text-xl font-bold text-gray-900">{tier.tenantName}</h2>
+            <h2 className="text-xl font-bold text-foreground">{tier.tenantName}</h2>
           </div>
         </div>
         <TierBadge tier={tier.businessTier} size="lg" />
@@ -46,11 +46,11 @@ export function BusinessProfileCard({ tier }: { tier: TenantTierInfo }) {
       {/* Description + member since */}
       <div className="mt-3">
         {tier.verticalInfo?.description && (
-          <p className="text-sm text-gray-500">{tier.verticalInfo.description}</p>
+          <p className="text-sm text-muted-foreground">{tier.verticalInfo.description}</p>
         )}
-        <p className="mt-1 text-xs text-gray-400">Member since {memberSince}</p>
+        <p className="mt-1 text-xs text-muted-foreground">Member since {memberSince}</p>
         {tier.tierOverride && (
-          <p className="mt-1 text-xs text-amber-600">
+          <p className="mt-1 text-xs text-amber-500">
             Tier manually set{tier.tierOverrideReason ? `: ${tier.tierOverrideReason}` : ''}
           </p>
         )}

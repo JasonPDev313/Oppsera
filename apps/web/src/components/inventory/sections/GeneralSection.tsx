@@ -69,7 +69,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
       <div className="space-y-3">
         {/* Item Name */}
         <div>
-          <label htmlFor="edit-name" className="mb-1 block text-xs font-medium text-gray-700">
+          <label htmlFor="edit-name" className="mb-1 block text-xs font-medium text-foreground">
             Item Name <span className="text-red-500">*</span>
           </label>
           <input
@@ -77,21 +77,21 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
             type="text"
             value={form.name}
             onChange={(e) => onUpdate({ name: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
 
         {/* Item Type + Description row */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="edit-type" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-type" className="mb-1 block text-xs font-medium text-foreground">
               Item Type
             </label>
             <select
               id="edit-type"
               value={form.itemType}
               onChange={(e) => onUpdate({ itemType: e.target.value })}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
               {ITEM_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -99,7 +99,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
             </select>
           </div>
           <div>
-            <label htmlFor="edit-desc" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-desc" className="mb-1 block text-xs font-medium text-foreground">
               Description
             </label>
             <input
@@ -108,7 +108,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
               value={form.description}
               onChange={(e) => onUpdate({ description: e.target.value })}
               placeholder="Optional"
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
           </div>
         </div>
@@ -116,7 +116,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
         {/* Department → SubDepartment → Category cascade */}
         <div className="grid grid-cols-3 gap-3">
           <div>
-            <label htmlFor="edit-dept" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-dept" className="mb-1 block text-xs font-medium text-foreground">
               Department
             </label>
             <select
@@ -127,7 +127,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
                 setSubDepartmentId('');
                 onUpdate({ categoryId: null });
               }}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
               <option value="">Select...</option>
               {departmentList.map((d) => (
@@ -136,7 +136,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
             </select>
           </div>
           <div>
-            <label htmlFor="edit-subdept" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-subdept" className="mb-1 block text-xs font-medium text-foreground">
               Sub Dept
             </label>
             <select
@@ -147,7 +147,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
                 onUpdate({ categoryId: null });
               }}
               disabled={!departmentId}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm disabled:opacity-50 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm disabled:opacity-50 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
               <option value="">Select...</option>
               {subDepartmentList.map((s) => (
@@ -156,7 +156,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
             </select>
           </div>
           <div>
-            <label htmlFor="edit-cat" className="mb-1 block text-xs font-medium text-gray-700">
+            <label htmlFor="edit-cat" className="mb-1 block text-xs font-medium text-foreground">
               Category
             </label>
             <select
@@ -164,7 +164,7 @@ export function GeneralSection({ form, onUpdate }: GeneralSectionProps) {
               value={form.categoryId ?? ''}
               onChange={(e) => onUpdate({ categoryId: e.target.value || null })}
               disabled={!subDepartmentId}
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm disabled:opacity-50 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm disabled:opacity-50 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             >
               <option value="">Select...</option>
               {categoryList.map((c) => (

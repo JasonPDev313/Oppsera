@@ -12,7 +12,7 @@ export function StatusBar() {
   const unit = useEditorStore((s) => s.unit);
 
   return (
-    <div className="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-3 py-1 text-xs text-gray-500">
+    <div className="flex items-center justify-between border-t border-border bg-muted px-3 py-1 text-xs text-muted-foreground">
       <div className="flex items-center gap-3">
         <span>{objects.length} objects</span>
         {selectedIds.length > 0 && (

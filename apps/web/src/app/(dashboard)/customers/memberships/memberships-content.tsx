@@ -43,7 +43,7 @@ function PlanDetail({ planId, onClose }: { planId: string; onClose: () => void }
 
   if (isLoading) {
     return (
-      <div className="border-t border-gray-100 bg-gray-50/50 px-6 py-4">
+      <div className="border-t border-border bg-muted/50 px-6 py-4">
         <LoadingSpinner label="Loading plan details..." />
       </div>
     );
@@ -51,35 +51,35 @@ function PlanDetail({ planId, onClose }: { planId: string; onClose: () => void }
 
   if (!plan) {
     return (
-      <div className="border-t border-gray-100 bg-gray-50/50 px-6 py-4">
-        <p className="text-sm text-gray-500">Plan not found</p>
+      <div className="border-t border-border bg-muted/50 px-6 py-4">
+        <p className="text-sm text-muted-foreground">Plan not found</p>
       </div>
     );
   }
 
   return (
-    <div className="border-t border-gray-100 bg-gray-50/50 px-6 py-4">
+    <div className="border-t border-border bg-muted/50 px-6 py-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Description</p>
-          <p className="mt-1 text-sm text-gray-900">{plan.description || '\u2014'}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</p>
+          <p className="mt-1 text-sm text-foreground">{plan.description || '\u2014'}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Billing Enabled</p>
-          <p className="mt-1 text-sm text-gray-900">{plan.billingEnabled ? 'Yes' : 'No'}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Billing Enabled</p>
+          <p className="mt-1 text-sm text-foreground">{plan.billingEnabled ? 'Yes' : 'No'}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Enrollment Count</p>
-          <p className="mt-1 text-sm text-gray-900">{plan.enrollmentCount}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Enrollment Count</p>
+          <p className="mt-1 text-sm text-foreground">{plan.enrollmentCount}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Created</p>
-          <p className="mt-1 text-sm text-gray-900">{formatDate(plan.createdAt)}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Created</p>
+          <p className="mt-1 text-sm text-foreground">{formatDate(plan.createdAt)}</p>
         </div>
       </div>
       {plan.privileges && plan.privileges.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Privileges</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Privileges</p>
           <div className="mt-1 flex flex-wrap gap-2">
             {plan.privileges.map((p, i) => (
               <Badge key={i} variant="indigo">{p.type}</Badge>
@@ -91,7 +91,7 @@ function PlanDetail({ planId, onClose }: { planId: string; onClose: () => void }
         <button
           type="button"
           onClick={onClose}
-          className="text-sm text-gray-500 hover:text-gray-700"
+          className="text-sm text-muted-foreground hover:text-foreground"
         >
           Collapse
         </button>
@@ -172,8 +172,8 @@ function CreatePlanDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">Create Membership Plan</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-lg font-semibold text-foreground">Create Membership Plan</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Define a new membership plan for your customers.
         </p>
 
@@ -184,7 +184,7 @@ function CreatePlanDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Gold Membership"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -194,7 +194,7 @@ function CreatePlanDialog({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the plan benefits..."
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -202,7 +202,7 @@ function CreatePlanDialog({
             <select
               value={billingInterval}
               onChange={(e) => setBillingInterval(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             >
               <option value="monthly">Monthly</option>
               <option value="annual">Annual</option>
@@ -219,12 +219,12 @@ function CreatePlanDialog({
           </FormField>
 
           <FormField label="Billing Enabled">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={billingEnabled}
                 onChange={(e) => setBillingEnabled(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
               Automatically bill members on their billing cycle
             </label>
@@ -236,7 +236,7 @@ function CreatePlanDialog({
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -244,7 +244,7 @@ function CreatePlanDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
@@ -275,23 +275,23 @@ export default function MembershipPlansPage() {
       width: '40px',
       render: (row: PlanRow) =>
         expandedPlanId === row.id ? (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-gray-400" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
         ),
     },
     {
       key: 'name',
       header: 'Name',
       render: (row: PlanRow) => (
-        <span className="font-medium text-gray-900">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     {
       key: 'billingInterval',
       header: 'Billing Interval',
       render: (row: PlanRow) => (
-        <span className="text-gray-600">
+        <span className="text-muted-foreground">
           {INTERVAL_LABELS[row.billingInterval] || row.billingInterval}
         </span>
       ),
@@ -300,7 +300,7 @@ export default function MembershipPlansPage() {
       key: 'priceCents',
       header: 'Price',
       render: (row: PlanRow) => (
-        <span className="font-medium text-gray-900">{formatMoney(row.priceCents)}</span>
+        <span className="font-medium text-foreground">{formatMoney(row.priceCents)}</span>
       ),
     },
     {
@@ -326,11 +326,11 @@ export default function MembershipPlansPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Membership Plans</h1>
+        <h1 className="text-xl font-semibold text-foreground">Membership Plans</h1>
         <button
           type="button"
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           Create Plan
@@ -356,7 +356,7 @@ export default function MembershipPlansPage() {
 
       {/* Expanded plan detail */}
       {expandedPlanId && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           <PlanDetail
             planId={expandedPlanId}
             onClose={() => setExpandedPlanId(null)}

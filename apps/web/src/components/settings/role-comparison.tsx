@@ -126,7 +126,7 @@ export function RoleComparisonView({ roles, onClose }: RoleComparisonViewProps) 
             className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors ${
               differencesOnly
                 ? 'bg-amber-500/15 text-amber-500'
-                : 'bg-muted text-muted-foreground hover:bg-muted'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
             {differencesOnly ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -135,7 +135,7 @@ export function RoleComparisonView({ roles, onClose }: RoleComparisonViewProps) 
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:text-muted-foreground"
+            className="rounded p-1 text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>

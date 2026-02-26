@@ -202,7 +202,7 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center bg-gray-50">
+      <div className="flex h-full items-center justify-center bg-muted">
         <LoadingSpinner size="lg" label="Loading POS..." />
       </div>
     );

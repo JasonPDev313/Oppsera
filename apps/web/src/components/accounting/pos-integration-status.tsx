@@ -114,7 +114,7 @@ export function PosIntegrationStatus() {
           {coverage.overallPercentage < 100 && (
             <Link
               href="/accounting/mappings"
-              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-indigo-500 hover:text-indigo-500"
+              className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-indigo-500 hover:text-indigo-400"
             >
               Complete mappings <ArrowRight className="h-3 w-3" />
             </Link>
@@ -144,7 +144,7 @@ export function PosIntegrationStatus() {
               <Link
                 key={entry.id}
                 href={`/accounting/journals/${entry.id}`}
-                className="flex items-center gap-3 rounded border border-border px-3 py-2 text-sm hover:bg-muted"
+                className="flex items-center gap-3 rounded border border-border px-3 py-2 text-sm hover:bg-accent"
               >
                 <span className="font-mono text-muted-foreground">#{entry.journalNumber}</span>
                 <span className="flex-1 truncate text-muted-foreground">{entry.sourceReferenceId}</span>

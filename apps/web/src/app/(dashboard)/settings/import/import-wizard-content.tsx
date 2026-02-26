@@ -273,7 +273,7 @@ export default function ImportWizardContent() {
         <button
           type="button"
           onClick={() => router.push('/settings/import')}
-          className="rounded p-1 hover:bg-gray-200/50"
+          className="rounded p-1 hover:bg-accent/50"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -281,7 +281,7 @@ export default function ImportWizardContent() {
           <h1 className="text-xl font-bold">
             {activeJob ? activeJob.name : 'New Import'}
           </h1>
-          <p className="text-sm text-gray-500">{STEP_LABELS[wizard.step]}</p>
+          <p className="text-sm text-muted-foreground">{STEP_LABELS[wizard.step]}</p>
         </div>
       </div>
 
@@ -290,13 +290,13 @@ export default function ImportWizardContent() {
 
       {/* Error Banner */}
       {wizard.error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-500">
           {wizard.error}
         </div>
       )}
 
       {/* Step Content */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-6 dark:border-gray-700">
+      <div className="rounded-lg border border-border bg-surface p-6">
         {wizard.step === 'upload' && (
           <div className="space-y-4">
             <div>
@@ -306,7 +306,7 @@ export default function ImportWizardContent() {
                 value={uploadName}
                 onChange={(e) => setUploadName(e.target.value)}
                 placeholder="e.g., Q4 2024 POS History"
-                className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-gray-600"
+                className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -315,7 +315,7 @@ export default function ImportWizardContent() {
                 <select
                   value={uploadMode}
                   onChange={(e) => setUploadMode(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm dark:border-gray-600"
+                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
                 >
                   <option value="operational">Operational Only (no GL)</option>
                   <option value="financial">Financial (with GL posting)</option>
@@ -328,7 +328,7 @@ export default function ImportWizardContent() {
                   value={uploadSourceSystem}
                   onChange={(e) => setUploadSourceSystem(e.target.value)}
                   placeholder="e.g., Square, Toast, Lightspeed"
-                  className="w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm dark:border-gray-600"
+                  className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm"
                 />
               </div>
             </div>
@@ -390,7 +390,7 @@ export default function ImportWizardContent() {
             type="button"
             onClick={wizard.goBack}
             disabled={!wizard.canGoBack}
-            className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:hover:bg-gray-800"
+            className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
@@ -433,10 +433,10 @@ function StepIndicator({ currentStep }: { currentStep: WizardStep }) {
             <div
               className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium whitespace-nowrap ${
                 isActive
-                  ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
+                  ? 'bg-indigo-500/10 text-indigo-500'
                   : isPast
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-gray-400'
+                    ? 'text-green-500'
+                    : 'text-muted-foreground'
               }`}
             >
               <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${
@@ -444,14 +444,14 @@ function StepIndicator({ currentStep }: { currentStep: WizardStep }) {
                   ? 'bg-indigo-600 text-white'
                   : isPast
                     ? 'bg-green-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700'
+                    : 'bg-muted'
               }`}>
                 {isPast ? '\u2713' : idx + 1}
               </span>
               <span className="hidden sm:inline">{STEP_LABELS[step]}</span>
             </div>
             {idx < steps.length - 1 && (
-              <div className={`mx-1 h-px w-4 ${isPast ? 'bg-green-300' : 'bg-gray-200 dark:bg-gray-700'}`} />
+              <div className={`mx-1 h-px w-4 ${isPast ? 'bg-green-300' : 'bg-muted'}`} />
             )}
           </div>
         );
@@ -511,7 +511,7 @@ function StepActionButton({
       type="button"
       onClick={action.onClick}
       disabled={isSubmitting || action.disabled}
-      className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+      className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
     >
       {isSubmitting ? 'Processing...' : action.label}
       <ArrowRight className="h-4 w-4" />

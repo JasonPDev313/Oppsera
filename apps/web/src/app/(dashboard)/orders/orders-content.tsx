@@ -118,10 +118,10 @@ function SummaryBar({ orders }: { orders: Order[] }) {
       {items.map((item) => (
         <div
           key={item.label}
-          className="rounded-lg border border-gray-200 bg-surface px-4 py-3"
+          className="rounded-lg border border-border bg-surface px-4 py-3"
         >
-          <p className="text-xs font-medium text-gray-500">{item.label}</p>
-          <p className="mt-1 text-lg font-semibold text-gray-900">{item.value}</p>
+          <p className="text-xs font-medium text-muted-foreground">{item.label}</p>
+          <p className="mt-1 text-lg font-semibold text-foreground">{item.value}</p>
         </div>
       ))}
     </div>
@@ -410,7 +410,7 @@ export default function OrdersPage() {
         header: 'Order #',
         width: '100px',
         render: (row: OrderRow) => (
-          <span className="font-semibold text-gray-900">{row.orderNumber}</span>
+          <span className="font-semibold text-foreground">{row.orderNumber}</span>
         ),
       },
       {
@@ -418,7 +418,7 @@ export default function OrdersPage() {
         header: 'Created',
         width: '130px',
         render: (row: OrderRow) => (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             {formatDateTime(row.createdAt)}
           </span>
         ),
@@ -427,7 +427,7 @@ export default function OrdersPage() {
         key: 'customerName',
         header: 'Customer',
         render: (row: OrderRow) => (
-          <span className="text-sm text-gray-700">
+          <span className="text-sm text-foreground">
             {(row as Order).customerName || '\u2014'}
           </span>
         ),
@@ -437,7 +437,7 @@ export default function OrdersPage() {
         header: 'Subtotal',
         width: '90px',
         render: (row: OrderRow) => (
-          <span className="text-sm text-gray-600">{formatMoney(row.subtotal)}</span>
+          <span className="text-sm text-muted-foreground">{formatMoney(row.subtotal)}</span>
         ),
       },
       {
@@ -448,7 +448,7 @@ export default function OrdersPage() {
           row.discountTotal > 0 ? (
             <span className="text-sm text-red-500">-{formatMoney(row.discountTotal)}</span>
           ) : (
-            <span className="text-sm text-gray-300">{'\u2014'}</span>
+            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
           ),
       },
       {
@@ -456,7 +456,7 @@ export default function OrdersPage() {
         header: 'Tax',
         width: '80px',
         render: (row: OrderRow) => (
-          <span className="text-sm text-gray-500">{formatMoney(row.taxTotal)}</span>
+          <span className="text-sm text-muted-foreground">{formatMoney(row.taxTotal)}</span>
         ),
       },
       {
@@ -465,11 +465,11 @@ export default function OrdersPage() {
         width: '90px',
         render: (row: OrderRow) =>
           row.serviceChargeTotal > 0 ? (
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted-foreground">
               {formatMoney(row.serviceChargeTotal)}
             </span>
           ) : (
-            <span className="text-sm text-gray-300">{'\u2014'}</span>
+            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
           ),
       },
       {
@@ -477,7 +477,7 @@ export default function OrdersPage() {
         header: 'Total',
         width: '90px',
         render: (row: OrderRow) => (
-          <span className="text-sm font-semibold text-gray-900">
+          <span className="text-sm font-semibold text-foreground">
             {formatMoney(row.total)}
           </span>
         ),
@@ -489,9 +489,9 @@ export default function OrdersPage() {
         render: (row: OrderRow) => {
           const tip = (row as Order).tipTotal ?? 0;
           return tip > 0 ? (
-            <span className="text-sm text-blue-600">{formatMoney(tip)}</span>
+            <span className="text-sm text-blue-500">{formatMoney(tip)}</span>
           ) : (
-            <span className="text-sm text-gray-300">{'\u2014'}</span>
+            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
           );
         },
       },
@@ -502,11 +502,11 @@ export default function OrdersPage() {
         render: (row: OrderRow) => {
           const pt = (row as Order).paymentType;
           return pt ? (
-            <span className="text-xs text-gray-600">
+            <span className="text-xs text-muted-foreground">
               {PAYMENT_TYPE_LABELS[pt] ?? pt}
             </span>
           ) : (
-            <span className="text-sm text-gray-300">{'\u2014'}</span>
+            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
           );
         },
       },
@@ -517,9 +517,9 @@ export default function OrdersPage() {
         render: (row: OrderRow) => {
           const pa = (row as Order).paidAt;
           return pa ? (
-            <span className="text-xs text-gray-500">{formatDateTime(pa)}</span>
+            <span className="text-xs text-muted-foreground">{formatDateTime(pa)}</span>
           ) : (
-            <span className="text-sm text-gray-300">{'\u2014'}</span>
+            <span className="text-sm text-muted-foreground">{'\u2014'}</span>
           );
         },
       },
@@ -553,12 +553,12 @@ export default function OrdersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Sales History</h1>
+        <h1 className="text-xl font-semibold text-foreground">Sales History</h1>
         <button
           type="button"
           onClick={() => exportCSV(orders)}
           disabled={orders.length === 0}
-          className="flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export
@@ -607,15 +607,15 @@ export default function OrdersPage() {
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             placeholder="From"
           />
-          <span className="text-gray-400">&ndash;</span>
+          <span className="text-muted-foreground">&ndash;</span>
           <input
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             placeholder="To"
           />
         </div>
@@ -623,7 +623,7 @@ export default function OrdersPage() {
           <button
             type="button"
             onClick={clearFilters}
-            className="text-sm text-gray-500 hover:text-gray-700"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             Clear filters
           </button>
@@ -651,7 +651,7 @@ export default function OrdersPage() {
               <button
                 type="button"
                 onClick={loadMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 Load More
               </button>

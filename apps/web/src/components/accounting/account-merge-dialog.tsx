@@ -113,7 +113,7 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -121,7 +121,7 @@ export function AccountMergeDialog({ open, onClose, sourceAccount, accounts, onS
             type="button"
             onClick={handleSubmit}
             disabled={!targetId || isSubmitting}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Merging...</span>

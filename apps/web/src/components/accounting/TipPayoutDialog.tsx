@@ -77,7 +77,7 @@ export function TipPayoutDialog({
             <Banknote className="h-5 w-5 text-indigo-500" />
             <h2 className="text-lg font-semibold text-foreground">Pay Out Tips</h2>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-muted-foreground" aria-label="Close">
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground" aria-label="Close">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
@@ -109,7 +109,7 @@ export function TipPayoutDialog({
                   className={`flex-1 px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
                     payoutType === t
                       ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                      : 'bg-surface border-input text-muted-foreground hover:bg-muted'
+                      : 'bg-surface border-input text-muted-foreground hover:bg-accent'
                   }`}
                 >
                   {t === 'cash' ? 'Cash' : t === 'payroll' ? 'Payroll' : 'Check'}
@@ -124,7 +124,7 @@ export function TipPayoutDialog({
               <label className="block text-sm font-medium text-foreground">Amount</label>
               <button
                 onClick={handlePayFull}
-                className="text-xs text-indigo-500 hover:text-indigo-500"
+                className="text-xs text-indigo-500 hover:text-indigo-400"
               >
                 Pay full balance
               </button>
@@ -180,7 +180,7 @@ export function TipPayoutDialog({
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-foreground bg-surface border border-input rounded-md hover:bg-muted"
+              className="px-4 py-2 text-sm font-medium text-foreground bg-surface border border-input rounded-md hover:bg-accent"
             >
               Cancel
             </button>

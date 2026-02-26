@@ -34,26 +34,26 @@ function KpiCard({
   variant?: 'default' | 'success' | 'warning' | 'error';
 }) {
   const borderColors = {
-    default: 'border-gray-200',
-    success: 'border-green-200',
-    warning: 'border-amber-200',
-    error: 'border-red-200',
+    default: 'border-border',
+    success: 'border-green-500/30',
+    warning: 'border-amber-500/30',
+    error: 'border-red-500/30',
   };
   const iconColors = {
-    default: 'text-gray-500',
-    success: 'text-green-600',
-    warning: 'text-amber-600',
-    error: 'text-red-600',
+    default: 'text-muted-foreground',
+    success: 'text-green-500',
+    warning: 'text-amber-500',
+    error: 'text-red-500',
   };
 
   return (
     <div className={`rounded-lg border bg-surface p-4 ${borderColors[variant]}`}>
       <div className="flex items-center gap-3">
         <Icon className={`h-5 w-5 ${iconColors[variant]}`} />
-        <span className="text-sm text-gray-500">{label}</span>
+        <span className="text-sm text-muted-foreground">{label}</span>
       </div>
       <div className="mt-2 text-2xl font-semibold">{value}</div>
-      {subtext && <div className="mt-1 text-xs text-gray-400">{subtext}</div>}
+      {subtext && <div className="mt-1 text-xs text-muted-foreground">{subtext}</div>}
     </div>
   );
 }
@@ -95,7 +95,7 @@ export default function OperationsContent() {
             <select
               value={selectedLocationId}
               onChange={(e) => setSelectedLocationId(e.target.value)}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
+              className="rounded-md border border-border px-3 py-1.5 text-sm"
             >
               <option value="">All Locations</option>
               {locations.map((loc) => (
@@ -105,7 +105,7 @@ export default function OperationsContent() {
               ))}
             </select>
           )}
-          <span className="rounded-md bg-gray-100 px-3 py-1.5 text-sm">{today}</span>
+          <span className="rounded-md bg-muted px-3 py-1.5 text-sm">{today}</span>
         </div>
       </div>
 
@@ -113,7 +113,7 @@ export default function OperationsContent() {
       {summaryLoading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
           {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg bg-gray-100" />
+            <div key={i} className="h-24 animate-pulse rounded-lg bg-muted" />
           ))}
         </div>
       ) : summary ? (
@@ -157,7 +157,7 @@ export default function OperationsContent() {
         <div className="rounded-lg border bg-surface p-4">
           <h2 className="mb-4 font-semibold">Cash Management</h2>
           {cashLoading ? (
-            <div className="h-32 animate-pulse rounded bg-gray-100" />
+            <div className="h-32 animate-pulse rounded bg-muted" />
           ) : cashDashboard ? (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -175,34 +175,34 @@ export default function OperationsContent() {
                 />
               </div>
               <div className="grid grid-cols-3 gap-2 text-sm">
-                <div className="rounded bg-gray-50 p-2 text-center">
-                  <div className="text-gray-500">Cash In</div>
-                  <div className="font-medium text-green-600">
+                <div className="rounded bg-muted p-2 text-center">
+                  <div className="text-muted-foreground">Cash In</div>
+                  <div className="font-medium text-green-500">
                     {formatMoney(cashDashboard.cashSummary.totalCashInCents)}
                   </div>
                 </div>
-                <div className="rounded bg-gray-50 p-2 text-center">
-                  <div className="text-gray-500">Cash Out</div>
-                  <div className="font-medium text-red-600">
+                <div className="rounded bg-muted p-2 text-center">
+                  <div className="text-muted-foreground">Cash Out</div>
+                  <div className="font-medium text-red-500">
                     {formatMoney(cashDashboard.cashSummary.totalCashOutCents)}
                   </div>
                 </div>
-                <div className="rounded bg-gray-50 p-2 text-center">
-                  <div className="text-gray-500">Drops</div>
+                <div className="rounded bg-muted p-2 text-center">
+                  <div className="text-muted-foreground">Drops</div>
                   <div className="font-medium">
                     {formatMoney(cashDashboard.cashSummary.totalCashDropsCents)}
                   </div>
                 </div>
               </div>
               {cashDashboard.pendingDeposits > 0 && (
-                <div className="flex items-center gap-2 rounded bg-amber-50 p-2 text-sm text-amber-700">
+                <div className="flex items-center gap-2 rounded bg-amber-500/10 p-2 text-sm text-amber-500">
                   <AlertTriangle className="h-4 w-4" />
                   {cashDashboard.pendingDeposits} pending deposit{cashDashboard.pendingDeposits !== 1 ? 's' : ''}
                 </div>
               )}
             </div>
           ) : (
-            <p className="text-sm text-gray-400">Select a location to view cash data</p>
+            <p className="text-sm text-muted-foreground">Select a location to view cash data</p>
           )}
         </div>
 
@@ -210,7 +210,7 @@ export default function OperationsContent() {
         <div className="rounded-lg border bg-surface p-4">
           <h2 className="mb-4 font-semibold">Active Sessions</h2>
           {cashLoading ? (
-            <div className="h-32 animate-pulse rounded bg-gray-100" />
+            <div className="h-32 animate-pulse rounded bg-muted" />
           ) : cashDashboard && cashDashboard.activeSessions.length > 0 ? (
             <div className="space-y-2">
               {cashDashboard.activeSessions.map((session) => (
@@ -224,14 +224,14 @@ export default function OperationsContent() {
                       <div className="text-sm font-medium">
                         {session.employeeName ?? session.employeeId}
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-muted-foreground">
                         Terminal: {session.terminalId.slice(-6)}
                       </div>
                     </div>
                   </div>
                   <div className="text-right text-sm">
                     <div className="font-medium">{formatMoney(session.openingBalanceCents)}</div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-muted-foreground">
                       Since {new Date(session.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
@@ -239,7 +239,7 @@ export default function OperationsContent() {
               ))}
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-sm text-gray-400">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Monitor className="h-4 w-4" />
               No active drawer sessions
             </div>
@@ -251,18 +251,18 @@ export default function OperationsContent() {
       <div className="rounded-lg border bg-surface p-4">
         <h2 className="mb-4 font-semibold">Daily Reconciliation</h2>
         {reconLoading ? (
-          <div className="h-32 animate-pulse rounded bg-gray-100" />
+          <div className="h-32 animate-pulse rounded bg-muted" />
         ) : reconciliation ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {/* Sales Column */}
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-500">Sales</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Sales</h3>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span>Gross Sales</span>
                   <span>{formatMoney(reconciliation.sales.grossSalesCents)}</span>
                 </div>
-                <div className="flex justify-between text-red-600">
+                <div className="flex justify-between text-red-500">
                   <span>Discounts</span>
                   <span>-{formatMoney(reconciliation.sales.discountsCents)}</span>
                 </div>
@@ -283,7 +283,7 @@ export default function OperationsContent() {
                     <span>Total</span>
                     <span>{formatMoney(reconciliation.sales.totalCents)}</span>
                   </div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-muted-foreground">
                     {reconciliation.sales.orderCount} orders, {reconciliation.sales.voidCount} voids
                   </div>
                 </div>
@@ -292,7 +292,7 @@ export default function OperationsContent() {
 
             {/* Tenders Column */}
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-500">Tenders</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">Tenders</h3>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="flex items-center gap-1">
@@ -317,7 +317,7 @@ export default function OperationsContent() {
                     <span>Total</span>
                     <span>{formatMoney(reconciliation.tenders.totalCents)}</span>
                   </div>
-                  <div className="text-xs text-gray-400">
+                  <div className="text-xs text-muted-foreground">
                     {reconciliation.tenders.tenderCount} tenders
                   </div>
                 </div>
@@ -326,7 +326,7 @@ export default function OperationsContent() {
 
             {/* GL Column */}
             <div className="space-y-2">
-              <h3 className="text-sm font-medium text-gray-500">GL</h3>
+              <h3 className="text-sm font-medium text-muted-foreground">GL</h3>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span>Total Debits</span>
@@ -339,13 +339,13 @@ export default function OperationsContent() {
                 <div className="mt-1 border-t pt-1">
                   <div className="flex items-center justify-between font-semibold">
                     <span>Status</span>
-                    <span className={reconciliation.gl.isBalanced ? 'text-green-600' : 'text-red-600'}>
+                    <span className={reconciliation.gl.isBalanced ? 'text-green-500' : 'text-red-500'}>
                       {reconciliation.gl.isBalanced ? 'Balanced' : 'Out of Balance'}
                     </span>
                   </div>
                 </div>
                 {reconciliation.reconciliation.salesVsTendersDiffCents > 0 && (
-                  <div className="mt-2 flex items-center gap-1 rounded bg-amber-50 p-2 text-xs text-amber-700">
+                  <div className="mt-2 flex items-center gap-1 rounded bg-amber-500/10 p-2 text-xs text-amber-500">
                     <AlertTriangle className="h-3 w-3" />
                     Sales vs tenders diff: {formatMoney(reconciliation.reconciliation.salesVsTendersDiffCents)}
                   </div>
@@ -354,7 +354,7 @@ export default function OperationsContent() {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-gray-400">Select a location to view reconciliation</p>
+          <p className="text-sm text-muted-foreground">Select a location to view reconciliation</p>
         )}
       </div>
     </div>

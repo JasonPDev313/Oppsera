@@ -223,7 +223,7 @@ function GenerateStatementModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            className="rounded-md border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -231,7 +231,7 @@ function GenerateStatementModal({
             type="button"
             onClick={handleSubmit}
             disabled={!periodStart || !periodEnd || !dueDate || isSubmitting}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
@@ -264,7 +264,7 @@ function StatementRow({
   return (
     <>
       <tr
-        className="cursor-pointer hover:bg-muted/50"
+        className="cursor-pointer hover:bg-accent/50"
         onClick={onToggle}
       >
         <td className="py-2 pr-2">
@@ -354,7 +354,7 @@ export default function StatementsSubTab({ accountId }: { accountId: string }) {
         <button
           type="button"
           onClick={() => setShowGenerate(true)}
-          className="mt-1 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          className="mt-1 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
         >
           Generate Statement
         </button>
@@ -379,7 +379,7 @@ export default function StatementsSubTab({ accountId }: { accountId: string }) {
         <button
           type="button"
           onClick={() => setShowGenerate(true)}
-          className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
+          className="rounded-md border border-input px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
         >
           Generate Statement
         </button>
@@ -400,7 +400,7 @@ export default function StatementsSubTab({ accountId }: { accountId: string }) {
                 <th className="pb-2 pr-4 pt-3 font-medium">Due Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-border">
               {statements.map((stmt) => (
                 <StatementRow
                   key={stmt.id}

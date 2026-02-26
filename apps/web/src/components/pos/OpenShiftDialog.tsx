@@ -44,7 +44,7 @@ export function OpenShiftDialog({ open, onClose, onOpen }: OpenShiftDialogProps)
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent/50"
           >
             <X className="h-5 w-5" />
           </button>

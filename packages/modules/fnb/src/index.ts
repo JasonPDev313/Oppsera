@@ -445,6 +445,11 @@ export { handleFnbTabClosed } from './consumers/handle-fnb-tab-closed';
 export { handleFnbDiscountComp } from './consumers/handle-fnb-discount-comp';
 export type { DiscountCompEventData } from './consumers/handle-fnb-discount-comp';
 export { handleFnbTicketBumped, handleFnbItemBumped, handleFnbItemVoided } from './consumers/handle-fnb-ticket-bumped';
+export { handleCourseSent } from './consumers/handle-course-sent';
+export type { CourseSentConsumerData } from './consumers/handle-course-sent';
+
+// Helpers — Station Routing
+export { resolveStation } from './helpers/resolve-station';
 
 // Queries
 export { getServerPerformance } from './queries/get-server-performance';

@@ -103,7 +103,7 @@ export function InstructionButtons({
           className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
             value === 'none'
               ? 'bg-red-500 text-white'
-              : 'border border-gray-300 bg-surface text-gray-500 hover:bg-gray-100'
+              : 'border border-border bg-surface text-muted-foreground hover:bg-accent'
           }`}
         >
           None
@@ -116,7 +116,7 @@ export function InstructionButtons({
           className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
             value === 'extra'
               ? 'bg-green-600 text-white'
-              : 'border border-gray-300 bg-surface text-gray-500 hover:bg-gray-100'
+              : 'border border-border bg-surface text-muted-foreground hover:bg-accent'
           }`}
         >
           Extra{extraPrice > 0 ? ` +${formatPrice(extraPrice)}` : ''}
@@ -129,7 +129,7 @@ export function InstructionButtons({
           className={`rounded-full px-3 py-1 text-[11px] font-medium transition-colors ${
             value === 'on_side'
               ? 'bg-blue-500 text-white'
-              : 'border border-gray-300 bg-surface text-gray-500 hover:bg-gray-100'
+              : 'border border-border bg-surface text-muted-foreground hover:bg-accent'
           }`}
         >
           On Side

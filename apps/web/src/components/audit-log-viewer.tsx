@@ -201,7 +201,7 @@ export function AuditLogViewer({
                       onClick={() =>
                         setExpandedId(expandedId === entry.id ? null : entry.id)
                       }
-                      className="inline-flex items-center gap-1 text-indigo-500 hover:text-indigo-500"
+                      className="inline-flex items-center gap-1 text-indigo-500 hover:text-indigo-400"
                     >
                       {expandedId === entry.id ? (
                         <ChevronDown className="h-3 w-3" />

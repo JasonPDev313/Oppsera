@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { X, ExternalLink, Mail, Phone, Wallet, Star, MapPin } from 'lucide-react';
 import { useProfileDrawer } from './ProfileDrawerContext';
 import { useCustomerProfile } from '@/hooks/use-customers';
+import { getInitials, formatPhone } from '@oppsera/shared';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ProfileOverviewTab } from './ProfileOverviewTab';
@@ -38,29 +39,8 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]['key'];
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-}
-
 function formatCurrency(cents: number): string {
   return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-}
-
-function formatPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 10) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-  }
-  if (digits.length === 11 && digits[0] === '1') {
-    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-  }
-  return phone;
 }
 
 // ── Header Hero Card ──────────────────────────────────────────────
@@ -107,7 +87,7 @@ function DrawerHeader({
                 className="h-14 w-14 shrink-0 rounded-full object-cover ring-2 ring-indigo-500/20"
               />
             ) : (
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-500/100/20 text-base font-semibold text-indigo-400 ring-2 ring-indigo-500/10">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-base font-semibold text-indigo-400 ring-2 ring-indigo-500/10">
                 {getInitials(customer.displayName)}
               </div>
             )

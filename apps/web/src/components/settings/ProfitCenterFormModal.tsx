@@ -145,7 +145,7 @@ export function ProfitCenterFormModal({
           <h2 className="text-lg font-semibold text-foreground">
             {isEdit ? 'Edit Profit Center' : 'Add Profit Center'}
           </h2>
-          <button onClick={onClose} className="rounded p-1 hover:bg-muted/50" aria-label="Close">
+          <button onClick={onClose} className="rounded p-1 hover:bg-accent/50" aria-label="Close">
             <X className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           </button>
         </div>
@@ -270,7 +270,7 @@ export function ProfitCenterFormModal({
             <button
               type="submit"
               disabled={isSaving}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {isSaving ? 'Saving...' : isEdit ? 'Save Changes' : 'Create'}
             </button>

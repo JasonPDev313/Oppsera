@@ -43,10 +43,10 @@ export function TableActionMenu({
       onClick={onClose}
     >
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl p-2 shadow-lg w-[220px] bg-surface border border-gray-200"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl p-2 shadow-lg w-[220px] bg-surface border border-border"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="px-3 py-2 text-xs font-bold text-gray-400">
+        <p className="px-3 py-2 text-xs font-bold text-muted-foreground">
           Table {table.tableNumber}
         </p>
         {actions.map((action) => (
@@ -54,14 +54,14 @@ export function TableActionMenu({
             key={action.label}
             type="button"
             onClick={() => { action.onClick(); onClose(); }}
-            className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-gray-900 hover:bg-gray-100"
+            className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm font-medium transition-colors text-foreground hover:bg-accent"
           >
-            <action.icon className="h-4 w-4 text-gray-400" />
+            <action.icon className="h-4 w-4 text-muted-foreground" />
             {action.label}
           </button>
         ))}
         {actions.length === 0 && (
-          <p className="px-3 py-2 text-xs text-gray-400">
+          <p className="px-3 py-2 text-xs text-muted-foreground">
             No actions available
           </p>
         )}

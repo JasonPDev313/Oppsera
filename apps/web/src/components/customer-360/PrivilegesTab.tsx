@@ -89,7 +89,7 @@ function PrivilegeRow({ privilege }: { privilege: PrivilegeExtendedEntry }) {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-3 text-left hover:bg-muted/50"
+        className="flex w-full items-center justify-between p-3 text-left hover:bg-accent/50"
       >
         <div className="flex items-center gap-3">
           <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${
@@ -181,10 +181,10 @@ function DiscountRuleRow({ rule }: { rule: ApplicableDiscountRule }) {
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between p-3 text-left hover:bg-muted/50"
+        className="flex w-full items-center justify-between p-3 text-left hover:bg-accent/50"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
             <Tag className="h-4 w-4" />
           </div>
           <div>
@@ -411,8 +411,8 @@ export default function PrivilegesTab({ customerId }: { customerId: string }) {
                 </div>
               ))}
               <div className="flex items-center justify-between rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
-                <span className="text-sm font-medium text-indigo-900">Total Balance</span>
-                <span className="text-lg font-bold text-indigo-900">
+                <span className="text-sm font-medium text-indigo-500">Total Balance</span>
+                <span className="text-lg font-bold text-indigo-500">
                   {formatMoney(storedValueSummary.totalBalanceCents)}
                 </span>
               </div>

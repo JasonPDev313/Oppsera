@@ -139,7 +139,7 @@ export default function GLDetailContent() {
                 {rows.map((row, i) => {
                   const badge = SOURCE_MODULE_BADGES[row.sourceModule];
                   return (
-                    <tr key={`${row.journalId}-${i}`} className="border-b border-border last:border-0 hover:bg-muted/50">
+                    <tr key={`${row.journalId}-${i}`} className="border-b border-border last:border-0 hover:bg-accent/50">
                       <td className="px-4 py-2.5 text-sm text-foreground">{row.date}</td>
                       <td className="px-4 py-2.5 text-sm">
                         <Link href={`/accounting/journals/${row.journalId}`} className="text-indigo-600 hover:text-indigo-500">

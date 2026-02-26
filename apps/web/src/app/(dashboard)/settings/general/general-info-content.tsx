@@ -37,8 +37,8 @@ const AuditLogTab = dynamic(() => import('../settings-content').then(m => ({ def
 function TabSkeleton() {
   return (
     <div className="space-y-4 py-4">
-      <div className="h-5 w-48 animate-pulse rounded bg-gray-200" />
-      <div className="h-32 animate-pulse rounded-lg bg-gray-100" />
+      <div className="h-5 w-48 animate-pulse rounded bg-muted" />
+      <div className="h-32 animate-pulse rounded-lg bg-muted" />
     </div>
   );
 }
@@ -123,24 +123,24 @@ function Section({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface">
+    <div className="rounded-lg border border-border bg-surface">
       <button
         type="button"
         onClick={toggle}
         className="flex w-full items-center justify-between px-5 py-4"
       >
         <div className="flex items-center gap-3">
-          <Icon className="h-5 w-5 text-gray-500" aria-hidden="true" />
-          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+          <Icon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+          <h2 className="text-base font-semibold text-foreground">{title}</h2>
           {fieldCount !== undefined && filledCount !== undefined && (
-            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
               {filledCount}/{fieldCount}
             </span>
           )}
         </div>
-        {open ? <ChevronUp className="h-4 w-4 text-gray-400" aria-hidden="true" /> : <ChevronDown className="h-4 w-4 text-gray-400" aria-hidden="true" />}
+        {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
       </button>
-      {open && <div className="border-t border-gray-100 px-5 pb-5 pt-4">{children}</div>}
+      {open && <div className="border-t border-border px-5 pb-5 pt-4">{children}</div>}
     </div>
   );
 }
@@ -164,12 +164,12 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <label className="mb-1 block text-sm font-medium text-gray-700">
+      <label className="mb-1 block text-sm font-medium text-foreground">
         {label}
         {required && <span className="ml-0.5 text-red-500">*</span>}
       </label>
       {children}
-      {helper && !error && <p className="mt-1 text-xs text-gray-400">{helper}</p>}
+      {helper && !error && <p className="mt-1 text-xs text-muted-foreground">{helper}</p>}
       {error && (
         <p className="mt-1 flex items-center gap-1 text-xs text-red-500">
           <CircleAlert className="h-3 w-3" aria-hidden="true" />
@@ -182,8 +182,8 @@ function Field({
 
 // ── Input classes ────────────────────────────────────────────────
 
-const INPUT = 'w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm placeholder:text-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60';
-const SELECT = 'w-full rounded-md border border-gray-300 bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60';
+const INPUT = 'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60';
+const SELECT = 'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-60';
 
 // ── Main Page (Tabbed) ────────────────────────────────────────────
 
@@ -213,11 +213,11 @@ export default function GeneralInfoContent() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">General Settings</h1>
-      <p className="mt-1 text-sm text-gray-500">Manage your business info, team, permissions, and modules</p>
+      <h1 className="text-2xl font-bold text-foreground">General Settings</h1>
+      <p className="mt-1 text-sm text-muted-foreground">Manage your business info, team, permissions, and modules</p>
 
       {/* Tab navigation */}
-      <div className="mt-6 border-b border-gray-200">
+      <div className="mt-6 border-b border-border">
         <nav className="-mb-px flex gap-6 overflow-x-auto">
           {tabs.map((tab) => (
             <button
@@ -227,7 +227,7 @@ export default function GeneralInfoContent() {
               className={`flex shrink-0 items-center gap-2 border-b-2 px-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
               }`}
             >
               <tab.icon className="h-4 w-4" aria-hidden="true" />
@@ -509,7 +509,7 @@ function BusinessInfoTab() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -521,25 +521,25 @@ function BusinessInfoTab() {
   return (
     <div className="mx-auto max-w-[720px] space-y-6 pb-24">
       {/* Completeness bar */}
-      <div className="rounded-lg border border-gray-200 bg-surface px-4 py-3">
+      <div className="rounded-lg border border-border bg-surface px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm text-gray-600">Profile completeness</span>
-          <span className="text-sm font-medium text-gray-900">{completeness.percent}%</span>
+          <span className="text-sm text-muted-foreground">Profile completeness</span>
+          <span className="text-sm font-medium text-foreground">{completeness.percent}%</span>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
           <div
             className="h-full rounded-full bg-indigo-500 transition-all duration-500"
             style={{ width: `${completeness.percent}%` }}
           />
         </div>
-        <p className="mt-1.5 text-xs text-gray-400">
+        <p className="mt-1.5 text-xs text-muted-foreground">
           {completeness.filled}/{completeness.total} fields completed
           {completeness.percent === 100 && ' — Profile complete!'}
         </p>
       </div>
 
       {!canEdit && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
           You don&apos;t have permission to edit business settings. Contact your administrator.
         </div>
       )}
@@ -693,14 +693,14 @@ function BusinessInfoTab() {
                 <img
                   src={form.logoUrl}
                   alt="Business logo"
-                  className="h-20 w-20 rounded-lg border border-gray-200 object-contain"
+                  className="h-20 w-20 rounded-lg border border-border object-contain"
                 />
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => logoInputRef.current?.click()}
                     disabled={disabled}
-                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                    className="text-sm text-indigo-600 hover:text-indigo-500"
                   >
                     Replace
                   </button>
@@ -708,7 +708,7 @@ function BusinessInfoTab() {
                     type="button"
                     onClick={() => updateField('logoUrl', null)}
                     disabled={disabled}
-                    className="text-sm text-red-500 hover:text-red-700"
+                    className="text-sm text-red-500 hover:text-red-400"
                   >
                     Remove
                   </button>
@@ -727,9 +727,9 @@ function BusinessInfoTab() {
                   const file = e.dataTransfer.files[0];
                   if (file) handleLogoFile(file).catch(() => setFileError('Failed to process logo'));
                 }}
-                className={`flex h-24 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-gray-50/50 transition-colors hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60 ${logoDragOver ? 'border-indigo-400' : 'border-gray-300'}`}
+                className={`flex h-24 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-muted/50 transition-colors hover:border-muted-foreground disabled:cursor-not-allowed disabled:opacity-60 ${logoDragOver ? 'border-indigo-400' : 'border-border'}`}
               >
-                <div className="flex flex-col items-center gap-1 text-gray-400">
+                <div className="flex flex-col items-center gap-1 text-muted-foreground">
                   <ImagePlus className="h-6 w-6" aria-hidden="true" />
                   <span className="text-xs">Drag & drop or click to upload</span>
                 </div>
@@ -830,7 +830,7 @@ function BusinessInfoTab() {
       <Section id="online" icon={Globe} title="Online Presence">
         <div className="space-y-5">
           <div className="space-y-4">
-            <h4 className="text-sm font-medium text-gray-700">Core Links</h4>
+            <h4 className="text-sm font-medium text-foreground">Core Links</h4>
             <Field label="Website URL" helper="Your main business website">
               <input
                 type="url"
@@ -863,7 +863,7 @@ function BusinessInfoTab() {
             </Field>
           </div>
 
-          <div className="border-t border-gray-100 pt-4">
+          <div className="border-t border-border pt-4">
             <SocialLinksEditor
               value={(form.socialLinks as SocialLinks) ?? {}}
               onChange={(links) => updateField('socialLinks', links)}
@@ -876,7 +876,7 @@ function BusinessInfoTab() {
       {/* ──────────── Section 4: Content ──────────── */}
       <Section id="content" icon={FileText} title="Content">
         <div className="space-y-4">
-          <div className="flex gap-1 border-b border-gray-200">
+          <div className="flex gap-1 border-b border-border">
             {CONTENT_BLOCK_KEYS.map((key) => (
               <button
                 key={key}
@@ -885,7 +885,7 @@ function BusinessInfoTab() {
                 className={`px-3 py-2 text-sm font-medium transition-colors ${
                   activeContentTab === key
                     ? 'border-b-2 border-indigo-500 text-indigo-600'
-                    : 'text-gray-500 hover:text-gray-700'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {CONTENT_TAB_LABELS[key].label}
@@ -908,7 +908,7 @@ function BusinessInfoTab() {
         <div className="space-y-6">
           {/* Contact Extensions */}
           <div className="space-y-4">
-            <h4 className="text-sm font-medium text-gray-700">Contact Extensions</h4>
+            <h4 className="text-sm font-medium text-foreground">Contact Extensions</h4>
             <Field label="Secondary Phone" helper="After-hours or department-specific line">
               <input
                 type="tel"
@@ -939,8 +939,8 @@ function BusinessInfoTab() {
           </div>
 
           {/* Business Metadata */}
-          <div className="space-y-4 border-t border-gray-100 pt-4">
-            <h4 className="text-sm font-medium text-gray-700">Business Metadata</h4>
+          <div className="space-y-4 border-t border-border pt-4">
+            <h4 className="text-sm font-medium text-foreground">Business Metadata</h4>
 
             <Field label="Industry Type" helper="Primary industry classification">
               <select
@@ -991,8 +991,8 @@ function BusinessInfoTab() {
           </div>
 
           {/* Media */}
-          <div className="space-y-4 border-t border-gray-100 pt-4">
-            <h4 className="text-sm font-medium text-gray-700">Media</h4>
+          <div className="space-y-4 border-t border-border pt-4">
+            <h4 className="text-sm font-medium text-foreground">Media</h4>
 
             <Field label="Photo Gallery" helper="Up to 20 photos. Used in portal and booking pages. Max 5MB each.">
               <input
@@ -1009,7 +1009,7 @@ function BusinessInfoTab() {
               {(form.photoGallery?.length ?? 0) > 0 ? (
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                   {form.photoGallery?.map((photo, idx) => (
-                    <div key={idx} className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200">
+                    <div key={idx} className="group relative aspect-square overflow-hidden rounded-lg border border-border">
                       <img src={photo.url} alt={photo.caption ?? ''} className="h-full w-full object-cover" />
                       {!disabled && (
                         <button
@@ -1038,7 +1038,7 @@ function BusinessInfoTab() {
                         const file = e.dataTransfer.files[0];
                         if (file) handleGalleryFile(file).catch(() => setFileError('Failed to process photo'));
                       }}
-                      className={`flex aspect-square cursor-pointer items-center justify-center rounded-lg border-2 border-dashed text-gray-400 transition-colors hover:border-gray-400 hover:text-gray-500 ${galleryDragOver ? 'border-indigo-400' : 'border-gray-300'}`}
+                      className={`flex aspect-square cursor-pointer items-center justify-center rounded-lg border-2 border-dashed text-muted-foreground transition-colors hover:border-muted-foreground hover:text-foreground ${galleryDragOver ? 'border-indigo-400' : 'border-border'}`}
                     >
                       <ImagePlus className="h-6 w-6" />
                     </button>
@@ -1057,7 +1057,7 @@ function BusinessInfoTab() {
                     const file = e.dataTransfer.files[0];
                     if (file) handleGalleryFile(file).catch(() => setFileError('Failed to process photo'));
                   }}
-                  className={`flex h-20 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-gray-50/50 text-sm text-gray-400 transition-colors hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-60 ${galleryDragOver ? 'border-indigo-400' : 'border-gray-300'}`}
+                  className={`flex h-20 w-full cursor-pointer items-center justify-center rounded-lg border-2 border-dashed bg-muted/50 text-sm text-muted-foreground transition-colors hover:border-muted-foreground disabled:cursor-not-allowed disabled:opacity-60 ${galleryDragOver ? 'border-indigo-400' : 'border-border'}`}
                 >
                   <ImagePlus className="mr-2 h-5 w-5" aria-hidden="true" />
                   Add your first photo
@@ -1081,15 +1081,15 @@ function BusinessInfoTab() {
 
       {/* ──────────── Sticky Save Bar ──────────── */}
       {isAnyDirty && canEdit && (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-gray-200 bg-surface px-4 py-3 shadow-lg md:left-64">
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface px-4 py-3 shadow-lg md:left-64">
           <div className="mx-auto flex max-w-[720px] items-center justify-between">
-            <span className="text-sm text-gray-600">Unsaved changes</span>
+            <span className="text-sm text-muted-foreground">Unsaved changes</span>
             <div className="flex items-center gap-3">
               <button
                 type="button"
                 onClick={handleDiscard}
                 disabled={isSaving}
-                className="rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100/60 disabled:opacity-50"
+                className="rounded-md px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/60 disabled:opacity-50"
               >
                 Discard
               </button>
@@ -1097,7 +1097,7 @@ function BusinessInfoTab() {
                 type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 {isSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

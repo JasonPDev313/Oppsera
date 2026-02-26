@@ -55,10 +55,10 @@ export default function RoomLayoutsContent() {
   }, [mutate]);
 
   const getRoomStatus = (room: RoomRow) => {
-    if (!room.isActive) return { label: 'Archived', color: 'bg-gray-100 text-gray-600' };
-    if (room.currentVersionId) return { label: 'Published', color: 'bg-green-100 text-green-700' };
-    if (room.draftVersionId) return { label: 'Draft Only', color: 'bg-yellow-100 text-yellow-700' };
-    return { label: 'No Layout', color: 'bg-gray-100 text-gray-500' };
+    if (!room.isActive) return { label: 'Archived', color: 'bg-muted text-muted-foreground' };
+    if (room.currentVersionId) return { label: 'Published', color: 'bg-green-500/10 text-green-500' };
+    if (room.draftVersionId) return { label: 'Draft Only', color: 'bg-yellow-500/10 text-yellow-500' };
+    return { label: 'No Layout', color: 'bg-muted text-muted-foreground' };
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -79,11 +79,11 @@ export default function RoomLayoutsContent() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <LayoutDashboard className="h-6 w-6 text-indigo-600" />
-          <h1 className="text-2xl font-semibold text-gray-900">Room Layouts</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Room Layouts</h1>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 text-sm font-medium"
         >
           <Plus className="h-4 w-4" />
           Create Room
@@ -93,21 +93,21 @@ export default function RoomLayoutsContent() {
       {/* Search + Filter */}
       <div className="flex items-center gap-3">
         <div className="relative max-w-md flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
             placeholder="Search rooms..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-surface focus:outline-none"
+            className="w-full pl-10 pr-4 py-2 border border-border rounded-lg text-sm text-foreground focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-surface focus:outline-none"
           />
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
           <input
             type="checkbox"
             checked={showArchived}
             onChange={(e) => setShowArchived(e.target.checked)}
-            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+            className="rounded border-border text-indigo-600 focus:ring-indigo-500"
           />
           Show archived
         </label>
@@ -117,48 +117,48 @@ export default function RoomLayoutsContent() {
       {isLoading && rooms.length === 0 ? (
         <div className="space-y-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+            <div key={i} className="h-16 bg-muted rounded animate-pulse" />
           ))}
         </div>
       ) : rooms.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          <LayoutDashboard className="mx-auto h-12 w-12 text-gray-300 mb-4" />
+        <div className="text-center py-12 text-muted-foreground">
+          <LayoutDashboard className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-lg font-medium">No rooms yet</p>
           <p className="text-sm mt-1">Create your first room layout to get started.</p>
         </div>
       ) : (
-        <div className="border border-gray-200 rounded-lg">
+        <div className="border border-border rounded-lg">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted border-b border-border">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Dimensions</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Capacity</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Last Published</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Dimensions</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Capacity</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Last Published</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {rooms.map((room) => {
                 const status = getRoomStatus(room);
                 return (
-                  <tr key={room.id} className="hover:bg-gray-200/30">
+                  <tr key={room.id} className="hover:bg-accent/30">
                     <td className="px-4 py-3">
                       <button
                         onClick={() => router.push(`/settings/room-layouts/${room.id}/editor`)}
-                        className="font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                        className="font-medium text-indigo-600 hover:text-indigo-500 hover:underline"
                       >
                         {room.name}
                       </button>
                       {room.description && (
-                        <p className="text-xs text-gray-500 mt-0.5 truncate max-w-xs">{room.description}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">{room.description}</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {Number(room.widthFt)} × {Number(room.heightFt)} {room.unit}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {room.totalCapacity ?? room.capacity ?? '—'}
                     </td>
                     <td className="px-4 py-3">
@@ -166,37 +166,37 @@ export default function RoomLayoutsContent() {
                         {status.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500">
+                    <td className="px-4 py-3 text-muted-foreground">
                       {formatDate(room.publishedAt)}
                     </td>
                     <td className="px-4 py-3 text-right relative">
                       <button
                         onClick={() => setActionMenuId(actionMenuId === room.id ? null : room.id)}
-                        className="p-1 rounded hover:bg-gray-200/50"
+                        className="p-1 rounded hover:bg-accent/50"
                       >
-                        <MoreHorizontal className="h-4 w-4 text-gray-500" />
+                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                       </button>
                       {actionMenuId === room.id && (
-                        <div className="absolute right-4 top-12 z-10 bg-surface border border-gray-200 rounded-lg shadow-lg py-1 w-48">
+                        <div className="absolute right-4 top-12 z-10 bg-surface border border-border rounded-lg shadow-lg py-1 w-48">
                           <button
                             onClick={() => { setActionMenuId(null); router.push(`/settings/room-layouts/${room.id}/editor`); }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-200/50"
+                            className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent/50"
                           >
                             <LayoutDashboard className="h-4 w-4" /> Edit Layout
                           </button>
                           <button
                             onClick={() => { setActionMenuId(null); setEditRoom(room); }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-200/50"
+                            className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent/50"
                           >
                             <Pencil className="h-4 w-4" /> Edit Details
                           </button>
                           <button
                             onClick={() => { setActionMenuId(null); setDuplicateRoom(room); }}
-                            className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-gray-900 hover:bg-gray-200/50"
+                            className="flex items-center gap-2 w-full px-3 py-2 text-left text-sm text-foreground hover:bg-accent/50"
                           >
                             <Copy className="h-4 w-4" /> Duplicate
                           </button>
-                          <hr className="my-1 border-gray-200" />
+                          <hr className="my-1 border-border" />
                           {room.isActive ? (
                             <button
                               onClick={() => { setActionMenuId(null); handleArchive(room.id); }}

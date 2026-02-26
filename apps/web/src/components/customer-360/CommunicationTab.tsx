@@ -175,7 +175,7 @@ function ComposeForm({
         <button
           type="button"
           onClick={() => setIsOpen(false)}
-          className="text-xs text-muted-foreground hover:text-muted-foreground"
+          className="text-xs text-muted-foreground hover:text-foreground"
         >
           Cancel
         </button>
@@ -226,7 +226,7 @@ function ComposeForm({
             type="button"
             onClick={handleSend}
             disabled={!body.trim() || isLoading}
-            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             Send
@@ -270,7 +270,7 @@ export default function CommunicationTab({ customerId }: { customerId: string })
           <button
             type="button"
             onClick={() => mutate()}
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <RefreshCw className="h-3 w-3" />
             Refresh
@@ -295,7 +295,7 @@ export default function CommunicationTab({ customerId }: { customerId: string })
           <button
             type="button"
             onClick={() => mutate()}
-            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Retry
@@ -319,7 +319,7 @@ export default function CommunicationTab({ customerId }: { customerId: string })
               <button
                 type="button"
                 onClick={() => mutate()}
-                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                className="inline-flex items-center gap-1.5 rounded-md border border-input bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 <ChevronDown className="h-4 w-4" />
                 Load more

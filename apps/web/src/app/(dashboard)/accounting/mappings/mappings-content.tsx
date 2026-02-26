@@ -318,7 +318,7 @@ function DepartmentMappingsTab() {
           type="button"
           onClick={handleAutoMapAll}
           disabled={isAutoMapping}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+          className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
         >
           <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
           {isAutoMapping
@@ -406,7 +406,7 @@ function DepartmentMappingsTab() {
             <button
               type="button"
               onClick={() => toggleDept(dept.departmentId)}
-              className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+              className="flex w-full items-center justify-between px-4 py-3 hover:bg-accent/50 transition-colors"
             >
               <div className="flex items-center gap-2">
                 {isExpanded ? (
@@ -522,7 +522,7 @@ function SubDepartmentRow({
                 <button
                   type="button"
                   onClick={onToggleItems}
-                  className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-500"
+                  className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-400"
                 >
                   <Package aria-hidden="true" className="h-3 w-3" />
                   {mapping.itemCount} item{mapping.itemCount !== 1 ? 's' : ''}
@@ -910,7 +910,7 @@ function PaymentTypeMappingsTab() {
           <button
             type="button"
             onClick={() => mutate()}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
           >
             Retry
           </button>
@@ -947,7 +947,7 @@ function PaymentTypeMappingsTab() {
               type="button"
               onClick={handleAutoMapAll}
               disabled={isAutoMapping}
-              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
             >
               <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
               {isAutoMapping ? 'Mapping...' : `Auto-Map ${suggestionsAvailable} Suggested`}
@@ -978,7 +978,7 @@ function PaymentTypeMappingsTab() {
             <button
               type="button"
               onClick={() => toggleCategory(group.category)}
-              className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+              className="flex w-full items-center justify-between px-4 py-3 hover:bg-accent/50 transition-colors"
             >
               <div className="flex items-center gap-2">
                 {isExpanded ? (
@@ -1450,7 +1450,7 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
                               <button
                                 type="button"
                                 onClick={onNavigateToSubDepartments}
-                                className="text-indigo-500 hover:text-indigo-500 font-medium"
+                                className="text-indigo-500 hover:text-indigo-400 font-medium"
                               >
                                 Sub-Departments
                               </button>
@@ -1550,7 +1550,7 @@ function UnmappedEventsTab() {
             <button
               type="button"
               onClick={() => setRemapDialogOpen(true)}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 shrink-0"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shrink-0"
             >
               Preview & Remap
             </button>
@@ -1602,7 +1602,7 @@ function UnmappedEventsTab() {
                 <div className="flex items-center gap-2">
                   <Link
                     href="/accounting/mappings"
-                    className="text-sm text-indigo-500 hover:text-indigo-500"
+                    className="text-sm text-indigo-500 hover:text-indigo-400"
                   >
                     Fix Mapping
                   </Link>

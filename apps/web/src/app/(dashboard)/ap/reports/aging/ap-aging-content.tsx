@@ -116,7 +116,7 @@ export default function APAgingContent() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.vendorId} className="border-b border-border last:border-0 hover:bg-muted/50">
+                  <tr key={row.vendorId} className="border-b border-border last:border-0 hover:bg-accent/50">
                     <td className="px-4 py-2.5 text-sm font-medium text-foreground">{row.vendorName}</td>
                     <td className={`px-4 py-2.5 text-right text-sm tabular-nums ${AGING_COLORS.current}`}>
                       {row.current > 0 ? formatAccountingMoney(row.current) : ''}

@@ -71,24 +71,24 @@ function LoginForm() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900">Sign in to OppsEra</h1>
-      <p className="mt-2 text-sm text-gray-600">
+      <h1 className="text-2xl font-bold text-foreground">Sign in to OppsEra</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
         Welcome back. Enter your credentials to continue.
       </p>
 
       {magicLinkSent && (
-        <div className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+        <div className="mt-4 rounded-lg bg-green-500/10 p-3 text-sm text-green-500">
           Check your email for a magic link to sign in.
         </div>
       )}
 
       {error && (
-        <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+        <div className="mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-500">{error}</div>
       )}
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="email" className="block text-sm font-medium text-foreground">
             Email
           </label>
           <input
@@ -100,12 +100,12 @@ function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@company.com"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+            className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
             Password
           </label>
           <input
@@ -117,7 +117,7 @@ function LoginForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Enter your password"
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
+            className="mt-1 block w-full rounded-lg border border-border px-3 py-2 text-foreground placeholder-muted-foreground shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none sm:text-sm"
           />
         </div>
 
@@ -134,12 +134,12 @@ function LoginForm() {
         type="button"
         onClick={handleMagicLink}
         disabled={isLoading}
-        className="mt-3 w-full rounded-lg border border-gray-300 bg-surface px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
+        className="mt-3 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
       >
         Send Magic Link
       </button>
 
-      <p className="mt-6 text-center text-sm text-gray-600">
+      <p className="mt-6 text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{' '}
         <Link href="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500">
           Sign up

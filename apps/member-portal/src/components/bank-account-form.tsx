@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Loader2, Lock } from 'lucide-react';
 import { useTokenizeBankAccount, useAddBankAccount } from '@/hooks/use-portal-data';
 
 interface BankAccountFormProps {
@@ -35,6 +35,13 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
   const { addBankAccount, isSubmitting: isAdding } = useAddBankAccount();
   const isSubmitting = isTokenizing || isAdding;
 
+  /** Wipe all sensitive fields from component state */
+  const clearSensitiveState = useCallback(() => {
+    setRoutingNumber('');
+    setAccountNumber('');
+    setConfirmAccountNumber('');
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -54,19 +61,26 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
     }
 
     try {
-      // Step 1: Tokenize the bank account
+      // Step 1: Tokenize via payment gateway — raw numbers sent once and never stored
       const { token } = await tokenize({
         routingNumber,
         accountNumber,
         accountType,
       });
 
-      // Step 2: Add the tokenized bank account to the profile
+      // Capture last-4 before clearing sensitive state
+      const rLast4 = routingNumber.slice(-4);
+      const aLast4 = accountNumber.slice(-4);
+
+      // Clear raw numbers from memory immediately after tokenization
+      clearSensitiveState();
+
+      // Step 2: Add the tokenized bank account using only token + last-4 digits
       await addBankAccount({
         clientRequestId: crypto.randomUUID(),
         token,
-        routingLast4: routingNumber.slice(-4),
-        accountLast4: accountNumber.slice(-4),
+        routingLast4: rLast4,
+        accountLast4: aLast4,
         accountType,
         bankName: bankName || undefined,
         nickname: nickname || undefined,
@@ -75,13 +89,22 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
       });
 
       onSuccess();
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to add bank account');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to add bank account');
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+      {/* Security notice */}
+      <div className="flex items-start gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2.5">
+        <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+        <p className="text-xs text-[var(--portal-text-muted)]">
+          Your bank details are sent directly to our payment processor for tokenization.
+          Only a secure token and the last 4 digits are stored — full account numbers are never saved.
+        </p>
+      </div>
+
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-500">
           {error}
@@ -94,13 +117,13 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
           Routing Number
         </label>
         <input
-          type="text"
+          type="password"
           inputMode="numeric"
-          pattern="\d{9}"
           maxLength={9}
+          autoComplete="new-password"
           value={routingNumber}
           onChange={(e) => setRoutingNumber(e.target.value.replace(/\D/g, ''))}
-          placeholder="9-digit ABA routing number"
+          placeholder="9-digit routing number"
           required
           disabled={isSubmitting}
           className="w-full border border-[var(--portal-border)] rounded-lg px-3 py-2 text-sm bg-[var(--portal-surface)] focus:ring-2 focus:ring-[var(--portal-primary)] focus:border-transparent disabled:opacity-50"
@@ -116,6 +139,7 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
           type="password"
           inputMode="numeric"
           maxLength={17}
+          autoComplete="new-password"
           value={accountNumber}
           onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
           placeholder="4-17 digit account number"
@@ -131,9 +155,10 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
           Confirm Account Number
         </label>
         <input
-          type="text"
+          type="password"
           inputMode="numeric"
           maxLength={17}
+          autoComplete="new-password"
           value={confirmAccountNumber}
           onChange={(e) => setConfirmAccountNumber(e.target.value.replace(/\D/g, ''))}
           placeholder="Re-enter account number"
@@ -166,6 +191,7 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
         </label>
         <input
           type="text"
+          autoComplete="off"
           maxLength={100}
           value={bankName}
           onChange={(e) => setBankName(e.target.value)}
@@ -182,6 +208,7 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
         </label>
         <input
           type="text"
+          autoComplete="off"
           maxLength={50}
           value={nickname}
           onChange={(e) => setNickname(e.target.value)}
@@ -207,7 +234,7 @@ export function BankAccountForm({ onSuccess, onCancel }: BankAccountFormProps) {
       <div className="flex justify-end gap-3 pt-2">
         <button
           type="button"
-          onClick={onCancel}
+          onClick={() => { clearSensitiveState(); onCancel(); }}
           disabled={isSubmitting}
           className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--portal-text-muted)] hover:bg-accent transition-colors disabled:opacity-50"
         >

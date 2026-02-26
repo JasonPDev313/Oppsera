@@ -125,8 +125,8 @@ function AddMemberDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">Add Member</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-lg font-semibold text-foreground">Add Member</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Add an authorized member to this billing account.
         </p>
 
@@ -142,7 +142,7 @@ function AddMemberDialog({
               value={customerId}
               onChange={(e) => setCustomerId(e.target.value)}
               placeholder="Customer UUID"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -150,7 +150,7 @@ function AddMemberDialog({
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             >
               <option value="owner">Owner</option>
               <option value="authorized">Authorized</option>
@@ -159,12 +159,12 @@ function AddMemberDialog({
           </FormField>
 
           <FormField label="Charge Allowed">
-            <label className="flex items-center gap-2 text-sm text-gray-700">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={chargeAllowed}
                 onChange={(e) => setChargeAllowed(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
               />
               Allow this member to make charges to the account
             </label>
@@ -184,7 +184,7 @@ function AddMemberDialog({
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -192,7 +192,7 @@ function AddMemberDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
@@ -270,8 +270,8 @@ function RecordPaymentDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">Record Payment</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-lg font-semibold text-foreground">Record Payment</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Record a payment against this billing account.
         </p>
 
@@ -290,7 +290,7 @@ function RecordPaymentDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Check #1234, Cash payment"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
         </div>
@@ -300,7 +300,7 @@ function RecordPaymentDialog({
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -308,7 +308,7 @@ function RecordPaymentDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
@@ -386,8 +386,8 @@ function GenerateStatementDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">Generate Statement</h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <h2 className="text-lg font-semibold text-foreground">Generate Statement</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
           Generate a billing statement for a specific period.
         </p>
 
@@ -397,7 +397,7 @@ function GenerateStatementDialog({
               type="date"
               value={periodStart}
               onChange={(e) => setPeriodStart(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -406,7 +406,7 @@ function GenerateStatementDialog({
               type="date"
               value={periodEnd}
               onChange={(e) => setPeriodEnd(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
         </div>
@@ -416,7 +416,7 @@ function GenerateStatementDialog({
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -424,7 +424,7 @@ function GenerateStatementDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >
@@ -455,7 +455,7 @@ function MembersSection({
       key: 'displayName',
       header: 'Name',
       render: (row: MemberRow) => (
-        <span className="font-medium text-gray-900">{row.displayName}</span>
+        <span className="font-medium text-foreground">{row.displayName}</span>
       ),
     },
     {
@@ -479,7 +479,7 @@ function MembersSection({
       key: 'spendingLimitCents',
       header: 'Spending Limit',
       render: (row: MemberRow) => (
-        <span className="text-gray-600">
+        <span className="text-muted-foreground">
           {row.spendingLimitCents !== null ? formatMoney(row.spendingLimitCents) : 'No limit'}
         </span>
       ),
@@ -496,13 +496,13 @@ function MembersSection({
   ];
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface">
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <h2 className="text-base font-semibold text-gray-900">Members</h2>
+    <div className="rounded-lg border border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <h2 className="text-base font-semibold text-foreground">Members</h2>
         <button
           type="button"
           onClick={() => setShowAddMember(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Plus className="h-3.5 w-3.5" />
           Add Member
@@ -533,9 +533,9 @@ function AgingSection({ accountId }: { accountId: string }) {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface">
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-900">Aging Report</h2>
+      <div className="rounded-lg border border-border bg-surface">
+        <div className="border-b border-border px-6 py-4">
+          <h2 className="text-base font-semibold text-foreground">Aging Report</h2>
         </div>
         <div className="flex justify-center p-6">
           <LoadingSpinner label="Loading aging report..." />
@@ -546,12 +546,12 @@ function AgingSection({ accountId }: { accountId: string }) {
 
   if (!aging) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-surface">
-        <div className="border-b border-gray-200 px-6 py-4">
-          <h2 className="text-base font-semibold text-gray-900">Aging Report</h2>
+      <div className="rounded-lg border border-border bg-surface">
+        <div className="border-b border-border px-6 py-4">
+          <h2 className="text-base font-semibold text-foreground">Aging Report</h2>
         </div>
         <div className="p-6">
-          <p className="text-sm text-gray-500">No aging data available</p>
+          <p className="text-sm text-muted-foreground">No aging data available</p>
         </div>
       </div>
     );
@@ -568,26 +568,26 @@ function AgingSection({ accountId }: { accountId: string }) {
   const maxBucket = Math.max(...buckets.map((b) => b.value), 1);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface">
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <h2 className="text-base font-semibold text-gray-900">Aging Report</h2>
-        <div className="text-sm text-gray-500">
-          Total Outstanding: <span className="font-semibold text-gray-900">{formatMoney(aging.total)}</span>
+    <div className="rounded-lg border border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <h2 className="text-base font-semibold text-foreground">Aging Report</h2>
+        <div className="text-sm text-muted-foreground">
+          Total Outstanding: <span className="font-semibold text-foreground">{formatMoney(aging.total)}</span>
         </div>
       </div>
       <div className="p-6">
         <div className="grid grid-cols-5 gap-4">
           {buckets.map((bucket) => (
             <div key={bucket.label} className="rounded-lg border p-4">
-              <div className="text-sm text-gray-500">{bucket.label}</div>
-              <div className={`text-lg font-semibold ${bucket.value > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+              <div className="text-sm text-muted-foreground">{bucket.label}</div>
+              <div className={`text-lg font-semibold ${bucket.value > 0 ? 'text-red-500' : 'text-foreground'}`}>
                 {formatMoney(bucket.value)}
               </div>
               {/* Bar visualization */}
-              <div className="mt-2 h-2 w-full rounded-full bg-gray-100">
+              <div className="mt-2 h-2 w-full rounded-full bg-muted">
                 <div
                   className={`h-2 rounded-full transition-all ${
-                    bucket.value > 0 ? 'bg-red-400' : 'bg-gray-200'
+                    bucket.value > 0 ? 'bg-red-400' : 'bg-muted'
                   }`}
                   style={{ width: `${(bucket.value / maxBucket) * 100}%` }}
                 />
@@ -628,7 +628,7 @@ function TransactionsSection({
       key: 'createdAt',
       header: 'Date',
       render: (row: TxRow) => (
-        <span className="text-sm text-gray-600">{formatDateTime(row.createdAt)}</span>
+        <span className="text-sm text-muted-foreground">{formatDateTime(row.createdAt)}</span>
       ),
     },
     {
@@ -645,7 +645,7 @@ function TransactionsSection({
       render: (row: TxRow) => {
         const isCredit = ['payment', 'credit_memo', 'refund'].includes(row.type);
         return (
-          <span className={`font-medium ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
+          <span className={`font-medium ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
             {isCredit ? '-' : '+'}{formatMoney(row.amountCents)}
           </span>
         );
@@ -655,7 +655,7 @@ function TransactionsSection({
       key: 'referenceType',
       header: 'Reference',
       render: (row: TxRow) => (
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-muted-foreground">
           {row.referenceType ? `${row.referenceType}${row.referenceId ? `: ${row.referenceId}` : ''}` : '\u2014'}
         </span>
       ),
@@ -664,15 +664,15 @@ function TransactionsSection({
       key: 'notes',
       header: 'Notes',
       render: (row: TxRow) => (
-        <span className="text-sm text-gray-500">{row.notes || '\u2014'}</span>
+        <span className="text-sm text-muted-foreground">{row.notes || '\u2014'}</span>
       ),
     },
   ];
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface">
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <h2 className="text-base font-semibold text-gray-900">Transactions</h2>
+    <div className="rounded-lg border border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <h2 className="text-base font-semibold text-foreground">Transactions</h2>
         <button
           type="button"
           onClick={() => setShowPayment(true)}
@@ -694,7 +694,7 @@ function TransactionsSection({
             <button
               type="button"
               onClick={loadMore}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
             >
               Load More
             </button>
@@ -717,20 +717,20 @@ function StatementsSection({ accountId }: { accountId: string }) {
   const [showGenerate, setShowGenerate] = useState(false);
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-surface">
-      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <h2 className="text-base font-semibold text-gray-900">Statements</h2>
+    <div className="rounded-lg border border-border bg-surface">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+        <h2 className="text-base font-semibold text-foreground">Statements</h2>
         <button
           type="button"
           onClick={() => setShowGenerate(true)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           <FileText className="h-3.5 w-3.5" />
           Generate Statement
         </button>
       </div>
       <div className="p-6">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Generate a statement to view all transactions for a specific billing period.
         </p>
       </div>
@@ -765,11 +765,11 @@ export default function BillingAccountDetailPage() {
   if (!account) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
-        <p className="text-sm text-gray-500">Billing account not found</p>
+        <p className="text-sm text-muted-foreground">Billing account not found</p>
         <button
           type="button"
           onClick={() => router.push('/customers/billing')}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
         >
           Back to Billing Accounts
         </button>
@@ -787,7 +787,7 @@ export default function BillingAccountDetailPage() {
       <button
         type="button"
         onClick={() => router.push('/customers/billing')}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Billing Accounts
@@ -796,7 +796,7 @@ export default function BillingAccountDetailPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold text-gray-900">{account.name}</h1>
+          <h1 className="text-xl font-semibold text-foreground">{account.name}</h1>
           <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
         </div>
         <button
@@ -804,7 +804,7 @@ export default function BillingAccountDetailPage() {
           onClick={() => {
             /* Edit functionality placeholder */
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           <Pencil className="h-4 w-4" />
           Edit
@@ -813,30 +813,30 @@ export default function BillingAccountDetailPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Current Balance</p>
-          <p className={`mt-1 text-2xl font-bold ${account.currentBalanceCents > 0 ? 'text-red-600' : 'text-green-600'}`}>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Current Balance</p>
+          <p className={`mt-1 text-2xl font-bold ${account.currentBalanceCents > 0 ? 'text-red-500' : 'text-green-500'}`}>
             {formatMoney(account.currentBalanceCents)}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Credit Limit</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Credit Limit</p>
+          <p className="mt-1 text-2xl font-bold text-foreground">
             {creditLimit !== null ? formatMoney(creditLimit) : '\u2014'}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Available Credit</p>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Available Credit</p>
           <p className={`mt-1 text-2xl font-bold ${
-            availableCredit !== null && availableCredit < 0 ? 'text-red-600' : 'text-gray-900'
+            availableCredit !== null && availableCredit < 0 ? 'text-red-500' : 'text-foreground'
           }`}>
             {availableCredit !== null ? formatMoney(availableCredit) : '\u2014'}
           </p>
         </div>
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Due Days</p>
-          <p className="mt-1 text-2xl font-bold text-gray-900">{account.dueDays}</p>
-          <p className="mt-0.5 text-xs capitalize text-gray-400">{account.billingCycle} cycle</p>
+        <div className="rounded-lg border border-border bg-surface p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Due Days</p>
+          <p className="mt-1 text-2xl font-bold text-foreground">{account.dueDays}</p>
+          <p className="mt-0.5 text-xs capitalize text-muted-foreground">{account.billingCycle} cycle</p>
         </div>
       </div>
 

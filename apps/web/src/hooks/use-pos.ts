@@ -66,6 +66,10 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   }
   const batchQueue = useRef<BatchItem[]>([]);
   const batchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guard: true while a flushBatch call is in-flight. Prevents concurrent
+  // flushes from racing when BATCH_MAX_SIZE triggers an immediate flush
+  // while the debounce timer is also pending.
+  const isFlushing = useRef(false);
 
   // ── Fetch order detail ─────────────────────────────────────────
 
@@ -193,99 +197,163 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   // Sends all queued items to the batch endpoint in a single API call.
 
   const flushBatch = useCallback(async () => {
+    // Prevent concurrent flushes — if already flushing, the current items
+    // stay in the queue and will be picked up by the next flush cycle.
+    if (isFlushing.current) return;
+
     // Atomically snapshot and clear the queue
     const items = batchQueue.current;
     batchQueue.current = [];
     batchTimerRef.current = null;
     if (items.length === 0) return;
 
-    // Ensure order exists (deduplicated for rapid taps)
-    let order = orderRef.current;
-    if (!order || !order.id) {
-      if (!openOrderPromise.current) {
-        openOrderPromise.current = openOrder().finally(() => {
-          openOrderPromise.current = null;
-        });
-      }
-      order = await openOrderPromise.current;
-    }
-
-    const tempIds = items.map((i) => i.tempId);
-
-    const serverCall = apiFetch<{ data: { order: Order; lines: OrderLine[] } }>(
-      `/api/v1/orders/${order.id}/lines/batch`,
-      {
-        method: 'POST',
-        headers: locationHeaders,
-        body: JSON.stringify({
-          items: items.map((i) => ({
-            catalogItemId: i.input.catalogItemId,
-            qty: i.input.qty,
-            modifiers: i.input.modifiers ?? undefined,
-            specialInstructions: i.input.specialInstructions ?? undefined,
-            selectedOptions: i.input.selectedOptions ?? undefined,
-            priceOverride: i.input.priceOverride ?? undefined,
-            notes: i.input.notes ?? undefined,
-            clientRequestId: i.reqId,
-          })),
-        }),
-      },
-    );
-
-    // Track in pendingAddItems so placeOrder can await it
-    const tracked = serverCall.then(() => {});
-    pendingAddItems.current.push(tracked);
-    tracked.catch(() => {}).finally(() => {
-      pendingAddItems.current = pendingAddItems.current.filter((p) => p !== tracked);
-    });
-
+    isFlushing.current = true;
     try {
-      const res = await serverCall;
-      const updatedOrder = res.data.order;
-      const newLines = res.data.lines as OrderLine[];
+      // Ensure order exists (deduplicated for rapid taps)
+      let order = orderRef.current;
+      if (!order || !order.id) {
+        if (!openOrderPromise.current) {
+          openOrderPromise.current = openOrder().finally(() => {
+            openOrderPromise.current = null;
+          });
+        }
+        try {
+          order = await openOrderPromise.current;
+        } catch {
+          // openOrder failed — roll back temp lines and bail.
+          // Don't re-throw: allow future addItem calls to retry.
+          const tempIds = items.map((i) => i.tempId);
+          setCurrentOrder((prev) => {
+            if (!prev) return prev;
+            const rolledBack = (prev.lines ?? []).filter((l) => !tempIds.includes(l.id));
+            const removedSubtotal = (prev.lines ?? [])
+              .filter((l) => tempIds.includes(l.id))
+              .reduce((sum, l) => sum + l.lineSubtotal, 0);
+            return {
+              ...prev,
+              lines: rolledBack,
+              subtotal: prev.subtotal - removedSubtotal,
+              total: prev.total - removedSubtotal,
+            };
+          });
+          toast.error('Failed to create order. Tap an item to retry.');
+          return;
+        }
+      }
 
-      // Replace all temp lines from this batch with real server lines
-      setCurrentOrder((prev) => {
-        const existing = prev?.lines ?? [];
-        const withoutTemps = existing.filter((l) => !tempIds.includes(l.id));
-        const newLineIds = new Set(newLines.map((nl) => nl.id));
-        const merged = [...withoutTemps.filter((l) => !newLineIds.has(l.id)), ...newLines];
+      // Safety: if order is still null after awaiting (shouldn't happen, but guard)
+      if (!order || !order.id) {
+        const tempIds = items.map((i) => i.tempId);
+        setCurrentOrder((prev) => {
+          if (!prev) return prev;
+          const rolledBack = (prev.lines ?? []).filter((l) => !tempIds.includes(l.id));
+          const removedSubtotal = (prev.lines ?? [])
+            .filter((l) => tempIds.includes(l.id))
+            .reduce((sum, l) => sum + l.lineSubtotal, 0);
+          return {
+            ...prev,
+            lines: rolledBack,
+            subtotal: prev.subtotal - removedSubtotal,
+            total: prev.total - removedSubtotal,
+          };
+        });
+        toast.error('Failed to create order. Tap an item to retry.');
+        return;
+      }
 
-        // Only apply server totals if this is the latest version
-        if (prev && typeof updatedOrder.version === 'number' && prev.version > updatedOrder.version) {
-          return { ...prev, lines: merged };
+      const tempIds = items.map((i) => i.tempId);
+
+      const serverCall = apiFetch<{ data: { order: Order; lines: OrderLine[] } }>(
+        `/api/v1/orders/${order.id}/lines/batch`,
+        {
+          method: 'POST',
+          headers: locationHeaders,
+          body: JSON.stringify({
+            items: items.map((i) => ({
+              catalogItemId: i.input.catalogItemId,
+              qty: i.input.qty,
+              modifiers: i.input.modifiers ?? undefined,
+              specialInstructions: i.input.specialInstructions ?? undefined,
+              selectedOptions: i.input.selectedOptions ?? undefined,
+              priceOverride: i.input.priceOverride ?? undefined,
+              notes: i.input.notes ?? undefined,
+              clientRequestId: i.reqId,
+            })),
+          }),
+        },
+      );
+
+      // Track in pendingAddItems so placeOrder can await it
+      const tracked = serverCall.then(() => {});
+      pendingAddItems.current.push(tracked);
+      tracked.catch(() => {}).finally(() => {
+        pendingAddItems.current = pendingAddItems.current.filter((p) => p !== tracked);
+      });
+
+      try {
+        const res = await serverCall;
+        const updatedOrder = res.data.order;
+        const newLines = res.data.lines as OrderLine[];
+
+        // Replace all temp lines from this batch with real server lines
+        setCurrentOrder((prev) => {
+          const existing = prev?.lines ?? [];
+          const withoutTemps = existing.filter((l) => !tempIds.includes(l.id));
+          const newLineIds = new Set(newLines.map((nl) => nl.id));
+          const merged = [...withoutTemps.filter((l) => !newLineIds.has(l.id)), ...newLines];
+
+          // Only apply server totals if this is the latest version
+          if (prev && typeof updatedOrder.version === 'number' && prev.version > updatedOrder.version) {
+            return { ...prev, lines: merged };
+          }
+
+          return {
+            ...updatedOrder,
+            lines: merged,
+            charges: prev?.charges ?? [],
+            discounts: prev?.discounts ?? [],
+          };
+        });
+      } catch (err) {
+        // Roll back ALL temp lines from this batch
+        setCurrentOrder((prev) => {
+          if (!prev) return prev;
+          const rolledBack = (prev.lines ?? []).filter((l) => !tempIds.includes(l.id));
+          const removedSubtotal = (prev.lines ?? [])
+            .filter((l) => tempIds.includes(l.id))
+            .reduce((sum, l) => sum + l.lineSubtotal, 0);
+          return {
+            ...prev,
+            lines: rolledBack,
+            subtotal: prev.subtotal - removedSubtotal,
+            total: prev.total - removedSubtotal,
+          };
+        });
+
+        if (err instanceof ApiError && err.statusCode === 404) {
+          onItemNotFoundRef.current?.();
         }
 
-        return {
-          ...updatedOrder,
-          lines: merged,
-          charges: prev?.charges ?? [],
-          discounts: prev?.discounts ?? [],
-        };
-      });
-    } catch (err) {
-      // Roll back ALL temp lines from this batch
-      setCurrentOrder((prev) => {
-        if (!prev) return prev;
-        const rolledBack = (prev.lines ?? []).filter((l) => !tempIds.includes(l.id));
-        const removedSubtotal = (prev.lines ?? [])
-          .filter((l) => tempIds.includes(l.id))
-          .reduce((sum, l) => sum + l.lineSubtotal, 0);
-        return {
-          ...prev,
-          lines: rolledBack,
-          subtotal: prev.subtotal - removedSubtotal,
-          total: prev.total - removedSubtotal,
-        };
-      });
-
-      if (err instanceof ApiError && err.statusCode === 404) {
-        onItemNotFoundRef.current?.();
+        // Show the error but DON'T re-throw — handleMutationError throws on
+        // non-409 errors which would leave flushBatch in a permanently broken
+        // state. Swallowing the throw here lets future addItem calls retry.
+        try {
+          await handleMutationError(err);
+        } catch {
+          // Already shown via toast — swallow so subsequent batches can retry
+        }
       }
+    } finally {
+      isFlushing.current = false;
 
-      await handleMutationError(err);
+      // If items accumulated while we were flushing, schedule another flush
+      if (batchQueue.current.length > 0) {
+        batchTimerRef.current = setTimeout(() => {
+          void flushBatch();
+        }, BATCH_DEBOUNCE_MS);
+      }
     }
-  }, [openOrder, handleMutationError, locationHeaders]);
+  }, [openOrder, handleMutationError, locationHeaders, toast]);
 
   // ── Add Line Item ──────────────────────────────────────────────
   // Optimistic UI is instant. Server sync is batched — rapid clicks
@@ -365,8 +433,22 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
         });
       }
 
+      // ── Eagerly start order creation on first item ──────────────────
+      // Don't wait for the batch debounce — fire openOrder() now so it runs
+      // in parallel with the 50ms collection window. flushBatch() will await
+      // the already-in-flight promise instead of starting fresh.
+      if (!orderRef.current?.id && !openOrderPromise.current) {
+        openOrderPromise.current = openOrder().finally(() => {
+          openOrderPromise.current = null;
+        });
+      }
+
       // ── Push to batch queue (no API call yet) ─────────────────────
       batchQueue.current.push({ input, tempId, reqId: clientRequestId() });
+
+      // If a flush is already in-flight, don't start another — the finally
+      // block in flushBatch will re-schedule when it finishes.
+      if (isFlushing.current) return;
 
       // Flush immediately if queue hits max size
       if (batchQueue.current.length >= BATCH_MAX_SIZE) {
@@ -829,8 +911,59 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
   );
 
   const clearOrder = useCallback((): void => {
+    // Cancel any pending batch timer so queued items from the prior order
+    // don't flush into the next order
+    if (batchTimerRef.current) {
+      clearTimeout(batchTimerRef.current);
+      batchTimerRef.current = null;
+    }
+    batchQueue.current = [];
+
+    // Clear promise refs so the next order starts with a clean slate
+    openOrderPromise.current = null;
+    placingPromise.current = null;
+    pendingAddItems.current = [];
+
     setCurrentOrder(null);
   }, []);
+
+  // ── Ensure Order Ready ────────────────────────────────────────
+  // Waits for in-flight order creation and pending batch items to settle.
+  // Payment flows call this instead of bailing with a toast when order.id
+  // is empty (the order is just not created on the server yet).
+
+  const ensureOrderReady = useCallback(async (): Promise<Order> => {
+    let order = orderRef.current;
+
+    // Wait for openOrder to finish if we still have a placeholder (id === '')
+    if (order && !order.id && openOrderPromise.current) {
+      // Use the promise's return value directly — orderRef may not be
+      // updated yet since React batches state updates
+      const created = await openOrderPromise.current;
+      order = (orderRef.current?.id ? orderRef.current : null) ?? created;
+    }
+
+    // If openOrder hasn't started yet but there are queued items, flush now
+    if (order && !order.id && batchQueue.current.length > 0) {
+      if (batchTimerRef.current) {
+        clearTimeout(batchTimerRef.current);
+        batchTimerRef.current = null;
+      }
+      await flushBatch();
+      order = orderRef.current;
+    }
+
+    // Wait for any in-flight addItem/batch promises
+    if (pendingAddItems.current.length > 0) {
+      await Promise.allSettled(pendingAddItems.current);
+      order = orderRef.current;
+    }
+
+    if (!order || !order.id) {
+      throw new Error('Order creation failed');
+    }
+    return order;
+  }, [flushBatch]);
 
   return {
     // State
@@ -866,6 +999,7 @@ export function usePOS(config: POSConfig, options?: UsePOSOptions) {
     holdOrder,
     recallOrder,
     clearOrder,
+    ensureOrderReady,
 
     // Tab support
     setOrder: setCurrentOrder,

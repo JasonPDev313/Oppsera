@@ -213,6 +213,7 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
       plan: intent.plan,
       isClarification: true,
       clarificationText: intent.clarificationText ?? null,
+      clarificationOptions: intent.clarificationOptions,
       evalTurnId,
       llmConfidence: intent.confidence,
       llmLatencyMs: intent.latencyMs,
@@ -229,6 +230,21 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
   }
 
   // ── 4. Branch by mode ─────────────────────────────────────────
+  // Hard override: if intent says "metrics" but ALL requested metrics target
+  // snapshot read models that are often empty (rm_inventory_on_hand),
+  // force SQL mode to query operational tables directly.
+  if (intent.mode === 'metrics' && schemaCatalog && intent.plan.metrics.length > 0) {
+    const SNAPSHOT_ONLY_TABLES = new Set(['rm_inventory_on_hand']);
+    const allMetricsFromSnapshot = intent.plan.metrics.every((slug) => {
+      const metricDef = catalog.metrics.find((m: { slug: string }) => m.slug === slug);
+      return metricDef && SNAPSHOT_ONLY_TABLES.has(metricDef.sqlTable);
+    });
+    if (allMetricsFromSnapshot) {
+      console.log('[semantic] All metrics target snapshot-only read models — overriding to SQL mode');
+      intent = { ...intent, mode: 'sql' as const };
+    }
+  }
+
   if (intent.mode === 'sql' && schemaCatalog) {
     return runSqlMode(input, intent, schemaCatalog, lensPromptFragment, startMs);
   }
@@ -241,16 +257,18 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
     intent, lensPromptFragment, startMs,
   );
 
-  // ── 5. Fallback: if metrics mode returned 0 rows and schema catalog is available,
+  // ── 5. Fallback: if metrics mode returned 0 rows OR errored (data===null),
   //       retry via SQL mode to query operational tables directly ──────────
   //       BUT only if we have enough time budget remaining (SQL mode needs ~20s)
+  const metricsHadNoData = !metricsResult.data || metricsResult.data.rowCount === 0;
   if (
-    metricsResult.data?.rowCount === 0 &&
+    metricsHadNoData &&
     schemaCatalog &&
     !metricsResult.isClarification &&
     !shouldSkipExpensiveOp(startMs, 20_000) // need at least 20s for SQL gen + execute + narrative
   ) {
-    console.log(`[semantic] Metrics mode returned 0 rows — falling back to SQL mode (${remainingMs(startMs)}ms remaining)`);
+    const reason = !metricsResult.data ? 'errored (data=null)' : 'returned 0 rows';
+    console.log(`[semantic] Metrics mode ${reason} — falling back to SQL mode (${remainingMs(startMs)}ms remaining)`);
     try {
       const sqlResult = await runSqlMode(input, intent, schemaCatalog, lensPromptFragment, startMs);
       // Only use SQL result if it actually found data
@@ -263,7 +281,7 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
       console.warn('[semantic] SQL fallback failed (non-blocking):', err instanceof Error ? err.message : err);
     }
   } else if (
-    metricsResult.data?.rowCount === 0 &&
+    metricsHadNoData &&
     schemaCatalog &&
     !metricsResult.isClarification
   ) {

@@ -245,7 +245,7 @@ export default function InsightsContent() {
 
         {/* Loaded session banner */}
         {loadedSessionDate && !isEmpty && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border-b border-indigo-100 text-xs text-indigo-600 shrink-0">
+          <div className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border-b border-indigo-500/30 text-xs text-indigo-500 shrink-0">
             <History className="h-3.5 w-3.5" />
             <span>
               Continuing conversation from{' '}

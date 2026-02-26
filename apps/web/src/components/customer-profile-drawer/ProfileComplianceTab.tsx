@@ -154,7 +154,7 @@ export function ProfileComplianceTab({ customerId }: ProfileComplianceTabProps) 
                     <div>
                       <p
                         className={`text-sm font-medium ${
-                          isGranted ? 'text-green-900' : 'text-red-900'
+                          isGranted ? 'text-green-500' : 'text-red-500'
                         }`}
                       >
                         {formatConsentType(consent.consentType)}
@@ -185,7 +185,7 @@ export function ProfileComplianceTab({ customerId }: ProfileComplianceTabProps) 
                       onClick={() => handleToggleConsent(consent)}
                       className={`rounded px-2 py-1 text-xs font-medium transition-colors ${
                         isGranted
-                          ? 'text-red-500 hover:bg-red-500/100/20'
+                          ? 'text-red-500 hover:bg-red-500/20'
                           : 'text-green-500 hover:bg-green-500/20'
                       }`}
                     >

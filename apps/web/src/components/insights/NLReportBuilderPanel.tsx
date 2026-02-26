@@ -136,7 +136,7 @@ export function NLReportBuilderPanel({
                   key={prompt}
                   type="button"
                   onClick={() => handleExampleClick(prompt)}
-                  className="px-2.5 py-1 text-xs rounded-full border border-border text-foreground hover:border-primary/50 hover:bg-gray-200/50 transition-colors"
+                  className="px-2.5 py-1 text-xs rounded-full border border-border text-foreground hover:border-primary/50 hover:bg-accent/50 transition-colors"
                 >
                   {prompt}
                 </button>

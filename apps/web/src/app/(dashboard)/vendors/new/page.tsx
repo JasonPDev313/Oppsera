@@ -17,8 +17,8 @@ export default function NewVendorPage() {
       const vendor = await createVendor(input);
       toast.success(`Vendor "${vendor.name}" created`);
       router.push(`/vendors/${vendor.id}`);
-    } catch (err: any) {
-      toast.error(err.message ?? 'Failed to create vendor');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create vendor');
     }
   };
 

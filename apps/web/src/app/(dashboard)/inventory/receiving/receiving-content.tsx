@@ -63,8 +63,8 @@ export default function ReceivingContent() {
         }),
       });
       router.push(`/inventory/receiving/${res.data.id}`);
-    } catch (err: any) {
-      toast.error(err.message ?? 'Failed to create receipt');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create receipt');
     } finally {
       setIsCreating(false);
     }
@@ -75,7 +75,7 @@ export default function ReceivingContent() {
       key: 'receiptNumber',
       header: 'Receipt #',
       render: (row: ReceiptRow) => (
-        <span className="font-medium text-gray-900">{row.receiptNumber}</span>
+        <span className="font-medium text-foreground">{row.receiptNumber}</span>
       ),
     },
     {
@@ -86,25 +86,25 @@ export default function ReceivingContent() {
     {
       key: 'vendorName',
       header: 'Vendor',
-      render: (row: ReceiptRow) => <span className="text-sm text-gray-700">{row.vendorName}</span>,
+      render: (row: ReceiptRow) => <span className="text-sm text-foreground">{row.vendorName}</span>,
     },
     {
       key: 'receivedDate',
       header: 'Date',
-      render: (row: ReceiptRow) => <span className="text-sm text-gray-500">{row.receivedDate}</span>,
+      render: (row: ReceiptRow) => <span className="text-sm text-muted-foreground">{row.receivedDate}</span>,
     },
     {
       key: 'total',
       header: 'Total',
       render: (row: ReceiptRow) => (
-        <span className="text-sm font-medium text-gray-900">{formatMoney(row.total)}</span>
+        <span className="text-sm font-medium text-foreground">{formatMoney(row.total)}</span>
       ),
     },
     {
       key: 'vendorInvoiceNumber',
       header: 'Invoice #',
       render: (row: ReceiptRow) => (
-        <span className="text-sm text-gray-500">{row.vendorInvoiceNumber ?? '\u2014'}</span>
+        <span className="text-sm text-muted-foreground">{row.vendorInvoiceNumber ?? '\u2014'}</span>
       ),
     },
   ];
@@ -114,8 +114,8 @@ export default function ReceivingContent() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">Receiving</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-xl font-semibold text-foreground">Receiving</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
             Receive inventory from vendors with cost tracking
           </p>
         </div>
@@ -123,7 +123,7 @@ export default function ReceivingContent() {
           type="button"
           onClick={handleCreateReceipt}
           disabled={isCreating}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           <Plus className="h-4 w-4" />
           {isCreating ? 'Creating...' : 'New Receipt'}
@@ -175,7 +175,7 @@ export default function ReceivingContent() {
               <button
                 type="button"
                 onClick={loadMore}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
               >
                 Load More
               </button>

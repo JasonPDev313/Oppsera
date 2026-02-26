@@ -112,17 +112,17 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-lg rounded-lg bg-surface p-6 shadow-xl">
-        <h3 className="text-lg font-semibold text-gray-900">Create Room</h3>
-        <p className="mt-1 text-sm text-gray-500">Set up a new room for floor plan design.</p>
+        <h3 className="text-lg font-semibold text-foreground">Create Room</h3>
+        <p className="mt-1 text-sm text-muted-foreground">Set up a new room for floor plan design.</p>
 
         {/* Tabs */}
-        <div className="mt-4 flex border-b border-gray-200">
+        <div className="mt-4 flex border-b border-border">
           <button
             onClick={() => setTab('blank')}
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               tab === 'blank'
                 ? 'border-b-2 border-indigo-600 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             Blank Room
@@ -132,7 +132,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
             className={`px-4 py-2 text-sm font-medium transition-colors ${
               tab === 'template'
                 ? 'border-b-2 border-indigo-600 text-indigo-600'
-                : 'text-gray-500 hover:text-gray-700'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             From Template
@@ -148,7 +148,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Main Dining"
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
 
@@ -158,7 +158,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional description"
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
 
@@ -167,7 +167,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                 <select
                   value={locationId}
                   onChange={(e) => setLocationId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
                   {locations.map((loc) => (
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
@@ -185,9 +185,9 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                     onChange={(e) => setWidthFt(e.target.value)}
                     min="1"
                     step="any"
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
-                  <span className="text-sm text-gray-500">{unit}</span>
+                  <span className="text-sm text-muted-foreground">{unit}</span>
                 </div>
               </FormField>
 
@@ -199,9 +199,9 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                     onChange={(e) => setHeightFt(e.target.value)}
                     min="1"
                     step="any"
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
-                  <span className="text-sm text-gray-500">{unit}</span>
+                  <span className="text-sm text-muted-foreground">{unit}</span>
                 </div>
               </FormField>
             </div>
@@ -215,9 +215,9 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                     onChange={(e) => setGridSizeFt(e.target.value)}
                     min="0.25"
                     step="0.25"
-                    className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
-                  <span className="text-sm text-gray-500">{unit}</span>
+                  <span className="text-sm text-muted-foreground">{unit}</span>
                 </div>
               </FormField>
 
@@ -225,7 +225,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                 <select
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
                   <option value="feet">Feet</option>
                   <option value="meters">Meters</option>
@@ -240,10 +240,10 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
           <div className="mt-4 space-y-4">
             <FormField label="Template" required error={errors.template}>
               {selectedTemplate ? (
-                <div className="flex items-center gap-3 rounded-lg border border-gray-300 p-3">
+                <div className="flex items-center gap-3 rounded-lg border border-border p-3">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{selectedTemplate.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-foreground">{selectedTemplate.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {Number(selectedTemplate.widthFt)}×{Number(selectedTemplate.heightFt)} ft
                       {' · '}{selectedTemplate.objectCount} objects
                       {selectedTemplate.totalCapacity > 0 && ` · ${selectedTemplate.totalCapacity} seats`}
@@ -251,7 +251,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                   </div>
                   <button
                     onClick={() => setShowGallery(true)}
-                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200/50"
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent/50"
                   >
                     Change
                   </button>
@@ -259,7 +259,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
               ) : (
                 <button
                   onClick={() => setShowGallery(true)}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 hover:border-gray-400 hover:text-gray-600"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-4 py-6 text-sm text-muted-foreground hover:border-muted-foreground hover:text-foreground"
                 >
                   Browse Templates
                 </button>
@@ -272,7 +272,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder="e.g. Main Dining"
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
 
@@ -282,7 +282,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional description"
-                className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               />
             </FormField>
 
@@ -291,7 +291,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
                 <select
                   value={locationId}
                   onChange={(e) => setLocationId(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                 >
                   {locations.map((loc) => (
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
@@ -308,7 +308,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -316,7 +316,7 @@ export function CreateRoomDialog({ onClose, onCreated }: CreateRoomDialogProps) 
             type="button"
             onClick={tab === 'blank' ? handleSubmitBlank : handleSubmitFromTemplate}
             disabled={isSubmitting}
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 ${
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 ${
               isSubmitting ? 'cursor-not-allowed opacity-50' : ''
             }`}
           >

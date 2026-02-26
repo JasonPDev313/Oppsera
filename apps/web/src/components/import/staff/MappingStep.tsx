@@ -84,7 +84,7 @@ export function MappingStep({
               type="checkbox"
               checked={autoGenerateUsername}
               onChange={(e) => onAutoGenerateUsernameChange(e.target.checked)}
-              className="rounded border-gray-300"
+              className="rounded border-border"
             />
             Auto-generate usernames
           </label>
@@ -168,7 +168,7 @@ export function MappingStep({
         </button>
         <button
           onClick={onNext}
-          className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700"
+          className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-500"
         >
           Map Roles & Locations
           <ArrowRight className="w-4 h-4" />

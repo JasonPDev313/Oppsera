@@ -162,10 +162,12 @@ export function PaymentScreen({
         setTenders((prev) => [...prev, tender]);
         setLastTenderAmount(amountCents);
         setStep(result.isFullyPaid ? 'receipt' : 'partial_summary');
-      } catch (err: any) {
-        setErrorMessage(err?.userMessage ?? (err instanceof Error ? err.message : 'Payment failed'));
-        setErrorRetryable(err?.retryable !== false);
-        setErrorSuggestedAction(err?.suggestedAction ?? null);
+      } catch (err: unknown) {
+        const e = err as Record<string, unknown> | Error;
+        const userMsg = 'userMessage' in e ? String(e.userMessage) : null;
+        setErrorMessage(userMsg ?? (err instanceof Error ? err.message : 'Payment failed'));
+        setErrorRetryable('retryable' in e ? e.retryable !== false : true);
+        setErrorSuggestedAction('suggestedAction' in e ? (e.suggestedAction as string | null) : null);
         setStep('error');
       } finally {
         setIsProcessing(false);
@@ -219,10 +221,12 @@ export function PaymentScreen({
       } else {
         setStep('partial_summary');
       }
-    } catch (err: any) {
-      setErrorMessage(err?.userMessage ?? (err instanceof Error ? err.message : 'Payment failed. Please try again.'));
-      setErrorRetryable(err?.retryable !== false);
-      setErrorSuggestedAction(err?.suggestedAction ?? null);
+    } catch (err: unknown) {
+      const e = err as Record<string, unknown> | Error;
+      const userMsg = 'userMessage' in e ? String(e.userMessage) : null;
+      setErrorMessage(userMsg ?? (err instanceof Error ? err.message : 'Payment failed. Please try again.'));
+      setErrorRetryable('retryable' in e ? e.retryable !== false : true);
+      setErrorSuggestedAction('suggestedAction' in e ? (e.suggestedAction as string | null) : null);
       setStep('error');
     } finally {
       setIsProcessing(false);
@@ -251,8 +255,10 @@ export function PaymentScreen({
       await onVoidLastTender();
       setTenders((prev) => prev.slice(0, -1));
       setStep('tender_select');
-    } catch (err: any) {
-      setErrorMessage(err?.userMessage ?? (err instanceof Error ? err.message : 'Failed to void tender'));
+    } catch (err: unknown) {
+      const e = err as Record<string, unknown> | Error;
+      const userMsg = 'userMessage' in e ? String(e.userMessage) : null;
+      setErrorMessage(userMsg ?? (err instanceof Error ? err.message : 'Failed to void tender'));
       setErrorRetryable(true);
       setErrorSuggestedAction(null);
       setStep('error');
@@ -284,10 +290,12 @@ export function PaymentScreen({
       try {
         await onCapturePreAuth(preauthId, captureAmountCents, tip);
         setStep('receipt');
-      } catch (err: any) {
-        setErrorMessage(err?.userMessage ?? (err instanceof Error ? err.message : 'Pre-auth capture failed'));
-        setErrorRetryable(err?.retryable !== false);
-        setErrorSuggestedAction(err?.suggestedAction ?? null);
+      } catch (err: unknown) {
+        const e = err as Record<string, unknown> | Error;
+        const userMsg = 'userMessage' in e ? String(e.userMessage) : null;
+        setErrorMessage(userMsg ?? (err instanceof Error ? err.message : 'Pre-auth capture failed'));
+        setErrorRetryable('retryable' in e ? e.retryable !== false : true);
+        setErrorSuggestedAction('suggestedAction' in e ? (e.suggestedAction as string | null) : null);
         setStep('error');
       } finally {
         setIsProcessing(false);

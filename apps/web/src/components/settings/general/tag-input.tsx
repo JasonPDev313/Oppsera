@@ -70,7 +70,7 @@ export function TagInput({
                   e.stopPropagation();
                   removeTag(tag);
                 }}
-                className="ml-0.5 rounded-full p-0.5 hover:bg-indigo-200"
+                className="ml-0.5 rounded-full p-0.5 hover:bg-indigo-500/20"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -102,7 +102,7 @@ export function TagInput({
             <button
               key={s}
               type="button"
-              className="w-full px-3 py-1.5 text-left text-sm hover:bg-muted/60"
+              className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent/60"
               onMouseDown={(e) => {
                 e.preventDefault();
                 addTag(s);

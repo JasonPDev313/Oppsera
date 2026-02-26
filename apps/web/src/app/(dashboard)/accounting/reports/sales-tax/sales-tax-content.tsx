@@ -79,7 +79,7 @@ export default function SalesTaxContent() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.taxGroupId} className="border-b border-border last:border-0 hover:bg-muted/50">
+                  <tr key={row.taxGroupId} className="border-b border-border last:border-0 hover:bg-accent/50">
                     <td className="px-4 py-2.5 text-sm font-medium text-foreground">{row.taxGroupName}</td>
                     <td className="px-4 py-2.5 text-sm text-foreground">{row.jurisdiction}</td>
                     <td className="px-4 py-2.5 text-right text-sm text-foreground">{(row.rate * 100).toFixed(2)}%</td>

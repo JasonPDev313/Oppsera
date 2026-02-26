@@ -126,7 +126,7 @@ export function VendorCatalogAddDialog({
               </div>
               {isSearching && <p className="mt-1 text-xs text-muted-foreground">Searching...</p>}
               {results.length > 0 && (
-                <ul className="mt-2 max-h-48 overflow-auto rounded-lg border border-gray-200">
+                <ul className="mt-2 max-h-48 overflow-auto rounded-lg border border-border">
                   {results.map((item) => (
                     <li key={item.id}>
                       <button
@@ -241,14 +241,14 @@ export function VendorCatalogAddDialog({
             <button
               type="button"
               onClick={handleClose}
-              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              className="rounded-lg border border-input px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={!selectedItem || isSubmitting}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {isSubmitting ? 'Adding...' : 'Add Item'}
             </button>

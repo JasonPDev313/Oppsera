@@ -27,7 +27,7 @@ export default function UnassignedPanel({
         className="flex w-full items-center justify-between px-4 py-2.5"
       >
         <div className="flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertCircle className="h-4 w-4 text-amber-500" />
           <span className="text-sm font-medium text-amber-500">
             Unassigned Reservations
           </span>
@@ -36,9 +36,9 @@ export default function UnassignedPanel({
           </span>
         </div>
         {expanded ? (
-          <ChevronUp className="h-4 w-4 text-amber-600" />
+          <ChevronUp className="h-4 w-4 text-amber-500" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-amber-600" />
+          <ChevronDown className="h-4 w-4 text-amber-500" />
         )}
       </button>
 

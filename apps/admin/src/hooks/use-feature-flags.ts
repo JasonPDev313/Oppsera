@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { adminFetch } from '@/lib/api-fetch';
+import { adminFetch, AdminApiError } from '@/lib/api-fetch';
 
 export interface FeatureFlagItem {
   definitionId: string;
@@ -58,9 +58,11 @@ export interface MatrixRow {
 export function useCapabilityMatrix() {
   const [rows, setRows] = useState<MatrixRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (filters?: { industry?: string; status?: string; search?: string }) => {
     setIsLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams();
       if (filters?.industry) params.set('industry', filters.industry);
@@ -69,12 +71,16 @@ export function useCapabilityMatrix() {
       const qs = params.toString() ? `?${params.toString()}` : '';
       const res = await adminFetch<{ data: MatrixRow[] }>(`/api/v1/modules/matrix${qs}`);
       setRows(res.data);
-    } catch {
-      // silent
+    } catch (err) {
+      const msg = err instanceof AdminApiError
+        ? `${err.code} (${err.status}): ${err.message}`
+        : err instanceof Error ? err.message : 'Failed to load matrix';
+      setError(msg);
+      console.error('[useCapabilityMatrix]', msg);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  return { rows, isLoading, load };
+  return { rows, isLoading, error, load };
 }

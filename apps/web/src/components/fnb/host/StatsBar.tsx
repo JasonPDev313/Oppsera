@@ -113,7 +113,7 @@ export function StatsBar({ stats, tableSummary }: StatsBarProps) {
           label="Open"
           iconBg="bg-emerald-500/10"
           iconColor="text-emerald-500"
-          valueColor="text-emerald-600"
+          valueColor="text-emerald-500"
         />
         <Divider />
         <StatItem
@@ -122,7 +122,7 @@ export function StatsBar({ stats, tableSummary }: StatsBarProps) {
           label="Seated"
           iconBg="bg-blue-500/10"
           iconColor="text-blue-500"
-          valueColor="text-blue-600"
+          valueColor="text-blue-500"
         />
         <Divider />
         <StatItem
@@ -131,7 +131,7 @@ export function StatsBar({ stats, tableSummary }: StatsBarProps) {
           label="Reserved"
           iconBg="bg-violet-500/10"
           iconColor="text-violet-500"
-          valueColor="text-violet-600"
+          valueColor="text-violet-500"
         />
         <Divider />
         <StatItem

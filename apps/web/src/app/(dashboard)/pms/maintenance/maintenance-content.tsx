@@ -231,7 +231,7 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
           <h2 className="text-lg font-semibold text-foreground">Create Work Order</h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -342,14 +342,14 @@ function CreateWorkOrderDialog({ open, onClose, propertyId, rooms, onCreated }: 
           <button
             onClick={onClose}
             disabled={isSaving}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50 disabled:opacity-50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSaving || !title.trim()}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
             Create Work Order
@@ -384,7 +384,7 @@ function WorkOrderCard({
     new Date(order.dueDate) < new Date();
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-border">
+    <div className="rounded-lg border border-border bg-surface p-4 transition-colors hover:border-muted-foreground">
       {/* Top row: title + priority */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-start gap-2 min-w-0">
@@ -665,7 +665,7 @@ export default function MaintenanceContent() {
           <button
             onClick={() => setShowCreateDialog(true)}
             disabled={!selectedPropertyId}
-            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             Create Work Order
@@ -731,7 +731,7 @@ export default function MaintenanceContent() {
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search work orders..."
-            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500/30 focus:outline-none focus:ring-1 focus:ring-indigo-300"
           />
         </div>
 
@@ -793,7 +793,7 @@ export default function MaintenanceContent() {
           {!searchTerm && !statusFilter && !priorityFilter && !categoryFilter && selectedPropertyId && (
             <button
               onClick={() => setShowCreateDialog(true)}
-              className="mt-4 flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+              className="mt-4 flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
             >
               <Plus className="h-4 w-4" />
               Create Work Order
@@ -825,7 +825,7 @@ export default function MaintenanceContent() {
         <div className="flex justify-center">
           <button
             onClick={loadMore}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent/50"
           >
             Load more
           </button>

@@ -382,11 +382,15 @@ export interface ExpoView {
 export interface FnbStation {
   id: string;
   name: string;
+  displayName: string;
   stationType: string;
-  displayOrder: number;
+  color: string | null;
+  sortOrder: number;
   isActive: boolean;
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
+  fallbackStationId: string | null;
+  backupPrinterId: string | null;
 }
 
 export interface FnbStationMetrics {

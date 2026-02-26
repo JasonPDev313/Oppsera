@@ -89,7 +89,7 @@ function CopyButton({ text }: { text: string }) {
   return (
     <button
       onClick={handleCopy}
-      className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-700 transition-colors"
+      className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-500 transition-colors"
     >
       {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
       {copied ? 'Copied' : 'Copy link'}
@@ -100,11 +100,11 @@ function CopyButton({ text }: { text: string }) {
 function statusBadge(status: WebApp['status']) {
   switch (status) {
     case 'active':
-      return { label: 'Active', className: 'bg-green-100 text-green-800' };
+      return { label: 'Active', className: 'bg-green-500/20 text-green-500' };
     case 'not_configured':
-      return { label: 'Not Configured', className: 'bg-amber-100 text-amber-800' };
+      return { label: 'Not Configured', className: 'bg-amber-500/10 text-amber-500' };
     case 'coming_soon':
-      return { label: 'Coming Soon', className: 'bg-gray-100 text-gray-500' };
+      return { label: 'Coming Soon', className: 'bg-muted text-muted-foreground' };
   }
 }
 
@@ -117,7 +117,7 @@ function WebAppCard({ app }: { app: WebApp }) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-            app.status === 'active' ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'
+            app.status === 'active' ? 'bg-indigo-500/10 text-indigo-600' : 'bg-muted text-muted-foreground'
           }`}>
             <Icon className="h-5 w-5" />
           </div>
@@ -130,20 +130,20 @@ function WebAppCard({ app }: { app: WebApp }) {
         </div>
       </div>
 
-      <p className="text-sm text-gray-500 mb-4">{app.description}</p>
+      <p className="text-sm text-muted-foreground mb-4">{app.description}</p>
 
       {app.status === 'active' && app.portalUrl && (
         <div className="space-y-3">
-          <div className="bg-gray-50 border rounded-md px-3 py-2">
-            <label className="block text-xs font-medium text-gray-500 mb-1">URL</label>
+          <div className="bg-muted border rounded-md px-3 py-2">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">URL</label>
             <div className="flex items-center justify-between gap-2">
-              <code className="text-sm text-gray-800 truncate">{app.portalUrl}</code>
+              <code className="text-sm text-foreground truncate">{app.portalUrl}</code>
               <CopyButton text={app.portalUrl} />
             </div>
           </div>
 
           {app.helpText && (
-            <p className="text-xs text-gray-500">{app.helpText}</p>
+            <p className="text-xs text-muted-foreground">{app.helpText}</p>
           )}
 
           <div className="flex gap-2">
@@ -151,7 +151,7 @@ function WebAppCard({ app }: { app: WebApp }) {
               href={app.portalUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-lg hover:bg-indigo-500 transition-colors"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               Open
@@ -161,7 +161,7 @@ function WebAppCard({ app }: { app: WebApp }) {
       )}
 
       {app.status === 'not_configured' && app.helpText && (
-        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+        <p className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded-md px-3 py-2">
           {app.helpText}
         </p>
       )}
@@ -177,7 +177,7 @@ export default function WebAppsContent() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Web Apps for Customers</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           Manage customer-facing web applications. Each app runs independently from the ERP.
         </p>
       </div>

@@ -69,7 +69,7 @@ export function PreShiftPanel({ data, isLoading }: PreShiftPanelProps) {
         <SummaryCard
           label="Large Parties"
           value={data.largePartyCount}
-          valueClass={data.largePartyCount > 0 ? 'text-amber-600' : undefined}
+          valueClass={data.largePartyCount > 0 ? 'text-amber-500' : undefined}
         />
       </div>
 

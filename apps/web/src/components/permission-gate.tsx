@@ -10,7 +10,7 @@ interface PermissionGateProps {
 }
 
 const defaultFallback = (
-  <div className="flex h-[calc(100vh-64px)] flex-col items-center justify-center gap-3 text-gray-400">
+  <div className="flex h-[calc(100vh-64px)] flex-col items-center justify-center gap-3 text-muted-foreground">
     <ShieldX className="h-12 w-12" />
     <p className="text-lg font-medium">Access Denied</p>
     <p className="text-sm">You do not have permission to view this page.</p>

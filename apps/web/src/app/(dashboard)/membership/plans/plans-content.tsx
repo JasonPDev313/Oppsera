@@ -158,10 +158,10 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
       <div className="relative w-full max-w-lg rounded-xl bg-surface p-6 shadow-xl">
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-foreground">
           {isEditing ? 'Edit Plan' : 'Create Membership Plan'}
         </h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           {isEditing
             ? 'Update the plan details below.'
             : 'Define a new membership plan with dues and billing settings.'}
@@ -174,7 +174,7 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Gold Membership"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -184,7 +184,7 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Describe the plan benefits..."
               rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
@@ -211,7 +211,7 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
               <select
                 value={billingFrequency}
                 onChange={(e) => setBillingFrequency(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               >
                 <option value="monthly">Monthly</option>
                 <option value="quarterly">Quarterly</option>
@@ -224,7 +224,7 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
               <select
                 value={prorationPolicy}
                 onChange={(e) => setProrationPolicy(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               >
                 <option value="daily">Daily</option>
                 <option value="half_month">Half-Month</option>
@@ -240,30 +240,30 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
               onChange={(e) => setMinMonths(e.target.value)}
               min={0}
               placeholder="Optional"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
             />
           </FormField>
 
           <div className="flex items-center gap-6">
             <FormField label="">
-              <label className="flex items-center gap-2 text-sm text-gray-700">
+              <label className="flex items-center gap-2 text-sm text-foreground">
                 <input
                   type="checkbox"
                   checked={taxable}
                   onChange={(e) => setTaxable(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
                 />
                 Taxable
               </label>
             </FormField>
             {isEditing && (
               <FormField label="">
-                <label className="flex items-center gap-2 text-sm text-gray-700">
+                <label className="flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
                     checked={isActive}
                     onChange={(e) => setIsActive(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="h-4 w-4 rounded border-border text-indigo-600 focus:ring-indigo-500"
                   />
                   Active
                 </label>
@@ -277,7 +277,7 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
             type="button"
             onClick={handleClose}
             disabled={isSubmitting}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
           >
             Cancel
           </button>
@@ -285,7 +285,7 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">
@@ -309,37 +309,37 @@ function PlanDialog({ open, onClose, onSuccess, editPlan }: PlanDialogProps) {
 
 function PlanDetailRow({ plan }: { plan: MembershipPlanV2 }) {
   return (
-    <div className="border-t border-gray-100 bg-gray-50/50 px-6 py-4">
+    <div className="border-t border-border bg-muted/50 px-6 py-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Description</p>
-          <p className="mt-1 text-sm text-gray-900">{plan.description || '\u2014'}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Description</p>
+          <p className="mt-1 text-sm text-foreground">{plan.description || '\u2014'}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Dues Amount</p>
-          <p className="mt-1 text-sm text-gray-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Dues Amount</p>
+          <p className="mt-1 text-sm text-foreground">
             {plan.duesAmountCents != null ? formatMoney(plan.duesAmountCents) : '\u2014'}
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Proration Policy</p>
-          <p className="mt-1 text-sm text-gray-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Proration Policy</p>
+          <p className="mt-1 text-sm text-foreground">
             {PRORATION_LABELS[plan.prorationPolicy] ?? plan.prorationPolicy}
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Min. Commitment</p>
-          <p className="mt-1 text-sm text-gray-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Min. Commitment</p>
+          <p className="mt-1 text-sm text-foreground">
             {plan.minMonthsCommitment != null ? `${plan.minMonthsCommitment} months` : '\u2014'}
           </p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Taxable</p>
-          <p className="mt-1 text-sm text-gray-900">{plan.taxable ? 'Yes' : 'No'}</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Taxable</p>
+          <p className="mt-1 text-sm text-foreground">{plan.taxable ? 'Yes' : 'No'}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Created</p>
-          <p className="mt-1 text-sm text-gray-900">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Created</p>
+          <p className="mt-1 text-sm text-foreground">
             {new Date(plan.createdAt).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -381,23 +381,23 @@ export default function PlansContent() {
       width: '40px',
       render: (row: PlanRow) =>
         expandedPlanId === row.id ? (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <ChevronRight className="h-4 w-4 text-gray-400" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
         ),
     },
     {
       key: 'name',
       header: 'Name',
       render: (row: PlanRow) => (
-        <span className="font-medium text-gray-900">{row.name}</span>
+        <span className="font-medium text-foreground">{row.name}</span>
       ),
     },
     {
       key: 'billingFrequency',
       header: 'Frequency',
       render: (row: PlanRow) => (
-        <span className="text-gray-600">
+        <span className="text-muted-foreground">
           {FREQUENCY_LABELS[row.billingFrequency] ?? row.billingFrequency}
         </span>
       ),
@@ -406,14 +406,14 @@ export default function PlansContent() {
       key: 'priceCents',
       header: 'Price',
       render: (row: PlanRow) => (
-        <span className="font-medium text-gray-900">{formatMoney(row.priceCents)}</span>
+        <span className="font-medium text-foreground">{formatMoney(row.priceCents)}</span>
       ),
     },
     {
       key: 'duesAmountCents',
       header: 'Dues',
       render: (row: PlanRow) => (
-        <span className="text-gray-600">
+        <span className="text-muted-foreground">
           {row.duesAmountCents != null ? formatMoney(row.duesAmountCents) : '--'}
         </span>
       ),
@@ -438,7 +438,7 @@ export default function PlansContent() {
             e.stopPropagation();
             handleEdit(row as unknown as MembershipPlanV2);
           }}
-          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
           title="Edit plan"
         >
           <Edit2 className="h-4 w-4" />
@@ -450,14 +450,14 @@ export default function PlansContent() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Membership Plans</h1>
+        <h1 className="text-xl font-semibold text-foreground">Membership Plans</h1>
         <button
           type="button"
           onClick={() => {
             setEditPlan(null);
             setShowDialog(true);
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
         >
           <Plus className="h-4 w-4" />
           Create Plan
@@ -489,7 +489,7 @@ export default function PlansContent() {
 
           {/* Expanded plan detail */}
           {expandedPlanId && (
-            <div className="overflow-hidden rounded-lg border border-gray-200 bg-surface">
+            <div className="overflow-hidden rounded-lg border border-border bg-surface">
               {(() => {
                 const plan = plans.find((p) => p.id === expandedPlanId);
                 return plan ? <PlanDetailRow plan={plan} /> : null;

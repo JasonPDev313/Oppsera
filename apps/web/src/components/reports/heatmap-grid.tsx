@@ -81,18 +81,18 @@ interface TooltipState {
 function HeatmapTooltip({ tooltip }: { tooltip: TooltipState }) {
   return (
     <div
-      className="pointer-events-none absolute z-50 max-w-xs rounded-lg border border-gray-200 bg-surface px-3 py-2 text-xs shadow-lg"
+      className="pointer-events-none absolute z-50 max-w-xs rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-lg"
       style={{
         left: tooltip.x,
         top: tooltip.y,
         transform: 'translate(-50%, -100%) translateY(-8px)',
       }}
     >
-      <span className="font-medium text-gray-900">
+      <span className="font-medium text-foreground">
         {tooltip.rowLabel} &times; {tooltip.colLabel}
       </span>
-      <span className="text-gray-500">: </span>
-      <span className="font-semibold text-gray-900">{tooltip.formattedValue}</span>
+      <span className="text-muted-foreground">: </span>
+      <span className="font-semibold text-foreground">{tooltip.formattedValue}</span>
     </div>
   );
 }
@@ -185,12 +185,12 @@ export function HeatmapGrid({
     return (
       <div className="rounded-xl bg-surface p-6 shadow-sm ring-1 ring-gray-950/5">
         {title && (
-          <h3 className="mb-4 text-sm font-medium text-gray-500">{title}</h3>
+          <h3 className="mb-4 text-sm font-medium text-muted-foreground">{title}</h3>
         )}
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Grid3X3 className="h-12 w-12 text-gray-300" />
-          <p className="mt-4 text-sm font-semibold text-gray-900">No data</p>
-          <p className="mt-1 text-sm text-gray-500">
+          <Grid3X3 className="h-12 w-12 text-muted-foreground" />
+          <p className="mt-4 text-sm font-semibold text-foreground">No data</p>
+          <p className="mt-1 text-sm text-muted-foreground">
             There is no heatmap data to display.
           </p>
         </div>
@@ -205,7 +205,7 @@ export function HeatmapGrid({
   return (
     <div className="rounded-xl bg-surface p-4 shadow-sm ring-1 ring-gray-950/5">
       {title && (
-        <h3 className="mb-4 text-sm font-medium text-gray-500">{title}</h3>
+        <h3 className="mb-4 text-sm font-medium text-muted-foreground">{title}</h3>
       )}
 
       {/* Scrollable container */}
@@ -231,7 +231,7 @@ export function HeatmapGrid({
           {columns.map((col) => (
             <div
               key={`col-${col.key}`}
-              className="sticky top-0 z-10 flex items-center justify-center bg-surface px-2 py-2 text-xs font-medium text-gray-500 select-none"
+              className="sticky top-0 z-10 flex items-center justify-center bg-surface px-2 py-2 text-xs font-medium text-muted-foreground select-none"
               title={col.label}
             >
               <span className="truncate">{col.label}</span>
@@ -243,7 +243,7 @@ export function HeatmapGrid({
             <Fragment key={`row-${row.key}`}>
               {/* Row header */}
               <div
-                className="sticky left-0 z-10 flex items-center bg-surface pr-3 pl-1 text-xs font-medium text-gray-500 select-none"
+                className="sticky left-0 z-10 flex items-center bg-surface pr-3 pl-1 text-xs font-medium text-muted-foreground select-none"
                 title={row.label}
               >
                 <span className="truncate max-w-[120px]">{row.label}</span>

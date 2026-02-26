@@ -121,7 +121,7 @@ export default function GLSummaryContent() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.groupLabel} className="border-b border-border last:border-0 hover:bg-muted/50">
+                  <tr key={row.groupLabel} className="border-b border-border last:border-0 hover:bg-accent/50">
                     <td className="px-4 py-3 text-sm font-medium text-foreground">{row.groupLabel}</td>
                     <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{formatAccountingMoney(row.totalDebits)}</td>
                     <td className="px-4 py-3 text-right text-sm tabular-nums text-foreground">{formatAccountingMoney(row.totalCredits)}</td>

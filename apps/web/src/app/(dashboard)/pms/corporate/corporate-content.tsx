@@ -380,7 +380,7 @@ export default function CorporateContent() {
           <button
             type="button"
             onClick={openCreate}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             <Plus className="h-4 w-4" />
             Add Account
@@ -397,7 +397,7 @@ export default function CorporateContent() {
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search by company name..."
-            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-300 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500/30 focus:outline-none focus:ring-1 focus:ring-indigo-300"
           />
         </div>
         <div className="flex items-center gap-1 rounded-lg border border-border p-0.5">
@@ -407,7 +407,7 @@ export default function CorporateContent() {
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               showActive
                 ? 'bg-indigo-600 text-white'
-                : 'text-muted-foreground hover:bg-gray-200/50'
+                : 'text-muted-foreground hover:bg-accent/50'
             }`}
           >
             Active
@@ -418,7 +418,7 @@ export default function CorporateContent() {
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               !showActive
                 ? 'bg-indigo-600 text-white'
-                : 'text-muted-foreground hover:bg-gray-200/50'
+                : 'text-muted-foreground hover:bg-accent/50'
             }`}
           >
             Inactive
@@ -476,7 +476,7 @@ export default function CorporateContent() {
                       <button
                         type="button"
                         onClick={openCreate}
-                        className="mt-4 flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+                        className="mt-4 flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
                       >
                         <Plus className="h-4 w-4" />
                         Add Account
@@ -492,7 +492,7 @@ export default function CorporateContent() {
               return (
                 <tr
                   key={a.id}
-                  className="transition-colors hover:bg-gray-200/30"
+                  className="transition-colors hover:bg-accent/30"
                 >
                   <td className="border-b border-border px-4 py-3">
                     <span className="text-sm font-medium text-foreground">{a.companyName}</span>
@@ -547,7 +547,7 @@ export default function CorporateContent() {
                         e.stopPropagation();
                         openEdit(a);
                       }}
-                      className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-gray-200/50 hover:text-muted-foreground"
+                      className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                       title="Edit account"
                     >
                       <Pencil className="h-4 w-4" />
@@ -573,7 +573,7 @@ export default function CorporateContent() {
           <button
             type="button"
             onClick={loadMore}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent/50"
           >
             Load more
           </button>
@@ -598,7 +598,7 @@ export default function CorporateContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded p-1 text-muted-foreground hover:bg-gray-200/50 hover:text-muted-foreground"
+                  className="rounded p-1 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -781,7 +781,7 @@ export default function CorporateContent() {
                 <button
                   type="button"
                   onClick={closeDialog}
-                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-gray-200/50"
+                  className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
                 >
                   Cancel
                 </button>
@@ -789,7 +789,7 @@ export default function CorporateContent() {
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {isSubmitting

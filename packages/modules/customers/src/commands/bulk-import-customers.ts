@@ -191,11 +191,11 @@ export async function bulkImportCustomers(
 
         successRows++;
         await tx.execute(sql.raw(`RELEASE SAVEPOINT ${sp}`));
-      } catch (err: any) {
+      } catch (err: unknown) {
         // Roll back to the savepoint so subsequent rows can still execute
         try { await tx.execute(sql.raw(`ROLLBACK TO SAVEPOINT ${sp}`)); } catch { /* ignore */ }
         errorRows++;
-        const msg = err.message ?? 'Unknown error';
+        const msg = err instanceof Error ? err.message : 'Unknown error';
         errors.push({
           row: mappedRow.rowIndex + 1,
           message: formatCustomerDbError(msg),

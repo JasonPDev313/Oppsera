@@ -413,10 +413,10 @@ function FolioSection({
   if (isLoading) {
     return (
       <div className="rounded-lg border border-border bg-surface p-6">
-        <div className="h-6 w-32 animate-pulse rounded bg-gray-200" />
+        <div className="h-6 w-32 animate-pulse rounded bg-muted" />
         <div className="mt-4 space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-10 animate-pulse rounded bg-gray-100" />
+            <div key={i} className="h-10 animate-pulse rounded bg-muted" />
           ))}
         </div>
       </div>
@@ -441,7 +441,7 @@ function FolioSection({
       {/* Folio Header */}
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
-          <FileText className="h-5 w-5 text-gray-400" aria-hidden="true" />
+          <FileText className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           <h2 className="text-lg font-semibold text-foreground">Folio</h2>
           <Badge variant={folio.status === 'OPEN' ? 'success' : 'neutral'}>
             {folio.status}
@@ -451,7 +451,7 @@ function FolioSection({
           <button
             type="button"
             onClick={() => setShowPostCharge(true)}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             Post Charge
@@ -656,23 +656,23 @@ export default function ReservationDetailContent() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <div className="h-5 w-5 animate-pulse rounded bg-gray-200" />
-          <div className="h-6 w-48 animate-pulse rounded bg-gray-200" />
+          <div className="h-5 w-5 animate-pulse rounded bg-muted" />
+          <div className="h-6 w-48 animate-pulse rounded bg-muted" />
         </div>
         <div className="space-y-4 rounded-lg border border-border bg-surface p-6">
-          <div className="h-4 w-64 animate-pulse rounded bg-gray-200" />
-          <div className="h-4 w-48 animate-pulse rounded bg-gray-200" />
-          <div className="h-4 w-32 animate-pulse rounded bg-gray-200" />
+          <div className="h-4 w-64 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-48 animate-pulse rounded bg-muted" />
+          <div className="h-4 w-32 animate-pulse rounded bg-muted" />
         </div>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-3 rounded-lg border border-border bg-surface p-6 lg:col-span-2">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-5 animate-pulse rounded bg-gray-100" />
+              <div key={i} className="h-5 animate-pulse rounded bg-muted" />
             ))}
           </div>
           <div className="space-y-3 rounded-lg border border-border bg-surface p-6">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-5 animate-pulse rounded bg-gray-100" />
+              <div key={i} className="h-5 animate-pulse rounded bg-muted" />
             ))}
           </div>
         </div>
@@ -693,7 +693,7 @@ export default function ReservationDetailContent() {
           Back to Reservations
         </button>
         <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-surface py-16">
-          <XCircle className="h-12 w-12 text-gray-300" aria-hidden="true" />
+          <XCircle className="h-12 w-12 text-muted-foreground" aria-hidden="true" />
           <h3 className="mt-4 text-sm font-semibold text-foreground">
             Reservation not found
           </h3>
@@ -703,7 +703,7 @@ export default function ReservationDetailContent() {
           <button
             type="button"
             onClick={() => router.push('/pms/reservations')}
-            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
           >
             Go to Reservations
           </button>
@@ -762,7 +762,7 @@ export default function ReservationDetailContent() {
                   type="button"
                   onClick={handleCheckIn}
                   disabled={isCheckingIn}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
                 >
                   <LogIn className="h-4 w-4" aria-hidden="true" />
                   {isCheckingIn ? 'Checking In...' : 'Check In'}
@@ -783,7 +783,7 @@ export default function ReservationDetailContent() {
                   type="button"
                   onClick={handleCheckIn}
                   disabled={isCheckingIn}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
                 >
                   <LogIn className="h-4 w-4" aria-hidden="true" />
                   Confirm
@@ -804,7 +804,7 @@ export default function ReservationDetailContent() {
                   type="button"
                   onClick={handleCheckOut}
                   disabled={isCheckingOut}
-                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
                 >
                   <LogOut className="h-4 w-4" aria-hidden="true" />
                   {isCheckingOut ? 'Checking Out...' : 'Check Out'}
@@ -872,12 +872,12 @@ export default function ReservationDetailContent() {
             <h2 className="text-lg font-semibold text-foreground">Guest Info</h2>
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-3">
-                <User className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 <span className="text-sm text-foreground">{guest}</span>
               </div>
               {reservation.guestEmail && (
                 <div className="flex items-center gap-3">
-                  <Mail className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <span className="text-sm text-foreground">
                     {reservation.guestEmail}
                   </span>
@@ -885,7 +885,7 @@ export default function ReservationDetailContent() {
               )}
               {reservation.primaryGuestJson && (
                 <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-gray-400" aria-hidden="true" />
+                  <Phone className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <span className="text-sm text-muted-foreground">—</span>
                 </div>
               )}
@@ -895,7 +895,7 @@ export default function ReservationDetailContent() {
           {/* Notes */}
           <div className="rounded-lg border border-border bg-surface p-6">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-              <StickyNote className="h-4 w-4 text-gray-400" aria-hidden="true" />
+              <StickyNote className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               Notes
             </h2>
             {reservation.internalNotes ? (

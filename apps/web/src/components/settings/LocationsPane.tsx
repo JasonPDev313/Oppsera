@@ -78,7 +78,7 @@ export function LocationsPane({
                     setExpandedSites((prev) => new Set([...prev, site.id]));
                   }
                 }}
-                className={`flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-muted0/10 ${
+                className={`flex cursor-pointer items-center gap-2 px-4 py-2.5 text-sm transition-colors hover:bg-accent ${
                   isSiteSelected ? 'bg-indigo-500/10' : ''
                 }`}
               >
@@ -89,7 +89,7 @@ export function LocationsPane({
                       e.stopPropagation();
                       toggleExpand(site.id);
                     }}
-                    className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-muted-foreground"
+                    className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
                   >
                     {isExpanded ? (
                       <ChevronDown className="h-3.5 w-3.5" />
@@ -109,7 +109,7 @@ export function LocationsPane({
                   <div
                     key={venue.id}
                     onClick={() => onSelectVenue(venue.id)}
-                    className={`flex cursor-pointer items-center gap-2 py-2.5 pl-12 pr-4 text-sm transition-colors hover:bg-muted0/10 ${
+                    className={`flex cursor-pointer items-center gap-2 py-2.5 pl-12 pr-4 text-sm transition-colors hover:bg-accent ${
                       selectedVenueId === venue.id ? 'bg-indigo-500/10' : ''
                     }`}
                   >

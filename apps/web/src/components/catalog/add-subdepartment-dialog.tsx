@@ -105,17 +105,17 @@ export function AddSubDepartmentDialog({
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
 
-      <div className="relative mx-4 w-full max-w-md rounded-xl border border-gray-200 bg-surface shadow-2xl">
+      <div className="relative mx-4 w-full max-w-md rounded-xl border border-border bg-surface shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Add Sub-Department</h2>
-            <p className="text-xs text-gray-500">Under {departmentName}</p>
+            <h2 className="text-lg font-semibold text-foreground">Add Sub-Department</h2>
+            <p className="text-xs text-muted-foreground">Under {departmentName}</p>
           </div>
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-200/50 hover:text-gray-600"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -133,7 +133,7 @@ export function AddSubDepartmentDialog({
                 if (e.key === 'Escape') handleClose();
               }}
               placeholder="e.g. Beverages, Golf Equipment..."
-              className="w-full rounded-lg border border-gray-300 bg-surface px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
               autoFocus
             />
           </FormField>
@@ -155,12 +155,12 @@ export function AddSubDepartmentDialog({
                       className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
                         idx === 0
                           ? 'border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10'
-                          : 'border-gray-200 hover:bg-gray-500/5'
+                          : 'border-border hover:bg-gray-500/5'
                       }`}
                     >
                       {idx === 0 && <Sparkles className="h-3.5 w-3.5 shrink-0 text-indigo-500" />}
-                      <span className="font-mono text-xs text-gray-500">{acc.accountNumber}</span>
-                      <span className={idx === 0 ? 'font-medium text-gray-900' : 'text-gray-700'}>
+                      <span className="font-mono text-xs text-muted-foreground">{acc.accountNumber}</span>
+                      <span className={idx === 0 ? 'font-medium text-foreground' : 'text-foreground'}>
                         {acc.name}
                       </span>
                       {idx === 0 && (
@@ -168,7 +168,7 @@ export function AddSubDepartmentDialog({
                           Recommended
                         </span>
                       )}
-                      {idx !== 0 && <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-gray-400" />}
+                      {idx !== 0 && <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                     </button>
                   ))}
                 </div>
@@ -188,8 +188,8 @@ export function AddSubDepartmentDialog({
 
           {/* Info nudge when accounting is not enabled */}
           {!accountingEnabled && (
-            <div className="rounded-lg border border-gray-200 bg-gray-500/5 px-4 py-3">
-              <p className="text-xs text-gray-500">
+            <div className="rounded-lg border border-border bg-gray-500/5 px-4 py-3">
+              <p className="text-xs text-muted-foreground">
                 Set up Accounting to map sub-departments to GL revenue accounts.
               </p>
             </div>
@@ -197,11 +197,11 @@ export function AddSubDepartmentDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200/50"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent/50"
           >
             Cancel
           </button>
@@ -209,7 +209,7 @@ export function AddSubDepartmentDialog({
             type="button"
             onClick={handleSubmit}
             disabled={isSubmitting || !name.trim()}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSubmitting ? 'Creating...' : 'Create Sub-Department'}
           </button>

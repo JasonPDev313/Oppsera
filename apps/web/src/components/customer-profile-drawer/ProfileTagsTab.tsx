@@ -114,7 +114,7 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
     );
   }
 
-  const { tags, segments } = data;
+  const { tags = [], segments = [] } = data;
 
   return (
     <div className="space-y-6 p-6">
@@ -140,7 +140,7 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
             type="button"
             onClick={handleAddTag}
             disabled={!newTag.trim() || isAdding}
-            className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50"
+            className="flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50"
           >
             <Plus className="h-3.5 w-3.5" />
             {isAdding ? 'Adding...' : 'Add'}
@@ -165,7 +165,7 @@ export function ProfileTagsTab({ customerId }: ProfileTagsTabProps) {
                 <button
                   type="button"
                   onClick={() => handleRemoveTag(tag)}
-                  className="ml-0.5 rounded-full p-0.5 text-indigo-400 transition-colors hover:bg-indigo-500/100/20 hover:text-indigo-500"
+                  className="ml-0.5 rounded-full p-0.5 text-indigo-400 transition-colors hover:bg-indigo-500/20 hover:text-indigo-500"
                 >
                   <X className="h-3 w-3" />
                 </button>

@@ -372,7 +372,7 @@ export default function CalendarGrid({
               {dates.map((date) => {
                 const occ = occupancyByDate[date];
                 const pct = occ ? (totalRooms > 0 ? Math.round((occ.occupied / totalRooms) * 100) : 0) : 0;
-                const color = pct >= 90 ? 'text-red-600 font-semibold' : pct >= 70 ? 'text-amber-600 font-medium' : 'text-muted-foreground';
+                const color = pct >= 90 ? 'text-red-500 font-semibold' : pct >= 70 ? 'text-amber-500 font-medium' : 'text-muted-foreground';
                 return (
                   <td key={date} className={`px-1 py-1.5 text-center ${textSize} ${color} ${date === todayStr ? 'bg-indigo-500/5' : ''}`}>
                     {pct}%
@@ -623,7 +623,7 @@ function DateCell({
       colSpan={bar ? bar.span : 1}
       className={`${colWidth} border-b border-border px-0.5 py-0.5 ${
         date === todayStr ? 'bg-indigo-500/5' : ''
-      } ${isOver ? 'bg-green-500/10' : ''} ${isEmpty ? 'group/empty cursor-pointer hover:bg-muted/80' : ''}`}
+      } ${isOver ? 'bg-green-500/10' : ''} ${isEmpty ? 'group/empty cursor-pointer hover:bg-accent/80' : ''}`}
       onClick={isEmpty ? () => onEmptyCellClick?.(roomId, date, roomTypeId) : undefined}
       onContextMenu={isEmpty ? (e) => { e.preventDefault(); onEmptyCellContextMenu?.(e, roomId, date, roomTypeId); } : undefined}
     >

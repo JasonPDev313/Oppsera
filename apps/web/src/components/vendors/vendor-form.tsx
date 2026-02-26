@@ -79,7 +79,7 @@ export function VendorForm({ vendor, onSubmit, onCancel, isSubmitting = false }:
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Basic Info */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">Basic Information</h3>
+        <h3 className="text-sm font-semibold text-foreground">Basic Information</h3>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Vendor Name" required error={errors.name}>
             <input
@@ -131,7 +131,7 @@ export function VendorForm({ vendor, onSubmit, onCancel, isSubmitting = false }:
 
       {/* Contact */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">Contact</h3>
+        <h3 className="text-sm font-semibold text-foreground">Contact</h3>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Contact Name">
             <input
@@ -165,7 +165,7 @@ export function VendorForm({ vendor, onSubmit, onCancel, isSubmitting = false }:
 
       {/* Address */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-900">Address</h3>
+        <h3 className="text-sm font-semibold text-foreground">Address</h3>
         <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Field label="Address Line 1">
@@ -241,18 +241,18 @@ export function VendorForm({ vendor, onSubmit, onCancel, isSubmitting = false }:
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-end gap-3 border-t border-gray-200 pt-4">
+      <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
         >
           {isSubmitting ? 'Saving...' : vendor ? 'Update Vendor' : 'Create Vendor'}
         </button>
@@ -274,18 +274,18 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm font-medium text-gray-700">
+      <span className="text-sm font-medium text-foreground">
         {label}
         {required && <span className="text-red-500"> *</span>}
       </span>
       <div className="mt-1">{children}</div>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </label>
   );
 }
 
 function inputClass(error?: string) {
   return `w-full rounded-lg border ${
-    error ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500'
-  } px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:outline-none`;
+    error ? 'border-red-500/30 focus:border-red-500 focus:ring-red-500' : 'border-border focus:border-indigo-500 focus:ring-indigo-500'
+  } px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:ring-2 focus:outline-none`;
 }

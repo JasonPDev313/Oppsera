@@ -69,8 +69,8 @@ function ReturnLineSelector({
             key={line.originalLineId}
             className={`rounded-lg border p-4 transition-colors ${
               isSelected
-                ? 'border-indigo-300 bg-indigo-50/50'
-                : 'border-gray-200 bg-surface'
+                ? 'border-indigo-500/30 bg-indigo-500/10'
+                : 'border-border bg-surface'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -81,7 +81,7 @@ function ReturnLineSelector({
                 className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
                   isSelected
                     ? 'border-indigo-600 bg-indigo-600 text-white'
-                    : 'border-gray-300 bg-surface'
+                    : 'border-border bg-surface'
                 }`}
               >
                 {isSelected && (
@@ -94,10 +94,10 @@ function ReturnLineSelector({
               {/* Item info */}
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-foreground">
                     {line.catalogItemName}
                   </span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-muted-foreground">
                     {formatMoney(line.unitPrice)} each
                   </span>
                 </div>
@@ -106,12 +106,12 @@ function ReturnLineSelector({
                   <div className="mt-3 space-y-2">
                     {/* Qty spinner */}
                     <div className="flex items-center gap-3">
-                      <label className="text-xs text-gray-500">Qty to return:</label>
+                      <label className="text-xs text-muted-foreground">Qty to return:</label>
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => handleQtyChange(i, Math.max(1, line.returnQty - 1))}
-                          className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 text-sm hover:bg-gray-100"
+                          className="flex h-7 w-7 items-center justify-center rounded border border-border text-sm hover:bg-accent"
                         >
                           -
                         </button>
@@ -121,11 +121,11 @@ function ReturnLineSelector({
                         <button
                           type="button"
                           onClick={() => handleQtyChange(i, Math.min(line.maxQty, line.returnQty + 1))}
-                          className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 text-sm hover:bg-gray-100"
+                          className="flex h-7 w-7 items-center justify-center rounded border border-border text-sm hover:bg-accent"
                         >
                           +
                         </button>
-                        <span className="ml-1 text-xs text-gray-400">
+                        <span className="ml-1 text-xs text-muted-foreground">
                           of {line.maxQty}
                         </span>
                       </div>
@@ -133,11 +133,11 @@ function ReturnLineSelector({
 
                     {/* Reason */}
                     <div>
-                      <label className="text-xs text-gray-500">Reason:</label>
+                      <label className="text-xs text-muted-foreground">Reason:</label>
                       <select
                         value={line.reason}
                         onChange={(e) => handleReasonChange(i, e.target.value)}
-                        className="mt-1 block w-full rounded-md border border-gray-300 bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="mt-1 block w-full rounded-md border border-border bg-surface px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       >
                         <option value="">Select reason...</option>
                         <option value="Defective/damaged">Defective/damaged</option>
@@ -151,8 +151,8 @@ function ReturnLineSelector({
 
                     {/* Refund preview */}
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">Line refund:</span>
-                      <span className="font-medium text-red-600">
+                      <span className="text-muted-foreground">Line refund:</span>
+                      <span className="font-medium text-red-500">
                         -{formatMoney(refundAmount)}
                       </span>
                     </div>
@@ -252,10 +252,10 @@ export default function ReturnContent() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="h-5 w-48 animate-pulse rounded bg-gray-200" />
-        <div className="space-y-4 rounded-lg border border-gray-200 bg-surface p-6">
+        <div className="h-5 w-48 animate-pulse rounded bg-muted" />
+        <div className="space-y-4 rounded-lg border border-border bg-surface p-6">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded bg-gray-200" />
+            <div key={i} className="h-20 animate-pulse rounded bg-muted" />
           ))}
         </div>
       </div>
@@ -269,12 +269,12 @@ export default function ReturnContent() {
         <button
           type="button"
           onClick={() => router.push('/orders')}
-          className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Sales History
         </button>
-        <div className="py-16 text-center text-sm text-gray-500">
+        <div className="py-16 text-center text-sm text-muted-foreground">
           Order not found.
         </div>
       </div>
@@ -287,12 +287,12 @@ export default function ReturnContent() {
         <button
           type="button"
           onClick={() => router.push(`/orders/${orderId}`)}
-          className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Order
         </button>
-        <div className="py-16 text-center text-sm text-gray-500">
+        <div className="py-16 text-center text-sm text-muted-foreground">
           Returns can only be processed for paid orders.
         </div>
       </div>
@@ -305,21 +305,21 @@ export default function ReturnContent() {
       <button
         type="button"
         onClick={() => router.push(`/orders/${orderId}`)}
-        className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+        className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to Order {order.orderNumber}
       </button>
 
       {/* Header */}
-      <div className="rounded-lg border border-gray-200 bg-surface p-6">
+      <div className="rounded-lg border border-border bg-surface p-6">
         <div className="flex items-center gap-3">
           <RotateCcw className="h-5 w-5 text-indigo-600" />
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">
+            <h1 className="text-xl font-semibold text-foreground">
               Process Return
             </h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-muted-foreground">
               Order {order.orderNumber} &middot; Original total: {formatMoney(order.total)}
             </p>
           </div>
@@ -327,9 +327,9 @@ export default function ReturnContent() {
       </div>
 
       {/* Line selector */}
-      <div className="rounded-lg border border-gray-200 bg-surface">
-        <div className="border-b border-gray-200 px-4 py-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
+      <div className="rounded-lg border border-border bg-surface">
+        <div className="border-b border-border px-4 py-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Select Items to Return
           </h2>
         </div>
@@ -343,20 +343,20 @@ export default function ReturnContent() {
 
       {/* Refund summary */}
       {selectedLines.length > 0 && (
-        <div className="rounded-lg border border-gray-200 bg-surface p-4">
+        <div className="rounded-lg border border-border bg-surface p-4">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-muted-foreground">
                 {selectedLines.length} item{selectedLines.length !== 1 ? 's' : ''} selected
               </span>
-              <span className="mx-2 text-gray-300">|</span>
-              <span className="text-sm text-gray-600">
+              <span className="mx-2 text-muted-foreground">|</span>
+              <span className="text-sm text-muted-foreground">
                 {selectedLines.reduce((sum, l) => sum + l.returnQty, 0)} units
               </span>
             </div>
             <div className="text-right">
-              <span className="text-sm text-gray-500">Total refund: </span>
-              <span className="text-lg font-semibold text-red-600">
+              <span className="text-sm text-muted-foreground">Total refund: </span>
+              <span className="text-lg font-semibold text-red-500">
                 -{formatMoney(totalRefund)}
               </span>
             </div>
@@ -366,7 +366,7 @@ export default function ReturnContent() {
 
       {/* Validation messages */}
       {selectedLines.length > 0 && !allHaveReasons && (
-        <p className="text-sm text-amber-600">
+        <p className="text-sm text-amber-500">
           Please select a return reason for all selected items.
         </p>
       )}
@@ -377,7 +377,7 @@ export default function ReturnContent() {
           type="button"
           onClick={() => setShowPinModal(true)}
           disabled={!canSubmit}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ShieldCheck className="h-4 w-4" />
           {isSubmitting ? 'Processing...' : 'Process Return'}
@@ -385,7 +385,7 @@ export default function ReturnContent() {
         <button
           type="button"
           onClick={() => router.push(`/orders/${orderId}`)}
-          className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
         >
           Cancel
         </button>

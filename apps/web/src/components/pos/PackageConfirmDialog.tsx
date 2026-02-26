@@ -131,13 +131,13 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
                       <td className="py-1.5 pr-2">
                         <div className="flex items-center gap-1.5">
                           <Badge variant={badge.variant} className="text-xs">{badge.label}</Badge>
-                          <span className="text-gray-900">{comp.itemName}</span>
+                          <span className="text-foreground">{comp.itemName}</span>
                         </div>
                       </td>
                       <td className="py-1.5 text-right text-muted-foreground">{formatDollars(unitPrice)}</td>
-                      <td className="py-1.5 text-right text-gray-600">{comp.qty}</td>
+                      <td className="py-1.5 text-right text-muted-foreground">{comp.qty}</td>
                       <td className="py-1.5 text-right">
-                        <span className="font-medium text-gray-900">{formatDollars(extended)}</span>
+                        <span className="font-medium text-foreground">{formatDollars(extended)}</span>
                         <span className="ml-1 text-xs text-muted-foreground">({allocPct}%)</span>
                       </td>
                     </tr>
@@ -203,7 +203,7 @@ export function PackageConfirmDialog({ open, onClose, item, onAdd }: PackageConf
           <button
             type="button"
             onClick={handleAdd}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Add to Order
           </button>

@@ -33,8 +33,8 @@ export async function portalFetch<T = any>(
     }
 
     return res.json();
-  } catch (err: any) {
-    if (err.name === 'AbortError') {
+  } catch (err: unknown) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error('Request timed out. Please try again.');
     }
     throw err;

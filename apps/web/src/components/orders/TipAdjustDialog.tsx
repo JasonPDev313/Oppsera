@@ -110,7 +110,7 @@ export function TipAdjustDialog({ open, onClose, orderId, orderNumber, locationI
       <div className="relative w-full max-w-md rounded-2xl bg-surface shadow-xl">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-blue-600" />
+            <DollarSign className="h-5 w-5 text-blue-500" />
             <h2 className="text-lg font-semibold text-foreground">Adjust Tip — Order #{orderNumber}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
@@ -156,7 +156,7 @@ export function TipAdjustDialog({ open, onClose, orderId, orderNumber, locationI
                   </div>
                   <div className="flex justify-between text-sm mt-1">
                     <span className="text-muted-foreground">Current Tip</span>
-                    <span className="font-medium text-blue-600">{formatMoney(selectedTender.tipAmount)}</span>
+                    <span className="font-medium text-blue-500">{formatMoney(selectedTender.tipAmount)}</span>
                   </div>
                 </div>
               )}
@@ -192,7 +192,7 @@ export function TipAdjustDialog({ open, onClose, orderId, orderNumber, locationI
                         setTipAmount(((selectedTender.amount * pct) / 10000).toFixed(2));
                       }
                     }}
-                    className="rounded-lg border border-border bg-surface px-2 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    className="rounded-lg border border-border bg-surface px-2 py-2 text-sm font-medium text-foreground hover:bg-accent"
                   >
                     {pct}%
                   </button>
@@ -203,7 +203,7 @@ export function TipAdjustDialog({ open, onClose, orderId, orderNumber, locationI
         </div>
 
         <div className="flex gap-3 border-t border-border px-6 py-4">
-          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted">
+          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent">
             Cancel
           </button>
           <button

@@ -170,8 +170,8 @@ function AddCardForm({
         isDefault,
       });
       onSuccess();
-    } catch (err: any) {
-      setError(err.message ?? 'Failed to save card');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to save card');
     }
   }
 
@@ -295,8 +295,8 @@ function VerifyForm({ account, onVerified }: { account: PortalBankAccount; onVer
       } else {
         setError(`Incorrect amounts. ${result.remainingAttempts} attempt(s) remaining.`);
       }
-    } catch (err: any) {
-      setError(err.message ?? 'Verification failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Verification failed');
     }
   }
 
