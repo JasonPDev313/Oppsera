@@ -107,23 +107,36 @@ function getActiveRoleId(): string | null {
 // ── Global error circuit breaker ──────────────────────────────────
 // Prevents retry storms: if many requests fail in a short window,
 // short-circuit subsequent requests instead of hammering the backend.
-let _recentFailures = 0;
+//
+// Uses a sliding window of failure timestamps instead of a counter.
+// A single dashboard page load fires 5-10+ concurrent API calls —
+// if a transient backend hiccup occurs, ALL of them fail at once.
+// The threshold must be high enough that one page-load burst can't
+// trip it (needs sustained failures across multiple load attempts).
+const _failureTimestamps: number[] = [];
 let _circuitOpenUntil = 0;
-const CIRCUIT_THRESHOLD = 5;    // failures within window to trip
-const CIRCUIT_COOLDOWN = 10_000; // 10s cooldown when tripped
+const CIRCUIT_WINDOW = 15_000;   // 15s sliding window
+const CIRCUIT_THRESHOLD = 15;    // failures within window to trip (was 5)
+const CIRCUIT_COOLDOWN = 5_000;  // 5s cooldown when tripped (was 10s)
+
+function pruneOldFailures() {
+  const cutoff = Date.now() - CIRCUIT_WINDOW;
+  while (_failureTimestamps.length > 0 && _failureTimestamps[0]! < cutoff) {
+    _failureTimestamps.shift();
+  }
+}
 
 function recordFailure() {
-  _recentFailures++;
-  if (_recentFailures >= CIRCUIT_THRESHOLD) {
+  _failureTimestamps.push(Date.now());
+  pruneOldFailures();
+  if (_failureTimestamps.length >= CIRCUIT_THRESHOLD) {
     _circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN;
-    _recentFailures = 0;
+    _failureTimestamps.length = 0;
   }
-  // Decay failures after 30s so occasional errors don't accumulate
-  setTimeout(() => { _recentFailures = Math.max(0, _recentFailures - 1); }, 30_000);
 }
 
 function resetCircuit() {
-  _recentFailures = 0;
+  _failureTimestamps.length = 0;
   _circuitOpenUntil = 0;
 }
 

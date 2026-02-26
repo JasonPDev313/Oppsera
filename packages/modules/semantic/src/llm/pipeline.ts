@@ -21,6 +21,21 @@ import { scoreDataQuality } from '../intelligence/data-quality-scorer';
 
 export { getLLMAdapter, setLLMAdapter };
 
+// ── Time budget helpers ────────────────────────────────────────────
+// The Vercel function has a 60s hard limit (maxDuration = 60). We track
+// elapsed time at key decision points and skip expensive operations
+// when running low, to prevent 504 timeouts.
+
+const PIPELINE_BUDGET_MS = 50_000; // 50s — leaves 10s for response serialization + network
+
+function remainingMs(startMs: number): number {
+  return PIPELINE_BUDGET_MS - (Date.now() - startMs);
+}
+
+function shouldSkipExpensiveOp(startMs: number, minRequiredMs: number): boolean {
+  return remainingMs(startMs) < minRequiredMs;
+}
+
 // ── Pipeline ──────────────────────────────────────────────────────
 // Orchestrates: intent resolution → compilation/sql-gen → execution → narrative
 // Two modes:
@@ -151,12 +166,14 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
 
   // ── 5. Fallback: if metrics mode returned 0 rows and schema catalog is available,
   //       retry via SQL mode to query operational tables directly ──────────
+  //       BUT only if we have enough time budget remaining (SQL mode needs ~20s)
   if (
     metricsResult.data?.rowCount === 0 &&
     schemaCatalog &&
-    !metricsResult.isClarification
+    !metricsResult.isClarification &&
+    !shouldSkipExpensiveOp(startMs, 20_000) // need at least 20s for SQL gen + execute + narrative
   ) {
-    console.log('[semantic] Metrics mode returned 0 rows — falling back to SQL mode for operational tables');
+    console.log(`[semantic] Metrics mode returned 0 rows — falling back to SQL mode (${remainingMs(startMs)}ms remaining)`);
     try {
       const sqlResult = await runSqlMode(input, intent, schemaCatalog, lensPromptFragment, startMs);
       // Only use SQL result if it actually found data
@@ -168,13 +185,51 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
     } catch (err) {
       console.warn('[semantic] SQL fallback failed (non-blocking):', err instanceof Error ? err.message : err);
     }
+  } else if (
+    metricsResult.data?.rowCount === 0 &&
+    schemaCatalog &&
+    !metricsResult.isClarification
+  ) {
+    console.log(`[semantic] Skipping SQL fallback — only ${remainingMs(startMs)}ms remaining (need 20s)`);
   }
 
-  // If we skipped narrative for the fallback optimization but metrics had data (no fallback needed),
-  // or fallback also returned 0 rows, generate the narrative now
+  // If we skipped narrative for the fallback optimization, generate it now.
+  // IMPORTANT: Don't re-run the full compile+execute — just generate the narrative
+  // for the already-computed metrics result.
   if (schemaCatalog && !metricsResult.narrative) {
-    console.log('[semantic] Generating narrative for metrics result (was deferred for fallback check)');
-    return runMetricsMode(input, intent, lensPromptFragment, startMs);
+    console.log(`[semantic] Generating deferred narrative for metrics result (${remainingMs(startMs)}ms remaining)`);
+    const useFast = shouldSkipExpensiveOp(startMs, 20_000);
+    try {
+      const narrativeResult = await generateNarrative(
+        metricsResult.data,
+        intent,
+        message,
+        context,
+        {
+          lensSlug: context.lensSlug,
+          lensPromptFragment,
+          fast: useFast,
+          timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000),
+        },
+      );
+      return {
+        ...metricsResult,
+        narrative: narrativeResult.text,
+        sections: narrativeResult.sections,
+        tokensInput: metricsResult.tokensInput + narrativeResult.tokensInput,
+        tokensOutput: metricsResult.tokensOutput + narrativeResult.tokensOutput,
+      };
+    } catch (narrativeErr) {
+      console.warn('[semantic] Deferred narrative failed, using fallback:', narrativeErr instanceof Error ? narrativeErr.message : narrativeErr);
+      const fallback = metricsResult.data && metricsResult.data.rowCount > 0
+        ? buildDataFallbackNarrative(message, metricsResult.data)
+        : buildEmptyResultNarrative(message, context);
+      return {
+        ...metricsResult,
+        narrative: fallback.text,
+        sections: fallback.sections,
+      };
+    }
   }
 
   return metricsResult;
@@ -214,7 +269,7 @@ async function runMetricsMode(
     const errMsg = String(err);
     compilationErrors = [errMsg];
 
-    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment, startMs);
 
     evalTurnId = generateUlid();
     void captureEvalTurnBestEffort({
@@ -268,7 +323,7 @@ async function runMetricsMode(
     } catch (err) {
       const executionError = String(err);
 
-      const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+      const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment, startMs);
 
       evalTurnId = generateUlid();
       void captureEvalTurnBestEffort({
@@ -320,12 +375,17 @@ async function runMetricsMode(
       narrativeSections = JSON.parse(cachedNarrative.model) as PipelineOutput['sections'];
       console.log('[semantic] Narrative served from LLM cache');
     } else {
+      // Use fast model when time budget is tight
+      const useFast = shouldSkipExpensiveOp(startMs, 20_000);
+      if (useFast) console.log(`[semantic] Using fast narrative model (${remainingMs(startMs)}ms remaining)`);
       try {
         const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
           lensSlug: context.lensSlug,
           lensPromptFragment,
           metricDefs: compiled.metaDefs,
           dimensionDefs: compiled.dimensionDefs,
+          fast: useFast,
+          timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000), // leave 2s for response
         });
         narrativeText = narrativeResult.text;
         narrativeSections = narrativeResult.sections;
@@ -449,7 +509,7 @@ async function runSqlMode(
     const errMsg = `SQL generation failed: ${String(err)}`;
     console.error(`[semantic] ${errMsg}`);
 
-    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment, startMs);
 
     evalTurnId = generateUlid();
     void captureEvalTurnBestEffort({
@@ -490,7 +550,7 @@ async function runSqlMode(
     console.warn(`[semantic] ${errMsg}`);
     console.warn(`[semantic] Rejected SQL: ${sqlResult.sql.slice(0, 500)}`);
 
-    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+    const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment, startMs);
 
     evalTurnId = generateUlid();
     void captureEvalTurnBestEffort({
@@ -550,9 +610,12 @@ async function runSqlMode(
 
       // ── SQL Auto-Correction Retry ──────────────────────────────
       // Send the failed SQL + error back to the LLM for one correction attempt
+      // Skip retry if time budget is too tight (need ~15s for retry + narrative)
       let retrySucceeded = false;
-      try {
-        console.log('[semantic] Attempting SQL auto-correction retry...');
+      if (shouldSkipExpensiveOp(startMs, 15_000)) {
+        console.log(`[semantic] Skipping SQL retry — only ${remainingMs(startMs)}ms remaining`);
+      } else try {
+        console.log(`[semantic] Attempting SQL auto-correction retry (${remainingMs(startMs)}ms remaining)...`);
         const retryResult = await retrySqlGeneration({
           originalQuestion: message,
           failedSql: validatedSql,
@@ -588,7 +651,7 @@ async function runSqlMode(
       }
 
       if (!retrySucceeded) {
-        const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment);
+        const advisor = await safeAdvisorNarrative(skipNarrative, intent, message, context, lensPromptFragment, startMs);
 
         evalTurnId = generateUlid();
         void captureEvalTurnBestEffort({
@@ -645,9 +708,13 @@ async function runSqlMode(
       console.log('[semantic] Narrative served from LLM cache');
     } else {
       try {
+        const useFast = shouldSkipExpensiveOp(startMs, 20_000);
+        if (useFast) console.log(`[semantic] Using fast narrative model for SQL mode (${remainingMs(startMs)}ms remaining)`);
         const narrativeResult = await generateNarrative(queryResult, intent, message, context, {
           lensSlug: context.lensSlug,
           lensPromptFragment,
+          fast: useFast,
+          timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000),
         });
         narrativeText = narrativeResult.text;
         narrativeSections = narrativeResult.sections;
@@ -765,6 +832,7 @@ async function safeAdvisorNarrative(
   message: string,
   context: PipelineInput['context'],
   lensPromptFragment: string | null,
+  startMs?: number,
 ): Promise<{
   text: string | null;
   sections: PipelineOutput['sections'];
@@ -776,10 +844,15 @@ async function safeAdvisorNarrative(
     return { text: null, sections: [], sectionTypes: [], tokensIn: 0, tokensOut: 0 };
   }
 
+  const useFast = startMs != null && shouldSkipExpensiveOp(startMs, 20_000);
+  if (useFast) console.log(`[semantic] Using fast advisor narrative (${remainingMs(startMs!)}ms remaining)`);
+
   try {
     const result = await generateNarrative(null, intent, message, context, {
       lensSlug: context.lensSlug,
       lensPromptFragment,
+      fast: useFast,
+      ...(startMs != null ? { timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000) } : {}),
     });
     return {
       text: result.text,

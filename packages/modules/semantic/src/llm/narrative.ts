@@ -1,7 +1,7 @@
 import type { LLMAdapter, LLMMessage, IntentContext, NarrativeResponse, NarrativeSection, QueryResult } from './types';
 import type { ResolvedIntent } from './types';
 import type { MetricDef, DimensionDef } from '../registry/types';
-import { getLLMAdapter } from './adapters/anthropic';
+import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
 import { getNarrativeConfig } from '../config/narrative-config';
 
 // ── Industry translation ─────────────────────────────────────────
@@ -356,6 +356,10 @@ export interface GenerateNarrativeOptions {
   lensPromptFragment?: string | null;
   metricDefs?: MetricDef[];
   dimensionDefs?: DimensionDef[];
+  /** When true, use the fast model (Haiku) with reduced tokens for time-constrained responses */
+  fast?: boolean;
+  /** Max time (ms) the LLM call should take. Passed to the adapter as per-call timeout. */
+  timeoutMs?: number;
 }
 
 export async function generateNarrative(
@@ -387,11 +391,14 @@ export async function generateNarrative(
     { role: 'user', content: userContent },
   ];
 
+  const useFastModel = opts.fast === true;
   const startMs = Date.now();
   const response = await llm.complete(messages, {
     systemPrompt,
     temperature: 0.3,
-    maxTokens: 2048,
+    maxTokens: useFastModel ? 1024 : 2048,
+    ...(useFastModel ? { model: SEMANTIC_FAST_MODEL } : {}),
+    ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
   });
   const latencyMs = Date.now() - startMs;
 

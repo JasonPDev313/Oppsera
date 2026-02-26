@@ -33,6 +33,8 @@ export interface LLMCompletionOptions {
   stopSequences?: string[];
   /** Override the adapter's default model for this call (e.g. use Haiku for structured JSON output) */
   model?: string;
+  /** Override the default timeout (ms) for this specific call. Useful when pipeline time budget is tight. */
+  timeoutMs?: number;
 }
 
 // ── Intent resolution types ───────────────────────────────────────

@@ -39,6 +39,7 @@ export class AnthropicAdapter implements LLMAdapter {
       temperature = 0,
       systemPrompt,
       model: modelOverride,
+      timeoutMs,
     } = options;
 
     const effectiveModel = modelOverride ?? this.model;
@@ -70,7 +71,8 @@ export class AnthropicAdapter implements LLMAdapter {
 
     let response: Response;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+    const effectiveTimeout = timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const timeout = setTimeout(() => controller.abort(), effectiveTimeout);
     try {
       response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
@@ -87,7 +89,7 @@ export class AnthropicAdapter implements LLMAdapter {
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         throw new LLMError(
-          `Anthropic API timed out after ${DEFAULT_TIMEOUT_MS}ms`,
+          `Anthropic API timed out after ${effectiveTimeout}ms`,
           'PROVIDER_ERROR',
           true,
         );

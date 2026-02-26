@@ -973,7 +973,7 @@ describe('runPipeline — Mode A to Mode B fallback', () => {
       model: 'mock-model',
       // Call 1: intent resolution → metrics plan
       // Call 2: advisor narrative in runSqlMode catch (generateSql threw)
-      // Call 3: narrative in retry runMetricsMode (deferred narrative regeneration)
+      // Call 3: deferred narrative generation (metrics result with 0 rows)
       complete: mockLLMComplete
         .mockResolvedValueOnce(makeLLMResponse(VALID_PLAN_JSON))
         .mockResolvedValueOnce(makeLLMResponse(ADVISOR_NARRATIVE))
@@ -981,9 +981,8 @@ describe('runPipeline — Mode A to Mode B fallback', () => {
     };
     setLLMAdapter(adapter);
 
-    // Metrics mode returns 0 rows (both first run and retry)
+    // Metrics mode returns 0 rows (only one run — no double-run)
     mockExecuteCompiledQuery
-      .mockResolvedValueOnce({ rows: [], rowCount: 0, executionTimeMs: 5, truncated: false })
       .mockResolvedValueOnce({ rows: [], rowCount: 0, executionTimeMs: 5, truncated: false });
 
     // SQL generation fails
