@@ -15,6 +15,7 @@
       ],
       "env": [
         "DATABASE_URL",
+        "DATABASE_URL_ADMIN",
         "NEXT_PUBLIC_SUPABASE_URL",
         "NEXT_PUBLIC_SUPABASE_ANON_KEY",
         "SUPABASE_SERVICE_ROLE_KEY",
@@ -22,6 +23,8 @@
         "SUPABASE_JWT_JWK",
         "ADMIN_AUTH_SECRET",
         "PORTAL_AUTH_SECRET",
+        "ANTHROPIC_API_KEY",
+        "PAYMENT_ENCRYPTION_KEY",
         "DB_POOL_MAX",
         "DB_PREPARE_STATEMENTS"
       ]

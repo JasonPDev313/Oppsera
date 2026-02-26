@@ -71,20 +71,20 @@ export async function createBackup(input: CreateBackupInput): Promise<CreateBack
 
       // Bypass RLS for this transaction.
       // Try multiple approaches since Supavisor may restrict SET ROLE.
-      let rlsBypassed = false;
+      let _rlsBypassed = false;
       try {
         await tx.execute(sql`SET LOCAL role = 'postgres'`);
-        rlsBypassed = true;
+        _rlsBypassed = true;
       } catch {
         // SET ROLE to postgres failed — try supabase_admin (Supabase-specific)
         try {
           await tx.execute(sql`SET LOCAL role = 'supabase_admin'`);
-          rlsBypassed = true;
+          _rlsBypassed = true;
         } catch {
           // Neither role works. Try disabling RLS directly (requires superuser).
           try {
             await tx.execute(sql`SET LOCAL row_security = 'off'`);
-            rlsBypassed = true;
+            _rlsBypassed = true;
           } catch {
             console.warn(
               '[backup] Could not bypass RLS — backup may have incomplete data. ' +

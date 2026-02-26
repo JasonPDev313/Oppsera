@@ -37,7 +37,7 @@ export async function discoverTables(): Promise<TableInfo[]> {
   }>);
 
   // Step 2: Get sizes separately (may fail on some Supabase roles)
-  let sizeMap = new Map<string, number>();
+  const sizeMap = new Map<string, number>();
   try {
     const sizeResult = await db.execute(sql`
       SELECT

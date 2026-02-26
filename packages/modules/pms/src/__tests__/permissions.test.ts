@@ -148,7 +148,7 @@ describe('PMS_ROLE_PERMISSIONS', () => {
   it('all roles are subsets of General Manager', () => {
     const gm = new Set(PMS_ROLE_PERMISSIONS['PMS General Manager']!);
 
-    for (const [_role, perms] of Object.entries(PMS_ROLE_PERMISSIONS)) {
+    for (const [role, perms] of Object.entries(PMS_ROLE_PERMISSIONS)) {
       if (role === 'PMS General Manager') continue;
       for (const perm of perms) {
         expect(gm.has(perm)).toBe(true);
