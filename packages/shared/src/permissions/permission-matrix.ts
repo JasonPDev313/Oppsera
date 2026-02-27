@@ -143,9 +143,6 @@ export const PERMISSION_MATRIX: PermissionDefinition[] = [
   { key: 'pos_fnb.host.notifications', module: 'pos_fnb', description: 'Send SMS notifications to guests', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: true },
   { key: 'pos_fnb.host.analytics', module: 'pos_fnb', description: 'View host analytics and reports', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
 
-  // ── Golf ───────────────────────────────────────────────────
-  { key: 'golf.analytics.view', module: 'golf', description: 'View golf analytics and reports', defaultRoles: ['owner', 'manager', 'supervisor'], requiresManagerPin: false, requiresAudit: false },
-
   // ── PMS (Property Management) ───────────────────────────────
   { key: 'pms.property.view', module: 'pms', description: 'View property information', defaultRoles: ['owner', 'manager', 'supervisor', 'staff'], requiresManagerPin: false, requiresAudit: false },
   { key: 'pms.property.manage', module: 'pms', description: 'Manage property settings', defaultRoles: ['owner', 'manager'], requiresManagerPin: false, requiresAudit: true },

@@ -374,8 +374,6 @@ async function seed() {
     'inventory',
     'customers',
     'reporting',
-    'golf_ops',
-    'golf_reporting',
     'semantic',
     'room_layouts',
     'pms',

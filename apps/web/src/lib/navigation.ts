@@ -15,7 +15,6 @@ import {
   CalendarDays,
   FileBarChart,
   LayoutGrid,
-  Flag,
   PackageCheck,
   Truck,
   Sparkles,
@@ -149,16 +148,6 @@ export const navigation: NavItem[] = [
       { name: 'Modifiers', href: '/reports/modifiers', icon: Sliders, requiredPermission: 'reports.view' },
       { name: 'Custom Reports', href: '/reports/custom', icon: FileBarChart, requiredPermission: 'reports.custom.view' },
       { name: 'Dashboards', href: '/dashboards', icon: LayoutGrid, requiredPermission: 'reports.custom.view' },
-    ],
-  },
-  {
-    name: 'Golf',
-    href: '/golf/analytics',
-    icon: Flag,
-    moduleKey: 'golf_ops',
-    requiredPermission: 'golf.analytics.view',
-    children: [
-      { name: 'Analytics', href: '/golf/analytics', icon: BarChart3, requiredPermission: 'golf.analytics.view' },
     ],
   },
   {

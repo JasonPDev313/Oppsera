@@ -361,7 +361,7 @@ function BusinessTypeStep({
             <span className="mt-1 text-xs text-muted-foreground">
               {isOtherTypeSelected
                 ? 'Tap to change'
-                : 'Hotels, golf, spa & more'}
+                : 'Hotels, venues, spa & more'}
             </span>
           </button>
         </div>

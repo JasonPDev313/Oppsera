@@ -75,43 +75,6 @@ export const SMB_BUSINESS_TYPES = [
 /** Specialty business types shown when user picks "Other" */
 export const OTHER_BUSINESS_TYPES = [
   {
-    key: 'golf',
-    name: 'Golf Course / Club',
-    icon: 'Flag',
-    description: 'Golf courses, country clubs, driving ranges',
-    recommendedModules: ['catalog', 'orders', 'pos_retail', 'pos_fnb', 'payments', 'inventory', 'customers', 'reporting', 'room_layouts'],
-    starterHierarchy: [
-      {
-        department: 'Pro Shop',
-        subDepartments: [
-          { name: 'Equipment', categories: ['Drivers', 'Irons', 'Putters', 'Wedges', 'Bags'] },
-          { name: 'Apparel', categories: ['Mens', 'Womens', 'Headwear'] },
-          { name: 'Accessories', categories: ['Gloves', 'Balls', 'Tees & Markers', 'Towels'] },
-        ],
-      },
-      {
-        department: 'Food & Beverage',
-        subDepartments: [
-          { name: 'Food', categories: ['Hot Food', 'Cold Food', 'Snacks'] },
-          { name: 'Beverage', categories: ['Non-Alcoholic', 'Beer', 'Wine', 'Spirits'] },
-        ],
-      },
-      {
-        department: 'Green Fees',
-        subDepartments: [
-          { name: 'Rates', categories: ['Weekday', 'Weekend', 'Twilight', 'Junior/Senior'] },
-        ],
-      },
-      {
-        department: 'Rentals & Services',
-        subDepartments: [
-          { name: 'Rentals', categories: ['Cart Rental', 'Club Rental', 'Range'] },
-          { name: 'Services', categories: ['Lessons', 'Fittings', 'Repairs'] },
-        ],
-      },
-    ],
-  },
-  {
     key: 'hotel',
     name: 'Hotel / Resort',
     icon: 'Hotel',

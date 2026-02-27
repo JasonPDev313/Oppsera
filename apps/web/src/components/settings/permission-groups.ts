@@ -66,8 +66,6 @@ export const PERMISSION_GROUPS: PermissionGroupEntry[] = [
       { label: 'Custom Reports', permissions: ['reports.custom.view', 'reports.custom.manage'] },
     ],
   },
-  // ── Golf ──────────────────────────────────────────────────
-  { label: 'Golf', permissions: ['golf.analytics.view'] },
   // ── Accounting ────────────────────────────────────────────
   {
     label: 'Accounting',

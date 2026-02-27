@@ -635,7 +635,6 @@ const MODULES = [
   { key: 'customers', name: 'Customer Management', phase: 'v1', description: 'Profiles, search, visit/spend tracking' },
   { key: 'marketing', name: 'Marketing Automation', phase: 'v2', description: 'Segments, campaigns, triggered journeys' },
   { key: 'kds', name: 'Kitchen Display', phase: 'v2', description: 'Kitchen order tickets, bump screen' },
-  { key: 'golf_ops', name: 'Golf Operations', phase: 'v1', description: 'Tee sheet, starter sheet, pace-of-play' },
   { key: 'pms', name: 'Property Management', phase: 'v1', description: 'Reservations, calendar, front desk, housekeeping, folios, guest profiles' },
   { key: 'room_layouts', name: 'Room Layouts', phase: 'v1', description: 'Floor plan editor, templates, version management' },
   { key: 'reporting', name: 'Reports & Exports', phase: 'v1', description: 'Read models, daily sales, CSV/PDF export' },

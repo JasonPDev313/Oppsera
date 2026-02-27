@@ -415,15 +415,21 @@ describe('getDashboardMetrics', () => {
   });
 
   it('returns aggregated dashboard metrics', async () => {
-    // 1st call: tx.execute() — today's sales (orders > 0, no all-time fallback)
-    mockExecute.mockResolvedValueOnce([
-      { net_sales_cents: 150000, order_count: 15, void_count: 2 },
-    ]);
+    // 1st call: tx.select() — CQRS sales from rmDailySales (orderCount > 0 → no fallback)
+    mockSelectReturns([{
+      netSales: '1500.0000',
+      orderCount: 15,
+      voidCount: 2,
+      pmsRevenue: '0',
+      arRevenue: '0',
+      membershipRevenue: '0',
+      voucherRevenue: '0',
+      totalBusinessRevenue: '0',
+    }]);
     // 2nd call: tx.select() — low stock count (count > 0, no stock fallback)
     mockSelectReturns([{ count: 3 }]);
     // 3rd call: tx.select() — active customers
     mockSelectReturns([{ count: 42 }]);
-    // 4th call: tx.select() — non-POS revenue (default mock returns [], stays 0)
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,
@@ -438,20 +444,30 @@ describe('getDashboardMetrics', () => {
   });
 
   it('returns zeros when no data', async () => {
-    // 1st call: tx.execute() — today's sales (order_count=0 → triggers all-time fallback)
+    // 1st call: tx.select() — CQRS sales from rmDailySales (orderCount=0 → triggers fallback)
+    mockSelectReturns([{
+      netSales: '0',
+      orderCount: 0,
+      voidCount: 0,
+      pmsRevenue: '0',
+      arRevenue: '0',
+      membershipRevenue: '0',
+      voucherRevenue: '0',
+      totalBusinessRevenue: '0',
+    }]);
+    // 2nd call: tx.execute() — today's orders fallback (order_count=0 → triggers all-time fallback)
     mockExecute.mockResolvedValueOnce([
       { net_sales_cents: 0, order_count: 0, void_count: 0 },
     ]);
-    // 2nd call: tx.execute() — all-time fallback (also order_count=0)
+    // 3rd call: tx.execute() — all-time fallback (also order_count=0)
     mockExecute.mockResolvedValueOnce([
       { net_sales_cents: 0, order_count: 0, void_count: 0 },
     ]);
-    // 3rd call: tx.select() — stock count (count=0 → triggers stock fallback)
+    // 4th call: tx.select() — stock count (count=0 → triggers stock fallback)
     mockSelectReturns([{ count: 0 }]);
-    // 4th call: tx.execute() — stock fallback (default mock returns [] → stays 0)
-    // 5th call: tx.select() — active customers
+    // 5th call: tx.execute() — stock fallback (default mock returns [] → stays 0)
+    // 6th call: tx.select() — active customers
     mockSelectReturns([{ count: 0 }]);
-    // 6th call: tx.select() — non-POS revenue (default mock returns [], stays 0)
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,
@@ -466,15 +482,21 @@ describe('getDashboardMetrics', () => {
   });
 
   it('defaults date to today when not provided', async () => {
-    // 1st call: tx.execute() — today's sales (orders > 0, no all-time fallback)
-    mockExecute.mockResolvedValueOnce([
-      { net_sales_cents: 10000, order_count: 2, void_count: 0 },
-    ]);
+    // 1st call: tx.select() — CQRS sales from rmDailySales (orderCount > 0 → no fallback)
+    mockSelectReturns([{
+      netSales: '100.0000',
+      orderCount: 2,
+      voidCount: 0,
+      pmsRevenue: '0',
+      arRevenue: '0',
+      membershipRevenue: '0',
+      voucherRevenue: '0',
+      totalBusinessRevenue: '0',
+    }]);
     // 2nd call: tx.select() — stock count (0 → triggers stock fallback via mockExecute default)
     mockSelectReturns([{ count: 0 }]);
     // 3rd call: tx.select() — active customers
     mockSelectReturns([{ count: 0 }]);
-    // 4th call: tx.select() — non-POS revenue (default mock returns [], stays 0)
 
     const result = await getDashboardMetrics({ tenantId: TENANT });
 
@@ -483,15 +505,21 @@ describe('getDashboardMetrics', () => {
   });
 
   it('filters by locationId when provided', async () => {
-    // 1st call: tx.execute() — today's sales (orders > 0, no all-time fallback)
-    mockExecute.mockResolvedValueOnce([
-      { net_sales_cents: 50000, order_count: 5, void_count: 1 },
-    ]);
+    // 1st call: tx.select() — CQRS sales from rmDailySales (orderCount > 0 → no fallback)
+    mockSelectReturns([{
+      netSales: '500.0000',
+      orderCount: 5,
+      voidCount: 1,
+      pmsRevenue: '0',
+      arRevenue: '0',
+      membershipRevenue: '0',
+      voucherRevenue: '0',
+      totalBusinessRevenue: '0',
+    }]);
     // 2nd call: tx.select() — stock count (count > 0, no stock fallback)
     mockSelectReturns([{ count: 1 }]);
     // 3rd call: tx.select() — active customers
     mockSelectReturns([{ count: 10 }]);
-    // 4th call: tx.select() — non-POS revenue (default mock returns [], stays 0)
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,

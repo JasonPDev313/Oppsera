@@ -1,0 +1,6 @@
+   ▲ Next.js 15.5.12
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · optimizePackageImports
+
+   Creating an optimized production build ...

@@ -29,13 +29,6 @@ const DEFAULT_SUGGESTIONS = [
   'Compare sales by day this week vs last week',
 ];
 
-const GOLF_SUGGESTIONS = [
-  'How many rounds were played yesterday?',
-  'What was our green fee revenue this week?',
-  'Show me rounds by booking channel this month',
-  'What was our utilization rate last week by course?',
-  'Compare green fee and cart revenue by day this month',
-];
 
 const HISTORY_OPEN_KEY = 'insights_history_open';
 const SELECTED_LENS_KEY = 'insights_selected_lens';
@@ -139,7 +132,7 @@ export default function InsightsContent() {
   // Derive suggestions from selected lens (if it has exampleQuestions) or fallback
   const suggestions = useMemo(() => {
     if (selectedLens?.exampleQuestions?.length) return selectedLens.exampleQuestions;
-    return isModuleEnabled('golf_reporting') ? GOLF_SUGGESTIONS : DEFAULT_SUGGESTIONS;
+    return DEFAULT_SUGGESTIONS;
   }, [selectedLens, isModuleEnabled]);
 
   // History sidebar state
