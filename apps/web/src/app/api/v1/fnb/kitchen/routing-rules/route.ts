@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { withMiddleware } from '@oppsera/core/auth/with-middleware';
 import { ValidationError } from '@oppsera/shared';
-import { listRoutingRules, createRoutingRule, createRoutingRuleSchema } from '@oppsera/module-fnb';
+import { listRoutingRules, createRoutingRule, createKdsRoutingRuleSchema } from '@oppsera/module-fnb';
 
 // GET /api/v1/fnb/kitchen/routing-rules — list routing rules
 export const GET = withMiddleware(
@@ -24,7 +24,7 @@ export const GET = withMiddleware(
 export const POST = withMiddleware(
   async (request: NextRequest, ctx) => {
     const body = await request.json();
-    const parsed = createRoutingRuleSchema.safeParse(body);
+    const parsed = createKdsRoutingRuleSchema.safeParse(body);
     if (!parsed.success) {
       throw new ValidationError(
         'Validation failed',

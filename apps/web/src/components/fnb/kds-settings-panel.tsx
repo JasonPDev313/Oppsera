@@ -6,7 +6,7 @@ import {
   Monitor, Route, Keyboard, Bell, Target, Clock,
   Plus, ChevronDown, ChevronRight, Settings2, Pencil,
   Volume2, VolumeX, AlertTriangle, CheckCircle2,
-  Trash2, Power,
+  Trash2, Power, X as XIcon,
 } from 'lucide-react';
 import {
   KDS_VIEW_MODES, KDS_VIEW_MODE_LABELS, KDS_VIEW_MODE_DESCRIPTIONS,
@@ -558,7 +558,7 @@ function CreateStationDialog({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground">Add KDS Station</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -717,7 +717,7 @@ function EditStationDialog({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground">Edit Station: {station.name}</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -1121,7 +1121,7 @@ function CreateRoutingRuleDialog({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground">Add Routing Rule</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -1325,7 +1325,7 @@ function EditRoutingRuleDialog({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <h3 className="text-sm font-semibold text-foreground">Edit Routing Rule</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -1953,7 +1953,7 @@ function AddPrepTimeDialog({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">Add Item Prep Time</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
 
@@ -2054,7 +2054,7 @@ function EditPrepTimeDialog({
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-foreground">Edit Prep Time</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-accent text-muted-foreground">
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
 
