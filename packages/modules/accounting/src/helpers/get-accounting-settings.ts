@@ -42,6 +42,9 @@ export interface AccountingSettings {
   defaultSurchargeRevenueAccountId: string | null;
   // ACH Receivable account (migration 0178)
   defaultAchReceivableAccountId: string | null;
+  // Discount classification GL defaults (migration 0212)
+  defaultDiscountAccountId: string | null;
+  defaultPriceOverrideExpenseAccountId: string | null;
   // Auto-close orchestrator (migration 0187)
   autoCloseEnabled: boolean;
   autoCloseTime: string; // HH:MM
@@ -106,6 +109,8 @@ export async function getAccountingSettings(
     enableAutoRemap: row.enableAutoRemap,
     defaultSurchargeRevenueAccountId: row.defaultSurchargeRevenueAccountId ?? null,
     defaultAchReceivableAccountId: row.defaultAchReceivableAccountId ?? null,
+    defaultDiscountAccountId: row.defaultDiscountAccountId ?? null,
+    defaultPriceOverrideExpenseAccountId: row.defaultPriceOverrideExpenseAccountId ?? null,
     autoCloseEnabled: row.autoCloseEnabled,
     autoCloseTime: row.autoCloseTime ?? '02:00',
     autoCloseSkipHolidays: row.autoCloseSkipHolidays,

@@ -34,7 +34,7 @@ Multi-tenant SaaS ERP for SMBs (retail, restaurant, golf, hybrid). Modular monol
 | Customer Management | customers | V1 | Done (CRM + Universal Profile) |
 | Reporting / Exports | reporting | V1 | Done (complete: backend + frontend + custom builder + dashboards) |
 | F&B POS (dual-mode, shares orders module) | pos_fnb | V1 | Done (frontend + backend module) |
-| Restaurant KDS | kds | V2 | Planned |
+| Restaurant KDS | kds | V1 | Done (settings infrastructure + station routing) |
 | Golf Reporting | golf_reporting | V1 | Done (read models + consumers + frontend) |
 | Room Layouts | room_layouts | V1 | Done (editor + templates + versioning) |
 | Accounting Core (GL, COA, posting, reports, statements) | accounting | V1 | Done |
@@ -931,6 +931,16 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - `0204_gl_transaction_type_mappings.sql`: indexes on gl_transaction_types for mapping coverage queries
   - `0205_auth_hot_path_indexes.sql`: covering indexes for auth, permissions, entitlements, locations
   - `0206_host_module_v2.sql`: fnb_reservations, fnb_waitlist_entries, fnb_table_turn_log, fnb_guest_notifications tables with RLS
+- **Migrations 0207–0215** (Session 2026-02-26):
+  - `0207_fk_index_audit.sql`: 20+ indexes on foreign keys in GL/PMS tables (classification_id, parent_account_id, location_id, profit_center_id, sub_department_id on gl_journal_lines)
+  - `0208_backup_inline_storage.sql`: `compressed_data BYTEA` on `platform_backups` for serverless-compatible DB-backed backup storage
+  - `0209_kds_comprehensive_settings.sql`: 4 new tables (fnb_kds_bump_bar_profiles, fnb_kds_alert_profiles, fnb_kds_performance_targets, fnb_kds_item_prep_times) + 13 new columns on fnb_kitchen_stations + 22 new columns on fnb_station_display_configs + enhanced routing rules + enhanced ticket items/tickets
+  - `0210_semantic_authoring.sql`: `tenant_id` on semantic_metrics + semantic_dimensions with dual-scoped unique indexes (system vs tenant-custom), mirrors semantic_lenses pattern
+  - `0211_coa_template_transaction_accounts.sql`: seeds 7 missing GL accounts (2320 Customer Deposits Payable, 2500 Payroll Clearing, 4110 Returns & Allowances, 4510 Surcharge Revenue, 6150 Comp Expense, 6160 Cash Over/Short, 6170 Chargeback Expense) to all 4 business type templates
+  - `0212_discount_gl_classification.sql`: `discount_classification` on order_discounts + gl_journal_lines, `price_override_discount_cents` on order_lines, new `discount_gl_mappings` table, new `rm_discount_analysis` read model, GL defaults on accounting_settings, seeds 11 GL transaction types + 11 GL account templates
+  - `0213_tenant_settings_upsert_index.sql`: `uq_tenant_settings_scoped` unique index for ON CONFLICT upserts on tenant_settings
+  - `0214_gl_dimension_compound_indexes.sql`: replaces single-column GL dimension indexes with tenant-prefixed compound indexes + partial WHERE clauses for multi-tenant performance
+  - `0215_expanded_discount_gl_templates.sql`: seeds 9 new contra-revenue accounts (4106–4114) + 4 new expense accounts (6155–6158) across all 4 business types
 - **Tenant Business Info & Content Blocks** (Session 2026-02-24):
   - **2 new tables**: `tenant_business_info` (one row per tenant — identity, operations, online presence, advanced metadata), `tenant_content_blocks` (keyed content blocks: about, services_events, promotions, team)
   - **Schema**: `packages/db/src/schema/business-info.ts`, Migration: `0193_tenant_business_info.sql`
@@ -967,6 +977,75 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - `tools/scripts/seed-portal-auth.ts`: bulk-creates portal auth for all customers (password: `member123`)
   - `tools/scripts/add-portal-member.ts`: one-off script for specific member with custom password
   - Both support `--remote` flag for production DB
+- **KDS Comprehensive Settings** (Session 2026-02-26):
+  - **4 new tables**: `fnb_kds_bump_bar_profiles` (button mappings, 49 actions, 10/20-button layouts), `fnb_kds_alert_profiles` (audio/visual alerts per station), `fnb_kds_performance_targets` (speed-of-service goals per station/order type), `fnb_kds_item_prep_times` (per-item per-station prep estimates)
+  - **Station enhancements**: 5 screen communication modes (independent, multi_clear, prep_expo, assembly_line, mirror), order type/channel filtering, pause receiving, expo supervision
+  - **Display config**: 4 view modes (ticket/grid/split/all_day), 4 font sizes, 4 ticket sizes, modifier display mode (vertical/horizontal/inline), 10 alert tone profiles with Web Audio API frequencies
+  - **Routing rules**: condition-based routing (order type, channel, time windows, category), 9 station types, 9 priority levels (Oracle MICROS style)
+  - **Constants**: `packages/shared/src/constants/kds-settings.ts` — 49 bump bar actions, view modes, alert tones, station types, priority levels
+  - **Migration 0209**: 321 lines with full RLS on all 4 new tables
+- **GL Code Summary Report** (Session 2026-02-26):
+  - **Report page**: `/accounting/reports/gl-code-summary` — follows Modern ERP Report UX Standard (§175)
+  - **Features**: 4 KPI summary cards, 7 collapsible section groups (revenue/discount/tender/tax/tip/expense/other) with colored dots, search filter, expand/collapse controls, print + CSV export
+  - **Reference implementation** for all future ERP report pages
+- **Discount GL Classification System** (Session 2026-02-26):
+  - **24 classifications**: 15 contra-revenue (manual discount, promo code, employee, loyalty, member, price match, volume, senior/military, group/event, seasonal, vendor-funded, rain check, early payment, bundle, trade) + 9 expense (manager comp, promo comp, quality recovery, price override, other comp, spoilage/waste, charity, training/staff meals, insurance recovery)
+  - **Constants**: `packages/shared/src/constants/discount-classifications.ts` — classification definitions, GL treatment helpers (`isContraRevenue`, `isExpenseClassification`, `getDiscountGlTreatment`, `getDefaultAccountCode`)
+  - **Schema**: `discount_gl_mappings` table for per-sub-department GL posting by classification, `rm_discount_analysis` read model, `discount_classification` on order_discounts + gl_journal_lines
+  - **Backfill script**: `tools/scripts/backfill-discount-classifications.ts` — classifies existing discounts/comps, creates GL accounts, wires defaults
+  - **Migration 0212**: discount GL classification + seeds 11 GL account templates; **Migration 0215**: expands to full 24-classification taxonomy
+- **PII Masking Service** (Session 2026-02-26):
+  - **Two-layer PII detection** for semantic pipeline: (1) column-name heuristics (exact + 40+ substring patterns), (2) value-pattern regex (email, phone, credit card, SSN, IP address)
+  - **Service**: `packages/modules/semantic/src/pii/pii-masker.ts` — masks data before sending to LLM, frontend receives unmasked data within app boundary
+  - **313 tests** in `pii-masker.test.ts`
+- **Semantic Authoring** (Session 2026-02-26):
+  - **Tenant-scoped custom metrics and dimensions**: `tenant_id` added to `semantic_metrics` + `semantic_dimensions` with dual-scoped unique indexes (system vs tenant-custom)
+  - **Pattern**: identical to `semantic_lenses` — system entities have `tenant_id IS NULL`, custom per-tenant entities have `tenant_id IS NOT NULL`
+  - **Seed data**: `packages/modules/semantic/src/registry/seed-data.ts` — registry seed with metrics, dimensions, relations
+  - **Migration 0210**
+- **Admin Backup System** (Session 2026-02-26):
+  - **Dual-mode backup**: local filesystem (`/tmp/backups/`) for dev/Docker, database (`platform_backups.compressed_data` BYTEA) for Vercel serverless
+  - **Services**: `packages/core/src/admin/backup-service.ts` (backup orchestration), table-discovery (DB introspection), storage drivers
+  - **Gzip compression** for storage efficiency, automatic table discovery, tenant isolation
+  - **Migration 0208**: `compressed_data BYTEA` on `platform_backups`
+- **F&B Course Routing** (Session 2026-02-26):
+  - **Event consumer**: `handle-course-sent.ts` — creates kitchen tickets when courses are sent/fired
+  - **Station resolver**: `resolve-station.ts` — deterministic KDS station resolution per item via routing rules (sub-department → rule → station), respects order type/channel filters
+  - **Idempotent**: client request ID `kds-course-{tabId}-{courseNumber}-{stationId}`, fire-and-forget pattern
+- **Inline Modifier Panel** (Session 2026-02-26):
+  - **Component**: `apps/web/src/components/fnb/menu/inline-modifier-panel.tsx` — multi-group modifier selection with tab navigation
+  - **Smart instruction suppression**: auto-hides non/extra/on-side buttons for exclusive-choice groups (temperature, doneness, sizes)
+  - **Auto-select defaults**: respects `defaultBehavior === 'auto_select_defaults'`
+  - **FnB design token styling** with count badges, required field validation, two-step flow (Next → Add)
+- **Service Charge Exemption** (Session 2026-02-26):
+  - **Command**: `setServiceChargeExempt` in orders module — toggles service charge exemption on orders
+  - **Emits**: `order.service_charge_exempt_changed.v1` event with audit logging
+- **Server Lock Banner** (Session 2026-02-26):
+  - **Component**: `ServerLockBanner` — compact POS indicator when locked to a specific server/user
+  - **PIN-based unlock flow** via `ServerPinModal` component, FnB design token styling
+- **Embeddable Widget Viewer** (Session 2026-02-26):
+  - **Component**: `EmbeddableWidget` — widget management for external iframe embedding (metric card/chart/KPI grid types)
+  - **Embed code generation**: `<iframe src="/embed/{token}" ...>` with copy-to-clipboard, view tracking, light/dark/auto themes
+  - **7 default metrics** (Net Sales, Gross Sales, Order Count, Avg Order Value, Voids, Discounts, Tax)
+- **Shared Format Utilities** (Session 2026-02-26):
+  - **`getInitials(name)`**: "John Smith" → "JS"
+  - **`formatPhone(phone)`**: "5551234567" → "(555) 123-4567"
+  - **Location**: `packages/shared/src/utils/format.ts`, exported via `@oppsera/shared`
+- **Dark Mode Overhaul** (Session 2026-02-26):
+  - **494 files modified** (6,849 insertions, 4,678 deletions) — comprehensive dark mode conversion across all dashboard, portal, settings, admin, POS, vendor, and report components
+  - **Enforced pattern**: opacity-based colors (no `dark:` prefixes), `bg-surface` (no `bg-white`), `text-foreground` (no `text-gray-900`)
+- **Admin DB Helper** (Session 2026-02-26):
+  - **`withAdminDb(callback)`**: RLS bypass utility for admin cross-tenant queries
+  - **Cascade approach**: tries `SET LOCAL role = 'postgres'` → `supabase_admin` → `row_security = 'off'`
+  - **Location**: `apps/admin/src/lib/admin-db.ts`
+- **Onboarding Status Test Suite** (Session 2026-02-26):
+  - **750 lines** testing onboarding auto-detection, progress tracking, localStorage/sessionStorage persistence, parallel API calls, phase dependencies, Go Live checklist logic
+- **Transaction Type Mapping Fix Script** (Session 2026-02-26):
+  - **`tools/scripts/fix-transaction-type-mappings.ts`**: creates 20+ required GL accounts (cash, AR, inventory, AP, tax, tips, gift card, deferred revenue), maps all 41 system transaction types with GL posting rules
+  - Supports `--remote` flag, idempotent via `ON CONFLICT DO NOTHING`
+- **Vercel Build Fixes** (Session 2026-02-26):
+  - Fixed unused var `rlsBypassed` in backup-service.ts, `let` → `const` for `sizeMap` in table-discovery.ts, PMS test var usage
+  - Added missing env vars to `turbo.json` build.env: `DATABASE_URL_ADMIN`, `ANTHROPIC_API_KEY`, `PAYMENT_ENCRYPTION_KEY`
 - **Bug Fixes** (Session 2026-02-24):
   - Modifiers page: fixed category filter to use `g.categoryId` instead of `g.category_id` (Drizzle column name)
   - Inventory ItemEditDrawer: fixed item type display using `getItemTypeGroup()`
@@ -1133,7 +1212,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
   - **Host settings** (`packages/modules/fnb/src/services/host-settings.ts`): 25+ configurable options across 5 sections (reservations, waitlist, notifications, estimation, guest self-service). JSONB blob with Zod schema + deep merge.
 
 ### Test Coverage
-3896+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 757 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive + 93 host-stand + 43 host-integration) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 276 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability) + 45 admin (28 auth + 17 eval-api) + 405 admin-phase1a + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1011 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables)
+4473+ tests: 159 core (134 + 25 impersonation-safety) + 68 catalog + 58 orders (52 + 6 add-line-item-subdept) + 37 shared + 100 customers + 813 web (80 POS + 66 tenders + 42 inventory + 15 reports + 19 reports-ui + 15 custom-reports-ui + 9 dashboards-ui + 178 semantic-routes + 24 accounting-routes + 24 accounting-gl-mappings + 23 ap-routes + 27 ar-routes + 38 fnb-pos-store + 16 fnb-integration + 45 fnb-api-comprehensive + 93 host-stand + 43 host-integration + 35 host-api + 21 onboarding-status) + 27 db + 99 reporting (27 consumers + 16 queries + 12 export + 20 compiler + 12 custom-reports + 12 cache) + 49 inventory-receiving (15 shipping-allocation + 10 costing + 5 uom-conversion + 10 receiving-ui + 9 vendor-management) + 312 semantic (62 golf-registry + 25 registry + 35 lenses + 30 pipeline + 23 eval-capture + 9 eval-feedback + 6 eval-queries + 52 compiler + 35 cache + 14 observability + 36 pii-masker) + 45 admin (28 auth + 17 eval-api) + 405 admin-phase1a + 199 room-layouts (65 store + 61 validation + 41 canvas-utils + 11 export + 11 helpers + 10 templates) + 309 accounting (22 posting + 5 void + 7 account-crud + 5 classification + 5 bank + 10 mapping + 8 sub-dept-mappings + 9 reports + 22 validation + 22 financial-statements + 33 integration-bridge + 9 catalog-gl-resolution + 12 pos-posting-adapter + 12 void-posting-adapter + 16 voucher-posting-adapter + 9 fnb-posting-adapter + 10 membership-posting-adapter + 14 chargeback-posting-adapter + 8 close-checklist + 26 posting-matrix + 31 uxops-posting-matrix) + 60 ap (bill lifecycle + payment lifecycle) + 129 ar (23 lifecycle + 16 invoice-commands + 16 receipt-commands + 14 queries + 47 validation + 13 gl-posting) + 119 payments (35 validation + 17 gl-journal + 13 record-tender + 13 record-tender-event + 13 reverse-tender + 13 adjust-tip + 10 consumers + 5 chargeback) + 1175 fnb (28 core-validation + 26 session2 + 48 session3 + 64 session4 + 59 session5 + 69 session6 + 71 session7 + 38 session8 + 50 session9 + 53 session10 + 49 session11 + 77 session12 + 73 session13 + 91 session14 + 64 session15 + 100 session16 + 12 extract-tables + 58 host-estimator + 51 host-reservations + 55 host-waitlist) + 310 pms (17 availability + 10 errors + 35 events + 8 folio-totals + 20 permissions + 38 pricing-engine + 21 room-assignment + 25 state-machines + 15 template-renderer + 121 validation)
 
 ### What's Built (Infrastructure)
 - **Observability**: Structured JSON logging, request metrics, DB health monitoring (pg_stat_statements), job health, alert system (Slack webhooks, P0-P3 severity, dedup), on-call runbooks, migration trigger assessment
@@ -1401,11 +1480,11 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~AccountPicker intelligent suggestions (semantic grouping + 20 role paths)~~ ✓ DONE
 - ~~Mapping content 5-tab layout with auto-mapping engine~~ ✓ DONE
 - ~~Dark mode accounting bootstrap wizard~~ ✓ DONE
-- ~~Transaction type registry (45 system types + tenant custom)~~ ✓ IN PROGRESS (uncommitted)
-- ~~Onboarding system (10 phases, auto-detection, Go Live checklist)~~ ✓ IN PROGRESS (uncommitted)
-- ~~F&B floor dual view modes (layout + grid)~~ ✓ IN PROGRESS (uncommitted)
-- ~~F&B menu panel refactor (6 sub-components, deduplication)~~ ✓ IN PROGRESS (uncommitted)
-- ~~Dashboard setup status banner~~ ✓ IN PROGRESS (uncommitted)
+- ~~Transaction type registry (45 system types + tenant custom)~~ ✓ DONE
+- ~~Onboarding system (10 phases, auto-detection, Go Live checklist)~~ ✓ DONE
+- ~~F&B floor dual view modes (layout + grid)~~ ✓ DONE
+- ~~F&B menu panel refactor (6 sub-components, deduplication)~~ ✓ DONE
+- ~~Dashboard setup status banner~~ ✓ DONE
 - ~~Member portal app (standalone Next.js)~~ ✓ DONE
 - ~~Customer sub-resource API expansion (50+ routes)~~ ✓ DONE
 - ~~Guest Pay (QR code pay at table)~~ ✓ DONE
@@ -1423,7 +1502,7 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~Insights sub-pages (authoring, embeds, reports, tools, watchlist)~~ ✓ DONE
 - ~~Catalog/customer/staff import system~~ ✓ DONE
 - ~~Customer tag management (smart tags, rules, audit)~~ ✓ DONE
-- ~~PMS calendar frontend~~ ✓ IN PROGRESS (uncommitted)
+- ~~PMS calendar frontend~~ ✓ DONE
 - ~~Payment gateway integration (CardPointe foundation + ACH + surcharges)~~ ✓ DONE
 - ~~ERP dual-mode infrastructure (workflow engine + tier defaults + close orchestrator)~~ ✓ DONE
 - ~~Modifier group enhancements (categories, channel visibility, per-assignment overrides)~~ ✓ DONE
@@ -1448,12 +1527,12 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~User password management (change password API + frontend)~~ ✓ DONE
 - ~~Impersonation Phase 1A (dual-table schema + guards)~~ ✓ DONE
 - ~~Performance indexes (auth hot path, GL transaction type mappings)~~ ✓ DONE
-- ~~Accessibility infrastructure (dialog-a11y, focus-trap, live-region, ESLint jsx-a11y)~~ ✓ IN PROGRESS (uncommitted)
-- ~~Settings role management enhancements (permission-groups config, role-comparison, role-editor)~~ ✓ IN PROGRESS (uncommitted)
-- ~~PMS calendar enhancements (condensed view, date jump, scroll hook)~~ ✓ IN PROGRESS (uncommitted)
-- ~~Host Module V2 (15 commands, 12 queries, 5 services, 29 frontend components, 136 tests)~~ ✓ IN PROGRESS (uncommitted)
-- ~~PMS utilization grid (room-type + date-range occupancy)~~ ✓ IN PROGRESS (uncommitted)
-- Run migrations 0134-0206 on dev DB
+- ~~Accessibility infrastructure (dialog-a11y, focus-trap, live-region, ESLint jsx-a11y)~~ ✓ DONE
+- ~~Settings role management enhancements (permission-groups config, role-comparison, role-editor)~~ ✓ DONE
+- ~~PMS calendar enhancements (condensed view, date jump, scroll hook)~~ ✓ DONE
+- ~~Host Module V2 (15 commands, 12 queries, 5 services, 29 frontend components, 136 tests)~~ ✓ DONE
+- ~~PMS utilization grid (room-type + date-range occupancy)~~ ✓ DONE
+- Run migrations 0134-0215 on dev DB
 - Run `tools/scripts/seed-admin-roles.ts` after migration 0097
 - Run `tools/scripts/backfill-accounting-accounts.ts` after migration 0100 (creates Tips Payable + Service Charge Revenue for existing tenants)
 - Toggle `enableLegacyGlPosting = false` per tenant after validating GL reconciliation
@@ -1468,10 +1547,21 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 - ~~ERP cron: upgrade to Vercel Pro for 15-minute cron intervals (required for auto-close windows)~~ ✓ DONE (Vercel Pro configured)
 - SuperAdmin portal: implement all 14 session specs (build frontend + backend per session notes)
 - Modifier reporting: frontend analytics dashboards (daypart heatmaps, upsell impact, waste signals)
-- Run migrations 0197-0206 on dev DB
 - PMS utilization frontend polish (grid interactions, date range picker)
 - Accessibility audit pass (remaining components)
 - Run F&B schema migration 0206 (host_module_v2) on dev DB
+- ~~KDS comprehensive settings (bump bar profiles, alert profiles, performance targets, routing engine)~~ ✓ DONE
+- ~~GL code summary report (Modern ERP UX Standard reference implementation)~~ ✓ DONE
+- ~~Discount GL classification system (24 classifications, contra-revenue vs expense)~~ ✓ DONE
+- ~~PII masking for semantic pipeline~~ ✓ DONE
+- ~~Semantic authoring (tenant-scoped custom metrics/dimensions)~~ ✓ DONE
+- ~~Admin backup system (dual-mode: filesystem + DB for serverless)~~ ✓ DONE
+- ~~F&B course routing (station resolver + kitchen ticket creation)~~ ✓ DONE
+- ~~Inline modifier panel for F&B POS~~ ✓ DONE
+- ~~Dark mode overhaul (494 files, opacity-based colors)~~ ✓ DONE
+- Run migrations 0207-0215 on dev DB
+- Run `tools/scripts/backfill-discount-classifications.ts` after migration 0212 (creates GL accounts for discount tracking)
+- Run `tools/scripts/fix-transaction-type-mappings.ts` after migration 0211 (creates required GL accounts for transaction types)
 
 ## Critical Gotchas (Quick Reference)
 
@@ -1915,6 +2005,15 @@ Milestones 0-9 (Sessions 1-16.5) complete. F&B POS backend module (Sessions 1-16
 429. **Global focus-visible ring uses semantic token** — `*:focus-visible` in `globals.css` applies a 2px outline at 2px offset using `--sem-ring` (#2563eb blue). Excludes elements already using Tailwind `focus-visible:ring-*` classes to avoid double-ring styling.
 430. **`prefers-reduced-motion` disables all animations globally** — `globals.css` media query sets `animation-duration: 0.01ms !important`, `transition-duration: 0.01ms !important`, and `scroll-behavior: auto` on all elements and pseudo-elements. Applied unconditionally — never override with `!important` animation styles.
 431. **All ERP/accounting report pages MUST follow the Modern ERP Report UX Standard** — defined in CONVENTIONS.md §175. Reference implementation: `gl-code-summary-content.tsx`. Every report page must include: (1) 4 KPI summary cards (icon + label + value + accent), (2) status/balance banner (green/red conditional), (3) collapsible sections with colored dots + count badges + chevrons + subtotals, (4) net/variance column, (5) in-report search filter, (6) Expand All / Collapse All controls, (7) Print button + `print:hidden` on controls + dedicated print header, (8) Export CSV button, (9) structured loading skeleton (KPI grid + table rows), (10) empty state with domain icon, (11) mobile card layout with tappable sections, (12) grand total footer with `border-t-2`. All monetary values use `tabular-nums` + `formatAccountingMoney()`. Section state uses `useState<Set<string>>` for collapsed tracking. Dark mode compliant (no `bg-white`, no `dark:` prefixes). Print uses `print:border-gray-300`, `print:bg-gray-100`, `print:break-inside-avoid`.
+432. **Discount classifications use dual GL treatment** — `discount_gl_mappings` table maps `(tenant_id, sub_department_id, discount_classification)` to a GL account. Use `getDiscountGlTreatment(classification)` to determine if a discount is contra-revenue (reduces reported revenue) or expense (business absorbs cost). 15 contra-revenue types (4100–4114) + 9 expense types (6150–6158). Backfill existing data via `tools/scripts/backfill-discount-classifications.ts`.
+433. **KDS settings use 4 new tables** — `fnb_kds_bump_bar_profiles` (button→action mappings), `fnb_kds_alert_profiles` (per-station audio/visual alerts), `fnb_kds_performance_targets` (speed-of-service goals per station + order type), `fnb_kds_item_prep_times` (per-item per-station prep estimates). Constants in `packages/shared/src/constants/kds-settings.ts`. 5 screen communication modes control multi-station behavior.
+434. **KDS station routing is deterministic** — `resolveStation()` in `packages/modules/fnb/src/helpers/resolve-station.ts` resolves target KDS station per item via routing rules (sub-department → rule → station). Respects `allowed_order_types` and `allowed_channels` filters. Returns null if no valid station. Course sent consumer uses `kds-course-{tabId}-{courseNumber}-{stationId}` for idempotent ticket creation.
+435. **Semantic metrics/dimensions now support tenant scope** — migration 0210 adds `tenant_id` to `semantic_metrics` and `semantic_dimensions` with dual-scoped unique indexes. System entities (`tenant_id IS NULL`) coexist with tenant-custom entities. Same pattern as `semantic_lenses`. Custom metrics/dimensions take priority in lookups.
+436. **PII masking is two-layer** — `packages/modules/semantic/src/pii/pii-masker.ts` applies: (1) column-name heuristics (exact + 40+ substring matches for name, email, phone, ssn, card_number, etc.), (2) value-pattern regex detection (emails, phones, credit cards, SSNs, IPs). Applied at query result → LLM boundary. Frontend receives unmasked data within app boundary.
+437. **Admin backup uses DB storage on Vercel** — `platform_backups.compressed_data` (BYTEA, gzip-compressed JSON) stores backups when `storage_driver='database'`. Vercel's filesystem is ephemeral/read-only — never use `storage_driver='local'` on Vercel. `withAdminDb(callback)` in `apps/admin/src/lib/admin-db.ts` provides RLS bypass for cross-tenant admin queries via cascade: `SET LOCAL role = 'postgres'` → `supabase_admin` → `row_security = 'off'`.
+438. **GL dimension indexes must be tenant-prefixed compound** — migration 0214 replaced single-column indexes on `gl_journal_lines` dimension columns with `(tenant_id, dimension)` compound indexes + `WHERE dimension IS NOT NULL` partial indexes. Multi-tenant queries filter by `tenant_id` first, so compound indexes with tenant as leading column are far more efficient.
+439. **Inline modifier panel uses smart instruction suppression** — `InlineModifierPanel` auto-hides non/extra/on-side buttons for exclusive-choice groups (temperature, doneness, sizes, bread types, cooking methods, egg styles) via `shouldSuppressInstructions()`. Uses FnB design tokens, not Tailwind classes.
+440. **`formatPhone` and `getInitials` are in `@oppsera/shared`** — `packages/shared/src/utils/format.ts` provides `formatPhone("5551234567")` → `"(555) 123-4567"` and `getInitials("John Smith")` → `"JS"`. Use these instead of inline formatting.
 
 ## Migration Rules (IMPORTANT — Multi-Agent Safety)
 
