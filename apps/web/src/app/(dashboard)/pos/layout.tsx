@@ -6,8 +6,10 @@ import dynamic from 'next/dynamic';
 import { X, MapPin, Monitor, User, ShoppingCart, UtensilsCrossed, Moon, Sun } from 'lucide-react';
 import { useAuthContext } from '@/components/auth-provider';
 import { useTheme } from '@/components/theme-provider';
-import { refreshTokenIfNeeded } from '@/lib/api-client';
+import { refreshTokenIfNeeded, apiFetch } from '@/lib/api-client';
 import { warmCustomerCache } from '@/lib/customer-cache';
+import { warmFloorPlanCache } from '@/hooks/use-fnb-floor';
+import { warmMenuCache } from '@/hooks/use-fnb-menu';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useTerminalSession } from '@/components/terminal-session-provider';
 import { POSErrorBoundary } from '@/components/pos/pos-error-boundary';
@@ -142,8 +144,18 @@ export default function POSLayout({ children }: { children: React.ReactNode }) {
   // Barcode scanner listener
   useBarcodeScannerListener();
 
-  // Pre-warm customer cache so search is instant
-  useEffect(() => { warmCustomerCache(); }, []);
+  // Pre-warm caches so F&B data is instant when switching modes
+  useEffect(() => {
+    warmCustomerCache();
+    warmMenuCache();
+    // Warm floor plan: fetch room list, then warm first room
+    apiFetch<{ data: Array<{ id: string }> }>('/api/v1/room-layouts?isActive=true')
+      .then(json => {
+        const firstRoom = json.data?.[0];
+        if (firstRoom) warmFloorPlanCache(firstRoom.id);
+      })
+      .catch(() => {}); // non-critical
+  }, []);
 
   // Proactive warm-up when returning from idle (token refresh + function warm + data refresh)
   usePOSVisibilityRefresh();

@@ -6,7 +6,11 @@ export { getDashboardMetrics } from './get-dashboard-metrics';
 export type { GetDailySalesInput, DailySalesRow } from './get-daily-sales';
 export type { GetItemSalesInput, ItemSalesRow } from './get-item-sales';
 export type { GetInventorySummaryInput, InventorySummaryRow } from './get-inventory-summary';
-export type { GetDashboardMetricsInput, DashboardMetrics } from './get-dashboard-metrics';
+export type { GetDashboardMetricsInput, DashboardMetrics, NonPosRevenue } from './get-dashboard-metrics';
+
+// ── Unified Revenue Ledger ──────────────────────────────────────────
+export { getRecentActivity } from './get-recent-activity';
+export type { GetRecentActivityInput, RevenueActivityItem, GetRecentActivityResult } from './get-recent-activity';
 
 // ── Custom Reports (Session 21) ──────────────────────────────────
 export { getFieldCatalog } from './get-field-catalog';

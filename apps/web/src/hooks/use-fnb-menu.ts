@@ -190,6 +190,26 @@ function invalidateMenuCache(): void {
   _menuFetchPromise = null;
 }
 
+/**
+ * Pre-warm the menu cache so F&B items render instantly on first open.
+ * Call during POS setup. Fire-and-forget — errors are silently swallowed.
+ */
+export async function warmMenuCache(): Promise<void> {
+  // Skip if already cached and fresh
+  if (getMenuCache()) return;
+  // Reuse in-flight request if one exists
+  if (_menuFetchPromise) return;
+  try {
+    _menuFetchPromise = fetchAndProcessMenu();
+    const entry = await _menuFetchPromise;
+    setMenuCache(entry);
+  } catch {
+    // non-critical — cold start will fetch normally
+  } finally {
+    _menuFetchPromise = null;
+  }
+}
+
 // ── F&B Menu Hook ───────────────────────────────────────────────
 
 export interface UseFnbMenuReturn {

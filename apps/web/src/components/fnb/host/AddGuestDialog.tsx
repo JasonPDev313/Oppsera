@@ -19,6 +19,7 @@ interface AddGuestDialogProps {
   }) => Promise<void>;
   waitEstimate: { estimatedMinutes: number; confidence: string } | null;
   isSubmitting: boolean;
+  error?: string | null;
 }
 
 const SEATING_OPTIONS = ['Any', 'Booth', 'Bar', 'Patio', 'High Top', 'Window'];
@@ -35,6 +36,7 @@ export function AddGuestDialog({
   onSubmit,
   waitEstimate,
   isSubmitting,
+  error,
 }: AddGuestDialogProps) {
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
@@ -44,30 +46,38 @@ export function AddGuestDialog({
   const [specialRequests, setSpecialRequests] = useState('');
   const [isVip, setIsVip] = useState(false);
   const [notes, setNotes] = useState('');
+  const [localError, setLocalError] = useState<string | null>(null);
 
   if (!open) return null;
 
+  const displayError = localError || error || null;
+
   const handleSubmit = async () => {
     if (!guestName.trim()) return;
-    await onSubmit({
-      guestName: guestName.trim(),
-      guestPhone: guestPhone.trim() || undefined,
-      partySize,
-      quotedWaitMinutes: quotedWaitMinutes ? Number(quotedWaitMinutes) : undefined,
-      seatingPreference: seatingPreference !== 'Any' ? seatingPreference : undefined,
-      specialRequests: specialRequests.trim() || undefined,
-      isVip: isVip || undefined,
-      notes: notes.trim() || undefined,
-    });
-    // Reset form
-    setGuestName('');
-    setGuestPhone('');
-    setPartySize(2);
-    setQuotedWaitMinutes('');
-    setSeatingPreference('Any');
-    setSpecialRequests('');
-    setIsVip(false);
-    setNotes('');
+    setLocalError(null);
+    try {
+      await onSubmit({
+        guestName: guestName.trim(),
+        guestPhone: guestPhone.trim() || undefined,
+        partySize,
+        quotedWaitMinutes: quotedWaitMinutes ? Number(quotedWaitMinutes) : undefined,
+        seatingPreference: seatingPreference !== 'Any' ? seatingPreference : undefined,
+        specialRequests: specialRequests.trim() || undefined,
+        isVip: isVip || undefined,
+        notes: notes.trim() || undefined,
+      });
+      // Reset form only on success
+      setGuestName('');
+      setGuestPhone('');
+      setPartySize(2);
+      setQuotedWaitMinutes('');
+      setSeatingPreference('Any');
+      setSpecialRequests('');
+      setIsVip(false);
+      setNotes('');
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Failed to add guest to waitlist');
+    }
   };
 
   const inputStyle: React.CSSProperties = {
@@ -407,6 +417,23 @@ export function AddGuestDialog({
             />
           </div>
         </div>
+
+        {/* Error */}
+        {displayError && (
+          <div
+            style={{
+              margin: '0 var(--fnb-space-4)',
+              padding: '10px 12px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: 'var(--fnb-radius-md)',
+              color: 'var(--fnb-danger)',
+              fontSize: 'var(--fnb-text-sm)',
+            }}
+          >
+            {displayError}
+          </div>
+        )}
 
         {/* Footer */}
         <div

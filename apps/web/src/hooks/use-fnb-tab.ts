@@ -4,6 +4,33 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import type { FnbTabDetail, CheckSummary } from '@/types/fnb';
 
+// ── Module-level tab snapshot cache ─────────────────────────────
+// Survives React unmounts. Provides instant data when switching
+// between tabs (user taps Table A → Table B → back to Table A).
+
+const _tabCache = new Map<string, { data: FnbTabDetail; ts: number }>();
+const TAB_CACHE_TTL_MS = 60_000; // 60 seconds
+const MAX_TAB_CACHE_ENTRIES = 50;
+
+function getTabSnapshot(tabId: string): FnbTabDetail | undefined {
+  const entry = _tabCache.get(tabId);
+  if (!entry) return undefined;
+  if (Date.now() - entry.ts > TAB_CACHE_TTL_MS) {
+    _tabCache.delete(tabId);
+    return undefined;
+  }
+  return entry.data;
+}
+
+function setTabSnapshot(tabId: string, data: FnbTabDetail): void {
+  if (_tabCache.size >= MAX_TAB_CACHE_ENTRIES && !_tabCache.has(tabId)) {
+    const oldestKey = _tabCache.keys().next().value;
+    if (oldestKey !== undefined) _tabCache.delete(oldestKey);
+  }
+  _tabCache.delete(tabId);
+  _tabCache.set(tabId, { data, ts: Date.now() });
+}
+
 // ── Tab Detail Hook ─────────────────────────────────────────────
 
 interface UseFnbTabOptions {
@@ -42,19 +69,25 @@ interface UseFnbTabReturn {
 }
 
 export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }: UseFnbTabOptions): UseFnbTabReturn {
-  const [tab, setTab] = useState<FnbTabDetail | null>(null);
+  const [tab, setTab] = useState<FnbTabDetail | null>(() =>
+    tabId ? getTabSnapshot(tabId) ?? null : null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isActing, setIsActing] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const prevTabIdRef = useRef<string | null>(null);
+  // Track latest tab in a ref so action callbacks (updatePartySize)
+  // can read the current version without being in the dependency array.
+  const tabRef = useRef<FnbTabDetail | null>(tab);
+  tabRef.current = tab;
 
-  // Clear stale data when switching to a different tab
+  // When switching tabs, show cached snapshot instantly (or null for skeleton)
   useEffect(() => {
     if (tabId !== prevTabIdRef.current) {
       if (prevTabIdRef.current !== null) {
-        // Switching tabs — clear old data so skeleton shows immediately
-        setTab(null);
+        const cached = tabId ? getTabSnapshot(tabId) : null;
+        setTab(cached ?? null);
         setError(null);
       }
       prevTabIdRef.current = tabId;
@@ -69,11 +102,13 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
     abortRef.current = controller;
 
     try {
-      setIsLoading(true);
+      // Only show loading spinner when there's no cached data
+      if (!tabRef.current) setIsLoading(true);
       const json = await apiFetch<{ data: FnbTabDetail }>(`/api/v1/fnb/tabs/${tabId}`, {
         signal: controller.signal,
       });
       setTab(json.data);
+      setTabSnapshot(tabId, json.data);
       setError(null);
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -95,6 +130,13 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
     const interval = setInterval(fetchTab, pollIntervalMs);
     return () => clearInterval(interval);
   }, [tabId, pollIntervalMs, fetchTab, pollEnabled]);
+
+  // Refresh on POS visibility resume (e.g. returning from idle)
+  useEffect(() => {
+    const handler = () => { fetchTab(); };
+    window.addEventListener('pos-visibility-resume', handler);
+    return () => window.removeEventListener('pos-visibility-resume', handler);
+  }, [fetchTab]);
 
   // ── Actions ──────────────────────────────────────────────────
 
@@ -165,12 +207,13 @@ export function useFnbTab({ tabId, pollIntervalMs = 15_000, pollEnabled = true }
   }, [tabId, act]);
 
   const updatePartySizeFn = useCallback(async (newSize: number) => {
-    if (!tabId || !tab) return;
+    const currentTab = tabRef.current;
+    if (!tabId || !currentTab) return;
     await act(() => apiFetch(`/api/v1/fnb/tabs/${tabId}`, {
       method: 'PATCH',
-      body: JSON.stringify({ partySize: newSize, expectedVersion: tab.version }),
+      body: JSON.stringify({ partySize: newSize, expectedVersion: currentTab.version }),
     }));
-  }, [tabId, tab, act]);
+  }, [tabId, act]);
 
   return {
     tab,

@@ -7,6 +7,7 @@ import { computeBusinessDate } from '../business-date';
 
 const orderVoidedSchema = z.object({
   orderId: z.string(),
+  orderNumber: z.string().optional(),
   locationId: z.string(),
   occurredAt: z.string().optional(),
   total: z.number(),
@@ -77,8 +78,8 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
     // Read models store dollars (NUMERIC(19,4)). Convert at boundary.
     const voidAmount = (data.total ?? 0) / 100;
     await (tx as any).execute(sql`
-      INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, void_count, void_total, net_sales, avg_order_value, updated_at)
-      VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${1}, ${voidAmount}, ${-voidAmount}, ${0}, NOW())
+      INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, void_count, void_total, net_sales, avg_order_value, total_business_revenue, updated_at)
+      VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${1}, ${voidAmount}, ${-voidAmount}, ${0}, ${-voidAmount}, NOW())
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
         void_count = rm_daily_sales.void_count + 1,
@@ -89,7 +90,27 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
           THEN (rm_daily_sales.net_sales - ${voidAmount}) / rm_daily_sales.order_count
           ELSE 0
         END,
+        total_business_revenue = (rm_daily_sales.net_sales - ${voidAmount}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,
         updated_at = NOW()
+    `);
+
+    // Step 3b: Upsert rm_revenue_activity with status='voided'
+    const orderLabel = data.orderNumber ? `Order #${data.orderNumber}` : `Order ${data.orderId.slice(-6)}`;
+    await (tx as any).execute(sql`
+      INSERT INTO rm_revenue_activity (
+        id, tenant_id, location_id, business_date,
+        source, source_id, source_label,
+        amount_dollars, status, occurred_at, created_at
+      )
+      VALUES (
+        ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
+        ${'pos_order'}, ${data.orderId}, ${orderLabel},
+        ${voidAmount}, ${'voided'}, ${occurredAt}::timestamptz, NOW()
+      )
+      ON CONFLICT (tenant_id, source, source_id) DO UPDATE SET
+        amount_dollars = ${voidAmount},
+        status = ${'voided'},
+        occurred_at = ${occurredAt}::timestamptz
     `);
 
     // Step 4: Upsert rm_item_sales per voided line (if lines present in payload)

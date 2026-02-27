@@ -30,6 +30,23 @@ interface RegistryMetric {
   domain: string;
 }
 
+// ── Fallback metrics (used when registry API returns empty) ───────
+// These match the 10 metrics supported by root-cause, correlations,
+// and forecast services (from rm_daily_sales columns).
+
+const FALLBACK_METRICS: RegistryMetric[] = [
+  { slug: 'net_sales', displayName: 'Net Sales', description: 'Total sales minus voids and discounts', domain: 'Sales' },
+  { slug: 'gross_sales', displayName: 'Gross Sales', description: 'Total sales before adjustments', domain: 'Sales' },
+  { slug: 'order_count', displayName: 'Order Count', description: 'Number of orders placed', domain: 'Sales' },
+  { slug: 'avg_order_value', displayName: 'Avg Order Value', description: 'Average revenue per order', domain: 'Sales' },
+  { slug: 'discount_total', displayName: 'Discount Total', description: 'Total discounts applied', domain: 'Sales' },
+  { slug: 'tax_total', displayName: 'Tax Total', description: 'Total tax collected', domain: 'Sales' },
+  { slug: 'void_count', displayName: 'Void Count', description: 'Number of voided orders', domain: 'Operations' },
+  { slug: 'void_total', displayName: 'Void Total', description: 'Total value of voided orders', domain: 'Operations' },
+  { slug: 'tender_cash', displayName: 'Cash Tenders', description: 'Total cash payments received', domain: 'Payments' },
+  { slug: 'tender_card', displayName: 'Card Tenders', description: 'Total card payments received', domain: 'Payments' },
+];
+
 // ── Helpers ────────────────────────────────────────────────────────
 
 function daysAgo(n: number): string {
@@ -118,9 +135,10 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
       setMetricsLoading(true);
       try {
         const res = await apiFetch<{ data: RegistryMetric[] }>('/api/v1/semantic/metrics');
-        if (!cancelled) setMetrics(res.data);
+        if (!cancelled) setMetrics(res.data.length > 0 ? res.data : FALLBACK_METRICS);
       } catch {
-        // Best-effort — empty list is fine
+        // API unavailable — use hardcoded fallback so tools are still usable
+        if (!cancelled) setMetrics(FALLBACK_METRICS);
       } finally {
         if (!cancelled) setMetricsLoading(false);
       }

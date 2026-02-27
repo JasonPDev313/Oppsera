@@ -22,6 +22,8 @@ import {
   List,
   Settings,
   Pencil,
+  QrCode,
+  Copy,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useAuthContext } from '@/components/auth-provider';
@@ -48,6 +50,7 @@ import {
 } from '@/components/pos/catalog-nav';
 import { RegisterTabs } from '@/components/pos/RegisterTabs';
 import { useProfileDrawer } from '@/components/customer-profile-drawer';
+import { useRetailGuestPay } from '@/hooks/use-retail-guest-pay';
 import { useItemEditDrawer } from '@/components/inventory/ItemEditDrawerContext';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useManagerOverride } from '@/hooks/use-manager-override';
@@ -223,6 +226,13 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   const shift = useShift(locationId, config?.terminalId ?? '');
   const profileDrawer = useProfileDrawer();
   const itemEditDrawer = useItemEditDrawer();
+  const guestPay = useRetailGuestPay({
+    orderId: pos.currentOrder?.id ?? null,
+    pollEnabled: isActive,
+    onPaymentConfirmed: () => {
+      toast.success('Guest payment confirmed!');
+    },
+  });
 
   // Stable refs for pos and registerTabs — prevents cascading identity changes
   // in callbacks that depend on them (e.g. handlePaymentComplete), which would
@@ -536,6 +546,7 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setCartSelectMode(false);
       setSelectedLineIds(new Set());
       setPosView('order');
+      // Guest pay polling paused via pollEnabled={isActive} on the hook
     }
   }, [isActive]);
 
@@ -709,6 +720,21 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     posRef.current.ensureOrderReady().catch(() => {});
     setPosView('payment');
   }, []);
+
+  const handlePrintCheck = useCallback(async () => {
+    if (!pos.currentOrder?.id) return;
+    try {
+      const session = await guestPay.createSession();
+      if (session) {
+        const url = guestPay.copyLink(session.token);
+        toast.success('QR check created — link copied');
+        void url; // URL already on clipboard
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create QR check';
+      toast.error(message);
+    }
+  }, [pos.currentOrder?.id, guestPay, toast]);
 
   const handlePaymentComplete = useCallback(
     (_result: RecordTenderResult) => {
@@ -1298,7 +1324,32 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                 </div>
               </div>
 
-              {/* Send + Pay buttons */}
+              {/* Guest Pay active banner */}
+              {guestPay.hasActive && guestPay.session && (
+                <div className="shrink-0 border-t border-border bg-emerald-500/10 px-4 py-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-emerald-500">
+                      <QrCode aria-hidden="true" className="h-4 w-4" />
+                      <span className="font-medium">QR Check Active</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          guestPay.copyLink(guestPay.session!.token);
+                          toast.success('Link copied to clipboard');
+                        }}
+                        className="flex items-center gap-1 rounded-md border border-emerald-500/30 px-2 py-1 text-xs font-medium text-emerald-500 hover:bg-emerald-500/10"
+                      >
+                        <Copy aria-hidden="true" className="h-3 w-3" />
+                        Copy Link
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Send + QR + Pay buttons */}
               <div className="relative shrink-0 px-4 py-2">
                 <div className="flex gap-2">
                   {/* Send button — highlighted when F&B items present */}
@@ -1314,6 +1365,16 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
                   >
                     <Send aria-hidden="true" className="h-4 w-4" />
                     {isOrderPlaced ? 'Sent' : 'Send'}
+                  </button>
+
+                  {/* QR Print Check button */}
+                  <button
+                    type="button"
+                    onClick={handlePrintCheck}
+                    disabled={!hasItems}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <QrCode aria-hidden="true" className="h-5 w-5" />
                   </button>
 
                   {/* Pay button */}

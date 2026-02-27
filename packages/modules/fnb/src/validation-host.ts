@@ -155,11 +155,14 @@ export type CheckInReservationV2Input = z.input<typeof checkInReservationV2Schem
 
 export const hostAddToWaitlistSchema = z.object({
   guestName: z.string().min(1).max(200),
-  guestPhone: z.string().regex(phoneRegex, 'Phone required for waitlist notifications'),
+  guestPhone: z.string().regex(phoneRegex, 'Invalid phone number format').optional(),
   customerId: z.string().optional(),
   partySize: z.number().int().min(1).max(99),
   seatingPreference: z.enum(HOST_SEATING_PREFERENCES).optional(),
   specialRequests: z.string().max(1000).optional(),
+  isVip: z.boolean().optional(),
+  notes: z.string().max(1000).optional(),
+  quotedWaitMinutes: z.number().int().min(0).max(300).optional(),
   source: z.enum(HOST_WAITLIST_SOURCES).default('host'),
   clientRequestId: z.string().min(1).max(128).optional(),
 });

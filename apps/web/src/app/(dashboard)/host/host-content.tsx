@@ -497,10 +497,11 @@ function HostContentInner() {
       {/* ── Dialogs ───────────────────────────────────── */}
       <AddGuestDialog
         open={showAddGuest}
-        onClose={() => setShowAddGuest(false)}
+        onClose={() => { setShowAddGuest(false); waitlistMut.clearError(); }}
         onSubmit={handleAddGuest}
         waitEstimate={estimate}
         isSubmitting={waitlistMut.isAdding}
+        error={waitlistMut.error}
       />
 
       <NewReservationDialog

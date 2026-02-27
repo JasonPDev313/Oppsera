@@ -45,6 +45,12 @@ export const rmDailySales = pgTable(
     voidCount: integer('void_count').notNull().default(0),
     voidTotal: numeric('void_total', { precision: 19, scale: 4 }).notNull().default('0'),
     avgOrderValue: numeric('avg_order_value', { precision: 19, scale: 4 }).notNull().default('0'),
+    // Non-POS revenue columns (migration 0224)
+    pmsRevenue: numeric('pms_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
+    arRevenue: numeric('ar_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
+    membershipRevenue: numeric('membership_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
+    voucherRevenue: numeric('voucher_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
+    totalBusinessRevenue: numeric('total_business_revenue', { precision: 19, scale: 4 }).notNull().default('0'),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -149,6 +155,44 @@ export const rmCustomerActivity = pgTable(
       table.customerId,
     ),
     index('idx_rm_customer_activity_last_visit').on(table.tenantId, table.lastVisitAt),
+  ],
+);
+
+// ── rm_revenue_activity ──────────────────────────────────────
+// Per-transaction revenue activity from ALL sources (POS, PMS, AR, membership, voucher).
+// Updated by event consumers for each revenue source.
+export const rmRevenueActivity = pgTable(
+  'rm_revenue_activity',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    locationId: text('location_id').notNull(),
+    businessDate: date('business_date').notNull(),
+    source: text('source').notNull(), // 'pos_order','pms_folio','ar_invoice','membership','voucher'
+    sourceId: text('source_id').notNull(),
+    sourceLabel: text('source_label').notNull(),
+    customerName: text('customer_name'),
+    amountDollars: numeric('amount_dollars', { precision: 19, scale: 4 }).notNull().default('0'),
+    status: text('status').notNull().default('completed'), // completed, voided, refunded
+    metadata: jsonb('metadata'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex('uq_rm_revenue_activity_tenant_source').on(
+      table.tenantId,
+      table.source,
+      table.sourceId,
+    ),
+    index('idx_rm_revenue_activity_tenant_created').on(table.tenantId, table.createdAt),
+    index('idx_rm_revenue_activity_tenant_date').on(table.tenantId, table.businessDate),
+    index('idx_rm_revenue_activity_tenant_loc_created').on(
+      table.tenantId,
+      table.locationId,
+      table.createdAt,
+    ),
   ],
 );
 

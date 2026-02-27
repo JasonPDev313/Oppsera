@@ -1,15 +1,22 @@
 import { eq, and, gte, sql } from 'drizzle-orm';
 import {
   withTenant,
-  rmDailySales,
   rmInventoryOnHand,
   rmCustomerActivity,
+  rmDailySales,
 } from '@oppsera/db';
 
 export interface GetDashboardMetricsInput {
   tenantId: string;
   locationId?: string;
   date?: string; // 'YYYY-MM-DD', defaults to today
+}
+
+export interface NonPosRevenue {
+  pms: number;
+  ar: number;
+  membership: number;
+  voucher: number;
 }
 
 export interface DashboardMetrics {
@@ -20,6 +27,10 @@ export interface DashboardMetrics {
   activeCustomers30d: number;
   /** 'today' when filtered to business_date, 'all' when using all-time fallback */
   period: 'today' | 'all';
+  /** Total business revenue including non-POS sources */
+  totalBusinessRevenue: number;
+  /** Breakdown of non-POS revenue by source */
+  nonPosRevenue: NonPosRevenue;
 }
 
 const num = (v: string | number | null | undefined): number => Number(v) || 0;
@@ -30,6 +41,7 @@ const num = (v: string | number | null | undefined): number => Number(v) || 0;
  * Prefers CQRS read models (rm_daily_sales, rm_inventory_on_hand) for speed.
  * Falls back to querying operational tables directly when read models are empty
  * (e.g., after direct seeding that bypassed the event system).
+ * Uses rm_daily_sales for non-POS revenue breakdown (PMS, AR, membership, voucher).
  */
 export async function getDashboardMetrics(
   input: GetDashboardMetricsInput,
@@ -37,7 +49,7 @@ export async function getDashboardMetrics(
   const today = input.date ?? new Date().toISOString().slice(0, 10);
 
   return withTenant(input.tenantId, async (tx) => {
-    // 1. Daily sales metrics — try read model first
+    // 1. Daily sales metrics — try read model first (fast indexed lookup)
     const salesConditions = [
       eq(rmDailySales.tenantId, input.tenantId),
       eq(rmDailySales.businessDate, today),
@@ -51,6 +63,11 @@ export async function getDashboardMetrics(
         netSales: sql<string>`coalesce(sum(${rmDailySales.netSales}), 0)::numeric(19,4)`,
         orderCount: sql<number>`coalesce(sum(${rmDailySales.orderCount}), 0)::int`,
         voidCount: sql<number>`coalesce(sum(${rmDailySales.voidCount}), 0)::int`,
+        pmsRevenue: sql<string>`coalesce(sum(${rmDailySales.pmsRevenue}), 0)`,
+        arRevenue: sql<string>`coalesce(sum(${rmDailySales.arRevenue}), 0)`,
+        membershipRevenue: sql<string>`coalesce(sum(${rmDailySales.membershipRevenue}), 0)`,
+        voucherRevenue: sql<string>`coalesce(sum(${rmDailySales.voucherRevenue}), 0)`,
+        totalBusinessRevenue: sql<string>`coalesce(sum(${rmDailySales.totalBusinessRevenue}), 0)`,
       })
       .from(rmDailySales)
       .where(and(...salesConditions));
@@ -59,6 +76,17 @@ export async function getDashboardMetrics(
     let todayOrders = salesRow?.orderCount ?? 0;
     let todayVoids = salesRow?.voidCount ?? 0;
     let period: 'today' | 'all' = 'today';
+    let totalBusinessRevenue = todaySales;
+    const nonPosRevenue: NonPosRevenue = {
+      pms: num(salesRow?.pmsRevenue),
+      ar: num(salesRow?.arRevenue),
+      membership: num(salesRow?.membershipRevenue),
+      voucher: num(salesRow?.voucherRevenue),
+    };
+    const rmTotalBizRev = num(salesRow?.totalBusinessRevenue);
+    if (rmTotalBizRev > 0) {
+      totalBusinessRevenue = rmTotalBizRev;
+    }
 
     // Fallback: query operational orders table when read model is empty
     if (todayOrders === 0) {
@@ -66,10 +94,10 @@ export async function getDashboardMetrics(
         ? sql` AND location_id = ${input.locationId}`
         : sql``;
 
-      // Try today's business_date first
+      // Try today's business_date first (sargable — uses index)
       const [fallbackRow] = await tx.execute(sql`
         SELECT
-          coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::int AS net_sales_cents,
+          coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::bigint AS net_sales_cents,
           count(*)::int AS order_count,
           count(*) FILTER (WHERE status = 'voided')::int AS void_count
         FROM orders
@@ -86,6 +114,7 @@ export async function getDashboardMetrics(
           todaySales = (Number(row.net_sales_cents) || 0) / 100;
           todayOrders = fallbackOrders;
           todayVoids = Number(row.void_count) || 0;
+          totalBusinessRevenue = todaySales;
         }
       }
 
@@ -94,7 +123,7 @@ export async function getDashboardMetrics(
       if (todayOrders === 0) {
         const [allTimeRow] = await tx.execute(sql`
           SELECT
-            coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::int AS net_sales_cents,
+            coalesce(sum(CASE WHEN status != 'voided' THEN total ELSE 0 END), 0)::bigint AS net_sales_cents,
             count(*)::int AS order_count,
             count(*) FILTER (WHERE status = 'voided')::int AS void_count
           FROM orders
@@ -111,6 +140,7 @@ export async function getDashboardMetrics(
             todayOrders = allOrders;
             todayVoids = Number(row.void_count) || 0;
             period = 'all';
+            totalBusinessRevenue = todaySales;
           }
         }
       }
@@ -136,7 +166,7 @@ export async function getDashboardMetrics(
 
     // Fallback: query inventory items + movements when read model is empty
     if (lowStockCount === 0) {
-      const locFilter = input.locationId
+      const stockLocFilter = input.locationId
         ? sql` AND ii.location_id = ${input.locationId}`
         : sql``;
 
@@ -146,7 +176,7 @@ export async function getDashboardMetrics(
         WHERE ii.tenant_id = ${input.tenantId}
           AND ii.reorder_point IS NOT NULL
           AND ii.reorder_point > 0
-          ${locFilter}
+          ${stockLocFilter}
           AND (
             SELECT coalesce(sum(im.quantity_delta), 0)
             FROM inventory_movements im
@@ -183,6 +213,8 @@ export async function getDashboardMetrics(
       lowStockCount,
       activeCustomers30d: customerRow?.count ?? 0,
       period,
+      totalBusinessRevenue,
+      nonPosRevenue,
     };
   });
 }

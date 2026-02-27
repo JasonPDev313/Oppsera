@@ -49,7 +49,7 @@ vi.mock('@oppsera/db', () => {
   // Build a fluent chain mock for db.select().from().innerJoin().where().orderBy().limit()
   const fluentChain = () => {
     const chain: Record<string, any> = {};
-    const methods = ['from', 'innerJoin', 'where', 'orderBy', 'limit'];
+    const methods = ['from', 'innerJoin', 'leftJoin', 'where', 'orderBy', 'limit'];
     for (const m of methods) {
       chain[m] = vi.fn().mockReturnValue(chain);
     }
@@ -184,8 +184,11 @@ describe('authenticate middleware', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFindFirstUsers.mockResolvedValue(mockUser);
-    // Combined membership+tenant select query returns array
+    // Combined user+membership+tenant select query returns array
     mockSelectResult.mockResolvedValue([{
+      userId: mockUser.id,
+      email: mockUser.email,
+      name: mockUser.name,
       membershipStatus: mockMembership.status,
       tenantId: mockMembership.tenantId,
       tenantStatus: mockTenant.status,
@@ -220,7 +223,8 @@ describe('authenticate middleware', () => {
   });
 
   it('rejects when user not found in database', async () => {
-    mockFindFirstUsers.mockResolvedValue(null);
+    // Combined query returns empty array when user doesn't exist
+    mockSelectResult.mockResolvedValue([]);
     const token = createTestJwt();
     const request = new Request('http://localhost:3000/api/v1/me', {
       headers: { Authorization: `Bearer ${token}` },

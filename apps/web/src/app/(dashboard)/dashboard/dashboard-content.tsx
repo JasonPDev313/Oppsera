@@ -7,7 +7,7 @@ import {
   DollarSign,
   ShoppingCart,
   AlertTriangle,
-  TrendingUp,
+  Users,
   Loader2,
   ArrowRight,
   StickyNote,
@@ -16,11 +16,16 @@ import {
   Clock,
   CheckCircle2,
   Rocket,
+  MapPin,
+  ChevronDown,
+  Building2,
+  FileText,
+  CreditCard,
+  Gift,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 import { PosInsightCard } from '@/components/insights/PosInsightCard';
-import type { Order } from '@/types/pos';
 import type { InventoryItem } from '@/types/inventory';
 
 // ── Dashboard Preferences (localStorage V1) ─────────────────────
@@ -52,6 +57,22 @@ interface DashboardMetrics {
   lowStockCount: number;
   activeCustomers30d: number;
   period?: 'today' | 'all';
+  totalBusinessRevenue: number;
+  nonPosRevenue: { pms: number; ar: number; membership: number; voucher: number };
+}
+
+/** A single revenue activity item from the unified ledger. */
+interface RevenueActivityItem {
+  id: string;
+  source: string;
+  sourceId: string;
+  sourceLabel: string;
+  customerName: string | null;
+  amountDollars: number;
+  status: string;
+  occurredAt: string;
+  businessDate: string;
+  metadata: Record<string, unknown> | null;
 }
 
 // ── Persistence helpers ──────────────────────────────────────────
@@ -77,10 +98,6 @@ function saveNotes(notes: string) {
 }
 
 // ── Formatting helpers ──────────────────────────────────────────
-
-function formatMoney(cents: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
-}
 
 function formatDollars(dollars: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(dollars);
@@ -112,9 +129,18 @@ export default function DashboardContent() {
   const queryClient = useQueryClient();
   const [prefs] = useState<DashboardPrefs>(() => loadPrefs());
   const [notes, setNotes] = useState(() => loadNotes());
-  const primaryLocation = locations?.[0];
-  const locationId = primaryLocation?.id ?? '';
+  const [selectedLocationId, setSelectedLocationId] = useState(''); // '' = all locations
   const today = getTodayBusinessDate();
+
+  // Derive the display name for the selected location
+  const selectedLocationName = selectedLocationId
+    ? locations?.find((l) => l.id === selectedLocationId)?.name ?? 'Unknown'
+    : 'All Locations';
+
+  // Build headers — only include X-Location-Id when a specific location is selected
+  const locationHeaders: Record<string, string> = selectedLocationId
+    ? { 'X-Location-Id': selectedLocationId }
+    : {};
 
   // ── React Query: dashboard metrics ────────────────────────────
   const {
@@ -122,42 +148,39 @@ export default function DashboardContent() {
     isLoading: metricsLoading,
     dataUpdatedAt: metricsUpdatedAt,
   } = useQuery({
-    queryKey: ['dashboard', 'metrics', locationId, today],
+    queryKey: ['dashboard', 'metrics', selectedLocationId, today],
     queryFn: ({ signal }) =>
       apiFetch<{ data: DashboardMetrics }>(
         `/api/v1/reports/dashboard?date=${today}`,
-        { signal, headers: { 'X-Location-Id': locationId } },
+        { signal, headers: locationHeaders },
       ).then((r) => r.data),
-    enabled: !!locationId,
     staleTime: 60_000,
   });
 
-  // ── React Query: recent orders ────────────────────────────────
-  // Fetch 5 most recent orders (no date filter — shows latest regardless of date)
-  const { data: recentOrders = [], isLoading: ordersLoading } = useQuery({
-    queryKey: ['dashboard', 'orders', locationId],
+  // ── React Query: recent activity ─────────────────────────────
+  // Fetch 5 most recent revenue events from the unified ledger
+  const { data: recentActivity = [], isLoading: activityLoading } = useQuery({
+    queryKey: ['dashboard', 'activity', selectedLocationId],
     queryFn: ({ signal }) =>
-      apiFetch<{ data: Order[]; meta: { cursor: string | null; hasMore: boolean } }>(
-        `/api/v1/orders?limit=5`,
-        { signal, headers: { 'X-Location-Id': locationId } },
+      apiFetch<{ data: RevenueActivityItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
+        `/api/v1/reports/recent-activity?limit=5`,
+        { signal, headers: locationHeaders },
       ).then((r) => r.data),
-    enabled: !!locationId,
     staleTime: 60_000,
   });
 
   // ── React Query: low stock items ──────────────────────────────
   const { data: lowStockItems = [], isLoading: inventoryLoading } = useQuery({
-    queryKey: ['dashboard', 'lowStock', locationId],
+    queryKey: ['dashboard', 'lowStock', selectedLocationId],
     queryFn: ({ signal }) =>
       apiFetch<{ data: InventoryItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
         `/api/v1/inventory?lowStockOnly=true&limit=5`,
-        { signal, headers: { 'X-Location-Id': locationId } },
+        { signal, headers: locationHeaders },
       ).then((r) => r.data),
-    enabled: !!locationId,
     staleTime: 60_000,
   });
 
-  const isLoading = metricsLoading || ordersLoading || inventoryLoading;
+  const isLoading = metricsLoading || activityLoading || inventoryLoading;
 
   // Refresh all dashboard queries at once
   const handleRefresh = useCallback(() => {
@@ -173,11 +196,19 @@ export default function DashboardContent() {
 
   // Derive display values — prefer reporting metrics, fall back to order data
   const isAllTime = metrics?.period === 'all';
-  const salesLabel = isAllTime ? 'Total Sales' : 'Total Sales Today';
+  const salesLabel = isAllTime ? 'Total Revenue' : 'Total Revenue Today';
   const ordersLabel = isAllTime ? 'Total Orders' : 'Orders Today';
+  const nonPosTotal = metrics
+    ? metrics.nonPosRevenue.pms + metrics.nonPosRevenue.ar + metrics.nonPosRevenue.membership + metrics.nonPosRevenue.voucher
+    : 0;
   const totalSalesDisplay = metrics
-    ? formatDollars(metrics.todaySales)
+    ? formatDollars(nonPosTotal > 0 ? metrics.totalBusinessRevenue : metrics.todaySales)
     : null;
+  const salesTrend = metrics && metrics.todayOrders > 0
+    ? nonPosTotal > 0
+      ? `${metrics.todayOrders} orders · incl. ${formatDollars(nonPosTotal)} non-POS`
+      : `${metrics.todayOrders} orders`
+    : undefined;
   const orderCountDisplay = metrics
     ? String(metrics.todayOrders)
     : null;
@@ -202,18 +233,37 @@ export default function DashboardContent() {
             {greeting}, {user?.name?.split(' ')[0] ?? 'there'}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {tenant?.name} &middot; {primaryLocation?.name ?? 'No location'} &middot; {formatDate(new Date())}
+            {tenant?.name} &middot; {formatDate(new Date())}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleRefresh}
-          disabled={isLoading}
-          className="inline-flex items-center gap-2 self-start rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2 self-start">
+          {/* Location Selector */}
+          {locations && locations.length > 1 && (
+            <div className="relative">
+              <select
+                value={selectedLocationId}
+                onChange={(e) => setSelectedLocationId(e.target.value)}
+                className="appearance-none rounded-lg border border-border bg-surface py-2 pl-8 pr-8 text-sm font-medium text-foreground hover:bg-accent focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">All Locations</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+              <MapPin className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Setup Status */}
@@ -230,7 +280,7 @@ export default function DashboardContent() {
             value={metricsLoading && !totalSalesDisplay ? null : totalSalesDisplay}
             icon={DollarSign}
             iconColor="text-green-500 bg-green-500/20"
-            trend={metrics && metrics.todayOrders > 0 ? `${metrics.todayOrders} orders` : undefined}
+            trend={salesTrend}
           />
         )}
         {prefs.showOrders && (
@@ -255,22 +305,22 @@ export default function DashboardContent() {
           />
         )}
         <MetricCard
-          label="Active Location"
-          value={primaryLocation?.name ?? '--'}
-          icon={TrendingUp}
+          label="Active Customers (30d)"
+          value={metricsLoading ? null : String(metrics?.activeCustomers30d ?? 0)}
+          icon={Users}
           iconColor="text-indigo-500 bg-indigo-500/20"
-          trend={locations?.length ? `${locations.length} total` : undefined}
+          trend={selectedLocationId ? selectedLocationName : 'All locations'}
         />
       </div>
 
       {/* Content Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Recent Orders (2/3 width on desktop) */}
+        {/* Recent Activity (2/3 width on desktop) */}
         {prefs.showRecentOrders && (
           <div className="lg:col-span-2">
             <div className="rounded-xl bg-surface shadow-sm ring-1 ring-gray-950/5">
               <div className="flex items-center justify-between border-b border-border px-6 py-4">
-                <h2 className="text-sm font-semibold text-foreground">Recent Orders</h2>
+                <h2 className="text-sm font-semibold text-foreground">Recent Activity</h2>
                 <Link
                   href="/orders"
                   className="inline-flex items-center gap-1 text-xs font-medium text-indigo-500 hover:text-indigo-400"
@@ -279,39 +329,43 @@ export default function DashboardContent() {
                 </Link>
               </div>
               <div className="divide-y divide-border">
-                {ordersLoading && recentOrders.length === 0 ? (
+                {activityLoading && recentActivity.length === 0 ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
-                ) : recentOrders.length === 0 ? (
+                ) : recentActivity.length === 0 ? (
                   <div className="px-6 py-8 text-center text-sm text-muted-foreground">
-                    No orders yet
+                    No activity yet
                   </div>
                 ) : (
-                  recentOrders.map((order) => (
-                    <Link
-                      key={order.id}
-                      href={`/orders/${order.id}`}
-                      className="flex items-center justify-between px-6 py-3 hover:bg-accent"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-                          <ShoppingCart className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  recentActivity.map((item) => {
+                    const SourceIcon = getSourceIcon(item.source);
+                    const iconColor = getSourceIconColor(item.source);
+                    const row = (
+                      <div className="flex items-center justify-between px-6 py-3 hover:bg-accent">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconColor}`}>
+                            <SourceIcon className="h-4 w-4" aria-hidden="true" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{item.sourceLabel}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(item.occurredAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              {item.customerName && ` · ${item.customerName}`}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-foreground">#{order.orderNumber}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            {order.customerId && ' · Customer attached'}
-                          </p>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-foreground">{formatDollars(item.amountDollars)}</p>
+                          <ActivityStatusBadge status={item.status} />
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-foreground">{formatMoney(order.total)}</p>
-                        <OrderStatusBadge status={order.status} />
-                      </div>
-                    </Link>
-                  ))
+                    );
+                    if (item.source === 'pos_order') {
+                      return <Link key={item.id} href={`/orders/${item.sourceId}`}>{row}</Link>;
+                    }
+                    return <div key={item.id}>{row}</div>;
+                  })
                 )}
               </div>
             </div>
@@ -520,12 +574,35 @@ function SetupStatusBanner() {
   );
 }
 
-function OrderStatusBadge({ status }: { status: string }) {
+function getSourceIcon(source: string) {
+  switch (source) {
+    case 'pos_order': return ShoppingCart;
+    case 'pms_folio': return Building2;
+    case 'ar_invoice': return FileText;
+    case 'membership': return CreditCard;
+    case 'voucher': return Gift;
+    default: return DollarSign;
+  }
+}
+
+function getSourceIconColor(source: string): string {
+  switch (source) {
+    case 'pos_order': return 'bg-blue-500/10 text-blue-500';
+    case 'pms_folio': return 'bg-purple-500/10 text-purple-500';
+    case 'ar_invoice': return 'bg-emerald-500/10 text-emerald-500';
+    case 'membership': return 'bg-amber-500/10 text-amber-500';
+    case 'voucher': return 'bg-pink-500/10 text-pink-500';
+    default: return 'bg-muted text-muted-foreground';
+  }
+}
+
+function ActivityStatusBadge({ status }: { status: string }) {
   const config: Record<string, { label: string; classes: string }> = {
-    open: { label: 'Open', classes: 'bg-blue-500/20 text-blue-500' },
-    placed: { label: 'Placed', classes: 'bg-amber-500/20 text-amber-500' },
+    completed: { label: 'Completed', classes: 'bg-green-500/20 text-green-500' },
     paid: { label: 'Paid', classes: 'bg-green-500/20 text-green-500' },
+    placed: { label: 'Placed', classes: 'bg-amber-500/20 text-amber-500' },
     voided: { label: 'Voided', classes: 'bg-red-500/20 text-red-500' },
+    refunded: { label: 'Refunded', classes: 'bg-red-500/20 text-red-500' },
   };
   const c = config[status] ?? { label: status, classes: 'bg-muted text-muted-foreground' };
   return (

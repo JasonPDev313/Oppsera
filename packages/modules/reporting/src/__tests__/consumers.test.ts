@@ -265,6 +265,7 @@ describe('Idempotency', () => {
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]); // location lookup
     mockUpsert(); // daily sales upsert
+    mockUpsert(); // revenue activity upsert
 
     await handleOrderPlaced(orderEvent as any);
 
@@ -311,11 +312,12 @@ describe('handleOrderPlaced', () => {
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]); // location
     mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
 
     await handleOrderPlaced(event as any);
 
-    // idempotency + location select + daily sales upsert = 2 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales + revenue activity = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
     expect(mockWithTenant).toHaveBeenCalledWith(TENANT, expect.any(Function));
   });
 
@@ -338,13 +340,14 @@ describe('handleOrderPlaced', () => {
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
     mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
     mockUpsert(); // item 1
     mockUpsert(); // item 2
 
     await handleOrderPlaced(event as any);
 
-    // idempotency + daily sales + 2 item sales = 4 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(4);
+    // idempotency + daily sales + revenue activity + 2 item sales = 5 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(5);
   });
 
   it('upserts rm_customer_activity when customerId is present', async () => {
@@ -365,12 +368,13 @@ describe('handleOrderPlaced', () => {
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
     mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
     mockUpsert(); // customer activity
 
     await handleOrderPlaced(event as any);
 
-    // idempotency + daily sales + customer activity = 3 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(3);
+    // idempotency + daily sales + revenue activity + customer activity = 4 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(4);
   });
 
   it('does NOT touch rm_customer_activity when customerId is absent', async () => {
@@ -388,12 +392,13 @@ describe('handleOrderPlaced', () => {
 
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
-    mockUpsert(); // daily sales only
+    mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
 
     await handleOrderPlaced(event as any);
 
-    // idempotency + daily sales = 2 execute calls (no customer activity)
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales + revenue activity = 3 execute calls (no customer activity)
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('handles multiple orders accumulating on same day', async () => {
@@ -414,7 +419,8 @@ describe('handleOrderPlaced', () => {
 
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
-    mockUpsert();
+    mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
     await handleOrderPlaced(event1 as any);
 
     vi.clearAllMocks();
@@ -437,11 +443,13 @@ describe('handleOrderPlaced', () => {
 
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
-    mockUpsert();
+    mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
     await handleOrderPlaced(event2 as any);
 
     // Both processed — SQL ON CONFLICT handles accumulation
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales + revenue activity = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('computes avgOrderValue correctly in upsert SQL', async () => {
@@ -460,13 +468,15 @@ describe('handleOrderPlaced', () => {
 
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
-    mockUpsert();
+    mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
 
     await handleOrderPlaced(event as any);
 
     // Verify execute was called (SQL includes avgOrderValue computation)
     // The SQL contains: (rm_daily_sales.net_sales + $net) / (rm_daily_sales.order_count + 1)
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales + revenue activity = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 });
 
@@ -495,10 +505,12 @@ describe('handleOrderVoided', () => {
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
     mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
 
     await handleOrderVoided(event as any);
 
-    expect(mockExecute).toHaveBeenCalledTimes(2); // idempotency + daily sales
+    // idempotency + daily sales + revenue activity = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('decreases netSales by void amount', async () => {
@@ -514,12 +526,14 @@ describe('handleOrderVoided', () => {
 
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
-    mockUpsert();
+    mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
 
     await handleOrderVoided(event as any);
 
     // SQL includes: net_sales = rm_daily_sales.net_sales - ${voidAmount}
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales + revenue activity = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('does NOT change orderCount (voids keep original count)', async () => {
@@ -535,13 +549,15 @@ describe('handleOrderVoided', () => {
 
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
-    mockUpsert();
+    mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
 
     await handleOrderVoided(event as any);
 
     // Verify SQL was executed — the SQL template does NOT include order_count in the UPDATE SET
     // (it uses rm_daily_sales.order_count in avgOrderValue calculation without incrementing)
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales + revenue activity = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('recomputes avgOrderValue with adjusted netSales and same orderCount', async () => {
@@ -557,13 +573,15 @@ describe('handleOrderVoided', () => {
 
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
-    mockUpsert();
+    mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
 
     await handleOrderVoided(event as any);
 
     // SQL includes: avg_order_value = CASE WHEN rm_daily_sales.order_count > 0
     //   THEN (rm_daily_sales.net_sales - $voidAmount) / rm_daily_sales.order_count ELSE 0 END
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + daily sales + revenue activity = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('increments quantityVoided on rm_item_sales per line', async () => {
@@ -583,13 +601,14 @@ describe('handleOrderVoided', () => {
     mockIdempotencyNew();
     mockSelectReturns([{ timezone: 'America/New_York' }]);
     mockUpsert(); // daily sales
+    mockUpsert(); // revenue activity
     mockUpsert(); // item 1
     mockUpsert(); // item 2
 
     await handleOrderVoided(event as any);
 
-    // idempotency + daily sales + 2 item sales = 4 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(4);
+    // idempotency + daily sales + revenue activity + 2 item sales = 5 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(5);
   });
 });
 

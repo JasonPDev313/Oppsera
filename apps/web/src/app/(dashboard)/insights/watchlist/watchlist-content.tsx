@@ -21,6 +21,21 @@ interface RegistryMetric {
   unit: string | null;
 }
 
+// ── Fallback metrics when registry is empty or unavailable ────────
+
+const FALLBACK_METRICS: RegistryMetric[] = [
+  { slug: 'net_sales', displayName: 'Net Sales', description: 'Total sales minus voids and discounts', domain: 'Sales', category: 'revenue', dataType: 'currency', formatPattern: '$0,0.00', unit: 'dollars' },
+  { slug: 'gross_sales', displayName: 'Gross Sales', description: 'Total sales before adjustments', domain: 'Sales', category: 'revenue', dataType: 'currency', formatPattern: '$0,0.00', unit: 'dollars' },
+  { slug: 'order_count', displayName: 'Order Count', description: 'Number of orders placed', domain: 'Sales', category: 'volume', dataType: 'integer', formatPattern: '0,0', unit: null },
+  { slug: 'avg_order_value', displayName: 'Avg Order Value', description: 'Average revenue per order', domain: 'Sales', category: 'revenue', dataType: 'currency', formatPattern: '$0,0.00', unit: 'dollars' },
+  { slug: 'discount_total', displayName: 'Discount Total', description: 'Total discounts applied', domain: 'Sales', category: 'revenue', dataType: 'currency', formatPattern: '$0,0.00', unit: 'dollars' },
+  { slug: 'tax_total', displayName: 'Tax Total', description: 'Total tax collected', domain: 'Sales', category: 'tax', dataType: 'currency', formatPattern: '$0,0.00', unit: 'dollars' },
+  { slug: 'void_count', displayName: 'Void Count', description: 'Number of voided orders', domain: 'Operations', category: 'volume', dataType: 'integer', formatPattern: '0,0', unit: null },
+  { slug: 'void_total', displayName: 'Void Total', description: 'Total value of voided orders', domain: 'Operations', category: 'revenue', dataType: 'currency', formatPattern: '$0,0.00', unit: 'dollars' },
+  { slug: 'tender_cash', displayName: 'Cash Tenders', description: 'Total cash payments received', domain: 'Payments', category: 'payments', dataType: 'currency', formatPattern: '$0,0.00', unit: 'dollars' },
+  { slug: 'tender_card', displayName: 'Card Tenders', description: 'Total card payments received', domain: 'Payments', category: 'payments', dataType: 'currency', formatPattern: '$0,0.00', unit: 'dollars' },
+];
+
 // ── Add Metric Dialog ─────────────────────────────────────────────
 
 function AddMetricDialog({
@@ -49,9 +64,9 @@ function AddMetricDialog({
       setIsLoadingRegistry(true);
       try {
         const res = await apiFetch<{ data: RegistryMetric[] }>('/api/v1/semantic/metrics');
-        if (!cancelled) setRegistryMetrics(res.data);
+        if (!cancelled) setRegistryMetrics(res.data.length > 0 ? res.data : FALLBACK_METRICS);
       } catch {
-        // Best-effort — empty list is fine
+        if (!cancelled) setRegistryMetrics(FALLBACK_METRICS);
       } finally {
         if (!cancelled) setIsLoadingRegistry(false);
       }

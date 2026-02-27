@@ -15,6 +15,7 @@ const packageComponentSchema = z.object({
 
 const orderPlacedSchema = z.object({
   orderId: z.string(),
+  orderNumber: z.string().optional(),
   locationId: z.string(),
   occurredAt: z.string().optional(),
   customerId: z.string().optional(),
@@ -101,12 +102,12 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
       INSERT INTO rm_daily_sales (
         id, tenant_id, location_id, business_date,
         order_count, gross_sales, discount_total, service_charge_total,
-        tax_total, net_sales, avg_order_value, updated_at
+        tax_total, net_sales, avg_order_value, total_business_revenue, updated_at
       )
       VALUES (
         ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
         ${1}, ${gross}, ${discount}, ${serviceCharge},
-        ${tax}, ${net}, ${net}, NOW()
+        ${tax}, ${net}, ${net}, ${net}, NOW()
       )
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
@@ -121,7 +122,28 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
           THEN (rm_daily_sales.net_sales + ${net}) / (rm_daily_sales.order_count + 1)
           ELSE 0
         END,
+        total_business_revenue = (rm_daily_sales.net_sales + ${net}) + rm_daily_sales.pms_revenue + rm_daily_sales.ar_revenue + rm_daily_sales.membership_revenue + rm_daily_sales.voucher_revenue,
         updated_at = NOW()
+    `);
+
+    // Step 4b: Upsert rm_revenue_activity with source='pos_order'
+    const orderLabel = data.orderNumber ? `Order #${data.orderNumber}` : `Order ${data.orderId.slice(-6)}`;
+    await (tx as any).execute(sql`
+      INSERT INTO rm_revenue_activity (
+        id, tenant_id, location_id, business_date,
+        source, source_id, source_label, customer_name,
+        amount_dollars, status, metadata, occurred_at, created_at
+      )
+      VALUES (
+        ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
+        ${'pos_order'}, ${data.orderId}, ${orderLabel}, ${data.customerName ?? null},
+        ${net}, ${'completed'}, ${JSON.stringify({ customerId: data.customerId })},
+        ${occurredAt}::timestamptz, NOW()
+      )
+      ON CONFLICT (tenant_id, source, source_id) DO UPDATE SET
+        amount_dollars = ${net},
+        status = ${'completed'},
+        occurred_at = ${occurredAt}::timestamptz
     `);
 
     // Step 5: Upsert rm_item_sales per line (or per component for enriched packages)

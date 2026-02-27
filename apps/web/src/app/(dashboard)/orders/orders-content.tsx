@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import {
   ClipboardList,
   Download,
@@ -13,6 +14,10 @@ import {
   DollarSign,
   Unlock,
   Trash2,
+  ShoppingCart,
+  Building2,
+  CreditCard,
+  Gift,
 } from 'lucide-react';
 import { DataTable } from '@/components/ui/data-table';
 import { SearchInput } from '@/components/ui/search-input';
@@ -82,6 +87,63 @@ function formatDateTime(dateStr: string): string {
 }
 
 type OrderRow = Order & Record<string, unknown>;
+
+// ── All Revenue types & helpers ──────────────────────────────
+
+interface RevenueActivityItem {
+  id: string;
+  source: string;
+  sourceId: string;
+  sourceLabel: string;
+  customerName: string | null;
+  amountDollars: number;
+  status: string;
+  occurredAt: string;
+  metadata: Record<string, unknown> | null;
+}
+
+function getSourceIcon(source: string) {
+  switch (source) {
+    case 'pos_order': return ShoppingCart;
+    case 'pms_folio': return Building2;
+    case 'ar_invoice': return FileText;
+    case 'membership': return CreditCard;
+    case 'voucher': return Gift;
+    default: return DollarSign;
+  }
+}
+
+function getSourceIconColor(source: string): string {
+  switch (source) {
+    case 'pos_order': return 'bg-blue-500/10 text-blue-500';
+    case 'pms_folio': return 'bg-purple-500/10 text-purple-500';
+    case 'ar_invoice': return 'bg-emerald-500/10 text-emerald-500';
+    case 'membership': return 'bg-amber-500/10 text-amber-500';
+    case 'voucher': return 'bg-pink-500/10 text-pink-500';
+    default: return 'bg-muted text-muted-foreground';
+  }
+}
+
+function formatDollars(amount: number): string {
+  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  pos_order: 'POS Order',
+  pms_folio: 'PMS Folio',
+  ar_invoice: 'AR Invoice',
+  membership: 'Membership',
+  voucher: 'Voucher',
+};
+
+const sourceFilterOptions = [
+  { value: '', label: 'All Sources' },
+  { value: 'pos_order', label: 'POS Orders' },
+  { value: 'pms_folio', label: 'PMS Folios' },
+  { value: 'ar_invoice', label: 'AR Invoices' },
+  { value: 'membership', label: 'Membership' },
+  { value: 'voucher', label: 'Vouchers' },
+];
 
 // ── Summary Bar ────────────────────────────────────────────────
 
@@ -178,10 +240,16 @@ export default function OrdersPage() {
   const { toast } = useToast();
   const profileDrawer = useProfileDrawer();
 
+  // Tab toggle: POS Orders vs All Revenue
+  const [activeTab, setActiveTab] = useState<'pos' | 'all'>('pos');
+
   // Location selector — default to "All" (empty = no location filter)
   const [selectedLocationId, setSelectedLocationId] = useState('');
   // For actions that require a locationId header, fall back to first location
   const actionLocationId = selectedLocationId || locations[0]?.id || '';
+
+  // All Revenue tab source filter
+  const [sourceFilter, setSourceFilter] = useState('');
 
   // Filters
   const [search, setSearch] = useState('');
@@ -219,6 +287,112 @@ export default function OrdersPage() {
     paymentMethod: paymentFilter || undefined,
     locationId: selectedLocationId || undefined,
   });
+
+  // ── All Revenue query ─────────────────────────────────────────
+  const locationHeaders = selectedLocationId ? { 'X-Location-Id': selectedLocationId } : undefined;
+  const activityParams = new URLSearchParams();
+  activityParams.set('limit', '50');
+  if (sourceFilter) activityParams.set('source', sourceFilter);
+
+  const {
+    data: activityData,
+    isLoading: activityLoading,
+  } = useQuery({
+    queryKey: ['orders', 'all-revenue', sourceFilter, selectedLocationId],
+    queryFn: ({ signal }) =>
+      apiFetch<{ data: RevenueActivityItem[]; meta: { cursor: string | null; hasMore: boolean } }>(
+        `/api/v1/reports/recent-activity?${activityParams.toString()}`,
+        { signal, headers: locationHeaders },
+      ),
+    enabled: activeTab === 'all',
+    staleTime: 60_000,
+  });
+
+  const activityItems = activityData?.data ?? [];
+
+  type ActivityRow = RevenueActivityItem & Record<string, unknown>;
+
+  const activityColumns = useMemo(
+    () => [
+      {
+        key: 'source',
+        header: 'Source',
+        width: '200px',
+        render: (row: ActivityRow) => {
+          const Icon = getSourceIcon(row.source);
+          const color = getSourceIconColor(row.source);
+          return (
+            <div className="flex items-center gap-2">
+              <span className={`flex h-7 w-7 items-center justify-center rounded-full ${color}`}>
+                <Icon className="h-3.5 w-3.5" />
+              </span>
+              <span className="text-sm font-medium text-foreground">{row.sourceLabel}</span>
+            </div>
+          );
+        },
+      },
+      {
+        key: 'sourceType',
+        header: 'Type',
+        width: '100px',
+        render: (row: ActivityRow) => (
+          <span className="text-xs text-muted-foreground">
+            {SOURCE_LABELS[row.source] ?? row.source}
+          </span>
+        ),
+      },
+      {
+        key: 'customerName',
+        header: 'Customer',
+        render: (row: ActivityRow) => (
+          <span className="text-sm text-foreground">
+            {row.customerName || '\u2014'}
+          </span>
+        ),
+      },
+      {
+        key: 'amountDollars',
+        header: 'Amount',
+        width: '100px',
+        render: (row: ActivityRow) => (
+          <span className="text-sm font-semibold text-foreground tabular-nums">
+            {formatDollars(row.amountDollars)}
+          </span>
+        ),
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        width: '100px',
+        render: (row: ActivityRow) => {
+          const cfg: Record<string, { label: string; classes: string }> = {
+            completed: { label: 'Completed', classes: 'bg-green-500/20 text-green-500' },
+            paid: { label: 'Paid', classes: 'bg-green-500/20 text-green-500' },
+            placed: { label: 'Placed', classes: 'bg-amber-500/20 text-amber-500' },
+            voided: { label: 'Voided', classes: 'bg-red-500/20 text-red-500' },
+            refunded: { label: 'Refunded', classes: 'bg-red-500/20 text-red-500' },
+          };
+          const c = cfg[row.status] ?? { label: row.status, classes: 'bg-muted text-muted-foreground' };
+          return (
+            <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${c.classes}`}>
+              {c.label}
+            </span>
+          );
+        },
+      },
+      {
+        key: 'occurredAt',
+        header: 'Date',
+        width: '130px',
+        render: (row: ActivityRow) => (
+          <span className="text-xs text-muted-foreground">
+            {formatDateTime(row.occurredAt)}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
 
   const hasFilters = !!search || !!statusFilter || !!paymentFilter || !!dateFrom || !!dateTo || !!selectedLocationId;
 
@@ -554,108 +728,190 @@ export default function OrdersPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-foreground">Sales History</h1>
-        <button
-          type="button"
-          onClick={() => exportCSV(orders)}
-          disabled={orders.length === 0}
-          className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          <Download className="h-4 w-4" aria-hidden="true" />
-          Export
-        </button>
-      </div>
-
-      {/* Summary bar */}
-      {orders.length > 0 && <SummaryBar orders={orders} />}
-
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-3">
-        {locations.length > 1 && (
-          <Select
-            options={[
-              { value: '', label: 'All Locations' },
-              ...locations.map((l) => ({ value: l.id, label: l.name })),
-            ]}
-            value={selectedLocationId}
-            onChange={(v) => setSelectedLocationId(v as string)}
-            placeholder="All Locations"
-            className="w-full md:w-44"
-          />
-        )}
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search order #, customer..."
-          className="w-full md:w-64"
-        />
-        <Select
-          options={statusOptions}
-          value={statusFilter}
-          onChange={(v) => setStatusFilter(v as string)}
-          placeholder="All Statuses"
-          className="w-full md:w-40"
-        />
-        <Select
-          options={paymentMethodOptions}
-          value={paymentFilter}
-          onChange={(v) => setPaymentFilter(v as string)}
-          placeholder="All Payment Types"
-          className="w-full md:w-44"
-        />
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-            placeholder="From"
-          />
-          <span className="text-muted-foreground">&ndash;</span>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-            placeholder="To"
-          />
-        </div>
-        {hasFilters && (
+        {activeTab === 'pos' && (
           <button
             type="button"
-            onClick={clearFilters}
-            className="text-sm text-muted-foreground hover:text-foreground"
+            onClick={() => exportCSV(orders)}
+            disabled={orders.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Clear filters
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Export
           </button>
         )}
       </div>
 
-      {/* Table */}
-      {!isLoading && orders.length === 0 && !hasFilters ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="No orders yet"
-          description="Orders will appear here once they are created"
-        />
-      ) : (
+      {/* Tab toggle */}
+      <div className="flex gap-1 rounded-lg border border-border bg-surface p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('pos')}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'pos'
+              ? 'bg-indigo-600 text-white'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+          }`}
+        >
+          POS Orders
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('all')}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'all'
+              ? 'bg-indigo-600 text-white'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+          }`}
+        >
+          All Revenue
+        </button>
+      </div>
+
+      {/* ── POS Orders Tab ─────────────────────────────────────────── */}
+      {activeTab === 'pos' && (
         <>
-          <DataTable
-            columns={columns}
-            data={orders as OrderRow[]}
-            isLoading={isLoading}
-            emptyMessage="No orders match your filters"
-            onRowClick={(row) => router.push(`/orders/${row.id}`)}
-          />
-          {hasMore && (
-            <div className="flex justify-center">
+          {/* Summary bar */}
+          {orders.length > 0 && <SummaryBar orders={orders} />}
+
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-3">
+            {locations.length > 1 && (
+              <Select
+                options={[
+                  { value: '', label: 'All Locations' },
+                  ...locations.map((l) => ({ value: l.id, label: l.name })),
+                ]}
+                value={selectedLocationId}
+                onChange={(v) => setSelectedLocationId(v as string)}
+                placeholder="All Locations"
+                className="w-full md:w-44"
+              />
+            )}
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search order #, customer..."
+              className="w-full md:w-64"
+            />
+            <Select
+              options={statusOptions}
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v as string)}
+              placeholder="All Statuses"
+              className="w-full md:w-40"
+            />
+            <Select
+              options={paymentMethodOptions}
+              value={paymentFilter}
+              onChange={(v) => setPaymentFilter(v as string)}
+              placeholder="All Payment Types"
+              className="w-full md:w-44"
+            />
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                placeholder="From"
+              />
+              <span className="text-muted-foreground">&ndash;</span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="rounded-lg border border-border px-3 py-2 text-sm text-foreground focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                placeholder="To"
+              />
+            </div>
+            {hasFilters && (
               <button
                 type="button"
-                onClick={loadMore}
-                className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                onClick={clearFilters}
+                className="text-sm text-muted-foreground hover:text-foreground"
               >
-                Load More
+                Clear filters
               </button>
-            </div>
+            )}
+          </div>
+
+          {/* Table */}
+          {!isLoading && orders.length === 0 && !hasFilters ? (
+            <EmptyState
+              icon={ClipboardList}
+              title="No orders yet"
+              description="Orders will appear here once they are created"
+            />
+          ) : (
+            <>
+              <DataTable
+                columns={columns}
+                data={orders as OrderRow[]}
+                isLoading={isLoading}
+                emptyMessage="No orders match your filters"
+                onRowClick={(row) => router.push(`/orders/${row.id}`)}
+              />
+              {hasMore && (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={loadMore}
+                    className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+                  >
+                    Load More
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {/* ── All Revenue Tab ────────────────────────────────────────── */}
+      {activeTab === 'all' && (
+        <>
+          {/* Source filter */}
+          <div className="flex flex-wrap items-center gap-3">
+            {locations.length > 1 && (
+              <Select
+                options={[
+                  { value: '', label: 'All Locations' },
+                  ...locations.map((l) => ({ value: l.id, label: l.name })),
+                ]}
+                value={selectedLocationId}
+                onChange={(v) => setSelectedLocationId(v as string)}
+                placeholder="All Locations"
+                className="w-full md:w-44"
+              />
+            )}
+            <Select
+              options={sourceFilterOptions}
+              value={sourceFilter}
+              onChange={(v) => setSourceFilter(v as string)}
+              placeholder="All Sources"
+              className="w-full md:w-44"
+            />
+          </div>
+
+          {/* All Revenue table */}
+          {!activityLoading && activityItems.length === 0 ? (
+            <EmptyState
+              icon={DollarSign}
+              title="No revenue activity"
+              description="Revenue from POS orders, PMS folios, AR invoices, memberships, and vouchers will appear here"
+            />
+          ) : (
+            <DataTable
+              columns={activityColumns}
+              data={activityItems as ActivityRow[]}
+              isLoading={activityLoading}
+              emptyMessage="No activity matches your filters"
+              onRowClick={(row) => {
+                if (row.source === 'pos_order') {
+                  router.push(`/orders/${(row as RevenueActivityItem).sourceId}`);
+                }
+              }}
+            />
           )}
         </>
       )}

@@ -56,11 +56,13 @@ vi.mock('@oppsera/db', () => ({
   tenderReversals: { tenantId: 'tenant_id', orderId: 'order_id', originalTenderId: 'original_tender_id' },
   orderLines: { orderId: 'order_id' },
   orders: { id: 'id' },
+  orderDiscounts: { orderId: 'order_id', discountClassification: 'discount_classification', amount: 'amount' },
 }));
 
 vi.mock('drizzle-orm', () => ({
   eq: vi.fn((a, b) => ({ type: 'eq', a, b })),
   and: vi.fn((...args: unknown[]) => ({ type: 'and', args })),
+  sql: Object.assign((strings: TemplateStringsArray, ..._: unknown[]) => strings.join(''), { raw: (s: string) => s }),
 }));
 
 vi.mock('@oppsera/core/events/publish-with-outbox', () => ({

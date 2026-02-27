@@ -13,6 +13,7 @@ const { mockDb } = vi.hoisted(() => ({
 
 vi.mock('@oppsera/db', () => ({
   db: mockDb,
+  withTenant: vi.fn(async (_tenantId: string, fn: (tx: typeof mockDb) => Promise<unknown>) => fn(mockDb)),
   semanticLenses: {
     id: 'id',
     tenantId: 'tenant_id',
@@ -30,6 +31,13 @@ vi.mock('@oppsera/db', () => ({
     isActive: 'is_active',
     isSystem: 'is_system',
     createdAt: 'created_at',
+    updatedAt: 'updated_at',
+  },
+  tenantLensPreferences: {
+    id: 'id',
+    tenantId: 'tenant_id',
+    lensSlug: 'lens_slug',
+    enabled: 'enabled',
     updatedAt: 'updated_at',
   },
   semanticMetrics: { isActive: 'is_active' },

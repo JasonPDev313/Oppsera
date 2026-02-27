@@ -99,14 +99,32 @@ export async function getTabDetail(
     if (tabArr.length === 0) throw new TabNotFoundError(input.tabId);
     const r = tabArr[0]!;
 
-    // Get courses
-    const courseRows = await tx.execute(
-      sql`SELECT id, course_number, course_name, course_status,
-                 fired_at, sent_at, served_at
-          FROM fnb_tab_courses
-          WHERE tab_id = ${input.tabId} AND tenant_id = ${input.tenantId}
-          ORDER BY course_number ASC`,
-    );
+    // Fetch courses, transfers, and items in parallel — all only depend on tabId
+    const [courseRows, transferRows, itemRows] = await Promise.all([
+      tx.execute(
+        sql`SELECT id, course_number, course_name, course_status,
+                   fired_at, sent_at, served_at
+            FROM fnb_tab_courses
+            WHERE tab_id = ${input.tabId} AND tenant_id = ${input.tenantId}
+            ORDER BY course_number ASC`,
+      ),
+      tx.execute(
+        sql`SELECT id, transfer_type, from_server_user_id, to_server_user_id,
+                   from_table_id, to_table_id, reason, transferred_by, transferred_at
+            FROM fnb_tab_transfers
+            WHERE tab_id = ${input.tabId} AND tenant_id = ${input.tenantId}
+            ORDER BY transferred_at DESC`,
+      ),
+      tx.execute(
+        sql`SELECT id, catalog_item_id, catalog_item_name, seat_number,
+                   course_number, quantity, unit_price_cents, extended_price_cents,
+                   modifiers, special_instructions, status, sent_at, fired_at
+            FROM fnb_tab_items
+            WHERE tab_id = ${input.tabId} AND tenant_id = ${input.tenantId}
+            ORDER BY course_number ASC, sort_order ASC, created_at ASC`,
+      ),
+    ]);
+
     const courses = Array.from(courseRows as Iterable<Record<string, unknown>>).map((c) => ({
       id: c.id as string,
       courseNumber: Number(c.course_number),
@@ -117,14 +135,6 @@ export async function getTabDetail(
       servedAt: (c.served_at as string) ?? null,
     }));
 
-    // Get transfers
-    const transferRows = await tx.execute(
-      sql`SELECT id, transfer_type, from_server_user_id, to_server_user_id,
-                 from_table_id, to_table_id, reason, transferred_by, transferred_at
-          FROM fnb_tab_transfers
-          WHERE tab_id = ${input.tabId} AND tenant_id = ${input.tenantId}
-          ORDER BY transferred_at DESC`,
-    );
     const transfers = Array.from(transferRows as Iterable<Record<string, unknown>>).map((tr) => ({
       id: tr.id as string,
       transferType: tr.transfer_type as string,
@@ -137,15 +147,6 @@ export async function getTabDetail(
       transferredAt: tr.transferred_at as string,
     }));
 
-    // Get tab items (line items)
-    const itemRows = await tx.execute(
-      sql`SELECT id, catalog_item_id, catalog_item_name, seat_number,
-                 course_number, quantity, unit_price_cents, extended_price_cents,
-                 modifiers, special_instructions, status, sent_at, fired_at
-          FROM fnb_tab_items
-          WHERE tab_id = ${input.tabId} AND tenant_id = ${input.tenantId}
-          ORDER BY course_number ASC, sort_order ASC, created_at ASC`,
-    );
     const lines = Array.from(itemRows as Iterable<Record<string, unknown>>).map((li) => ({
       id: li.id as string,
       catalogItemId: li.catalog_item_id as string,

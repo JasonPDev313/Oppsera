@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import type {
@@ -41,6 +41,25 @@ function setSnapshot(roomId: string, data: FloorPlanWithLiveStatus): void {
 let _roomsSnapshot: { data: Room[]; ts: number } | null = null;
 const ROOMS_SNAPSHOT_TTL_MS = 30 * 60_000;
 
+/**
+ * Pre-warm the floor plan cache for a given room.
+ * Call during POS setup so the floor view renders instantly.
+ * Fire-and-forget — errors are silently swallowed.
+ */
+export async function warmFloorPlanCache(roomId: string): Promise<void> {
+  if (!roomId) return;
+  // Skip if already cached and fresh
+  if (getSnapshot(roomId)) return;
+  try {
+    const json = await apiFetch<{ data: FloorPlanWithLiveStatus }>(
+      `/api/v1/fnb/tables/floor-plan?roomId=${roomId}`,
+    );
+    setSnapshot(roomId, json.data);
+  } catch {
+    // non-critical — cold start will fetch normally
+  }
+}
+
 // ── Floor Plan Hook ─────────────────────────────────────────────
 
 interface UseFnbFloorOptions {
@@ -59,17 +78,38 @@ interface UseFnbFloorReturn {
 
 export function useFnbFloor({ roomId, pollIntervalMs = 20 * 60_000 }: UseFnbFloorOptions): UseFnbFloorReturn {
   const queryClient = useQueryClient();
+  // Track the full snapshotJson from the first fetch so subsequent lite
+  // polls can merge live table statuses without re-downloading the layout.
+  const snapshotJsonRef = useRef<Record<string, unknown> | null>(null);
+  // Reset when switching rooms
+  const prevRoomRef = useRef<string | null>(null);
+  if (roomId !== prevRoomRef.current) {
+    snapshotJsonRef.current = null;
+    prevRoomRef.current = roomId;
+  }
 
   const { data, isLoading, isFetching, error } = useQuery({
     queryKey: ['fnb-floor', roomId],
     queryFn: async ({ signal }) => {
-      const json = await apiFetch<{ data: FloorPlanWithLiveStatus }>(
-        `/api/v1/fnb/tables/floor-plan?roomId=${roomId}`,
-        { signal },
-      );
+      const useLite = snapshotJsonRef.current !== null;
+      const url = `/api/v1/fnb/tables/floor-plan?roomId=${roomId}${useLite ? '&lite=true' : ''}`;
+      const json = await apiFetch<{ data: FloorPlanWithLiveStatus }>(url, { signal });
+      let result = json.data;
+
+      if (!useLite && result.version?.snapshotJson) {
+        // First full fetch — capture snapshotJson for future lite merges
+        snapshotJsonRef.current = result.version.snapshotJson;
+      } else if (useLite && snapshotJsonRef.current && result.version) {
+        // Lite fetch — merge cached snapshotJson back into the response
+        result = {
+          ...result,
+          version: { ...result.version, snapshotJson: snapshotJsonRef.current },
+        };
+      }
+
       // Persist to module-level cache for instant cold starts
-      if (roomId) setSnapshot(roomId, json.data);
-      return json.data;
+      if (roomId) setSnapshot(roomId, result);
+      return result;
     },
     enabled: !!roomId,
     // Data is considered fresh for 5 minutes. The poll interval handles

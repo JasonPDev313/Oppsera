@@ -43,18 +43,18 @@ export async function createGuestPaySession(
 
     // Fetch check summary (subtotal, tax, svc charge, discount, total) from order
     const orders = await tx.execute(
-      sql`SELECT subtotal_cents, tax_total_cents, service_charge_cents,
-                 discount_cents, total_cents
+      sql`SELECT subtotal, tax_total, service_charge_total,
+                 discount_total, total
           FROM orders
           WHERE id = ${input.orderId} AND tenant_id = ${ctx.tenantId}`,
     );
     const orderRows = Array.from(orders as Iterable<Record<string, unknown>>);
     const order = orderRows[0];
-    const subtotalCents = (order?.subtotal_cents as number) ?? 0;
-    const taxCents = (order?.tax_total_cents as number) ?? 0;
-    const serviceChargeCents = (order?.service_charge_cents as number) ?? 0;
-    const discountCents = (order?.discount_cents as number) ?? 0;
-    const totalCents = (order?.total_cents as number) ?? 0;
+    const subtotalCents = (order?.subtotal as number) ?? 0;
+    const taxCents = (order?.tax_total as number) ?? 0;
+    const serviceChargeCents = (order?.service_charge_total as number) ?? 0;
+    const discountCents = (order?.discount_total as number) ?? 0;
+    const totalCents = (order?.total as number) ?? 0;
 
     if (totalCents <= 0) {
       throw new TabStatusConflictError(input.tabId, currentStatus, 'create guest pay session for $0 check on');

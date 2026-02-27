@@ -3,8 +3,7 @@
 // System lenses are read-only — they live in seed-data.ts and are
 // upserted by the sync script.
 
-import { db } from '@oppsera/db';
-import { semanticLenses, tenantLensPreferences } from '@oppsera/db';
+import { withTenant, semanticLenses, tenantLensPreferences } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import type { CreateLensInput, UpdateLensInput, CustomLensRow } from './types';
@@ -70,38 +69,40 @@ export async function createCustomLens(input: CreateLensInput): Promise<CustomLe
     throw new Error(`Lens validation failed: ${validation.errors.join('; ')}`);
   }
 
-  // Check for duplicate slug within this tenant
-  const existing = await db
-    .select({ id: semanticLenses.id })
-    .from(semanticLenses)
-    .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)));
+  // Check for duplicate slug + insert inside withTenant for RLS
+  return withTenant(tenantId, async (tx) => {
+    const existing = await tx
+      .select({ id: semanticLenses.id })
+      .from(semanticLenses)
+      .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)));
 
-  if (existing.length > 0) {
-    throw new DuplicateLensSlugError(slug, tenantId);
-  }
+    if (existing.length > 0) {
+      throw new DuplicateLensSlugError(slug, tenantId);
+    }
 
-  const [created] = await db
-    .insert(semanticLenses)
-    .values({
-      id: generateUlid(),
-      tenantId,
-      slug,
-      displayName,
-      description: description ?? null,
-      domain,
-      allowedMetrics: allowedMetrics ?? null,
-      allowedDimensions: allowedDimensions ?? null,
-      defaultMetrics: defaultMetrics ?? null,
-      defaultDimensions: defaultDimensions ?? null,
-      defaultFilters: defaultFilters ? (defaultFilters as never) : null,
-      systemPromptFragment: systemPromptFragment ?? null,
-      exampleQuestions: exampleQuestions ?? null,
-      isActive: true,
-      isSystem: false,
-    })
-    .returning();
+    const [created] = await tx
+      .insert(semanticLenses)
+      .values({
+        id: generateUlid(),
+        tenantId,
+        slug,
+        displayName,
+        description: description ?? null,
+        domain,
+        allowedMetrics: allowedMetrics ?? null,
+        allowedDimensions: allowedDimensions ?? null,
+        defaultMetrics: defaultMetrics ?? null,
+        defaultDimensions: defaultDimensions ?? null,
+        defaultFilters: defaultFilters ? (defaultFilters as never) : null,
+        systemPromptFragment: systemPromptFragment ?? null,
+        exampleQuestions: exampleQuestions ?? null,
+        isActive: true,
+        isSystem: false,
+      })
+      .returning();
 
-  return rowToCustomLens(created!);
+    return rowToCustomLens(created!);
+  });
 }
 
 // ── updateCustomLens ──────────────────────────────────────────────
@@ -109,56 +110,59 @@ export async function createCustomLens(input: CreateLensInput): Promise<CustomLe
 export async function updateCustomLens(input: UpdateLensInput): Promise<CustomLensRow> {
   const { tenantId, slug } = input;
 
+  // Validate metric/dimension changes before entering transaction
   // Find the existing lens — must belong to this tenant and not be a system lens
-  const [existing] = await db
-    .select()
-    .from(semanticLenses)
-    .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)));
+  return withTenant(tenantId, async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(semanticLenses)
+      .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)));
 
-  if (!existing) {
-    throw new LensNotFoundError(slug);
-  }
-  if (existing.isSystem) {
-    throw new SystemLensModificationError(slug);
-  }
+    if (!existing) {
+      throw new LensNotFoundError(slug);
+    }
+    if (existing.isSystem) {
+      throw new SystemLensModificationError(slug);
+    }
 
-  // Merge updates and validate
-  const nextAllowedMetrics = input.allowedMetrics ?? existing.allowedMetrics ?? undefined;
-  const nextAllowedDimensions = input.allowedDimensions ?? existing.allowedDimensions ?? undefined;
-  const nextDefaultMetrics = input.defaultMetrics ?? existing.defaultMetrics ?? undefined;
-  const nextDefaultDimensions = input.defaultDimensions ?? existing.defaultDimensions ?? undefined;
+    // Merge updates and validate
+    const nextAllowedMetrics = input.allowedMetrics ?? existing.allowedMetrics ?? undefined;
+    const nextAllowedDimensions = input.allowedDimensions ?? existing.allowedDimensions ?? undefined;
+    const nextDefaultMetrics = input.defaultMetrics ?? existing.defaultMetrics ?? undefined;
+    const nextDefaultDimensions = input.defaultDimensions ?? existing.defaultDimensions ?? undefined;
 
-  const validation = await validateLensMetricsAndDimensions(
-    nextAllowedMetrics,
-    nextAllowedDimensions,
-    nextDefaultMetrics,
-    nextDefaultDimensions,
-  );
-  if (!validation.valid) {
-    throw new Error(`Lens validation failed: ${validation.errors.join('; ')}`);
-  }
+    const validation = await validateLensMetricsAndDimensions(
+      nextAllowedMetrics,
+      nextAllowedDimensions,
+      nextDefaultMetrics,
+      nextDefaultDimensions,
+    );
+    if (!validation.valid) {
+      throw new Error(`Lens validation failed: ${validation.errors.join('; ')}`);
+    }
 
-  const updateValues: Partial<typeof semanticLenses.$inferInsert> = {
-    updatedAt: new Date(),
-  };
+    const updateValues: Partial<typeof semanticLenses.$inferInsert> = {
+      updatedAt: new Date(),
+    };
 
-  if (input.displayName !== undefined) updateValues.displayName = input.displayName;
-  if (input.description !== undefined) updateValues.description = input.description;
-  if (input.allowedMetrics !== undefined) updateValues.allowedMetrics = input.allowedMetrics;
-  if (input.allowedDimensions !== undefined) updateValues.allowedDimensions = input.allowedDimensions;
-  if (input.defaultMetrics !== undefined) updateValues.defaultMetrics = input.defaultMetrics;
-  if (input.defaultDimensions !== undefined) updateValues.defaultDimensions = input.defaultDimensions;
-  if (input.defaultFilters !== undefined) updateValues.defaultFilters = input.defaultFilters as never;
-  if (input.systemPromptFragment !== undefined) updateValues.systemPromptFragment = input.systemPromptFragment;
-  if (input.exampleQuestions !== undefined) updateValues.exampleQuestions = input.exampleQuestions;
+    if (input.displayName !== undefined) updateValues.displayName = input.displayName;
+    if (input.description !== undefined) updateValues.description = input.description;
+    if (input.allowedMetrics !== undefined) updateValues.allowedMetrics = input.allowedMetrics;
+    if (input.allowedDimensions !== undefined) updateValues.allowedDimensions = input.allowedDimensions;
+    if (input.defaultMetrics !== undefined) updateValues.defaultMetrics = input.defaultMetrics;
+    if (input.defaultDimensions !== undefined) updateValues.defaultDimensions = input.defaultDimensions;
+    if (input.defaultFilters !== undefined) updateValues.defaultFilters = input.defaultFilters as never;
+    if (input.systemPromptFragment !== undefined) updateValues.systemPromptFragment = input.systemPromptFragment;
+    if (input.exampleQuestions !== undefined) updateValues.exampleQuestions = input.exampleQuestions;
 
-  const [updated] = await db
-    .update(semanticLenses)
-    .set(updateValues)
-    .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)))
-    .returning();
+    const [updated] = await tx
+      .update(semanticLenses)
+      .set(updateValues)
+      .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)))
+      .returning();
 
-  return rowToCustomLens(updated!);
+    return rowToCustomLens(updated!);
+  });
 }
 
 // ── deactivateCustomLens ──────────────────────────────────────────
@@ -168,25 +172,27 @@ export async function deactivateCustomLens(
   tenantId: string,
   slug: string,
 ): Promise<CustomLensRow> {
-  const [existing] = await db
-    .select()
-    .from(semanticLenses)
-    .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)));
+  return withTenant(tenantId, async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(semanticLenses)
+      .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)));
 
-  if (!existing) {
-    throw new LensNotFoundError(slug);
-  }
-  if (existing.isSystem) {
-    throw new SystemLensModificationError(slug);
-  }
+    if (!existing) {
+      throw new LensNotFoundError(slug);
+    }
+    if (existing.isSystem) {
+      throw new SystemLensModificationError(slug);
+    }
 
-  const [updated] = await db
-    .update(semanticLenses)
-    .set({ isActive: false, updatedAt: new Date() })
-    .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)))
-    .returning();
+    const [updated] = await tx
+      .update(semanticLenses)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)))
+      .returning();
 
-  return rowToCustomLens(updated!);
+    return rowToCustomLens(updated!);
+  });
 }
 
 // ── reactivateCustomLens ──────────────────────────────────────────
@@ -195,25 +201,27 @@ export async function reactivateCustomLens(
   tenantId: string,
   slug: string,
 ): Promise<CustomLensRow> {
-  const [existing] = await db
-    .select()
-    .from(semanticLenses)
-    .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)));
+  return withTenant(tenantId, async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(semanticLenses)
+      .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)));
 
-  if (!existing) {
-    throw new LensNotFoundError(slug);
-  }
-  if (existing.isSystem) {
-    throw new SystemLensModificationError(slug);
-  }
+    if (!existing) {
+      throw new LensNotFoundError(slug);
+    }
+    if (existing.isSystem) {
+      throw new SystemLensModificationError(slug);
+    }
 
-  const [updated] = await db
-    .update(semanticLenses)
-    .set({ isActive: true, updatedAt: new Date() })
-    .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)))
-    .returning();
+    const [updated] = await tx
+      .update(semanticLenses)
+      .set({ isActive: true, updatedAt: new Date() })
+      .where(and(eq(semanticLenses.tenantId, tenantId), eq(semanticLenses.slug, slug)))
+      .returning();
 
-  return rowToCustomLens(updated!);
+    return rowToCustomLens(updated!);
+  });
 }
 
 // ── setTenantLensPreference ──────────────────────────────────────
@@ -225,20 +233,22 @@ export async function setTenantLensPreference(
   lensSlug: string,
   enabled: boolean,
 ): Promise<void> {
-  await db
-    .insert(tenantLensPreferences)
-    .values({
-      id: generateUlid(),
-      tenantId,
-      lensSlug,
-      enabled,
-      updatedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: [tenantLensPreferences.tenantId, tenantLensPreferences.lensSlug],
-      set: {
+  await withTenant(tenantId, async (tx) => {
+    await tx
+      .insert(tenantLensPreferences)
+      .values({
+        id: generateUlid(),
+        tenantId,
+        lensSlug,
         enabled,
         updatedAt: new Date(),
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: [tenantLensPreferences.tenantId, tenantLensPreferences.lensSlug],
+        set: {
+          enabled,
+          updatedAt: new Date(),
+        },
+      });
+  });
 }

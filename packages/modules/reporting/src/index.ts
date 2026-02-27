@@ -13,6 +13,10 @@ export {
   handleInventoryMovement,
   handleOrderPlacedModifiers,
   handleOrderVoidedModifiers,
+  handleFolioChargePosted,
+  handleArInvoicePosted,
+  handleMembershipCharged,
+  handleVoucherPurchased,
 } from './consumers';
 
 // ── Query Services ────────────────────────────────────────────
@@ -21,6 +25,7 @@ export {
   getItemSales,
   getInventorySummary,
   getDashboardMetrics,
+  getRecentActivity,
   getFieldCatalog,
   getReport,
   listReports,
@@ -48,6 +53,10 @@ export type {
   InventorySummaryRow,
   GetDashboardMetricsInput,
   DashboardMetrics,
+  NonPosRevenue,
+  GetRecentActivityInput,
+  RevenueActivityItem,
+  GetRecentActivityResult,
   FieldCatalogRow,
   ReportRow,
   ListReportsInput,

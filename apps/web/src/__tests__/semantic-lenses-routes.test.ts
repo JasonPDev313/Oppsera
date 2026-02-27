@@ -19,6 +19,7 @@ const {
 vi.mock('@oppsera/module-semantic/lenses', () => ({
   listCustomLenses: mockListCustomLenses,
   getCustomLens: mockGetCustomLens,
+  getTenantLensPreferences: vi.fn().mockResolvedValue(new Map()),
   LensNotFoundError: class LensNotFoundError extends Error {
     slug: string;
     constructor(slug: string) {
@@ -26,6 +27,36 @@ vi.mock('@oppsera/module-semantic/lenses', () => ({
       this.slug = slug;
     }
   },
+}));
+
+// Mock @oppsera/db to avoid DATABASE_URL requirement in tests.
+// The lenses route queries tenant business vertical via db.select().from(tenants).where().limit().
+vi.mock('@oppsera/db', () => {
+  const chainable = (): Record<string, unknown> => {
+    const proxy: Record<string, unknown> = {};
+    const methods = ['select', 'from', 'where', 'limit', 'orderBy'];
+    for (const m of methods) {
+      proxy[m] = vi.fn(() => {
+        // limit() is the terminal method — return mock tenant row
+        if (m === 'limit') return Promise.resolve([{ businessVertical: 'general' }]);
+        if (m === 'where') return proxy;
+        return proxy;
+      });
+    }
+    return proxy;
+  };
+  return {
+    db: chainable(),
+    withTenant: vi.fn((_id: string, cb: (tx: unknown) => unknown) => cb(chainable())),
+    eq: vi.fn(),
+    tenants: { id: 'id', businessVertical: 'businessVertical' },
+    tenantLensPreferences: {},
+  };
+});
+
+vi.mock('drizzle-orm', () => ({
+  eq: vi.fn(),
+  and: vi.fn(),
 }));
 
 vi.mock('@oppsera/module-semantic/registry', () => ({

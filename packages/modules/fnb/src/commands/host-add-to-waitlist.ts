@@ -37,22 +37,23 @@ export async function hostAddToWaitlist(
   ctx: RequestContext,
   input: HostAddToWaitlistInput,
 ) {
-  // Smart wait-time estimation — best-effort, fallback to 15 min
-  let quotedWaitMinutes = 15;
-  try {
-    // Determine current meal period from hour of day
-    const hour = new Date().getHours();
-    const mealPeriod = hour < 11 ? 'breakfast' : hour < 15 ? 'lunch' : 'dinner';
+  // Use user-provided quoted wait if given, otherwise estimate
+  let quotedWaitMinutes = input.quotedWaitMinutes ?? 15;
+  if (input.quotedWaitMinutes == null) {
+    try {
+      const hour = new Date().getHours();
+      const mealPeriod = hour < 11 ? 'breakfast' : hour < 15 ? 'lunch' : 'dinner';
 
-    const estimate = await estimateWaitTime({
-      tenantId: ctx.tenantId,
-      locationId: ctx.locationId!,
-      partySize: input.partySize,
-      mealPeriod,
-    });
-    quotedWaitMinutes = estimate.estimatedMinutes > 0 ? estimate.estimatedMinutes : 15;
-  } catch {
-    // Estimation failed — use default
+      const estimate = await estimateWaitTime({
+        tenantId: ctx.tenantId,
+        locationId: ctx.locationId!,
+        partySize: input.partySize,
+        mealPeriod,
+      });
+      quotedWaitMinutes = estimate.estimatedMinutes > 0 ? estimate.estimatedMinutes : 15;
+    } catch {
+      // Estimation failed — use default
+    }
   }
 
   // Resolve business date BEFORE the transaction (read-only, avoids holding locks)
@@ -86,14 +87,14 @@ export async function hostAddToWaitlist(
         guest_name, guest_phone, party_size,
         quoted_wait_minutes, status, position,
         seating_preference, special_requests,
-        customer_id, source, notes,
+        customer_id, source, notes, is_vip,
         guest_token, estimated_ready_at
       ) VALUES (
         gen_random_uuid()::text, ${ctx.tenantId}, ${ctx.locationId}, ${businessDate},
-        ${input.guestName}, ${input.guestPhone}, ${input.partySize},
+        ${input.guestName}, ${input.guestPhone ?? null}, ${input.partySize},
         ${quotedWaitMinutes}, 'waiting', ${nextPos},
         ${input.seatingPreference ?? null}, ${input.specialRequests ?? null},
-        ${input.customerId ?? null}, ${input.source ?? 'host'}, ${null},
+        ${input.customerId ?? null}, ${input.source ?? 'host'}, ${input.notes ?? null}, ${input.isVip ?? false},
         ${guestToken}, ${estimatedReadyAt}
       )
       RETURNING *

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Hoisted mocks ─────────────────────────────────────────────
-const { mockSelect, mockWithTenant } = vi.hoisted(() => {
+const { mockSelect, mockExecute, mockWithTenant } = vi.hoisted(() => {
   function makeSelectChain(result: unknown[] = []) {
     const chain: Record<string, ReturnType<typeof vi.fn>> = {};
     chain.from = vi.fn().mockReturnValue(chain);
@@ -15,7 +15,8 @@ const { mockSelect, mockWithTenant } = vi.hoisted(() => {
 
   const mockSelect = vi.fn(() => makeSelectChain());
 
-  const mockExecute = vi.fn(async () => []);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mockExecute = vi.fn(async (): Promise<any[]> => []);
 
   const mockWithTenant = vi.fn(
     async (_tid: string, fn: (tx: unknown) => Promise<unknown>) => {
@@ -60,6 +61,11 @@ vi.mock('@oppsera/db', () => ({
     voidCount: 'rm_daily_sales.void_count',
     voidTotal: 'rm_daily_sales.void_total',
     avgOrderValue: 'rm_daily_sales.avg_order_value',
+    pmsRevenue: 'rm_daily_sales.pms_revenue',
+    arRevenue: 'rm_daily_sales.ar_revenue',
+    membershipRevenue: 'rm_daily_sales.membership_revenue',
+    voucherRevenue: 'rm_daily_sales.voucher_revenue',
+    totalBusinessRevenue: 'rm_daily_sales.total_business_revenue',
   },
   rmItemSales: {
     tenantId: 'rm_item_sales.tenant_id',
@@ -126,23 +132,26 @@ describe('getDailySales', () => {
   });
 
   it('returns single-location rows with numeric conversions', async () => {
-    mockSelectReturns([
+    // getDailySales now uses tx.execute() with raw SQL returning snake_case cents columns
+    mockExecute.mockResolvedValueOnce([
       {
-        businessDate: '2026-03-15',
-        locationId: LOCATION,
-        orderCount: 5,
-        grossSales: '500.0000',
-        discountTotal: '50.0000',
-        taxTotal: '33.7500',
-        netSales: '483.7500',
-        tenderCash: '200.0000',
-        tenderCard: '283.7500',
-        voidCount: 1,
-        voidTotal: '25.0000',
-        avgOrderValue: '96.7500',
-        id: 'rm_001',
-        tenantId: TENANT,
-        updatedAt: new Date(),
+        business_date: '2026-03-15',
+        order_count: 5,
+        gross_sales_cents: 50000,
+        discount_total_cents: 5000,
+        tax_total_cents: 3375,
+        net_sales_cents: 48375,
+        svc_charge_cents: 0,
+        void_count: 1,
+        void_total_cents: 2500,
+        tender_cash_cents: 20000,
+        tender_card_cents: 28375,
+        tender_gift_card_cents: 0,
+        tender_house_account_cents: 0,
+        tender_ach_cents: 0,
+        tender_other_cents: 0,
+        tip_total_cents: 0,
+        surcharge_total_cents: 0,
       },
     ]);
 
@@ -158,24 +167,32 @@ describe('getDailySales', () => {
     expect(result[0]!.locationId).toBe(LOCATION);
     expect(result[0]!.grossSales).toBe(500);
     expect(result[0]!.netSales).toBe(483.75);
+    // avgOrderValue is now computed: netSales / orderCount = 483.75 / 5 = 96.75
     expect(result[0]!.avgOrderValue).toBe(96.75);
     expect(typeof result[0]!.grossSales).toBe('number');
   });
 
   it('returns multi-location aggregated rows with locationId null', async () => {
-    mockSelectReturns([
+    // getDailySales always uses tx.execute() now — no locationId means output locationId is null
+    mockExecute.mockResolvedValueOnce([
       {
-        businessDate: '2026-03-15',
-        orderCount: 12,
-        grossSales: '1200.0000',
-        discountTotal: '100.0000',
-        taxTotal: '82.5000',
-        netSales: '1182.5000',
-        tenderCash: '500.0000',
-        tenderCard: '682.5000',
-        voidCount: 2,
-        voidTotal: '50.0000',
-        avgOrderValue: '98.5417',
+        business_date: '2026-03-15',
+        order_count: 12,
+        gross_sales_cents: 120000,
+        discount_total_cents: 10000,
+        tax_total_cents: 8250,
+        net_sales_cents: 118250,
+        svc_charge_cents: 0,
+        void_count: 2,
+        void_total_cents: 5000,
+        tender_cash_cents: 50000,
+        tender_card_cents: 68250,
+        tender_gift_card_cents: 0,
+        tender_house_account_cents: 0,
+        tender_ach_cents: 0,
+        tender_other_cents: 0,
+        tip_total_cents: 0,
+        surcharge_total_cents: 0,
       },
     ]);
 
@@ -192,8 +209,7 @@ describe('getDailySales', () => {
   });
 
   it('returns empty array when no data', async () => {
-    mockSelectReturns([]);
-
+    // mockExecute default returns [] — getDailySales maps empty array to []
     const result = await getDailySales({
       tenantId: TENANT,
       locationId: LOCATION,
@@ -205,7 +221,7 @@ describe('getDailySales', () => {
   });
 
   it('calls withTenant with the correct tenantId', async () => {
-    mockSelectReturns([]);
+    // mockExecute default returns [] — no setup needed for getDailySales (uses tx.execute)
 
     await getDailySales({
       tenantId: TENANT,
@@ -399,12 +415,15 @@ describe('getDashboardMetrics', () => {
   });
 
   it('returns aggregated dashboard metrics', async () => {
-    // 1st select: daily sales aggregation
-    mockSelectReturns([{ netSales: '1500.0000', orderCount: 15, voidCount: 2 }]);
-    // 2nd select: low stock count
+    // 1st call: tx.execute() — today's sales (orders > 0, no all-time fallback)
+    mockExecute.mockResolvedValueOnce([
+      { net_sales_cents: 150000, order_count: 15, void_count: 2 },
+    ]);
+    // 2nd call: tx.select() — low stock count (count > 0, no stock fallback)
     mockSelectReturns([{ count: 3 }]);
-    // 3rd select: active customers
+    // 3rd call: tx.select() — active customers
     mockSelectReturns([{ count: 42 }]);
+    // 4th call: tx.select() — non-POS revenue (default mock returns [], stays 0)
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,
@@ -419,9 +438,20 @@ describe('getDashboardMetrics', () => {
   });
 
   it('returns zeros when no data', async () => {
-    mockSelectReturns([{ netSales: null, orderCount: null, voidCount: null }]);
+    // 1st call: tx.execute() — today's sales (order_count=0 → triggers all-time fallback)
+    mockExecute.mockResolvedValueOnce([
+      { net_sales_cents: 0, order_count: 0, void_count: 0 },
+    ]);
+    // 2nd call: tx.execute() — all-time fallback (also order_count=0)
+    mockExecute.mockResolvedValueOnce([
+      { net_sales_cents: 0, order_count: 0, void_count: 0 },
+    ]);
+    // 3rd call: tx.select() — stock count (count=0 → triggers stock fallback)
     mockSelectReturns([{ count: 0 }]);
+    // 4th call: tx.execute() — stock fallback (default mock returns [] → stays 0)
+    // 5th call: tx.select() — active customers
     mockSelectReturns([{ count: 0 }]);
+    // 6th call: tx.select() — non-POS revenue (default mock returns [], stays 0)
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,
@@ -436,9 +466,15 @@ describe('getDashboardMetrics', () => {
   });
 
   it('defaults date to today when not provided', async () => {
-    mockSelectReturns([{ netSales: '100.0000', orderCount: 2, voidCount: 0 }]);
+    // 1st call: tx.execute() — today's sales (orders > 0, no all-time fallback)
+    mockExecute.mockResolvedValueOnce([
+      { net_sales_cents: 10000, order_count: 2, void_count: 0 },
+    ]);
+    // 2nd call: tx.select() — stock count (0 → triggers stock fallback via mockExecute default)
     mockSelectReturns([{ count: 0 }]);
+    // 3rd call: tx.select() — active customers
     mockSelectReturns([{ count: 0 }]);
+    // 4th call: tx.select() — non-POS revenue (default mock returns [], stays 0)
 
     const result = await getDashboardMetrics({ tenantId: TENANT });
 
@@ -447,9 +483,15 @@ describe('getDashboardMetrics', () => {
   });
 
   it('filters by locationId when provided', async () => {
-    mockSelectReturns([{ netSales: '500.0000', orderCount: 5, voidCount: 1 }]);
+    // 1st call: tx.execute() — today's sales (orders > 0, no all-time fallback)
+    mockExecute.mockResolvedValueOnce([
+      { net_sales_cents: 50000, order_count: 5, void_count: 1 },
+    ]);
+    // 2nd call: tx.select() — stock count (count > 0, no stock fallback)
     mockSelectReturns([{ count: 1 }]);
+    // 3rd call: tx.select() — active customers
     mockSelectReturns([{ count: 10 }]);
+    // 4th call: tx.select() — non-POS revenue (default mock returns [], stays 0)
 
     const result = await getDashboardMetrics({
       tenantId: TENANT,

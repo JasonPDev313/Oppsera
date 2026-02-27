@@ -46,6 +46,41 @@ vi.mock('@oppsera/shared', () => ({
       super(message);
     }
   },
+  generateUlid: vi.fn(() => `ulid_${Date.now()}`),
+}));
+
+// Mock @oppsera/db to avoid DATABASE_URL requirement in tests.
+// Route handlers query custom tenant metrics/dimensions via db.select().from().where().
+vi.mock('@oppsera/db', () => {
+  const chainable = (): Record<string, unknown> => {
+    const proxy: Record<string, unknown> = {};
+    const methods = ['select', 'from', 'where', 'limit', 'orderBy', 'insert', 'values', 'returning', 'update', 'set', 'onConflictDoUpdate'];
+    for (const m of methods) {
+      proxy[m] = vi.fn(() => {
+        // Terminal methods that return data resolve to empty array
+        if (m === 'where' || m === 'limit' || m === 'returning') return Promise.resolve([]);
+        return proxy;
+      });
+    }
+    return proxy;
+  };
+  return {
+    db: chainable(),
+    withTenant: vi.fn((_id: string, cb: (tx: unknown) => unknown) => cb(chainable())),
+    sql: vi.fn(),
+    eq: vi.fn(),
+    and: vi.fn(),
+    isNull: vi.fn(),
+    semanticMetrics: {},
+    semanticDimensions: {},
+    tenants: { businessVertical: 'businessVertical' },
+  };
+});
+
+vi.mock('drizzle-orm', () => ({
+  eq: vi.fn(),
+  and: vi.fn(),
+  isNull: vi.fn(),
 }));
 
 // ── Helpers ───────────────────────────────────────────────────────
@@ -339,8 +374,8 @@ describe('GET /api/v1/semantic/dimensions', () => {
 
     expect(json.data).toHaveLength(1);
     expect(json.data[0].slug).toBe('date');
-    expect(json.data[0].isTimeDimension).toBe(true);
-    expect(json.data[0].timeGranularities).toEqual(['day', 'week', 'month']);
+    expect(json.data[0].displayName).toBe('Date');
+    expect(json.data[0].isSystem).toBe(true);
     expect(json.meta.count).toBe(1);
   });
 

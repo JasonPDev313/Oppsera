@@ -189,6 +189,15 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('order.line.voided.v1', accounting.handleLineVoidForAccounting);
     }),
 
+    // Unified revenue ledger consumers (PMS, AR, membership, voucher → rm_revenue_activity + rm_daily_sales)
+    importSafe('Revenue ledger consumers', async () => {
+      const reporting = await import('@oppsera/module-reporting');
+      bus.subscribe('pms.folio.charge_posted.v1', reporting.handleFolioChargePosted);
+      bus.subscribe('ar.invoice.posted.v1', reporting.handleArInvoicePosted);
+      bus.subscribe('membership.billing.charged.v1', reporting.handleMembershipCharged);
+      bus.subscribe('voucher.purchased.v1', reporting.handleVoucherPurchased);
+    }),
+
     // F&B Reporting consumers
     importSafe('F&B reporting consumers', async () => {
       const fnb = await import('@oppsera/module-fnb');

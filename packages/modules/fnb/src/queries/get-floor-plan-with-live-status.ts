@@ -87,49 +87,18 @@ export async function getFloorPlanWithLiveStatus(
     if (rooms.length === 0) throw new NotFoundError('Room', input.roomId);
     const room = rooms[0]!;
 
-    // Get published version (skip snapshot_json in lite mode — saves 10-100KB per poll)
-    let versionData = null;
-    if (room.current_version_id && !input.lite) {
-      const versionRows = await tx.execute(sql`
-        SELECT id, version_number, snapshot_json, published_at
-        FROM floor_plan_versions
-        WHERE id = ${String(room.current_version_id)}
-          AND tenant_id = ${input.tenantId}
-        LIMIT 1
-      `);
-      const versions = Array.from(versionRows as Iterable<Record<string, unknown>>);
-      if (versions.length > 0) {
-        const v = versions[0]!;
-        versionData = {
-          id: String(v.id),
-          versionNumber: Number(v.version_number),
-          snapshotJson: v.snapshot_json as Record<string, unknown>,
-          publishedAt: v.published_at ? String(v.published_at) : null,
-        };
-      }
-    } else if (room.current_version_id && input.lite) {
-      // Lite mode: fetch only version metadata, no snapshot
-      const versionRows = await tx.execute(sql`
-        SELECT id, version_number, published_at
-        FROM floor_plan_versions
-        WHERE id = ${String(room.current_version_id)}
-          AND tenant_id = ${input.tenantId}
-        LIMIT 1
-      `);
-      const versions = Array.from(versionRows as Iterable<Record<string, unknown>>);
-      if (versions.length > 0) {
-        const v = versions[0]!;
-        versionData = {
-          id: String(v.id),
-          versionNumber: Number(v.version_number),
-          snapshotJson: {} as Record<string, unknown>,
-          publishedAt: v.published_at ? String(v.published_at) : null,
-        };
-      }
-    }
+    // Fetch version, tables, and combine groups in parallel — all depend only on room data
+    const versionQuery = room.current_version_id
+      ? tx.execute(sql`
+          SELECT id, version_number, ${input.lite ? sql`` : sql`snapshot_json,`} published_at
+          FROM floor_plan_versions
+          WHERE id = ${String(room.current_version_id)}
+            AND tenant_id = ${input.tenantId}
+          LIMIT 1
+        `)
+      : Promise.resolve([]);
 
-    // Get all active tables with live status
-    const tableRows = await tx.execute(sql`
+    const tablesQuery = tx.execute(sql`
       SELECT
         t.id AS table_id,
         t.floor_plan_object_id,
@@ -162,6 +131,41 @@ export async function getFloorPlanWithLiveStatus(
       ORDER BY t.sort_order ASC, t.table_number ASC
     `);
 
+    const groupsQuery = tx.execute(sql`
+      SELECT
+        cg.id,
+        cg.primary_table_id,
+        cg.combined_capacity,
+        ARRAY_AGG(cm.table_id ORDER BY cm.is_primary DESC) AS table_ids
+      FROM fnb_table_combine_groups cg
+      INNER JOIN fnb_table_combine_members cm ON cm.combine_group_id = cg.id
+      WHERE cg.tenant_id = ${input.tenantId}
+        AND cg.location_id = ${String(room.location_id)}
+        AND cg.status = 'active'
+        AND cg.primary_table_id IN (
+          SELECT t.id FROM fnb_tables t
+          WHERE t.room_id = ${input.roomId} AND t.is_active = true
+        )
+      GROUP BY cg.id, cg.primary_table_id, cg.combined_capacity
+    `);
+
+    const [versionRows, tableRows, groupRows] = await Promise.all([
+      versionQuery, tablesQuery, groupsQuery,
+    ]);
+
+    // Parse version
+    let versionData = null;
+    const versions = Array.from(versionRows as Iterable<Record<string, unknown>>);
+    if (versions.length > 0) {
+      const v = versions[0]!;
+      versionData = {
+        id: String(v.id),
+        versionNumber: Number(v.version_number),
+        snapshotJson: input.lite ? ({} as Record<string, unknown>) : (v.snapshot_json as Record<string, unknown>),
+        publishedAt: v.published_at ? String(v.published_at) : null,
+      };
+    }
+
     const tables = Array.from(tableRows as Iterable<Record<string, unknown>>).map((row) => ({
       tableId: String(row.table_id),
       floorPlanObjectId: row.floor_plan_object_id ? String(row.floor_plan_object_id) : null,
@@ -187,25 +191,6 @@ export async function getFloorPlanWithLiveStatus(
       combineGroupId: row.combine_group_id ? String(row.combine_group_id) : null,
       version: Number(row.version),
     }));
-
-    // Get active combine groups scoped to this room (via primary table membership)
-    const groupRows = await tx.execute(sql`
-      SELECT
-        cg.id,
-        cg.primary_table_id,
-        cg.combined_capacity,
-        ARRAY_AGG(cm.table_id ORDER BY cm.is_primary DESC) AS table_ids
-      FROM fnb_table_combine_groups cg
-      INNER JOIN fnb_table_combine_members cm ON cm.combine_group_id = cg.id
-      WHERE cg.tenant_id = ${input.tenantId}
-        AND cg.location_id = ${String(room.location_id)}
-        AND cg.status = 'active'
-        AND cg.primary_table_id IN (
-          SELECT t.id FROM fnb_tables t
-          WHERE t.room_id = ${input.roomId} AND t.is_active = true
-        )
-      GROUP BY cg.id, cg.primary_table_id, cg.combined_capacity
-    `);
 
     const combineGroups = Array.from(groupRows as Iterable<Record<string, unknown>>).map((row) => ({
       id: String(row.id),

@@ -87,8 +87,8 @@ export async function getDailySales(input: GetDailySalesInput): Promise<DailySal
         }));
       }
 
-      // Fallback: query operational orders table when read model is empty
-      return queryOrdersFallback(tx, input.tenantId, input.dateFrom, input.dateTo, input.locationId);
+      // Fallback: query operational orders + tenders when read model is empty
+      return queryOrdersWithTenders(tx, input.tenantId, input.dateFrom, input.dateTo, input.locationId);
     }
 
     // Multi-location — aggregate across all locations per date
@@ -146,8 +146,8 @@ export async function getDailySales(input: GetDailySalesInput): Promise<DailySal
       }));
     }
 
-    // Fallback: query operational orders table when read model is empty
-    return queryOrdersFallback(tx, input.tenantId, input.dateFrom, input.dateTo);
+    // Fallback: query operational orders + tenders when read model is empty
+    return queryOrdersWithTenders(tx, input.tenantId, input.dateFrom, input.dateTo);
   });
 }
 
@@ -155,8 +155,12 @@ export async function getDailySales(input: GetDailySalesInput): Promise<DailySal
  * Fallback: query operational orders + tenders tables directly
  * when rm_daily_sales read model is empty (e.g., seed data, consumers not yet run).
  * Converts cents → dollars to match read model format.
+ * Includes tender breakdown via LEFT JOIN LATERAL on tenders table.
+ *
+ * Uses sargable WHERE clauses: filters on business_date first (indexed),
+ * then falls back to created_at::date for rows with NULL business_date.
  */
-async function queryOrdersFallback(
+async function queryOrdersWithTenders(
   tx: any,
   tenantId: string,
   dateFrom: string,
@@ -169,23 +173,64 @@ async function queryOrdersFallback(
 
   const rows = await tx.execute(sql`
     SELECT
-      COALESCE(o.business_date, o.created_at::date::text) AS business_date,
-      ${locationId ?? sql`NULL`} AS location_id,
-      count(*)::int AS order_count,
-      coalesce(sum(CASE WHEN o.status != 'voided' THEN o.subtotal ELSE 0 END), 0)::bigint AS gross_sales_cents,
-      coalesce(sum(CASE WHEN o.status != 'voided' THEN o.discount_total ELSE 0 END), 0)::bigint AS discount_total_cents,
-      coalesce(sum(CASE WHEN o.status != 'voided' THEN o.tax_total ELSE 0 END), 0)::bigint AS tax_total_cents,
-      coalesce(sum(CASE WHEN o.status != 'voided' THEN o.total ELSE 0 END), 0)::bigint AS net_sales_cents,
-      coalesce(sum(CASE WHEN o.status = 'voided' THEN 1 ELSE 0 END), 0)::int AS void_count,
-      coalesce(sum(CASE WHEN o.status = 'voided' THEN o.total ELSE 0 END), 0)::bigint AS void_total_cents
-    FROM orders o
-    WHERE o.tenant_id = ${tenantId}
-      AND o.status IN ('placed', 'paid', 'voided')
-      AND COALESCE(o.business_date, o.created_at::date::text) >= ${dateFrom}
-      AND COALESCE(o.business_date, o.created_at::date::text) <= ${dateTo}
-      ${locFilter}
-    GROUP BY COALESCE(o.business_date, o.created_at::date::text)
-    ORDER BY business_date ASC
+      d.biz_date AS business_date,
+      d.order_count,
+      d.gross_sales_cents,
+      d.discount_total_cents,
+      d.tax_total_cents,
+      d.net_sales_cents,
+      d.svc_charge_cents,
+      d.void_count,
+      d.void_total_cents,
+      coalesce(t.tender_cash, 0)::bigint AS tender_cash_cents,
+      coalesce(t.tender_card, 0)::bigint AS tender_card_cents,
+      coalesce(t.tender_gift_card, 0)::bigint AS tender_gift_card_cents,
+      coalesce(t.tender_house_account, 0)::bigint AS tender_house_account_cents,
+      coalesce(t.tender_ach, 0)::bigint AS tender_ach_cents,
+      coalesce(t.tender_other, 0)::bigint AS tender_other_cents,
+      coalesce(t.tip_total, 0)::bigint AS tip_total_cents,
+      coalesce(t.surcharge_total, 0)::bigint AS surcharge_total_cents
+    FROM (
+      SELECT
+        COALESCE(o.business_date, o.created_at::date::text) AS biz_date,
+        count(*)::int AS order_count,
+        coalesce(sum(CASE WHEN o.status != 'voided' THEN o.subtotal ELSE 0 END), 0)::bigint AS gross_sales_cents,
+        coalesce(sum(CASE WHEN o.status != 'voided' THEN COALESCE(o.discount_total, 0) ELSE 0 END), 0)::bigint AS discount_total_cents,
+        coalesce(sum(CASE WHEN o.status != 'voided' THEN o.tax_total ELSE 0 END), 0)::bigint AS tax_total_cents,
+        coalesce(sum(CASE WHEN o.status != 'voided' THEN o.total ELSE 0 END), 0)::bigint AS net_sales_cents,
+        coalesce(sum(CASE WHEN o.status != 'voided' THEN COALESCE(o.service_charge_total, 0) ELSE 0 END), 0)::bigint AS svc_charge_cents,
+        coalesce(sum(CASE WHEN o.status = 'voided' THEN 1 ELSE 0 END), 0)::int AS void_count,
+        coalesce(sum(CASE WHEN o.status = 'voided' THEN o.total ELSE 0 END), 0)::bigint AS void_total_cents
+      FROM orders o
+      WHERE o.tenant_id = ${tenantId}
+        AND o.status IN ('placed', 'paid', 'voided')
+        AND (
+          (o.business_date IS NOT NULL AND o.business_date >= ${dateFrom} AND o.business_date <= ${dateTo})
+          OR
+          (o.business_date IS NULL AND o.created_at >= ${dateFrom}::date AND o.created_at < (${dateTo}::date + interval '1 day'))
+        )
+        ${locFilter}
+      GROUP BY COALESCE(o.business_date, o.created_at::date::text)
+    ) d
+    LEFT JOIN LATERAL (
+      SELECT
+        sum(CASE WHEN tn.tender_type = 'cash' THEN tn.amount ELSE 0 END)::bigint AS tender_cash,
+        sum(CASE WHEN tn.tender_type IN ('card', 'credit_card', 'debit_card') THEN tn.amount ELSE 0 END)::bigint AS tender_card,
+        sum(CASE WHEN tn.tender_type = 'gift_card' THEN tn.amount ELSE 0 END)::bigint AS tender_gift_card,
+        sum(CASE WHEN tn.tender_type = 'house_account' THEN tn.amount ELSE 0 END)::bigint AS tender_house_account,
+        sum(CASE WHEN tn.tender_type = 'ach' THEN tn.amount ELSE 0 END)::bigint AS tender_ach,
+        sum(CASE WHEN tn.tender_type NOT IN ('cash', 'card', 'credit_card', 'debit_card', 'gift_card', 'house_account', 'ach') THEN tn.amount ELSE 0 END)::bigint AS tender_other,
+        sum(COALESCE(tn.tip_amount, 0))::bigint AS tip_total,
+        sum(COALESCE(tn.surcharge_amount_cents, 0))::bigint AS surcharge_total
+      FROM tenders tn
+      JOIN orders o2 ON o2.id = tn.order_id
+      WHERE tn.tenant_id = ${tenantId}
+        AND tn.status != 'reversed'
+        AND o2.status IN ('placed', 'paid')
+        AND COALESCE(o2.business_date, o2.created_at::date::text) = d.biz_date
+        ${locationId ? sql` AND o2.location_id = ${locationId}` : sql``}
+    ) t ON true
+    ORDER BY d.biz_date ASC
   `);
 
   return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => {
@@ -204,15 +249,15 @@ async function queryOrdersFallback(
       discountTotal,
       taxTotal,
       netSales,
-      tenderCash: 0,
-      tenderCard: 0,
-      tenderGiftCard: 0,
-      tenderHouseAccount: 0,
-      tenderAch: 0,
-      tenderOther: 0,
-      tipTotal: 0,
-      serviceChargeTotal: 0,
-      surchargeTotal: 0,
+      tenderCash: (Number(r.tender_cash_cents) || 0) / 100,
+      tenderCard: (Number(r.tender_card_cents) || 0) / 100,
+      tenderGiftCard: (Number(r.tender_gift_card_cents) || 0) / 100,
+      tenderHouseAccount: (Number(r.tender_house_account_cents) || 0) / 100,
+      tenderAch: (Number(r.tender_ach_cents) || 0) / 100,
+      tenderOther: (Number(r.tender_other_cents) || 0) / 100,
+      tipTotal: (Number(r.tip_total_cents) || 0) / 100,
+      serviceChargeTotal: (Number(r.svc_charge_cents) || 0) / 100,
+      surchargeTotal: (Number(r.surcharge_total_cents) || 0) / 100,
       returnTotal: 0,
       voidCount: Number(r.void_count) || 0,
       voidTotal,
