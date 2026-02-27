@@ -188,7 +188,12 @@ function buildDataSummary(result: QueryResult | null, intentSummary: string): st
   }
 
   const { rows, rowCount, truncated } = result;
-  const sampleRows = maskRowsForLLM(rows.slice(0, MAX_ROWS_IN_PROMPT));
+  let sampleRows: Record<string, unknown>[];
+  try {
+    sampleRows = maskRowsForLLM(rows.slice(0, MAX_ROWS_IN_PROMPT));
+  } catch {
+    sampleRows = rows.slice(0, MAX_ROWS_IN_PROMPT);
+  }
   const columns = sampleRows.length > 0
     ? Object.keys(sampleRows[0]!).slice(0, MAX_COLS_IN_PROMPT)
     : [];
@@ -484,7 +489,12 @@ export function buildDataFallbackNarrative(
   lines.push('');
 
   // Summarize up to 10 rows in a readable way (mask PII before sending to LLM)
-  const sample = maskRowsForLLM(rows.slice(0, 10));
+  let sample: Record<string, unknown>[];
+  try {
+    sample = maskRowsForLLM(rows.slice(0, 10));
+  } catch {
+    sample = rows.slice(0, 10);
+  }
   const keys = sample.length > 0 ? Object.keys(sample[0]!) : [];
 
   if (keys.length > 0 && sample.length > 0) {

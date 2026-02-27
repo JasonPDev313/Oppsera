@@ -463,7 +463,13 @@ async function runMetricsMode(
   if (!skipNarrative) {
     // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
     const narrativePromptKey = hashSystemPrompt(`metrics:${context.lensSlug ?? 'default'}:${queryResult.rowCount}`);
-    const dataSummary = JSON.stringify(maskRowsForLLM(queryResult.rows.slice(0, 3)));
+    let dataSummary: string;
+    try {
+      dataSummary = JSON.stringify(maskRowsForLLM(queryResult.rows.slice(0, 3)));
+    } catch (maskErr) {
+      console.warn('[semantic] PII masking failed for narrative cache key (metrics), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
+      dataSummary = JSON.stringify(queryResult.rows.slice(0, 3));
+    }
     const cachedNarrative = getFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
 
     if (cachedNarrative) {
@@ -525,7 +531,13 @@ async function runMetricsMode(
   });
 
   // ── Eval capture (mask PII before storing) ──────────────────
-  const resultSample = maskRowsForLLM(queryResult.rows.slice(0, 5));
+  let resultSample: Record<string, unknown>[];
+  try {
+    resultSample = maskRowsForLLM(queryResult.rows.slice(0, 5));
+  } catch (maskErr) {
+    console.warn('[semantic] PII masking failed for eval capture (metrics), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
+    resultSample = queryResult.rows.slice(0, 5);
+  }
   evalTurnId = generateUlid();
   void captureEvalTurnBestEffort({
     id: evalTurnId, message, context, intent,
@@ -795,7 +807,13 @@ async function runSqlMode(
   if (!skipNarrative) {
     // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
     const narrativePromptKey = hashSystemPrompt(`sql:${context.lensSlug ?? 'default'}:${queryResult.rowCount}`);
-    const dataSummary = JSON.stringify(maskRowsForLLM(queryResult.rows.slice(0, 3)));
+    let dataSummary: string;
+    try {
+      dataSummary = JSON.stringify(maskRowsForLLM(queryResult.rows.slice(0, 3)));
+    } catch (maskErr) {
+      console.warn('[semantic] PII masking failed for narrative cache key (sql), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
+      dataSummary = JSON.stringify(queryResult.rows.slice(0, 3));
+    }
     const cachedNarrative = getFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
 
     if (cachedNarrative) {
@@ -855,7 +873,13 @@ async function runSqlMode(
   });
 
   // ── Eval capture (mask PII before storing) ──────────────────
-  const resultSample = maskRowsForLLM(queryResult.rows.slice(0, 5));
+  let resultSample: Record<string, unknown>[];
+  try {
+    resultSample = maskRowsForLLM(queryResult.rows.slice(0, 5));
+  } catch (maskErr) {
+    console.warn('[semantic] PII masking failed for eval capture (sql), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
+    resultSample = queryResult.rows.slice(0, 5);
+  }
   evalTurnId = generateUlid();
   void captureEvalTurnBestEffort({
     id: evalTurnId, message, context, intent,

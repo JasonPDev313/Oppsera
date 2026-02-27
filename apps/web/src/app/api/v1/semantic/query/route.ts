@@ -90,5 +90,5 @@ export const POST = withMiddleware(
       },
     });
   },
-  { entitlement: 'semantic', permission: 'semantic.query' , writeAccess: true },
+  { entitlement: 'semantic', permission: 'semantic.query' },
 );
