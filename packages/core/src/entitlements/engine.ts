@@ -49,7 +49,7 @@ export class DefaultEntitlementEngine implements EntitlementCheck {
 
   async isModuleEnabled(tenantId: string, moduleKey: string): Promise<boolean> {
     const mode = await this.getAccessMode(tenantId, moduleKey);
-    return mode !== 'off';
+    return mode !== 'off' && mode !== 'locked';
   }
 
   async getModuleLimits(tenantId: string, moduleKey: string): Promise<Record<string, number> | null> {
@@ -64,7 +64,7 @@ export class DefaultEntitlementEngine implements EntitlementCheck {
     const enabled: string[] = ['platform_core'];
     for (const [key, entry] of map) {
       if (key === 'platform_core') continue;
-      if (entry.accessMode === 'off') continue;
+      if (entry.accessMode === 'off' || entry.accessMode === 'locked') continue;
       if (entry.expiresAt && new Date(entry.expiresAt) < new Date()) continue;
       enabled.push(key);
     }

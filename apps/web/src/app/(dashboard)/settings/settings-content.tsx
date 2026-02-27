@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, MoreVertical, Copy, GitCompare, Trash2 } from 'lucide-react';
+import { Plus, X, Loader2, Check, Grid3X3, List, MapPin, Store, Monitor, MoreVertical, Copy, GitCompare, Trash2, Lock } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { usePermissionsContext } from '@/components/permissions-provider';
 import { useEntitlementsContext } from '@/components/entitlements-provider';
@@ -646,12 +646,19 @@ const MODULES = [
   { key: 'api_access', name: 'API Access', phase: 'v3', description: 'Public API with OAuth2 client credentials' },
 ];
 
-function ModuleStatusBadge({ mod, enabled, hasEntitlement }: { mod: typeof MODULES[number]; enabled: boolean; hasEntitlement: boolean }) {
+function ModuleStatusBadge({ mod, enabled, hasEntitlement, accessMode }: { mod: typeof MODULES[number]; enabled: boolean; hasEntitlement: boolean; accessMode?: string }) {
   const isComingSoon = mod.phase !== 'v1';
   if (isComingSoon) {
     return (
       <span className="inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-500">
         Coming Soon
+      </span>
+    );
+  }
+  if (accessMode === 'locked') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-xs font-medium text-purple-500">
+        <Lock className="h-3 w-3" /> Locked
       </span>
     );
   }
@@ -684,6 +691,7 @@ function ModuleActions({
   togglingModule,
   canEnable,
   canDisable,
+  isLocked,
   onEnable,
   onToggle,
 }: {
@@ -694,9 +702,18 @@ function ModuleActions({
   togglingModule: string | null;
   canEnable: boolean;
   canDisable: boolean;
+  isLocked?: boolean;
   onEnable: (key: string) => void;
   onToggle: (key: string, enable: boolean) => void;
 }) {
+  if (isLocked) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-purple-500">
+        <Lock className="h-3 w-3" />
+        Locked by Admin
+      </span>
+    );
+  }
   if (canEnable && !hasEntitlement) {
     return (
       <button
@@ -743,7 +760,7 @@ export function ModulesTab() {
   const [enablingModule, setEnablingModule] = useState<string | null>(null);
   const [togglingModule, setTogglingModule] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const { entitlements, isModuleEnabled, refetch: refetchEntitlements } = useEntitlementsContext();
+  const { entitlements, isModuleEnabled, isModuleLocked, refetch: refetchEntitlements } = useEntitlementsContext();
   const { can } = usePermissionsContext();
 
   const handleEnableModule = useCallback(async (moduleKey: string) => {
@@ -817,23 +834,26 @@ export function ModulesTab() {
             const isComingSoon = mod.phase !== 'v1';
             const isCore = mod.key === 'platform_core';
             const hasEntitlement = !!ent;
-            const canEnable = !isComingSoon && !enabled && !isCore && can('settings.update');
-            const canDisable = enabled && !isCore && can('settings.update');
+            const locked = isModuleLocked(mod.key);
+            const canEnable = !isComingSoon && !enabled && !isCore && !locked && can('settings.update');
+            const canDisable = enabled && !isCore && !locked && can('settings.update');
 
             return (
               <div
                 key={mod.key}
                 className={`rounded-lg border p-4 ${
-                  enabled
-                    ? 'border-border bg-surface'
-                    : 'border-border/60 bg-muted0/5'
+                  locked
+                    ? 'border-purple-500/30 bg-surface/50'
+                    : enabled
+                      ? 'border-border bg-surface'
+                      : 'border-border/60 bg-muted0/5'
                 }`}
               >
                 <div className="flex items-start justify-between">
-                  <h3 className={`text-sm font-semibold ${enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  <h3 className={`text-sm font-semibold ${locked ? 'text-purple-400' : enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
                     {mod.name}
                   </h3>
-                  <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} />
+                  <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} accessMode={ent?.accessMode} />
                 </div>
                 <p className={`mt-1.5 text-xs ${enabled ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}>
                   {mod.description}
@@ -864,6 +884,7 @@ export function ModulesTab() {
                     togglingModule={togglingModule}
                     canEnable={canEnable}
                     canDisable={canDisable}
+                    isLocked={locked}
                     onEnable={handleEnableModule}
                     onToggle={handleToggleModule}
                   />
@@ -891,17 +912,18 @@ export function ModulesTab() {
                 const isComingSoon = mod.phase !== 'v1';
                 const isCore = mod.key === 'platform_core';
                 const hasEntitlement = !!ent;
-                const canEnable = !isComingSoon && !enabled && !isCore && can('settings.update');
-                const canDisable = enabled && !isCore && can('settings.update');
+                const locked = isModuleLocked(mod.key);
+                const canEnable = !isComingSoon && !enabled && !isCore && !locked && can('settings.update');
+                const canDisable = enabled && !isCore && !locked && can('settings.update');
 
                 return (
                   <tr key={mod.key} className="hover:bg-accent/30">
                     <td className="px-4 py-3">
-                      <p className={`text-sm font-medium ${enabled ? 'text-foreground' : 'text-muted-foreground'}`}>{mod.name}</p>
+                      <p className={`text-sm font-medium ${locked ? 'text-purple-400' : enabled ? 'text-foreground' : 'text-muted-foreground'}`}>{mod.name}</p>
                       <p className={`mt-0.5 text-xs ${enabled ? 'text-muted-foreground' : 'text-muted-foreground/60'}`}>{mod.description}</p>
                     </td>
                     <td className="px-4 py-3">
-                      <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} />
+                      <ModuleStatusBadge mod={mod} enabled={enabled} hasEntitlement={hasEntitlement} accessMode={ent?.accessMode} />
                     </td>
                     <td className="hidden px-4 py-3 sm:table-cell">
                       {ent ? (
@@ -935,6 +957,7 @@ export function ModulesTab() {
                         togglingModule={togglingModule}
                         canEnable={canEnable}
                         canDisable={canDisable}
+                        isLocked={locked}
                         onEnable={handleEnableModule}
                         onToggle={handleToggleModule}
                       />

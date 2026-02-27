@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Database, BarChart3, GitBranch } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { ToolGuide } from '@/components/insights/ToolGuide';
+
 import { SemanticAuthoringPanel } from '@/components/insights/SemanticAuthoringPanel';
 import type { MetricDef, DimensionDef } from '@/components/insights/SemanticAuthoringPanel';
 
@@ -197,23 +197,6 @@ export default function AuthoringContent({ embedded }: { embedded?: boolean }) {
           </div>
         </>
       )}
-
-      {/* Guide */}
-      <ToolGuide
-        storageKey="authoring"
-        useCases={[
-          'Define custom KPIs',
-          'Add business-specific metrics',
-          'Create drill-down dimensions',
-          'Extend the AI semantic layer',
-        ]}
-        steps={[
-          { label: 'Choose metric or dimension', detail: 'Decide whether you are creating a measurable value (metric) or a grouping axis (dimension).' },
-          { label: 'Write the SQL expression', detail: 'Define the SQL that calculates the value. Use the Test button to validate it against live data.' },
-          { label: 'Save and use', detail: 'Once saved, your custom definition is immediately available in AI Insights chat and analysis tools.' },
-        ]}
-        example={'Create a metric called "Average Ticket Size" with the SQL expression SUM(total_cents) / COUNT(*) on the orders table, then ask the AI "What is my average ticket size this month?"'}
-      />
 
       {/* Concept cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">

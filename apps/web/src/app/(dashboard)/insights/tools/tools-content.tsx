@@ -19,7 +19,7 @@ import { CorrelationChart } from '@/components/insights/CorrelationChart';
 import { ForecastChart } from '@/components/insights/ForecastChart';
 import { WhatIfPanel } from '@/components/insights/WhatIfPanel';
 import { apiFetch } from '@/lib/api-client';
-import { ToolGuide } from '@/components/insights/ToolGuide';
+
 
 // ── Registry metric shape ─────────────────────────────────────────
 
@@ -219,22 +219,6 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
                 </div>
               </div>
 
-              <ToolGuide
-                storageKey="root-cause"
-                useCases={[
-                  'Revenue dropped this week',
-                  'Void rate spiked',
-                  'Avg ticket changed',
-                  'Unexpected trend shift',
-                ]}
-                steps={[
-                  { label: 'Pick a metric', detail: 'Choose the KPI you want to investigate from your metric registry.' },
-                  { label: 'Set date ranges', detail: 'Define the analysis period and a comparison baseline (e.g. this week vs. last week).' },
-                  { label: 'Run analysis', detail: 'The engine decomposes the delta across every dimension and ranks the biggest drivers.' },
-                ]}
-                example="Compare this week's Total Sales against last week to see if the change was driven by a specific location, day, or item category."
-              />
-
               {/* Form */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                 <div className="sm:col-span-2">
@@ -319,21 +303,6 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
                 </div>
               </div>
 
-              <ToolGuide
-                storageKey="correlations"
-                useCases={[
-                  'Find what drives revenue',
-                  'Identify leading indicators',
-                  'Validate assumptions',
-                  'Spot unexpected links',
-                ]}
-                steps={[
-                  { label: 'Pick a target', detail: 'Choose the metric you want to find relationships for.' },
-                  { label: 'Set lookback', detail: 'More days = more statistically reliable results. 90 days is a good default.' },
-                  { label: 'Discover', detail: 'Results are ranked by Pearson coefficient with p-values showing statistical significance.' },
-                ]}
-                example="Select Total Sales and look back 90 days to see if Discount Rate, Average Ticket, or Transaction Count are strongly correlated."
-              />
 
               {/* Form */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -416,21 +385,6 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
                 </div>
               </div>
 
-              <ToolGuide
-                storageKey="forecast"
-                useCases={[
-                  'Budget planning',
-                  'Staff scheduling',
-                  'Inventory ordering',
-                  'Goal setting',
-                ]}
-                steps={[
-                  { label: 'Pick a metric', detail: 'Choose the KPI you want to project forward.' },
-                  { label: 'Set horizon', detail: 'How far ahead to forecast — 7 to 180 days.' },
-                  { label: 'Toggle seasonality', detail: 'Enable if the metric has weekly or monthly patterns (e.g. weekend spikes).' },
-                ]}
-                example="Forecast Total Sales 30 days ahead with seasonality enabled to set realistic revenue targets and plan staffing."
-              />
 
               {/* Form */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
@@ -535,21 +489,6 @@ export default function ToolsContent({ embedded }: { embedded?: boolean }) {
                 </div>
               </div>
 
-              <ToolGuide
-                storageKey="what-if"
-                useCases={[
-                  'Price change impact',
-                  'Cost reduction modeling',
-                  'Staffing adjustments',
-                  'Menu optimization',
-                ]}
-                steps={[
-                  { label: 'Pick a base metric', detail: 'Choose the primary KPI you want to simulate changes for.' },
-                  { label: 'Add scenarios', detail: 'Define one or more adjustments — price, volume, or cost changes by percentage.' },
-                  { label: 'Simulate', detail: 'See the projected downstream impact on revenue, margin, and related KPIs.' },
-                ]}
-                example='Set Total Sales as the base, then add a scenario: "Increase food prices by 5%" to see the projected effect on revenue and margins.'
-              />
 
               <WhatIfPanel
                 onSimulate={(input) => {

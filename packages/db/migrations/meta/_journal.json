@@ -1513,6 +1513,20 @@
       "when": 1708100215000,
       "tag": "0215_expanded_discount_gl_templates",
       "breakpoints": true
+    },
+    {
+      "idx": 216,
+      "version": "7",
+      "when": 1708100216000,
+      "tag": "0216_entitlement_locked_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "7",
+      "when": 1708100217000,
+      "tag": "0217_login_tracking",
+      "breakpoints": true
     }
   ]
 }

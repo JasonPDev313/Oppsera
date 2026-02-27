@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, Code, Globe, CreditCard } from 'lucide-react';
 import { useEmbedWidgets } from '@/hooks/use-embed-widgets';
 import { EmbeddableWidget } from '@/components/insights/EmbeddableWidget';
-import { ToolGuide } from '@/components/insights/ToolGuide';
+
 
 // ── EmbedsContent ─────────────────────────────────────────────────
 
@@ -73,25 +73,6 @@ export default function EmbedsContent({ embedded }: { embedded?: boolean }) {
             </div>
           </div>
         </>
-      )}
-
-      {/* Guide (shown in embedded mode where the How It Works section is hidden) */}
-      {embedded && (
-        <ToolGuide
-          storageKey="embeds"
-          useCases={[
-            'Share metrics on external sites',
-            'Embed KPIs in dashboards',
-            'Create public insight widgets',
-            'Display live data on any page',
-          ]}
-          steps={[
-            { label: 'Create a widget', detail: 'Choose a metric, widget type (card, chart, grid, or chat), and visual theme.' },
-            { label: 'Copy embed code', detail: 'Get a ready-to-paste iframe snippet that works on any HTML page.' },
-            { label: 'Embed anywhere', detail: 'Paste the code into your website, internal portal, or third-party dashboard.' },
-          ]}
-          example={'Create a "Total Revenue" metric card widget, then embed it on your team\'s intranet homepage for a live sales counter.'}
-        />
       )}
 
       {/* Loading */}

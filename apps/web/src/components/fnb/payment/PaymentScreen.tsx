@@ -378,7 +378,7 @@ export function PaymentScreen({
                     className="text-[10px] italic"
                     style={{ color: 'var(--fnb-text-muted)' }}
                   >
-                    {line.modifiers.join(', ')}
+                    {line.modifiers.map((mod) => typeof mod === 'string' ? mod : String((mod as Record<string, unknown>)?.name ?? '')).join(', ')}
                   </div>
                 )}
               </div>

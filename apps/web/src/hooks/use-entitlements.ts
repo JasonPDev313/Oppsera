@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiFetch } from '@/lib/api-client';
 import { useAuthContext } from '@/components/auth-provider';
 
-type AccessMode = 'off' | 'view' | 'full';
+type AccessMode = 'off' | 'view' | 'full' | 'locked';
 
 interface EntitlementInfo {
   moduleKey: string;
@@ -74,9 +74,17 @@ export function useEntitlements() {
       if (moduleKey === 'platform_core') return true;
       const entry = entitlements.get(moduleKey);
       if (!entry) return false;
+      if (entry.accessMode === 'locked') return false;
       if (!entry.isEnabled) return false;
       if (entry.expiresAt && new Date(entry.expiresAt) < new Date()) return false;
       return true;
+    };
+  }, [entitlements]);
+
+  const isModuleLocked = useMemo(() => {
+    return (moduleKey: string): boolean => {
+      const entry = entitlements.get(moduleKey);
+      return entry?.accessMode === 'locked';
     };
   }, [entitlements]);
 
@@ -101,6 +109,7 @@ export function useEntitlements() {
   return {
     entitlements,
     isModuleEnabled,
+    isModuleLocked,
     getAccessMode,
     getLimit,
     isLoading,

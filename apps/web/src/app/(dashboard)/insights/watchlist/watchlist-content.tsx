@@ -6,7 +6,7 @@ import { Sparkles, ArrowLeft, Plus, Search, X, Pin } from 'lucide-react';
 import { usePinnedMetrics } from '@/hooks/use-pinned-metrics';
 import { WatchlistPanel } from '@/components/insights/WatchlistPanel';
 import { apiFetch } from '@/lib/api-client';
-import { ToolGuide } from '@/components/insights/ToolGuide';
+
 
 // ── Registry metric shape ─────────────────────────────────────────
 
@@ -265,23 +265,6 @@ export default function WatchlistContent({ embedded }: { embedded?: boolean }) {
         </div>
       )}
 
-      {/* Guide */}
-      <ToolGuide
-        storageKey="watchlist"
-        useCases={[
-          'Monitor daily KPIs',
-          'Spot trends at a glance',
-          'Compare metrics over time',
-          'Quick-access important numbers',
-        ]}
-        steps={[
-          { label: 'Pin metrics', detail: 'Click "Add Metric" and choose from the registry. Each metric is tracked automatically.' },
-          { label: 'Read sparklines', detail: 'Each pinned metric shows a 7-day trend line so you can spot upward or downward movement instantly.' },
-          { label: 'Reorder and manage', detail: 'Drag metrics to prioritize what matters most. Unpin any metric you no longer need.' },
-        ]}
-        example={'Pin "Total Revenue" and "Average Order Value" to see how your top-line sales and ticket size are trending side-by-side.'}
-      />
-
       {isLoading && (
         <div className="flex items-center justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-primary" />
@@ -295,21 +278,21 @@ export default function WatchlistContent({ embedded }: { embedded?: boolean }) {
       )}
 
       {!isLoading && !error && metrics.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 bg-muted rounded-2xl flex items-center justify-center mb-4">
-            <Sparkles className="h-7 w-7 text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-12 h-12 bg-muted rounded-2xl flex items-center justify-center mb-3">
+            <Sparkles className="h-6 w-6 text-muted-foreground" />
           </div>
-          <h3 className="text-base font-semibold text-foreground mb-1">No pinned metrics</h3>
-          <p className="text-sm text-muted-foreground max-w-xs mb-4">
-            Pin metrics from your AI Insights conversations or use the button above to add from the registry.
+          <h3 className="text-sm font-semibold text-foreground mb-1">No pinned metrics</h3>
+          <p className="text-xs text-muted-foreground max-w-xs mb-3">
+            Pin your most important KPIs to track trends at a glance with sparkline charts.
           </p>
           <button
             type="button"
             onClick={() => setDialogOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
           >
             <Plus className="h-4 w-4" />
-            Browse Available Metrics
+            Browse Metrics
           </button>
         </div>
       )}

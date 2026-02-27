@@ -41,18 +41,18 @@ export function validateModeChange(
     reasonRequired: false,
   };
 
-  // platform_core can never be disabled
-  if (moduleKey === 'platform_core' && targetMode === 'off') {
+  // platform_core can never be disabled or locked
+  if (moduleKey === 'platform_core' && (targetMode === 'off' || targetMode === 'locked')) {
     result.allowed = false;
     return result;
   }
 
-  if (targetMode === 'off') {
+  if (targetMode === 'off' || targetMode === 'locked') {
     // Check: are there modules that depend on this one and are currently active?
     for (const mod of MODULE_REGISTRY) {
       if (mod.dependencies.includes(moduleKey)) {
         const depMode = currentEntitlements.get(mod.key) ?? 'off';
-        if (depMode !== 'off') {
+        if (depMode !== 'off' && depMode !== 'locked') {
           result.dependents.push({ key: mod.key, name: mod.name, currentMode: depMode });
         }
       }
@@ -69,7 +69,7 @@ export function validateModeChange(
     for (const depKey of moduleDef.dependencies) {
       if (depKey === 'platform_core') continue; // always on
       const depMode = currentEntitlements.get(depKey) ?? 'off';
-      if (depMode === 'off') {
+      if (depMode === 'off' || depMode === 'locked') {
         const depDef = MODULE_REGISTRY.find((m) => m.key === depKey);
         result.missingDependencies.push({
           key: depKey,

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
-  Wrench,
+  Sparkles,
   BarChart3,
   Search,
   CalendarDays,
@@ -11,9 +11,7 @@ import {
   Globe,
   Database,
   History,
-  Info,
 } from 'lucide-react';
-import { ToolGuide } from '@/components/insights/ToolGuide';
 
 // ── Lazy-load each tab content ─────────────────────────────────────
 
@@ -52,61 +50,22 @@ const HistoryContent = dynamic(() => import('../history/history-content'), {
   ssr: false,
 });
 
-// ── Tab definitions ────────────────────────────────────────────────
+// ── Tab groups ─────────────────────────────────────────────────────
 
-const TABS = [
-  {
-    key: 'watchlist',
-    label: 'Watchlist',
-    icon: BarChart3,
-    color: 'text-emerald-500',
-    hint: 'Pin key metrics and track trends at a glance',
-  },
-  {
-    key: 'analysis',
-    label: 'Analysis Tools',
-    icon: Search,
-    color: 'text-blue-500',
-    hint: 'Root cause, correlations, forecast, and what-if analysis',
-  },
-  {
-    key: 'reports',
-    label: 'Scheduled Reports',
-    icon: CalendarDays,
-    color: 'text-purple-500',
-    hint: 'Set up automated AI-powered report delivery',
-  },
-  {
-    key: 'lenses',
-    label: 'Lenses',
-    icon: Layers,
-    color: 'text-indigo-500',
-    hint: 'Pre-configured analysis contexts for specific domains',
-  },
-  {
-    key: 'embeds',
-    label: 'Embeds',
-    icon: Globe,
-    color: 'text-teal-500',
-    hint: 'Create embeddable insight widgets for external sites',
-  },
-  {
-    key: 'authoring',
-    label: 'Authoring',
-    icon: Database,
-    color: 'text-orange-500',
-    hint: 'Define custom metrics and dimensions for the AI layer',
-  },
-  {
-    key: 'history',
-    label: 'History',
-    icon: History,
-    color: 'text-rose-500',
-    hint: 'Review, reopen, and export past conversations',
-  },
-] as const;
+const DAILY_TABS = [
+  { key: 'watchlist' as const, label: 'Watchlist', icon: BarChart3 },
+  { key: 'analysis' as const, label: 'Analysis', icon: Search },
+  { key: 'reports' as const, label: 'Reports', icon: CalendarDays },
+  { key: 'history' as const, label: 'History', icon: History },
+];
 
-type TabKey = (typeof TABS)[number]['key'];
+const ADMIN_TABS = [
+  { key: 'lenses' as const, label: 'Lenses', icon: Layers },
+  { key: 'embeds' as const, label: 'Embeds', icon: Globe },
+  { key: 'authoring' as const, label: 'Authoring', icon: Database },
+];
+
+type TabKey = (typeof DAILY_TABS)[number]['key'] | (typeof ADMIN_TABS)[number]['key'];
 
 // ── Skeleton for lazy-loading tabs ─────────────────────────────────
 
@@ -118,80 +77,75 @@ function TabSkeleton() {
   );
 }
 
+// ── Tab Button ─────────────────────────────────────────────────────
+
+function TabButton({
+  tab,
+  isActive,
+  onClick,
+}: {
+  tab: { key: string; label: string; icon: React.ComponentType<{ className?: string }> };
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const Icon = tab.icon;
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium transition-colors
+        ${isActive
+          ? 'border-primary text-primary'
+          : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}
+      `}
+    >
+      <Icon className="h-4 w-4" />
+      {tab.label}
+    </button>
+  );
+}
+
 // ── AiToolsContent ─────────────────────────────────────────────────
 
 export default function AiToolsContent() {
   const [activeTab, setActiveTab] = useState<TabKey>('watchlist');
 
-  const activeTabDef = TABS.find((t) => t.key === activeTab);
-
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
-          <Wrench className="h-5 w-5 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">AI Tools</h1>
-          <p className="text-sm text-muted-foreground">
-            Watchlists, analysis, reports, lenses, and more
-          </p>
-        </div>
+    <div className="space-y-0 p-6">
+      {/* Compact header */}
+      <div className="flex items-center gap-2.5 mb-4">
+        <Sparkles className="h-5 w-5 text-primary" />
+        <h1 className="text-lg font-semibold text-foreground">AI Tools</h1>
       </div>
 
-      {/* Overview guide */}
-      <ToolGuide
-        storageKey="ai-tools-overview"
-        useCases={[
-          'Track key business metrics',
-          'Diagnose performance changes',
-          'Automate report delivery',
-          'Build custom AI queries',
-        ]}
-        steps={[
-          { label: 'Choose a tool', detail: 'Select a tab below to access the tool you need.' },
-          { label: 'Configure', detail: 'Set up metrics, schedules, or analysis parameters.' },
-          { label: 'Get insights', detail: 'View results, export data, or share with your team.' },
-        ]}
-        example="Start with the Watchlist tab to pin your most important KPIs, then use Analysis Tools to investigate any unusual changes."
-      />
-
-      {/* Horizontal tab navigation */}
+      {/* Tab navigation with grouped sections */}
       <div className="border-b border-border">
-        <nav className="-mb-px flex gap-1 overflow-x-auto">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`
-                  inline-flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors
-                  ${isActive
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}
-                `}
-              >
-                <Icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            );
-          })}
+        <nav className="-mb-px flex items-center gap-0 overflow-x-auto">
+          {DAILY_TABS.map((tab) => (
+            <TabButton
+              key={tab.key}
+              tab={tab}
+              isActive={activeTab === tab.key}
+              onClick={() => setActiveTab(tab.key)}
+            />
+          ))}
+
+          {/* Visual separator */}
+          <div className="mx-2 h-5 w-px bg-border shrink-0" />
+
+          {ADMIN_TABS.map((tab) => (
+            <TabButton
+              key={tab.key}
+              tab={tab}
+              isActive={activeTab === tab.key}
+              onClick={() => setActiveTab(tab.key)}
+            />
+          ))}
         </nav>
       </div>
 
-      {/* Active tab description */}
-      {activeTabDef && (
-        <div className="flex items-start gap-2 px-1">
-          <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-          <p className="text-xs text-muted-foreground">{activeTabDef.hint}</p>
-        </div>
-      )}
-
-      {/* Tab content */}
-      <div>
+      {/* Tab content — no extra chrome */}
+      <div className="pt-4">
         {activeTab === 'watchlist' && <WatchlistContent embedded />}
         {activeTab === 'analysis' && <ToolsContent embedded />}
         {activeTab === 'reports' && <ReportsContent embedded />}

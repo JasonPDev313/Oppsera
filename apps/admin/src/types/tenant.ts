@@ -122,7 +122,7 @@ export interface TerminalItem {
 }
 
 // ── Access Mode ─────────────────────────────────────────────────
-export type AccessMode = 'off' | 'view' | 'full';
+export type AccessMode = 'off' | 'view' | 'full' | 'locked';
 
 // ── Entitlement ─────────────────────────────────────────────────
 export interface EntitlementItem {
@@ -151,6 +151,7 @@ export interface EntitlementSummary {
   fullAccess: number;
   viewOnly: number;
   off: number;
+  locked: number;
 }
 
 // ── Change Log ──────────────────────────────────────────────────

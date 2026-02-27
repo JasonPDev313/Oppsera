@@ -1,4 +1,4 @@
-export type AccessMode = 'off' | 'view' | 'full';
+export type AccessMode = 'off' | 'view' | 'full' | 'locked';
 export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 export type ModuleCategory = 'core' | 'commerce' | 'operations' | 'finance' | 'analytics' | 'integrations';
 

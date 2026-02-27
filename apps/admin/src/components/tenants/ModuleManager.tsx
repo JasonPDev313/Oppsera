@@ -21,6 +21,7 @@ const MODE_LABELS: Record<AccessMode, string> = {
   off: 'OFF',
   view: 'VIEW',
   full: 'FULL',
+  locked: 'LOCKED',
 };
 
 export function ModuleManager({ tenantId }: { tenantId: string }) {
@@ -178,6 +179,13 @@ export function ModuleManager({ tenantId }: { tenantId: string }) {
               <span className="text-white font-medium">{summary.off}</span>
               <span className="text-slate-500">Off</span>
             </span>
+            {summary.locked > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <span className="text-white font-medium">{summary.locked}</span>
+                <span className="text-slate-500">Locked</span>
+              </span>
+            )}
           </div>
           <div className="flex-1" />
           <button
@@ -229,6 +237,7 @@ export function ModuleManager({ tenantId }: { tenantId: string }) {
                 <span className={
                   pendingChange.targetMode === 'full' ? 'font-medium text-emerald-400' :
                   pendingChange.targetMode === 'view' ? 'font-medium text-amber-400' :
+                  pendingChange.targetMode === 'locked' ? 'font-medium text-purple-400' :
                   'font-medium text-red-400'
                 }>
                   {MODE_LABELS[pendingChange.targetMode]}

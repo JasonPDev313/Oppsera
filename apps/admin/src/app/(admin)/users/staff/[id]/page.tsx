@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useStaffDetail, useAdminAudit, useAdminRoles } from '@/hooks/use-staff';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
+import { LoginHistorySection } from '@/components/users/login-history-section';
 import type { StaffStatus } from '@/types/users';
 
 function StatusBadge({ status }: { status: StaffStatus }) {
@@ -335,7 +336,12 @@ export default function StaffDetailPage() {
 
       {/* Activity Tab */}
       {tab === 'activity' && (
-        <div className="space-y-3">
+        <div className="space-y-6">
+          {/* Login History */}
+          <LoginHistorySection adminId={params.id} />
+
+          {/* Audit Log */}
+          <div className="space-y-3">
           {auditData?.items.map((entry) => (
             <div key={entry.id} className="flex items-start gap-3 px-4 py-3 bg-slate-800/50 rounded-lg border border-slate-700">
               <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
@@ -356,6 +362,7 @@ export default function StaffDetailPage() {
               Load more
             </button>
           )}
+          </div>
         </div>
       )}
 

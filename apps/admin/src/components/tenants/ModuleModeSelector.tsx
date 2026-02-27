@@ -1,5 +1,6 @@
 'use client';
 
+import { Lock } from 'lucide-react';
 import type { AccessMode } from '@/types/tenant';
 
 interface ModuleModeSelectorProps {
@@ -9,14 +10,17 @@ interface ModuleModeSelectorProps {
   onChange: (mode: AccessMode) => void;
 }
 
-const MODE_CONFIG = {
+const MODE_CONFIG: Record<AccessMode, { label: string; bg: string; activeBg: string; text: string; activeText: string }> = {
   off: { label: 'OFF', bg: 'bg-slate-700', activeBg: 'bg-red-600', text: 'text-slate-400', activeText: 'text-white' },
   view: { label: 'VIEW', bg: 'bg-slate-700', activeBg: 'bg-amber-600', text: 'text-slate-400', activeText: 'text-white' },
   full: { label: 'FULL', bg: 'bg-slate-700', activeBg: 'bg-emerald-600', text: 'text-slate-400', activeText: 'text-white' },
-} as const;
+  locked: { label: 'LOCK', bg: 'bg-slate-700', activeBg: 'bg-purple-600', text: 'text-slate-400', activeText: 'text-white' },
+};
 
 export function ModuleModeSelector({ value, supportsViewMode, disabled, onChange }: ModuleModeSelectorProps) {
-  const modes: AccessMode[] = supportsViewMode ? ['off', 'view', 'full'] : ['off', 'full'];
+  const modes: AccessMode[] = supportsViewMode
+    ? ['off', 'view', 'full', 'locked']
+    : ['off', 'full', 'locked'];
 
   return (
     <div className="flex rounded-lg overflow-hidden border border-slate-600">
@@ -28,10 +32,11 @@ export function ModuleModeSelector({ value, supportsViewMode, disabled, onChange
             key={mode}
             onClick={() => !disabled && onChange(mode)}
             disabled={disabled}
-            className={`px-3 py-1 text-xs font-semibold transition-colors ${
+            className={`px-3 py-1 text-xs font-semibold transition-colors flex items-center gap-1 ${
               isActive ? `${config.activeBg} ${config.activeText}` : `${config.bg} ${config.text} hover:bg-slate-600`
             } ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
           >
+            {mode === 'locked' && <Lock size={10} />}
             {config.label}
           </button>
         );

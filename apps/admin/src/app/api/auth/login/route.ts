@@ -8,6 +8,7 @@ import {
   makeSessionCookie,
   updateAdminLastLogin,
 } from '@/lib/auth';
+import { resolveGeo, recordAdminLoginEvent } from '@oppsera/core/security';
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -27,11 +28,22 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, password } = parsed.data;
+    const ip = req.headers.get('x-forwarded-for') ?? undefined;
+    const userAgent = req.headers.get('user-agent') ?? undefined;
 
     const admin = await getAdminByEmail(email);
     if (!admin || !admin.isActive) {
       // Constant-time comparison even on missing user
       await bcrypt.compare(password, '$2b$12$invalidhashpaddingtoconstanttime');
+
+      // Fire-and-forget: record failed login
+      resolveGeo(req.headers, ip).then((geo) => {
+        recordAdminLoginEvent({
+          adminId: null, email, outcome: 'failed', ipAddress: ip, userAgent, geo,
+          failureReason: admin ? 'Account inactive' : 'Unknown email',
+        });
+      }).catch(() => {});
+
       return NextResponse.json(
         { error: { message: 'Invalid email or password' } },
         { status: 401 },
@@ -40,6 +52,14 @@ export async function POST(req: NextRequest) {
 
     const valid = await bcrypt.compare(password, admin.passwordHash);
     if (!valid) {
+      // Fire-and-forget: record failed login
+      resolveGeo(req.headers, ip).then((geo) => {
+        recordAdminLoginEvent({
+          adminId: admin.id, email, outcome: 'failed', ipAddress: ip, userAgent, geo,
+          failureReason: 'Invalid password',
+        });
+      }).catch(() => {});
+
       return NextResponse.json(
         { error: { message: 'Invalid email or password' } },
         { status: 401 },
@@ -69,6 +89,13 @@ export async function POST(req: NextRequest) {
 
     // Best-effort last login update
     updateAdminLastLogin(admin.id).catch(() => undefined);
+
+    // Fire-and-forget: record successful admin login with geo
+    resolveGeo(req.headers, ip).then((geo) => {
+      recordAdminLoginEvent({
+        adminId: admin.id, email, outcome: 'success', ipAddress: ip, userAgent, geo,
+      });
+    }).catch(() => {});
 
     return res;
   } catch {

@@ -11,6 +11,13 @@ export const GET = withMiddleware(
       url.searchParams.get('businessDate') ||
       new Date().toISOString().slice(0, 10);
 
+    if (!locationId) {
+      return NextResponse.json(
+        { error: { code: 'VALIDATION_ERROR', message: 'locationId is required' } },
+        { status: 400 },
+      );
+    }
+
     const data = await getHostDashboard({
       tenantId: ctx.tenantId,
       locationId,

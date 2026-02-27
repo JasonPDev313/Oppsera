@@ -7,3 +7,5 @@ export type { ItemTypeGroup } from './item-types';
 export { computePackageAllocations } from './package-allocation';
 export type { ComponentAllocationInput, ComponentAllocation } from './package-allocation';
 export { getInitials, formatPhone } from './format';
+export { parseUserAgent } from './user-agent';
+export type { ParsedUserAgent } from './user-agent';

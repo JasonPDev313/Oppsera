@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Lock, Shield, KeyRound, ChevronRight, X, RotateCcw, AlertTriangle } from 'lucide-react';
 import { useAdminUserSearch, useAdminUserDetail, useAdminUserActions, type AdminUser } from '@/hooks/use-admin-users';
+import { LoginHistorySection } from '@/components/users/login-history-section';
 
 function UserStatusBadge({ status, isLocked }: { status: string; isLocked: boolean }) {
   if (isLocked) return <span className="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/30">Locked</span>;
@@ -256,6 +257,9 @@ export default function GlobalUsersPage() {
                   )}
                 </div>
               </div>
+
+              {/* Login History */}
+              <LoginHistorySection userId={detailUser.id} tenantId={detailUser.tenantId} />
 
               {/* Actions */}
               <div className="space-y-2">

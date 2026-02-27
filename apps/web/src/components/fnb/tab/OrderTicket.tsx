@@ -169,7 +169,15 @@ export function OrderTicket({
                   <FnbOrderLine
                     seatNumber={line.seatNumber ?? 1}
                     itemName={line.catalogItemName ?? 'Unknown'}
-                    modifiers={line.modifiers}
+                    modifiers={(line.modifiers ?? []).map((mod) => {
+                      if (typeof mod === 'string') return mod;
+                      const m = mod as Record<string, unknown>;
+                      const name = String(m?.name ?? '');
+                      if (m?.instruction === 'none') return `NO ${name}`;
+                      if (m?.instruction === 'extra') return `EXTRA ${name}`;
+                      if (m?.instruction === 'on_side') return `${name} ON SIDE`;
+                      return name;
+                    })}
                     specialInstructions={line.specialInstructions}
                     priceCents={line.unitPriceCents ?? 0}
                     qty={line.qty ?? 1}

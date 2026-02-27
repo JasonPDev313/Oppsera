@@ -52,7 +52,7 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
       moduleDescription: mod.description,
       accessMode,
       planTier: ent ? (ent.plan_tier as string) : 'standard',
-      isEnabled: accessMode !== 'off',
+      isEnabled: accessMode !== 'off' && accessMode !== 'locked',
       riskLevel: mod.riskLevel,
       category: mod.category,
       supportsViewMode: mod.supportsViewMode,
@@ -71,6 +71,7 @@ export const GET = withAdminAuth(async (_req: NextRequest, _session, params) => 
     fullAccess: items.filter((i) => i.accessMode === 'full').length,
     viewOnly: items.filter((i) => i.accessMode === 'view').length,
     off: items.filter((i) => i.accessMode === 'off').length,
+    locked: items.filter((i) => i.accessMode === 'locked').length,
   };
 
   return NextResponse.json({ data: { modules: items, summary } });
@@ -90,8 +91,8 @@ export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
   if (!moduleKey) {
     return NextResponse.json({ error: { message: 'moduleKey is required' } }, { status: 400 });
   }
-  if (!['off', 'view', 'full'].includes(accessMode)) {
-    return NextResponse.json({ error: { message: 'accessMode must be off, view, or full' } }, { status: 400 });
+  if (!['off', 'view', 'full', 'locked'].includes(accessMode)) {
+    return NextResponse.json({ error: { message: 'accessMode must be off, view, full, or locked' } }, { status: 400 });
   }
 
   const validModule = MODULE_REGISTRY.find((m) => m.key === moduleKey);
@@ -165,7 +166,7 @@ export const POST = withAdminAuth(async (req: NextRequest, session, params) => {
   }
 
   const previousMode = currentModes.get(moduleKey) ?? 'off';
-  const isEnabled = accessMode !== 'off';
+  const isEnabled = accessMode !== 'off' && accessMode !== 'locked';
 
   // Upsert entitlement + log change in one transaction
   await withAdminDb(async (tx) => {

@@ -71,6 +71,16 @@ export const POST = withMiddleware(
       ),
     });
 
+    // Locked modules cannot be enabled by tenants — admin only
+    if (existing && (existing as Record<string, unknown>).accessMode === 'locked') {
+      return NextResponse.json({
+        error: {
+          code: 'MODULE_LOCKED',
+          message: 'This module is locked by an administrator. Contact your platform admin to unlock it.',
+        },
+      }, { status: 403 });
+    }
+
     if (existing && existing.isEnabled) {
       throw new ConflictError('Module is already enabled');
     }
@@ -148,6 +158,16 @@ export const PATCH = withMiddleware(
 
     if (!existing) {
       throw new NotFoundError('Entitlement not found');
+    }
+
+    // Locked modules cannot be toggled by tenants — admin only
+    if ((existing as Record<string, unknown>).accessMode === 'locked') {
+      return NextResponse.json({
+        error: {
+          code: 'MODULE_LOCKED',
+          message: 'This module is locked by an administrator. Contact your platform admin to unlock it.',
+        },
+      }, { status: 403 });
     }
 
     // Update isEnabled

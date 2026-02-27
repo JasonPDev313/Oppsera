@@ -18,7 +18,7 @@ export function requireEntitlementWrite(moduleKey: string) {
     const engine = getEntitlementEngine();
     const mode = await engine.getAccessMode(ctx.tenantId, moduleKey);
 
-    if (mode === 'off') {
+    if (mode === 'off' || mode === 'locked') {
       throw new ModuleNotEnabledError(moduleKey);
     }
     if (mode === 'view') {

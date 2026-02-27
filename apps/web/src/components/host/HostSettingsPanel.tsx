@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
+import { FeatureRoadmapGroup } from '@/components/fnb/host/FeaturePlaceholder';
+import { HOST_FEATURE_ROADMAP } from '@/components/fnb/host/feature-roadmap';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -655,6 +657,10 @@ export default function HostSettingsPanel({ locationId }: { locationId: string }
             ))}
           </>
         )}
+        <FeatureRoadmapGroup
+          title="AI Enhancements"
+          stories={HOST_FEATURE_ROADMAP.filter((s) => s.category === 'AI')}
+        />
       </Section>
 
       {/* ── 5. Deposits & No-Show Protection ── */}
@@ -684,6 +690,10 @@ export default function HostSettingsPanel({ locationId }: { locationId: string }
             <CentsField label="Cancellation Fee" value={settings.deposits.lateCancellationFeeCents} onChange={(v) => update('deposits', { lateCancellationFeeCents: v })} />
           </>
         )}
+        <FeatureRoadmapGroup
+          title="Payment Gateway"
+          stories={HOST_FEATURE_ROADMAP.filter((s) => s.category === 'DEPOSIT')}
+        />
       </Section>
 
       {/* ── 6. Notifications ── */}
@@ -713,6 +723,10 @@ export default function HostSettingsPanel({ locationId }: { locationId: string }
         <TextAreaField label="Waitlist Ready SMS" value={settings.notifications.templates.waitlistReadySms} onChange={(v) => update('notifications', { templates: { ...settings.notifications.templates, waitlistReadySms: v } })} />
         <TextAreaField label="Waitlist Added SMS" value={settings.notifications.templates.waitlistAddedSms} onChange={(v) => update('notifications', { templates: { ...settings.notifications.templates, waitlistAddedSms: v } })} />
         <TextAreaField label="Cancellation SMS" value={settings.notifications.templates.cancellationSms} onChange={(v) => update('notifications', { templates: { ...settings.notifications.templates, cancellationSms: v } })} />
+        <FeatureRoadmapGroup
+          title="Coming Soon"
+          stories={HOST_FEATURE_ROADMAP.filter((s) => s.category === 'SMS')}
+        />
       </Section>
 
       {/* ── 7. Table Management ── */}
@@ -754,6 +768,10 @@ export default function HostSettingsPanel({ locationId }: { locationId: string }
         <Toggle label="Show Queue Position" checked={settings.guestSelfService.showQueuePosition} onChange={(v) => update('guestSelfService', { showQueuePosition: v })} />
         <Toggle label="Allow Self-Cancellation" checked={settings.guestSelfService.allowCancellation} onChange={(v) => update('guestSelfService', { allowCancellation: v })} />
         <Toggle label="Require Phone Verification" checked={settings.guestSelfService.requirePhoneVerification} onChange={(v) => update('guestSelfService', { requirePhoneVerification: v })} />
+        <FeatureRoadmapGroup
+          title="Planned Integrations"
+          stories={HOST_FEATURE_ROADMAP.filter((s) => s.category === 'CHANNEL')}
+        />
       </Section>
 
       {/* ── 10. Schedule & Exceptions ── */}
@@ -785,6 +803,10 @@ export default function HostSettingsPanel({ locationId }: { locationId: string }
             <TimeField label="" value={settings.display.mealPeriodSchedule[meal].end} onChange={(v) => update('display', { mealPeriodSchedule: { ...settings.display.mealPeriodSchedule, [meal]: { ...settings.display.mealPeriodSchedule[meal], end: v } } })} />
           </div>
         ))}
+        <FeatureRoadmapGroup
+          title="Infrastructure"
+          stories={HOST_FEATURE_ROADMAP.filter((s) => s.category === 'RT' || s.category === 'OFFLINE')}
+        />
       </Section>
 
       {/* ── 12. Sounds & Alerts ── */}
@@ -813,6 +835,10 @@ export default function HostSettingsPanel({ locationId }: { locationId: string }
         )}
         <TagList tags={settings.guestProfile.occasionOptions} onChange={(v) => update('guestProfile', { occasionOptions: v })} label="Occasion Options" placeholder="Add occasion..." />
         <TagList tags={settings.guestProfile.seatingPreferences} onChange={(v) => update('guestProfile', { seatingPreferences: v })} label="Seating Preferences" placeholder="Add preference..." />
+        <FeatureRoadmapGroup
+          title="Loyalty Integration"
+          stories={HOST_FEATURE_ROADMAP.filter((s) => s.category === 'LOYALTY')}
+        />
       </Section>
     </div>
   );

@@ -27,7 +27,7 @@ const MODIFIER_PREFIXES: { match: string; color: string }[] = [
 ];
 
 function getModChipStyle(mod: string): { label: string; bg: string; text: string } {
-  const upper = mod.toUpperCase();
+  const upper = String(mod).toUpperCase();
   for (const p of MODIFIER_PREFIXES) {
     if (upper.startsWith(p.match)) {
       return {

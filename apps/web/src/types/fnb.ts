@@ -228,7 +228,7 @@ export interface FnbTabLine {
   qty: number;
   unitPriceCents: number;
   extendedPriceCents: number;
-  modifiers: string[];
+  modifiers: unknown[];
   specialInstructions: string | null;
   status: string;
   sentAt: string | null;

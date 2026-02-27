@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { TerminalSession } from '@oppsera/core/profit-centers';
+import { apiFetch } from '@/lib/api-client';
 
 interface TerminalSessionContextValue {
   session: TerminalSession | null;
@@ -68,6 +69,15 @@ export function TerminalSessionProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem(TERMINAL_CONFIRMED_KEY, 'true');
     // Clear the skip flag — user has a real session now
     sessionStorage.removeItem(TERMINAL_SKIP_KEY);
+
+    // Fire-and-forget: stamp the terminal on the user's most recent login record
+    apiFetch('/api/v1/login-records/stamp-terminal', {
+      method: 'POST',
+      body: JSON.stringify({
+        terminalId: s.terminalId,
+        terminalName: s.terminalName ?? null,
+      }),
+    }).catch(() => {});
   }, []);
 
   const clearSession = useCallback(() => {

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, CalendarClock } from 'lucide-react';
 import { useScheduledReports } from '@/hooks/use-scheduled-reports';
 import { ScheduledReportsPanel } from '@/components/insights/ScheduledReportsPanel';
-import { ToolGuide } from '@/components/insights/ToolGuide';
+
 
 // ── ReportsContent ────────────────────────────────────────────────
 
@@ -58,23 +58,6 @@ export default function ReportsContent({ embedded }: { embedded?: boolean }) {
           </div>
         </>
       )}
-
-      {/* Guide */}
-      <ToolGuide
-        storageKey="scheduled-reports"
-        useCases={[
-          'Daily sales summaries',
-          'Weekly performance digests',
-          'Monthly metric snapshots',
-          'Automated team reporting',
-        ]}
-        steps={[
-          { label: 'Create a schedule', detail: 'Choose a report type (digest, custom report, or metric snapshot) and set the frequency.' },
-          { label: 'Set delivery', detail: 'Pick a delivery time and channel (in-app, email, or webhook). Add recipients if sharing.' },
-          { label: 'Receive automatically', detail: 'Reports are generated and delivered on schedule. Pause or edit anytime.' },
-        ]}
-        example={'Create a daily "Sales Digest" delivered at 8 AM via email so your team starts each morning with yesterday\'s performance summary.'}
-      />
 
       {/* Loading */}
       {isLoading && (

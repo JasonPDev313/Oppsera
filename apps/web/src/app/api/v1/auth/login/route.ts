@@ -9,6 +9,7 @@ import {
 } from '@oppsera/core/security';
 import { AppError, ValidationError } from '@oppsera/shared';
 import { auditLogSystem } from '@oppsera/core/audit/helpers';
+import { resolveGeo, recordLoginEvent } from '@oppsera/core/security';
 import { createAdminClient, users, memberships } from '@oppsera/db';
 
 const loginSchema = z.object({
@@ -58,9 +59,23 @@ export const POST = withMiddleware(
     const adapter = getAuthAdapter();
     const ip = request.headers.get('x-forwarded-for') ?? undefined;
 
+    const userAgent = request.headers.get('user-agent') ?? undefined;
+
     // Account-level lockout check (5 failures → 15-min lock)
     const lockout = checkAccountLockout(email);
     if (lockout.locked) {
+      // Fire-and-forget: record locked-out attempt
+      resolveGeo(request.headers, ip).then((geo) => {
+        resolveUserIdentity(email).then((identity) => {
+          recordLoginEvent({
+            tenantId: identity?.tenantId ?? '',
+            userId: identity?.userId ?? null,
+            email, outcome: 'locked', ipAddress: ip, userAgent, geo,
+            failureReason: 'Account temporarily locked',
+          });
+        });
+      }).catch(() => {});
+
       return NextResponse.json(
         { error: { code: 'ACCOUNT_LOCKED', message: 'Account temporarily locked. Please try again later.' } },
         { status: 429, headers: { 'Retry-After': String(Math.ceil(lockout.retryAfterMs / 1000)) } },
@@ -73,9 +88,10 @@ export const POST = withMiddleware(
       // Clear lockout counter on success
       recordLoginSuccess(email);
 
-      // Resolve identity + update lastLoginAt + audit (best-effort, never blocks login)
+      // Resolve identity once — reuse for audit, lastLoginAt, and login recording
+      let identity: { userId: string; tenantId: string } | null = null;
       try {
-        const identity = await resolveUserIdentity(email);
+        identity = await resolveUserIdentity(email);
         if (identity) {
           const adminDb = createAdminClient();
           await adminDb
@@ -88,22 +104,42 @@ export const POST = withMiddleware(
         }
       } catch (err) { console.error('[audit]:', err); }
 
+      // Fire-and-forget: record login event with geo (reuses identity from above)
+      resolveGeo(request.headers, ip).then((geo) => {
+        recordLoginEvent({
+          tenantId: identity?.tenantId ?? '',
+          userId: identity?.userId ?? null,
+          email, outcome: 'success', ipAddress: ip, userAgent, geo,
+        });
+      }).catch(() => {});
+
       return NextResponse.json({ data: result });
     } catch (error) {
       // Record failure for lockout tracking
       recordLoginFailure(email);
 
-      // Audit failed login with resolved identity when possible
+      // Audit failed login with resolved identity — reuse for recording
+      let failIdentity: { userId: string; tenantId: string } | null = null;
       try {
-        const identity = await resolveUserIdentity(email);
+        failIdentity = await resolveUserIdentity(email);
         await auditLogSystem(
-          identity?.tenantId ?? '',
+          failIdentity?.tenantId ?? '',
           'auth.login.failed',
           'user',
-          identity?.userId ?? 'unknown',
+          failIdentity?.userId ?? 'unknown',
           { email, ip },
         );
       } catch (err) { console.error('[audit]:', err); }
+
+      // Fire-and-forget: record failed login event with geo (reuses identity from above)
+      resolveGeo(request.headers, ip).then((geo) => {
+        recordLoginEvent({
+          tenantId: failIdentity?.tenantId ?? '',
+          userId: failIdentity?.userId ?? null,
+          email, outcome: 'failed', ipAddress: ip, userAgent, geo,
+          failureReason: 'Invalid credentials',
+        });
+      }).catch(() => {});
 
       if (error instanceof AppError) throw error;
       throw new AppError('AUTH_SIGNIN_FAILED', 'Invalid credentials', 401);

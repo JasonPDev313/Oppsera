@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Layers, Globe, Lock } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
-import { ToolGuide } from '@/components/insights/ToolGuide';
+
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -51,23 +51,6 @@ export default function LensesContent({ embedded }: { embedded?: boolean }) {
           </div>
         </>
       )}
-
-      {/* Guide */}
-      <ToolGuide
-        storageKey="lenses"
-        useCases={[
-          'Focus AI on a specific domain',
-          'Get industry-relevant answers',
-          'Compare performance across areas',
-          'Tailor insights for different roles',
-        ]}
-        steps={[
-          { label: 'Browse lenses', detail: 'Review the available system and custom lenses below.' },
-          { label: 'Use in chat', detail: 'When asking questions in AI Insights, mention the lens name or domain to focus the analysis.' },
-          { label: 'Get targeted answers', detail: 'The AI will use the lens context to provide domain-specific metrics, benchmarks, and recommendations.' },
-        ]}
-        example={'Ask "How is my golf revenue trending?" and the AI will automatically use the Golf lens to pull tee-time, green fee, and cart rental metrics.'}
-      />
 
       {/* What is a lens? */}
       <div className="rounded-xl border border-border bg-surface p-4 mb-5">

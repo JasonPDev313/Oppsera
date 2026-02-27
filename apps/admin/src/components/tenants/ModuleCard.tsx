@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Clock } from 'lucide-react';
+import { ChevronDown, ChevronRight, Clock, Lock } from 'lucide-react';
 import type { EntitlementItem, AccessMode } from '@/types/tenant';
 import { ModuleModeSelector } from './ModuleModeSelector';
 
@@ -29,7 +29,9 @@ export function ModuleCard({ module, onModeChange }: ModuleCardProps) {
           ? 'bg-slate-800 border-slate-700'
           : module.accessMode === 'view'
             ? 'bg-slate-800 border-amber-500/30'
-            : 'bg-slate-800/50 border-slate-700/50'
+            : module.accessMode === 'locked'
+              ? 'bg-slate-800/50 border-purple-500/30'
+              : 'bg-slate-800/50 border-slate-700/50'
       }`}
     >
       {/* Main row */}
@@ -45,9 +47,14 @@ export function ModuleCard({ module, onModeChange }: ModuleCardProps) {
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`text-sm font-medium ${module.accessMode !== 'off' ? 'text-white' : 'text-slate-500'}`}>
+            <span className={`text-sm font-medium ${module.accessMode === 'locked' ? 'text-purple-400' : module.accessMode !== 'off' ? 'text-white' : 'text-slate-500'}`}>
               {module.moduleName}
             </span>
+            {module.accessMode === 'locked' && (
+              <span className="flex items-center gap-1 text-[10px] font-semibold uppercase text-purple-400">
+                <Lock size={10} /> Locked
+              </span>
+            )}
             {riskInfo.label && (
               <span className={`text-[10px] font-semibold uppercase ${riskInfo.color}`}>
                 {riskInfo.label}

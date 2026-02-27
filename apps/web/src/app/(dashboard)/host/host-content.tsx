@@ -31,6 +31,7 @@ import { QrCodeDisplay } from '@/components/fnb/host/QrCodeDisplay';
 import { AssignModeProvider, useAssignMode } from '@/components/fnb/host/AssignModeContext';
 import HostSettingsPanel from '@/components/host/HostSettingsPanel';
 import { useSectionActions } from '@/hooks/use-fnb-manager';
+import { FeaturePlaceholderBlock, FeatureBadge } from '@/components/fnb/host/FeaturePlaceholder';
 import {
   Users,
   ArrowLeft,
@@ -41,10 +42,11 @@ import {
   ClipboardList,
   Bell,
   QrCode,
+  ShoppingBag,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
-type RightPanelTab = 'reservations' | 'floor' | 'preshift';
+type RightPanelTab = 'reservations' | 'floor' | 'preshift' | 'pickup';
 type FloorViewMode = 'map' | 'grid';
 
 function HostContentInner() {
@@ -268,6 +270,7 @@ function HostContentInner() {
     { key: 'reservations', label: 'Reservations', icon: Users },
     { key: 'floor', label: 'Floor', icon: LayoutGrid },
     { key: 'preshift', label: 'Pre-Shift', icon: ClipboardList },
+    { key: 'pickup', label: 'Pickup', icon: ShoppingBag },
   ];
 
   const iconBtnCls = 'flex items-center justify-center rounded-xl h-10 w-10 transition-all active:scale-95 hover:bg-accent focus-visible:ring-2 focus-visible:ring-indigo-500 outline-none text-muted-foreground';
@@ -308,6 +311,7 @@ function HostContentInner() {
         </div>
 
         <div className="flex items-center gap-1">
+          <FeatureBadge storyId="US-HOST-RT-01" />
           <button
             type="button"
             onClick={() => refresh()}
@@ -477,6 +481,13 @@ function HostContentInner() {
             {rightTab === 'preshift' && (
               <div className="flex-1 overflow-hidden rounded-xl bg-card border border-border shadow-sm p-4">
                 <PreShiftPanel data={preShiftData} isLoading={preShiftLoading} />
+              </div>
+            )}
+
+            {rightTab === 'pickup' && (
+              <div className="flex-1 overflow-hidden rounded-xl bg-card border border-border shadow-sm p-4 space-y-3">
+                <FeaturePlaceholderBlock storyId="US-HOST-PICKUP-01" />
+                <FeaturePlaceholderBlock storyId="US-HOST-PICKUP-02" compact />
               </div>
             )}
           </div>
