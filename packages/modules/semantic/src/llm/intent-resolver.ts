@@ -1,4 +1,4 @@
-import type { LLMAdapter, LLMMessage, IntentContext, ResolvedIntent, PipelineMode } from './types';
+import type { LLMAdapter, LLMMessage, IntentContext, ResolvedIntent, PipelineMode, LLMCompletionOptions } from './types';
 import { LLMError } from './types';
 import type { QueryPlan } from '../compiler/types';
 import type { RegistryCatalog, MetricDef, DimensionDef } from '../registry/types';
@@ -7,6 +7,53 @@ import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
 import { pruneForIntentResolver } from './conversation-pruner';
 import { retrieveFewShotExamples } from '../rag/few-shot-retriever';
 import { guardPromptSize } from './adapters/resilience';
+import { z } from 'zod';
+
+// ── SEM-01: Zod schemas for structured LLM output validation ──────
+// These schemas enforce the output contract documented in the system prompt,
+// providing clear parse errors and automatic type coercion (defaults, clamping).
+
+const PlanFilterSchema = z.object({
+  dimensionSlug: z.string(),
+  operator: z.string(),    // lenient — compiler validates supported operators
+  value: z.unknown().optional(),
+  values: z.array(z.unknown()).optional(),
+  rangeStart: z.unknown().optional(),
+  rangeEnd: z.unknown().optional(),
+});
+
+const PlanSortSchema = z.object({
+  metricSlug: z.string().optional(),
+  dimensionSlug: z.string().optional(),
+  direction: z.enum(['asc', 'desc']).default('desc'),
+});
+
+const DateRangeSchema = z.object({
+  start: z.string(),
+  end: z.string(),
+});
+
+const QueryPlanSchema = z.object({
+  metrics: z.array(z.string()).default([]),
+  dimensions: z.array(z.string()).default([]),
+  filters: z.array(PlanFilterSchema).default([]),
+  dateRange: DateRangeSchema.nullish(),
+  timeGranularity: z.enum(['day', 'week', 'month', 'quarter', 'year']).nullish(),
+  sort: z.array(PlanSortSchema).nullish(),
+  limit: z.number().nullish(),
+  lensSlug: z.string().nullish(),
+  intent: z.string().optional(),
+  rationale: z.string().optional(),
+});
+
+const IntentResponseSchema = z.object({
+  mode: z.enum(['metrics', 'sql']).default('metrics'),
+  plan: z.record(z.unknown()).nullable().default(null),
+  confidence: z.coerce.number().transform((v) => Math.min(1, Math.max(0, v))),
+  clarificationNeeded: z.boolean(),
+  clarificationMessage: z.string().nullable().optional().default(null),
+  clarificationOptions: z.array(z.string()).max(5).nullable().optional().default(null),
+});
 
 // ── System prompt builder ─────────────────────────────────────────
 // Constructs the intent-resolution prompt from:
@@ -255,37 +302,20 @@ function parseIntentResponse(raw: string): RawIntentResponse {
     );
   }
 
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new LLMError('Intent resolver response is not an object', 'PARSE_ERROR');
+  // SEM-01: Validate with Zod schema — provides clear error messages,
+  // automatic defaults (mode → 'metrics'), and confidence clamping (0–1).
+  const result = IntentResponseSchema.safeParse(parsed);
+  if (!result.success) {
+    const issues = result.error.issues
+      .map((i) => `${i.path.join('.')}: ${i.message}`)
+      .join('; ');
+    throw new LLMError(
+      `Intent resolver output validation failed: ${issues}`,
+      'PARSE_ERROR',
+    );
   }
 
-  const obj = parsed as Record<string, unknown>;
-
-  if (typeof obj.confidence !== 'number') {
-    throw new LLMError('Intent resolver missing confidence field', 'PARSE_ERROR');
-  }
-  if (typeof obj.clarificationNeeded !== 'boolean') {
-    throw new LLMError('Intent resolver missing clarificationNeeded field', 'PARSE_ERROR');
-  }
-
-  // Parse mode — default to 'metrics' for backward compat with older prompts
-  const mode: PipelineMode =
-    typeof obj.mode === 'string' && (obj.mode === 'metrics' || obj.mode === 'sql')
-      ? obj.mode
-      : 'metrics';
-
-  return {
-    mode,
-    plan: (obj.plan as Record<string, unknown> | null) ?? null,
-    confidence: Math.min(1, Math.max(0, obj.confidence as number)),
-    clarificationNeeded: obj.clarificationNeeded as boolean,
-    clarificationMessage:
-      typeof obj.clarificationMessage === 'string' ? obj.clarificationMessage : null,
-    clarificationOptions:
-      Array.isArray(obj.clarificationOptions)
-        ? (obj.clarificationOptions as unknown[]).filter((o): o is string => typeof o === 'string').slice(0, 5)
-        : null,
-  };
+  return result.data;
 }
 
 // ── Plan extractor ────────────────────────────────────────────────
@@ -294,28 +324,31 @@ function parseIntentResponse(raw: string): RawIntentResponse {
 function extractQueryPlan(raw: Record<string, unknown> | null): QueryPlan | null {
   if (!raw) return null;
 
+  // SEM-01: Validate with Zod schema — graceful fallback on malformed plans.
+  // This replaces manual field-by-field type checks with schema validation,
+  // providing defaults for missing arrays and coercing types automatically.
+  const result = QueryPlanSchema.safeParse(raw);
+  if (!result.success) {
+    console.warn('[semantic] Plan validation failed, falling back to empty plan:', result.error.issues);
+    return {
+      metrics: [],
+      dimensions: [],
+      filters: [],
+    };
+  }
+
+  const p = result.data;
   return {
-    metrics: Array.isArray(raw.metrics) ? (raw.metrics as string[]) : [],
-    dimensions: Array.isArray(raw.dimensions) ? (raw.dimensions as string[]) : [],
-    filters: Array.isArray(raw.filters) ? (raw.filters as QueryPlan['filters']) : [],
-    dateRange:
-      raw.dateRange &&
-      typeof (raw.dateRange as Record<string, unknown>).start === 'string' &&
-      typeof (raw.dateRange as Record<string, unknown>).end === 'string'
-        ? {
-            start: (raw.dateRange as Record<string, unknown>).start as string,
-            end: (raw.dateRange as Record<string, unknown>).end as string,
-          }
-        : undefined,
-    timeGranularity:
-      typeof raw.timeGranularity === 'string'
-        ? (raw.timeGranularity as QueryPlan['timeGranularity'])
-        : undefined,
-    sort: Array.isArray(raw.sort) ? (raw.sort as QueryPlan['sort']) : undefined,
-    limit: typeof raw.limit === 'number' ? raw.limit : undefined,
-    lensSlug: typeof raw.lensSlug === 'string' ? raw.lensSlug : undefined,
-    intent: typeof raw.intent === 'string' ? raw.intent : undefined,
-    rationale: typeof raw.rationale === 'string' ? raw.rationale : undefined,
+    metrics: p.metrics,
+    dimensions: p.dimensions,
+    filters: p.filters as QueryPlan['filters'],
+    dateRange: p.dateRange ?? undefined,
+    timeGranularity: p.timeGranularity ?? undefined,
+    sort: p.sort ?? undefined,
+    limit: p.limit ?? undefined,
+    lensSlug: p.lensSlug ?? undefined,
+    intent: p.intent,
+    rationale: p.rationale,
   };
 }
 
@@ -390,13 +423,35 @@ export async function resolveIntent(
     { role: 'user', content: userMessage + '\n\nRespond ONLY with the JSON object. No prose.' },
   ];
 
+  // ── SEM-02: Split system prompt into static (cacheable) and dynamic parts ──
+  // The data dictionary, output contract, mode routing rules, and metric
+  // catalog rarely change. These are placed in a cache_control block so
+  // Anthropic caches ~90% of input tokens across calls.
+  const contextStart = systemPrompt.indexOf('## Context\n');
+  let completionOpts: LLMCompletionOptions;
+  if (contextStart > 0) {
+    const staticPart = systemPrompt.slice(0, contextStart).trimEnd();
+    const dynamicPart = systemPrompt.slice(contextStart);
+    completionOpts = {
+      systemPromptParts: [
+        { text: staticPart, cacheControl: true },
+        { text: dynamicPart },
+      ],
+      temperature: 0,
+      maxTokens: 1024,
+      model: SEMANTIC_FAST_MODEL,
+    };
+  } else {
+    completionOpts = {
+      systemPrompt,
+      temperature: 0,
+      maxTokens: 1024,
+      model: SEMANTIC_FAST_MODEL,
+    };
+  }
+
   const startMs = Date.now();
-  const response = await llm.complete(messages, {
-    systemPrompt,
-    temperature: 0,
-    maxTokens: 1024,
-    model: SEMANTIC_FAST_MODEL, // Use fast model for structured JSON output
-  });
+  const response = await llm.complete(messages, completionOpts);
   const latencyMs = Date.now() - startMs;
 
   const parsed = parseIntentResponse(response.content);
@@ -422,5 +477,6 @@ export async function resolveIntent(
     latencyMs,
     provider: response.provider,
     model: response.model,
+    ragExamplesSnippet: ragExamplesSnippet || undefined,
   };
 }

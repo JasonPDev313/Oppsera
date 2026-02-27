@@ -198,6 +198,31 @@ export async function submitAdminReview(
 
   // Update session avg admin score
   await updateSessionAvgAdminScore(turn.sessionId);
+
+  // ── SEM-05: Auto-promote to RAG on admin 5-star approval ──────
+  // When an admin gives a perfect score with "approved" verdict and
+  // the turn produced valid data, auto-insert into the training store.
+  const adminShouldPromote =
+    input.score === 5 &&
+    input.verdict === 'correct' &&
+    turn.rowCount != null && Number(turn.rowCount) > 0 &&
+    !turn.executionError &&
+    !!turn.compiledSql;
+
+  if (adminShouldPromote) {
+    addTrainingPair({
+      tenantId: turn.tenantId,
+      question: turn.userMessage,
+      compiledSql: turn.compiledSql,
+      plan: turn.llmPlan as Record<string, unknown> | null,
+      mode: inferModeFromTurn(turn),
+      qualityScore: newScore !== null ? newScore : undefined,
+      source: 'admin',
+      sourceEvalTurnId: evalTurnId,
+    }).catch((err) => {
+      console.warn('[semantic] Admin auto-promotion to RAG store failed (non-blocking):', err);
+    });
+  }
 }
 
 // ── promoteToExample ────────────────────────────────────────────
@@ -264,7 +289,7 @@ function inferModeFromTurn(turn: { llmPlan: unknown }): 'metrics' | 'sql' {
 
 // ── Session rolling averages ────────────────────────────────────
 
-async function updateSessionAvgUserRating(sessionId: string, tenantId: string): Promise<void> {
+async function _updateSessionAvgUserRating(sessionId: string, tenantId: string): Promise<void> {
   // Wrap in withTenant so RLS context is set for the eval tables.
   await withTenant(tenantId, async (tx) => {
     // Compute rolling average from all turns in session that have a user rating

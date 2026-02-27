@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Search, Tag, Sparkles, Play, Settings2 } from 'lucide-react';
+import { Plus, Search, Tag, Sparkles, Play, Settings2, BarChart3 } from 'lucide-react';
 import { useTags, useTagMutations } from '@/hooks/use-tags';
 import type { TagListItem } from '@/hooks/use-tags';
 import { useSmartTagRules, useSmartTagRuleMutations } from '@/hooks/use-smart-tag-rules';
@@ -9,6 +9,7 @@ import type { SmartTagRuleListItem } from '@/hooks/use-smart-tag-rules';
 import { useSmartTagRule } from '@/hooks/use-smart-tag-rules';
 import { useToast } from '@/components/ui/toast';
 import { TagTable } from '@/components/customers/tags/TagTable';
+import { TagDashboard } from '@/components/customers/tags/TagDashboard';
 import { CreateTagDialog } from '@/components/customers/tags/CreateTagDialog';
 import { EditTagDialog } from '@/components/customers/tags/EditTagDialog';
 import { SmartTagRuleBuilder } from '@/components/customers/tags/SmartTagRuleBuilder';
@@ -34,6 +35,7 @@ export function TagManagementContent() {
   const [selectedTag, setSelectedTag] = useState<TagListItem | null>(null);
   const [ruleBuilderOpen, setRuleBuilderOpen] = useState(false);
   const [editRuleId, setEditRuleId] = useState<string | null>(null);
+  const [showDashboard, setShowDashboard] = useState(true);
 
   // --- Debounced search ---
   useEffect(() => {
@@ -167,15 +169,32 @@ export function TagManagementContent() {
           <Tag className="h-6 w-6 text-indigo-500" />
           <h1 className="text-2xl font-semibold text-foreground">Tag Management</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreateDialogOpen(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
-        >
-          <Plus className="h-4 w-4" />
-          Add Tag
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowDashboard((v) => !v)}
+            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none ${
+              showDashboard
+                ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-500'
+                : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+            }`}
+          >
+            <BarChart3 className="h-4 w-4" />
+            Analytics
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreateDialogOpen(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-500 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+          >
+            <Plus className="h-4 w-4" />
+            Add Tag
+          </button>
+        </div>
       </div>
+
+      {/* Analytics Dashboard */}
+      {showDashboard && <TagDashboard />}
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg border border-border bg-muted/50 p-1">

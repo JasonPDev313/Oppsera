@@ -261,9 +261,9 @@ export function InlineModifierPanel({
           <p className="text-[11px] font-bold uppercase tracking-wide" style={{ color: 'var(--fnb-text-muted)' }}>
             {activeGroup.name}
           </p>
-          <p className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+          <p className="text-[10px] font-medium" style={{ color: 'var(--fnb-text-secondary)' }}>
             {activeGroup.isRequired ? `Required` : 'Optional'}
-            {activeGroup.maxSelections > 1 && ` · max ${activeGroup.maxSelections}`}
+            {activeGroup.maxSelections > 1 && ` · Up to ${activeGroup.maxSelections}`}
           </p>
         </div>
       </div>
@@ -291,12 +291,28 @@ export function InlineModifierPanel({
                   {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
                   <span className="text-xs font-medium truncate flex-1">{option.name}</span>
                   {effectivePrice > 0 && (
-                    <span className="text-[10px] shrink-0 opacity-70">
+                    <span
+                      className="text-[10px] shrink-0 font-semibold tabular-nums rounded-full px-2 py-0.5"
+                      style={{
+                        backgroundColor: isSelected
+                          ? 'rgba(255, 255, 255, 0.2)'
+                          : 'rgba(148, 163, 184, 0.15)',
+                        color: isSelected ? '#fff' : 'var(--fnb-text-primary)',
+                      }}
+                    >
                       +{formatMoney(effectivePrice)}
                     </span>
                   )}
                   {currentInstruction === 'none' && (
-                    <span className="text-[10px] shrink-0 opacity-70">$0</span>
+                    <span
+                      className="text-[10px] shrink-0 font-semibold tabular-nums rounded-full px-2 py-0.5"
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                        color: 'var(--fnb-action-void)',
+                      }}
+                    >
+                      $0.00
+                    </span>
                   )}
                 </button>
                 {/* Instruction buttons appear below selected options that support them */}

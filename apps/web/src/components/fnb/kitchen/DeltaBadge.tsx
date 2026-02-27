@@ -5,7 +5,7 @@ interface DeltaBadgeProps {
 }
 
 export function DeltaBadge({ deltaType }: DeltaBadgeProps) {
-  const label = deltaType.toUpperCase();
+  const label = String(deltaType ?? '').toUpperCase();
   return (
     <span
       className="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold animate-pulse"

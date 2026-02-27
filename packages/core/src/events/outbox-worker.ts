@@ -15,6 +15,9 @@ export class OutboxWorker {
   private static readonly MAX_BACKOFF_MS = 30_000; // cap at 30s
   private static readonly STALE_RECOVERY_INTERVAL_MS = 5 * 60 * 1000; // every 5 min
   private static readonly STALE_CLAIM_THRESHOLD_MINUTES = 5;
+  // Minimum delay between batches even when busy — prevents pool exhaustion
+  // during high backlog (e.g., 600+ events released after stale recovery).
+  private static readonly MIN_INTER_BATCH_MS = 50;
 
   constructor(options: {
     eventBus: EventBus;
@@ -23,7 +26,9 @@ export class OutboxWorker {
   }) {
     this.eventBus = options.eventBus;
     this.pollIntervalMs = options.pollIntervalMs ?? 100;
-    this.batchSize = options.batchSize ?? 50;
+    // Vercel serverless: smaller batches prevent pool exhaustion (max: 2).
+    // Each event can trigger 10+ concurrent handler DB operations.
+    this.batchSize = options.batchSize ?? 20;
   }
 
   async start(): Promise<void> {
@@ -66,7 +71,10 @@ export class OutboxWorker {
       const published = await this.processBatch();
       this.consecutiveErrors = 0;
       this.lastErrorMessage = '';
-      const delay = published > 0 ? 0 : this.pollIntervalMs;
+      // When events were published, use a short breathing delay (not 0)
+      // to prevent nonstop pool hammering during high backlog recovery.
+      // When idle, use the normal poll interval.
+      const delay = published > 0 ? OutboxWorker.MIN_INTER_BATCH_MS : this.pollIntervalMs;
       this.pollTimer = setTimeout(() => this.poll(), delay);
     } catch (error) {
       this.consecutiveErrors++;

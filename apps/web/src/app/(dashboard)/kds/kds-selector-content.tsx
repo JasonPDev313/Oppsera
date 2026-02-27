@@ -4,12 +4,28 @@ import { useRouter } from 'next/navigation';
 import { useStations } from '@/hooks/use-fnb-kitchen';
 import { ArrowLeft } from 'lucide-react';
 
+const STATION_TYPE_COLORS: Record<string, string> = {
+  prep: '#6366f1',
+  bar: '#f59e0b',
+  grill: '#ef4444',
+  fry: '#f97316',
+  salad: '#22c55e',
+  dessert: '#ec4899',
+  pizza: '#e11d48',
+  custom: '#8b5cf6',
+};
+
+function getStationColor(stationType: string): string {
+  return STATION_TYPE_COLORS[stationType] ?? '#6366f1';
+}
+
 export default function KdsSelectorContent() {
   const router = useRouter();
   const { stations, isLoading } = useStations({});
 
+  // Show all station types except 'expo' (expo has its own standalone page)
   const kdsStations = stations.filter(
-    (s) => s.stationType === 'prep' || s.stationType === 'bar',
+    (s) => s.stationType !== 'expo',
   );
 
   return (
@@ -67,7 +83,7 @@ export default function KdsSelectorContent() {
                   style={{
                     width: '48px',
                     height: '48px',
-                    backgroundColor: station.stationType === 'bar' ? 'var(--fnb-status-dessert)' : 'var(--fnb-status-seated)',
+                    backgroundColor: station.color ?? getStationColor(station.stationType),
                     color: '#fff',
                   }}
                 >

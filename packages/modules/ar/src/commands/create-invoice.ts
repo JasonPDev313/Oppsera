@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { arInvoices, arInvoiceLines, customers } from '@oppsera/db';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
@@ -17,6 +18,7 @@ interface CreateInvoiceInput {
   locationId?: string;
   sourceType: string;
   sourceReferenceId?: string;
+  clientRequestId?: string;
   lines: Array<{
     accountId: string;
     description: string;
@@ -30,6 +32,9 @@ interface CreateInvoiceInput {
 
 export async function createInvoice(ctx: RequestContext, input: CreateInvoiceInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createInvoice');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Validate customer exists
     const [customer] = await tx
       .select({ id: customers.id })
@@ -96,6 +101,7 @@ export async function createInvoice(ctx: RequestContext, input: CreateInvoiceInp
       totalAmount: totalAmountStr,
     });
 
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createInvoice', invoice!);
     return { result: invoice!, events: [event] };
   });
 

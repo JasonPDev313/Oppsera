@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -14,6 +15,10 @@ export async function postBill(ctx: RequestContext, input: PostBillInput) {
   const accountingApi = getAccountingPostingApi();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'postBill');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load bill
     const [bill] = await tx
       .select()
@@ -146,8 +151,11 @@ export async function postBill(ctx: RequestContext, input: PostBillInput) {
       businessDate,
     });
 
+    const resultPayload = { ...posted!, lines, glJournalEntryId: glResult.id };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'postBill', resultPayload);
+
     return {
-      result: { ...posted!, lines, glJournalEntryId: glResult.id },
+      result: resultPayload,
       events: [event],
     };
   });

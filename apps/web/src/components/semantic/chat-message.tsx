@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, memo } from 'react';
 import { ChevronDown, ChevronRight, Database, Zap, AlertCircle, Code2, Info, Search, TrendingUp, GitBranch, Lightbulb, Pin, Check } from 'lucide-react';
 import type { ChatMessage, QueryPlan } from '@/hooks/use-semantic-chat';
 import { FeedbackWidget } from '@/components/insights/FeedbackWidget';
@@ -65,28 +65,29 @@ function QueryResultTable({ rows, rowCount }: { rows: Record<string, unknown>[];
   const [expanded, setExpanded] = useState(false);
   const visibleRows = expanded ? rows : rows.slice(0, 5);
 
+  // Flatten nested object columns — memoized to avoid recomputation on re-renders.
+  const flattenedRows = useMemo(() => {
+    if (visibleRows.length === 0) return [];
+    return visibleRows.map((row) => {
+      const flat: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(row)) {
+        if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+          for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
+            flat[`${key}_${subKey}`] = subValue;
+          }
+        } else {
+          flat[key] = value;
+        }
+      }
+      return flat;
+    });
+  }, [visibleRows]);
+
   if (rows.length === 0) {
     return (
       <div className="text-xs text-muted-foreground italic mt-2">No data rows returned.</div>
     );
   }
-
-  // Flatten nested object columns — if a row has { data: { total: 100, count: 5 } },
-  // expand into { data_total: 100, data_count: 5 } for readable table display.
-  const flattenedRows = visibleRows.map((row) => {
-    const flat: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(row)) {
-      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-        // Expand nested object into prefixed columns
-        for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
-          flat[`${key}_${subKey}`] = subValue;
-        }
-      } else {
-        flat[key] = value;
-      }
-    }
-    return flat;
-  });
 
   const columns = Object.keys(flattenedRows[0]!);
 
@@ -524,10 +525,11 @@ function PinMetricsBar({ message }: { message: ChatMessage }) {
 interface ChatMessageBubbleProps {
   message: ChatMessage;
   showDebug?: boolean;
+  isStreaming?: boolean;
   onFollowUpSelect?: (question: string) => void;
 }
 
-export function ChatMessageBubble({ message, showDebug = false, onFollowUpSelect }: ChatMessageBubbleProps) {
+export const ChatMessageBubble = memo(function ChatMessageBubble({ message, showDebug = false, isStreaming = false, onFollowUpSelect }: ChatMessageBubbleProps) {
   const isUser = message.role === 'user';
 
   if (isUser) {
@@ -578,6 +580,9 @@ export function ChatMessageBubble({ message, showDebug = false, onFollowUpSelect
             {/* Narrative */}
             <div className="prose prose-sm max-w-none text-card-foreground">
               {renderMarkdown(message.content)}
+              {isStreaming && (
+                <span className="inline-block w-2 h-4 ml-0.5 bg-primary/70 rounded-sm animate-pulse align-text-bottom" />
+              )}
             </div>
 
             {/* Clarification option buttons — clickable guided responses */}
@@ -678,4 +683,4 @@ export function ChatMessageBubble({ message, showDebug = false, onFollowUpSelect
       </div>
     </div>
   );
-}
+});

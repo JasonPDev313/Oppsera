@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
 import { CloseBatchNotFoundError, BatchNotPostedError } from '../errors';
@@ -10,10 +11,17 @@ import type { GlPostingReversedPayload } from '../events/types';
 interface ReverseBatchPostingInput {
   closeBatchId: string;
   reason: string;
+  clientRequestId?: string;
 }
 
 export async function reverseBatchPosting(ctx: RequestContext, input: ReverseBatchPostingInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    if (input.clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'reverseBatchPosting');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    }
+
     const batchRows = await tx.execute(
       sql`SELECT id, status, location_id, business_date, gl_journal_entry_id
           FROM fnb_close_batches
@@ -52,13 +60,20 @@ export async function reverseBatchPosting(ctx: RequestContext, input: ReverseBat
     };
     const event = buildEventFromContext(ctx, FNB_EVENTS.GL_POSTING_REVERSED, payload as unknown as Record<string, unknown>);
 
+    const resultData = {
+      closeBatchId: input.closeBatchId,
+      originalGlJournalEntryId: originalGlId,
+      reversalGlJournalEntryId: reversalGlId,
+      reason: input.reason,
+    };
+
+    // Save idempotency key
+    if (input.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'reverseBatchPosting', resultData);
+    }
+
     return {
-      result: {
-        closeBatchId: input.closeBatchId,
-        originalGlJournalEntryId: originalGlId,
-        reversalGlJournalEntryId: reversalGlId,
-        reason: input.reason,
-      },
+      result: resultData,
       events: [event],
     };
   });

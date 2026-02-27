@@ -7017,7 +7017,7 @@ apps/web/src/hooks/use-import-completion.ts # Completion callbacks
 
 ---
 
-## 125. Customer Tag Management
+## 125. Customer Tag Management (Intelligent Tag System)
 
 ### Tag Types
 
@@ -7026,20 +7026,99 @@ apps/web/src/hooks/use-import-completion.ts # Completion callbacks
 | Manual tags | User-applied labels | `applyTagToCustomer`, `removeTagFromCustomer` |
 | Smart tags | Auto-applied via rules | `createSmartTagRule`, `evaluateSmartTags` |
 
-### Smart Tag Rules
+### Schema (migration 0163)
 
-Rules define conditions that auto-tag customers:
-- Condition types: visit count, spend threshold, last visit date, membership status
-- Evaluation: periodic background job or on-demand via `evaluateSmartTags`
-- History: `getSmartTagEvaluationHistory` tracks when rules fired
-- Toggleable: `toggleSmartTagRule` enables/disables without deleting
+- **`tags`**: tag definitions with `color`, `icon`, `defaultExpiryDays`, `customerCount`, `archivedAt`
+- **`customer_tags`**: junction table with `appliedBy`, `source` (manual/smart_rule/import/api), `expiresAt`, `removedAt`, `evidence` (JSONB)
+- **`smart_tag_rules`**: rule definitions with `conditionGroups` (JSONB), `isActive`, `lastEvaluatedAt`, `matchCount`
+- **`tag_audit_log`**: append-only audit trail with `action`, `source`, `actorId`, `evidence` (JSONB)
+
+### Smart Tag Conditions (`packages/modules/customers/src/types/smart-tag-conditions.ts`)
+
+- **47 condition metrics** across 8 categories: visits, spending, lifecycle, membership, financial, demographic, operational, predictive
+- **12 operators**: `gt`, `gte`, `lt`, `lte`, `eq`, `neq`, `between`, `in`, `not_in`, `contains`, `is_null`, `is_not_null`
+- **Condition groups**: OR between groups, AND within groups. Each group has `conditions: SmartTagCondition[]`
+- **Evaluator**: `evaluateCondition(actualValue, operator, expectedValue)` — pure function, null-safe, type-coercing
+
+### Smart Tag Templates (`packages/modules/customers/src/services/smart-tag-templates.ts`)
+
+12 pre-built RFM/predictive templates across 4 categories:
+
+| Key | Category | Triggers On |
+|---|---|---|
+| `champions` | predictive | RFM segment=champions OR R5/F4+/M4+ |
+| `loyal-customers` | predictive | RFM segment in [loyal, potential_loyalist] |
+| `at-risk` | predictive | churn_risk>=0.6 AND total_visits>=3 |
+| `high-churn-risk` | predictive | churn_risk>=0.8 |
+| `needs-attention` | predictive | RFM segment=needs_attention OR churn [0.4,0.7]+declining spend |
+| `high-clv` | financial | predicted_clv>=5000 |
+| `declining-spend` | behavioral | spend_velocity < -0.2 |
+| `growing-spend` | behavioral | spend_velocity>=0.3 AND total_visits>=5 |
+| `new-customer` | lifecycle | days_since_first_visit<=30 |
+| `lapsed` | lifecycle | days_since_last_visit>=90 |
+| `hibernating` | predictive | RFM segment=hibernating OR score<=4 |
+| `visit-due` | predictive | days_until_predicted_visit<=3 |
+
+Each template includes: `evaluationMode` (scheduled/event_driven/hybrid), `reEvaluationIntervalHours`, `suggestedActions[]`, `keywords[]`, `priority` (lower = higher priority).
+
+**Lookup helpers**: `getTemplate(key)`, `getTemplatesByCategory(cat)`, `searchTemplates(query)` (case-insensitive, ranked by relevance), `matchTemplatesForScores(scores)` (camelCase params → template matching).
+
+### Tag Expiration (`packages/modules/customers/src/services/tag-expiration-service.ts`)
+
+- `computeExpiryDate(days, base?)` — null-safe, returns null for 0/negative days
+- `processExpiredTags(tx, tenantId, batchSize?)` — batch-processes expired tags: soft-removes `customer_tags`, decrements `tags.customerCount`, writes audit log, returns `{ processed, expired[] }`
+
+### Tag Evidence Builder (`packages/modules/customers/src/services/tag-evidence-builder.ts`)
+
+Builds JSONB evidence payloads for smart tag audit trail:
+- `buildSmartTagEvidence(ruleId, conditions, metrics)` — captures which conditions matched, what the actual metric values were
+- `buildManualTagEvidence(actorId, reason?)` — simple actor attribution
+- `buildImportTagEvidence(importId, source)` — import batch tracking
+
+### Tag Conflict Resolution (`packages/modules/customers/src/services/tag-conflict-resolver.ts`)
+
+Resolves conflicts when multiple smart rules target the same tag:
+- Priority-based resolution (lower priority number wins)
+- Mutual exclusion groups (e.g., "VIP" and "At Risk" cannot coexist)
+- `resolveConflicts(matches, existingTags)` returns `{ apply[], remove[], skip[] }`
+
+### Tag Analytics (`packages/modules/customers/src/queries/tag-analytics.ts`)
+
+4 analytics queries:
+- `getTagDistribution(tenantId)` — counts per tag with percentage
+- `getTagTrends(tenantId, { startDate, endDate, interval })` — time-series of tag applications/removals
+- `getSmartTagPerformance(tenantId)` — rule hit rates, avg evaluation time, last run
+- `getTagCorrelations(tenantId, tagId)` — co-occurrence matrix (which tags appear together)
+
+### Tag Frontend
+
+- **Settings page**: `/settings/tag-management` — tag CRUD, smart rule editor, template suggestion engine
+- **Tag Action Editor**: `TagActionEditor` component — condition group builder, operator picker, metric selector
+- **Suggestion Engine**: `TagSuggestionEngine` component — searches templates, auto-creates rules from templates
+- **Analytics Dashboard**: `TagAnalyticsDashboard` component — distribution chart, trends, performance metrics
+- **Customer Profile**: tag chips with color/icon, add/remove inline, expiry display
+- **Hooks**: `useTagManagement`, `useSmartTagRules`, `useTagAnalytics`, `useTagSuggestions`
+
+### Cross-System Tag Consumption
+
+Tags integrate with other modules via:
+- **POS**: VIP badge display, auto-discount triggers
+- **Reporting**: tag-based customer segmentation in reports
+- **Marketing**: campaign audience targeting by tags
+- **Semantic**: tag dimensions available in AI insights queries
 
 ### Tag Audit Trail
 
-All tag operations are logged:
-- `getTagAuditLog(tagId)` returns chronological history
-- Tracks: who applied/removed, when, via rule or manual
-- Tags use soft-delete (`archiveTag` / `unarchiveTag`)
+All tag operations are logged to `tag_audit_log` (append-only):
+- Actions: `applied`, `removed`, `expired`, `rule_matched`, `rule_created`, `rule_updated`, `conflict_resolved`
+- Sources: `manual`, `smart_rule`, `import`, `api`, `expiration_service`
+- Evidence JSONB captures the "why" (metrics, conditions, conflict details)
+- `getTagAuditLog(tagId)` returns chronological history with actor names
+
+### Test Coverage
+
+- **795 tests** across 25 test files in `@oppsera/module-customers`
+- Tag-specific tests: `smart-tag-templates.test.ts`, `tag-predictive-conditions.test.ts`, `tag-expiration-service.test.ts`, `tag-evidence-builder.test.ts`, `tag-conflict-resolver.test.ts`, `tag-analytics.test.ts`
 
 ---
 
@@ -7169,7 +7248,14 @@ void captureEvalTurnBestEffort({
 ### Problem
 Next.js dev server on Windows crashes with `EPERM: operation not permitted, open '.next/trace'` due to orphaned Node processes holding file locks.
 
-### Fix Procedure
+### Fix Local Server (One Command)
+```bash
+pnpm --filter @oppsera/web dev:fix
+```
+This runs `apps/web/scripts/dev-fix.cjs` which: kills all Node via PowerShell, waits 3s, deletes `.next` (with PowerShell force-delete and rename fallbacks), restarts with Turbopack (auto-falls back to webpack on EPERM).
+
+### Manual Fix Procedure
+If `dev:fix` fails (e.g., script killed before cleanup), run manually:
 1. **Kill ALL Node via PowerShell** (bash `taskkill` cannot kill its own parent):
    ```powershell
    powershell.exe -NoProfile -Command 'Stop-Process -Name node -Force -ErrorAction SilentlyContinue'
@@ -7177,7 +7263,7 @@ Next.js dev server on Windows crashes with `EPERM: operation not permitted, open
 2. **Wait**: `sleep 3`
 3. **Verify zero processes**: `powershell.exe -NoProfile -Command 'Get-Process node -ErrorAction SilentlyContinue | Measure-Object | Select-Object -ExpandProperty Count'`
 4. **Remove .next**: `rm -rf apps/web/.next`
-5. **Restart**: `cd apps/web && NEXT_TELEMETRY_DISABLED=1 npx next dev --turbopack --port 3000`
+5. **Restart**: `pnpm dev`
 
 ### Rules to Prevent Recurrence
 - **R1**: Always use `.cjs` extension for CommonJS scripts in packages with `"type": "module"` in `package.json`. Never use `.js` with `require()` in ESM packages.
@@ -9593,4 +9679,536 @@ export const setServiceChargeExemptSchema = z.object({
 **Body**: `{ serviceChargeExempt: true, clientRequestId: "..." }`
 
 **Convention**: Service charge exemption is binary with no reason tracking. The `serviceChargeExempt` flag on the order prevents automatic service charge calculation. Manual service charges (added via `addServiceCharge`) are unaffected by this flag.
+
+## §185 GL Query Guard — Non-Posted Entry Exclusion
+
+All GL balance queries (account balances, trial balance, balance sheet, P&L) use a LEFT JOIN from `gl_accounts` → `gl_journal_lines` → `gl_journal_entries`. When the JOIN filters `je.status = 'posted'` in the ON clause, non-posted entries (draft/error/voided) have NULL `je.*` but non-NULL `jl.*` values — their amounts would corrupt the SUM.
+
+```sql
+-- ALWAYS include this guard in GL balance queries:
+WHERE a.tenant_id = $tenantId
+  AND a.is_active = true
+  AND (jl.id IS NULL OR je.id IS NOT NULL)
+```
+
+The guard means: "either there are no journal lines at all (account with zero activity), or the journal entry exists (it passed the status='posted' filter)."
+
+**Convention**: Every GL balance query MUST include the `(jl.id IS NULL OR je.id IS NOT NULL)` guard after the LEFT JOIN chain. Without it, draft/error entries silently inflate balances. The trial balance also reports `nonPostedEntryCount` to surface data issues.
+
+## §186 Event Consumer Payload Validation
+
+Event consumers MUST validate incoming payloads with Zod schemas before processing:
+
+```typescript
+// packages/modules/reporting/src/consumers/order-placed.ts
+const orderPlacedSchema = z.object({
+  orderId: z.string(),
+  locationId: z.string(),
+  occurredAt: z.string().optional(),
+  total: z.number(),
+  lines: z.array(z.object({
+    catalogItemId: z.string(),
+    qty: z.number(),
+    lineTotal: z.number().optional(),
+    packageComponents: z.array(packageComponentSchema).nullish(),
+  })),
+});
+
+export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
+  const parsed = orderPlacedSchema.safeParse(event.data);
+  if (!parsed.success) {
+    console.error(`[${CONSUMER_NAME}] Invalid event payload for event ${event.eventId}:`, parsed.error.issues);
+    return; // Skip silently — don't throw (would retry forever)
+  }
+  const data = parsed.data;
+  // ... process validated data
+}
+```
+
+**Rules**:
+- Use `safeParse`, not `parse` — consumers must never throw on bad data (infinite retry)
+- Log the parse error with consumer name and event ID for debugging
+- Return early (skip the event) on validation failure
+- Use `.nullish()` for fields that may be null or undefined
+- Define the schema at module scope (not inline) for type inference via `z.infer`
+
+**Convention**: Replace raw `event.data as unknown as T` casts with Zod validation in ALL event consumers. This catches payload drift between producer and consumer without crashing.
+
+## §187 Accounting Settings Auto-Ensure (Suspense Account Guarantee)
+
+The POS GL adapter auto-creates `accounting_settings` when missing, and guarantees a fallback GL account always exists:
+
+```typescript
+// packages/modules/accounting/src/helpers/ensure-accounting-settings.ts
+export async function ensureAccountingSettings(
+  tx: Database,
+  tenantId: string,
+): Promise<{ created: boolean; autoWired: number }>
+```
+
+**Behavior**:
+1. `INSERT ... ON CONFLICT DO NOTHING` — creates settings row with schema defaults
+2. Auto-wires well-known accounts by matching account numbers (49900 → uncategorized revenue, 2160 → tips payable, etc.)
+3. Only updates settings fields that are currently NULL
+4. **GUARANTEE**: If `defaultUncategorizedRevenueAccountId` is still NULL after wiring, auto-creates a "GL Suspense" account (99999) and wires it
+5. **GUARANTEE**: If `defaultUndepositedFundsAccountId` is still NULL, wires the suspense account there too
+
+**Convention**: The POS adapter calls `ensureAccountingSettings` before posting. GL posting should NEVER be silently skipped due to missing settings — the suspense account is the catch-all. Accountants review and journal amounts out of suspense later.
+
+## §188 GL Rounding Account Type Validation
+
+The rounding account used for auto-correcting GL imbalances (within `roundingToleranceCents`) MUST be an expense or equity type — never revenue or asset:
+
+```typescript
+// packages/modules/accounting/src/helpers/validate-journal.ts
+const invalidRoundingTypes = ['revenue', 'asset'];
+if (invalidRoundingTypes.includes(roundingAccount.accountType)) {
+  console.warn(
+    `Rounding account ${roundingAccount.accountNumber} is type '${roundingAccount.accountType}'. ` +
+    `Should be expense or equity type to avoid inflating revenue or creating phantom asset balances.`,
+  );
+}
+```
+
+**Convention**: Posting rounding to a revenue account inflates reported income; posting to an asset account creates phantom balances. Always use an expense account (e.g., "Rounding Expense 6999") or equity account for GL rounding.
+
+## §189 Semantic Pipeline — Deterministic Fast Path
+
+Common, unambiguous queries bypass the LLM intent resolver via regex pattern matching, saving ~500ms latency and ~$0.003 per call:
+
+```typescript
+// packages/modules/semantic/src/llm/fast-path.ts
+export function tryFastPath(
+  message: string,
+  context: IntentContext,
+  catalog: RegistryCatalog,
+): ResolvedIntent | null
+```
+
+**Design principles**:
+1. Only match queries with HIGH confidence (no ambiguity)
+2. Always verify resolved metrics/dimensions exist in the catalog
+3. Return `null` (fall through to LLM) when uncertain
+4. Never match complex multi-metric, comparative, or analytical queries
+
+**Convention**: The fast path is a performance optimization, not a replacement for the LLM. Add new patterns conservatively — false matches are worse than cache misses. Test every pattern against the catalog before accepting.
+
+## §190 Semantic Pipeline — SSE Streaming
+
+The semantic pipeline supports Server-Sent Events (SSE) for progressive response delivery:
+
+```typescript
+// packages/modules/semantic/src/llm/pipeline.ts
+export async function runPipelineStreaming(
+  input: PipelineInput,
+  callbacks: StreamCallbacks,
+): Promise<PipelineOutput>
+```
+
+**SSE event types** (in order):
+1. `status` — pipeline stage progress ("Loading data catalog…", "Understanding your question…")
+2. `intent_resolved` — intent resolution complete (plan + confidence)
+3. `data_ready` — query execution done (rows, rowCount, mode)
+4. `narrative_chunk` — incremental narrative text deltas (streamed progressively)
+5. `enrichments` — follow-ups, chart config, data quality (sent after narrative)
+6. `complete` — full PipelineOutput (same as non-streaming JSON)
+7. `error` — pipeline error
+
+**API route**: `POST /api/v1/semantic/ask/stream` — returns `text/event-stream`. Frontend uses `ReadableStream` reader with `data: ` line parsing.
+
+**Convention**: The streaming pipeline runs the same logic as `runPipeline()` up to the narrative step, then swaps in `generateNarrativeStreaming()` which yields text chunks via callback. The `complete` event always contains the full PipelineOutput for caching and eval capture.
+
+## §191 Anthropic Prompt Caching (SEM-02)
+
+The SQL generator splits its system prompt into static (cacheable) and dynamic parts for Anthropic's server-side prompt caching:
+
+```typescript
+// packages/modules/semantic/src/llm/sql-generator.ts
+const contextStart = systemPrompt.indexOf('\n## Context\n');
+if (contextStart > 0) {
+  completionOpts = {
+    systemPromptParts: [
+      { text: staticPart, cacheControl: true },   // DB schema, conventions — stable
+      { text: dynamicPart },                        // date, tenant, RAG examples — per-request
+    ],
+  };
+}
+```
+
+The `LLMAdapter.complete()` options now accept `systemPromptParts`:
+
+```typescript
+interface LLMCompletionOptions {
+  systemPromptParts?: Array<{ text: string; cacheControl?: boolean }>;
+}
+```
+
+**Convention**: Mark the last stable/static block with `cacheControl: true`. The Anthropic adapter sends the `anthropic-beta: prompt-caching-2024-07-31` header when any part has `cacheControl`. This achieves ~90% input token cost reduction on cache hits for the large DB schema portion of the prompt.
+
+## §192 Semantic Intent — Zod Schema Validation (SEM-01)
+
+LLM JSON output from the intent resolver is validated with Zod schemas instead of manual field checks:
+
+```typescript
+// packages/modules/semantic/src/llm/intent-resolver.ts
+const IntentResponseSchema = z.object({
+  mode: z.enum(['metrics', 'sql']).default('metrics'),
+  plan: z.record(z.unknown()).nullable().default(null),
+  confidence: z.coerce.number().transform((v) => Math.min(1, Math.max(0, v))),
+  clarificationNeeded: z.boolean(),
+  clarificationMessage: z.string().nullable().optional().default(null),
+});
+
+const result = IntentResponseSchema.safeParse(parsed);
+if (!result.success) {
+  throw new LLMError(`Intent output validation: ${issues}`, 'PARSE_ERROR');
+}
+```
+
+**Convention**: Use Zod schemas for ALL structured LLM output validation. Benefits: automatic defaults (mode → 'metrics'), value clamping (confidence → 0-1 range), clear error messages per field. Never use manual `typeof` checks for LLM output.
+
+## §193 RAG Few-Shot Deduplication & Diversity
+
+The RAG retriever now supports composite scoring (similarity + quality + recency) and diversity-based deduplication:
+
+```typescript
+// packages/modules/semantic/src/rag/few-shot-retriever.ts
+interface FewShotRetrieverOptions {
+  useCompositeScoring?: boolean;     // Default: true
+  diversityThreshold?: number;       // Default: 0.85 — skip near-duplicates
+}
+```
+
+**Convention**: When selecting few-shot examples, skip pairs with >0.85 similarity to already-selected examples. This prevents the LLM from seeing near-duplicate examples that waste context window. The RAG snippet is fetched once during intent resolution and passed to the SQL generator via `ragExamplesSnippet` to avoid duplicate DB queries.
+
+## §194 Semantic Plausibility Checker (SEM-09)
+
+Post-query plausibility validation catches obviously wrong results before showing them to users:
+
+```typescript
+// packages/modules/semantic/src/intelligence/plausibility-checker.ts
+export function checkPlausibility(
+  result: QueryResult,
+  intent: ResolvedIntent,
+  context: IntentContext,
+): PlausibilityResult
+```
+
+**Convention**: Plausibility warnings are informational — they never block the response. Results are graded A-F with severity levels (info/warning/error). Include plausibility in the PipelineOutput for frontend display. Example checks: negative revenue, order counts > 100K/day, average order values > $10K.
+
+## §195 GL Close Checklist — Posting Gap Detection
+
+The close checklist now detects GL posting gaps by comparing tender count against GL journal entry count:
+
+```typescript
+// packages/modules/accounting/src/queries/get-close-checklist.ts
+// 21. GL posting coverage — count DISTINCT tenders posted to GL
+const glTenderCount = /* COUNT(DISTINCT source_reference_id) from gl_journal_entries WHERE source_module='pos' */;
+const gap = Math.max(0, tenderTotal - glCovered);
+items.push({
+  label: 'All tenders posted to GL',
+  status: gap === 0 ? 'pass' : 'fail',
+  detail: gap > 0
+    ? `${gap} of ${tenderTotal} tenders missing GL journal entries`
+    : `All ${tenderTotal} tenders have corresponding GL entries`,
+});
+```
+
+**Convention**: Every tender MUST have a corresponding GL entry. Gaps indicate silent posting failures (missing fallback accounts, event consumer errors). The close checklist surfaces these gaps before period close.
+
+## §196 POS Adapter — Incomplete Payment Type Mapping Fallback
+
+When a payment type mapping row exists but its account fields are NULL, the POS adapter now falls back to the default undeposited funds account:
+
+```typescript
+if (paymentTypeMapping) {
+  depositAccountId = (settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId)
+    ? paymentTypeMapping.clearingAccountId
+    : paymentTypeMapping.depositAccountId;
+  // Secondary fallback: mapping row exists but account fields are null
+  if (!depositAccountId) {
+    depositAccountId = settings.defaultUndepositedFundsAccountId ?? null;
+    missingMappings.push(`payment_type_incomplete:${paymentMethod}`);
+  }
+}
+```
+
+**Convention**: A payment type mapping with NULL account IDs is treated as "incomplete" — not "unmapped". The adapter uses the default undeposited funds account and logs it as `payment_type_incomplete:xxx` in missing mappings. This prevents GL posting from being silently skipped when an admin creates a mapping row but hasn't yet assigned GL accounts.
+
+## §197 GL Memo-Only Entries — Self-Canceling Prevention
+
+Price override tracking entries (debit/credit pairs to the same account) are now prevented:
+
+```typescript
+// Both accounts must exist AND be distinct — posting debit/credit to the
+// same account creates a self-canceling entry that inflates account activity.
+if (priceOverrideAccountId && offsetAccountId && priceOverrideAccountId !== offsetAccountId) {
+  // ... post tracking entries
+}
+```
+
+**Convention**: Never post a debit and credit to the same GL account in the same journal entry. Self-canceling entries have zero net effect but inflate account activity reports and make audit trails harder to follow. Always verify `accountA !== accountB` before posting memo-only tracking pairs.
+
+## §198 Idempotency on All Financial Commands
+
+All financial commands (settlements, tip payouts, GL merges) now include `clientRequestId` for idempotency:
+
+```typescript
+// packages/modules/accounting/src/validation.ts
+export const createSettlementSchema = z.object({
+  // ... existing fields
+  clientRequestId: z.string().optional(),
+});
+
+// Inside command:
+const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createSettlement');
+if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+// ... at end of transaction:
+await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createSettlement', result);
+```
+
+**Convention**: Every command that creates or modifies financial records MUST support `clientRequestId` for idempotency. The check and save MUST be inside the same `publishWithOutbox` transaction to prevent TOCTOU race conditions.
+
+## §199 Tag Action Lifecycle
+
+Smart tag evaluation now triggers configurable tag actions on apply/remove:
+
+```typescript
+// packages/modules/customers/src/commands/evaluate-smart-tags.ts
+// After applying a smart tag:
+await executeTagActions(tx, tenantId, customerId, rule.tagId, 'on_apply');
+// After removing a smart tag:
+await executeTagActions(tx, tenantId, customerId, rule.tagId, 'on_remove');
+```
+
+**Convention**: Tag actions execute inside the same transaction as the tag apply/remove. Action types include: send notification, adjust loyalty points, update segment membership, trigger workflow. Actions are configured per-tag via the `tag_actions` table (migration 0219). Action execution is fire-and-forget within the transaction — failures are logged but don't block tag evaluation.
+
+## §200 LLM Adapter — Streaming Support
+
+The `LLMAdapter` interface now supports an optional `completeStreaming` method:
+
+```typescript
+interface LLMAdapter {
+  complete(messages: LLMMessage[], options?: LLMCompletionOptions): Promise<LLMResponse>;
+  completeStreaming?(
+    messages: LLMMessage[],
+    onChunk: (text: string) => void,
+    options?: LLMCompletionOptions,
+  ): Promise<LLMResponse>;
+}
+```
+
+**Convention**: `completeStreaming` is optional — adapters that don't support streaming fall back to `complete()`. The streaming method yields text chunks via callback AND returns the full `LLMResponse` when done (for caching and eval capture). The Anthropic adapter parses SSE `content_block_delta` events from the Messages API.
+
+---
+
+## §201 — GL Adapter Hardening Pattern (Canonical)
+
+Every GL posting adapter in `packages/modules/accounting/src/adapters/` MUST follow this exact pattern. No exceptions.
+
+### Template
+
+```typescript
+import { db } from '@oppsera/db';
+import type { EventEnvelope } from '@oppsera/shared';
+import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
+import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
+import { logUnmappedEvent } from '../helpers/resolve-mapping';
+
+export async function handleXxxForAccounting(event: EventEnvelope): Promise<void> {
+  const data = event.data as unknown as XxxEventData;
+
+  try {
+    // 1. Zero-amount guard — the ONLY allowed silent skip
+    if (data.amountCents === 0) return;
+
+    // 2. Auto-bootstrap accounting settings (creates suspense 99999 if needed)
+    try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
+
+    // 3. Read settings — should always exist after step 2
+    const settings = await getAccountingSettings(db, event.tenantId);
+    if (!settings) {
+      // 4a. CRITICAL: settings still missing → log to gl_unmapped_events, NEVER silently return
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'xxx.happened.v1',
+          sourceModule: 'module_name',
+          sourceReferenceId: data.id,
+          entityType: 'accounting_settings',
+          entityId: event.tenantId,
+          reason: 'CRITICAL: GL posting skipped — accounting settings missing even after ensureAccountingSettings.',
+        });
+      } catch { /* best-effort */ }
+      console.error(`[xxx-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId}`);
+      return;
+    }
+
+    // 4b. Resolve GL accounts with fallbacks
+    const accountId = settings.specificAccountId ?? settings.defaultUncategorizedRevenueAccountId;
+    if (!accountId) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'xxx.happened.v1',
+          sourceModule: 'module_name',
+          sourceReferenceId: data.id,
+          entityType: 'gl_account',
+          entityId: 'specific_account',
+          reason: `Amount $${(data.amountCents / 100).toFixed(2)} has no GL account configured.`,
+        });
+      } catch { /* best-effort */ }
+      return;
+    }
+
+    // 5. Post GL entry
+    const amountDollars = (data.amountCents / 100).toFixed(2);
+    const postingApi = getAccountingPostingApi();
+    await postingApi.postEntry(
+      {
+        tenantId: event.tenantId,
+        user: { id: 'system', email: '' },
+        requestId: `xxx-gl-${data.id}`,
+      } as any,
+      {
+        businessDate: new Date().toISOString().split('T')[0]!,
+        sourceModule: 'module_name',
+        sourceReferenceId: `xxx-${data.id}`,
+        memo: `Description: $${amountDollars}`,
+        lines: [
+          { accountId: debitAccountId, debitAmount: amountDollars, creditAmount: '0', memo: 'Debit side' },
+          { accountId: creditAccountId, debitAmount: '0', creditAmount: amountDollars, memo: 'Credit side' },
+        ],
+        forcePost: true,
+      },
+    );
+  } catch (error) {
+    // 6. NEVER throw — GL failures must not block business operations
+    console.error(`[xxx-gl] GL posting failed for ${data.id}:`, error);
+  }
+}
+```
+
+### Rules
+
+1. **Zero-amount guard first** — `if (data.amount === 0) return;` is the ONLY allowed silent return.
+2. **`ensureAccountingSettings` before `getAccountingSettings`** — wraps in try/catch, non-fatal.
+3. **If settings null → `logUnmappedEvent` + `console.error` + return** — never silently return.
+4. **If specific account null → `logUnmappedEvent` + return** — always cascade through fallbacks first.
+5. **`forcePost: true`** — automated adapters bypass draft mode.
+6. **Outer try/catch catches ALL** — logs to console.error, never re-throws.
+7. **Synthetic RequestContext** — `user: { id: 'system', email: '' }`, unique `requestId`.
+8. **Cents → dollars** — `(amountCents / 100).toFixed(2)` at the POS→GL boundary. Inventory receipt amounts are already dollars.
+
+### Command-Level GL Posting (Inside Transactions)
+
+When GL posting occurs inside a `publishWithOutbox` transaction (e.g., `postRetailClose`), you CANNOT use `logUnmappedEvent(db, ...)` because it opens a new DB connection outside the transaction. Instead, insert directly:
+
+```typescript
+await tx.insert(glUnmappedEvents).values({
+  id: generateUlid(),
+  tenantId: ctx.tenantId,
+  eventType: 'retail.close.posted.v1',
+  sourceModule: 'retail_close',
+  sourceReferenceId: batch.id,
+  entityType: 'accounting_settings',
+  entityId: ctx.tenantId,
+  reason: 'CRITICAL: GL retail close posting skipped — accounting settings missing.',
+  createdAt: new Date(),
+});
+```
+
+---
+
+## §202 — Event-to-GL Consumer Wiring Matrix
+
+Every financial event type below has a corresponding GL consumer wired in `apps/web/src/instrumentation.ts`. This matrix is the source of truth for GL posting coverage.
+
+### Critical Path (loaded at startup via `Promise.all`)
+
+| Event Type | Handler | Adapter File |
+|---|---|---|
+| `tender.recorded.v1` | `handleTenderForAccounting` | `pos-posting-adapter.ts` |
+| `order.voided.v1` | `handleOrderVoidForAccounting` | `void-posting-adapter.ts` |
+| `order.returned.v1` | `handleOrderReturnForAccounting` | `return-posting-adapter.ts` |
+
+### Deferred Path (loaded in background via `registerDeferredConsumers`)
+
+| Event Type | Handler | Adapter File |
+|---|---|---|
+| `pms.folio.charge_posted.v1` | `handleFolioChargeForAccounting` | `folio-posting-adapter.ts` |
+| `pms.loyalty.points_redeemed.v1` | `handleLoyaltyRedemptionForAccounting` | `folio-posting-adapter.ts` |
+| `pms.payment.authorized.v1` | `handleDepositAuthorizedForAccounting` | `folio-posting-adapter.ts` |
+| `pms.payment.captured.v1` | `handleDepositCapturedForAccounting` | `folio-posting-adapter.ts` |
+| `fnb.gl.posting_created.v1` | `handleFnbGlPostingForAccounting` | `fnb-posting-adapter.ts` |
+| `voucher.purchased.v1` | `handleVoucherPurchaseForAccounting` | `voucher-posting-adapter.ts` |
+| `voucher.redeemed.v1` | `handleVoucherRedemptionForAccounting` | `voucher-posting-adapter.ts` |
+| `voucher.expired.v1` | `handleVoucherExpirationForAccounting` | `voucher-posting-adapter.ts` |
+| `membership.billing.charged.v1` | `handleMembershipBillingForAccounting` | `membership-posting-adapter.ts` |
+| `chargeback.received.v1` | `handleChargebackReceivedForAccounting` | `chargeback-posting-adapter.ts` |
+| `chargeback.resolved.v1` | `handleChargebackResolvedForAccounting` | `chargeback-posting-adapter.ts` |
+| `payment.gateway.ach_returned.v1` | `handleAchReturnForAccounting` | `folio-posting-adapter.ts` |
+| `payment.gateway.ach_originated.v1` | `handleAchOriginatedForAccounting` | `folio-posting-adapter.ts` |
+| `payment.gateway.ach_settled.v1` | `handleAchSettledForAccounting` | `folio-posting-adapter.ts` |
+| `payment.gateway.ach_returned.v1` | `handleAchReturnGlReversal` | `folio-posting-adapter.ts` |
+| `drawer.session.closed.v1` | `handleDrawerSessionClosedForAccounting` | `drawer-close-posting-adapter.ts` |
+| `customer.stored_value.issued.v1` | `handleStoredValueIssuedForAccounting` | `stored-value-posting-adapter.ts` |
+| `customer.stored_value.redeemed.v1` | `handleStoredValueRedeemedForAccounting` | `stored-value-posting-adapter.ts` |
+| `customer.stored_value.voided.v1` | `handleStoredValueVoidedForAccounting` | `stored-value-posting-adapter.ts` |
+| `customer.stored_value.reloaded.v1` | `handleStoredValueReloadedForAccounting` | `stored-value-posting-adapter.ts` |
+| `customer.stored_value.transferred.v1` | `handleStoredValueTransferredForAccounting` | `stored-value-posting-adapter.ts` |
+| `tender.reversed.v1` | `handleTenderReversalForAccounting` | `tender-reversal-posting-adapter.ts` |
+| `tender.tip_adjusted.v1` | `handleTipAdjustedForAccounting` | `tender-reversal-posting-adapter.ts` |
+| `drawer.event.recorded.v1` | `handleDrawerEventForAccounting` | `drawer-event-posting-adapter.ts` |
+| `customer.ledger_entry.posted.v1` | `handleLedgerEntryForAccounting` | `customer-financial-posting-adapter.ts` |
+| `customer.account_transfer.completed.v1` | `handleAccountTransferForAccounting` | `customer-financial-posting-adapter.ts` |
+| `customer_wallet.adjusted.v1` | `handleWalletAdjustedForAccounting` | `customer-financial-posting-adapter.ts` |
+| `inventory.receipt.posted.v1` | `handleInventoryReceiptPostedForAccounting` | `inventory-receipt-posting-adapter.ts` |
+| `inventory.receipt.voided.v1` | `handleInventoryReceiptVoidedForAccounting` | `inventory-receipt-posting-adapter.ts` |
+| `order.line.comped.v1` | `handleCompForAccounting` | `comp-void-posting-adapter.ts` |
+| `order.line.voided.v1` | `handleLineVoidForAccounting` | `comp-void-posting-adapter.ts` |
+
+### Command-Level GL (NOT event-driven)
+
+| Operation | GL Posting Location |
+|---|---|
+| `postRetailClose` | `packages/core/src/retail-close/commands/post-retail-close.ts` |
+| `postBill` (AP) | `packages/modules/ap/src/commands/post-bill.ts` via `AccountingPostingApi` |
+| `postPayment` (AP) | `packages/modules/ap/src/commands/post-payment.ts` via `AccountingPostingApi` |
+| `postInvoice` (AR) | `packages/modules/ar/src/commands/post-invoice.ts` via `AccountingPostingApi` |
+| `postReceipt` (AR) | `packages/modules/ar/src/commands/post-receipt.ts` via `AccountingPostingApi` |
+| `generateRetainedEarnings` | `packages/modules/accounting/src/commands/` via `AccountingPostingApi` |
+
+---
+
+## §203 — GL Audit Checklist for New Financial Events
+
+When introducing a new financial event type that involves money movement, follow this checklist to ensure zero GL gaps.
+
+### Checklist
+
+- [ ] **1. Create GL adapter** — new file in `packages/modules/accounting/src/adapters/` following §201 pattern. Name: `{domain}-posting-adapter.ts`.
+- [ ] **2. Export handler** — add export to `packages/modules/accounting/src/index.ts`.
+- [ ] **3. Wire consumer** — add `bus.subscribe('{event.type}', accounting.handler)` in `apps/web/src/instrumentation.ts` (deferred path for non-POS events).
+- [ ] **4. Verify `ensureAccountingSettings`** — adapter must call it before reading settings. If inside a command transaction, use direct `tx.insert(glUnmappedEvents)` instead of `logUnmappedEvent(db, ...)`.
+- [ ] **5. Verify fallback cascade** — every account resolution must cascade: specific mapping → category default → `defaultUncategorizedRevenueAccountId` → suspense 99999. Log `gl_unmapped_events` at each fallback level.
+- [ ] **6. Verify never-throw** — outer try/catch wraps entire function body. `console.error` inside catch, never re-throw.
+- [ ] **7. Verify zero-amount guard** — `if (amount === 0) return;` as first line.
+- [ ] **8. Verify cents-to-dollars conversion** — `(amountCents / 100).toFixed(2)` for POS/payment amounts. Inventory and GL amounts are already dollars.
+- [ ] **9. Verify idempotent `sourceReferenceId`** — unique per event occurrence (e.g., `drawer-event-${eventId}`, `comp-${compEventId}`). The unique index on `gl_journal_entries(tenantId, sourceModule, sourceReferenceId)` prevents duplicates.
+- [ ] **10. Update §202 matrix** — add the new event → handler → adapter mapping to the table above.
+- [ ] **11. Add posting matrix test** — validate `sum(debits) === sum(credits)` in `packages/modules/accounting/src/__tests__/posting-matrix.test.ts`.
+- [ ] **12. Verify close checklist** — if the event affects period-end reconciliation, add a checklist item in `packages/modules/accounting/src/queries/get-close-checklist.ts`.
+- [ ] **13. Run type check** — `pnpm --filter @oppsera/module-accounting type-check && pnpm --filter @oppsera/web type-check`.
+
+### Common Mistakes
+
+| Mistake | Consequence | Fix |
+|---|---|---|
+| `if (!settings) return;` without logging | Silent GL gap — transactions occur without GL entries | Always `logUnmappedEvent()` before returning |
+| Using `logUnmappedEvent(db, ...)` inside a `publishWithOutbox` transaction | Opens separate DB connection, logs outside the transaction (may be lost on rollback) | Use `tx.insert(glUnmappedEvents).values(...)` with the transaction handle |
+| Missing `ensureAccountingSettings()` call | New tenants skip GL entirely until manual bootstrap | Always call `ensureAccountingSettings()` before `getAccountingSettings()` |
+| No export in `index.ts` | Consumer wires correctly but handler is `undefined` at runtime | Always export from `packages/modules/accounting/src/index.ts` |
+| No `bus.subscribe()` in `instrumentation.ts` | Adapter exists but is never called — events fire with no GL consumer | Always add subscription in the deferred consumers block |
+| `forcePost: false` or omitted | Entry created as draft instead of posted — doesn't appear in GL reports | Always set `forcePost: true` for automated adapters |
+| `throw error` inside adapter | GL failure blocks the originating business operation (POS, payment, etc.) | Wrap in try/catch, log to console.error, never re-throw |
 

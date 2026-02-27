@@ -1,15 +1,23 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLog } from '@oppsera/core/audit';
 import { CloseBatchNotFoundError, CloseBatchStatusConflictError } from '../errors';
 
 interface RetryBatchPostingInput {
   closeBatchId: string;
+  clientRequestId?: string;
 }
 
 export async function retryBatchPosting(ctx: RequestContext, input: RetryBatchPostingInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    if (input.clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'retryBatchPosting');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    }
+
     const batchRows = await tx.execute(
       sql`SELECT id, status, location_id, business_date FROM fnb_close_batches
           WHERE id = ${input.closeBatchId} AND tenant_id = ${ctx.tenantId}`,
@@ -24,13 +32,20 @@ export async function retryBatchPosting(ctx: RequestContext, input: RetryBatchPo
     }
 
     // The actual retry is delegated to postBatchToGl — this just validates eligibility
+    const resultData = {
+      closeBatchId: input.closeBatchId,
+      status: 'eligible_for_retry',
+      locationId: batch.location_id as string,
+      businessDate: batch.business_date as string,
+    };
+
+    // Save idempotency key
+    if (input.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'retryBatchPosting', resultData);
+    }
+
     return {
-      result: {
-        closeBatchId: input.closeBatchId,
-        status: 'eligible_for_retry',
-        locationId: batch.location_id as string,
-        businessDate: batch.business_date as string,
-      },
+      result: resultData,
       events: [],
     };
   });

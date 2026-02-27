@@ -68,7 +68,7 @@ export function useKdsView({
     fetchKds();
     const interval = setInterval(fetchKds, pollIntervalMs);
     return () => clearInterval(interval);
-  }, [stationId, fetchKds, pollIntervalMs, refreshCounter.current]);
+  }, [stationId, fetchKds, pollIntervalMs]);
 
   const refresh = useCallback(() => {
     refreshCounter.current += 1;
@@ -276,7 +276,7 @@ export function useStationManagement({ locationId }: UseStationManagementOptions
     warningThresholdSeconds?: number;
     criticalThresholdSeconds?: number;
   }) => {
-    if (!locationId) return;
+    if (!locationId) throw new Error('No location selected — cannot create station');
     setIsActing(true);
     try {
       await apiFetch(`/api/v1/fnb/stations?locationId=${locationId}`, {

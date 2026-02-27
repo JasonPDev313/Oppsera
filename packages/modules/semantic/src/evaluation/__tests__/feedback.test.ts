@@ -69,6 +69,14 @@ vi.mock('@oppsera/db', () => ({
     insert: mockDbInsert,
     execute: mockDbExecute,
   },
+  withTenant: vi.fn((_tenantId: string, cb: (tx: unknown) => Promise<unknown>) =>
+    cb({
+      select: mockDbSelect,
+      update: mockDbUpdate,
+      insert: mockDbInsert,
+      execute: mockDbExecute,
+    }),
+  ),
   semanticEvalTurns: {
     id: 'id',
     tenantId: 'tenant_id',
@@ -127,6 +135,11 @@ vi.mock('@oppsera/shared', () => ({
 vi.mock('../capture', () => ({
   computeQualityFlags: vi.fn(() => []),
   computeQualityScore: vi.fn(() => 0.85),
+}));
+
+// Mock training store — addTrainingPair is fire-and-forget in feedback.ts
+vi.mock('../../rag/training-store', () => ({
+  addTrainingPair: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { submitUserRating, submitAdminReview, promoteToExample } from '../feedback';

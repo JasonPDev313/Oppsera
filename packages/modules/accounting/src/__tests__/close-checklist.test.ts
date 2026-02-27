@@ -16,6 +16,7 @@ const mockApi = {
   getSettlementStatusCounts: vi.fn().mockResolvedValue({ total: 0, unposted: 0 }),
   getAchPendingCount: vi.fn().mockResolvedValue(0),
   getAchReturnSummary: vi.fn().mockResolvedValue({ totalReturns: 0, totalReturnedCents: 0 }),
+  getTendersSummary: vi.fn().mockResolvedValue({ tenderCount: 0 }),
 };
 
 vi.mock('@oppsera/core/helpers/reconciliation-read-api', () => ({
@@ -32,7 +33,7 @@ function buildMockTx(results: any[]) {
 }
 
 // Default local query results (accounting-owned tables)
-// Wave 1 (all 9 queries in parallel via Promise.all):
+// Wave 1 (all 10 queries in parallel via Promise.all):
 //   1. period status
 //   2. draft count
 //   3. unmapped count
@@ -42,6 +43,7 @@ function buildMockTx(results: any[]) {
 //   7. dead letter count
 //   8. recurring entries
 //   9. bank reconciliation
+//   10. GL posting coverage (gl_tender_count)
 // Wave 2 (conditional, depends on Wave 1 settings):
 //   - AP reconciliation (3 queries if ap_control_account_id is set)
 //   - Legacy GL reconciliation (2 queries if legacy enabled)
@@ -79,6 +81,8 @@ function defaultLocalResults(overrides: Record<string, any> = {}) {
     overrides.recurring ?? [{ total: 0, overdue: 0 }],
     // 9. bank reconciliation
     overrides.bankRec ?? [{ total_bank_accounts: 0, unreconciled: 0 }],
+    // 10. GL posting coverage
+    overrides.glCoverage ?? [{ gl_tender_count: 0 }],
   ];
 
   // Wave 2 conditional queries:
@@ -108,6 +112,7 @@ describe('getCloseChecklist', () => {
     mockApi.getSettlementStatusCounts.mockResolvedValue({ total: 0, unposted: 0 });
     mockApi.getAchPendingCount.mockResolvedValue(0);
     mockApi.getAchReturnSummary.mockResolvedValue({ totalReturns: 0, totalReturnedCents: 0 });
+    mockApi.getTendersSummary.mockResolvedValue({ tenderCount: 0 });
   });
 
   it('should return legacy GL warning when enableLegacyGlPosting is true', async () => {

@@ -18,6 +18,14 @@ export interface DailySalesRow {
   netSales: number;
   tenderCash: number;
   tenderCard: number;
+  tenderGiftCard: number;
+  tenderHouseAccount: number;
+  tenderAch: number;
+  tenderOther: number;
+  tipTotal: number;
+  serviceChargeTotal: number;
+  surchargeTotal: number;
+  returnTotal: number;
   voidCount: number;
   voidTotal: number;
   avgOrderValue: number;
@@ -65,6 +73,14 @@ export async function getDailySales(input: GetDailySalesInput): Promise<DailySal
           netSales: num(r.netSales),
           tenderCash: num(r.tenderCash),
           tenderCard: num(r.tenderCard),
+          tenderGiftCard: num(r.tenderGiftCard),
+          tenderHouseAccount: num(r.tenderHouseAccount),
+          tenderAch: num(r.tenderAch),
+          tenderOther: num(r.tenderOther),
+          tipTotal: num(r.tipTotal),
+          serviceChargeTotal: num(r.serviceChargeTotal),
+          surchargeTotal: num(r.surchargeTotal),
+          returnTotal: num(r.returnTotal),
           voidCount: r.voidCount,
           voidTotal: num(r.voidTotal),
           avgOrderValue: num(r.avgOrderValue),
@@ -86,6 +102,14 @@ export async function getDailySales(input: GetDailySalesInput): Promise<DailySal
         netSales: sql<string>`sum(${rmDailySales.netSales})::numeric(19,4)`,
         tenderCash: sql<string>`sum(${rmDailySales.tenderCash})::numeric(19,4)`,
         tenderCard: sql<string>`sum(${rmDailySales.tenderCard})::numeric(19,4)`,
+        tenderGiftCard: sql<string>`sum(${rmDailySales.tenderGiftCard})::numeric(19,4)`,
+        tenderHouseAccount: sql<string>`sum(${rmDailySales.tenderHouseAccount})::numeric(19,4)`,
+        tenderAch: sql<string>`sum(${rmDailySales.tenderAch})::numeric(19,4)`,
+        tenderOther: sql<string>`sum(${rmDailySales.tenderOther})::numeric(19,4)`,
+        tipTotal: sql<string>`sum(${rmDailySales.tipTotal})::numeric(19,4)`,
+        serviceChargeTotal: sql<string>`sum(${rmDailySales.serviceChargeTotal})::numeric(19,4)`,
+        surchargeTotal: sql<string>`sum(${rmDailySales.surchargeTotal})::numeric(19,4)`,
+        returnTotal: sql<string>`sum(${rmDailySales.returnTotal})::numeric(19,4)`,
         voidCount: sql<number>`sum(${rmDailySales.voidCount})::int`,
         voidTotal: sql<string>`sum(${rmDailySales.voidTotal})::numeric(19,4)`,
         avgOrderValue: sql<string>`case when sum(${rmDailySales.orderCount}) > 0
@@ -108,6 +132,14 @@ export async function getDailySales(input: GetDailySalesInput): Promise<DailySal
         netSales: num(r.netSales),
         tenderCash: num(r.tenderCash),
         tenderCard: num(r.tenderCard),
+        tenderGiftCard: num(r.tenderGiftCard),
+        tenderHouseAccount: num(r.tenderHouseAccount),
+        tenderAch: num(r.tenderAch),
+        tenderOther: num(r.tenderOther),
+        tipTotal: num(r.tipTotal),
+        serviceChargeTotal: num(r.serviceChargeTotal),
+        surchargeTotal: num(r.surchargeTotal),
+        returnTotal: num(r.returnTotal),
         voidCount: r.voidCount,
         voidTotal: num(r.voidTotal),
         avgOrderValue: num(r.avgOrderValue),
@@ -174,6 +206,14 @@ async function queryOrdersFallback(
       netSales,
       tenderCash: 0,
       tenderCard: 0,
+      tenderGiftCard: 0,
+      tenderHouseAccount: 0,
+      tenderAch: 0,
+      tenderOther: 0,
+      tipTotal: 0,
+      serviceChargeTotal: 0,
+      surchargeTotal: 0,
+      returnTotal: 0,
       voidCount: Number(r.void_count) || 0,
       voidTotal,
       avgOrderValue: orderCount > 0 ? netSales / orderCount : 0,

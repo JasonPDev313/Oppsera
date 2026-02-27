@@ -2,35 +2,39 @@ import { eq, and, sql } from 'drizzle-orm';
 import { withTenant, locations } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
+import { z } from 'zod';
 import { computeBusinessDate } from '../business-date';
 
-interface PackageComponent {
-  catalogItemId: string;
-  itemName?: string;
-  catalogItemName?: string;
-  qty: number;
-  allocatedRevenueCents?: number;
-}
+const packageComponentSchema = z.object({
+  catalogItemId: z.string(),
+  itemName: z.string().optional(),
+  catalogItemName: z.string().optional(),
+  qty: z.number(),
+  allocatedRevenueCents: z.number().optional(),
+});
 
-interface OrderPlacedData {
-  orderId: string;
-  locationId: string;
-  occurredAt?: string;
-  customerId?: string;
-  customerName?: string;
-  subtotal: number;
-  taxTotal: number;
-  discountTotal?: number;
-  total: number;
-  lines: Array<{
-    catalogItemId: string;
-    catalogItemName?: string;
-    categoryName?: string | null;
-    qty: number;
-    lineTotal?: number;
-    packageComponents?: PackageComponent[] | null;
-  }>;
-}
+const orderPlacedSchema = z.object({
+  orderId: z.string(),
+  locationId: z.string(),
+  occurredAt: z.string().optional(),
+  customerId: z.string().optional(),
+  customerName: z.string().optional(),
+  subtotal: z.number(),
+  taxTotal: z.number(),
+  discountTotal: z.number().optional(),
+  serviceChargeTotal: z.number().optional(),
+  total: z.number(),
+  lines: z.array(z.object({
+    catalogItemId: z.string(),
+    catalogItemName: z.string().optional(),
+    categoryName: z.string().nullish(),
+    qty: z.number(),
+    lineTotal: z.number().optional(),
+    packageComponents: z.array(packageComponentSchema).nullish(),
+  })),
+});
+
+type _OrderPlacedData = z.infer<typeof orderPlacedSchema>;
 
 const CONSUMER_NAME = 'reporting.orderPlaced';
 
@@ -38,13 +42,22 @@ const CONSUMER_NAME = 'reporting.orderPlaced';
  * Handles order.placed.v1 events.
  *
  * Atomically (single transaction):
- * 1. Insert processed_events (idempotency guard)
- * 2. Upsert rm_daily_sales aggregates
- * 3. Upsert rm_item_sales per line
- * 4. Upsert rm_customer_activity (if customerId present)
+ * 1. Validate event payload with Zod schema
+ * 2. Insert processed_events (idempotency guard)
+ * 3. Upsert rm_daily_sales aggregates
+ * 4. Upsert rm_item_sales per line
+ * 5. Upsert rm_customer_activity (if customerId present)
  */
 export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
-  const data = event.data as unknown as OrderPlacedData;
+  const parsed = orderPlacedSchema.safeParse(event.data);
+  if (!parsed.success) {
+    console.error(
+      `[${CONSUMER_NAME}] Invalid event payload for event ${event.eventId}:`,
+      parsed.error.issues,
+    );
+    return; // Skip — corrupt payload would produce NaN in read models
+  }
+  const data = parsed.data;
 
   await withTenant(event.tenantId, async (tx) => {
     // Step 1: Atomic idempotency check
@@ -81,16 +94,26 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
     // Read models store dollars (NUMERIC(19,4)). Convert at boundary.
     const gross = (data.subtotal ?? 0) / 100;
     const discount = (data.discountTotal ?? 0) / 100;
+    const serviceCharge = (data.serviceChargeTotal ?? 0) / 100;
     const tax = (data.taxTotal ?? 0) / 100;
     const net = (data.total ?? 0) / 100;
     await (tx as any).execute(sql`
-      INSERT INTO rm_daily_sales (id, tenant_id, location_id, business_date, order_count, gross_sales, discount_total, tax_total, net_sales, avg_order_value, updated_at)
-      VALUES (${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate}, ${1}, ${gross}, ${discount}, ${tax}, ${net}, ${net}, NOW())
+      INSERT INTO rm_daily_sales (
+        id, tenant_id, location_id, business_date,
+        order_count, gross_sales, discount_total, service_charge_total,
+        tax_total, net_sales, avg_order_value, updated_at
+      )
+      VALUES (
+        ${generateUlid()}, ${event.tenantId}, ${locationId}, ${businessDate},
+        ${1}, ${gross}, ${discount}, ${serviceCharge},
+        ${tax}, ${net}, ${net}, NOW()
+      )
       ON CONFLICT (tenant_id, location_id, business_date)
       DO UPDATE SET
         order_count = rm_daily_sales.order_count + 1,
         gross_sales = rm_daily_sales.gross_sales + ${gross},
         discount_total = rm_daily_sales.discount_total + ${discount},
+        service_charge_total = rm_daily_sales.service_charge_total + ${serviceCharge},
         tax_total = rm_daily_sales.tax_total + ${tax},
         net_sales = rm_daily_sales.net_sales + ${net},
         avg_order_value = CASE

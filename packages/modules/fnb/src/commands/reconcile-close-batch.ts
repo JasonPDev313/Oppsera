@@ -3,6 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { CloseBatchNotFoundError, CloseBatchStatusConflictError } from '../errors';
 import { FNB_EVENTS } from '../events/types';
 import type { CloseBatchReconciledPayload } from '../events/types';
@@ -10,10 +11,14 @@ import type { CloseBatchReconciledPayload } from '../events/types';
 interface ReconcileCloseBatchInput {
   closeBatchId: string;
   notes?: string;
+  clientRequestId?: string;
 }
 
 export async function reconcileCloseBatch(ctx: RequestContext, input: ReconcileCloseBatchInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'reconcileCloseBatch');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     const batchRows = await tx.execute(
       sql`SELECT id, status, location_id, business_date FROM fnb_close_batches
           WHERE id = ${input.closeBatchId} AND tenant_id = ${ctx.tenantId}`,
@@ -84,6 +89,8 @@ export async function reconcileCloseBatch(ctx: RequestContext, input: ReconcileC
       cashOverShortCents: summary.cash_over_short_cents as number | null,
     };
     const event = buildEventFromContext(ctx, FNB_EVENTS.CLOSE_BATCH_RECONCILED, payload as unknown as Record<string, unknown>);
+
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'reconcileCloseBatch', updated);
 
     return { result: updated, events: [event] };
   });

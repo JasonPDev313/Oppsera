@@ -76,6 +76,7 @@ export class AnthropicAdapter implements LLMAdapter {
       maxTokens = DEFAULT_MAX_TOKENS,
       temperature = 0,
       systemPrompt,
+      systemPromptParts,
       model: modelOverride,
       timeoutMs,
     } = options;
@@ -86,12 +87,42 @@ export class AnthropicAdapter implements LLMAdapter {
     const systemMessages = messages.filter((m) => m.role === 'system');
     const conversationMessages = messages.filter((m) => m.role !== 'system');
 
-    const systemText = [
-      systemPrompt,
-      ...systemMessages.map((m) => m.content),
-    ]
-      .filter(Boolean)
-      .join('\n\n');
+    // ── Build system prompt (SEM-02: prompt caching support) ──
+    // When `systemPromptParts` is provided, send as an array of content blocks
+    // with optional `cache_control` markers for Anthropic's server-side caching.
+    // Falls back to plain string `system` field for backward compat.
+    let usePromptCaching = false;
+    let systemPayload: unknown = undefined;
+
+    if (systemPromptParts && systemPromptParts.length > 0) {
+      // Structured parts with cache_control support
+      usePromptCaching = systemPromptParts.some((p) => p.cacheControl);
+      const extraSystemText = systemMessages.map((m) => m.content).join('\n\n');
+      const parts: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> = [];
+      for (const part of systemPromptParts) {
+        parts.push({
+          type: 'text',
+          text: part.text,
+          ...(part.cacheControl ? { cache_control: { type: 'ephemeral' } } : {}),
+        });
+      }
+      // Append any inline system messages as a final non-cached block
+      if (extraSystemText) {
+        parts.push({ type: 'text', text: extraSystemText });
+      }
+      systemPayload = parts;
+    } else {
+      // Legacy: plain string system prompt
+      const systemText = [
+        systemPrompt,
+        ...systemMessages.map((m) => m.content),
+      ]
+        .filter(Boolean)
+        .join('\n\n');
+      if (systemText) {
+        systemPayload = systemText;
+      }
+    }
 
     const bodyObj: Record<string, unknown> = {
       model: effectiveModel,
@@ -103,8 +134,8 @@ export class AnthropicAdapter implements LLMAdapter {
       })),
     };
 
-    if (systemText) {
-      bodyObj.system = systemText;
+    if (systemPayload !== undefined) {
+      bodyObj.system = systemPayload;
     }
 
     const bodyJson = JSON.stringify(bodyObj);
@@ -141,6 +172,7 @@ export class AnthropicAdapter implements LLMAdapter {
             'Content-Type': 'application/json',
             'x-api-key': this.apiKey,
             'anthropic-version': ANTHROPIC_VERSION,
+            ...(usePromptCaching ? { 'anthropic-beta': 'prompt-caching-2024-07-31' } : {}),
           },
           body: bodyJson,
           signal: controller.signal,
@@ -228,6 +260,210 @@ export class AnthropicAdapter implements LLMAdapter {
     // All retries exhausted — record failure for circuit breaker
     recordOutcome(false);
     throw lastError ?? new LLMError('Anthropic API failed after all retries', 'PROVIDER_ERROR', true);
+  }
+
+  // ── Streaming completion ────────────────────────────────────────
+  // Sends `stream: true` to the Anthropic Messages API and parses
+  // server-sent `content_block_delta` events, yielding text chunks via
+  // the `onChunk` callback. Returns the full accumulated LLMResponse
+  // (identical shape to `complete()`) for caching and eval capture.
+
+  async completeStreaming(
+    messages: LLMMessage[],
+    onChunk: (text: string) => void,
+    options: LLMCompletionOptions = {},
+  ): Promise<LLMResponse> {
+    const startMs = Date.now();
+
+    try {
+      acquireCircuit();
+    } catch (err) {
+      if (err instanceof CircuitOpenError) {
+        throw new LLMError(
+          `LLM API circuit breaker is OPEN — retry after ${Math.ceil(err.retryAfterMs / 1000)}s`,
+          'RATE_LIMIT',
+          true,
+        );
+      }
+      throw err;
+    }
+
+    await acquireConcurrencySlot();
+
+    try {
+      return await this._completeStreamingInner(messages, onChunk, options, startMs);
+    } finally {
+      releaseConcurrencySlot();
+    }
+  }
+
+  private async _completeStreamingInner(
+    messages: LLMMessage[],
+    onChunk: (text: string) => void,
+    options: LLMCompletionOptions,
+    startMs: number,
+  ): Promise<LLMResponse> {
+    const {
+      maxTokens = DEFAULT_MAX_TOKENS,
+      temperature = 0,
+      systemPrompt,
+      systemPromptParts,
+      model: modelOverride,
+      timeoutMs,
+    } = options;
+
+    const effectiveModel = modelOverride ?? this.model;
+
+    const systemMessages = messages.filter((m) => m.role === 'system');
+    const conversationMessages = messages.filter((m) => m.role !== 'system');
+
+    // Build system payload (reuses same SEM-02 prompt caching logic)
+    let usePromptCaching = false;
+    let systemPayload: unknown = undefined;
+
+    if (systemPromptParts && systemPromptParts.length > 0) {
+      usePromptCaching = systemPromptParts.some((p) => p.cacheControl);
+      const extraSystemText = systemMessages.map((m) => m.content).join('\n\n');
+      const parts: Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral' } }> = [];
+      for (const part of systemPromptParts) {
+        parts.push({
+          type: 'text',
+          text: part.text,
+          ...(part.cacheControl ? { cache_control: { type: 'ephemeral' } } : {}),
+        });
+      }
+      if (extraSystemText) {
+        parts.push({ type: 'text', text: extraSystemText });
+      }
+      systemPayload = parts;
+    } else {
+      const systemText = [systemPrompt, ...systemMessages.map((m) => m.content)]
+        .filter(Boolean)
+        .join('\n\n');
+      if (systemText) {
+        systemPayload = systemText;
+      }
+    }
+
+    const bodyObj: Record<string, unknown> = {
+      model: effectiveModel,
+      max_tokens: maxTokens,
+      temperature,
+      stream: true,
+      messages: conversationMessages.map((m) => ({ role: m.role, content: m.content })),
+    };
+    if (systemPayload !== undefined) {
+      bodyObj.system = systemPayload;
+    }
+
+    const effectiveTimeout = timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const controller = new AbortController();
+    const attemptTimeout = setTimeout(() => controller.abort(), effectiveTimeout);
+
+    let response: Response;
+    try {
+      response = await fetch(ANTHROPIC_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': ANTHROPIC_VERSION,
+          ...(usePromptCaching ? { 'anthropic-beta': 'prompt-caching-2024-07-31' } : {}),
+        },
+        body: JSON.stringify(bodyObj),
+        signal: controller.signal,
+        cache: 'no-store',
+      } as RequestInit);
+    } catch (err) {
+      clearTimeout(attemptTimeout);
+      recordOutcome(false);
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw new LLMError(`Anthropic streaming timed out after ${effectiveTimeout}ms`, 'PROVIDER_ERROR', true);
+      }
+      throw new LLMError(`Network error calling Anthropic streaming: ${String(err)}`, 'PROVIDER_ERROR', true);
+    }
+
+    if (!response.ok) {
+      clearTimeout(attemptTimeout);
+      const errorText = await response.text().catch(() => '');
+      recordOutcome(false);
+      throw new LLMError(`Anthropic streaming error ${response.status}: ${errorText}`, 'PROVIDER_ERROR', response.status >= 500);
+    }
+
+    // ── Parse SSE stream from Anthropic ──
+    const reader = response.body?.getReader();
+    if (!reader) {
+      clearTimeout(attemptTimeout);
+      recordOutcome(false);
+      throw new LLMError('Anthropic streaming response has no readable body', 'PROVIDER_ERROR');
+    }
+
+    const decoder = new TextDecoder();
+    let accumulated = '';
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let modelName = effectiveModel;
+    let stopReason = 'end_turn';
+    let sseBuffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE lines (split by double newline)
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() ?? ''; // keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const jsonStr = line.slice(6).trim();
+          if (!jsonStr || jsonStr === '[DONE]') continue;
+
+          let event: Record<string, unknown>;
+          try {
+            event = JSON.parse(jsonStr) as Record<string, unknown>;
+          } catch {
+            continue; // skip malformed JSON
+          }
+
+          const eventType = event.type as string;
+
+          if (eventType === 'content_block_delta') {
+            const delta = event.delta as { type: string; text?: string } | undefined;
+            if (delta?.type === 'text_delta' && delta.text) {
+              accumulated += delta.text;
+              onChunk(delta.text);
+            }
+          } else if (eventType === 'message_start') {
+            const msg = event.message as { model?: string; usage?: { input_tokens: number } } | undefined;
+            if (msg?.model) modelName = msg.model;
+            if (msg?.usage?.input_tokens) inputTokens = msg.usage.input_tokens;
+          } else if (eventType === 'message_delta') {
+            const delta = event.delta as { stop_reason?: string } | undefined;
+            const usage = event.usage as { output_tokens?: number } | undefined;
+            if (delta?.stop_reason) stopReason = delta.stop_reason;
+            if (usage?.output_tokens) outputTokens = usage.output_tokens;
+          }
+        }
+      }
+    } finally {
+      clearTimeout(attemptTimeout);
+      reader.releaseLock();
+    }
+
+    recordOutcome(true);
+    return {
+      content: accumulated,
+      tokensInput: inputTokens,
+      tokensOutput: outputTokens,
+      model: modelName,
+      provider: 'anthropic',
+      latencyMs: Date.now() - startMs,
+      stopReason,
+    };
   }
 }
 

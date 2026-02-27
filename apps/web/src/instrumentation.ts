@@ -153,6 +153,7 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('pms.payment.authorized.v1', accounting.handleDepositAuthorizedForAccounting);
       bus.subscribe('pms.payment.captured.v1', accounting.handleDepositCapturedForAccounting);
       bus.subscribe('fnb.gl.posting_created.v1', accounting.handleFnbGlPostingForAccounting);
+      bus.subscribe('fnb.gl.posting_reversed.v1', accounting.handleFnbGlPostingReversedForAccounting);
       bus.subscribe('voucher.purchased.v1', accounting.handleVoucherPurchaseForAccounting);
       bus.subscribe('voucher.redeemed.v1', accounting.handleVoucherRedemptionForAccounting);
       bus.subscribe('voucher.expired.v1', accounting.handleVoucherExpirationForAccounting);
@@ -163,6 +164,29 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
       bus.subscribe('payment.gateway.ach_originated.v1', accounting.handleAchOriginatedForAccounting);
       bus.subscribe('payment.gateway.ach_settled.v1', accounting.handleAchSettledForAccounting);
       bus.subscribe('payment.gateway.ach_returned.v1', accounting.handleAchReturnGlReversal);
+      // Drawer session close → cash variance GL
+      bus.subscribe('drawer.session.closed.v1', accounting.handleDrawerSessionClosedForAccounting);
+      // Stored value → deferred revenue GL (full lifecycle)
+      bus.subscribe('customer.stored_value.issued.v1', accounting.handleStoredValueIssuedForAccounting);
+      bus.subscribe('customer.stored_value.redeemed.v1', accounting.handleStoredValueRedeemedForAccounting);
+      bus.subscribe('customer.stored_value.voided.v1', accounting.handleStoredValueVoidedForAccounting);
+      bus.subscribe('customer.stored_value.reloaded.v1', accounting.handleStoredValueReloadedForAccounting);
+      bus.subscribe('customer.stored_value.transferred.v1', accounting.handleStoredValueTransferredForAccounting);
+      // Tender reversal + tip adjustment → reverse GL
+      bus.subscribe('tender.reversed.v1', accounting.handleTenderReversalForAccounting);
+      bus.subscribe('tender.tip_adjusted.v1', accounting.handleTipAdjustedForAccounting);
+      // Drawer events → paid_in/paid_out/cash_drop GL
+      bus.subscribe('drawer.event.recorded.v1', accounting.handleDrawerEventForAccounting);
+      // Customer financial operations → GL
+      bus.subscribe('customer.ledger_entry.posted.v1', accounting.handleLedgerEntryForAccounting);
+      bus.subscribe('customer.account_transfer.completed.v1', accounting.handleAccountTransferForAccounting);
+      bus.subscribe('customer_wallet.adjusted.v1', accounting.handleWalletAdjustedForAccounting);
+      // Inventory receipts → GL
+      bus.subscribe('inventory.receipt.posted.v1', accounting.handleInventoryReceiptPostedForAccounting);
+      bus.subscribe('inventory.receipt.voided.v1', accounting.handleInventoryReceiptVoidedForAccounting);
+      // Comp + line void → GL
+      bus.subscribe('order.line.comped.v1', accounting.handleCompForAccounting);
+      bus.subscribe('order.line.voided.v1', accounting.handleLineVoidForAccounting);
     }),
 
     // F&B Reporting consumers
@@ -217,6 +241,16 @@ async function registerDeferredConsumers(bus: ReturnType<Awaited<typeof import('
     importSafe('PMS→Customer sync consumer', async () => {
       const { handlePmsGuestCreated } = await import('./lib/pms-customer-sync');
       bus.subscribe('pms.guest.created.v1', handlePmsGuestCreated);
+    }),
+
+    // Smart Tag event-driven evaluation consumers
+    importSafe('Smart tag evaluation consumers', async () => {
+      const customers = await import('@oppsera/module-customers');
+      bus.subscribe('order.placed.v1', customers.handleTagEvaluationOnOrderPlaced);
+      bus.subscribe('tender.recorded.v1', customers.handleTagEvaluationOnTenderRecorded);
+      bus.subscribe('order.voided.v1', customers.handleTagEvaluationOnOrderVoided);
+      bus.subscribe('customer.visit.recorded.v1', customers.handleTagEvaluationOnVisitRecorded);
+      bus.subscribe('customer.membership.created.v1', customers.handleTagEvaluationOnMembershipChanged);
     }),
   ]);
 }

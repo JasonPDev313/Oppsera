@@ -5,26 +5,42 @@ import { apiFetch } from '@/lib/api-client';
 
 // ── Types ──────────────────────────────────────────────────────
 
+interface BumpBarKeyMapping {
+  buttonIndex: number;
+  scanCode: number;
+  action: string;
+  label: string;
+  color?: string;
+}
+
 interface BumpBarProfile {
   id: string;
   profileName: string;
   buttonCount: number;
-  keyMap: Record<string, string>;
+  keyMappings: BumpBarKeyMapping[];
   isDefault: boolean;
   isActive: boolean;
   createdAt: string;
 }
 
+interface AlertEventConfig {
+  tone: string;
+  volume: number;
+  flash: boolean;
+  flashColor?: string;
+  repeat: number;
+}
+
 interface AlertProfile {
   id: string;
   profileName: string;
-  newTicketAlert: { enabled: boolean; tone: string; volume: number } | null;
-  warningAlert: { enabled: boolean; tone: string; volume: number } | null;
-  criticalAlert: { enabled: boolean; tone: string; volume: number } | null;
-  rushAlert: { enabled: boolean; tone: string; volume: number } | null;
-  allergyAlert: { enabled: boolean; tone: string; volume: number } | null;
-  modificationAlert: { enabled: boolean; tone: string; volume: number } | null;
-  completeAlert: { enabled: boolean; tone: string; volume: number } | null;
+  newTicketAlert: AlertEventConfig | null;
+  warningAlert: AlertEventConfig | null;
+  criticalAlert: AlertEventConfig | null;
+  rushAlert: AlertEventConfig | null;
+  allergyAlert: AlertEventConfig | null;
+  modificationAlert: AlertEventConfig | null;
+  completeAlert: AlertEventConfig | null;
   isDefault: boolean;
   isActive: boolean;
   createdAt: string;
@@ -33,7 +49,7 @@ interface AlertProfile {
 interface PerformanceTarget {
   id: string;
   stationId: string | null;
-  stationName: string | null;
+  stationName?: string | null;
   orderType: string | null;
   targetPrepSeconds: number;
   warningPrepSeconds: number;
@@ -44,9 +60,9 @@ interface PerformanceTarget {
 interface ItemPrepTime {
   id: string;
   catalogItemId: string;
-  catalogItemName: string | null;
+  catalogItemName?: string | null;
   stationId: string | null;
-  stationName: string | null;
+  stationName?: string | null;
   estimatedPrepSeconds: number;
 }
 
@@ -76,7 +92,7 @@ export function useBumpBarProfiles(locationId?: string) {
   const createProfile = useCallback(async (input: {
     profileName: string;
     buttonCount: number;
-    keyMap: Record<string, string>;
+    keyMappings: BumpBarKeyMapping[];
     isDefault?: boolean;
     clientRequestId: string;
   }) => {
@@ -95,7 +111,7 @@ export function useBumpBarProfiles(locationId?: string) {
   const updateProfile = useCallback(async (profileId: string, input: {
     profileName?: string;
     buttonCount?: number;
-    keyMap?: Record<string, string>;
+    keyMappings?: BumpBarKeyMapping[];
     isDefault?: boolean;
     clientRequestId: string;
   }) => {
@@ -139,13 +155,13 @@ export function useAlertProfiles(locationId?: string) {
 
   const createProfile = useCallback(async (input: {
     profileName: string;
-    newTicketAlert?: { enabled: boolean; tone: string; volume: number };
-    warningAlert?: { enabled: boolean; tone: string; volume: number };
-    criticalAlert?: { enabled: boolean; tone: string; volume: number };
-    rushAlert?: { enabled: boolean; tone: string; volume: number };
-    allergyAlert?: { enabled: boolean; tone: string; volume: number };
-    modificationAlert?: { enabled: boolean; tone: string; volume: number };
-    completeAlert?: { enabled: boolean; tone: string; volume: number };
+    newTicketAlert?: Partial<AlertEventConfig>;
+    warningAlert?: Partial<AlertEventConfig>;
+    criticalAlert?: Partial<AlertEventConfig>;
+    rushAlert?: Partial<AlertEventConfig>;
+    allergyAlert?: Partial<AlertEventConfig>;
+    modificationAlert?: Partial<AlertEventConfig>;
+    completeAlert?: Partial<AlertEventConfig>;
     isDefault?: boolean;
     clientRequestId: string;
   }) => {

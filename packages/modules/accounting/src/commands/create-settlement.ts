@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { paymentSettlements, paymentSettlementLines } from '@oppsera/db';
 import { generateUlid, ConflictError } from '@oppsera/shared';
@@ -12,6 +13,10 @@ export async function createSettlement(
   input: CreateSettlementInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createSettlement');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Check for duplicate (tenant + processor + batch ID)
     if (input.processorBatchId) {
       const [existing] = await tx
@@ -82,6 +87,8 @@ export async function createSettlement(
       processorName: input.processorName,
       grossAmount: input.grossAmount,
     });
+
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createSettlement', settlement!);
 
     return { result: settlement!, events: [event] };
   });

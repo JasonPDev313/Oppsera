@@ -42,7 +42,17 @@ export type ConditionMetric =
   | 'birth_month'
   // Activity / Operational
   | 'open_incident_count'
-  | 'tax_exempt';
+  | 'tax_exempt'
+  // Predictive Intelligence (Session 5)
+  | 'rfm_segment'
+  | 'rfm_score'
+  | 'rfm_recency'
+  | 'rfm_frequency'
+  | 'rfm_monetary'
+  | 'churn_risk'
+  | 'predicted_clv'
+  | 'spend_velocity'
+  | 'days_until_predicted_visit';
 
 export interface SmartTagCondition {
   metric: ConditionMetric;
@@ -74,7 +84,7 @@ export interface SmartTagEvidence {
 export interface MetricDefinition {
   key: ConditionMetric;
   label: string;
-  category: 'visits' | 'spending' | 'lifecycle' | 'membership' | 'financial' | 'demographic' | 'operational';
+  category: 'visits' | 'spending' | 'lifecycle' | 'membership' | 'financial' | 'demographic' | 'operational' | 'predictive';
   valueType: 'number' | 'string' | 'boolean' | 'string_array';
   unit?: string;
   description?: string;
@@ -114,4 +124,14 @@ export const METRIC_DEFINITIONS: MetricDefinition[] = [
   // Operational
   { key: 'open_incident_count', label: 'Open Incidents', category: 'operational', valueType: 'number' },
   { key: 'tax_exempt', label: 'Tax Exempt', category: 'operational', valueType: 'boolean' },
+  // Predictive Intelligence
+  { key: 'rfm_segment', label: 'RFM Segment', category: 'predictive', valueType: 'string', description: 'RFM segment (champions, loyal_customers, etc.)' },
+  { key: 'rfm_score', label: 'RFM Composite Score', category: 'predictive', valueType: 'number', description: 'RFM composite score (1-125)' },
+  { key: 'rfm_recency', label: 'RFM Recency Score', category: 'predictive', valueType: 'number', description: 'Recency quintile (1-5)' },
+  { key: 'rfm_frequency', label: 'RFM Frequency Score', category: 'predictive', valueType: 'number', description: 'Frequency quintile (1-5)' },
+  { key: 'rfm_monetary', label: 'RFM Monetary Score', category: 'predictive', valueType: 'number', description: 'Monetary quintile (1-5)' },
+  { key: 'churn_risk', label: 'Churn Risk', category: 'predictive', valueType: 'number', description: 'Churn risk score (0.0-1.0)' },
+  { key: 'predicted_clv', label: 'Predicted CLV', category: 'predictive', valueType: 'number', unit: 'dollars', description: 'Predicted customer lifetime value in dollars' },
+  { key: 'spend_velocity', label: 'Spend Velocity', category: 'predictive', valueType: 'number', description: 'Growth rate (-1.0 to 1.0+, positive = growing)' },
+  { key: 'days_until_predicted_visit', label: 'Days Until Predicted Visit', category: 'predictive', valueType: 'number', unit: 'days', description: 'Days until next predicted visit (0 = today/overdue)' },
 ];

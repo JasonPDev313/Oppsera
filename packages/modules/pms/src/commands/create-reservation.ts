@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid, NotFoundError, ValidationError } from '@oppsera/shared';
 import {
   pmsReservations,
@@ -31,6 +32,10 @@ import { checkRestrictions } from '../queries/check-restrictions';
  */
 export async function createReservation(ctx: RequestContext, input: CreateReservationInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createReservation');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Validate property exists
     const [property] = await tx
       .select()
@@ -285,7 +290,9 @@ export async function createReservation(ctx: RequestContext, input: CreateReserv
       version: 1,
     });
 
-    return { result: { ...reservation!, folioId }, events: [event] };
+    const resultPayload = { ...reservation!, folioId };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createReservation', resultPayload);
+    return { result: resultPayload, events: [event] };
   });
 
   await auditLog(ctx, 'pms.reservation.created', 'pms_reservation', result.id);

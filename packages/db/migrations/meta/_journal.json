@@ -1527,6 +1527,48 @@
       "when": 1708100217000,
       "tag": "0217_login_tracking",
       "breakpoints": true
+    },
+    {
+      "idx": 218,
+      "version": "7",
+      "when": 1708100218000,
+      "tag": "0218_kds_station_type_check_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1708100219000,
+      "tag": "0219_tag_actions_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 220,
+      "version": "7",
+      "when": 1708100220000,
+      "tag": "0220_tag_reporting_field_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 221,
+      "version": "7",
+      "when": 1708100221000,
+      "tag": "0221_tenant_lens_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "7",
+      "when": 1708100222000,
+      "tag": "0222_lens_target_business_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 223,
+      "version": "7",
+      "when": 1708100223000,
+      "tag": "0223_rm_daily_sales_financial_expansion",
+      "breakpoints": true
     }
   ]
 }

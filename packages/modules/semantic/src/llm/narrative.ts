@@ -1,4 +1,4 @@
-import type { LLMAdapter, LLMMessage, IntentContext, NarrativeResponse, NarrativeSection, QueryResult } from './types';
+import type { LLMAdapter, LLMMessage, IntentContext, NarrativeResponse, NarrativeSection, QueryResult, LLMCompletionOptions } from './types';
 import type { ResolvedIntent } from './types';
 import type { MetricDef, DimensionDef } from '../registry/types';
 import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
@@ -159,7 +159,19 @@ interface NarrativePromptContext {
   dimensionDefs?: DimensionDef[];
 }
 
-async function buildNarrativeSystemPrompt(promptCtx: NarrativePromptContext): Promise<string> {
+interface NarrativePromptResult {
+  /** Fully resolved system prompt (for legacy callers / tests) */
+  full: string;
+  /**
+   * Structured parts for Anthropic prompt caching (SEM-02).
+   * Part 1 = static template (cacheable). Part 2 = per-request dynamic content.
+   * Only populated when the template contains the `{{INDUSTRY_HINT}}` marker
+   * (i.e., the standard OPPS ERA LENS template structure).
+   */
+  parts: Array<{ text: string; cacheControl?: boolean }> | null;
+}
+
+async function buildNarrativeSystemPrompt(promptCtx: NarrativePromptContext): Promise<NarrativePromptResult> {
   const metricSection = buildMetricContext(promptCtx.metricDefs ?? []);
   const industryHint = getIndustryHint(promptCtx.lensSlug);
   const lensSection = promptCtx.lensPromptFragment
@@ -170,11 +182,48 @@ async function buildNarrativeSystemPrompt(promptCtx: NarrativePromptContext): Pr
   const customTemplate = await getNarrativeConfig();
   const template = customTemplate ?? DEFAULT_PROMPT_TEMPLATE;
 
-  return template
+  const full = template
     .replace('{{INDUSTRY_HINT}}', industryHint)
     .replace('{{LENS_SECTION}}', lensSection)
     .replace('{{METRIC_SECTION}}', metricSection)
     .trim();
+
+  // ── SEM-02: Build prompt caching parts ───────────────────────
+  // The template is mostly static (OPPS ERA LENS framework, rules, format).
+  // The dynamic parts are: industry hint, lens fragment, metric definitions.
+  // Strategy: cache the template with placeholders replaced by empty strings
+  // (it's ~2K tokens of stable prompt), then send dynamic content as a
+  // separate uncached block.
+  const industryIdx = template.indexOf('{{INDUSTRY_HINT}}');
+  if (industryIdx > 0) {
+    // Build the static part: template with all placeholders stripped
+    const staticPart = template
+      .replace('{{INDUSTRY_HINT}}', '')
+      .replace('{{LENS_SECTION}}', '')
+      .replace('{{METRIC_SECTION}}', '')
+      .trim();
+
+    // Build dynamic part from per-request content
+    const dynamicLines: string[] = [];
+    if (industryHint) dynamicLines.push(industryHint);
+    if (lensSection) dynamicLines.push(lensSection);
+    if (metricSection) dynamicLines.push(metricSection);
+
+    const dynamicPart = dynamicLines.join('\n\n');
+
+    return {
+      full,
+      parts: dynamicPart
+        ? [
+            { text: staticPart, cacheControl: true },
+            { text: dynamicPart },
+          ]
+        : [{ text: staticPart, cacheControl: true }],
+    };
+  }
+
+  // Custom template without standard placeholders — no caching split possible
+  return { full, parts: null };
 }
 
 // ── Data summary builder ──────────────────────────────────────────
@@ -182,17 +231,22 @@ async function buildNarrativeSystemPrompt(promptCtx: NarrativePromptContext): Pr
 const MAX_ROWS_IN_PROMPT = 20;
 const MAX_COLS_IN_PROMPT = 8;
 
-function buildDataSummary(result: QueryResult | null, intentSummary: string): string {
+function buildDataSummary(result: QueryResult | null, intentSummary: string, premaskedRows?: Record<string, unknown>[]): string {
   if (!result || result.rowCount === 0) {
     return `## Query Results\nNo data returned for: "${intentSummary}"\n\nNo query data available. Use industry best practices, benchmarks, and operational heuristics. Label assumptions clearly.`;
   }
 
   const { rows, rowCount, truncated } = result;
   let sampleRows: Record<string, unknown>[];
-  try {
-    sampleRows = maskRowsForLLM(rows.slice(0, MAX_ROWS_IN_PROMPT));
-  } catch {
-    sampleRows = rows.slice(0, MAX_ROWS_IN_PROMPT);
+  if (premaskedRows && premaskedRows.length > 0) {
+    // Use pre-masked rows from pipeline — avoids redundant PII masking pass
+    sampleRows = premaskedRows.slice(0, MAX_ROWS_IN_PROMPT);
+  } else {
+    try {
+      sampleRows = maskRowsForLLM(rows.slice(0, MAX_ROWS_IN_PROMPT));
+    } catch {
+      sampleRows = rows.slice(0, MAX_ROWS_IN_PROMPT);
+    }
   }
   const columns = sampleRows.length > 0
     ? Object.keys(sampleRows[0]!).slice(0, MAX_COLS_IN_PROMPT)
@@ -366,6 +420,10 @@ export interface GenerateNarrativeOptions {
   fast?: boolean;
   /** Max time (ms) the LLM call should take. Passed to the adapter as per-call timeout. */
   timeoutMs?: number;
+  /** Pre-masked rows from the pipeline — avoids double PII masking when provided */
+  premaskedRows?: Record<string, unknown>[];
+  /** SEM-09: Plausibility warnings to inject as data quality caveats */
+  plausibilityContext?: string | null;
 }
 
 export async function generateNarrative(
@@ -377,7 +435,7 @@ export async function generateNarrative(
 ): Promise<NarrativeResponse> {
   const llm = opts.adapter ?? getLLMAdapter();
 
-  const systemPrompt = await buildNarrativeSystemPrompt({
+  const narrativePrompt = await buildNarrativeSystemPrompt({
     lensSlug: opts.lensSlug,
     lensPromptFragment: opts.lensPromptFragment,
     metricDefs: opts.metricDefs,
@@ -385,27 +443,113 @@ export async function generateNarrative(
   });
 
   const intentSummary = intent.plan.intent ?? originalMessage;
-  const dataSummary = buildDataSummary(result, intentSummary);
+  const dataSummary = buildDataSummary(result, intentSummary, opts.premaskedRows);
 
-  const userContent = [
+  const contentParts = [
     `## Original Question\n${originalMessage}`,
     `## Context\n- Date: ${context.currentDate}\n- Role: ${context.userRole}${context.locationId ? `\n- Location: ${context.locationId}` : ''}${context.timezone ? `\n- Timezone: ${context.timezone}` : ''}`,
     dataSummary,
-  ].join('\n\n');
+  ];
+
+  // SEM-09: Inject plausibility warnings so the narrative can add caveats
+  if (opts.plausibilityContext) {
+    contentParts.push(opts.plausibilityContext);
+  }
+
+  const userContent = contentParts.join('\n\n');
 
   const messages: LLMMessage[] = [
     { role: 'user', content: userContent },
   ];
 
-  const useFastModel = opts.fast === true;
+  // Default to fast model (Haiku) for lower latency. Use Sonnet only when explicitly
+  // requested via fast === false (e.g., deep/strategic analysis).
+  const useSonnet = opts.fast === false;
   const startMs = Date.now();
-  const response = await llm.complete(messages, {
-    systemPrompt,
+
+  // SEM-02: Use prompt caching parts when available, fall back to plain systemPrompt
+  const completionOpts: LLMCompletionOptions = {
     temperature: 0.3,
-    maxTokens: useFastModel ? 1024 : 2048,
-    ...(useFastModel ? { model: SEMANTIC_FAST_MODEL } : {}),
+    maxTokens: useSonnet ? 2048 : 1536,
+    ...(!useSonnet ? { model: SEMANTIC_FAST_MODEL } : {}),
     ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
+    ...(narrativePrompt.parts
+      ? { systemPromptParts: narrativePrompt.parts }
+      : { systemPrompt: narrativePrompt.full }),
+  };
+
+  const response = await llm.complete(messages, completionOpts);
+  const latencyMs = Date.now() - startMs;
+
+  const parsed = parseNarrativeResponse(response.content);
+
+  return {
+    text: parsed.text,
+    sections: parsed.sections,
+    tokensInput: response.tokensInput,
+    tokensOutput: response.tokensOutput,
+    latencyMs,
+  };
+}
+
+/**
+ * Streaming variant of `generateNarrative`. Identical setup but calls
+ * `adapter.completeStreaming()` and yields narrative text chunks via `onChunk`.
+ * Falls back to non-streaming `complete()` when the adapter doesn't support streaming.
+ * Returns the full NarrativeResponse (same shape as non-streaming) for caching/eval.
+ */
+export async function generateNarrativeStreaming(
+  result: QueryResult | null,
+  intent: ResolvedIntent,
+  originalMessage: string,
+  context: IntentContext,
+  onChunk: (text: string) => void,
+  opts: GenerateNarrativeOptions = {},
+): Promise<NarrativeResponse> {
+  const llm = opts.adapter ?? getLLMAdapter();
+
+  // If adapter has no streaming support, fall back to non-streaming
+  if (!llm.completeStreaming) {
+    return generateNarrative(result, intent, originalMessage, context, opts);
+  }
+
+  const narrativePrompt = await buildNarrativeSystemPrompt({
+    lensSlug: opts.lensSlug,
+    lensPromptFragment: opts.lensPromptFragment,
+    metricDefs: opts.metricDefs,
+    dimensionDefs: opts.dimensionDefs,
   });
+
+  const intentSummary = intent.plan.intent ?? originalMessage;
+  const dataSummary = buildDataSummary(result, intentSummary, opts.premaskedRows);
+
+  const contentParts = [
+    `## Original Question\n${originalMessage}`,
+    `## Context\n- Date: ${context.currentDate}\n- Role: ${context.userRole}${context.locationId ? `\n- Location: ${context.locationId}` : ''}${context.timezone ? `\n- Timezone: ${context.timezone}` : ''}`,
+    dataSummary,
+  ];
+  if (opts.plausibilityContext) {
+    contentParts.push(opts.plausibilityContext);
+  }
+
+  const messages: LLMMessage[] = [
+    { role: 'user', content: contentParts.join('\n\n') },
+  ];
+
+  const useSonnet = opts.fast === false;
+  const startMs = Date.now();
+
+  const completionOpts: LLMCompletionOptions = {
+    temperature: 0.3,
+    maxTokens: useSonnet ? 2048 : 1536,
+    ...(!useSonnet ? { model: SEMANTIC_FAST_MODEL } : {}),
+    ...(opts.timeoutMs ? { timeoutMs: opts.timeoutMs } : {}),
+    ...(narrativePrompt.parts
+      ? { systemPromptParts: narrativePrompt.parts }
+      : { systemPrompt: narrativePrompt.full }),
+  };
+
+  const response = await llm.completeStreaming(messages, onChunk, completionOpts);
   const latencyMs = Date.now() - startMs;
 
   const parsed = parseNarrativeResponse(response.content);
@@ -473,6 +617,7 @@ export function buildEmptyResultNarrative(
 export function buildDataFallbackNarrative(
   originalMessage: string,
   queryResult: QueryResult,
+  premaskedRows?: Record<string, unknown>[],
 ): NarrativeResponse {
   const rows = queryResult.rows;
   const rowCount = queryResult.rowCount;
@@ -488,12 +633,16 @@ export function buildDataFallbackNarrative(
   lines.push(`Your query returned **${rowCount} result${rowCount === 1 ? '' : 's'}**. Here's a summary of the data:`);
   lines.push('');
 
-  // Summarize up to 10 rows in a readable way (mask PII before sending to LLM)
+  // Summarize up to 10 rows — use pre-masked rows from pipeline when available
   let sample: Record<string, unknown>[];
-  try {
-    sample = maskRowsForLLM(rows.slice(0, 10));
-  } catch {
-    sample = rows.slice(0, 10);
+  if (premaskedRows && premaskedRows.length > 0) {
+    sample = premaskedRows.slice(0, 10);
+  } else {
+    try {
+      sample = maskRowsForLLM(rows.slice(0, 10));
+    } catch {
+      sample = rows.slice(0, 10);
+    }
   }
   const keys = sample.length > 0 ? Object.keys(sample[0]!) : [];
 

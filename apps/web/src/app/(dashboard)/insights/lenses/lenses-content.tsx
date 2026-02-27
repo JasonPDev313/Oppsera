@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Layers, Globe, Lock } from 'lucide-react';
 import { apiFetch } from '@/lib/api-client';
 
@@ -9,12 +9,13 @@ import { apiFetch } from '@/lib/api-client';
 
 interface Lens {
   slug: string;
-  name: string;
+  displayName: string;
   description: string | null;
   domain: string | null;
   isSystem: boolean;
   isActive: boolean;
   tenantId: string | null;
+  enabled: boolean;
 }
 
 // ── LensesContent ──────────────────────────────────────────────────
@@ -26,10 +27,24 @@ export default function LensesContent({ embedded }: { embedded?: boolean }) {
 
   useEffect(() => {
     setIsLoading(true);
-    apiFetch<{ data: Lens[] }>('/api/v1/semantic/lenses')
+    apiFetch<{ data: Lens[] }>('/api/v1/semantic/lenses?includeDisabled=true')
       .then((res) => setLenses(res.data))
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load lenses'))
       .finally(() => setIsLoading(false));
+  }, []);
+
+  const handleToggle = useCallback(async (slug: string, enabled: boolean) => {
+    // Optimistic update
+    setLenses((prev) => prev.map((l) => (l.slug === slug ? { ...l, enabled } : l)));
+    try {
+      await apiFetch('/api/v1/semantic/lenses/preferences', {
+        method: 'PATCH',
+        body: JSON.stringify({ slug, enabled }),
+      });
+    } catch {
+      // Revert on failure
+      setLenses((prev) => prev.map((l) => (l.slug === slug ? { ...l, enabled: !enabled } : l)));
+    }
   }, []);
 
   const systemLenses = lenses.filter((l) => l.isSystem);
@@ -64,7 +79,7 @@ export default function LensesContent({ embedded }: { embedded?: boolean }) {
               A lens is a pre-configured analysis context that tells the AI which metrics, dimensions, and industry knowledge to prioritize
               when answering your questions. <strong className="text-foreground">System lenses</strong> are built-in and cover common
               business domains. <strong className="text-foreground">Custom lenses</strong> are created by your organization for
-              specialized analysis.
+              specialized analysis. Toggle lenses on or off to control which ones are available to your team.
             </p>
           </div>
         </div>
@@ -103,7 +118,7 @@ export default function LensesContent({ embedded }: { embedded?: boolean }) {
           </p>
           <div className="space-y-2">
             {systemLenses.map((lens) => (
-              <LensCard key={lens.slug} lens={lens} />
+              <LensCard key={lens.slug} lens={lens} onToggle={handleToggle} />
             ))}
           </div>
         </div>
@@ -117,7 +132,7 @@ export default function LensesContent({ embedded }: { embedded?: boolean }) {
           </p>
           <div className="space-y-2">
             {customLenses.map((lens) => (
-              <LensCard key={lens.slug} lens={lens} />
+              <LensCard key={lens.slug} lens={lens} onToggle={handleToggle} />
             ))}
           </div>
         </div>
@@ -128,9 +143,9 @@ export default function LensesContent({ embedded }: { embedded?: boolean }) {
 
 // ── Lens Card ──────────────────────────────────────────────────────
 
-function LensCard({ lens }: { lens: Lens }) {
+function LensCard({ lens, onToggle }: { lens: Lens; onToggle: (slug: string, enabled: boolean) => void }) {
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border bg-surface px-4 py-3">
+    <div className={`flex items-center gap-4 rounded-xl border border-border bg-surface px-4 py-3 ${!lens.enabled ? 'opacity-60' : ''}`}>
       <div className="shrink-0">
         {lens.isSystem ? (
           <Globe className="h-5 w-5 text-indigo-500" />
@@ -140,7 +155,7 @@ function LensCard({ lens }: { lens: Lens }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-sm text-foreground">{lens.name}</span>
+          <span className="font-medium text-sm text-foreground">{lens.displayName}</span>
           <code className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{lens.slug}</code>
           {lens.isSystem && (
             <span className="text-xs bg-indigo-500/20 text-indigo-500 px-1.5 py-0.5 rounded">System</span>
@@ -153,6 +168,23 @@ function LensCard({ lens }: { lens: Lens }) {
           <p className="text-xs text-muted-foreground mt-0.5 truncate">{lens.description}</p>
         )}
       </div>
+      {/* Toggle switch */}
+      <button
+        type="button"
+        role="switch"
+        aria-checked={lens.enabled}
+        aria-label={`${lens.enabled ? 'Disable' : 'Enable'} ${lens.displayName} lens`}
+        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+          lens.enabled ? 'bg-indigo-600' : 'bg-muted'
+        }`}
+        onClick={() => onToggle(lens.slug, !lens.enabled)}
+      >
+        <span
+          className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform ${
+            lens.enabled ? 'translate-x-4.5' : 'translate-x-0.5'
+          }`}
+        />
+      </button>
     </div>
   );
 }

@@ -106,6 +106,7 @@ function rowToLens(row: typeof semanticLenses.$inferSelect): LensDef {
     defaultFilters: (row.defaultFilters as unknown[] | null) ?? null,
     systemPromptFragment: row.systemPromptFragment ?? null,
     exampleQuestions: row.exampleQuestions ?? null,
+    targetBusinessTypes: row.targetBusinessTypes ?? null,
     isActive: row.isActive,
     isSystem: row.isSystem,
   };
@@ -114,22 +115,26 @@ function rowToLens(row: typeof semanticLenses.$inferSelect): LensDef {
 // ── Cache loader ─────────────────────────────────────────────────
 
 async function loadCache(): Promise<RegistryCache> {
-  // Sequential queries — avoids grabbing 4 pool connections simultaneously,
-  // which causes contention with middleware queries under concurrent load.
+  // Fetch in 2 parallel batches of 2 — safe with max:2 pool (each batch
+  // uses 1 connection at a time via Drizzle's query pipeline).
   // Only cache system metrics/dimensions (tenant_id IS NULL). Tenant-specific
   // entries are fetched on demand in the API routes to avoid cross-tenant leaks.
-  const metricRows = await db.select().from(semanticMetrics).where(
-    and(eq(semanticMetrics.isActive, true), isNull(semanticMetrics.tenantId)),
-  );
-  const dimRows = await db.select().from(semanticDimensions).where(
-    and(eq(semanticDimensions.isActive, true), isNull(semanticDimensions.tenantId)),
-  );
-  const relRows = await db.select().from(semanticMetricDimensions);
+  const [metricRows, dimRows] = await Promise.all([
+    db.select().from(semanticMetrics).where(
+      and(eq(semanticMetrics.isActive, true), isNull(semanticMetrics.tenantId)),
+    ),
+    db.select().from(semanticDimensions).where(
+      and(eq(semanticDimensions.isActive, true), isNull(semanticDimensions.tenantId)),
+    ),
+  ]);
   // Only cache system lenses (tenant_id IS NULL). Tenant-specific lenses are
   // fetched on demand in getLens() to avoid nondeterministic slug collisions.
-  const lensRows = await db.select().from(semanticLenses).where(
-    and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
-  );
+  const [relRows, lensRows] = await Promise.all([
+    db.select().from(semanticMetricDimensions),
+    db.select().from(semanticLenses).where(
+      and(eq(semanticLenses.isActive, true), isNull(semanticLenses.tenantId)),
+    ),
+  ]);
 
   const metrics = new Map<string, MetricDef>();
   for (const row of metricRows) {
@@ -217,17 +222,39 @@ export async function listLenses(domain?: string): Promise<LensDef[]> {
   return domain ? all.filter((l) => l.domain === domain) : all;
 }
 
+// ── Tenant lens cache (30s TTL, max 200 entries) ─────────────────
+const TENANT_LENS_TTL_MS = 30_000;
+const TENANT_LENS_MAX = 200;
+const _tenantLensCache = new Map<string, { lens: LensDef | null; cachedAt: number }>();
+
 export async function getLens(slug: string, tenantId?: string): Promise<LensDef | null> {
   // Tenant-specific lens takes precedence over system lens (gotcha #130).
   if (tenantId) {
-    const [tenantLens] = await db.select().from(semanticLenses).where(
-      and(
-        eq(semanticLenses.slug, slug),
-        eq(semanticLenses.tenantId, tenantId),
-        eq(semanticLenses.isActive, true),
-      ),
-    );
-    if (tenantLens) return rowToLens(tenantLens);
+    const cacheKey = `${tenantId}:${slug}`;
+    const cached = _tenantLensCache.get(cacheKey);
+    if (cached && (Date.now() - cached.cachedAt) < TENANT_LENS_TTL_MS) {
+      // LRU: move to end
+      _tenantLensCache.delete(cacheKey);
+      _tenantLensCache.set(cacheKey, cached);
+      if (cached.lens) return cached.lens;
+      // cached.lens === null means no tenant-specific lens — fall through to system
+    } else {
+      const [tenantLens] = await db.select().from(semanticLenses).where(
+        and(
+          eq(semanticLenses.slug, slug),
+          eq(semanticLenses.tenantId, tenantId),
+          eq(semanticLenses.isActive, true),
+        ),
+      );
+      // Evict oldest if at capacity
+      if (_tenantLensCache.size >= TENANT_LENS_MAX) {
+        const firstKey = _tenantLensCache.keys().next().value;
+        if (firstKey !== undefined) _tenantLensCache.delete(firstKey);
+      }
+      const result = tenantLens ? rowToLens(tenantLens) : null;
+      _tenantLensCache.set(cacheKey, { lens: result, cachedAt: Date.now() });
+      if (result) return result;
+    }
   }
 
   // Fall back to cached system lens

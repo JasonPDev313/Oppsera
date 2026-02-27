@@ -15,6 +15,7 @@ const {
   mockValidateGeneratedSql,
   mockExecuteSqlQuery,
   mockRetrySqlGeneration,
+  _mockAdapterRef,
 } = vi.hoisted(() => ({
   mockLLMComplete: vi.fn(),
   mockCompilePlan: vi.fn(),
@@ -28,6 +29,7 @@ const {
   mockValidateGeneratedSql: vi.fn(),
   mockExecuteSqlQuery: vi.fn(),
   mockRetrySqlGeneration: vi.fn(),
+  _mockAdapterRef: { current: null as unknown },
 }));
 
 vi.mock('../executor', () => ({
@@ -96,6 +98,77 @@ vi.mock('../sql-executor', () => ({
 
 vi.mock('../sql-retry', () => ({
   retrySqlGeneration: mockRetrySqlGeneration,
+}));
+
+vi.mock('../adapters/anthropic', () => ({
+  getLLMAdapter: vi.fn().mockImplementation(() => _mockAdapterRef.current),
+  setLLMAdapter: vi.fn().mockImplementation((a: unknown) => { _mockAdapterRef.current = a; }),
+  SEMANTIC_FAST_MODEL: 'fast-model',
+}));
+
+vi.mock('../adapters/resilience', () => ({
+  guardPromptSize: vi.fn().mockImplementation((parts: Record<string, unknown>) => ({
+    basePrompt: parts.basePrompt ?? '',
+    schemaSection: parts.schemaSection ?? null,
+    examplesSection: parts.examplesSection ?? null,
+    ragSection: parts.ragSection ?? null,
+    wasTruncated: false,
+  })),
+  coalesceRequest: vi.fn().mockImplementation((_key: string, fn: () => Promise<unknown>) => fn()),
+  buildCoalesceKey: vi.fn().mockReturnValue('mock-key'),
+  getCircuitBreakerStatus: vi.fn().mockReturnValue({ state: 'CLOSED', totalTrips: 0, totalRejected: 0 }),
+}));
+
+vi.mock('../../rag/few-shot-retriever', () => ({
+  retrieveFewShotExamples: vi.fn().mockResolvedValue({ examples: [], snippet: '' }),
+}));
+
+vi.mock('../conversation-pruner', () => ({
+  pruneForIntentResolver: vi.fn().mockImplementation(
+    (msgs: Array<{ role: string; content: string }>) =>
+      msgs.filter((m) => m.role === 'user'),
+  ),
+}));
+
+vi.mock('../../cache/llm-cache', () => ({
+  getFromLLMCache: vi.fn().mockReturnValue(null),
+  setInLLMCache: vi.fn(),
+  hashSystemPrompt: vi.fn().mockReturnValue('mock-hash'),
+  getStaleFromLLMCache: vi.fn().mockReturnValue(null),
+}));
+
+vi.mock('../../cache/semantic-rate-limiter', () => ({
+  setAdaptiveBackoffLevel: vi.fn(),
+}));
+
+vi.mock('../../intelligence/follow-up-generator', () => ({
+  generateFollowUps: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('../../intelligence/chart-inferrer', () => ({
+  inferChartConfig: vi.fn().mockReturnValue(null),
+  inferChartConfigFromSqlResult: vi.fn().mockReturnValue(null),
+}));
+
+vi.mock('../fast-path', () => ({
+  tryFastPath: vi.fn().mockReturnValue(null),
+}));
+
+vi.mock('../../intelligence/data-quality-scorer', () => ({
+  scoreDataQuality: vi.fn().mockReturnValue({ score: 0.95, grade: 'A', factors: [] }),
+}));
+
+vi.mock('../../intelligence/plausibility-checker', () => ({
+  checkPlausibility: vi.fn().mockReturnValue({ plausible: true, grade: 'A', warnings: [] }),
+  formatPlausibilityForNarrative: vi.fn().mockReturnValue(null),
+}));
+
+vi.mock('../../pii/pii-masker', () => ({
+  maskRowsForLLM: vi.fn().mockImplementation((rows: unknown[]) => rows),
+}));
+
+vi.mock('@oppsera/shared', () => ({
+  generateUlid: vi.fn().mockReturnValue('mock-ulid-123'),
 }));
 
 // ── Imports ───────────────────────────────────────────────────────

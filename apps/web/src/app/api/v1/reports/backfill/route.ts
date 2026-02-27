@@ -59,7 +59,13 @@ export const POST = withMiddleware(
             o.location_id,
             o.business_date,
             coalesce(sum(t.amount) FILTER (WHERE t.tender_type = 'cash' AND t.status = 'captured'), 0) / 100.0 AS tender_cash,
-            coalesce(sum(t.amount) FILTER (WHERE t.tender_type = 'card' AND t.status = 'captured'), 0) / 100.0 AS tender_card
+            coalesce(sum(t.amount) FILTER (WHERE t.tender_type = 'card' AND t.status = 'captured'), 0) / 100.0 AS tender_card,
+            coalesce(sum(t.amount) FILTER (WHERE t.tender_type = 'gift_card' AND t.status = 'captured'), 0) / 100.0 AS tender_gift_card,
+            coalesce(sum(t.amount) FILTER (WHERE t.tender_type = 'house_account' AND t.status = 'captured'), 0) / 100.0 AS tender_house_account,
+            coalesce(sum(t.amount) FILTER (WHERE t.tender_type = 'ach' AND t.status = 'captured'), 0) / 100.0 AS tender_ach,
+            coalesce(sum(t.amount) FILTER (WHERE t.tender_type NOT IN ('cash', 'card', 'gift_card', 'house_account', 'ach') AND t.status = 'captured'), 0) / 100.0 AS tender_other,
+            coalesce(sum(t.tip_amount) FILTER (WHERE t.status = 'captured'), 0) / 100.0 AS tip_total,
+            coalesce(sum(coalesce(t.surcharge_amount_cents, 0)) FILTER (WHERE t.status = 'captured'), 0) / 100.0 AS surcharge_total
           FROM tenders t
           JOIN orders o ON o.id = t.order_id
           WHERE t.tenant_id = ${tenantId}
@@ -70,7 +76,8 @@ export const POST = withMiddleware(
         INSERT INTO rm_daily_sales (
           id, tenant_id, location_id, business_date,
           order_count, gross_sales, discount_total, tax_total, net_sales,
-          tender_cash, tender_card,
+          tender_cash, tender_card, tender_gift_card, tender_house_account,
+          tender_ach, tender_other, tip_total, surcharge_total,
           void_count, void_total, avg_order_value,
           updated_at
         )
@@ -86,6 +93,12 @@ export const POST = withMiddleware(
           oa.net_sales,
           coalesce(ta.tender_cash, 0),
           coalesce(ta.tender_card, 0),
+          coalesce(ta.tender_gift_card, 0),
+          coalesce(ta.tender_house_account, 0),
+          coalesce(ta.tender_ach, 0),
+          coalesce(ta.tender_other, 0),
+          coalesce(ta.tip_total, 0),
+          coalesce(ta.surcharge_total, 0),
           oa.void_count,
           oa.void_total,
           CASE WHEN oa.order_count > 0

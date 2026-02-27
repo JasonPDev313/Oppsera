@@ -41,6 +41,10 @@ export async function getAccountBalances(
     const limit = input.limit ?? 200;
     const queryLimit = limit + 1; // +1 for hasMore detection
 
+    // NOTE: The LEFT JOIN chain filters je by status='posted' in the ON clause.
+    // Without the (jl.id IS NULL OR je.id IS NOT NULL) guard, lines from non-posted
+    // entries (draft/error/voided) would have NULL je.* but non-NULL jl.* values,
+    // causing their amounts to be included in the SUM — corrupting balances.
     const rows = await tx.execute(sql`
       SELECT
         a.id AS account_id,
@@ -62,6 +66,7 @@ export async function getAccountBalances(
         ${dateFilter}
       WHERE a.tenant_id = ${input.tenantId}
         AND a.is_active = true
+        AND (jl.id IS NULL OR je.id IS NOT NULL)
         ${accountFilter}
         ${cursorFilter}
       GROUP BY a.id, a.account_number, a.name, a.account_type, a.normal_balance

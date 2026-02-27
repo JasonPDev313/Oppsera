@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
   const resolveTaxGroupAccount = vi.fn();
   const batchResolveSubDepartmentAccounts = vi.fn();
   const batchResolveTaxGroupAccounts = vi.fn();
+  const batchResolveDiscountGlMappings = vi.fn();
   const logUnmappedEvent = vi.fn();
   const getAccountingSettings = vi.fn();
   const postEntry = vi.fn();
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => {
     resolveTaxGroupAccount,
     batchResolveSubDepartmentAccounts,
     batchResolveTaxGroupAccounts,
+    batchResolveDiscountGlMappings,
     logUnmappedEvent,
     getAccountingSettings,
     postEntry,
@@ -39,6 +41,7 @@ vi.mock('../helpers/resolve-mapping', () => ({
   resolveTaxGroupAccount: mocks.resolveTaxGroupAccount,
   batchResolveSubDepartmentAccounts: mocks.batchResolveSubDepartmentAccounts,
   batchResolveTaxGroupAccounts: mocks.batchResolveTaxGroupAccounts,
+  batchResolveDiscountGlMappings: mocks.batchResolveDiscountGlMappings,
   logUnmappedEvent: mocks.logUnmappedEvent,
 }));
 
@@ -122,6 +125,7 @@ describe('handleTenderForAccounting', () => {
     mocks.getAccountingSettings.mockResolvedValue(defaultSettings);
     mocks.batchResolveSubDepartmentAccounts.mockResolvedValue(new Map([['subdept-1', defaultSubDeptMapping]]));
     mocks.batchResolveTaxGroupAccounts.mockResolvedValue(new Map());
+    mocks.batchResolveDiscountGlMappings.mockResolvedValue(new Map());
     mocks.logUnmappedEvent.mockResolvedValue(undefined);
     mocks.postEntry.mockResolvedValue(undefined);
   });

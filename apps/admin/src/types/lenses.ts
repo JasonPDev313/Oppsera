@@ -18,6 +18,7 @@ export interface SystemLens {
   defaultFilters: LensFilter[] | null;
   systemPromptFragment: string | null;
   exampleQuestions: string[] | null;
+  targetBusinessTypes: string[] | null;
   isActive: boolean;
   isSystem: boolean;
   createdAt: string;
@@ -36,6 +37,7 @@ export interface CreateSystemLensPayload {
   defaultFilters?: LensFilter[];
   systemPromptFragment?: string;
   exampleQuestions?: string[];
+  targetBusinessTypes?: string[];
 }
 
 export interface UpdateSystemLensPayload {
@@ -49,4 +51,5 @@ export interface UpdateSystemLensPayload {
   defaultFilters?: LensFilter[];
   systemPromptFragment?: string;
   exampleQuestions?: string[];
+  targetBusinessTypes?: string[] | null;
 }

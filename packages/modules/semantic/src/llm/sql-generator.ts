@@ -1,4 +1,4 @@
-import type { LLMAdapter, LLMMessage, IntentContext } from './types';
+import type { LLMAdapter, LLMMessage, IntentContext, LLMCompletionOptions } from './types';
 import { LLMError } from './types';
 import { getLLMAdapter, SEMANTIC_FAST_MODEL } from './adapters/anthropic';
 import type { SchemaCatalog } from '../schema/schema-catalog';
@@ -200,6 +200,8 @@ function parseSqlResponse(raw: string): RawSqlResponse {
 export interface GenerateSqlOptions {
   schemaCatalog: SchemaCatalog;
   adapter?: LLMAdapter;
+  /** Pre-fetched RAG snippet from intent resolution — avoids duplicate DB query */
+  ragExamplesSnippet?: string;
 }
 
 export async function generateSql(
@@ -207,27 +209,24 @@ export async function generateSql(
   context: IntentContext,
   opts: GenerateSqlOptions,
 ): Promise<SqlGeneratorResult> {
-  const { schemaCatalog, adapter } = opts;
+  const { schemaCatalog, adapter, ragExamplesSnippet: precomputedRag } = opts;
   const llm = adapter ?? getLLMAdapter();
 
-  // ── RAG: retrieve similar past SQL queries for few-shot injection ──
-  let ragExamplesSnippet = '';
-  try {
-    ragExamplesSnippet = await retrieveFewShotExamples(
-      userMessage,
-      context.tenantId,
-      { maxExamples: 3, includeSqlMode: true, includeMetricsMode: false },
-    );
-  } catch {
-    // RAG retrieval is best-effort — never block SQL generation
+  // ── RAG: use pre-fetched snippet from intent resolution, or fetch if not provided ──
+  let ragExamplesSnippet = precomputedRag ?? '';
+  if (!ragExamplesSnippet) {
+    try {
+      ragExamplesSnippet = await retrieveFewShotExamples(
+        userMessage,
+        context.tenantId,
+        { maxExamples: 3, includeSqlMode: true, includeMetricsMode: false },
+      );
+    } catch {
+      // RAG retrieval is best-effort — never block SQL generation
+    }
   }
 
-  let systemPrompt = buildSqlGeneratorPrompt(schemaCatalog, context);
-
-  // Append RAG examples to system prompt if any were found
-  if (ragExamplesSnippet) {
-    systemPrompt += '\n\n' + ragExamplesSnippet;
-  }
+  const systemPrompt = buildSqlGeneratorPrompt(schemaCatalog, context);
 
   // Include recent user messages for multi-turn context (token-aware pruning)
   const historyUserMessages = pruneForSqlGenerator(
@@ -239,13 +238,41 @@ export async function generateSql(
     { role: 'user', content: userMessage + '\n\nRespond ONLY with the JSON object. No prose.' },
   ];
 
+  // ── SEM-02: Split system prompt into static (cacheable) and dynamic parts ──
+  // The DB schema, money conventions, and common patterns are highly stable.
+  // Context (date, tenant, role) and RAG examples change per request.
+  const contextStart = systemPrompt.indexOf('\n## Context\n');
+  let completionOpts: LLMCompletionOptions;
+  if (contextStart > 0) {
+    const staticPart = systemPrompt.slice(0, contextStart).trimEnd();
+    let dynamicPart = systemPrompt.slice(contextStart);
+    if (ragExamplesSnippet) {
+      dynamicPart += '\n\n' + ragExamplesSnippet;
+    }
+    completionOpts = {
+      systemPromptParts: [
+        { text: staticPart, cacheControl: true },
+        { text: dynamicPart },
+      ],
+      temperature: 0,
+      maxTokens: 2048,
+      model: SEMANTIC_FAST_MODEL,
+    };
+  } else {
+    let finalPrompt = systemPrompt;
+    if (ragExamplesSnippet) {
+      finalPrompt += '\n\n' + ragExamplesSnippet;
+    }
+    completionOpts = {
+      systemPrompt: finalPrompt,
+      temperature: 0,
+      maxTokens: 2048,
+      model: SEMANTIC_FAST_MODEL,
+    };
+  }
+
   const startMs = Date.now();
-  const response = await llm.complete(messages, {
-    systemPrompt,
-    temperature: 0,
-    maxTokens: 2048,
-    model: SEMANTIC_FAST_MODEL, // Use fast model for structured JSON output
-  });
+  const response = await llm.complete(messages, completionOpts);
   const latencyMs = Date.now() - startMs;
 
   const parsed = parseSqlResponse(response.content);

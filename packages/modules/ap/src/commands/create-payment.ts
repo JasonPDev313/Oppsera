@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apPayments, apPaymentAllocations, apBills, vendors } from '@oppsera/db';
@@ -8,6 +9,10 @@ import type { CreatePaymentInput } from '../validation';
 
 export async function createPayment(ctx: RequestContext, input: CreatePaymentInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createPayment');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Validate vendor exists
     const [vendor] = await tx
       .select()
@@ -73,6 +78,8 @@ export async function createPayment(ctx: RequestContext, input: CreatePaymentInp
         amountApplied: alloc.amount,
       });
     }
+
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createPayment', payment!);
 
     return { result: payment!, events: [] };
   });

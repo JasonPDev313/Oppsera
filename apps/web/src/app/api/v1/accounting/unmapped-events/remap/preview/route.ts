@@ -44,7 +44,6 @@ export const POST = withMiddleware(
         .where(
           and(
             eq(glJournalEntries.tenantId, ctx.tenantId),
-            eq(glJournalEntries.sourceModule, 'pos'),
             eq(glJournalEntries.sourceReferenceId, tenderId),
             eq(glJournalEntries.status, 'posted'),
           ),

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { withAdminAuth } from '@/lib/auth';
+import { withAdminAuth } from '@/lib/with-admin-auth';
 import { listAdminLoginRecords, listLoginRecords } from '@oppsera/core/security';
 import { parseUserAgent } from '@oppsera/shared';
 

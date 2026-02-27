@@ -20,30 +20,32 @@ describe('getTrialBalance', () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
       const mockTx = {
-        execute: vi.fn().mockResolvedValueOnce([
-          {
-            account_id: 'acct-1',
-            account_number: '1010',
-            account_name: 'Cash',
-            account_type: 'asset',
-            classification_name: 'Cash & Bank',
-            normal_balance: 'debit',
-            debit_total: '500.00',
-            credit_total: '200.00',
-            net_balance: '300.00',
-          },
-          {
-            account_id: 'acct-2',
-            account_number: '4000',
-            account_name: 'Revenue',
-            account_type: 'revenue',
-            classification_name: 'Sales',
-            normal_balance: 'credit',
-            debit_total: '0',
-            credit_total: '300.00',
-            net_balance: '300.00',
-          },
-        ]),
+        execute: vi.fn()
+          .mockResolvedValueOnce([
+            {
+              account_id: 'acct-1',
+              account_number: '1010',
+              account_name: 'Cash',
+              account_type: 'asset',
+              classification_name: 'Cash & Bank',
+              normal_balance: 'debit',
+              debit_total: '500.00',
+              credit_total: '200.00',
+              net_balance: '300.00',
+            },
+            {
+              account_id: 'acct-2',
+              account_number: '4000',
+              account_name: 'Revenue',
+              account_type: 'revenue',
+              classification_name: 'Sales',
+              normal_balance: 'credit',
+              debit_total: '0',
+              credit_total: '300.00',
+              net_balance: '300.00',
+            },
+          ])
+          .mockResolvedValueOnce([{ cnt: 0 }]),
       };
       return fn(mockTx);
     });
@@ -60,30 +62,32 @@ describe('getTrialBalance', () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
       const mockTx = {
-        execute: vi.fn().mockResolvedValueOnce([
-          {
-            account_id: 'acct-1',
-            account_number: '1010',
-            account_name: 'Cash',
-            account_type: 'asset',
-            classification_name: 'Cash & Bank',
-            normal_balance: 'debit',
-            debit_total: '500.00',
-            credit_total: '0',
-            net_balance: '500.00',
-          },
-          {
-            account_id: 'acct-2',
-            account_number: '4000',
-            account_name: 'Revenue',
-            account_type: 'revenue',
-            classification_name: 'Sales',
-            normal_balance: 'credit',
-            debit_total: '0',
-            credit_total: '300.00',
-            net_balance: '300.00',
-          },
-        ]),
+        execute: vi.fn()
+          .mockResolvedValueOnce([
+            {
+              account_id: 'acct-1',
+              account_number: '1010',
+              account_name: 'Cash',
+              account_type: 'asset',
+              classification_name: 'Cash & Bank',
+              normal_balance: 'debit',
+              debit_total: '500.00',
+              credit_total: '0',
+              net_balance: '500.00',
+            },
+            {
+              account_id: 'acct-2',
+              account_number: '4000',
+              account_name: 'Revenue',
+              account_type: 'revenue',
+              classification_name: 'Sales',
+              normal_balance: 'credit',
+              debit_total: '0',
+              credit_total: '300.00',
+              net_balance: '300.00',
+            },
+          ])
+          .mockResolvedValueOnce([{ cnt: 0 }]),
       };
       return fn(mockTx);
     });
@@ -99,7 +103,9 @@ describe('getTrialBalance', () => {
     const { withTenant } = await import('@oppsera/db');
     (withTenant as any).mockImplementationOnce(async (_tenantId: string, fn: any) => {
       const mockTx = {
-        execute: vi.fn().mockResolvedValueOnce([]),
+        execute: vi.fn()
+          .mockResolvedValueOnce([])
+          .mockResolvedValueOnce([{ cnt: 0 }]),
       };
       return fn(mockTx);
     });

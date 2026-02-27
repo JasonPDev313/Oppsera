@@ -1,20 +1,28 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  CreditCard,
+  DollarSign,
+  HandCoins,
   Info,
+  Layers,
   Package,
   Plus,
+  Receipt,
   RefreshCw,
   Sparkles,
+  Tag,
   Trash2,
 } from 'lucide-react';
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
+import { GLReadinessBanner } from '@/components/accounting/gl-readiness-banner';
 import { AccountPicker, getSuggestedAccount } from '@/components/accounting/account-picker';
 import { useGLAccounts } from '@/hooks/use-accounting';
 import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
@@ -32,7 +40,10 @@ import {
   useDiscountMappings,
   useDiscountMappingCoverage,
   useDiscountMappingMutations,
+  useSmartResolutionSuggestions,
+  useApplySmartResolutions,
 } from '@/hooks/use-mappings';
+import type { SmartSuggestion } from '@/hooks/use-mappings';
 import { useAuthContext } from '@/components/auth-provider';
 import { useToast } from '@/components/ui/toast';
 import { useRemappableTenders } from '@/hooks/use-gl-remap';
@@ -78,6 +89,8 @@ export default function MappingsContent() {
       title="GL Account Mappings"
       breadcrumbs={[{ label: 'Mappings' }]}
     >
+      <GLReadinessBanner />
+
       {/* Coverage Summary */}
       {coverage && (
         <div className="rounded-lg border border-border bg-surface p-5 space-y-4">
@@ -1831,23 +1844,117 @@ function FnbCategoryMappingsTab({ onNavigateToSubDepartments }: { onNavigateToSu
   );
 }
 
-// ── Unmapped Events ──────────────────────────────────────────
+// ── Unmapped Events (Smart Resolution) ──────────────────────
+
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+  sub_department: 'Revenue Accounts',
+  payment_type: 'Payment Types',
+  tax_group: 'Tax Groups',
+  discount_account: 'Discount Accounts',
+  tips_payable_account: 'Tips Payable',
+  service_charge_account: 'Service Charge',
+  posting_error: 'Posting Errors',
+  no_line_detail: 'Missing Line Detail',
+};
+
+const ENTITY_TYPE_ICONS: Record<string, React.ReactNode> = {
+  sub_department: <Layers className="h-4 w-4 text-indigo-500" />,
+  payment_type: <CreditCard className="h-4 w-4 text-blue-500" />,
+  tax_group: <Receipt className="h-4 w-4 text-amber-500" />,
+  discount_account: <Tag className="h-4 w-4 text-orange-500" />,
+  tips_payable_account: <HandCoins className="h-4 w-4 text-green-500" />,
+  service_charge_account: <DollarSign className="h-4 w-4 text-teal-500" />,
+};
+
+const CONFIDENCE_STYLES: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  high: { bg: 'bg-green-500/10', text: 'text-green-500', border: '', label: 'Auto-resolve' },
+  medium: { bg: 'bg-amber-500/10', text: 'text-amber-500', border: '', label: 'Review suggested' },
+  low: { bg: 'bg-red-500/10', text: 'text-red-500', border: 'border border-dashed border-red-500/30', label: 'Needs review' },
+};
 
 function UnmappedEventsTab() {
+  const [view, setView] = useState<'smart' | 'events'>('smart');
   const [statusFilter, setStatusFilter] = useState<'unresolved' | 'resolved' | undefined>('unresolved');
-  const { data: events, isLoading, mutate } = useUnmappedEvents({ status: statusFilter });
+  const [deselected, setDeselected] = useState<Set<string>>(new Set());
+  const { data: events, isLoading: eventsLoading, mutate } = useUnmappedEvents({ status: statusFilter });
   const { resolveEvent } = useUnmappedEventMutations();
+  const { data: smartData, isLoading: smartLoading, error: smartError, refetch: refetchSmart } = useSmartResolutionSuggestions();
+  const applyMutation = useApplySmartResolutions();
   const { toast } = useToast();
   const { data: remappable, refetch: refetchRemappable } = useRemappableTenders();
+  const queryClient = useQueryClient();
   const [remapDialogOpen, setRemapDialogOpen] = useState(false);
 
   const remappableCount = remappable.filter(t => t.canRemap).length;
+
+  // Group suggestions by entity type
+  const suggestionGroups = useMemo(() => {
+    if (!smartData?.suggestions) return [];
+    const map = new Map<string, SmartSuggestion[]>();
+    for (const s of smartData.suggestions) {
+      const list = map.get(s.entityType) ?? [];
+      list.push(s);
+      map.set(s.entityType, list);
+    }
+    return Array.from(map.entries()).map(([type, items]) => {
+      const actionable = items.filter((s) => !s.alreadyMapped);
+      const autoResolvable = actionable.filter((s) => s.confidence === 'high' || s.confidence === 'medium');
+      return {
+        type,
+        label: ENTITY_TYPE_LABELS[type] ?? type.replace(/_/g, ' '),
+        icon: ENTITY_TYPE_ICONS[type] ?? null,
+        items,
+        totalEvents: items.reduce((sum, s) => sum + s.eventCount, 0),
+        actionableCount: actionable.length,
+        autoResolvableCount: autoResolvable.length,
+      };
+    });
+  }, [smartData]);
+
+  // Count selected (non-deselected, actionable) suggestions
+  const actionableSuggestions = useMemo(() => {
+    if (!smartData?.suggestions) return [];
+    return smartData.suggestions.filter(
+      (s) => !s.alreadyMapped && !deselected.has(`${s.entityType}:${s.entityId}`),
+    );
+  }, [smartData, deselected]);
+
+  const toggleSuggestion = (s: SmartSuggestion) => {
+    const key = `${s.entityType}:${s.entityId}`;
+    setDeselected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleAutoResolveAll = async () => {
+    if (actionableSuggestions.length === 0) return;
+    try {
+      const result = await applyMutation.mutateAsync(
+        actionableSuggestions.map((s) => ({
+          entityType: s.entityType,
+          entityId: s.entityId,
+          suggestedAccountId: s.suggestedAccountId,
+        })),
+      );
+      const parts: string[] = [];
+      if (result.mappingsCreated > 0) parts.push(`${result.mappingsCreated} mapping${result.mappingsCreated !== 1 ? 's' : ''} created`);
+      if (result.eventsResolved > 0) parts.push(`${result.eventsResolved} event${result.eventsResolved !== 1 ? 's' : ''} resolved`);
+      if (result.remapped > 0) parts.push(`${result.remapped} GL entr${result.remapped !== 1 ? 'ies' : 'y'} remapped`);
+      if (result.failed > 0) parts.push(`${result.failed} remap${result.failed !== 1 ? 's' : ''} failed`);
+      toast.success(parts.join(', ') || 'Smart resolution complete');
+      setDeselected(new Set());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Smart resolution failed');
+    }
+  };
 
   const handleResolve = async (id: string) => {
     try {
       await resolveEvent.mutateAsync({ id, note: 'Manually resolved' });
       toast.success('Event marked as resolved');
-      mutate();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to resolve');
     }
@@ -1856,107 +1963,319 @@ function UnmappedEventsTab() {
   const handleRemapComplete = () => {
     mutate();
     refetchRemappable();
+    refetchSmart();
+    queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
     toast.success('GL entries remapped successfully');
   };
 
+  const isLoading = view === 'smart' ? smartLoading : eventsLoading;
+
   if (isLoading) {
-    return <div className="space-y-3">{Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-14 animate-pulse rounded-lg bg-muted" />)}</div>;
+    return <div className="space-y-3">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-16 animate-pulse rounded-lg bg-muted" />)}</div>;
   }
 
   return (
     <div className="space-y-4">
-      {/* Remap banner */}
-      {remappable.length > 0 && (
-        <div className="flex items-center justify-between rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
-          <div className="flex items-center gap-3">
-            <RefreshCw aria-hidden="true" className="h-5 w-5 text-indigo-500 shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {remappableCount > 0
-                  ? `${remappableCount} transaction${remappableCount !== 1 ? 's' : ''} can be retroactively corrected`
-                  : `${remappable.length} transaction${remappable.length !== 1 ? 's' : ''} with unmapped GL entries`}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {remappableCount > 0
-                  ? 'GL account mappings now exist for these tenders. Preview and remap their GL entries.'
-                  : 'Configure the missing mappings above, then return here to remap.'}
-              </p>
-            </div>
-          </div>
-          {remappableCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setRemapDialogOpen(true)}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 shrink-0"
-            >
-              Preview & Remap
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        {(['unresolved', 'resolved'] as const).map((s) => (
+      {/* View toggle + Remap banner */}
+      <div className="flex items-center justify-between">
+        <div className="flex gap-2">
           <button
-            key={s}
             type="button"
-            onClick={() => setStatusFilter(s)}
-            className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
-              statusFilter === s
+            onClick={() => setView('smart')}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+              view === 'smart'
                 ? 'bg-indigo-500/20 text-indigo-500'
                 : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
-            {s.charAt(0).toUpperCase() + s.slice(1)}
+            <Sparkles aria-hidden="true" className="h-3.5 w-3.5" />
+            Smart Resolve
           </button>
-        ))}
+          <button
+            type="button"
+            onClick={() => setView('events')}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+              view === 'events'
+                ? 'bg-indigo-500/20 text-indigo-500'
+                : 'bg-muted text-muted-foreground hover:bg-accent'
+            }`}
+          >
+            <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5" />
+            All Events
+          </button>
+        </div>
+        {remappableCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setRemapDialogOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 px-3 py-1.5 text-sm font-medium text-indigo-500 hover:bg-indigo-500/10"
+          >
+            <RefreshCw aria-hidden="true" className="h-3.5 w-3.5" />
+            Remap {remappableCount} GL {remappableCount !== 1 ? 'entries' : 'entry'}
+          </button>
+        )}
       </div>
 
-      {events.length === 0 && (
-        <AccountingEmptyState
-          title={statusFilter === 'unresolved' ? 'No unmapped events' : 'No resolved events'}
-          description={statusFilter === 'unresolved' ? 'All POS transactions are mapping to GL accounts correctly.' : 'No events have been resolved yet.'}
-        />
-      )}
+      {/* ── Smart Resolve view ── */}
+      {view === 'smart' && (
+        <>
+          {/* Error state */}
+          {smartError && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle aria-hidden="true" className="h-5 w-5 text-red-500 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">Failed to load smart resolution suggestions</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{smartError instanceof Error ? smartError.message : 'An unexpected error occurred'}</p>
+                </div>
+                <button type="button" onClick={() => refetchSmart()} className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent shrink-0">
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
 
-      {events.length > 0 && (
-        <div className="space-y-2">
-          {events.map((event) => (
-            <div key={event.id} className="flex items-center justify-between rounded-lg border border-border bg-surface p-4">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">
-                  {event.reason}
-                </p>
-                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span>{event.eventType.replace(/_/g, ' ')}</span>
-                  <span>·</span>
-                  <span>{event.sourceModule}</span>
-                  <span>·</span>
-                  <span>{new Date(event.createdAt).toLocaleDateString()}</span>
+          {/* Summary banner */}
+          {smartData && smartData.suggestions.length > 0 && (() => {
+            const actionableEvents = smartData.totalEvents - smartData.skippedErrors;
+            const allResolved = actionableSuggestions.length === 0 && smartData.alreadyMapped > 0;
+            return (
+              <div className={`rounded-lg border p-4 ${allResolved ? 'border-green-500/30 bg-green-500/10' : 'border-amber-500/30 bg-amber-500/10'}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    {allResolved
+                      ? <CheckCircle aria-hidden="true" className="mt-0.5 h-5 w-5 text-green-500 shrink-0" />
+                      : <Sparkles aria-hidden="true" className="mt-0.5 h-5 w-5 text-amber-500 shrink-0" />
+                    }
+                    <div>
+                      <p className="text-sm font-medium text-foreground">
+                        {allResolved
+                          ? 'All mappings are configured'
+                          : `${actionableEvents} unmapped event${actionableEvents !== 1 ? 's' : ''}, ${smartData.suggestions.length} suggested mapping${smartData.suggestions.length !== 1 ? 's' : ''}`
+                        }
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {allResolved
+                          ? `${smartData.alreadyMapped} event${smartData.alreadyMapped !== 1 ? 's' : ''} will auto-resolve on the next POS transaction.`
+                          : smartData.autoResolvable > 0
+                            ? `${smartData.autoResolvable} event${smartData.autoResolvable !== 1 ? 's' : ''} can be auto-resolved with high-confidence GL account matches.`
+                            : 'Review the suggested mappings below and apply them to resolve these events.'
+                        }
+                        {!allResolved && smartData.alreadyMapped > 0 && ` ${smartData.alreadyMapped} already mapped.`}
+                      </p>
+                    </div>
+                  </div>
+                  {actionableSuggestions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleAutoResolveAll}
+                      disabled={applyMutation.isPending}
+                      className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 disabled:opacity-50 shrink-0"
+                    >
+                      {applyMutation.isPending ? (
+                        <>
+                          <RefreshCw aria-hidden="true" className="h-4 w-4 animate-spin" />
+                          Applying...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle aria-hidden="true" className="h-4 w-4" />
+                          Auto Resolve All ({actionableSuggestions.length})
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
-              {!event.resolvedAt ? (
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/accounting/mappings"
-                    className="text-sm text-indigo-500 hover:text-indigo-400"
-                  >
-                    Fix Mapping
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleResolve(event.id)}
-                    className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent"
-                  >
-                    Resolve
-                  </button>
-                </div>
-              ) : (
-                <span className="text-xs text-green-500">Resolved</span>
-              )}
+            );
+          })()}
+
+          {/* No events at all */}
+          {smartData && smartData.totalEvents === 0 && (
+            <AccountingEmptyState
+              title="No unmapped events"
+              description="All transactions are mapping to GL accounts correctly."
+            />
+          )}
+
+          {/* Suggestion groups */}
+          {suggestionGroups.map((group) => (
+            <div key={group.type} className="rounded-lg border border-border bg-surface">
+              <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+                <span className="shrink-0" aria-hidden="true">{group.icon}</span>
+                <h3 className="text-sm font-semibold text-foreground">{group.label}</h3>
+                {group.autoResolvableCount > 0 && (
+                  <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-semibold text-green-500">
+                    {group.autoResolvableCount} of {group.items.length} auto-resolvable
+                  </span>
+                )}
+                <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                  {group.totalEvents} event{group.totalEvents !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="divide-y divide-border">
+                {group.items.map((suggestion) => {
+                  const key = `${suggestion.entityType}:${suggestion.entityId}`;
+                  const isSelected = !suggestion.alreadyMapped && !deselected.has(key);
+                  const conf = CONFIDENCE_STYLES[suggestion.confidence] ?? CONFIDENCE_STYLES.low!;
+                  const isLowConf = suggestion.confidence === 'low' && !suggestion.alreadyMapped;
+                  return (
+                    <div key={key} className={`flex items-center gap-3 px-4 py-3 ${suggestion.alreadyMapped ? 'opacity-50' : ''} ${isLowConf ? 'bg-red-500/5' : ''}`}>
+                      {/* Checkbox */}
+                      {!suggestion.alreadyMapped ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleSuggestion(suggestion)}
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
+                            isSelected
+                              ? 'border-green-500 bg-green-500 text-white'
+                              : 'border-border bg-surface hover:border-muted-foreground'
+                          }`}
+                          aria-label={isSelected ? 'Deselect suggestion' : 'Select suggestion'}
+                        >
+                          {isSelected && (
+                            <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </button>
+                      ) : (
+                        <CheckCircle aria-hidden="true" className="h-5 w-5 shrink-0 text-green-500" />
+                      )}
+
+                      {/* Entity info */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground truncate">
+                            {suggestion.entityName}
+                          </span>
+                          {!suggestion.alreadyMapped && (
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${conf.bg} ${conf.text}`}>
+                              {conf.label}
+                            </span>
+                          )}
+                          {suggestion.alreadyMapped && (
+                            <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] font-semibold text-green-500">
+                              Mapped
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {suggestion.alreadyMapped
+                            ? `Mapping exists \u2014 apply to resolve ${suggestion.eventCount} stale event${suggestion.eventCount !== 1 ? 's' : ''}`
+                            : suggestion.reason}
+                        </p>
+                      </div>
+
+                      {/* Mapping arrow */}
+                      <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+
+                      {/* Suggested account */}
+                      <div className="shrink-0 text-right">
+                        <p className="text-sm font-mono font-medium text-foreground">
+                          {suggestion.suggestedAccountNumber}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate max-w-[180px]">
+                          {suggestion.suggestedAccountName}
+                        </p>
+                      </div>
+
+                      {/* Event count */}
+                      <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                        {suggestion.eventCount} event{suggestion.eventCount !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           ))}
-        </div>
+
+          {/* Posting errors that need manual investigation */}
+          {smartData && smartData.skippedErrors > 0 && (
+            <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
+              <div className="flex items-center gap-3">
+                <Info aria-hidden="true" className="h-5 w-5 text-red-400 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    {smartData.skippedErrors} posting error{smartData.skippedErrors !== 1 ? 's' : ''} need manual review
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    These are GL posting failures (missing data, validation errors) that can&apos;t be auto-resolved with mapping changes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setView('events')}
+                  className="rounded-lg border border-red-500/30 px-3 py-1.5 text-sm font-medium text-red-400 hover:bg-red-500/10 shrink-0"
+                >
+                  Investigate
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── All Events view ── */}
+      {view === 'events' && (
+        <>
+          <div className="flex gap-2">
+            {(['unresolved', 'resolved'] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                  statusFilter === s
+                    ? 'bg-indigo-500/20 text-indigo-500'
+                    : 'bg-muted text-muted-foreground hover:bg-accent'
+                }`}
+              >
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {events.length === 0 && (
+            <AccountingEmptyState
+              title={statusFilter === 'unresolved' ? 'No unmapped events' : 'No resolved events'}
+              description={statusFilter === 'unresolved' ? 'All transactions are mapping to GL accounts correctly.' : 'No events have been resolved yet.'}
+            />
+          )}
+
+          {events.length > 0 && (
+            <div className="space-y-2">
+              {events.map((event) => (
+                <div key={event.id} className="flex items-center justify-between rounded-lg border border-border bg-surface p-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {event.reason}
+                    </p>
+                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      <span>{event.eventType.replace(/_/g, ' ')}</span>
+                      <span>·</span>
+                      <span>{event.sourceModule}</span>
+                      <span>·</span>
+                      <span>{new Date(event.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  {!event.resolvedAt ? (
+                    <button
+                      type="button"
+                      onClick={() => handleResolve(event.id)}
+                      className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-accent shrink-0"
+                    >
+                      Resolve
+                    </button>
+                  ) : (
+                    <span className="text-xs text-green-500">Resolved</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <RemapPreviewDialog

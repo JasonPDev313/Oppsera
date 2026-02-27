@@ -2,19 +2,22 @@ import { eq, and, sql } from 'drizzle-orm';
 import { withTenant, locations } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
+import { z } from 'zod';
 import { computeBusinessDate } from '../business-date';
 
-interface OrderVoidedData {
-  orderId: string;
-  locationId: string;
-  occurredAt?: string;
-  total: number;
-  lines?: Array<{
-    catalogItemId: string;
-    qty?: number;
-    lineTotal?: number;
-  }>;
-}
+const orderVoidedSchema = z.object({
+  orderId: z.string(),
+  locationId: z.string(),
+  occurredAt: z.string().optional(),
+  total: z.number(),
+  lines: z.array(z.object({
+    catalogItemId: z.string(),
+    qty: z.number().optional(),
+    lineTotal: z.number().optional(),
+  })).optional(),
+});
+
+type _OrderVoidedData = z.infer<typeof orderVoidedSchema>;
 
 const CONSUMER_NAME = 'reporting.orderVoided';
 
@@ -22,15 +25,24 @@ const CONSUMER_NAME = 'reporting.orderVoided';
  * Handles order.voided.v1 events.
  *
  * Atomically:
- * 1. Insert processed_events (idempotency)
- * 2. Upsert rm_daily_sales — increment voidCount/voidTotal, decrease netSales
- * 3. Upsert rm_item_sales — increment quantityVoided/voidRevenue per line
+ * 1. Validate event payload with Zod schema
+ * 2. Insert processed_events (idempotency)
+ * 3. Upsert rm_daily_sales — increment voidCount/voidTotal, decrease netSales
+ * 4. Upsert rm_item_sales — increment quantityVoided/voidRevenue per line
  *
  * NOTE: Voids do NOT decrement orderCount. avgOrderValue is recomputed
  * using the original orderCount but the adjusted netSales.
  */
 export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
-  const data = event.data as unknown as OrderVoidedData;
+  const parsed = orderVoidedSchema.safeParse(event.data);
+  if (!parsed.success) {
+    console.error(
+      `[${CONSUMER_NAME}] Invalid event payload for event ${event.eventId}:`,
+      parsed.error.issues,
+    );
+    return; // Skip — corrupt payload would produce NaN in read models
+  }
+  const data = parsed.data;
 
   await withTenant(event.tenantId, async (tx) => {
     // Step 1: Atomic idempotency check

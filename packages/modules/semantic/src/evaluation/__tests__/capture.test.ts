@@ -25,6 +25,9 @@ vi.mock('@oppsera/db', () => ({
     update: mockUpdate,
     execute: mockExecute,
   },
+  withTenant: vi.fn((_tenantId: string, cb: (tx: unknown) => Promise<unknown>) =>
+    cb({ insert: mockInsert, update: mockUpdate, execute: mockExecute }),
+  ),
   semanticEvalTurns: { $inferSelect: {} },
   semanticEvalSessions: {
     messageCount: 'message_count',

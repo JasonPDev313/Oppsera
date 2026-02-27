@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { User, UserPlus, RefreshCw, Eye, Search, Loader2 } from 'lucide-react';
+import { CustomerTagChips } from '@/components/pos/CustomerTagChips';
 import { apiFetch } from '@/lib/api-client';
 import {
   type CachedCustomer,
@@ -151,32 +152,35 @@ export function CustomerAttachment({
   if (customerId && !showChangeSearch) {
     const displayLabel = customerName || attachedName || customerId;
     return (
-      <div ref={containerRef} className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 px-2.5 py-1.5">
-          <User className="h-3.5 w-3.5 text-indigo-500" />
-          <span className="text-sm font-medium text-indigo-500 max-w-40 truncate">{displayLabel}</span>
+      <div ref={containerRef} className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 rounded-md bg-indigo-500/10 px-2.5 py-1.5">
+            <User className="h-3.5 w-3.5 text-indigo-500" />
+            <span className="text-sm font-medium text-indigo-500 max-w-40 truncate">{displayLabel}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onViewProfile?.(customerId)}
+            className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-indigo-500 transition-colors hover:bg-indigo-500/10"
+            title="View customer profile"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View Profile
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowChangeSearch(true);
+              setQuery('');
+            }}
+            className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title="Change or detach customer"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Change
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onViewProfile?.(customerId)}
-          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-indigo-500 transition-colors hover:bg-indigo-500/10"
-          title="View customer profile"
-        >
-          <Eye className="h-3.5 w-3.5" />
-          View Profile
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setShowChangeSearch(true);
-            setQuery('');
-          }}
-          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          title="Change or detach customer"
-        >
-          <RefreshCw className="h-3 w-3" />
-          Change
-        </button>
+        <CustomerTagChips customerId={customerId} maxVisible={3} size="xs" />
       </div>
     );
   }

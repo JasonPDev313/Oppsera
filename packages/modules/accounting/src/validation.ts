@@ -261,6 +261,7 @@ export const createSettlementSchema = z.object({
   businessDateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   businessDateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   notes: z.string().optional(),
+  clientRequestId: z.string().optional(),
   lines: z.array(z.object({
     originalAmountCents: z.number().int(),
     settledAmountCents: z.number().int(),
@@ -293,6 +294,7 @@ export type MatchSettlementTendersInput = z.input<typeof matchSettlementTendersS
 export const postSettlementSchema = z.object({
   settlementId: z.string().min(1),
   force: z.boolean().optional().default(false),
+  clientRequestId: z.string().optional(),
 });
 
 export type PostSettlementInput = z.input<typeof postSettlementSchema>;
@@ -300,6 +302,7 @@ export type PostSettlementInput = z.input<typeof postSettlementSchema>;
 export const voidSettlementSchema = z.object({
   settlementId: z.string().min(1),
   reason: z.string().min(1),
+  clientRequestId: z.string().optional(),
 });
 
 export type VoidSettlementInput = z.input<typeof voidSettlementSchema>;
@@ -318,6 +321,7 @@ export const createTipPayoutSchema = z.object({
   payrollPeriod: z.string().optional(),
   approvedBy: z.string().optional(),
   notes: z.string().optional(),
+  clientRequestId: z.string().optional(),
 });
 
 export type CreateTipPayoutInput = z.input<typeof createTipPayoutSchema>;
@@ -325,6 +329,7 @@ export type CreateTipPayoutInput = z.input<typeof createTipPayoutSchema>;
 export const voidTipPayoutSchema = z.object({
   payoutId: z.string().min(1),
   reason: z.string().min(1),
+  clientRequestId: z.string().optional(),
 });
 
 export type VoidTipPayoutInput = z.input<typeof voidTipPayoutSchema>;
@@ -501,6 +506,7 @@ export type ValidateCsvPreviewInput = z.input<typeof validateCsvPreviewSchema>;
 export const mergeGlAccountsSchema = z.object({
   sourceAccountId: z.string().min(1),
   targetAccountId: z.string().min(1),
+  clientRequestId: z.string().optional(),
 });
 
 export type MergeGlAccountsInput = z.input<typeof mergeGlAccountsSchema>;

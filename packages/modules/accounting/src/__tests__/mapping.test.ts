@@ -40,6 +40,10 @@ vi.mock('@oppsera/core/audit/helpers', () => ({
   auditLog: vi.fn(),
 }));
 
+vi.mock('../helpers/ensure-accounting-settings', () => ({
+  ensureAccountingSettings: vi.fn().mockResolvedValue({ created: false, autoWired: 0 }),
+}));
+
 vi.mock('@oppsera/shared', () => ({
   generateUlid: vi.fn(() => `ulid-${Math.random().toString(36).slice(2, 8)}`),
   NotFoundError: class extends Error {

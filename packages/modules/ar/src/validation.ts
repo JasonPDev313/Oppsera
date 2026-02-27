@@ -56,6 +56,7 @@ export const postInvoiceSchema = z.object({
   invoiceId: z.string().min(1),
   businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   forcePost: z.boolean().optional().default(false),
+  clientRequestId: z.string().optional(),
 });
 
 export type PostInvoiceInput = z.input<typeof postInvoiceSchema>;
@@ -64,6 +65,7 @@ export type PostInvoiceInput = z.input<typeof postInvoiceSchema>;
 export const voidInvoiceSchema = z.object({
   invoiceId: z.string().min(1),
   reason: z.string().min(1).max(500),
+  clientRequestId: z.string().optional(),
 });
 
 export type VoidInvoiceInput = z.input<typeof voidInvoiceSchema>;
@@ -96,6 +98,7 @@ export type CreateReceiptInput = z.input<typeof createReceiptSchema>;
 export const postReceiptSchema = z.object({
   receiptId: z.string().min(1),
   businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  clientRequestId: z.string().optional(),
 });
 
 export type PostReceiptInput = z.input<typeof postReceiptSchema>;
@@ -104,6 +107,7 @@ export type PostReceiptInput = z.input<typeof postReceiptSchema>;
 export const voidReceiptSchema = z.object({
   receiptId: z.string().min(1),
   reason: z.string().min(1).max(500),
+  clientRequestId: z.string().optional(),
 });
 
 export type VoidReceiptInput = z.input<typeof voidReceiptSchema>;

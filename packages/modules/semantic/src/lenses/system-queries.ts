@@ -25,6 +25,7 @@ function rowToSystemLens(row: typeof semanticLenses.$inferSelect): SystemLensRow
     defaultFilters: (row.defaultFilters as SystemLensRow['defaultFilters']) ?? null,
     systemPromptFragment: row.systemPromptFragment ?? null,
     exampleQuestions: row.exampleQuestions ?? null,
+    targetBusinessTypes: row.targetBusinessTypes ?? null,
     isActive: row.isActive,
     isSystem: row.isSystem,
     createdAt: row.createdAt.toISOString(),

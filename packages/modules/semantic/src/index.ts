@@ -34,3 +34,6 @@ export * from './config';
 
 // ── PII masking ──────────────────────────────────────────────
 export { maskRowsForLLM, maskFreeText } from './pii/pii-masker';
+
+// ── MCP resource exposure ─────────────────────────────────────
+export * from './mcp';

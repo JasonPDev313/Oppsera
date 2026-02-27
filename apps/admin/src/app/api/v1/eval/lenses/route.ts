@@ -9,6 +9,10 @@ import {
   DuplicateLensSlugError,
   InvalidLensSlugError,
 } from '@oppsera/module-semantic/lenses';
+import { BUSINESS_VERTICALS } from '@oppsera/shared';
+
+const validBusinessTypes = BUSINESS_VERTICALS.map((v) => v.key);
+const businessTypeItem = z.string().refine((v) => validBusinessTypes.includes(v), { message: 'Invalid business type' });
 
 // ── Validation ────────────────────────────────────────────────────
 
@@ -30,6 +34,7 @@ const createLensSchema = z.object({
   defaultFilters: z.array(lensFilterSchema).optional(),
   systemPromptFragment: z.string().max(2000).optional(),
   exampleQuestions: z.array(z.string().max(256)).max(10).optional(),
+  targetBusinessTypes: z.array(businessTypeItem).optional(),
 });
 
 // ── GET /api/v1/eval/lenses ──────────────────────────────────────

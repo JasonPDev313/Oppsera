@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
   apBills,
@@ -21,6 +22,7 @@ interface CreateBillFromReceiptInput {
   inventoryAccountId: string;
   /** GL account for freight/shipping charges. Required if receipt has shipping cost. */
   freightAccountId?: string;
+  clientRequestId?: string;
 }
 
 export async function createBillFromReceipt(
@@ -28,6 +30,9 @@ export async function createBillFromReceipt(
   input: CreateBillFromReceiptInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createBillFromReceipt');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load receipt
     const [receipt] = await tx
       .select()
@@ -183,8 +188,10 @@ export async function createBillFromReceipt(
       await tx.insert(apBillLines).values(line);
     }
 
+    const billResult = { ...bill!, lines: billLines };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createBillFromReceipt', billResult);
     return {
-      result: { ...bill!, lines: billLines },
+      result: billResult,
       events: [], // Draft bill — no events
     };
   });

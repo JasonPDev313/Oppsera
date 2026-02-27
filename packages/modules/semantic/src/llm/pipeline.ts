@@ -1,7 +1,7 @@
-import type { PipelineInput, PipelineOutput, QueryResult } from './types';
+import type { PipelineInput, PipelineOutput, QueryResult, SSEEvent, StreamCallbacks } from './types';
 import { resolveIntent } from './intent-resolver';
 import { executeCompiledQuery } from './executor';
-import { generateNarrative, buildEmptyResultNarrative, buildDataFallbackNarrative } from './narrative';
+import { generateNarrative, generateNarrativeStreaming, buildEmptyResultNarrative, buildDataFallbackNarrative } from './narrative';
 import { generateSql } from './sql-generator';
 import { validateGeneratedSql } from './sql-validator';
 import { executeSqlQuery } from './sql-executor';
@@ -9,6 +9,7 @@ import { retrySqlGeneration } from './sql-retry';
 import { compilePlan } from '../compiler/compiler';
 import { buildRegistryCatalog, getLens } from '../registry/registry';
 import { buildSchemaCatalog } from '../schema/schema-catalog';
+import type { SchemaCatalog } from '../schema/schema-catalog';
 import { getEvalCaptureService } from '../evaluation/capture';
 import { getLLMAdapter, setLLMAdapter } from './adapters/anthropic';
 import { getFromQueryCache, setInQueryCache } from '../cache/query-cache';
@@ -18,11 +19,18 @@ import { generateUlid } from '@oppsera/shared';
 import { coalesceRequest, buildCoalesceKey, getCircuitBreakerStatus } from './adapters/resilience';
 import { setAdaptiveBackoffLevel } from '../cache/semantic-rate-limiter';
 import { generateFollowUps } from '../intelligence/follow-up-generator';
-import { inferChartConfig } from '../intelligence/chart-inferrer';
+import { inferChartConfig, inferChartConfigFromSqlResult } from '../intelligence/chart-inferrer';
+import { tryFastPath } from './fast-path';
 import { scoreDataQuality } from '../intelligence/data-quality-scorer';
+import { checkPlausibility, formatPlausibilityForNarrative } from '../intelligence/plausibility-checker';
 import { maskRowsForLLM } from '../pii/pii-masker';
 
 export { getLLMAdapter, setLLMAdapter };
+
+// ── Re-export SSE types for route consumers ─────────────────────
+export type { SSEEvent, StreamCallbacks };
+
+const SEMANTIC_DEBUG = process.env.SEMANTIC_DEBUG === 'true';
 
 // ── Time budget helpers ────────────────────────────────────────────
 // The Vercel function has a 60s hard limit (maxDuration = 60). We track
@@ -55,6 +63,426 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineOutput>
   return coalesceRequest(coalesceKey, () => _runPipelineInner(input));
 }
 
+// ── Streaming pipeline ────────────────────────────────────────
+// Same logic as runPipeline but emits SSE events at each stage boundary.
+// The narrative step streams chunks progressively via `narrative_chunk` events.
+// Returns the full PipelineOutput (same as non-streaming) for the final `complete` event.
+
+export async function runPipelineStreaming(
+  input: PipelineInput,
+  callbacks: StreamCallbacks,
+): Promise<PipelineOutput> {
+  const emit = callbacks.onEvent;
+
+  try {
+    emit({ type: 'status', data: { stage: 'starting', message: 'Starting analysis…' } });
+
+    // Run the full non-streaming pipeline stages up to (but not including) narrative,
+    // then swap in the streaming narrative generator.
+    const result = await _runPipelineStreamingInner(input, emit);
+
+    emit({ type: 'complete', data: result });
+    return result;
+  } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error('[semantic/pipeline] Streaming pipeline error:', errMsg, err instanceof Error ? err.stack : '');
+    emit({ type: 'error', data: { code: 'PIPELINE_ERROR', message: errMsg } });
+    // Do NOT re-throw — the error event has been emitted to the SSE stream.
+    // Re-throwing would cause the route handler to emit a SECOND error event.
+    return {
+      mode: 'metrics', narrative: null,
+      sections: [{ type: 'answer' as const, content: errMsg }],
+      data: null, plan: null, isClarification: false, clarificationText: null,
+      evalTurnId: null, llmConfidence: null, llmLatencyMs: 0,
+      executionTimeMs: null, tokensInput: 0, tokensOutput: 0,
+      provider: '', model: '', compiledSql: null,
+      compilationErrors: [errMsg], tablesAccessed: [], cacheStatus: 'SKIP',
+    };
+  }
+}
+
+async function _runPipelineStreamingInner(
+  input: PipelineInput,
+  emit: (event: SSEEvent) => void,
+): Promise<PipelineOutput> {
+  const { message, context, examples = [] } = input;
+  const { tenantId, lensSlug } = context;
+
+  const startMs = Date.now();
+  let evalTurnId: string | null = null;
+
+  // ── 1. Load lens + registry + schema in parallel ────────────
+  emit({ type: 'status', data: { stage: 'loading', message: 'Loading data catalog…' } });
+
+  let lens: Awaited<ReturnType<typeof getLens>> = null;
+  let catalog: Awaited<ReturnType<typeof buildRegistryCatalog>>;
+  let schemaCatalog: SchemaCatalog | null;
+
+  if (lensSlug) {
+    const [lensResult, schemaResult] = await Promise.all([
+      getLens(lensSlug, tenantId),
+      buildSchemaCatalog().catch(() => null),
+    ]);
+    lens = lensResult;
+    schemaCatalog = schemaResult;
+    catalog = await buildRegistryCatalog(lens?.domain);
+  } else {
+    const [registryResult, schemaResult] = await Promise.all([
+      buildRegistryCatalog(),
+      buildSchemaCatalog().catch(() => null),
+    ]);
+    catalog = registryResult;
+    schemaCatalog = schemaResult;
+  }
+
+  const lensPromptFragment = lens?.systemPromptFragment ?? null;
+
+  // ── 2. Intent resolution ────────────────────────────────────
+  emit({ type: 'status', data: { stage: 'intent', message: 'Understanding your question…' } });
+
+  const fastPathResult = tryFastPath(message, context, catalog);
+  let intent;
+
+  if (fastPathResult) {
+    intent = fastPathResult;
+  } else {
+    try {
+      intent = await resolveIntent(message, context, {
+        catalog,
+        examples,
+        lensPromptFragment,
+        schemaSummary: schemaCatalog?.summaryText ?? null,
+      });
+    } catch (err) {
+      const errStr = String(err);
+      const errLower = errStr.toLowerCase();
+      const isRateLimit = errLower.includes('rate limit') || errLower.includes('429');
+      const isTimeout = errLower.includes('timed out') || errLower.includes('timeout');
+      const userMessage = isRateLimit
+        ? "I'm experiencing high demand right now. Please try again in a minute."
+        : isTimeout
+          ? "That analysis took longer than expected. Please try a simpler question or try again shortly."
+          : "I wasn't able to process that question right now. Please try rephrasing or try again shortly.";
+      return {
+        mode: 'metrics', narrative: `## Answer\n\n${userMessage}`,
+        sections: [{ type: 'answer' as const, content: userMessage }],
+        data: null, plan: null, isClarification: false, clarificationText: null,
+        evalTurnId: null, llmConfidence: null, llmLatencyMs: 0,
+        executionTimeMs: null, tokensInput: 0, tokensOutput: 0,
+        provider: '', model: '', compiledSql: null,
+        compilationErrors: [errStr], tablesAccessed: [], cacheStatus: 'SKIP',
+      };
+    }
+  }
+
+  emit({
+    type: 'intent_resolved',
+    data: {
+      mode: intent.mode,
+      plan: intent.plan,
+      confidence: intent.confidence,
+      isClarification: intent.isClarification,
+    },
+  });
+
+  // ── 3. Clarification short-circuit ──────────────────────────
+  if (intent.isClarification) {
+    return {
+      mode: intent.mode, narrative: intent.clarificationText ?? null,
+      sections: [], data: null, plan: intent.plan,
+      isClarification: true, clarificationText: intent.clarificationText ?? null,
+      clarificationOptions: intent.clarificationOptions,
+      evalTurnId: null, llmConfidence: intent.confidence,
+      llmLatencyMs: intent.latencyMs, executionTimeMs: null,
+      tokensInput: intent.tokensInput, tokensOutput: intent.tokensOutput,
+      provider: intent.provider, model: intent.model,
+      compiledSql: null, compilationErrors: [], tablesAccessed: [], cacheStatus: 'SKIP',
+    };
+  }
+
+  // ── 4. Mode override check ──────────────────────────────────
+  if (intent.mode === 'metrics' && schemaCatalog && intent.plan.metrics.length > 0) {
+    const SNAPSHOT_ONLY_TABLES = new Set(['rm_inventory_on_hand']);
+    const allMetricsFromSnapshot = intent.plan.metrics.every((slug) => {
+      const metricDef = catalog.metrics.find((m: { slug: string }) => m.slug === slug);
+      return metricDef && SNAPSHOT_ONLY_TABLES.has(metricDef.sqlTable);
+    });
+    if (allMetricsFromSnapshot) {
+      intent = { ...intent, mode: 'sql' as const };
+    }
+  }
+
+  // ── 5. Compile/Generate + Execute ───────────────────────────
+  emit({ type: 'status', data: { stage: 'executing', message: 'Running analysis…' } });
+
+  let queryResult: QueryResult | null = null;
+  let compiledSql: string | null = null;
+  let compilationErrors: string[] = [];
+  let tablesAccessed: string[] = [];
+  let cacheStatus: PipelineOutput['cacheStatus'] = 'MISS';
+  let sqlExplanation: string | undefined;
+  let totalTokensIn = intent.tokensInput;
+  let totalTokensOut = intent.tokensOutput;
+  let compiled: Awaited<ReturnType<typeof compilePlan>> | null = null;
+
+  if (intent.mode === 'sql' && schemaCatalog) {
+    // ── SQL mode execution ──────────────────────────────────
+    try {
+      const sqlResult = await generateSql(message, context, {
+        schemaCatalog,
+        ragExamplesSnippet: intent.ragExamplesSnippet,
+      });
+      totalTokensIn += sqlResult.tokensInput;
+      totalTokensOut += sqlResult.tokensOutput;
+      sqlExplanation = sqlResult.explanation;
+
+      const validation = validateGeneratedSql(sqlResult.sql, schemaCatalog.tableNames);
+      if (!validation.valid) {
+        compilationErrors = validation.errors;
+        compiledSql = sqlResult.sql;
+      } else {
+        compiledSql = validation.sanitizedSql;
+        const cached = getFromQueryCache(tenantId, validation.sanitizedSql, [tenantId]);
+        if (cached) {
+          cacheStatus = 'HIT';
+          queryResult = { rows: cached.rows, rowCount: cached.rowCount, executionTimeMs: 0, truncated: false };
+        } else {
+          try {
+            queryResult = await executeSqlQuery(validation.sanitizedSql, { tenantId });
+            setInQueryCache(tenantId, validation.sanitizedSql, [tenantId], queryResult.rows, queryResult.rowCount);
+          } catch (execErr) {
+            // Try auto-correction retry
+            if (!shouldSkipExpensiveOp(startMs, 15_000)) {
+              try {
+                const retryResult = await retrySqlGeneration({
+                  originalQuestion: message, failedSql: validation.sanitizedSql,
+                  errorMessage: String(execErr), context,
+                  options: { maxRetries: 1, schemaContext: schemaCatalog.summaryText },
+                });
+                totalTokensIn += retryResult.tokensInput;
+                totalTokensOut += retryResult.tokensOutput;
+                const retryValidation = validateGeneratedSql(retryResult.correctedSql, schemaCatalog.tableNames);
+                if (retryValidation.valid) {
+                  queryResult = await executeSqlQuery(retryValidation.sanitizedSql, { tenantId });
+                  setInQueryCache(tenantId, retryValidation.sanitizedSql, [tenantId], queryResult.rows, queryResult.rowCount);
+                  compiledSql = retryValidation.sanitizedSql;
+                  sqlExplanation = `${sqlExplanation} [Auto-corrected: ${retryResult.explanation}]`;
+                }
+              } catch { /* retry failed, proceed with null queryResult */ }
+            }
+            if (!queryResult) {
+              compilationErrors = [String(execErr)];
+            }
+          }
+        }
+        tablesAccessed = extractTablesFromSql(compiledSql!);
+      }
+    } catch (err) {
+      compilationErrors = [`SQL generation failed: ${String(err)}`];
+    }
+  } else {
+    // ── Metrics mode execution ───────────────────────────────
+    try {
+      compiled = await compilePlan({
+        plan: intent.plan,
+        tenantId,
+        locationId: context.locationId,
+      });
+      compiledSql = compiled.sql;
+      tablesAccessed = [compiled.primaryTable, ...compiled.joinTables].filter(Boolean);
+      if (compiled.warnings.length > 0) compilationErrors = compiled.warnings;
+
+      const cached = getFromQueryCache(tenantId, compiled.sql, compiled.params);
+      if (cached) {
+        cacheStatus = 'HIT';
+        queryResult = { rows: cached.rows, rowCount: cached.rowCount, executionTimeMs: 0, truncated: false };
+      } else {
+        queryResult = await executeCompiledQuery(compiled, { tenantId });
+        setInQueryCache(tenantId, compiled.sql, compiled.params, queryResult.rows, queryResult.rowCount);
+      }
+    } catch (err) {
+      compilationErrors = [String(err)];
+    }
+
+    // Fallback: metrics 0 rows → SQL mode retry
+    if (
+      (!queryResult || queryResult.rowCount === 0) &&
+      schemaCatalog &&
+      !shouldSkipExpensiveOp(startMs, 20_000)
+    ) {
+      try {
+        const sqlFallback = await generateSql(message, context, {
+          schemaCatalog,
+          ragExamplesSnippet: intent.ragExamplesSnippet,
+        });
+        totalTokensIn += sqlFallback.tokensInput;
+        totalTokensOut += sqlFallback.tokensOutput;
+        const v = validateGeneratedSql(sqlFallback.sql, schemaCatalog.tableNames);
+        if (v.valid) {
+          const sqlQr = await executeSqlQuery(v.sanitizedSql, { tenantId });
+          if (sqlQr.rowCount > 0) {
+            queryResult = sqlQr;
+            compiledSql = v.sanitizedSql;
+            tablesAccessed = extractTablesFromSql(v.sanitizedSql);
+            sqlExplanation = sqlFallback.explanation;
+            cacheStatus = 'MISS';
+            setInQueryCache(tenantId, v.sanitizedSql, [tenantId], sqlQr.rows, sqlQr.rowCount);
+          }
+        }
+      } catch { /* SQL fallback failed, proceed with metrics result */ }
+    }
+  }
+
+  // Emit data_ready
+  emit({
+    type: 'data_ready',
+    data: {
+      mode: intent.mode,
+      rowCount: queryResult?.rowCount ?? 0,
+      executionTimeMs: queryResult?.executionTimeMs ?? null,
+      rows: queryResult?.rows ?? [],
+      truncated: queryResult?.truncated ?? false,
+    },
+  });
+
+  // ── PII masking ────────────────────────────────────────────
+  let maskedRows: Record<string, unknown>[] = [];
+  if (queryResult) {
+    try {
+      maskedRows = maskRowsForLLM(queryResult.rows.slice(0, 20));
+    } catch {
+      maskedRows = queryResult.rows.slice(0, 20);
+    }
+  }
+
+  // ── Plausibility check ─────────────────────────────────────
+  const plausibilityResult = queryResult
+    ? checkPlausibility(queryResult, intent.plan, context.currentDate)
+    : null;
+  const plausibilityContext = plausibilityResult ? formatPlausibilityForNarrative(plausibilityResult) : undefined;
+
+  // ── 6. Streaming narrative ─────────────────────────────────
+  emit({ type: 'status', data: { stage: 'narrating', message: 'Generating insights…' } });
+
+  let narrativeText: string | null = null;
+  let narrativeSections: PipelineOutput['sections'] = [];
+  let narrativeTokensIn = 0;
+  let narrativeTokensOut = 0;
+
+  const useFast = shouldSkipExpensiveOp(startMs, 20_000);
+
+  try {
+    const narrativeResult = await generateNarrativeStreaming(
+      queryResult, intent, message, context,
+      (chunk) => emit({ type: 'narrative_chunk', data: { text: chunk } }),
+      {
+        lensSlug: context.lensSlug,
+        lensPromptFragment,
+        metricDefs: compiled?.metaDefs,
+        dimensionDefs: compiled?.dimensionDefs,
+        fast: useFast,
+        timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000),
+        premaskedRows: maskedRows.length > 0 ? maskedRows : undefined,
+        plausibilityContext,
+      },
+    );
+    narrativeText = narrativeResult.text;
+    narrativeSections = narrativeResult.sections;
+    narrativeTokensIn = narrativeResult.tokensInput;
+    narrativeTokensOut = narrativeResult.tokensOutput;
+  } catch (narrativeErr) {
+    console.warn('[semantic] Streaming narrative failed, using fallback:', narrativeErr instanceof Error ? narrativeErr.message : narrativeErr);
+    const fallback = queryResult && queryResult.rowCount > 0
+      ? buildDataFallbackNarrative(message, queryResult, maskedRows.length > 0 ? maskedRows : undefined)
+      : buildEmptyResultNarrative(message, context);
+    narrativeText = fallback.text;
+    narrativeSections = fallback.sections;
+    // Emit the full fallback text as a single chunk
+    emit({ type: 'narrative_chunk', data: { text: narrativeText } });
+  }
+
+  // ── 7. Enrichments ─────────────────────────────────────────
+  const suggestedFollowUps = generateFollowUps(message, intent.plan, narrativeSections, context);
+  const chartConfig = intent.mode === 'sql' && queryResult
+    ? inferChartConfigFromSqlResult(queryResult, sqlExplanation)
+    : compiled && queryResult
+      ? inferChartConfig(intent.plan, compiled, queryResult)
+      : null;
+
+  const dataQuality = queryResult ? scoreDataQuality({
+    rowCount: queryResult.rowCount,
+    executionTimeMs: queryResult.executionTimeMs,
+    dateRange: intent.plan.dateRange ?? undefined,
+    compiledSql: compiledSql ?? undefined,
+    compilationErrors,
+    llmConfidence: intent.confidence,
+    schemaTablesUsed: tablesAccessed,
+  }) : null;
+
+  emit({
+    type: 'enrichments',
+    data: {
+      suggestedFollowUps,
+      chartConfig,
+      dataQuality,
+      plausibility: plausibilityResult,
+    },
+  });
+
+  // ── 8. Eval capture (fire-and-forget) ──────────────────────
+  evalTurnId = generateUlid();
+  void captureEvalTurnBestEffort({
+    id: evalTurnId, message, context, intent,
+    compiledSql, compilationErrors, tablesAccessed,
+    executionTimeMs: queryResult?.executionTimeMs ?? null,
+    rowCount: queryResult?.rowCount ?? null,
+    resultSample: maskedRows.length > 0 ? maskedRows : null,
+    executionError: compilationErrors.length > 0 ? compilationErrors[0]! : null,
+    cacheStatus, narrative: narrativeText,
+    responseSections: narrativeSections.map((s) => s.type),
+  });
+
+  const totalLatencyMs = Date.now() - startMs;
+  recordSemanticRequest({
+    tenantId,
+    latencyMs: totalLatencyMs,
+    llmLatencyMs: intent.latencyMs,
+    executionTimeMs: queryResult?.executionTimeMs ?? 0,
+    tokensInput: totalTokensIn + narrativeTokensIn,
+    tokensOutput: totalTokensOut + narrativeTokensOut,
+    cacheStatus,
+    hadError: compilationErrors.length > 0,
+    isClarification: false,
+  });
+
+  return {
+    mode: intent.mode,
+    narrative: narrativeText,
+    sections: narrativeSections,
+    data: queryResult,
+    plan: intent.plan,
+    isClarification: false,
+    clarificationText: null,
+    evalTurnId,
+    llmConfidence: intent.confidence,
+    llmLatencyMs: intent.latencyMs,
+    executionTimeMs: queryResult?.executionTimeMs ?? null,
+    tokensInput: totalTokensIn + narrativeTokensIn,
+    tokensOutput: totalTokensOut + narrativeTokensOut,
+    provider: intent.provider,
+    model: intent.model,
+    compiledSql,
+    compilationErrors,
+    tablesAccessed,
+    cacheStatus,
+    sqlExplanation,
+    suggestedFollowUps,
+    chartConfig,
+    dataQuality,
+    plausibility: plausibilityResult,
+  };
+}
+
 async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> {
   const { message, context, examples = [] } = input;
   const { tenantId, lensSlug } = context;
@@ -75,7 +503,7 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
     if (cachedNarrative) {
       console.log('[semantic] Serving stale cached response while circuit breaker is OPEN');
       let sections: PipelineOutput['sections'] = [];
-      try { sections = JSON.parse(cachedNarrative.model) as PipelineOutput['sections']; } catch { /* fallback to empty */ }
+      try { sections = cachedNarrative.sectionsJson ? JSON.parse(cachedNarrative.sectionsJson) as PipelineOutput['sections'] : []; } catch { /* fallback to empty */ }
       return {
         mode: 'metrics',
         narrative: cachedNarrative.content,
@@ -102,26 +530,57 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
     // which will be caught in the intent resolution try/catch below.
   }
 
-  // ── 1. Load registry catalog + schema catalog in parallel ───────
-  console.log('[semantic] Pipeline start — loading registry + schema...');
-  const lens = lensSlug ? await getLens(lensSlug, tenantId) : null;
-  const domain = lens?.domain;
+  // ── 1. Load lens + registry catalog + schema catalog in parallel ──
+  if (SEMANTIC_DEBUG) console.log('[semantic] Pipeline start — loading registry + schema...');
 
-  const [catalog, schemaCatalog] = await Promise.all([
-    buildRegistryCatalog(domain),
-    buildSchemaCatalog().catch((err) => {
-      console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
-      return null;
-    }),
-  ]);
-  console.log(`[semantic] Registry loaded in ${Date.now() - startMs}ms (${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims, ${schemaCatalog?.tables.length ?? 0} schema tables)`);
+  let lens: Awaited<ReturnType<typeof getLens>> = null;
+  let catalog: Awaited<ReturnType<typeof buildRegistryCatalog>>;
+  let schemaCatalog: SchemaCatalog | null;
+
+  if (lensSlug) {
+    // Lens specified — must resolve lens first to get domain filter for registry
+    const [lensResult, schemaResult] = await Promise.all([
+      getLens(lensSlug, tenantId),
+      buildSchemaCatalog().catch((err) => {
+        if (SEMANTIC_DEBUG) console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
+        return null;
+      }),
+    ]);
+    lens = lensResult;
+    schemaCatalog = schemaResult;
+    catalog = await buildRegistryCatalog(lens?.domain);
+  } else {
+    // No lens — registry catalog (no domain filter) + schema catalog can run in parallel
+    const [registryResult, schemaResult] = await Promise.all([
+      buildRegistryCatalog(),
+      buildSchemaCatalog().catch((err) => {
+        if (SEMANTIC_DEBUG) console.warn('[semantic] Schema catalog load failed (non-blocking):', err);
+        return null;
+      }),
+    ]);
+    catalog = registryResult;
+    schemaCatalog = schemaResult;
+  }
+
+  if (SEMANTIC_DEBUG) console.log(`[semantic] Registry loaded in ${Date.now() - startMs}ms (${catalog.metrics.length} metrics, ${catalog.dimensions.length} dims, ${schemaCatalog?.tables.length ?? 0} schema tables)`);
 
   const lensPromptFragment = lens?.systemPromptFragment ?? null;
 
+  // ── 2a. Deterministic fast path (SEM-03) ────────────────────────
+  // Matches common, unambiguous queries via regex/keyword patterns
+  // and returns a pre-built ResolvedIntent without calling the LLM.
+  const fastPathResult = tryFastPath(message, context, catalog);
+
   // ── 2. Intent resolution (with schema summary for mode routing) ──
-  console.log('[semantic] Resolving intent via LLM...');
   const intentStart = Date.now();
   let intent;
+
+  if (fastPathResult) {
+    intent = fastPathResult;
+    console.log(`[semantic] Fast path matched in ${Date.now() - intentStart}ms → ${intent.plan.intent}`);
+  } else {
+
+  console.log('[semantic] Resolving intent via LLM...');
   try {
     intent = await resolveIntent(message, context, {
       catalog,
@@ -185,6 +644,8 @@ async function _runPipelineInner(input: PipelineInput): Promise<PipelineOutput> 
       cacheStatus: 'SKIP',
     };
   }
+
+  } // end fast-path else
 
   // ── 3. Clarification short-circuit ────────────────────────────
   if (intent.isClarification) {
@@ -454,6 +915,22 @@ async function runMetricsMode(
     }
   }
 
+  // ── PII masking (compute once, reuse for cache key + eval capture + narrative) ──
+  let maskedRows: Record<string, unknown>[];
+  try {
+    maskedRows = maskRowsForLLM(queryResult.rows.slice(0, 20));
+  } catch (maskErr) {
+    console.warn('[semantic] PII masking failed (metrics), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
+    maskedRows = queryResult.rows.slice(0, 20);
+  }
+
+  // ── Plausibility check (SEM-09) ──────────────────────────────
+  const plausibilityResult = checkPlausibility(queryResult, intent.plan, context.currentDate);
+  const plausibilityContext = formatPlausibilityForNarrative(plausibilityResult);
+  if (plausibilityContext) {
+    console.log(`[semantic] Plausibility grade=${plausibilityResult.grade}, ${plausibilityResult.warnings.length} warning(s)`);
+  }
+
   // ── Narrative (with LLM response cache) ────────────────────────
   let narrativeText: string | null = null;
   let narrativeSections: PipelineOutput['sections'] = [];
@@ -463,18 +940,12 @@ async function runMetricsMode(
   if (!skipNarrative) {
     // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
     const narrativePromptKey = hashSystemPrompt(`metrics:${context.lensSlug ?? 'default'}:${queryResult.rowCount}`);
-    let dataSummary: string;
-    try {
-      dataSummary = JSON.stringify(maskRowsForLLM(queryResult.rows.slice(0, 3)));
-    } catch (maskErr) {
-      console.warn('[semantic] PII masking failed for narrative cache key (metrics), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
-      dataSummary = JSON.stringify(queryResult.rows.slice(0, 3));
-    }
+    const dataSummary = JSON.stringify(maskedRows.slice(0, 3));
     const cachedNarrative = getFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
 
     if (cachedNarrative) {
       narrativeText = cachedNarrative.content;
-      narrativeSections = JSON.parse(cachedNarrative.model) as PipelineOutput['sections'];
+      narrativeSections = cachedNarrative.sectionsJson ? JSON.parse(cachedNarrative.sectionsJson) as PipelineOutput['sections'] : [];
       console.log('[semantic] Narrative served from LLM cache');
     } else {
       // Use fast model when time budget is tight
@@ -488,6 +959,8 @@ async function runMetricsMode(
           dimensionDefs: compiled.dimensionDefs,
           fast: useFast,
           timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000), // leave 2s for response
+          premaskedRows: maskedRows,
+          plausibilityContext,
         });
         narrativeText = narrativeResult.text;
         narrativeSections = narrativeResult.sections;
@@ -499,15 +972,16 @@ async function runMetricsMode(
           content: narrativeResult.text,
           tokensInput: narrativeResult.tokensInput,
           tokensOutput: narrativeResult.tokensOutput,
-          model: JSON.stringify(narrativeResult.sections),
+          model: intent.model,
           provider: intent.provider,
           latencyMs: 0,
+          sectionsJson: JSON.stringify(narrativeResult.sections),
         });
       } catch (narrativeErr) {
         console.warn('[semantic] Narrative generation failed (metrics mode), using data-aware fallback:', narrativeErr instanceof Error ? narrativeErr.message : narrativeErr);
         // Use data-aware fallback when we have rows, empty fallback when we don't
         const fallback = queryResult.rowCount > 0
-          ? buildDataFallbackNarrative(message, queryResult)
+          ? buildDataFallbackNarrative(message, queryResult, maskedRows)
           : buildEmptyResultNarrative(message, context);
         narrativeText = fallback.text;
         narrativeSections = fallback.sections;
@@ -530,20 +1004,13 @@ async function runMetricsMode(
     schemaTablesUsed: tablesAccessed,
   });
 
-  // ── Eval capture (mask PII before storing) ──────────────────
-  let resultSample: Record<string, unknown>[];
-  try {
-    resultSample = maskRowsForLLM(queryResult.rows.slice(0, 5));
-  } catch (maskErr) {
-    console.warn('[semantic] PII masking failed for eval capture (metrics), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
-    resultSample = queryResult.rows.slice(0, 5);
-  }
+  // ── Eval capture (reuse pre-masked rows) ──────────────────
   evalTurnId = generateUlid();
   void captureEvalTurnBestEffort({
     id: evalTurnId, message, context, intent,
     compiledSql, compilationErrors, tablesAccessed,
     executionTimeMs: queryResult.executionTimeMs,
-    rowCount: queryResult.rowCount, resultSample,
+    rowCount: queryResult.rowCount, resultSample: maskedRows,
     executionError: null, cacheStatus,
     narrative: narrativeText,
     responseSections: narrativeSections.map((s) => s.type),
@@ -585,6 +1052,7 @@ async function runMetricsMode(
     suggestedFollowUps,
     chartConfig,
     dataQuality,
+    plausibility: plausibilityResult,
   };
 }
 
@@ -609,7 +1077,10 @@ async function runSqlMode(
   const sqlGenStart = Date.now();
   let sqlResult;
   try {
-    sqlResult = await generateSql(message, context, { schemaCatalog });
+    sqlResult = await generateSql(message, context, {
+      schemaCatalog,
+      ragExamplesSnippet: intent.ragExamplesSnippet,
+    });
     totalTokensIn += sqlResult.tokensInput;
     totalTokensOut += sqlResult.tokensOutput;
     console.log(`[semantic] SQL generated in ${Date.now() - sqlGenStart}ms (confidence=${sqlResult.confidence})`);
@@ -798,6 +1269,22 @@ async function runSqlMode(
 
   const tablesAccessed = extractTablesFromSql(validatedSql);
 
+  // ── PII masking (compute once, reuse for cache key + eval capture + narrative) ──
+  let maskedRows: Record<string, unknown>[];
+  try {
+    maskedRows = maskRowsForLLM(queryResult.rows.slice(0, 20));
+  } catch (maskErr) {
+    console.warn('[semantic] PII masking failed (sql), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
+    maskedRows = queryResult.rows.slice(0, 20);
+  }
+
+  // ── Plausibility check (SEM-09) ──────────────────────────────
+  const plausibilityResult = checkPlausibility(queryResult, intent.plan, context.currentDate);
+  const plausibilityContext = formatPlausibilityForNarrative(plausibilityResult);
+  if (plausibilityContext) {
+    console.log(`[semantic] SQL plausibility grade=${plausibilityResult.grade}, ${plausibilityResult.warnings.length} warning(s)`);
+  }
+
   // ── Narrative (with LLM response cache) ────────────────────────
   let narrativeText: string | null = null;
   let narrativeSections: PipelineOutput['sections'] = [];
@@ -807,18 +1294,12 @@ async function runSqlMode(
   if (!skipNarrative) {
     // Check LLM cache for narrative — keyed on lens context + question + data fingerprint
     const narrativePromptKey = hashSystemPrompt(`sql:${context.lensSlug ?? 'default'}:${queryResult.rowCount}`);
-    let dataSummary: string;
-    try {
-      dataSummary = JSON.stringify(maskRowsForLLM(queryResult.rows.slice(0, 3)));
-    } catch (maskErr) {
-      console.warn('[semantic] PII masking failed for narrative cache key (sql), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
-      dataSummary = JSON.stringify(queryResult.rows.slice(0, 3));
-    }
+    const dataSummary = JSON.stringify(maskedRows.slice(0, 3));
     const cachedNarrative = getFromLLMCache(tenantId, narrativePromptKey, message + dataSummary, context.history);
 
     if (cachedNarrative) {
       narrativeText = cachedNarrative.content;
-      narrativeSections = JSON.parse(cachedNarrative.model) as PipelineOutput['sections']; // stash sections in model field
+      narrativeSections = cachedNarrative.sectionsJson ? JSON.parse(cachedNarrative.sectionsJson) as PipelineOutput['sections'] : [];
       console.log('[semantic] Narrative served from LLM cache');
     } else {
       try {
@@ -829,6 +1310,8 @@ async function runSqlMode(
           lensPromptFragment,
           fast: useFast,
           timeoutMs: Math.max(5_000, remainingMs(startMs) - 2_000),
+          premaskedRows: maskedRows,
+          plausibilityContext,
         });
         narrativeText = narrativeResult.text;
         narrativeSections = narrativeResult.sections;
@@ -840,7 +1323,8 @@ async function runSqlMode(
           content: narrativeResult.text,
           tokensInput: narrativeResult.tokensInput,
           tokensOutput: narrativeResult.tokensOutput,
-          model: JSON.stringify(narrativeResult.sections), // stash sections in model field
+          model: intent.model,
+          sectionsJson: JSON.stringify(narrativeResult.sections),
           provider: intent.provider,
           latencyMs: 0,
         });
@@ -848,7 +1332,7 @@ async function runSqlMode(
         console.warn('[semantic] Narrative generation failed (SQL mode), using data-aware fallback:', narrativeErr instanceof Error ? narrativeErr.message : narrativeErr);
         // Use data-aware fallback when we have rows, empty fallback when we don't
         const fallback = queryResult.rowCount > 0
-          ? buildDataFallbackNarrative(message, queryResult)
+          ? buildDataFallbackNarrative(message, queryResult, maskedRows)
           : buildEmptyResultNarrative(message, context);
         narrativeText = fallback.text;
         narrativeSections = fallback.sections;
@@ -857,9 +1341,8 @@ async function runSqlMode(
   }
 
   // ── Follow-ups & chart config ────────────────────────────────
-  // SQL mode has no compiled query, so chart config is null
   const suggestedFollowUps = generateFollowUps(message, intent.plan, narrativeSections, context);
-  const chartConfig = null;
+  const chartConfig = inferChartConfigFromSqlResult(queryResult, sqlResult.explanation);
 
   // ── Data quality scoring ───────────────────────────────────
   const dataQuality = scoreDataQuality({
@@ -872,20 +1355,13 @@ async function runSqlMode(
     schemaTablesUsed: tablesAccessed,
   });
 
-  // ── Eval capture (mask PII before storing) ──────────────────
-  let resultSample: Record<string, unknown>[];
-  try {
-    resultSample = maskRowsForLLM(queryResult.rows.slice(0, 5));
-  } catch (maskErr) {
-    console.warn('[semantic] PII masking failed for eval capture (sql), using raw rows:', maskErr instanceof Error ? maskErr.message : maskErr);
-    resultSample = queryResult.rows.slice(0, 5);
-  }
+  // ── Eval capture (reuse pre-masked rows) ──────────────────
   evalTurnId = generateUlid();
   void captureEvalTurnBestEffort({
     id: evalTurnId, message, context, intent,
     compiledSql: validatedSql, compilationErrors: [],
     tablesAccessed, executionTimeMs: queryResult.executionTimeMs,
-    rowCount: queryResult.rowCount, resultSample,
+    rowCount: queryResult.rowCount, resultSample: maskedRows,
     executionError: null, cacheStatus,
     narrative: narrativeText,
     responseSections: narrativeSections.map((s) => s.type),
@@ -928,6 +1404,7 @@ async function runSqlMode(
     suggestedFollowUps,
     chartConfig,
     dataQuality,
+    plausibility: plausibilityResult,
   };
 }
 

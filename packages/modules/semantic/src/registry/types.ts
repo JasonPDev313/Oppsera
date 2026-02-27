@@ -75,6 +75,7 @@ export interface LensDef {
   defaultFilters?: unknown[] | null;
   systemPromptFragment?: string | null;
   exampleQuestions?: string[] | null;
+  targetBusinessTypes?: string[] | null;
   isActive: boolean;
   isSystem: boolean;
 }

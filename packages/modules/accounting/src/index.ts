@@ -63,6 +63,8 @@ export { saveTransactionTypeMapping } from './commands/save-transaction-type-map
 export { deleteTransactionTypeMapping } from './commands/delete-transaction-type-mapping';
 export { saveDiscountGlMapping, saveDiscountGlMappingsBatch } from './commands/save-discount-gl-mapping';
 export type { SaveDiscountGlMappingInput, SaveDiscountGlMappingsBatchInput } from './commands/save-discount-gl-mapping';
+export { backfillGlFromTenders } from './commands/backfill-gl-from-tenders';
+export type { BackfillGlResult, BackfillGlOptions, BackfillTenderError } from './commands/backfill-gl-from-tenders';
 
 // Queries (COA)
 export { getCoaHealth } from './queries/get-coa-health';
@@ -79,7 +81,7 @@ export { handleFolioChargeForAccounting } from './adapters/folio-posting-adapter
 export { handleLoyaltyRedemptionForAccounting } from './adapters/loyalty-posting-adapter';
 export { handleDepositAuthorizedForAccounting, handleDepositCapturedForAccounting } from './adapters/deposit-posting-adapter';
 export { handleOrderReturnForAccounting } from './adapters/return-posting-adapter';
-export { handleFnbGlPostingForAccounting } from './adapters/fnb-posting-adapter';
+export { handleFnbGlPostingForAccounting, handleFnbGlPostingReversedForAccounting } from './adapters/fnb-posting-adapter';
 export { handleVoucherPurchaseForAccounting, handleVoucherRedemptionForAccounting, handleVoucherExpirationForAccounting } from './adapters/voucher-posting-adapter';
 export { handleMembershipBillingForAccounting } from './adapters/membership-posting-adapter';
 export { handleChargebackReceivedForAccounting, handleChargebackResolvedForAccounting } from './adapters/chargeback-posting-adapter';
@@ -90,6 +92,26 @@ export {
   handleAchReturnGlReversal,
 } from './adapters/ach-posting-adapter';
 export { migrateLegacyJournalEntries } from './adapters/legacy-bridge-adapter';
+export { handleDrawerSessionClosedForAccounting } from './adapters/drawer-close-posting-adapter';
+export {
+  handleStoredValueIssuedForAccounting,
+  handleStoredValueRedeemedForAccounting,
+  handleStoredValueVoidedForAccounting,
+  handleStoredValueReloadedForAccounting,
+  handleStoredValueTransferredForAccounting,
+} from './adapters/stored-value-posting-adapter';
+export { handleTenderReversalForAccounting, handleTipAdjustedForAccounting } from './adapters/tender-reversal-posting-adapter';
+export { handleDrawerEventForAccounting } from './adapters/drawer-event-posting-adapter';
+export {
+  handleLedgerEntryForAccounting,
+  handleAccountTransferForAccounting,
+  handleWalletAdjustedForAccounting,
+} from './adapters/customer-financial-posting-adapter';
+export {
+  handleInventoryReceiptPostedForAccounting,
+  handleInventoryReceiptVoidedForAccounting,
+} from './adapters/inventory-receipt-posting-adapter';
+export { handleCompForAccounting, handleLineVoidForAccounting } from './adapters/comp-void-posting-adapter';
 
 // Queries
 export { getAccountBalances } from './queries/get-account-balances';
@@ -179,8 +201,14 @@ export { listBankReconciliations, getBankReconciliation } from './queries/list-b
 export type { BankReconciliationListItem, BankReconciliationDetail } from './queries/list-bank-reconciliations';
 export { getRemappableTenders } from './queries/get-remappable-tenders';
 export type { RemappableTender, MissingMapping } from './queries/get-remappable-tenders';
+export { getSmartResolutionSuggestions } from './queries/get-smart-resolution-suggestions';
+export type { SmartResolutionResult, SuggestedMapping } from './queries/get-smart-resolution-suggestions';
+export { applySmartResolutions } from './commands/apply-smart-resolutions';
+export type { ApplySmartResolutionsInput, ApplySmartResolutionsResult } from './commands/apply-smart-resolutions';
 export { getGlCodeSummary } from './queries/get-gl-code-summary';
 export type { GlCodeSummaryLine, GlCodeSummaryResult } from './queries/get-gl-code-summary';
+export { getGlPostingGaps, GL_SOURCE_MODULES } from './queries/get-gl-posting-gaps';
+export type { GlPostingGap } from './queries/get-gl-posting-gaps';
 export { getTransactionTypeMappings } from './queries/get-transaction-type-mappings';
 export type { TransactionTypeMappingRow } from './queries/get-transaction-type-mappings';
 export { getDiscountGlMappings, getDiscountMappingCoverage } from './queries/get-discount-gl-mappings';
@@ -211,6 +239,7 @@ export type {
 } from './helpers/resolve-mapping';
 export { getAccountingSettings } from './helpers/get-accounting-settings';
 export type { AccountingSettings } from './helpers/get-accounting-settings';
+export { ensureAccountingSettings } from './helpers/ensure-accounting-settings';
 export { tryAutoRemap } from './helpers/try-auto-remap';
 export type { AutoRemapResult } from './helpers/try-auto-remap';
 export { resolveRevenueAccountForSubDepartment, expandPackageForGL } from './helpers/catalog-gl-resolution';

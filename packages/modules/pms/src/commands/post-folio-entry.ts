@@ -7,6 +7,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid, NotFoundError } from '@oppsera/shared';
 import { pmsFolios, pmsFolioEntries } from '@oppsera/db';
 import type { PostFolioEntryInput } from '../validation';
@@ -21,6 +22,10 @@ export async function postFolioEntry(
   input: PostFolioEntryInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'postFolioEntry');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Load folio
     const [folio] = await tx
       .select()
@@ -63,7 +68,9 @@ export async function postFolioEntry(
       amountCents: input.amountCents,
     });
 
-    return { result: { entryId, folioId }, events: [event] };
+    const resultPayload = { entryId, folioId };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'postFolioEntry', resultPayload);
+    return { result: resultPayload, events: [event] };
   });
 
   await auditLog(ctx, 'pms.folio.charge_posted', 'pms_folio', folioId);

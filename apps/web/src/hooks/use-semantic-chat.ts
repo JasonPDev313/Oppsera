@@ -97,6 +97,7 @@ interface UseSemanticChatOptions {
 export function useSemanticChat(options: UseSemanticChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Stable session ID for multi-turn context
@@ -118,7 +119,242 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setIsLoading(false);
+    setIsStreaming(false);
   }, []);
+
+  // ── SSE streaming send ──────────────────────────────────────────
+
+  const sendMessageStreaming = useCallback(async (
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }>,
+    controller: AbortController,
+    assistantMsgId: string,
+  ): Promise<boolean> => {
+    const res = await fetch('/api/v1/semantic/ask/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        message: message.trim(),
+        sessionId: sessionIdRef.current,
+        turnNumber: turnNumberRef.current,
+        history,
+        lensSlug: options.lensSlug,
+        timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    });
+
+    if (!res.ok || !res.body) return false;
+
+    setIsStreaming(true);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let narrativeAcc = '';
+    let completeData: Record<string, unknown> | null = null;
+
+    // Add an empty assistant message to fill progressively
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantMsgId,
+        role: 'assistant' as const,
+        content: '',
+        timestamp: Date.now(),
+      },
+    ]);
+
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const json = line.slice(6);
+        if (!json) continue;
+
+        let event: { type: string; data?: unknown };
+        try {
+          event = JSON.parse(json);
+        } catch {
+          continue;
+        }
+
+        switch (event.type) {
+          case 'narrative_chunk': {
+            const chunk = (event.data as { text?: string })?.text ?? '';
+            narrativeAcc += chunk;
+            // Update the assistant message content progressively
+            const content = narrativeAcc;
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantMsgId ? { ...m, content } : m)),
+            );
+            break;
+          }
+
+          case 'complete': {
+            completeData = event.data as Record<string, unknown>;
+            break;
+          }
+
+          case 'error': {
+            const errData = event.data as { message?: string } | undefined;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMsgId
+                  ? {
+                      ...m,
+                      content: errData?.message ?? 'Sorry, something went wrong. Please try again.',
+                      error: errData?.message ?? 'Pipeline error',
+                    }
+                  : m,
+              ),
+            );
+            return true; // handled — don't fallback
+          }
+        }
+      }
+    }
+
+    // Finalize assistant message with full metadata from 'complete' event
+    if (completeData) {
+      const d = completeData as Record<string, unknown>;
+      const narrative = (d.narrative as string | null) ?? narrativeAcc;
+      let finalContent: string;
+      if (d.isClarification) {
+        finalContent = (d.clarificationText as string) ?? 'Could you clarify your question?';
+      } else if (narrative) {
+        finalContent = narrative;
+      } else if ((d.compilationErrors as string[] | undefined)?.length) {
+        finalContent = `I wasn't able to process that query. ${(d.compilationErrors as string[])[0]}`;
+      } else {
+        finalContent = narrativeAcc || "I couldn't generate a response for that question.";
+      }
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantMsgId
+            ? {
+                ...m,
+                content: finalContent,
+                evalTurnId: (d.evalTurnId as string) ?? null,
+                mode: d.mode as 'metrics' | 'sql' | undefined,
+                plan: d.plan as QueryPlan | null | undefined,
+                rows: d.data ? ((d.data as Record<string, unknown>).rows as Record<string, unknown>[]) : undefined,
+                rowCount: d.data ? ((d.data as Record<string, unknown>).rowCount as number) : undefined,
+                isClarification: d.isClarification as boolean | undefined,
+                clarificationOptions: (d.clarificationOptions as string[]) ?? [],
+                compiledSql: (d.compiledSql as string | null) ?? null,
+                compilationErrors: (d.compilationErrors as string[]) ?? [],
+                llmConfidence: (d.llmConfidence as number | null) ?? null,
+                llmLatencyMs: d.llmLatencyMs as number | undefined,
+                cacheStatus: d.cacheStatus as 'HIT' | 'MISS' | 'SKIP' | undefined,
+                sqlExplanation: (d.sqlExplanation as string | null) ?? null,
+                tablesAccessed: (d.tablesAccessed as string[]) ?? [],
+                suggestedFollowUps: (d.suggestedFollowUps as string[]) ?? [],
+                chartConfig: (d.chartConfig as ChartConfigData | null) ?? null,
+                dataQuality: (d.dataQuality as DataQualityData | null) ?? null,
+                error: null,
+              }
+            : m,
+        ),
+      );
+      turnNumberRef.current++;
+    }
+
+    return true;
+  }, [options.lensSlug, options.timezone]);
+
+  // ── Non-streaming fallback ──────────────────────────────────────
+
+  const sendMessageFallback = useCallback(async (
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }>,
+    controller: AbortController,
+  ) => {
+    const res = await apiFetch<{
+      data: {
+        mode: 'metrics' | 'sql';
+        narrative: string | null;
+        sections: Array<{ type: string; content: string }>;
+        plan: QueryPlan | null;
+        rows: Record<string, unknown>[];
+        rowCount: number;
+        isClarification: boolean;
+        clarificationText: string | null;
+        clarificationOptions: string[];
+        evalTurnId: string | null;
+        compiledSql: string | null;
+        compilationErrors: string[];
+        llmConfidence: number | null;
+        llmLatencyMs: number;
+        cacheStatus: 'HIT' | 'MISS' | 'SKIP';
+        sqlExplanation: string | null;
+        tablesAccessed: string[];
+        suggestedFollowUps: string[];
+        chartConfig: ChartConfigData | null;
+        dataQuality: DataQualityData | null;
+      };
+    }>('/api/v1/semantic/ask', {
+      method: 'POST',
+      signal: controller.signal,
+      body: JSON.stringify({
+        message: message.trim(),
+        sessionId: sessionIdRef.current,
+        turnNumber: turnNumberRef.current,
+        history,
+        lensSlug: options.lensSlug,
+        timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+      }),
+    });
+
+    const { data } = res;
+    let assistantContent: string;
+    if (data.isClarification) {
+      assistantContent = data.clarificationText ?? 'Could you clarify your question?';
+    } else if (data.narrative) {
+      assistantContent = data.narrative;
+    } else if (data.compilationErrors?.length > 0) {
+      assistantContent = `I wasn't able to process that query. ${data.compilationErrors[0]}`;
+    } else {
+      assistantContent = "I couldn't generate a response for that question. Try rephrasing or asking about specific metrics like revenue, rounds played, or utilization.";
+    }
+
+    const assistantMsg: ChatMessage = {
+      id: `asst_${crypto.randomUUID()}`,
+      role: 'assistant',
+      content: assistantContent,
+      evalTurnId: data.evalTurnId ?? null,
+      mode: data.mode,
+      plan: data.plan,
+      rows: data.rows,
+      rowCount: data.rowCount,
+      isClarification: data.isClarification,
+      clarificationOptions: data.clarificationOptions ?? [],
+      compiledSql: data.compiledSql,
+      compilationErrors: data.compilationErrors,
+      llmConfidence: data.llmConfidence,
+      llmLatencyMs: data.llmLatencyMs,
+      cacheStatus: data.cacheStatus,
+      sqlExplanation: data.sqlExplanation,
+      tablesAccessed: data.tablesAccessed ?? [],
+      suggestedFollowUps: data.suggestedFollowUps ?? [],
+      chartConfig: data.chartConfig ?? null,
+      dataQuality: data.dataQuality ?? null,
+      error: null,
+      timestamp: Date.now(),
+    };
+
+    setMessages((prev) => [...prev, assistantMsg]);
+    turnNumberRef.current++;
+  }, [options.lensSlug, options.timezone]);
+
+  // ── Main send (SSE with fallback) ────────────────────────────────
 
   const sendMessage = useCallback(async (message: string) => {
     if (!message.trim() || isLoading) return;
@@ -138,7 +374,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
     }, REQUEST_TIMEOUT_MS);
 
     const userMsg: ChatMessage = {
-      id: `user_${Date.now()}`,
+      id: `user_${crypto.randomUUID()}`,
       role: 'user',
       content: message.trim(),
       timestamp: Date.now(),
@@ -146,6 +382,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
 
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
+    setIsStreaming(false);
     setError(null);
 
     // Build conversation history for multi-turn context (last 10 turns)
@@ -157,81 +394,15 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
         content: m.role === 'user' ? m.content : (m.content || ''),
       }));
 
+    const assistantMsgId = `asst_${crypto.randomUUID()}`;
+
     try {
-      const res = await apiFetch<{
-        data: {
-          mode: 'metrics' | 'sql';
-          narrative: string | null;
-          sections: Array<{ type: string; content: string }>;
-          plan: QueryPlan | null;
-          rows: Record<string, unknown>[];
-          rowCount: number;
-          isClarification: boolean;
-          clarificationText: string | null;
-          clarificationOptions: string[];
-          evalTurnId: string | null;
-          compiledSql: string | null;
-          compilationErrors: string[];
-          llmConfidence: number | null;
-          llmLatencyMs: number;
-          cacheStatus: 'HIT' | 'MISS' | 'SKIP';
-          sqlExplanation: string | null;
-          tablesAccessed: string[];
-          suggestedFollowUps: string[];
-          chartConfig: ChartConfigData | null;
-          dataQuality: DataQualityData | null;
-        };
-      }>('/api/v1/semantic/ask', {
-        method: 'POST',
-        signal: controller.signal,
-        body: JSON.stringify({
-          message: message.trim(),
-          sessionId: sessionIdRef.current,
-          turnNumber: turnNumberRef.current++,
-          history,
-          lensSlug: options.lensSlug,
-          timezone: options.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-        }),
-      });
-
-      const { data } = res;
-      let assistantContent: string;
-      if (data.isClarification) {
-        assistantContent = data.clarificationText ?? 'Could you clarify your question?';
-      } else if (data.narrative) {
-        assistantContent = data.narrative;
-      } else if (data.compilationErrors?.length > 0) {
-        assistantContent = `I wasn't able to process that query. ${data.compilationErrors[0]}`;
-      } else {
-        assistantContent = "I couldn't generate a response for that question. Try rephrasing or asking about specific metrics like revenue, rounds played, or utilization.";
+      // Try SSE streaming first
+      const handled = await sendMessageStreaming(message, history, controller, assistantMsgId);
+      if (!handled) {
+        // SSE unavailable — fallback to non-streaming JSON
+        await sendMessageFallback(message, history, controller);
       }
-
-      const assistantMsg: ChatMessage = {
-        id: `asst_${Date.now()}`,
-        role: 'assistant',
-        content: assistantContent,
-        evalTurnId: data.evalTurnId ?? null,
-        mode: data.mode,
-        plan: data.plan,
-        rows: data.rows,
-        rowCount: data.rowCount,
-        isClarification: data.isClarification,
-        clarificationOptions: data.clarificationOptions ?? [],
-        compiledSql: data.compiledSql,
-        compilationErrors: data.compilationErrors,
-        llmConfidence: data.llmConfidence,
-        llmLatencyMs: data.llmLatencyMs,
-        cacheStatus: data.cacheStatus,
-        sqlExplanation: data.sqlExplanation,
-        tablesAccessed: data.tablesAccessed ?? [],
-        suggestedFollowUps: data.suggestedFollowUps ?? [],
-        chartConfig: data.chartConfig ?? null,
-        dataQuality: data.dataQuality ?? null,
-        error: null,
-        timestamp: Date.now(),
-      };
-
-      setMessages((prev) => [...prev, assistantMsg]);
     } catch (err) {
       const isAbort = err instanceof DOMException && err.name === 'AbortError';
       const isTimeout = isAbort && wasTimedOutRef.current;
@@ -247,7 +418,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
       setError(errorText);
 
       const errorMsg: ChatMessage = {
-        id: `err_${Date.now()}`,
+        id: `err_${crypto.randomUUID()}`,
         role: 'assistant',
         content: isTimeout
           ? 'This is taking too long. Try asking a simpler question, or try again in a moment.'
@@ -260,8 +431,9 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
       clearTimeout(timeout);
       abortControllerRef.current = null;
       setIsLoading(false);
+      setIsStreaming(false);
     }
-  }, [messages, isLoading, options.lensSlug, options.timezone]);
+  }, [messages, isLoading, options.lensSlug, options.timezone, sendMessageStreaming, sendMessageFallback]);
 
   const clearMessages = useCallback(() => {
     abortControllerRef.current?.abort();
@@ -289,6 +461,7 @@ export function useSemanticChat(options: UseSemanticChatOptions = {}) {
   return {
     messages,
     isLoading,
+    isStreaming,
     error,
     sendMessage,
     cancelRequest,

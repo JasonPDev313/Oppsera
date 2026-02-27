@@ -11,7 +11,8 @@ import { createHash } from 'node:crypto';
 
 const LLM_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const LLM_CACHE_SWR_WINDOW_MS = 20 * 60 * 1000; // 20 minutes — serve stale for up to 20 min while revalidating
-const LLM_CACHE_MAX_SIZE = 100;           // max entries per process
+const LLM_CACHE_MAX_SIZE = 300;           // max entries per process
+const LLM_PER_TENANT_CAP = 50;           // max entries per tenant (prevents noisy-neighbor)
 
 // -- Types --------------------------------------------------------------------
 
@@ -23,6 +24,8 @@ export interface CachedLLMResponse {
   provider: string;
   latencyMs: number;
   cachedAt: number;
+  /** Serialized narrative sections (replaces overloading the `model` field). */
+  sectionsJson?: string;
 }
 
 export interface LLMCacheStats {
@@ -40,10 +43,16 @@ export interface LLMCacheStats {
 
 // Map preserves insertion order -- oldest entries are evicted first (LRU approximation).
 const _cache = new Map<string, CachedLLMResponse>();
+// O(1) tenant entry counts — avoids iterating all keys on every setInLLMCache call
+const _tenantCounts = new Map<string, number>();
 let _hits = 0;
 let _misses = 0;
 let _evictions = 0;
 let _staleHits = 0;
+
+function extractTenantId(key: string): string {
+  return key.slice(0, key.indexOf(':'));
+}
 
 // -- Key generation -----------------------------------------------------------
 // Uses SHA-256 for collision-resistant cache keys.
@@ -108,11 +117,16 @@ export function getFromLLMCache(
 
   if (Date.now() - entry.cachedAt > LLM_CACHE_TTL_MS) {
     _cache.delete(key);
+    const tid = extractTenantId(key);
+    const cnt = _tenantCounts.get(tid);
+    if (cnt !== undefined) {
+      if (cnt <= 1) _tenantCounts.delete(tid); else _tenantCounts.set(tid, cnt - 1);
+    }
     _misses++;
     return null;
   }
 
-  // Move to end for LRU recency tracking
+  // Move to end for LRU recency tracking (tenant count unchanged — same key)
   _cache.delete(key);
   _cache.set(key, entry);
   _hits++;
@@ -140,6 +154,11 @@ export function getStaleFromLLMCache(
   // Allow entries up to SWR window (much longer than normal TTL)
   if (Date.now() - entry.cachedAt > LLM_CACHE_SWR_WINDOW_MS) {
     _cache.delete(key);
+    const tid = extractTenantId(key);
+    const cnt = _tenantCounts.get(tid);
+    if (cnt !== undefined) {
+      if (cnt <= 1) _tenantCounts.delete(tid); else _tenantCounts.set(tid, cnt - 1);
+    }
     return null;
   }
 
@@ -165,16 +184,44 @@ export function setInLLMCache(
 ): void {
   const key = makeCacheKey(tenantId, systemPromptHash, userMessage, history);
 
-  // Evict oldest entry when at capacity
-  if (_cache.size >= LLM_CACHE_MAX_SIZE) {
+  // If key already exists, this is an overwrite — no count changes needed for that slot
+  const isOverwrite = _cache.has(key);
+
+  // Evict oldest entry when at global capacity
+  if (!isOverwrite && _cache.size >= LLM_CACHE_MAX_SIZE) {
     const firstKey = _cache.keys().next().value;
     if (firstKey !== undefined) {
       _cache.delete(firstKey);
+      const evictedTid = extractTenantId(firstKey);
+      const evictedCnt = _tenantCounts.get(evictedTid);
+      if (evictedCnt !== undefined) {
+        if (evictedCnt <= 1) _tenantCounts.delete(evictedTid); else _tenantCounts.set(evictedTid, evictedCnt - 1);
+      }
       _evictions++;
     }
   }
 
+  // Per-tenant cap: O(1) lookup via _tenantCounts map
+  if (!isOverwrite) {
+    const tenantCount = _tenantCounts.get(tenantId) ?? 0;
+    if (tenantCount >= LLM_PER_TENANT_CAP) {
+      // Evict the first (oldest) entry for this tenant
+      const prefix = `${tenantId}:`;
+      for (const k of _cache.keys()) {
+        if (k.startsWith(prefix)) {
+          _cache.delete(k);
+          _tenantCounts.set(tenantId, tenantCount - 1);
+          _evictions++;
+          break;
+        }
+      }
+    }
+  }
+
   _cache.set(key, { ...response, cachedAt: Date.now() });
+  if (!isOverwrite) {
+    _tenantCounts.set(tenantId, (_tenantCounts.get(tenantId) ?? 0) + 1);
+  }
 }
 
 /**
@@ -185,6 +232,7 @@ export function invalidateLLMCache(tenantId?: string): number {
   if (!tenantId) {
     const count = _cache.size;
     _cache.clear();
+    _tenantCounts.clear();
     return count;
   }
 
@@ -196,6 +244,7 @@ export function invalidateLLMCache(tenantId?: string): number {
       count++;
     }
   }
+  _tenantCounts.delete(tenantId);
   return count;
 }
 
@@ -212,10 +261,11 @@ export function getLLMCacheStats(): LLMCacheStats {
   };
 }
 
-/** Reset counters (for testing). */
+/** Reset counters and tenant tracking (for testing). */
 export function resetLLMCacheStats(): void {
   _hits = 0;
   _misses = 0;
   _evictions = 0;
   _staleHits = 0;
+  _tenantCounts.clear();
 }

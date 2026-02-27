@@ -56,6 +56,9 @@ export async function resolveSubDepartmentAccounts(
   }
 
   const row = arr[0]!;
+  // Guard: if the required revenue_account_id is null, the mapping is incomplete
+  if (!row.revenue_account_id) return null;
+
   return {
     subDepartmentId: String(row.sub_department_id),
     revenueAccountId: String(row.revenue_account_id),
@@ -93,6 +96,9 @@ export async function resolvePaymentTypeAccounts(
   }
 
   const row = arr[0]!;
+  // Guard: if the required cash_account_id (deposit account) is null, the mapping is incomplete
+  if (!row.cash_account_id) return null;
+
   return {
     paymentTypeId: String(row.payment_type_id),
     depositAccountId: String(row.cash_account_id),
@@ -213,6 +219,9 @@ export async function batchResolveSubDepartmentAccounts(
 
   const map = new Map<string, SubDeptGL>();
   for (const row of Array.from(rows as Iterable<Record<string, unknown>>)) {
+    // Skip rows with null revenue_account_id — incomplete mappings
+    if (!row.revenue_account_id) continue;
+
     const id = String(row.sub_department_id);
     map.set(id, {
       subDepartmentId: id,

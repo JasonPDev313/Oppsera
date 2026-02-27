@@ -24,7 +24,7 @@ export interface BumpBarProfileListItem {
   updatedAt: string;
 }
 
-export interface BumpBarProfileDetail extends BumpBarProfileListItem {}
+export type BumpBarProfileDetail = BumpBarProfileListItem;
 
 // ── Alert Profile Types ─────────────────────────────────────────
 
@@ -45,13 +45,14 @@ export interface AlertProfileListItem {
   updatedAt: string;
 }
 
-export interface AlertProfileDetail extends AlertProfileListItem {}
+export type AlertProfileDetail = AlertProfileListItem;
 
 // ── Performance Target Types ────────────────────────────────────
 
 export interface PerformanceTargetItem {
   id: string;
   stationId: string | null;
+  stationName: string | null;
   orderType: string | null;
   targetPrepSeconds: number;
   warningPrepSeconds: number;
@@ -68,7 +69,9 @@ export interface PerformanceTargetItem {
 export interface ItemPrepTimeItem {
   id: string;
   catalogItemId: string;
+  catalogItemName: string | null;
   stationId: string | null;
+  stationName: string | null;
   estimatedPrepSeconds: number;
   isActive: boolean;
   createdAt: string;
@@ -282,32 +285,35 @@ export async function listPerformanceTargets(input: {
 }): Promise<PerformanceTargetItem[]> {
   return withTenant(input.tenantId, async (tx) => {
     const conditions: ReturnType<typeof sql>[] = [
-      sql`tenant_id = ${input.tenantId}`,
-      sql`is_active = true`,
+      sql`pt.tenant_id = ${input.tenantId}`,
+      sql`pt.is_active = true`,
     ];
 
     if (input.locationId) {
-      conditions.push(sql`(location_id = ${input.locationId} OR location_id IS NULL)`);
+      conditions.push(sql`(pt.location_id = ${input.locationId} OR pt.location_id IS NULL)`);
     }
     if (input.stationId) {
-      conditions.push(sql`(station_id = ${input.stationId} OR station_id IS NULL)`);
+      conditions.push(sql`(pt.station_id = ${input.stationId} OR pt.station_id IS NULL)`);
     }
 
     const whereClause = sql.join(conditions, sql` AND `);
 
     const rows = await tx.execute(
-      sql`SELECT id, station_id, order_type, target_prep_seconds,
-                 warning_prep_seconds, critical_prep_seconds,
-                 speed_of_service_goal_seconds, is_active, location_id,
-                 created_at, updated_at
-          FROM fnb_kds_performance_targets
+      sql`SELECT pt.id, pt.station_id, pt.order_type, pt.target_prep_seconds,
+                 pt.warning_prep_seconds, pt.critical_prep_seconds,
+                 pt.speed_of_service_goal_seconds, pt.is_active, pt.location_id,
+                 pt.created_at, pt.updated_at,
+                 ks.display_name AS station_name
+          FROM fnb_kds_performance_targets pt
+          LEFT JOIN fnb_kitchen_stations ks ON ks.id = pt.station_id AND ks.tenant_id = pt.tenant_id
           WHERE ${whereClause}
-          ORDER BY station_id NULLS LAST, order_type NULLS LAST`,
+          ORDER BY pt.station_id NULLS LAST, pt.order_type NULLS LAST`,
     );
 
     return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => ({
       id: r.id as string,
       stationId: (r.station_id as string) ?? null,
+      stationName: (r.station_name as string) ?? null,
       orderType: (r.order_type as string) ?? null,
       targetPrepSeconds: Number(r.target_prep_seconds),
       warningPrepSeconds: Number(r.warning_prep_seconds),
@@ -332,31 +338,37 @@ export async function listItemPrepTimes(input: {
 }): Promise<ItemPrepTimeItem[]> {
   return withTenant(input.tenantId, async (tx) => {
     const conditions: ReturnType<typeof sql>[] = [
-      sql`tenant_id = ${input.tenantId}`,
-      sql`is_active = true`,
+      sql`ipt.tenant_id = ${input.tenantId}`,
+      sql`ipt.is_active = true`,
     ];
 
     if (input.stationId) {
-      conditions.push(sql`(station_id = ${input.stationId} OR station_id IS NULL)`);
+      conditions.push(sql`(ipt.station_id = ${input.stationId} OR ipt.station_id IS NULL)`);
     }
     if (input.catalogItemId) {
-      conditions.push(sql`catalog_item_id = ${input.catalogItemId}`);
+      conditions.push(sql`ipt.catalog_item_id = ${input.catalogItemId}`);
     }
 
     const whereClause = sql.join(conditions, sql` AND `);
 
     const rows = await tx.execute(
-      sql`SELECT id, catalog_item_id, station_id, estimated_prep_seconds,
-                 is_active, created_at, updated_at
-          FROM fnb_kds_item_prep_times
+      sql`SELECT ipt.id, ipt.catalog_item_id, ipt.station_id, ipt.estimated_prep_seconds,
+                 ipt.is_active, ipt.created_at, ipt.updated_at,
+                 ci.name AS catalog_item_name,
+                 ks.display_name AS station_name
+          FROM fnb_kds_item_prep_times ipt
+          LEFT JOIN catalog_items ci ON ci.id = ipt.catalog_item_id AND ci.tenant_id = ipt.tenant_id
+          LEFT JOIN fnb_kitchen_stations ks ON ks.id = ipt.station_id AND ks.tenant_id = ipt.tenant_id
           WHERE ${whereClause}
-          ORDER BY catalog_item_id ASC, station_id NULLS LAST`,
+          ORDER BY ci.name ASC NULLS LAST, ipt.station_id NULLS LAST`,
     );
 
     return Array.from(rows as Iterable<Record<string, unknown>>).map((r) => ({
       id: r.id as string,
       catalogItemId: r.catalog_item_id as string,
+      catalogItemName: (r.catalog_item_name as string) ?? null,
       stationId: (r.station_id as string) ?? null,
+      stationName: (r.station_name as string) ?? null,
       estimatedPrepSeconds: Number(r.estimated_prep_seconds),
       isActive: r.is_active as boolean,
       createdAt: String(r.created_at),
@@ -501,11 +513,13 @@ export async function getKdsStationSettings(input: {
     }
 
     // Map performance targets
+    const stationDisplayName = s.display_name as string;
     const performanceTargets = Array.from(
       targetRows as Iterable<Record<string, unknown>>,
     ).map((r) => ({
       id: r.id as string,
       stationId: (r.station_id as string) ?? null,
+      stationName: r.station_id != null ? stationDisplayName : null,
       orderType: (r.order_type as string) ?? null,
       targetPrepSeconds: Number(r.target_prep_seconds),
       warningPrepSeconds: Number(r.warning_prep_seconds),

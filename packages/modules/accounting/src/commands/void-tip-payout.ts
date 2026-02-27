@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { tipPayouts } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
@@ -16,6 +17,10 @@ export async function voidTipPayout(
   input: VoidTipPayoutInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'voidTipPayout');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     const [payout] = await tx
       .select()
       .from(tipPayouts)
@@ -53,8 +58,12 @@ export async function voidTipPayout(
       reason: input.reason,
     });
 
+    const resultPayload = { ...payout, status: 'voided' as const };
+
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'voidTipPayout', resultPayload);
+
     return {
-      result: { ...payout, status: 'voided' as const },
+      result: resultPayload,
       events: [event],
     };
   });

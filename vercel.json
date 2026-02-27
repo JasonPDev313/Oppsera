@@ -5,6 +5,10 @@
     {
       "path": "/api/v1/erp/cron",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/v1/internal/drain-outbox",
+      "schedule": "* * * * *"
     }
   ]
 }

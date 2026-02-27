@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
 import { CloseBatchNotFoundError } from '../errors';
@@ -14,10 +15,17 @@ interface RecordDepositInput {
   depositDate: string;
   bankReference?: string;
   notes?: string;
+  clientRequestId?: string;
 }
 
 export async function recordDeposit(ctx: RequestContext, input: RecordDepositInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    if (input.clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'recordDeposit');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    }
+
     // Validate close batch exists
     const batchRows = await tx.execute(
       sql`SELECT id, status FROM fnb_close_batches
@@ -49,6 +57,11 @@ export async function recordDeposit(ctx: RequestContext, input: RecordDepositInp
       depositDate: input.depositDate,
     };
     const event = buildEventFromContext(ctx, FNB_EVENTS.DEPOSIT_RECORDED, payload as unknown as Record<string, unknown>);
+
+    // Save idempotency key
+    if (input.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'recordDeposit', deposit);
+    }
 
     return { result: deposit, events: [event] };
   });

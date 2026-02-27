@@ -64,9 +64,10 @@ function MetricSelect({
 }) {
   const grouped = new Map<string, RegistryMetric[]>();
   for (const m of metrics) {
-    const group = grouped.get(m.domain) ?? [];
+    const domain = m.domain || 'General';
+    const group = grouped.get(domain) ?? [];
     group.push(m);
-    grouped.set(m.domain, group);
+    grouped.set(domain, group);
   }
 
   return (

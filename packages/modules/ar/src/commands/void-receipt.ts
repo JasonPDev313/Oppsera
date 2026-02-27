@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { arReceipts, arReceiptAllocations, arInvoices, bankAccounts } from '@oppsera/db';
@@ -12,12 +13,16 @@ import { AR_EVENTS } from '../events/types';
 interface VoidReceiptInput {
   receiptId: string;
   reason: string;
+  clientRequestId?: string;
 }
 
 export async function voidReceipt(ctx: RequestContext, input: VoidReceiptInput) {
   const accountingApi = getAccountingPostingApi();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'voidReceipt');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     const [receipt] = await tx
       .select()
       .from(arReceipts)
@@ -123,7 +128,9 @@ export async function voidReceipt(ctx: RequestContext, input: VoidReceiptInput) 
       reason: input.reason,
     });
 
-    return { result: { ...voided!, reversalJournalEntryId }, events: [event] };
+    const voidedResult = { ...voided!, reversalJournalEntryId };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'voidReceipt', voidedResult);
+    return { result: voidedResult, events: [event] };
   });
 
   await auditLog(ctx, 'ar.receipt.voided', 'ar_receipt', result.id);

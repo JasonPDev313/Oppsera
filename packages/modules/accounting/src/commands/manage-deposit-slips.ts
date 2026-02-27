@@ -1,10 +1,14 @@
 import { eq, and } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
-import { depositSlips } from '@oppsera/db';
+import { depositSlips, bankAccounts } from '@oppsera/db';
 import { AppError, generateUlid } from '@oppsera/shared';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import type { DenominationBreakdown } from '@oppsera/core/drawer-sessions/types';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
+import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { logUnmappedEvent } from '../helpers/resolve-mapping';
 
 export interface CreateDepositSlipInput {
   locationId: string;
@@ -164,12 +168,92 @@ export async function markDeposited(
       throw new AppError('VALIDATION_ERROR', `Cannot mark as deposited: status is '${row.status}'`, 400);
     }
 
+    // Post GL: Dr Bank / Cr Undeposited Funds (Cash On Hand)
+    let glJournalEntryId: string | null = null;
+    try {
+      // Ensure accounting settings exist (auto-bootstrap if needed)
+      try { await ensureAccountingSettings(tx, ctx.tenantId); } catch { /* non-fatal */ }
+      const settings = await getAccountingSettings(tx, ctx.tenantId);
+
+      if (!settings) {
+        try {
+          await logUnmappedEvent(tx, ctx.tenantId, {
+            eventType: 'accounting.deposit.deposited',
+            sourceModule: 'deposit_slip',
+            sourceReferenceId: depositSlipId,
+            entityType: 'accounting_settings',
+            entityId: ctx.tenantId,
+            reason: 'CRITICAL: GL deposit posting skipped — accounting settings missing even after ensureAccountingSettings.',
+          });
+        } catch { /* best-effort */ }
+        console.error(`[deposit-slip-gl] CRITICAL: accounting settings missing for tenant=${ctx.tenantId}`);
+      } else {
+        // Resolve bank account GL ID
+        let bankGlAccountId: string | null = null;
+        if (row.bankAccountId) {
+          const [bank] = await tx
+            .select({ glAccountId: bankAccounts.glAccountId })
+            .from(bankAccounts)
+            .where(and(eq(bankAccounts.tenantId, ctx.tenantId), eq(bankAccounts.id, row.bankAccountId)))
+            .limit(1);
+          bankGlAccountId = bank?.glAccountId ?? null;
+        }
+
+        const creditAccountId = settings.defaultUndepositedFundsAccountId
+          ?? settings.defaultUncategorizedRevenueAccountId;
+
+        if (!bankGlAccountId || !creditAccountId) {
+          try {
+            await logUnmappedEvent(tx, ctx.tenantId, {
+              eventType: 'accounting.deposit.deposited',
+              sourceModule: 'deposit_slip',
+              sourceReferenceId: depositSlipId,
+              entityType: 'gl_account',
+              entityId: row.bankAccountId ?? 'no-bank-account',
+              reason: `Deposit slip GL posting skipped: ${!bankGlAccountId ? 'No bank GL account' : 'No cash/undeposited funds GL account'}. Amount: $${(row.totalAmountCents / 100).toFixed(2)}.`,
+            });
+          } catch { /* best-effort */ }
+        } else {
+          const amountDollars = (row.totalAmountCents / 100).toFixed(2);
+          const postingApi = getAccountingPostingApi();
+          const journalResult = await postingApi.postEntry(ctx, {
+            businessDate: row.businessDate,
+            sourceModule: 'deposit_slip',
+            sourceReferenceId: depositSlipId,
+            memo: `Cash deposit - ${row.businessDate}${row.slipNumber ? ` (#${row.slipNumber})` : ''}`,
+            lines: [
+              {
+                accountId: bankGlAccountId,
+                debitAmount: amountDollars,
+                creditAmount: '0',
+                locationId: row.locationId,
+                memo: 'Bank deposit',
+              },
+              {
+                accountId: creditAccountId,
+                debitAmount: '0',
+                creditAmount: amountDollars,
+                locationId: row.locationId,
+                memo: 'Cash on hand clearing',
+              },
+            ],
+            forcePost: true,
+          });
+          glJournalEntryId = journalResult.id;
+        }
+      }
+    } catch (glError) {
+      // GL failures never block deposit operations
+      console.error('[deposit-slip-gl] GL posting failed:', glError);
+    }
+
     const [updated] = await tx
       .update(depositSlips)
       .set({
         status: 'deposited',
         depositedAt: new Date(),
         depositedBy: ctx.user.id,
+        glJournalEntryId,
         updatedAt: new Date(),
       })
       .where(eq(depositSlips.id, depositSlipId))
@@ -178,6 +262,7 @@ export async function markDeposited(
     await auditLog(ctx, 'accounting.deposit.deposited', 'deposit_slip', depositSlipId, undefined, {
       amountCents: row.totalAmountCents,
       businessDate: row.businessDate,
+      glJournalEntryId,
     });
 
     return mapRow(updated!);

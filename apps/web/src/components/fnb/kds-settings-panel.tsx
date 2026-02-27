@@ -9,13 +9,13 @@ import {
   Trash2, Power, X as XIcon,
 } from 'lucide-react';
 import {
-  KDS_VIEW_MODES, KDS_VIEW_MODE_LABELS, KDS_VIEW_MODE_DESCRIPTIONS,
+  KDS_VIEW_MODES, KDS_VIEW_MODE_LABELS, KDS_VIEW_MODE_DETAILS,
   SCREEN_COMM_MODES, SCREEN_COMM_MODE_LABELS, SCREEN_COMM_MODE_DETAILS,
-  KDS_THEMES, KDS_INPUT_MODES,
+  KDS_THEMES, KDS_THEME_LABELS, KDS_THEME_DETAILS, KDS_INPUT_MODES,
   KDS_ROUTING_RULE_TYPES,
   DEFAULT_10_BUTTON_LAYOUT,
 } from '@oppsera/shared';
-import type { KdsViewMode, ScreenCommMode } from '@oppsera/shared';
+import type { KdsViewMode, KdsTheme, ScreenCommMode } from '@oppsera/shared';
 import {
   useBumpBarProfiles, useAlertProfiles,
   usePerformanceTargets, useItemPrepTimes,
@@ -23,6 +23,7 @@ import {
 } from '@/hooks/use-kds-settings';
 import { useFnbSettings } from '@/hooks/use-fnb-settings';
 import { useStationManagement } from '@/hooks/use-fnb-kitchen';
+import { apiFetch } from '@/lib/api-client';
 
 // ── Label helpers for plain string arrays ──────────────────────
 
@@ -32,10 +33,7 @@ const INPUT_MODE_LABELS: Record<string, string> = {
   both: 'Touch + Bump Bar',
 };
 
-const THEME_LABELS: Record<string, string> = {
-  dark: 'Dark',
-  light: 'Light',
-};
+// Theme labels now imported from @oppsera/shared as KDS_THEME_LABELS
 
 const STATION_TYPE_LABELS: Record<string, string> = {
   prep: 'Prep',
@@ -252,6 +250,143 @@ function ScreenCommModeDetailCard({ mode }: { mode: ScreenCommMode }) {
   );
 }
 
+// ── View Mode Detail Card ──────────────────────────────────────
+
+function ViewModeDetailCard({ mode }: { mode: KdsViewMode }) {
+  const detail = KDS_VIEW_MODE_DETAILS[mode];
+  if (!detail) return null;
+
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-lg p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-indigo-400">{detail.label}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+              {mode}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{detail.summary}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="shrink-0 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10"
+        >
+          {expanded ? 'Less' : 'Learn more'}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="space-y-3 pt-1 border-t border-indigo-500/10">
+          <div className="space-y-1.5">
+            {detail.description.split('\n\n').map((p, i) => (
+              <p key={i} className="text-[11px] text-muted-foreground leading-relaxed">{p}</p>
+            ))}
+          </div>
+
+          <div>
+            <h5 className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1">Display behavior</h5>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">{detail.displayBehavior}</p>
+          </div>
+
+          <div>
+            <h5 className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1">Best for</h5>
+            <ul className="space-y-0.5">
+              {detail.bestFor.map((item, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                  <span className="text-green-500 mt-0.5 shrink-0">&#x2713;</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h5 className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1">Things to know</h5>
+            <ul className="space-y-0.5">
+              {detail.considerations.map((item, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                  <AlertTriangle className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Theme Detail Card ──────────────────────────────────────────
+
+function ThemeDetailCard({ theme }: { theme: KdsTheme }) {
+  const detail = KDS_THEME_DETAILS[theme];
+  if (!detail) return null;
+
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-lg p-3 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-indigo-400">{detail.label}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
+              {theme}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{detail.summary}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="shrink-0 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors px-2 py-1 rounded-md hover:bg-indigo-500/10"
+        >
+          {expanded ? 'Less' : 'Learn more'}
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="space-y-3 pt-1 border-t border-indigo-500/10">
+          <div className="space-y-1.5">
+            {detail.description.split('\n\n').map((p, i) => (
+              <p key={i} className="text-[11px] text-muted-foreground leading-relaxed">{p}</p>
+            ))}
+          </div>
+
+          <div>
+            <h5 className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1">Best for</h5>
+            <ul className="space-y-0.5">
+              {detail.bestFor.map((item, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                  <span className="text-green-500 mt-0.5 shrink-0">&#x2713;</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h5 className="text-[10px] font-semibold text-foreground uppercase tracking-wider mb-1">Things to know</h5>
+            <ul className="space-y-0.5">
+              {detail.considerations.map((item, i) => (
+                <li key={i} className="text-[11px] text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                  <AlertTriangle className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" aria-hidden="true" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Stations Tab ───────────────────────────────────────────────
 
 function StationsTab({ locationId }: { locationId?: string }) {
@@ -306,20 +441,41 @@ function StationsTab({ locationId }: { locationId?: string }) {
       {/* Global KDS settings */}
       <div className="bg-surface border border-border rounded-lg p-3 space-y-3">
         <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Global KDS Settings</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <label className="space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Default View Mode — card selector */}
+          <div className="space-y-1">
             <span className="text-xs text-muted-foreground">Default View Mode</span>
-            <select
-              className="w-full bg-surface border border-input rounded-md px-2 py-1.5 text-xs text-foreground"
-              value={(kitchenSettings?.kds_default_view_mode as string) ?? 'ticket'}
-              onChange={(e) => updateSettings({ ...kitchenSettings, kds_default_view_mode: e.target.value })}
-            >
-              {KDS_VIEW_MODES.map((m) => (
-                <option key={m} value={m}>{KDS_VIEW_MODE_LABELS[m as KdsViewMode] ?? m}</option>
-              ))}
-            </select>
-          </label>
-          <div className="space-y-1 col-span-2 md:col-span-1">
+            <div className="space-y-1.5">
+              {KDS_VIEW_MODES.map((m) => {
+                const isSelected = ((kitchenSettings?.kds_default_view_mode as string) ?? 'ticket') === m;
+                const detail = KDS_VIEW_MODE_DETAILS[m as KdsViewMode];
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => updateSettings({ ...kitchenSettings, kds_default_view_mode: m })}
+                    className={`w-full text-left px-2.5 py-2 rounded-md border transition-all ${
+                      isSelected
+                        ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
+                        : 'border-border bg-surface hover:border-indigo-500/30 hover:bg-indigo-500/5'
+                    }`}
+                  >
+                    <span className={`text-xs ${isSelected ? 'font-bold text-indigo-400' : 'font-medium text-foreground'}`}>
+                      {KDS_VIEW_MODE_LABELS[m as KdsViewMode] ?? m}
+                    </span>
+                    {detail && (
+                      <p className={`text-[10px] mt-0.5 leading-snug ${isSelected ? 'text-indigo-400/80' : 'text-muted-foreground'}`}>
+                        {detail.summary}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Screen Communication — card selector */}
+          <div className="space-y-1">
             <span className="text-xs text-muted-foreground">Screen Communication</span>
             <div className="space-y-1.5">
               {SCREEN_COMM_MODES.map((m) => {
@@ -349,43 +505,65 @@ function StationsTab({ locationId }: { locationId?: string }) {
               })}
             </div>
           </div>
-          <label className="space-y-1">
-            <span className="text-xs text-muted-foreground">Default Theme</span>
-            <select
-              className="w-full bg-surface border border-input rounded-md px-2 py-1.5 text-xs text-foreground"
-              value={(kitchenSettings?.kds_default_theme as string) ?? 'dark'}
-              onChange={(e) => updateSettings({ ...kitchenSettings, kds_default_theme: e.target.value })}
-            >
-              {KDS_THEMES.map((m) => (
-                <option key={m} value={m}>{THEME_LABELS[m] ?? m}</option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs text-muted-foreground">Input Mode</span>
-            <select
-              className="w-full bg-surface border border-input rounded-md px-2 py-1.5 text-xs text-foreground"
-              value={(kitchenSettings?.kds_default_input_mode as string) ?? 'touch'}
-              onChange={(e) => updateSettings({ ...kitchenSettings, kds_default_input_mode: e.target.value })}
-            >
-              {KDS_INPUT_MODES.map((m) => (
-                <option key={m} value={m}>{INPUT_MODE_LABELS[m] ?? m}</option>
-              ))}
-            </select>
-          </label>
+
+          {/* Default Theme + Input Mode column */}
+          <div className="space-y-3">
+            {/* Default Theme — card selector */}
+            <div className="space-y-1">
+              <span className="text-xs text-muted-foreground">Default Theme</span>
+              <div className="space-y-1.5">
+                {KDS_THEMES.map((m) => {
+                  const isSelected = ((kitchenSettings?.kds_default_theme as string) ?? 'dark') === m;
+                  const detail = KDS_THEME_DETAILS[m as KdsTheme];
+                  return (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => updateSettings({ ...kitchenSettings, kds_default_theme: m })}
+                      className={`w-full text-left px-2.5 py-2 rounded-md border transition-all ${
+                        isSelected
+                          ? 'border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/40'
+                          : 'border-border bg-surface hover:border-indigo-500/30 hover:bg-indigo-500/5'
+                      }`}
+                    >
+                      <span className={`text-xs ${isSelected ? 'font-bold text-indigo-400' : 'font-medium text-foreground'}`}>
+                        {KDS_THEME_LABELS[m as KdsTheme] ?? m}
+                      </span>
+                      {detail && (
+                        <p className={`text-[10px] mt-0.5 leading-snug ${isSelected ? 'text-indigo-400/80' : 'text-muted-foreground'}`}>
+                          {detail.summary}
+                        </p>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Input Mode — stays as dropdown (only 2 basic options) */}
+            <label className="space-y-1 block">
+              <span className="text-xs text-muted-foreground">Input Mode</span>
+              <select
+                className="w-full bg-surface border border-input rounded-md px-2 py-1.5 text-xs text-foreground"
+                value={(kitchenSettings?.kds_default_input_mode as string) ?? 'touch'}
+                onChange={(e) => updateSettings({ ...kitchenSettings, kds_default_input_mode: e.target.value })}
+              >
+                {KDS_INPUT_MODES.map((m) => (
+                  <option key={m} value={m}>{INPUT_MODE_LABELS[m] ?? m}</option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
 
-        {/* View mode description */}
-        {(() => {
-          const vm = (kitchenSettings?.kds_default_view_mode as KdsViewMode) ?? 'ticket';
-          const desc = KDS_VIEW_MODE_DESCRIPTIONS[vm];
-          return desc ? (
-            <p className="text-[11px] text-muted-foreground leading-relaxed px-0.5">{desc}</p>
-          ) : null;
-        })()}
+        {/* View mode detail card */}
+        <ViewModeDetailCard mode={(kitchenSettings?.kds_default_view_mode as KdsViewMode) ?? 'ticket'} />
 
         {/* Screen communication mode detail card */}
         <ScreenCommModeDetailCard mode={(kitchenSettings?.default_screen_comm_mode as ScreenCommMode) ?? 'independent'} />
+
+        {/* Theme detail card */}
+        <ThemeDetailCard theme={(kitchenSettings?.kds_default_theme as KdsTheme) ?? 'dark'} />
       </div>
 
       {/* Station list */}
@@ -528,6 +706,7 @@ function CreateStationDialog({
   const [color, setColor] = useState('#6366f1');
   const [warningSeconds, setWarningSeconds] = useState(480);
   const [criticalSeconds, setCriticalSeconds] = useState(720);
+  const [error, setError] = useState<string | null>(null);
   const backdropRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -538,14 +717,20 @@ function CreateStationDialog({
   const handleSubmit = useCallback(async () => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
-    await onSubmit({
-      name: trimmedName,
-      displayName: displayName.trim() || trimmedName,
-      stationType,
-      color,
-      warningThresholdSeconds: warningSeconds,
-      criticalThresholdSeconds: criticalSeconds,
-    });
+    setError(null);
+    try {
+      await onSubmit({
+        name: trimmedName,
+        displayName: displayName.trim() || trimmedName,
+        stationType,
+        color,
+        warningThresholdSeconds: warningSeconds,
+        criticalThresholdSeconds: criticalSeconds,
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to create station';
+      setError(msg);
+    }
   }, [name, displayName, stationType, color, warningSeconds, criticalSeconds, onSubmit]);
 
   return createPortal(
@@ -563,6 +748,11 @@ function CreateStationDialog({
         </div>
 
         <div className="px-4 py-4 space-y-4">
+          {error && (
+            <div className="rounded-md bg-red-500/10 border border-red-500/30 px-3 py-2 text-xs text-red-400">
+              {error}
+            </div>
+          )}
           <label className="block space-y-1">
             <span className="text-xs font-medium text-foreground">Station Name <span className="text-red-500">*</span></span>
             <input
@@ -1459,15 +1649,10 @@ function BumpBarsTab({ locationId }: { locationId?: string }) {
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
 
   const handleCreateProfile = useCallback(() => {
-    // Build a simple keyMap from the default 10-button layout
-    const keyMap: Record<string, string> = {};
-    for (const mapping of DEFAULT_10_BUTTON_LAYOUT) {
-      keyMap[String(mapping.buttonIndex)] = mapping.action;
-    }
     createProfile({
       profileName: `Profile ${profiles.length + 1}`,
       buttonCount: 10,
-      keyMap,
+      keyMappings: DEFAULT_10_BUTTON_LAYOUT,
       isDefault: profiles.length === 0,
       clientRequestId: `create-bbp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     });
@@ -1525,7 +1710,7 @@ function BumpBarProfileCard({
   isExpanded,
   onToggle,
 }: {
-  profile: { id: string; profileName: string; buttonCount: number; keyMap: Record<string, string>; isDefault: boolean };
+  profile: { id: string; profileName: string; buttonCount: number; keyMappings: Array<{ buttonIndex: number; scanCode: number; action: string; label: string; color?: string }>; isDefault: boolean };
   isExpanded: boolean;
   onToggle: () => void;
 }) {
@@ -1558,14 +1743,15 @@ function BumpBarProfileCard({
         <div className="mt-3 pt-3 border-t border-border">
           <h5 className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Button Layout</h5>
           <div className={`grid gap-1.5 ${profile.buttonCount === 20 ? 'grid-cols-4 sm:grid-cols-5 md:grid-cols-10' : 'grid-cols-5'}`}>
-            {Object.entries(profile.keyMap || {}).map(([pos, action]) => (
+            {(profile.keyMappings || []).map((mapping) => (
               <div
-                key={pos}
+                key={mapping.buttonIndex}
                 className="bg-surface border border-border rounded px-2 py-1.5 text-center"
+                style={mapping.color ? { borderColor: `${mapping.color}40` } : undefined}
               >
-                <div className="text-[9px] text-muted-foreground font-mono">B{pos}</div>
+                <div className="text-[9px] text-muted-foreground font-mono">B{mapping.buttonIndex}</div>
                 <div className="text-[10px] text-foreground font-medium truncate mt-0.5">
-                  {BUMP_ACTION_LABELS[action] ?? action}
+                  {mapping.label || BUMP_ACTION_LABELS[mapping.action] || mapping.action}
                 </div>
               </div>
             ))}
@@ -1594,9 +1780,11 @@ function AlertsTab({ locationId }: { locationId?: string }) {
   const handleCreateProfile = useCallback(() => {
     createProfile({
       profileName: `Alert Profile ${profiles.length + 1}`,
-      newTicketAlert: { enabled: true, tone: 'chime', volume: 70 },
-      warningAlert: { enabled: true, tone: 'warning', volume: 80 },
-      criticalAlert: { enabled: true, tone: 'urgent', volume: 100 },
+      newTicketAlert: { tone: 'chime', volume: 0.7, flash: true, repeat: 1 },
+      warningAlert: { tone: 'warning', volume: 0.8, flash: true, repeat: 1 },
+      criticalAlert: { tone: 'urgent', volume: 1.0, flash: true, repeat: 2 },
+      rushAlert: { tone: 'rush', volume: 0.9, flash: true, repeat: 2 },
+      allergyAlert: { tone: 'allergy', volume: 1.0, flash: true, flashColor: '#ff0066', repeat: 3 },
       isDefault: profiles.length === 0,
       clientRequestId: `create-ap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     });
@@ -1642,17 +1830,25 @@ function AlertsTab({ locationId }: { locationId?: string }) {
   );
 }
 
+interface AlertEventConfigData {
+  tone: string;
+  volume: number;
+  flash: boolean;
+  flashColor?: string;
+  repeat: number;
+}
+
 interface AlertProfileData {
   id: string;
   profileName: string;
   isDefault: boolean;
-  newTicketAlert: { enabled: boolean; tone: string; volume: number } | null;
-  warningAlert: { enabled: boolean; tone: string; volume: number } | null;
-  criticalAlert: { enabled: boolean; tone: string; volume: number } | null;
-  rushAlert: { enabled: boolean; tone: string; volume: number } | null;
-  allergyAlert: { enabled: boolean; tone: string; volume: number } | null;
-  modificationAlert: { enabled: boolean; tone: string; volume: number } | null;
-  completeAlert: { enabled: boolean; tone: string; volume: number } | null;
+  newTicketAlert: AlertEventConfigData | null;
+  warningAlert: AlertEventConfigData | null;
+  criticalAlert: AlertEventConfigData | null;
+  rushAlert: AlertEventConfigData | null;
+  allergyAlert: AlertEventConfigData | null;
+  modificationAlert: AlertEventConfigData | null;
+  completeAlert: AlertEventConfigData | null;
 }
 
 function AlertProfileCard({
@@ -1676,8 +1872,8 @@ function AlertProfileCard({
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         {ALERT_TYPES.map(({ key, label, color }) => {
-          const alertData = profile[key as keyof AlertProfileData] as { enabled: boolean; tone: string; volume: number } | null | undefined;
-          const isEnabled = alertData?.enabled ?? false;
+          const alertData = profile[key as keyof AlertProfileData] as AlertEventConfigData | null | undefined;
+          const isEnabled = alertData != null;
 
           // Static color lookup — Tailwind cannot resolve template-literal class names.
           const colorStyles = COLOR_STYLES[color] ?? COLOR_STYLES.indigo;
@@ -1701,7 +1897,9 @@ function AlertProfileCard({
               </div>
               {isEnabled && alertData && (
                 <div className="text-[9px] text-muted-foreground">
-                  {ALERT_TONE_LABELS[alertData.tone] ?? alertData.tone} &middot; {alertData.volume}%
+                  {ALERT_TONE_LABELS[alertData.tone] ?? alertData.tone} &middot; {Math.round(alertData.volume * 100)}%
+                  {alertData.flash && ' · Flash'}
+                  {alertData.repeat > 1 && ` · ×${alertData.repeat}`}
                 </div>
               )}
             </div>
@@ -1922,6 +2120,13 @@ function PrepTimesTab({ locationId }: { locationId?: string }) {
 
 // ── Add Prep Time Dialog ─────────────────────────────────────────
 
+interface CatalogItemSearchResult {
+  id: string;
+  name: string;
+  sku: string | null;
+  itemType: string;
+}
+
 function AddPrepTimeDialog({
   stations,
   onSave,
@@ -1933,14 +2138,54 @@ function AddPrepTimeDialog({
   onClose: () => void;
   isActing: boolean;
 }) {
-  const [catalogItemId, setCatalogItemId] = useState('');
+  const [selectedItem, setSelectedItem] = useState<CatalogItemSearchResult | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<CatalogItemSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [stationId, setStationId] = useState('');
   const [prepMinutes, setPrepMinutes] = useState(5);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    setSelectedItem(null);
+
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+
+    if (query.trim().length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await apiFetch<{ data: { items: CatalogItemSearchResult[] } }>(
+          `/api/v1/catalog/items?search=${encodeURIComponent(query.trim())}&limit=10`,
+        );
+        const items = res.data?.items ?? [];
+        setSearchResults(items);
+        setShowDropdown(items.length > 0);
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+  }, []);
+
+  const handleSelectItem = useCallback((item: CatalogItemSearchResult) => {
+    setSelectedItem(item);
+    setSearchQuery(item.name);
+    setShowDropdown(false);
+  }, []);
 
   const handleSubmit = () => {
-    if (!catalogItemId.trim()) return;
+    if (!selectedItem) return;
     void onSave({
-      catalogItemId: catalogItemId.trim(),
+      catalogItemId: selectedItem.id,
       stationId,
       estimatedPrepSeconds: prepMinutes * 60,
     });
@@ -1958,16 +2203,42 @@ function AddPrepTimeDialog({
         </div>
 
         <div className="space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Catalog Item ID *</label>
+          <div className="relative">
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Search Item *</label>
             <input
               type="text"
-              value={catalogItemId}
-              onChange={(e) => setCatalogItemId(e.target.value)}
-              placeholder="Enter catalog item ID"
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              onFocus={() => { if (searchResults.length > 0 && !selectedItem) setShowDropdown(true); }}
+              placeholder="Type to search by name or SKU..."
               className="w-full px-3 py-1.5 text-xs bg-surface border border-input rounded-md text-foreground placeholder:text-muted-foreground"
             />
-            <p className="text-[10px] text-muted-foreground mt-0.5">The ULID of the catalog item</p>
+            {isSearching && (
+              <div className="absolute right-2 top-7 text-[10px] text-muted-foreground">Searching...</div>
+            )}
+            {selectedItem && (
+              <p className="text-[10px] text-green-500 mt-0.5">
+                Selected: {selectedItem.name}{selectedItem.sku ? ` (${selectedItem.sku})` : ''}
+              </p>
+            )}
+            {showDropdown && searchResults.length > 0 && (
+              <div className="absolute z-10 mt-1 w-full bg-surface border border-border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                {searchResults.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSelectItem(item)}
+                    className="w-full text-left px-3 py-2 text-xs hover:bg-accent transition-colors border-b border-border last:border-0"
+                  >
+                    <div className="font-medium text-foreground">{item.name}</div>
+                    {item.sku && <div className="text-[10px] text-muted-foreground mt-0.5">SKU: {item.sku}</div>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {!isSearching && searchQuery.trim().length >= 2 && searchResults.length === 0 && !selectedItem && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">No items found</p>
+            )}
           </div>
 
           <div>
@@ -2009,7 +2280,7 @@ function AddPrepTimeDialog({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isActing || !catalogItemId.trim()}
+            disabled={isActing || !selectedItem}
             className="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
           >
             {isActing ? 'Saving...' : 'Add Prep Time'}
@@ -2030,7 +2301,7 @@ function EditPrepTimeDialog({
   onClose,
   isActing,
 }: {
-  item: { id: string; catalogItemId: string; catalogItemName: string | null; stationId: string | null; estimatedPrepSeconds: number };
+  item: { id: string; catalogItemId: string; catalogItemName?: string | null; stationId: string | null; stationName?: string | null; estimatedPrepSeconds: number };
   stations: { id: string; displayName: string }[];
   onSave: (input: { catalogItemId: string; stationId: string; estimatedPrepSeconds: number }) => Promise<void>;
   onClose: () => void;

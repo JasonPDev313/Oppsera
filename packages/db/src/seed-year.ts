@@ -337,6 +337,8 @@ async function seedYear() {
     const dailyAgg: Record<string, {
       orderCount: number; grossSales: number; taxTotal: number; netSales: number;
       discountTotal: number; tenderCash: number; tenderCard: number;
+      tenderGiftCard: number; tenderHouseAccount: number; tenderAch: number; tenderOther: number;
+      tipTotal: number; serviceChargeTotal: number; surchargeTotal: number; returnTotal: number;
       voidCount: number; voidTotal: number; locationId: string;
     }> = {};
     const itemAgg: Record<string, {
@@ -534,6 +536,8 @@ async function seedYear() {
           dailyAgg[dailyKey] = {
             orderCount: 0, grossSales: 0, taxTotal: 0, netSales: 0,
             discountTotal: 0, tenderCash: 0, tenderCard: 0,
+            tenderGiftCard: 0, tenderHouseAccount: 0, tenderAch: 0, tenderOther: 0,
+            tipTotal: 0, serviceChargeTotal: 0, surchargeTotal: 0, returnTotal: 0,
             voidCount: 0, voidTotal: 0, locationId: locId,
           };
         }
@@ -553,6 +557,8 @@ async function seedYear() {
             } else {
               day.tenderCard += (lastTender.amount as number) / 100;
             }
+            // Track tips from card tenders (cash tips are 0)
+            day.tipTotal += (lastTender.tipAmount as number) / 100;
           }
         }
       }
@@ -626,6 +632,14 @@ async function seedYear() {
         netSales: agg.netSales.toFixed(4),
         tenderCash: agg.tenderCash.toFixed(4),
         tenderCard: agg.tenderCard.toFixed(4),
+        tenderGiftCard: agg.tenderGiftCard.toFixed(4),
+        tenderHouseAccount: agg.tenderHouseAccount.toFixed(4),
+        tenderAch: agg.tenderAch.toFixed(4),
+        tenderOther: agg.tenderOther.toFixed(4),
+        tipTotal: agg.tipTotal.toFixed(4),
+        serviceChargeTotal: agg.serviceChargeTotal.toFixed(4),
+        surchargeTotal: agg.surchargeTotal.toFixed(4),
+        returnTotal: agg.returnTotal.toFixed(4),
         voidCount: agg.voidCount,
         voidTotal: agg.voidTotal.toFixed(4),
         avgOrderValue: avgOrderValue.toFixed(4),
@@ -635,8 +649,22 @@ async function seedYear() {
     // Use raw SQL for ON CONFLICT upsert
     for (const row of dailySalesRows) {
       await db.execute(sql`
-        INSERT INTO rm_daily_sales (tenant_id, location_id, business_date, order_count, gross_sales, discount_total, tax_total, net_sales, tender_cash, tender_card, void_count, void_total, avg_order_value)
-        VALUES (${row.tenantId}, ${row.locationId}, ${row.businessDate}, ${row.orderCount}, ${row.grossSales}, ${row.discountTotal}, ${row.taxTotal}, ${row.netSales}, ${row.tenderCash}, ${row.tenderCard}, ${row.voidCount}, ${row.voidTotal}, ${row.avgOrderValue})
+        INSERT INTO rm_daily_sales (
+          tenant_id, location_id, business_date, order_count,
+          gross_sales, discount_total, tax_total, net_sales,
+          tender_cash, tender_card, tender_gift_card, tender_house_account,
+          tender_ach, tender_other, tip_total, service_charge_total,
+          surcharge_total, return_total,
+          void_count, void_total, avg_order_value
+        )
+        VALUES (
+          ${row.tenantId}, ${row.locationId}, ${row.businessDate}, ${row.orderCount},
+          ${row.grossSales}, ${row.discountTotal}, ${row.taxTotal}, ${row.netSales},
+          ${row.tenderCash}, ${row.tenderCard}, ${row.tenderGiftCard}, ${row.tenderHouseAccount},
+          ${row.tenderAch}, ${row.tenderOther}, ${row.tipTotal}, ${row.serviceChargeTotal},
+          ${row.surchargeTotal}, ${row.returnTotal},
+          ${row.voidCount}, ${row.voidTotal}, ${row.avgOrderValue}
+        )
         ON CONFLICT (tenant_id, location_id, business_date)
         DO UPDATE SET
           order_count = EXCLUDED.order_count,
@@ -646,6 +674,14 @@ async function seedYear() {
           net_sales = EXCLUDED.net_sales,
           tender_cash = EXCLUDED.tender_cash,
           tender_card = EXCLUDED.tender_card,
+          tender_gift_card = EXCLUDED.tender_gift_card,
+          tender_house_account = EXCLUDED.tender_house_account,
+          tender_ach = EXCLUDED.tender_ach,
+          tender_other = EXCLUDED.tender_other,
+          tip_total = EXCLUDED.tip_total,
+          service_charge_total = EXCLUDED.service_charge_total,
+          surcharge_total = EXCLUDED.surcharge_total,
+          return_total = EXCLUDED.return_total,
           void_count = EXCLUDED.void_count,
           void_total = EXCLUDED.void_total,
           avg_order_value = EXCLUDED.avg_order_value

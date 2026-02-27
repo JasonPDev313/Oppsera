@@ -3,6 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { FNB_EVENTS } from '../events/types';
 import type { CloseBatchStartedPayload } from '../events/types';
 
@@ -15,6 +16,9 @@ interface StartCloseBatchInput {
 
 export async function startCloseBatch(ctx: RequestContext, input: StartCloseBatchInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'startCloseBatch');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Check for existing batch on this date+location
     const existing = await tx.execute(
       sql`SELECT id, status FROM fnb_close_batches
@@ -48,6 +52,8 @@ export async function startCloseBatch(ctx: RequestContext, input: StartCloseBatc
       startingFloatCents: input.startingFloatCents,
     };
     const event = buildEventFromContext(ctx, FNB_EVENTS.CLOSE_BATCH_STARTED, payload as unknown as Record<string, unknown>);
+
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'startCloseBatch', batch);
 
     return { result: batch, events: [event] };
   });

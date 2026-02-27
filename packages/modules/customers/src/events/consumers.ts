@@ -6,10 +6,10 @@ import {
   billingAccounts,
   arTransactions,
   arAllocations,
-  paymentJournalEntries,
 } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
+import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 
 // ── handleOrderPlaced ────────────────────────────────────────────
 /**
@@ -47,6 +47,13 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
   const businessDate =
     eventBusinessDate || new Date().toISOString().slice(0, 10);
   const createdBy = event.actorUserId || 'system';
+
+  // Capture GL-relevant data from inside withTenant for GL posting after
+  let glPostingData: {
+    arTxId: string;
+    amountCents: number;
+    locationId: string;
+  } | null = null;
 
   await withTenant(event.tenantId, async (tx) => {
     const customerId = eventCustomerId ?? null;
@@ -138,30 +145,14 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
             ),
           );
 
-        // 3. GL entry: debit AR (1200), credit Revenue (4000)
-        const glId = generateUlid();
-        await tx.insert(paymentJournalEntries).values({
-          id: glId,
-          tenantId: event.tenantId,
+        // Capture data for GL posting after transaction commits
+        glPostingData = {
+          arTxId,
+          amountCents: total,
           locationId: event.locationId ?? eventLocationId ?? '',
-          referenceType: 'ar_charge',
-          referenceId: arTxId,
-          orderId,
-          entries: [
-            { accountCode: '1200', accountName: 'Accounts Receivable', debit: total, credit: 0 },
-            { accountCode: '4000', accountName: 'Revenue', debit: 0, credit: total },
-          ],
-          businessDate,
-          sourceModule: 'billing',
-        });
+        };
 
-        // Link GL entry to AR transaction
-        await tx
-          .update(arTransactions)
-          .set({ glJournalEntryId: glId })
-          .where(eq(arTransactions.id, arTxId));
-
-        // 4. Activity log for the billing charge
+        // 3. Activity log for the billing charge
         const activityCustomerId =
           customerId ?? billingAccount?.primaryCustomerId;
         if (activityCustomerId) {
@@ -179,6 +170,57 @@ export async function handleOrderPlaced(event: EventEnvelope): Promise<void> {
       }
     }
   });
+
+  // ── GL posting (after AR transaction committed) ──────────────
+  if (glPostingData) {
+    const { arTxId, amountCents, locationId } = glPostingData;
+    try {
+      const postingApi = getAccountingPostingApi();
+      try { await postingApi.ensureSettings(event.tenantId); } catch { /* non-fatal */ }
+      const settings = await postingApi.getSettings(event.tenantId);
+
+      const arAccountId = settings.defaultARControlAccountId
+        ?? settings.defaultUncategorizedRevenueAccountId;
+      const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
+
+      if (arAccountId && revenueAccountId) {
+        const amountDollars = (amountCents / 100).toFixed(2);
+        const result = await postingApi.postEntry(
+          {
+            tenantId: event.tenantId,
+            user: { id: 'system', email: '' },
+            requestId: `ar-charge-gl-${arTxId}`,
+          } as any,
+          {
+            businessDate,
+            sourceModule: 'billing',
+            sourceReferenceId: `ar-charge-${arTxId}`,
+            memo: `House account charge — Order #${orderNumber}`,
+            lines: [
+              { accountId: arAccountId, debitAmount: amountDollars, creditAmount: '0', locationId },
+              { accountId: revenueAccountId, debitAmount: '0', creditAmount: amountDollars, locationId },
+            ],
+            forcePost: true,
+          },
+        );
+
+        // Best-effort: link GL journal entry to AR transaction
+        try {
+          await withTenant(event.tenantId, async (tx) => {
+            await tx
+              .update(arTransactions)
+              .set({ glJournalEntryId: result.id })
+              .where(eq(arTransactions.id, arTxId));
+          });
+        } catch { /* non-fatal */ }
+      } else {
+        console.error(`[ar-gl] No AR or revenue GL account configured for tenant=${event.tenantId}, AR charge ${arTxId} has no GL entry`);
+      }
+    } catch (error) {
+      // GL failures NEVER block AR operations
+      console.error(`[ar-gl] GL posting failed for AR charge ${arTxId}:`, error);
+    }
+  }
 }
 
 // ── handleOrderVoided ────────────────────────────────────────────
@@ -208,6 +250,14 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
   };
 
   const createdBy = event.actorUserId || 'system';
+
+  // Capture GL-relevant data from inside withTenant for GL posting after
+  let glPostingData: {
+    reversalTxId: string;
+    absAmountCents: number;
+    locationId: string;
+    businessDate: string;
+  } | null = null;
 
   await withTenant(event.tenantId, async (tx) => {
     // Find the original AR charge for this order
@@ -275,31 +325,15 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
         ),
       );
 
-    // 3. Reversal GL entry: debit Revenue (4000), credit AR (1200)
-    const glId = generateUlid();
-    const absAmount = Math.abs(reversalAmount);
-    await tx.insert(paymentJournalEntries).values({
-      id: glId,
-      tenantId: event.tenantId,
+    // Capture data for GL posting after transaction commits
+    glPostingData = {
+      reversalTxId,
+      absAmountCents: Math.abs(reversalAmount),
       locationId: event.locationId ?? eventLocationId ?? '',
-      referenceType: 'ar_reversal',
-      referenceId: reversalTxId,
-      orderId,
-      entries: [
-        { accountCode: '4000', accountName: 'Revenue', debit: absAmount, credit: 0 },
-        { accountCode: '1200', accountName: 'Accounts Receivable', debit: 0, credit: absAmount },
-      ],
       businessDate,
-      sourceModule: 'billing',
-    });
+    };
 
-    // Link GL entry to reversal AR transaction
-    await tx
-      .update(arTransactions)
-      .set({ glJournalEntryId: glId })
-      .where(eq(arTransactions.id, reversalTxId));
-
-    // 4. Activity log
+    // 3. Activity log
     const activityCustomerId = originalCharge.customerId;
     if (!activityCustomerId) {
       // Fall back to billing account's primary customer
@@ -339,6 +373,57 @@ export async function handleOrderVoided(event: EventEnvelope): Promise<void> {
       });
     }
   });
+
+  // ── GL posting (after AR reversal committed) ──────────────
+  if (glPostingData) {
+    const { reversalTxId, absAmountCents, locationId, businessDate } = glPostingData;
+    try {
+      const postingApi = getAccountingPostingApi();
+      try { await postingApi.ensureSettings(event.tenantId); } catch { /* non-fatal */ }
+      const settings = await postingApi.getSettings(event.tenantId);
+
+      const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
+      const arAccountId = settings.defaultARControlAccountId
+        ?? settings.defaultUncategorizedRevenueAccountId;
+
+      if (revenueAccountId && arAccountId) {
+        const amountDollars = (absAmountCents / 100).toFixed(2);
+        const result = await postingApi.postEntry(
+          {
+            tenantId: event.tenantId,
+            user: { id: 'system', email: '' },
+            requestId: `ar-reversal-gl-${reversalTxId}`,
+          } as any,
+          {
+            businessDate,
+            sourceModule: 'billing',
+            sourceReferenceId: `ar-reversal-${reversalTxId}`,
+            memo: `House account charge reversed — Order #${orderNumber}`,
+            lines: [
+              { accountId: revenueAccountId, debitAmount: amountDollars, creditAmount: '0', locationId },
+              { accountId: arAccountId, debitAmount: '0', creditAmount: amountDollars, locationId },
+            ],
+            forcePost: true,
+          },
+        );
+
+        // Best-effort: link GL journal entry to AR transaction
+        try {
+          await withTenant(event.tenantId, async (tx) => {
+            await tx
+              .update(arTransactions)
+              .set({ glJournalEntryId: result.id })
+              .where(eq(arTransactions.id, reversalTxId));
+          });
+        } catch { /* non-fatal */ }
+      } else {
+        console.error(`[ar-gl] No revenue or AR GL account configured for tenant=${event.tenantId}, AR reversal ${reversalTxId} has no GL entry`);
+      }
+    } catch (error) {
+      // GL failures NEVER block AR operations
+      console.error(`[ar-gl] GL posting failed for AR reversal ${reversalTxId}:`, error);
+    }
+  }
 }
 
 // ── handleTenderRecorded ─────────────────────────────────────────
@@ -395,6 +480,13 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
   const businessDate =
     eventBusinessDate || new Date().toISOString().slice(0, 10);
   const createdBy = event.actorUserId || 'system';
+
+  // Capture GL-relevant data from inside withTenant for GL posting after
+  let glPostingData: {
+    paymentTxId: string;
+    amountCents: number;
+    locationId: string;
+  } | null = null;
 
   await withTenant(event.tenantId, async (tx) => {
     const billingAccountId = eventBillingAccountId ?? null;
@@ -508,30 +600,14 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
         ),
       );
 
-    // 4. GL entry: debit Cash (1010), credit AR (1200)
-    const glId = generateUlid();
-    await tx.insert(paymentJournalEntries).values({
-      id: glId,
-      tenantId: event.tenantId,
+    // Capture data for GL posting after transaction commits
+    glPostingData = {
+      paymentTxId,
+      amountCents: amount,
       locationId: event.locationId ?? '',
-      referenceType: 'ar_payment',
-      referenceId: paymentTxId,
-      orderId,
-      entries: [
-        { accountCode: '1010', accountName: 'Cash', debit: amount, credit: 0 },
-        { accountCode: '1200', accountName: 'Accounts Receivable', debit: 0, credit: amount },
-      ],
-      businessDate,
-      sourceModule: 'billing',
-    });
+    };
 
-    // Link GL entry to AR transaction
-    await tx
-      .update(arTransactions)
-      .set({ glJournalEntryId: glId })
-      .where(eq(arTransactions.id, paymentTxId));
-
-    // 5. Activity log
+    // 4. Activity log
     if (activityCustomerId) {
       await tx.insert(customerActivityLog).values({
         id: generateUlid(),
@@ -545,4 +621,56 @@ export async function handleTenderRecorded(event: EventEnvelope): Promise<void> 
       });
     }
   });
+
+  // ── GL posting (after AR payment committed) ──────────────
+  if (glPostingData) {
+    const { paymentTxId, amountCents, locationId } = glPostingData;
+    try {
+      const postingApi = getAccountingPostingApi();
+      try { await postingApi.ensureSettings(event.tenantId); } catch { /* non-fatal */ }
+      const settings = await postingApi.getSettings(event.tenantId);
+
+      const cashAccountId = settings.defaultUndepositedFundsAccountId
+        ?? settings.defaultUncategorizedRevenueAccountId;
+      const arAccountId = settings.defaultARControlAccountId
+        ?? settings.defaultUncategorizedRevenueAccountId;
+
+      if (cashAccountId && arAccountId) {
+        const amountDollars = (amountCents / 100).toFixed(2);
+        const result = await postingApi.postEntry(
+          {
+            tenantId: event.tenantId,
+            user: { id: 'system', email: '' },
+            requestId: `ar-payment-gl-${paymentTxId}`,
+          } as any,
+          {
+            businessDate,
+            sourceModule: 'billing',
+            sourceReferenceId: `ar-payment-${paymentTxId}`,
+            memo: `House account payment — Order #${orderNumber}`,
+            lines: [
+              { accountId: cashAccountId, debitAmount: amountDollars, creditAmount: '0', locationId },
+              { accountId: arAccountId, debitAmount: '0', creditAmount: amountDollars, locationId },
+            ],
+            forcePost: true,
+          },
+        );
+
+        // Best-effort: link GL journal entry to AR transaction
+        try {
+          await withTenant(event.tenantId, async (tx) => {
+            await tx
+              .update(arTransactions)
+              .set({ glJournalEntryId: result.id })
+              .where(eq(arTransactions.id, paymentTxId));
+          });
+        } catch { /* non-fatal */ }
+      } else {
+        console.error(`[ar-gl] No cash or AR GL account configured for tenant=${event.tenantId}, AR payment ${paymentTxId} has no GL entry`);
+      }
+    } catch (error) {
+      // GL failures NEVER block AR operations
+      console.error(`[ar-gl] GL posting failed for AR payment ${paymentTxId}:`, error);
+    }
+  }
 }

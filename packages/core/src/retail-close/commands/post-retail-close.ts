@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { AppError } from '@oppsera/shared';
 import { retailCloseBatches, accountingSettings } from '@oppsera/db';
 import { publishWithOutbox } from '../../events/publish-with-outbox';
@@ -9,6 +9,7 @@ import type { RequestContext } from '../../auth/context';
 import type { PostRetailCloseInput } from '../validation';
 import type { RetailCloseBatch, TenderBreakdownEntry, DepartmentSalesEntry, TaxGroupEntry } from '../types';
 import { buildRetailBatchJournalLines } from '../helpers/build-retail-batch-journal-lines';
+import { generateUlid } from '@oppsera/shared';
 
 function mapRow(row: typeof retailCloseBatches.$inferSelect): RetailCloseBatch {
   return {
@@ -85,19 +86,33 @@ export async function postRetailClose(
     const mapped = mapRow(batch);
     const journalLines = buildRetailBatchJournalLines(mapped);
 
-    // Try to post to GL — best effort
+    // Try to post to GL — best effort, NEVER blocks close
     let glJournalEntryId: string | null = null;
     try {
       const accountingApi = getAccountingPostingApi();
 
-      // Read full settings directly from DB (AccountingPostingApi.getSettings returns limited fields)
+      // Ensure accounting settings exist (auto-bootstrap if needed)
+      try { await accountingApi.ensureSettings?.(ctx.tenantId); } catch { /* non-fatal */ }
+
+      // Read full settings directly from DB
       const [settingsRow] = await tx
         .select()
         .from(accountingSettings)
         .where(eq(accountingSettings.tenantId, ctx.tenantId))
         .limit(1);
 
-      if (settingsRow) {
+      if (!settingsRow) {
+        // Log unmapped event instead of silently skipping GL
+        try {
+          const _id = generateUlid();
+          const _reason = `CRITICAL: GL retail close posting skipped — accounting settings missing even after ensureAccountingSettings. Batch: ${batch.businessDate}, net sales: $${(batch.netSalesCents / 100).toFixed(2)}`;
+          await tx.execute(sql`
+            INSERT INTO gl_unmapped_events (id, tenant_id, event_type, source_module, source_reference_id, entity_type, entity_id, reason, created_at)
+            VALUES (${_id}, ${ctx.tenantId}, 'retail.close.posted.v1', 'retail_close', ${batch.id}, 'accounting_settings', ${ctx.tenantId}, ${_reason}, NOW())
+          `);
+        } catch { /* best-effort */ }
+        console.error(`[retail-close] CRITICAL: accounting settings missing for tenant=${ctx.tenantId} after ensureAccountingSettings`);
+      } else {
         // Build GL lines with resolved account IDs
         const glLines: Array<{
           accountId: string;
@@ -106,6 +121,9 @@ export async function postRetailClose(
           locationId?: string;
           memo?: string;
         }> = [];
+
+        // Fallback for unmapped categories
+        const fallbackAccountId = settingsRow.defaultUncategorizedRevenueAccountId ?? null;
 
         for (const line of journalLines) {
           let accountId: string | null = null;
@@ -128,12 +146,24 @@ export async function postRetailClose(
               accountId = settingsRow.defaultUndepositedFundsAccountId ?? null;
               break;
             // cash_on_hand and sales_revenue need more specific resolution
-            // For now, skip if no default — the per-tender POS adapter already posts these
+            // For now, use fallback if no default — the per-tender POS adapter already posts these
             default:
+              accountId = fallbackAccountId;
               break;
           }
 
-          if (!accountId) continue;
+          if (!accountId) {
+            // Log unmapped category instead of silently skipping
+            try {
+              const _lineId = generateUlid();
+              const _lineReason = `Retail close batch line "${line.category}" ($${((line.debitCents || line.creditCents) / 100).toFixed(2)}) has no GL account mapped. Batch: ${batch.businessDate}`;
+              await tx.execute(sql`
+                INSERT INTO gl_unmapped_events (id, tenant_id, event_type, source_module, source_reference_id, entity_type, entity_id, reason, created_at)
+                VALUES (${_lineId}, ${ctx.tenantId}, 'retail.close.posted.v1', 'retail_close', ${batch.id}, 'gl_account', ${line.category}, ${_lineReason}, NOW())
+              `);
+            } catch { /* best-effort */ }
+            continue;
+          }
 
           glLines.push({
             accountId,
@@ -142,6 +172,39 @@ export async function postRetailClose(
             memo: line.description,
             locationId: batch.locationId,
           });
+        }
+
+        // Post-construction balance check — if skipped categories created imbalance,
+        // add a remainder line so debits = credits
+        if (glLines.length >= 2) {
+          const totalDebitsD = glLines.reduce((s, l) => s + Number(l.debitAmount ?? '0'), 0);
+          const totalCreditsD = glLines.reduce((s, l) => s + Number(l.creditAmount ?? '0'), 0);
+          const diffCents = Math.round((totalDebitsD - totalCreditsD) * 100);
+          if (diffCents !== 0 && fallbackAccountId) {
+            if (diffCents > 0) {
+              glLines.push({
+                accountId: fallbackAccountId,
+                creditAmount: (diffCents / 100).toFixed(2),
+                memo: 'Balance adjustment — unmapped retail close category offset',
+                locationId: batch.locationId,
+              });
+            } else {
+              glLines.push({
+                accountId: fallbackAccountId,
+                debitAmount: (Math.abs(diffCents) / 100).toFixed(2),
+                memo: 'Balance adjustment — unmapped retail close category offset',
+                locationId: batch.locationId,
+              });
+            }
+            try {
+              const _adjId = generateUlid();
+              const _adjReason = `Retail close batch required $${(Math.abs(diffCents) / 100).toFixed(2)} balance adjustment due to unmapped categories. Batch: ${batch.businessDate}`;
+              await tx.execute(sql`
+                INSERT INTO gl_unmapped_events (id, tenant_id, event_type, source_module, source_reference_id, entity_type, entity_id, reason, created_at)
+                VALUES (${_adjId}, ${ctx.tenantId}, 'retail.close.posted.v1', 'retail_close', ${batch.id}, 'balance_adjustment', ${batch.id}, ${_adjReason}, NOW())
+              `);
+            } catch { /* best-effort */ }
+          }
         }
 
         if (glLines.length > 0) {
@@ -157,7 +220,7 @@ export async function postRetailClose(
         }
       }
     } catch (err) {
-      // Best-effort: log but don't block
+      // Best-effort: log but NEVER block close
       console.error('[retail-close] GL posting failed:', err);
     }
 

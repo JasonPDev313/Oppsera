@@ -13,6 +13,7 @@ export interface MissingMapping {
 
 export interface RemappableTender {
   tenderId: string;
+  sourceModule: string;
   businessDate: string;
   amountCents: number;
   unmappedEventCount: number;

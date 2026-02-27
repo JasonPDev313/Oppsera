@@ -1,16 +1,24 @@
 import { sql } from 'drizzle-orm';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLog } from '@oppsera/core/audit';
 import { CloseBatchNotFoundError, CloseBatchStatusConflictError } from '../errors';
 
 interface RecordCashCountInput {
   closeBatchId: string;
   cashCountedCents: number;
+  clientRequestId?: string;
 }
 
 export async function recordCashCount(ctx: RequestContext, input: RecordCashCountInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    if (input.clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'recordCashCount');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    }
+
     // Validate close batch
     const batchRows = await tx.execute(
       sql`SELECT id, status FROM fnb_close_batches
@@ -54,6 +62,12 @@ export async function recordCashCount(ctx: RequestContext, input: RecordCashCoun
           RETURNING id, close_batch_id, cash_expected_cents, cash_counted_cents, cash_over_short_cents`,
     );
     const updated = Array.from(rows as Iterable<Record<string, unknown>>)[0]!;
+
+    // Save idempotency key
+    if (input.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'recordCashCount', updated);
+    }
+
     return { result: updated, events: [] };
   });
 

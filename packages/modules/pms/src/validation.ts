@@ -167,6 +167,7 @@ export const createReservationSchema = z
     guestNotes: z.string().optional(),
     status: z.enum(['HOLD', 'CONFIRMED']).default('CONFIRMED'),
     restrictionOverride: z.boolean().default(false),
+    clientRequestId: z.string().optional(),
   })
   .refine((data) => data.checkOutDate > data.checkInDate, {
     message: 'Check-out date must be after check-in date',
@@ -279,6 +280,7 @@ export const postFolioEntrySchema = z.object({
   description: z.string().min(1),
   amountCents: z.number().int(),
   sourceRef: z.string().optional(),
+  clientRequestId: z.string().optional(),
 });
 export type PostFolioEntryInput = z.input<typeof postFolioEntrySchema>;
 
@@ -343,6 +345,7 @@ export const chargeCardSchema = z.object({
   amountCents: z.number().int().min(1),
   description: z.string().optional(),
   idempotencyKey: z.string().min(1),
+  clientRequestId: z.string().optional(),
 });
 export type ChargeCardInput = z.input<typeof chargeCardSchema>;
 
@@ -359,6 +362,7 @@ export type AuthorizeDepositInput = z.input<typeof authorizeDepositSchema>;
 export const captureDepositSchema = z.object({
   transactionId: z.string().min(1),
   amountCents: z.number().int().min(1).optional(),
+  clientRequestId: z.string().optional(),
 });
 export type CaptureDepositInput = z.input<typeof captureDepositSchema>;
 
@@ -367,6 +371,7 @@ export const refundPaymentSchema = z.object({
   amountCents: z.number().int().min(1).optional(),
   reason: z.string().optional(),
   idempotencyKey: z.string().min(1),
+  clientRequestId: z.string().optional(),
 });
 export type RefundPaymentInput = z.input<typeof refundPaymentSchema>;
 
@@ -915,6 +920,7 @@ export const earnLoyaltyPointsSchema = z.object({
   points: z.number().int().min(1),
   reservationId: z.string().optional(),
   description: z.string().max(500).optional(),
+  clientRequestId: z.string().optional(),
 });
 export type EarnLoyaltyPointsInput = z.input<typeof earnLoyaltyPointsSchema>;
 
@@ -923,6 +929,7 @@ export const redeemLoyaltyPointsSchema = z.object({
   points: z.number().int().min(1),
   reservationId: z.string().optional(),
   description: z.string().max(500).optional(),
+  clientRequestId: z.string().optional(),
 });
 export type RedeemLoyaltyPointsInput = z.input<typeof redeemLoyaltyPointsSchema>;
 
@@ -930,5 +937,6 @@ export const adjustLoyaltyPointsSchema = z.object({
   memberId: z.string().min(1),
   points: z.number().int(),
   reason: z.string().min(1).max(500),
+  clientRequestId: z.string().optional(),
 });
 export type AdjustLoyaltyPointsInput = z.input<typeof adjustLoyaltyPointsSchema>;

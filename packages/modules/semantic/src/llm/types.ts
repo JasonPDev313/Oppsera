@@ -22,6 +22,12 @@ export interface LLMResponse {
 
 export interface LLMAdapter {
   complete(messages: LLMMessage[], options?: LLMCompletionOptions): Promise<LLMResponse>;
+  /** Stream completion tokens — yields text chunks via callback, returns full response when done. */
+  completeStreaming?(
+    messages: LLMMessage[],
+    onChunk: (text: string) => void,
+    options?: LLMCompletionOptions,
+  ): Promise<LLMResponse>;
   provider: string;
   model: string;
 }
@@ -30,6 +36,14 @@ export interface LLMCompletionOptions {
   maxTokens?: number;
   temperature?: number;
   systemPrompt?: string;
+  /**
+   * Structured system prompt parts for Anthropic prompt caching (SEM-02).
+   * When provided, `systemPrompt` is ignored and these parts are sent as
+   * an array of content blocks. Mark the last stable/static block with
+   * `cacheControl: true` to enable Anthropic's server-side caching (~90%
+   * input token cost reduction on cache hits).
+   */
+  systemPromptParts?: Array<{ text: string; cacheControl?: boolean }>;
   stopSequences?: string[];
   /** Override the adapter's default model for this call (e.g. use Haiku for structured JSON output) */
   model?: string;
@@ -68,6 +82,8 @@ export interface ResolvedIntent {
   latencyMs: number;
   provider: string;
   model: string;
+  /** RAG few-shot snippet retrieved during intent resolution — pass to SQL generator to avoid double query */
+  ragExamplesSnippet?: string;
 }
 
 // ── Execution types ───────────────────────────────────────────────
@@ -110,6 +126,33 @@ export interface PipelineInput {
   context: IntentContext;
   examples?: EvalExample[];
   skipNarrative?: boolean;     // return raw data without narrative (for API mode)
+  /** Enable SSE streaming — narrative chunks are emitted progressively via onEvent callback. */
+  stream?: boolean;
+}
+
+// ── SSE Streaming types ──────────────────────────────────────────
+
+/** Event types emitted during an SSE-streamed pipeline run. */
+export type SSEEventType =
+  | 'status'           // pipeline stage progress (e.g. "Resolving intent…")
+  | 'intent_resolved'  // intent resolution complete — includes plan + confidence
+  | 'data_ready'       // query execution done — includes rows, rowCount, mode
+  | 'narrative_chunk'  // incremental narrative text delta
+  | 'enrichments'      // follow-ups, chart config, data quality (sent after narrative)
+  | 'complete'         // full PipelineOutput (same as non-streaming JSON response)
+  | 'error';           // pipeline error
+
+export interface SSEEvent {
+  type: SSEEventType;
+  data?: unknown;
+}
+
+/**
+ * Callback interface for consuming SSE events from `runPipelineStreaming()`.
+ * The API route converts these into `text/event-stream` lines.
+ */
+export interface StreamCallbacks {
+  onEvent(event: SSEEvent): void;
 }
 
 export interface ChartConfig {
@@ -161,6 +204,12 @@ export interface PipelineOutput {
     score: number;
     factors: Array<{ name: string; score: number; weight: number; detail: string }>;
     summary: string;
+  } | null;
+  // SEM-09: Plausibility check results
+  plausibility?: {
+    plausible: boolean;
+    grade: 'A' | 'B' | 'C' | 'D' | 'F';
+    warnings: Array<{ code: string; severity: 'info' | 'warning' | 'error'; message: string }>;
   } | null;
 }
 

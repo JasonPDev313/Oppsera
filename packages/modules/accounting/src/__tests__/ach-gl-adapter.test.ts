@@ -79,6 +79,10 @@ vi.mock('@oppsera/core/helpers/accounting-posting-api', () => ({
   }),
 }));
 
+vi.mock('../helpers/ensure-accounting-settings', () => ({
+  ensureAccountingSettings: vi.fn().mockResolvedValue({ created: false, autoWired: 0 }),
+}));
+
 vi.mock('../commands/void-journal-entry', () => ({
   voidJournalEntry: (...args: any[]) => mocks.voidJournalEntry(...args),
 }));
@@ -219,7 +223,16 @@ describe('ACH GL Posting Adapter', () => {
       await handleAchOriginatedForAccounting(createOriginatedEvent());
 
       expect(mocks.postEntry).not.toHaveBeenCalled();
-      expect(mocks.logUnmappedEvent).not.toHaveBeenCalled();
+      // Adapter now logs unmapped event when settings are missing (CRITICAL alert)
+      expect(mocks.logUnmappedEvent).toHaveBeenCalledWith(
+        expect.anything(),
+        'tenant-1',
+        expect.objectContaining({
+          eventType: 'payment.gateway.ach_originated.v1',
+          entityType: 'accounting_settings',
+          reason: expect.stringContaining('accounting settings missing'),
+        }),
+      );
     });
 
     it('should log unmapped event when no ACH Receivable account configured', async () => {
@@ -341,7 +354,16 @@ describe('ACH GL Posting Adapter', () => {
       await handleAchSettledForAccounting(createSettledEvent());
 
       expect(mocks.postEntry).not.toHaveBeenCalled();
-      expect(mocks.logUnmappedEvent).not.toHaveBeenCalled();
+      // Adapter now logs unmapped event when settings are missing (CRITICAL alert)
+      expect(mocks.logUnmappedEvent).toHaveBeenCalledWith(
+        expect.anything(),
+        'tenant-1',
+        expect.objectContaining({
+          eventType: 'payment.gateway.ach_settled.v1',
+          entityType: 'accounting_settings',
+          reason: expect.stringContaining('accounting settings missing'),
+        }),
+      );
     });
 
     it('should log unmapped when no ACH Receivable configured', async () => {

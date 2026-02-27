@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { arReceipts, arReceiptAllocations, arInvoices } from '@oppsera/db';
 import { generateUlid, NotFoundError, AppError } from '@oppsera/shared';
@@ -18,10 +19,14 @@ interface CreateReceiptInput {
     invoiceId: string;
     amountApplied: string;
   }>;
+  clientRequestId?: string;
 }
 
 export async function createReceipt(ctx: RequestContext, input: CreateReceiptInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createReceipt');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Validate allocations total doesn't exceed receipt amount
     const allocTotal = input.allocations.reduce((s, a) => s + Number(a.amountApplied), 0);
     if (allocTotal > Number(input.amount) + 0.01) {
@@ -75,6 +80,7 @@ export async function createReceipt(ctx: RequestContext, input: CreateReceiptInp
       });
     }
 
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createReceipt', receipt!);
     return { result: receipt!, events: [] };
   });
 

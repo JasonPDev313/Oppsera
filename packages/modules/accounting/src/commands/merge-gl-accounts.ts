@@ -2,6 +2,7 @@ import { eq, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glAccounts } from '@oppsera/db';
 import { NotFoundError, AppError } from '@oppsera/shared';
@@ -16,6 +17,10 @@ export async function mergeGlAccounts(
   input: MergeGlAccountsInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'mergeGlAccounts');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Load both accounts
     const allAccounts = await tx
       .select()
@@ -114,12 +119,16 @@ export async function mergeGlAccounts(
       reparentedChildren: sourceChildren.length,
     });
 
+    const resultPayload = {
+      sourceAccountId: source.id,
+      targetAccountId: target.id,
+      reparentedChildren: sourceChildren.length,
+    };
+
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'mergeGlAccounts', resultPayload);
+
     return {
-      result: {
-        sourceAccountId: source.id,
-        targetAccountId: target.id,
-        reparentedChildren: sourceChildren.length,
-      },
+      result: resultPayload,
       events: [event],
     };
   });

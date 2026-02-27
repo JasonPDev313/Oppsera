@@ -5,57 +5,132 @@
  * Idempotent via unique index on (tenant_id, source_module, source_reference_id).
  *
  * Usage:
- *   npx tsx tools/scripts/backfill-gl-from-tenders.ts
+ *   pnpm tsx tools/scripts/backfill-gl-from-tenders.ts
  *
  * Options:
  *   --dry-run     Log what would be posted without actually posting
+ *   --remote      Use production DATABASE_URL from .env.remote
  *   --tenant=ID   Only process a specific tenant
  *   --limit=N     Max tenders to process per tenant (default: 1000)
  */
 import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
-dotenv.config();
+
+const args = process.argv.slice(2);
+const useRemote = args.includes('--remote');
+
+if (useRemote) {
+  dotenv.config({ path: '.env.remote', override: true });
+} else {
+  dotenv.config({ path: '.env.local' });
+  dotenv.config();
+}
 
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { sql } from 'drizzle-orm';
+import { setAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
+import type { AccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 
 const connectionString = process.env.DATABASE_URL_ADMIN || process.env.DATABASE_URL;
 if (!connectionString) throw new Error('DATABASE_URL not set');
 
-const client = postgres(connectionString, { max: 1, prepare: false });
+const client = postgres(connectionString, { max: 2, prepare: false });
 const db = drizzle(client);
 
 // Parse CLI flags
-const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
 const tenantArg = args.find((a) => a.startsWith('--tenant='))?.split('=')[1];
 const limitArg = args.find((a) => a.startsWith('--limit='))?.split('=')[1];
 const LIMIT = limitArg ? parseInt(limitArg, 10) : 1000;
 
+/**
+ * Initialize the AccountingPostingApi singleton so the POS adapter
+ * can post GL entries. Required before calling handleTenderForAccounting.
+ */
+async function initPostingApi() {
+  const { postJournalEntry, getAccountBalances, getAccountingSettings } =
+    await import('@oppsera/module-accounting');
+
+  const api: AccountingPostingApi = {
+    postEntry: async (ctx, input) => {
+      const result = await postJournalEntry(ctx, {
+        businessDate: input.businessDate,
+        sourceModule: input.sourceModule,
+        sourceReferenceId: input.sourceReferenceId,
+        memo: input.memo,
+        currency: input.currency,
+        lines: input.lines,
+        forcePost: input.forcePost,
+      }, { hasControlAccountPermission: true });
+      return { id: result.id, journalNumber: result.journalNumber, status: result.status };
+    },
+    getAccountBalance: async (tenantId, accountId, asOfDate) => {
+      const balances = await getAccountBalances({ tenantId, accountIds: [accountId], asOfDate });
+      return balances[0]?.balance ?? 0;
+    },
+    getSettings: async (tenantId) => {
+      const settings = await getAccountingSettings(db, tenantId);
+      return {
+        defaultAPControlAccountId: settings?.defaultAPControlAccountId ?? null,
+        defaultARControlAccountId: settings?.defaultARControlAccountId ?? null,
+        baseCurrency: settings?.baseCurrency ?? 'USD',
+        enableLegacyGlPosting: settings?.enableLegacyGlPosting ?? true,
+      };
+    },
+  };
+
+  setAccountingPostingApi(api);
+  console.log('AccountingPostingApi initialized\n');
+}
+
 async function main() {
-  console.log(`Backfill GL from tenders${dryRun ? ' (DRY RUN)' : ''}`);
+  console.log(`Backfill GL from tenders${dryRun ? ' (DRY RUN)' : ''}${useRemote ? ' (REMOTE)' : ' (LOCAL)'}`);
   console.log(`Limit per tenant: ${LIMIT}`);
 
-  // 1. Find tenants with accounting_settings
-  const tenantFilter = tenantArg ? sql` AND s.tenant_id = ${tenantArg}` : sql``;
+  // 0. Initialize the AccountingPostingApi singleton (required by POS adapter)
+  if (!dryRun) {
+    await initPostingApi();
+  }
+
+  // 1. Find tenants with accounting_settings OR GL accounts (covers non-bootstrap setup)
+  const tenantFilter = tenantArg ? sql` AND tenant_id = ${tenantArg}` : sql``;
   const tenantsResult = await db.execute(sql`
-    SELECT s.tenant_id, t.name AS tenant_name
-    FROM accounting_settings s
-    JOIN tenants t ON t.id = s.tenant_id
-    WHERE 1=1 ${tenantFilter}
+    SELECT DISTINCT sub.tenant_id, t.name AS tenant_name
+    FROM (
+      SELECT tenant_id FROM accounting_settings WHERE 1=1 ${tenantFilter}
+      UNION
+      SELECT tenant_id FROM gl_accounts WHERE 1=1 ${tenantFilter}
+    ) sub
+    JOIN tenants t ON t.id = sub.tenant_id
   `);
   const tenants = Array.from(tenantsResult as Iterable<Record<string, unknown>>);
-  console.log(`Found ${tenants.length} tenant(s) with accounting settings\n`);
+  console.log(`Found ${tenants.length} tenant(s) with accounting settings or GL accounts\n`);
 
   let totalPosted = 0;
   let totalSkipped = 0;
   let totalErrors = 0;
 
+  // Lazy import ensureAccountingSettings (module may not be built yet in all envs)
+  const { ensureAccountingSettings } = await import(
+    '@oppsera/module-accounting'
+  );
+
   for (const tenant of tenants) {
     const tenantId = String(tenant.tenant_id);
     const tenantName = String(tenant.tenant_name);
     console.log(`── Tenant: ${tenantName} (${tenantId}) ──`);
+
+    // Ensure accounting_settings row exists (auto-creates + auto-wires fallback accounts)
+    if (!dryRun) {
+      try {
+        const { created, autoWired } = await ensureAccountingSettings(db as any, tenantId);
+        if (created) {
+          console.log(`  Auto-created accounting_settings (auto-wired ${autoWired} fallback account(s))`);
+        }
+      } catch (err) {
+        console.warn(`  Warning: could not ensure accounting_settings: ${err instanceof Error ? err.message : err}`);
+      }
+    }
 
     // 2. Find tenders with no corresponding GL journal entry
     const unpostedResult = await db.execute(sql`

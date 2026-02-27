@@ -7,9 +7,11 @@ import {
   voidTicketSchema,
   createDeltaChit,
   createDeltaChitSchema,
+  updateTicketStatus,
+  updateTicketStatusSchema,
 } from '@oppsera/module-fnb';
 
-const ACTIONS: Record<string, true> = { void: true, delta: true };
+const ACTIONS: Record<string, true> = { void: true, delta: true, fire: true, recall: true };
 
 function extractId(request: NextRequest): string {
   const parts = request.nextUrl.pathname.split('/');
@@ -55,6 +57,23 @@ export const POST = withMiddleware(
         }
         const chit = await createDeltaChit(ctx, parsed.data);
         return NextResponse.json({ data: chit }, { status: 201 });
+      }
+      case 'fire':
+      case 'recall': {
+        const ticketId = extractId(request);
+        const parsed = updateTicketStatusSchema.safeParse({
+          ...body,
+          status: 'in_progress',
+          clientRequestId: body.clientRequestId ?? `${action}-${ticketId}-${Date.now()}`,
+        });
+        if (!parsed.success) {
+          throw new ValidationError(
+            'Validation failed',
+            parsed.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+          );
+        }
+        const updated = await updateTicketStatus(ctx, ticketId, parsed.data);
+        return NextResponse.json({ data: updated });
       }
     }
 

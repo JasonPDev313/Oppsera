@@ -120,6 +120,123 @@ export const KDS_VIEW_MODE_DESCRIPTIONS: Record<KdsViewMode, string> = {
   all_day: 'Aggregated item totals for batch preparation planning',
 };
 
+// ── Detailed View Mode Definitions ──────────────────────────────
+
+export interface KdsViewModeDetail {
+  /** Short label (for buttons) */
+  label: string;
+  /** One-sentence summary */
+  summary: string;
+  /** Multi-paragraph explanation */
+  description: string;
+  /** Concrete use-case examples */
+  bestFor: string[];
+  /** How tickets/items are displayed */
+  displayBehavior: string;
+  /** Practical considerations */
+  considerations: string[];
+}
+
+export const KDS_VIEW_MODE_DETAILS: Record<KdsViewMode, KdsViewModeDetail> = {
+  ticket: {
+    label: 'Ticket Rail',
+    summary: 'Orders appear as tickets flowing left to right, oldest on the left — just like a physical paper rail.',
+    description:
+      'Ticket Rail mirrors the classic kitchen paper rail that every line cook already knows. New orders slide in from the right side of the screen, ' +
+      'and the oldest orders sit on the left — creating a natural left-to-right workflow where cooks always work the leftmost ticket first.\n\n' +
+      'Each ticket shows the full order (or the station\'s portion of it) as a vertical card with item names, modifiers, and a color-coded timer. ' +
+      'The rail scrolls horizontally when there are more tickets than the screen can display. ' +
+      'This is the most intuitive layout for cooks transitioning from paper tickets to digital.',
+    bestFor: [
+      'Any kitchen transitioning from paper tickets — the layout feels immediately familiar',
+      'Line cooks who work tickets sequentially (left to right, one at a time)',
+      'Small to medium volume stations where the full rail fits on screen without scrolling',
+      'Stations with narrow monitors or tablets in portrait orientation',
+    ],
+    displayBehavior: 'Tickets arrange horizontally, oldest on the left. New orders appear on the right with a slide-in animation. Bumped tickets disappear and remaining tickets shift left.',
+    considerations: [
+      'On high-volume stations, the rail can scroll off-screen — cooks may miss orders on the far right if they don\'t scroll',
+      'Each ticket takes the same width regardless of item count — a 1-item ticket and a 12-item ticket occupy the same horizontal space',
+      'Best with the "ticket size" set to match your screen — too small and modifiers are hard to read, too large and fewer tickets fit',
+    ],
+  },
+
+  grid: {
+    label: 'Grid View',
+    summary: 'Orders fill a fixed grid of tiles — no scrolling needed. The cook sees everything at once on large screens.',
+    description:
+      'Grid View arranges tickets in a fixed matrix (e.g., 4 columns \u00d7 3 rows) that fills the entire screen without any scrolling. ' +
+      'Each cell in the grid holds one ticket, and the grid auto-sizes based on the configured ticket dimensions and screen resolution.\n\n' +
+      'This layout is designed for large wall-mounted monitors (32\u2033+) where the goal is maximum visibility — the cook can glance up and see every active order ' +
+      'without touching the screen or scrolling. When a ticket is bumped, the next incoming order fills the empty cell.\n\n' +
+      'Grid View works best when the station has a predictable, manageable volume. If the number of active orders exceeds the grid capacity, ' +
+      'overflow tickets are held in a queue and appear as soon as a cell opens up.',
+    bestFor: [
+      'Large wall-mounted displays (32\u2033+) where the cook needs a full overview without touching the screen',
+      'Expo stations where the expeditor needs to see all active orders at a glance',
+      'Stations with consistent volume that rarely exceeds the grid capacity',
+      'Drive-through assembly stations where every order must be visible simultaneously',
+    ],
+    displayBehavior: 'Tickets fill a fixed grid (rows \u00d7 columns) based on screen size and ticket dimensions. No scrolling — overflow orders queue and appear when a cell opens.',
+    considerations: [
+      'If volume exceeds grid capacity, orders queue invisibly — the cook may not realize orders are waiting. Watch the queue counter',
+      'All cells are the same size — long orders with many items may truncate. Increase ticket size or use Ticket Rail for item-heavy menus',
+      'Grid layout is fixed — tickets do NOT reflow when one is bumped. The empty cell fills with the next queued order',
+      'Best paired with "Large" or "Medium" ticket size. "Small" tickets in a grid can be hard to read from a distance',
+    ],
+  },
+
+  split: {
+    label: 'Split View',
+    summary: 'The screen splits into two horizontal rows, each filtered by order type — e.g., dine-in on top, takeout on the bottom.',
+    description:
+      'Split View divides the screen into two independent ticket rails stacked vertically. Each rail is filtered by order type, channel, or any other category you configure — ' +
+      'for example, dine-in orders on the top half and takeout/delivery on the bottom half.\n\n' +
+      'This lets the kitchen visually separate and prioritize different workflows on a single screen. ' +
+      'Dine-in tickets might need course pacing and plating, while takeout tickets need bagging and labeling — ' +
+      'seeing them in separate rows prevents mix-ups and lets the cook mentally switch gears when moving between rows.\n\n' +
+      'Each row scrolls independently and has its own ticket count. The split ratio is roughly 50/50 but auto-adjusts slightly based on ticket density.',
+    bestFor: [
+      'Kitchens that handle both dine-in and takeout/delivery on the same station',
+      'Stations that need to separate online orders from POS orders',
+      'High-volume operations where mixing order types causes mistakes (wrong packaging, missing labels)',
+      'Any station where two distinct workflows share one screen — e.g., hot food top, cold food bottom',
+    ],
+    displayBehavior: 'Two horizontal ticket rails stacked vertically. Each rail is independently filtered and scrollable. Top/bottom split with configurable filter rules.',
+    considerations: [
+      'Each row has only half the vertical space — tickets with many items may require vertical scrolling within the card',
+      'You must configure which order types or channels go to which row — without configuration, both rows show all orders (defeating the purpose)',
+      'If one row is empty (e.g., no takeout orders), its half still takes space. The other row does NOT auto-expand to fill the screen',
+      'Best on wide screens (landscape orientation) so each row has enough horizontal space for multiple tickets',
+    ],
+  },
+
+  all_day: {
+    label: 'All Day',
+    summary: 'Instead of individual tickets, shows a running tally of every item across all open orders — built for batch-prep stations.',
+    description:
+      'All Day view throws away the concept of individual tickets entirely. Instead, it aggregates every item across all active orders into a single summary list: ' +
+      '"Burger \u00d7 12, Caesar Salad \u00d7 8, Fries \u00d7 15." The cook sees WHAT to make and HOW MANY, not which order each item belongs to.\n\n' +
+      'This is the mode used by garde manger (cold prep), fry stations, and any position that prepares components in bulk rather than per-ticket. ' +
+      'The fry cook doesn\'t need to know that Table 4 ordered 2 fries and Table 7 ordered 3 fries — they just need to know "drop 5 baskets of fries."\n\n' +
+      'As orders come in and are bumped, the tallies update in real time. When a ticket is bumped at another station (or expo), the corresponding item counts decrement. ' +
+      'All Day mode is often used alongside Ticket Rail on other stations — the grill runs tickets, the fry station runs All Day.',
+    bestFor: [
+      'Fry stations that batch-drop items regardless of which ticket they belong to',
+      'Garde manger / cold prep stations assembling salads, desserts, or appetizers in bulk',
+      'Pizza dough prep — "we need 22 large doughs and 14 smalls for the next hour"',
+      'Any station where batch efficiency matters more than per-ticket tracking',
+    ],
+    displayBehavior: 'No individual tickets. A single aggregated list shows each menu item with a running count across all active orders. Counts update in real time as orders arrive and are bumped.',
+    considerations: [
+      'The cook loses per-ticket context — they cannot see which table or guest each item belongs to. Pair with Ticket Rail on the expo for order-level tracking',
+      'Modifiers are shown as separate line items (e.g., "Burger no onion \u00d7 3" vs "Burger \u00d7 9") — this can make the list long if you have many modifier combinations',
+      'Not suitable for stations that need course pacing or order-level timing — there are no individual ticket timers',
+      'Best combined with a Ticket Rail or Grid View on the expo station so someone in the kitchen still has per-order visibility',
+    ],
+  },
+};
+
 // ═══════════════════════════════════════════════════════════════════
 // Screen Communication Modes
 // ═══════════════════════════════════════════════════════════════════
@@ -305,6 +422,63 @@ export const SCREEN_COMM_MODE_DETAILS: Record<ScreenCommMode, ScreenCommModeDeta
 
 export const KDS_THEMES = ['dark', 'light'] as const;
 export type KdsTheme = (typeof KDS_THEMES)[number];
+
+export const KDS_THEME_LABELS: Record<KdsTheme, string> = {
+  dark: 'Dark',
+  light: 'Light',
+};
+
+export interface KdsThemeDetail {
+  label: string;
+  summary: string;
+  description: string;
+  bestFor: string[];
+  considerations: string[];
+}
+
+export const KDS_THEME_DETAILS: Record<KdsTheme, KdsThemeDetail> = {
+  dark: {
+    label: 'Dark',
+    summary: 'Light text on a dark background — reduces glare and eye strain in low-light kitchens.',
+    description:
+      'Dark theme uses a black or near-black background with light-colored text and bright status indicators. ' +
+      'This is the industry standard for kitchen displays because most kitchens have mixed lighting — bright overhead fluorescents near the pass, ' +
+      'but dimmer conditions near back-of-house prep areas.\n\n' +
+      'Dark backgrounds also reduce the total light output from the screen, which means less glare reflecting off stainless steel surfaces and less ' +
+      'visual fatigue during long shifts. Timer colors (green, amber, red) pop more vividly against a dark background, making overdue tickets easier to spot at a glance.',
+    bestFor: [
+      'Most kitchens — dark theme is the industry default for KDS displays',
+      'Low-light or mixed-lighting environments (common in back-of-house)',
+      'Long shifts (8-12 hours) where eye fatigue is a concern',
+      'Kitchens with stainless steel surfaces that reflect screen glare',
+    ],
+    considerations: [
+      'In very bright environments (outdoor kitchens, food trucks in direct sunlight), dark theme may wash out — consider Light',
+      'Ensure screen brightness is set high enough that text is readable from 6+ feet away',
+    ],
+  },
+  light: {
+    label: 'Light',
+    summary: 'Dark text on a light background — maximum contrast in bright, well-lit environments.',
+    description:
+      'Light theme uses a white or near-white background with dark text. This provides the highest possible text contrast, ' +
+      'which is important in very bright environments where a dark screen would look washed out.\n\n' +
+      'Light theme is less common in traditional kitchens but works well in open-kitchen concepts, food trucks, outdoor prep areas, ' +
+      'and bright counter-service operations where the KDS is visible to customers. ' +
+      'It is also helpful for staff with visual impairments who need maximum text-to-background contrast.',
+    bestFor: [
+      'Open kitchens visible to guests — looks clean and professional',
+      'Food trucks and outdoor prep areas with direct sunlight',
+      'Brightly lit counter-service operations',
+      'Staff with visual impairments who need maximum contrast',
+    ],
+    considerations: [
+      'Higher screen brightness in dark kitchens can cause glare on stainless steel and eye fatigue over long shifts',
+      'Timer status colors (green/amber/red) may be slightly less vivid against a white background — ensure your monitor has good color output',
+      'If the KDS is near a dining room with dim ambiance, a bright white screen can be distracting to guests',
+    ],
+  },
+};
 
 export const KDS_FONT_SIZES = ['small', 'medium', 'large', 'xlarge'] as const;
 export type KdsFontSize = (typeof KDS_FONT_SIZES)[number];

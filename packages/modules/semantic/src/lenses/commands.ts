@@ -4,7 +4,7 @@
 // upserted by the sync script.
 
 import { db } from '@oppsera/db';
-import { semanticLenses } from '@oppsera/db';
+import { semanticLenses, tenantLensPreferences } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
 import type { CreateLensInput, UpdateLensInput, CustomLensRow } from './types';
@@ -214,4 +214,31 @@ export async function reactivateCustomLens(
     .returning();
 
   return rowToCustomLens(updated!);
+}
+
+// ── setTenantLensPreference ──────────────────────────────────────
+// Upsert a tenant's preference for a specific lens.
+// Default is enabled = true; calling with enabled = false disables it.
+
+export async function setTenantLensPreference(
+  tenantId: string,
+  lensSlug: string,
+  enabled: boolean,
+): Promise<void> {
+  await db
+    .insert(tenantLensPreferences)
+    .values({
+      id: generateUlid(),
+      tenantId,
+      lensSlug,
+      enabled,
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [tenantLensPreferences.tenantId, tenantLensPreferences.lensSlug],
+      set: {
+        enabled,
+        updatedAt: new Date(),
+      },
+    });
 }

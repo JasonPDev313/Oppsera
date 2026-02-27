@@ -6,6 +6,7 @@ import { NotFoundError, ConflictError } from '@oppsera/shared';
 import { tags, customerTags, customers, tagAuditLog } from '@oppsera/db';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import type { ApplyTagToCustomerInput } from '../validation';
+import { executeTagActions } from '../services/tag-action-executor';
 
 export async function applyTagToCustomer(
   ctx: RequestContext,
@@ -61,6 +62,9 @@ export async function applyTagToCustomer(
       source: 'manual',
       actorId: ctx.user.id,
     });
+
+    // Execute tag actions for on_apply trigger (fire-and-forget within tx)
+    await executeTagActions(tx as any, ctx.tenantId, customerId, input.tagId, 'on_apply');
 
     const event = buildEventFromContext(ctx, 'customer.tag.applied.v1', {
       customerId,

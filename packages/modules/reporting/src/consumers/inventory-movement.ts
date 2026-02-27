@@ -2,15 +2,18 @@ import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import type { EventEnvelope } from '@oppsera/shared';
+import { z } from 'zod';
 
-interface InventoryMovementData {
-  inventoryItemId: string;
-  locationId: string;
-  itemName: string;
-  delta: number;
-  newOnHand?: number;
-  reorderPoint?: number;
-}
+const inventoryMovementSchema = z.object({
+  inventoryItemId: z.string(),
+  locationId: z.string(),
+  itemName: z.string(),
+  delta: z.number(),
+  newOnHand: z.number().optional(),
+  reorderPoint: z.number().optional(),
+});
+
+type _InventoryMovementData = z.infer<typeof inventoryMovementSchema>;
 
 const CONSUMER_NAME = 'reporting.inventoryMovement';
 
@@ -18,13 +21,22 @@ const CONSUMER_NAME = 'reporting.inventoryMovement';
  * Handles inventory.movement.created.v1 events.
  *
  * Atomically:
- * 1. Insert processed_events (idempotency)
- * 2. Fetch reorder point from inventory_items if not in event payload
- * 3. Upsert rm_inventory_on_hand — set absolute onHand if provided, else += delta
- * 4. Always update low_stock_threshold + recompute isBelowThreshold
+ * 1. Validate event payload with Zod schema
+ * 2. Insert processed_events (idempotency)
+ * 3. Fetch reorder point from inventory_items if not in event payload
+ * 4. Upsert rm_inventory_on_hand — set absolute onHand if provided, else += delta
+ * 5. Always update low_stock_threshold + recompute isBelowThreshold
  */
 export async function handleInventoryMovement(event: EventEnvelope): Promise<void> {
-  const data = event.data as unknown as InventoryMovementData;
+  const parsed = inventoryMovementSchema.safeParse(event.data);
+  if (!parsed.success) {
+    console.error(
+      `[${CONSUMER_NAME}] Invalid event payload for event ${event.eventId}:`,
+      parsed.error.issues,
+    );
+    return; // Skip — corrupt payload would produce NaN in read models
+  }
+  const data = parsed.data;
 
   await withTenant(event.tenantId, async (tx) => {
     // Step 1: Atomic idempotency check

@@ -7,6 +7,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid, NotFoundError, ValidationError } from '@oppsera/shared';
 import { pmsPaymentMethods, pmsPaymentTransactions, pmsReservations, pmsFolios, pmsFolioEntries } from '@oppsera/db';
 import type { ChargeCardInput } from '../validation';
@@ -17,6 +18,10 @@ import { recalculateFolioTotals } from '../helpers/folio-totals';
 
 export async function chargeCard(ctx: RequestContext, input: ChargeCardInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'chargeCard');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Load reservation
     const [reservation] = await tx
       .select()
@@ -127,7 +132,9 @@ export async function chargeCard(ctx: RequestContext, input: ChargeCardInput) {
       status,
     });
 
-    return { result: { id: txnId, status, gatewayChargeId: gatewayResult.chargeId }, events: [event] };
+    const resultPayload = { id: txnId, status, gatewayChargeId: gatewayResult.chargeId };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'chargeCard', resultPayload);
+    return { result: resultPayload, events: [event] };
   });
 
   await auditLog(ctx, 'pms.payment.charged', 'pms_payment_transaction', result.id);

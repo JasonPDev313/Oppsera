@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { db, withTenant } from '@oppsera/db';
+import { withTenant } from '@oppsera/db';
 import { semanticEvalSessions, semanticEvalTurns } from '@oppsera/db';
 import { sql, eq } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';

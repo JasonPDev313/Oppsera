@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { arInvoices, arInvoiceLines } from '@oppsera/db';
@@ -11,12 +12,16 @@ import { AR_EVENTS } from '../events/types';
 
 interface PostInvoiceInput {
   invoiceId: string;
+  clientRequestId?: string;
 }
 
 export async function postInvoice(ctx: RequestContext, input: PostInvoiceInput) {
   const accountingApi = getAccountingPostingApi();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'postInvoice');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load invoice
     const [invoice] = await tx
       .select()
@@ -119,6 +124,7 @@ export async function postInvoice(ctx: RequestContext, input: PostInvoiceInput) 
       glJournalEntryId: glResult.id,
     });
 
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'postInvoice', posted!);
     return { result: posted!, events: [event] };
   });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Banknote,
   CreditCard,
@@ -8,6 +8,7 @@ import {
   Ticket,
   ArrowLeft,
 } from 'lucide-react';
+import { flushSync } from 'react-dom';
 import { Numpad } from './Numpad';
 import { apiFetch, ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/toast';
@@ -53,7 +54,7 @@ const QUICK_AMOUNTS = [2000, 5000, 10000]; // $20, $50, $100
 export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCancel, ensureOrderReady }: PaymentPanelProps) {
   const { user } = useAuthContext();
   const { toast } = useToast();
-  const locationHeaders = { 'X-Location-Id': order.locationId };
+  const locationHeaders = useMemo(() => ({ 'X-Location-Id': order.locationId }), [order.locationId]);
 
   const [selectedType, setSelectedType] = useState<TenderType | null>(null);
   const [amount, setAmount] = useState('');
@@ -66,6 +67,8 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
 
   const isPlacedRef = useRef(order.status === 'placed');
   const successTimerRef = useRef<ReturnType<typeof setTimeout>>(0 as unknown as ReturnType<typeof setTimeout>);
+  const onPaymentCompleteRef = useRef(onPaymentComplete);
+  onPaymentCompleteRef.current = onPaymentComplete;
 
   // Update placed status when order status changes
   useEffect(() => {
@@ -98,15 +101,16 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
   const amountCents = Math.round(parseFloat(amount || '0') * 100);
   const tipCents = Math.round(parseFloat(tipAmount || '0') * 100);
 
-  // Auto-dismiss success after 3s
+  // Auto-dismiss success after 3s — use ref for callback to prevent timer reset
+  // when parent re-renders and onPaymentComplete gets a new identity
   useEffect(() => {
     if (paymentSuccess?.isFullyPaid) {
       successTimerRef.current = setTimeout(() => {
-        onPaymentComplete(paymentSuccess);
+        onPaymentCompleteRef.current(paymentSuccess);
       }, 3000);
       return () => clearTimeout(successTimerRef.current);
     }
-  }, [paymentSuccess, onPaymentComplete]);
+  }, [paymentSuccess]);
 
   const handleSubmit = useCallback(async (overrideCents?: number) => {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -394,7 +398,7 @@ export function PaymentPanel({ order, config, shiftId, onPaymentComplete, onCanc
         <button
           type="button"
           disabled={isSubmitting}
-          onClick={() => handleSubmit(remaining)}
+          onClick={() => { flushSync(() => setAmount((remaining / 100).toFixed(2))); handleSubmit(remaining); }}
           className="w-full rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm font-semibold text-green-500 transition-colors hover:bg-green-500/20 active:scale-[0.97] disabled:opacity-50"
         >
           {isSubmitting ? 'Processing...' : `Pay Exact — ${formatMoney(remaining)}`}

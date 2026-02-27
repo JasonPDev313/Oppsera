@@ -306,7 +306,7 @@ export function RegisterTabs({
       const parts = customer.displayName.trim().split(/\s+/);
       const shortName =
         parts.length >= 2
-          ? `${parts[0]} ${parts[parts.length - 1]![0]!.toUpperCase()}`
+          ? `${parts[0]} ${(parts[parts.length - 1] ?? '').charAt(0).toUpperCase()}`
           : parts[0] ?? '';
       onRenameTab(customerSearch.tabNumber, shortName);
 

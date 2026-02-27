@@ -21,6 +21,8 @@ export interface TrialBalanceReport {
   asOfDate: string | null;
   startDate: string | null;
   endDate: string | null;
+  /** Count of non-posted GL entries (draft/error) — indicates potential data issues */
+  nonPostedEntryCount: number;
 }
 
 interface GetTrialBalanceInput {
@@ -43,6 +45,8 @@ export async function getTrialBalance(
         ${input.endDate ? sql`AND je.business_date <= ${input.endDate}` : sql``}
       `;
 
+    // NOTE: The (jl.id IS NULL OR je.id IS NOT NULL) guard ensures lines from
+    // non-posted entries (draft/error/voided) are excluded from balance calculations.
     const rows = await tx.execute(sql`
       SELECT
         a.id AS account_id,
@@ -66,11 +70,22 @@ export async function getTrialBalance(
         ${dateConditions}
       WHERE a.tenant_id = ${input.tenantId}
         AND a.is_active = true
+        AND (jl.id IS NULL OR je.id IS NOT NULL)
       GROUP BY a.id, a.account_number, a.name, a.account_type, c.name, a.normal_balance
       HAVING COALESCE(SUM(jl.debit_amount), 0) != 0
           OR COALESCE(SUM(jl.credit_amount), 0) != 0
       ORDER BY a.account_number
     `);
+
+    // Query for non-posted entries — surfaces data corruption to admin
+    const nonPostedRows = await tx.execute(sql`
+      SELECT COUNT(*)::int AS cnt
+      FROM gl_journal_entries
+      WHERE tenant_id = ${input.tenantId}
+        AND status NOT IN ('posted', 'voided')
+    `);
+    const nonPostedArr = Array.from(nonPostedRows as Iterable<Record<string, unknown>>);
+    const nonPostedEntryCount = nonPostedArr.length > 0 ? Number(nonPostedArr[0]!.cnt) : 0;
 
     const accounts = Array.from(rows as Iterable<Record<string, unknown>>).map((row) => ({
       accountId: String(row.account_id),
@@ -103,6 +118,7 @@ export async function getTrialBalance(
       asOfDate: input.asOfDate ?? null,
       startDate: input.startDate ?? null,
       endDate: input.endDate ?? null,
+      nonPostedEntryCount,
     };
   });
 }

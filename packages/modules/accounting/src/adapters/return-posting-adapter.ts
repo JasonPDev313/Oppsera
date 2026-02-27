@@ -5,6 +5,7 @@ import {
   logUnmappedEvent,
 } from '../helpers/resolve-mapping';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
@@ -67,8 +68,22 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
   const data = event.data as unknown as OrderReturnedPayload;
 
   try {
+    try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'order.returned.v1',
+          sourceModule: 'pos_return',
+          sourceReferenceId: data.returnOrderId,
+          entityType: 'accounting_settings',
+          entityId: event.tenantId,
+          reason: 'CRITICAL: GL return posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block returns */ }
+      console.error(`[return-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     const postingApi = getAccountingPostingApi();
     const defaultReturnsAccountId = settings.defaultReturnsAccountId;
@@ -84,25 +99,79 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
     }> = [];
 
     // Revenue/returns reversal lines — debit returns or revenue account
+    // Track total debited to detect imbalance with credit side
+    let totalDebitedCents = 0;
+
     for (const line of data.lines) {
       const returnDollars = (line.returnedSubtotal / 100).toFixed(2);
 
       if (line.packageComponents && line.packageComponents.length > 0) {
         // Split by component subdepartment
+        // For components without mapping, fall back to line-level or uncategorized
+        const lineMapping = line.subDepartmentId
+          ? await resolveSubDepartmentAccounts(db, event.tenantId, line.subDepartmentId)
+          : null;
+        const lineFallbackAccountId = resolveReturnsAccount(lineMapping, defaultReturnsAccountId)
+          ?? settings.defaultUncategorizedRevenueAccountId;
+
         for (const comp of line.packageComponents) {
-          if (!comp.subDepartmentId || comp.allocatedRevenueCents == null) continue;
-          const compMapping = await resolveSubDepartmentAccounts(db, event.tenantId, comp.subDepartmentId);
+          const compCents = comp.allocatedRevenueCents != null
+            ? Math.abs(comp.allocatedRevenueCents)
+            : 0;
 
-          const accountId = resolveReturnsAccount(compMapping, defaultReturnsAccountId);
-          if (!accountId) continue;
+          if (compCents === 0) {
+            // Log when component has null allocatedRevenueCents (legacy package without enrichment)
+            // The safety net at the bottom catches the dollar mismatch, but this log
+            // helps diagnose WHY the safety net fires for this return.
+            if (comp.allocatedRevenueCents == null) {
+              try {
+                await logUnmappedEvent(db, event.tenantId, {
+                  eventType: 'order.returned.v1',
+                  sourceModule: 'pos_return',
+                  sourceReferenceId: data.returnOrderId,
+                  entityType: 'return_component_unenriched',
+                  entityId: comp.catalogItemId,
+                  reason: `Package component has null allocatedRevenueCents — likely a legacy package without GL enrichment. Revenue will be captured by the safety-net remainder line.`,
+                });
+              } catch { /* best-effort */ }
+            }
+            continue; // zero-value component, nothing to reverse
+          }
 
-          const compDollars = (Math.abs(comp.allocatedRevenueCents) / 100).toFixed(2);
+          let accountId: string | null = null;
+
+          if (comp.subDepartmentId) {
+            const compMapping = await resolveSubDepartmentAccounts(db, event.tenantId, comp.subDepartmentId);
+            accountId = resolveReturnsAccount(compMapping, defaultReturnsAccountId);
+          }
+
+          // Fall back to line-level or uncategorized if component mapping unavailable
+          if (!accountId) {
+            accountId = lineFallbackAccountId ?? null;
+          }
+
+          if (!accountId) {
+            try {
+              await logUnmappedEvent(db, event.tenantId, {
+                eventType: 'order.returned.v1',
+                sourceModule: 'pos_return',
+                sourceReferenceId: data.returnOrderId,
+                entityType: 'return_component',
+                entityId: comp.catalogItemId,
+                reason: `Missing returns/revenue account for package component (sub-dept: ${comp.subDepartmentId ?? 'none'})`,
+              });
+            } catch { /* best-effort */ }
+            continue;
+          }
+
+          const compDollars = (compCents / 100).toFixed(2);
+          totalDebitedCents += compCents;
           glLines.push({
             accountId,
             debitAmount: compDollars,
             creditAmount: '0',
             locationId: data.locationId,
-            subDepartmentId: comp.subDepartmentId,
+            subDepartmentId: comp.subDepartmentId ?? line.subDepartmentId ?? undefined,
             channel: 'pos',
             memo: `Return: ${line.catalogItemName} (component)`,
           });
@@ -115,9 +184,15 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
 
         const accountId = resolveReturnsAccount(mapping, defaultReturnsAccountId);
 
-        if (accountId) {
+        // Fall back to uncategorized revenue if no specific mapping
+        const resolvedAccountId = accountId
+          ?? settings.defaultUncategorizedRevenueAccountId
+          ?? null;
+
+        if (resolvedAccountId && line.returnedSubtotal > 0) {
+          totalDebitedCents += line.returnedSubtotal;
           glLines.push({
-            accountId,
+            accountId: resolvedAccountId,
             debitAmount: returnDollars,
             creditAmount: '0',
             locationId: data.locationId,
@@ -125,20 +200,37 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
             channel: 'pos',
             memo: `Return: ${line.catalogItemName}`,
           });
+
+          // Log unmapped event if we had to use uncategorized fallback
+          if (!accountId) {
+            try {
+              await logUnmappedEvent(db, event.tenantId, {
+                eventType: 'order.returned.v1',
+                sourceModule: 'pos_return',
+                sourceReferenceId: data.returnOrderId,
+                entityType: 'return_line',
+                entityId: line.catalogItemId,
+                reason: `Missing returns/revenue account for sub-department ${line.subDepartmentId} — posted to uncategorized revenue`,
+              });
+            } catch { /* best-effort */ }
+          }
         } else if (line.returnedSubtotal > 0) {
-          await logUnmappedEvent(db, event.tenantId, {
-            eventType: 'order.returned.v1',
-            sourceModule: 'pos_return',
-            sourceReferenceId: data.returnOrderId,
-            entityType: 'return_line',
-            entityId: line.catalogItemId,
-            reason: `Missing returns/revenue account for sub-department ${line.subDepartmentId}`,
-          });
+          try {
+            await logUnmappedEvent(db, event.tenantId, {
+              eventType: 'order.returned.v1',
+              sourceModule: 'pos_return',
+              sourceReferenceId: data.returnOrderId,
+              entityType: 'return_line',
+              entityId: line.catalogItemId,
+              reason: `Missing returns/revenue account for sub-department ${line.subDepartmentId} — no fallback available`,
+            });
+          } catch { /* best-effort */ }
         }
       }
 
       // Tax reversal — debit tax payable (reverses original credit)
       if (line.returnedTax > 0 && settings.defaultSalesTaxPayableAccountId) {
+        totalDebitedCents += line.returnedTax;
         const taxDollars = (line.returnedTax / 100).toFixed(2);
         glLines.push({
           accountId: settings.defaultSalesTaxPayableAccountId,
@@ -151,8 +243,41 @@ export async function handleOrderReturnForAccounting(event: EventEnvelope): Prom
       }
     }
 
+    // Safety net: if some debit lines were skipped (unmapped), the total debited
+    // will be less than returnTotal. Post the difference to uncategorized revenue
+    // so debits = credits. Without this, validateJournal throws UnbalancedJournalError.
+    const unmappedCents = data.returnTotal - totalDebitedCents;
+    if (unmappedCents > 0 && settings.defaultUncategorizedRevenueAccountId) {
+      const unmappedDollars = (unmappedCents / 100).toFixed(2);
+      glLines.push({
+        accountId: settings.defaultUncategorizedRevenueAccountId,
+        debitAmount: unmappedDollars,
+        creditAmount: '0',
+        locationId: data.locationId,
+        channel: 'pos',
+        memo: `Return: unmapped revenue reversal — order ${data.originalOrderId}`,
+      });
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'order.returned.v1',
+          sourceModule: 'pos_return',
+          sourceReferenceId: data.returnOrderId,
+          entityType: 'return_unmapped_remainder',
+          entityId: data.returnOrderId,
+          reason: `$${unmappedDollars} of return revenue could not be mapped to specific accounts — posted to uncategorized revenue. Resolve GL mappings for full sub-department granularity.`,
+        });
+      } catch { /* best-effort */ }
+    }
+
     // Credit side — cash/payment account (refund to customer)
-    const refundDollars = (data.returnTotal / 100).toFixed(2);
+    // Derive credit from actual sum of debit lines posted (not payload total).
+    // If some debit lines were skipped (unmapped, no fallback), the credit
+    // matches what was actually debited. Ensures debits = credits always.
+    const actualDebitCents = glLines.reduce(
+      (sum, line) => sum + Math.round(Number(line.debitAmount) * 100),
+      0,
+    );
+    const refundDollars = (actualDebitCents / 100).toFixed(2);
     const refundAccountId = settings.defaultUndepositedFundsAccountId;
 
     if (refundAccountId && glLines.length > 0) {

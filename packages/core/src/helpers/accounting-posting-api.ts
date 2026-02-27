@@ -44,9 +44,17 @@ export interface AccountingPostingApi {
   ): Promise<{
     defaultAPControlAccountId: string | null;
     defaultARControlAccountId: string | null;
+    defaultUndepositedFundsAccountId: string | null;
+    defaultUncategorizedRevenueAccountId: string | null;
     baseCurrency: string;
     enableLegacyGlPosting?: boolean;
   }>;
+
+  /**
+   * Ensure accounting settings exist for a tenant (auto-bootstrap if needed).
+   * Idempotent — safe to call repeatedly. Non-fatal — callers should catch errors.
+   */
+  ensureSettings(tenantId: string): Promise<void>;
 }
 
 // ── Singleton ───────────────────────────────────────────────────

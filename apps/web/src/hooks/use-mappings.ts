@@ -3,6 +3,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api-client';
 import { buildQueryString } from '@/lib/query-string';
+
+// ── Cross-tab invalidation (shares channel with useGlReadiness) ──
+const GL_READINESS_CHANNEL = 'gl-readiness-invalidation';
+let _bc: BroadcastChannel | null = null;
+function broadcastMappingChange() {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+  try {
+    if (!_bc) _bc = new BroadcastChannel(GL_READINESS_CHANNEL);
+    _bc.postMessage('invalidate');
+  } catch { /* BroadcastChannel not supported */ }
+}
 import type {
   MappingCoverage,
   SubDepartmentMapping,
@@ -223,6 +234,8 @@ export function useMappingMutations() {
     queryClient.invalidateQueries({ queryKey: ['remappable-tenders'] });
     queryClient.invalidateQueries({ queryKey: ['unmapped-events'] });
     queryClient.invalidateQueries({ queryKey: ['transaction-type-mappings'] });
+    // Notify other tabs that mappings changed (triggers GL readiness re-check)
+    broadcastMappingChange();
   };
 
   const saveSubDepartmentDefaults = useMutation({
@@ -317,6 +330,9 @@ export function useUnmappedEventMutations() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['unmapped-events'] });
+      queryClient.invalidateQueries({ queryKey: ['smart-resolution-suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+      broadcastMappingChange();
     },
   });
 
@@ -443,6 +459,7 @@ export function useDiscountMappingMutations() {
       queryClient.invalidateQueries({ queryKey: ['discount-gl-mappings'] });
       queryClient.invalidateQueries({ queryKey: ['discount-mapping-coverage'] });
       queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+      broadcastMappingChange();
     },
   });
 
@@ -492,8 +509,84 @@ export function useSaveFnbMapping() {
       }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['fnb-mapping-coverage', variables.locationId] });
+      broadcastMappingChange();
     },
   });
 
   return { saveFnbMapping };
+}
+
+// ── useSmartResolutionSuggestions ────────────────────────────
+
+export interface SmartSuggestion {
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  suggestedAccountId: string;
+  suggestedAccountNumber: string;
+  suggestedAccountName: string;
+  confidence: 'high' | 'medium' | 'low';
+  reason: string;
+  alreadyMapped: boolean;
+  eventCount: number;
+}
+
+export interface SmartResolutionData {
+  suggestions: SmartSuggestion[];
+  totalEvents: number;
+  autoResolvable: number;
+  alreadyMapped: number;
+  skippedErrors: number;
+}
+
+export function useSmartResolutionSuggestions() {
+  const result = useQuery({
+    queryKey: ['smart-resolution-suggestions'],
+    queryFn: () =>
+      apiFetch<{ data: SmartResolutionData }>(
+        '/api/v1/accounting/unmapped-events/smart-resolve',
+      ).then((r) => r.data),
+    staleTime: 30_000,
+  });
+
+  return {
+    data: result.data ?? null,
+    isLoading: result.isLoading,
+    error: result.error,
+    refetch: result.refetch,
+  };
+}
+
+// ── useApplySmartResolutions ─────────────────────────────────
+
+export interface ApplySmartResult {
+  mappingsCreated: number;
+  eventsResolved: number;
+  remapped: number;
+  failed: number;
+}
+
+export function useApplySmartResolutions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (suggestions: Array<{ entityType: string; entityId: string; suggestedAccountId: string }>) =>
+      apiFetch<{ data: ApplySmartResult }>(
+        '/api/v1/accounting/unmapped-events/smart-resolve',
+        {
+          method: 'POST',
+          body: JSON.stringify({ suggestions }),
+        },
+      ).then((r) => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['smart-resolution-suggestions'] });
+      queryClient.invalidateQueries({ queryKey: ['unmapped-events'] });
+      queryClient.invalidateQueries({ queryKey: ['mapping-coverage'] });
+      queryClient.invalidateQueries({ queryKey: ['sub-department-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-type-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['tax-group-mappings'] });
+      queryClient.invalidateQueries({ queryKey: ['remappable-tenders'] });
+      broadcastMappingChange();
+    },
+  });
 }

@@ -79,6 +79,7 @@ export interface CreateSystemLensInput {
   defaultFilters?: LensFilterInput[];
   systemPromptFragment?: string;
   exampleQuestions?: string[];
+  targetBusinessTypes?: string[];
 }
 
 export interface UpdateSystemLensInput {
@@ -93,6 +94,7 @@ export interface UpdateSystemLensInput {
   defaultFilters?: LensFilterInput[];
   systemPromptFragment?: string;
   exampleQuestions?: string[];
+  targetBusinessTypes?: string[] | null;
 }
 
 export interface SystemLensRow {
@@ -109,6 +111,7 @@ export interface SystemLensRow {
   defaultFilters: LensFilterInput[] | null;
   systemPromptFragment: string | null;
   exampleQuestions: string[] | null;
+  targetBusinessTypes: string[] | null;
   isActive: boolean;
   isSystem: boolean;
   createdAt: string;

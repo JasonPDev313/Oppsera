@@ -1,4 +1,5 @@
-import postgres from 'postgres';
+import { db } from '@oppsera/db';
+import { sql } from 'drizzle-orm';
 
 // ── Schema Catalog ───────────────────────────────────────────────
 // Builds a compact text representation of tenant-scoped DB tables
@@ -35,7 +36,8 @@ export interface SchemaCatalog {
 
 // ── Constants ────────────────────────────────────────────────────
 
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_MS = 60 * 60 * 1000;       // 1 hour: serve from cache
+const SWR_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours: serve stale, refresh in background
 
 // Tables to exclude from the schema catalog
 const EXCLUDED_TABLES = new Set([
@@ -214,6 +216,14 @@ const TABLE_DESCRIPTIONS: Record<string, string> = {
   rm_pms_revenue_by_room_type: 'Room revenue aggregates by room type per day (amounts in cents)',
   rm_pms_housekeeping_productivity: 'Housekeeping metrics per housekeeper per day (rooms cleaned, time)',
 
+  // Customer Tags
+  tags: 'Tag definitions (VIP, At Risk, Birthday This Month, etc.) — tag_group categorizes: value_tier, engagement, lifecycle, behavioral, membership, service_flag',
+  customer_tags: 'Customer-to-tag assignments — active when removed_at IS NULL. JOIN with tags table for tag name/color/group. Source: manual, smart, predictive, api',
+  smart_tag_rules: 'Automated tag rules — conditions evaluate customer metrics (spend, visits, recency) to auto-apply tags',
+  tag_audit_log: 'Append-only audit trail for tag apply/remove/expire events',
+  tag_actions: 'Configurable actions triggered on tag lifecycle events (on_apply, on_remove, on_expire)',
+  tag_action_executions: 'Append-only execution log for tag actions (success/failed/skipped)',
+
   // Semantic
   semantic_metrics: 'Registered semantic layer metrics',
   semantic_dimensions: 'Registered semantic layer dimensions',
@@ -372,6 +382,33 @@ const COLUMN_DESCRIPTIONS: Record<string, Record<string, string>> = {
     tax_revenue_cents: 'room tax in CENTS (divide by 100 for dollars)',
     adr_cents: 'average daily rate for this room type in CENTS',
   },
+  tags: {
+    name: 'human-readable tag name like VIP, At Risk, Birthday This Month, Whale',
+    tag_type: 'manual|smart — manual tags are user-assigned, smart tags are rule-based',
+    tag_group: 'category: value_tier|engagement|lifecycle|behavioral|membership|service_flag',
+    category: 'optional sub-category for grouping in UI',
+    priority: 'display priority (lower = higher priority, 0 = most important)',
+    customer_count: 'denormalized count of customers with this tag',
+    is_active: 'false if tag is disabled (still exists for history)',
+    color: 'hex color code for chip display',
+  },
+  customer_tags: {
+    customer_id: 'FK to customers — the customer who has this tag',
+    tag_id: 'FK to tags — which tag is applied',
+    source: 'manual|smart|predictive|api — how the tag was applied',
+    source_rule_id: 'FK to smart_tag_rules if source is smart (NULL for manual)',
+    evidence: 'JSONB — conditions matched and actual values when smart tag was applied',
+    applied_at: 'when the tag was applied (timestamp)',
+    removed_at: 'NULL if active, non-NULL if removed (soft-delete)',
+    expires_at: 'NULL if permanent, non-NULL for auto-expiring tags',
+    confidence: 'prediction confidence 0-1 (for predictive tags)',
+  },
+  tag_audit_log: {
+    action: 'applied|removed|expired — what happened to the tag',
+    source: 'manual|smart|predictive|api — how the action was triggered',
+    evidence: 'JSONB — conditions snapshot at time of action',
+    occurred_at: 'when the action happened',
+  },
   rm_pms_calendar_segments: {
     business_date: 'the calendar day this segment covers (DATE)',
     reservation_id: 'FK to pms_reservations',
@@ -382,27 +419,12 @@ const COLUMN_DESCRIPTIONS: Record<string, Record<string, string>> = {
   },
 };
 
-// ── postgres.js singleton (shared with executor) ─────────────────
-
-const globalForSchema = globalThis as unknown as { __semantic_schema_pg?: postgres.Sql };
-
-function getSchemaPg(): postgres.Sql {
-  if (!globalForSchema.__semantic_schema_pg) {
-    const url = process.env.DATABASE_URL;
-    if (!url) throw new Error('DATABASE_URL is required');
-    globalForSchema.__semantic_schema_pg = postgres(url, {
-      max: 1,
-      prepare: false,
-      idle_timeout: 20,
-      max_lifetime: 300,
-    });
-  }
-  return globalForSchema.__semantic_schema_pg;
-}
+// Uses the shared @oppsera/db pool — no separate connection needed.
 
 // ── Cache ────────────────────────────────────────────────────────
 
 let _cache: SchemaCatalog | null = null;
+let _refreshInFlight = false;
 
 // ── Builder ──────────────────────────────────────────────────────
 
@@ -429,15 +451,34 @@ function mapPgType(dataType: string): string {
 }
 
 export async function buildSchemaCatalog(): Promise<SchemaCatalog> {
-  // Return cache if still valid
-  if (_cache && Date.now() - _cache.builtAt < CACHE_TTL_MS) {
-    return _cache;
+  // SWR cache strategy: serve stale data while refreshing in background
+  if (_cache) {
+    const age = Date.now() - _cache.builtAt;
+
+    // Fresh — return immediately
+    if (age < CACHE_TTL_MS) return _cache;
+
+    // Stale but within SWR window — return stale, kick off background refresh
+    if (age < SWR_WINDOW_MS) {
+      if (!_refreshInFlight) {
+        _refreshInFlight = true;
+        _loadSchemaCatalog()
+          .then((fresh) => { _cache = fresh; })
+          .catch(() => {})
+          .finally(() => { _refreshInFlight = false; });
+      }
+      return _cache;
+    }
   }
 
-  const pg = getSchemaPg();
+  // No cache or expired beyond SWR window — block and refresh synchronously
+  _cache = await _loadSchemaCatalog();
+  return _cache;
+}
 
+async function _loadSchemaCatalog(): Promise<SchemaCatalog> {
   // Step 1: Find all tables that have a tenant_id column (tenant-scoped)
-  const tenantTables = await pg.unsafe(`
+  const tenantTables = await db.execute(sql`
     SELECT DISTINCT table_name
     FROM information_schema.columns
     WHERE table_schema = 'public'
@@ -452,7 +493,8 @@ export async function buildSchemaCatalog(): Promise<SchemaCatalog> {
   );
 
   // Step 2: Fetch columns for all tenant-scoped tables
-  const columns = await pg.unsafe(`
+  const tableNameArray = Array.from(tenantTableNames);
+  const columns = await db.execute(sql`
     SELECT
       c.table_name,
       c.column_name,
@@ -469,9 +511,9 @@ export async function buildSchemaCatalog(): Promise<SchemaCatalog> {
       AND kcu.table_schema = tc.table_schema
       AND kcu.column_name = c.column_name
     WHERE c.table_schema = 'public'
-      AND c.table_name = ANY($1)
+      AND c.table_name = ANY(${tableNameArray})
     ORDER BY c.table_name, c.ordinal_position
-  `, [Array.from(tenantTableNames)]);
+  `);
 
   // Step 3: Group columns by table
   const tableMap = new Map<string, ColumnInfo[]>();
@@ -512,8 +554,7 @@ export async function buildSchemaCatalog(): Promise<SchemaCatalog> {
   const summaryText = buildSummaryText(tables);
   const tableNames = new Set(tables.map((t) => t.name));
 
-  _cache = { tables, fullText, summaryText, tableNames, builtAt: Date.now() };
-  return _cache;
+  return { tables, fullText, summaryText, tableNames, builtAt: Date.now() };
 }
 
 function buildFullText(tables: TableInfo[]): string {

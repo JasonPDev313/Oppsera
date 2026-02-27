@@ -3,16 +3,20 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
-import { glAccounts, paymentTypeGlDefaults } from '@oppsera/db';
+import { db, glAccounts, paymentTypeGlDefaults } from '@oppsera/db';
 import { NotFoundError } from '@oppsera/shared';
 import type { SavePaymentTypeDefaultsInput } from '../validation';
 import { tryAutoRemap } from '../helpers/try-auto-remap';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 
 export async function savePaymentTypeDefaults(
   ctx: RequestContext,
   paymentTypeId: string,
   input: SavePaymentTypeDefaultsInput,
 ) {
+  // Ensure accounting_settings row exists (safety net for non-bootstrap setup)
+  await ensureAccountingSettings(db, ctx.tenantId);
+
   const result = await publishWithOutbox(ctx, async (tx) => {
     // Validate referenced account IDs exist
     const accountIds: string[] = [];

@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { FormField } from '@/components/ui/form-field';
 import { useToast } from '@/components/ui/toast';
 import { useTagMutations } from '@/hooks/use-tags';
+import { suggestFromText, suggestFromTagName } from '@/lib/tag-suggestion-engine';
+import type { SuggestionMatch } from '@/lib/tag-suggestion-engine';
+import { TagSuggestionCards } from './TagSuggestionCards';
 
 const COLOR_PRESETS = [
   '#3B82F6',
@@ -43,6 +46,38 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
   const [icon, setIcon] = useState('');
   const [category, setCategory] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Compute suggestions based on name input when tag type is smart
+  const suggestions = useMemo(() => {
+    if (tagType !== 'smart') return [];
+    if (name.length >= 2) {
+      const textSuggestions = suggestFromText(name, { category: category || undefined, limit: 4 });
+      const nameSuggestions = suggestFromTagName(name);
+      // Merge and deduplicate by template key, preferring higher scores
+      const seen = new Map<string, SuggestionMatch>();
+      for (const s of [...textSuggestions, ...nameSuggestions]) {
+        const existing = seen.get(s.template.key);
+        if (!existing || s.score > existing.score) {
+          seen.set(s.template.key, s);
+        }
+      }
+      return Array.from(seen.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 4);
+    }
+    // Show default suggestions when no name typed yet
+    return suggestFromText('', { category: category || undefined, limit: 4 });
+  }, [tagType, name, category]);
+
+  const handleSelectSuggestion = useCallback((match: SuggestionMatch) => {
+    const t = match.template;
+    if (!name.trim()) setName(t.name);
+    if (!description.trim()) setDescription(t.description);
+    setColor(t.color);
+    setCustomColor('');
+    if (!icon.trim()) setIcon(t.icon);
+    if (!category) setCategory(t.category === 'predictive' ? 'behavior' : t.category);
+  }, [name, description, icon, category]);
 
   const resetForm = useCallback(() => {
     setName('');
@@ -150,6 +185,13 @@ export function CreateTagDialog({ open, onClose, onCreated }: CreateTagDialogPro
               </label>
             </div>
           </FormField>
+
+          {tagType === 'smart' && suggestions.length > 0 && (
+            <TagSuggestionCards
+              suggestions={suggestions}
+              onSelect={handleSelectSuggestion}
+            />
+          )}
 
           <FormField label="Description">
             <textarea

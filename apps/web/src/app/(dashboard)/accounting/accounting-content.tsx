@@ -17,6 +17,7 @@ import {
 import { AccountingPageShell } from '@/components/accounting/accounting-page-shell';
 import { AccountingEmptyState } from '@/components/accounting/accounting-empty-state';
 import { BootstrapWizard } from '@/components/accounting/bootstrap-wizard';
+import { GLReadinessBanner } from '@/components/accounting/gl-readiness-banner';
 import { StatusBadge } from '@/components/accounting/status-badge';
 import { formatAccountingMoney } from '@/types/accounting';
 import type { HealthSummary } from '@/types/accounting';
@@ -118,6 +119,9 @@ export default function AccountingDashboardContent() {
 
   return (
     <AccountingPageShell title="Accounting Dashboard" subtitle="Financial overview and quick actions">
+      {/* GL Readiness — auto-detects and backfills unposted tenders */}
+      <GLReadinessBanner />
+
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KPICard

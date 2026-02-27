@@ -61,6 +61,7 @@ export async function getGlSummary(
         ${endDateFilter}
       WHERE a.tenant_id = ${input.tenantId}
         AND a.is_active = true
+        AND (jl.id IS NULL OR je.id IS NOT NULL)
       GROUP BY a.classification_id, c.name, a.account_type, a.normal_balance
       HAVING COALESCE(SUM(jl.debit_amount), 0) != 0
           OR COALESCE(SUM(jl.credit_amount), 0) != 0

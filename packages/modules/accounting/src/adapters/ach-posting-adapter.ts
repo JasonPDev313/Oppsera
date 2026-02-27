@@ -3,6 +3,7 @@ import { glJournalEntries } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
 import type { EventEnvelope } from '@oppsera/shared';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { resolvePaymentTypeAccounts, logUnmappedEvent } from '../helpers/resolve-mapping';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import { voidJournalEntry } from '../commands/void-journal-entry';
@@ -99,8 +100,23 @@ export async function handleAchOriginatedForAccounting(event: EventEnvelope): Pr
   const data = event.data as unknown as AchOriginatedPayload;
 
   try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'payment.gateway.ach_originated.v1',
+          sourceModule: 'ach',
+          sourceReferenceId: data.paymentIntentId,
+          entityType: 'accounting_settings',
+          entityId: tenantId,
+          reason: 'CRITICAL: GL ACH origination posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block ACH ops */ }
+      console.error(`[ach-gl] CRITICAL: accounting settings missing for tenant=${tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     const achReceivableId = settings.defaultAchReceivableAccountId;
     if (!achReceivableId) {
@@ -215,8 +231,23 @@ export async function handleAchSettledForAccounting(event: EventEnvelope): Promi
   const data = event.data as unknown as AchSettledPayload;
 
   try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'payment.gateway.ach_settled.v1',
+          sourceModule: 'ach',
+          sourceReferenceId: data.paymentIntentId,
+          entityType: 'accounting_settings',
+          entityId: tenantId,
+          reason: 'CRITICAL: GL ACH settlement posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block ACH ops */ }
+      console.error(`[ach-gl] CRITICAL: accounting settings missing for tenant=${tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     const achReceivableId = settings.defaultAchReceivableAccountId;
     if (!achReceivableId) {
@@ -325,8 +356,23 @@ export async function handleAchReturnGlReversal(event: EventEnvelope): Promise<v
   const data = event.data as unknown as AchReturnedPayload;
 
   try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'payment.gateway.ach_returned.v1',
+          sourceModule: 'ach',
+          sourceReferenceId: data.achReturnId,
+          entityType: 'accounting_settings',
+          entityId: tenantId,
+          reason: 'CRITICAL: GL ACH return reversal skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block ACH ops */ }
+      console.error(`[ach-gl] CRITICAL: accounting settings missing for tenant=${tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     const ctx = buildSyntheticCtx(tenantId, data.locationId, data.achReturnId);
 

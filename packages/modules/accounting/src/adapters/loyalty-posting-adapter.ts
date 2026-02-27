@@ -10,6 +10,7 @@ import { db } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { sql } from 'drizzle-orm';
@@ -68,9 +69,23 @@ export async function handleLoyaltyRedemptionForAccounting(event: EventEnvelope)
   const data = event.data as unknown as LoyaltyPointsRedeemedPayload;
 
   try {
-    // Check if accounting is enabled for this tenant
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'pms.loyalty.points_redeemed.v1',
+          sourceModule: 'pms',
+          sourceReferenceId: data.transactionId,
+          entityType: 'accounting_settings',
+          entityId: tenantId,
+          reason: 'CRITICAL: GL loyalty redemption posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block PMS ops */ }
+      console.error(`[loyalty-gl] CRITICAL: accounting settings missing for tenant=${tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     const accountingApi = getAccountingPostingApi();
 

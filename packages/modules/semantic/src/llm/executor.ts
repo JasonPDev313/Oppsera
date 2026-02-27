@@ -81,6 +81,7 @@ function computeFingerprint(
 // Runs at most once per tenant per process lifetime.
 
 const _backfilledTenants = new Set<string>();
+const BACKFILL_SET_MAX = 1_000;
 
 async function ensureReadModelsPopulated(
   pg: postgres.Sql,
@@ -195,10 +196,12 @@ async function ensureReadModelsPopulated(
       return true;
     });
 
+    if (_backfilledTenants.size >= BACKFILL_SET_MAX) _backfilledTenants.clear();
     _backfilledTenants.add(tenantId);
     return didBackfill;
   } catch (err) {
     console.warn('[semantic] Auto-backfill failed (non-blocking):', err);
+    if (_backfilledTenants.size >= BACKFILL_SET_MAX) _backfilledTenants.clear();
     _backfilledTenants.add(tenantId); // don't retry on failure
     return false;
   }
@@ -259,24 +262,10 @@ export async function executeCompiledQuery(
     throw new ExecutionError(`Query execution failed: ${msg}`, 'QUERY_ERROR');
   }
 
-  // If 0 rows from a read model table, check if read models need backfilling
+  // If 0 rows from a read model table, kick off background backfill for next request.
+  // Don't block the current request — return 0 rows immediately.
   if (rows.length === 0 && compiled.primaryTable.startsWith('rm_')) {
-    const didBackfill = await ensureReadModelsPopulated(pg, tenantId, compiled.primaryTable);
-    if (didBackfill) {
-      // Retry the original query after backfill
-      try {
-        const retryResult = await pg.begin(async (tx) => {
-          await tx.unsafe(`SELECT set_config('app.current_tenant_id', $1, true)`, [tenantId]);
-          await tx.unsafe(`SET LOCAL statement_timeout = '${timeoutMs}ms'`);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return tx.unsafe(compiled.sql, compiled.params as any[]);
-        });
-        rows = Array.from(retryResult as Iterable<Record<string, unknown>>);
-        console.log(`[semantic] Retry after backfill returned ${rows.length} rows`);
-      } catch {
-        // If retry fails, continue with original 0 rows
-      }
-    }
+    void ensureReadModelsPopulated(pg, tenantId, compiled.primaryTable).catch(() => {});
   }
 
   const executionTimeMs = Date.now() - startMs;

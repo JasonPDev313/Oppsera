@@ -224,6 +224,14 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   const profileDrawer = useProfileDrawer();
   const itemEditDrawer = useItemEditDrawer();
 
+  // Stable refs for pos and registerTabs — prevents cascading identity changes
+  // in callbacks that depend on them (e.g. handlePaymentComplete), which would
+  // cause PaymentPanel's success auto-dismiss timer to reset every render.
+  const posRef = useRef(pos);
+  posRef.current = pos;
+  const registerTabsRef = useRef(registerTabs);
+  registerTabsRef.current = registerTabs;
+
   // Build orderLabels map for tab display
   const orderLabels = useMemo(() => {
     const map = new Map<string, string>();
@@ -688,17 +696,17 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
 
   const handleSendOrder = useCallback(async () => {
     try {
-      await pos.placeOrder();
+      await posRef.current.placeOrder();
       toast.success('Order sent to kitchen');
     } catch {
       // Error already handled by POS hook
     }
-  }, [pos, toast]);
+  }, [toast]);
 
   const handlePayClick = useCallback(() => {
-    // Just show the payment panel — place-and-pay handles open orders atomically.
-    // Pre-emptive place calls compete for the same FOR UPDATE lock and exhaust
-    // the Vercel connection pool (max 2), blocking the real tender request.
+    // Flush any queued batch items so they aren't lost when switching to payment view.
+    // place-and-pay handles open orders atomically — no pre-emptive place call needed.
+    posRef.current.ensureOrderReady().catch(() => {});
     setPosView('payment');
   }, []);
 
@@ -707,10 +715,10 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       setShowTenderDialog(false);
       setPosView('order');
       setRemainingBalance(null);
-      pos.clearOrder();
-      registerTabs.clearActiveTab();
+      posRef.current.clearOrder();
+      registerTabsRef.current.clearActiveTab();
     },
-    [pos, registerTabs],
+    [],
   );
 
   const handlePaymentCancel = useCallback(() => {
@@ -725,9 +733,9 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
     setShowSplitTender(false);
     setPosView('order');
     setRemainingBalance(null);
-    pos.clearOrder();
-    registerTabs.clearActiveTab();
-  }, [pos, registerTabs]);
+    posRef.current.clearOrder();
+    registerTabsRef.current.clearActiveTab();
+  }, []);
 
   const handleGiftCardRedeem = useCallback(
     (_cardNumber: string, _amountCents: number) => {
@@ -741,27 +749,27 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   const handleSaveTab = useCallback(
     async (tabNumber: number) => {
       // Switch to the tab if not active, then hold its order
-      if (tabNumber !== registerTabs.activeTabNumber) {
-        registerTabs.switchTab(tabNumber);
+      if (tabNumber !== registerTabsRef.current.activeTabNumber) {
+        registerTabsRef.current.switchTab(tabNumber);
       }
-      await pos.holdOrder();
-      registerTabs.clearActiveTab();
+      await posRef.current.holdOrder();
+      registerTabsRef.current.clearActiveTab();
     },
-    [pos, registerTabs],
+    [],
   );
 
   const handleHoldOrder = useCallback(async () => {
     setPosView('order');
-    await pos.holdOrder();
-    registerTabs.clearActiveTab();
-  }, [pos, registerTabs]);
+    await posRef.current.holdOrder();
+    registerTabsRef.current.clearActiveTab();
+  }, []);
 
   const handleRecallOrder = useCallback(
     async (orderId: string) => {
-      await pos.recallOrder(orderId);
+      await posRef.current.recallOrder(orderId);
       setShowRecallDialog(false);
     },
-    [pos],
+    [],
   );
 
   const handleVoidOrder = useCallback(async () => {
@@ -770,11 +778,11 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
       return;
     }
     setPosView('order');
-    await pos.voidOrder(voidReason.trim());
-    registerTabs.clearActiveTab();
+    await posRef.current.voidOrder(voidReason.trim());
+    registerTabsRef.current.clearActiveTab();
     setVoidReason('');
     setShowVoidConfirm(false);
-  }, [pos, registerTabs, voidReason, toast]);
+  }, [voidReason, toast]);
 
   const handleShiftEnd = useCallback(async (closingCountCents: number, notes?: string) => {
     const result = await shift.closeShift(closingCountCents, notes);
@@ -804,17 +812,17 @@ function RetailPOSPage({ isActive = true }: { isActive?: boolean }) {
   // ── Attach customer + auto-rename tab ──────────────────────────
   const handleAttachCustomer = useCallback(
     (customerId: string, customerName?: string) => {
-      pos.attachCustomer(customerId, customerName);
+      posRef.current.attachCustomer(customerId, customerName);
       if (customerName) {
         const parts = customerName.trim().split(/\s+/);
         const shortName =
           parts.length >= 2
             ? `${parts[0]} ${parts[parts.length - 1]![0]!.toUpperCase()}`
             : parts[0] ?? '';
-        registerTabs.renameTab(registerTabs.activeTabNumber, shortName);
+        registerTabsRef.current.renameTab(registerTabsRef.current.activeTabNumber, shortName);
       }
     },
-    [pos, registerTabs],
+    [],
   );
 
   // ── Universal search handlers ──────────────────────────────────

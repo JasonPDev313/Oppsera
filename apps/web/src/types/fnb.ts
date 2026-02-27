@@ -345,6 +345,16 @@ export interface KdsTicketCard {
   otherStations?: { stationId: string; stationName: string }[];
 }
 
+export interface KdsCompletedTicket {
+  ticketId: string;
+  ticketNumber: number;
+  tableNumber: number | null;
+  serverName: string | null;
+  itemCount: number;
+  completedAt: string;
+  completedSecondsAgo: number;
+}
+
 export interface KdsView {
   stationId: string;
   stationName: string;
@@ -354,6 +364,7 @@ export interface KdsView {
   criticalThresholdSeconds: number;
   tickets: KdsTicketCard[];
   activeTicketCount: number;
+  recentlyCompleted: KdsCompletedTicket[];
 }
 
 // ── Expo View ─────────────────────────────────────────────────────

@@ -220,8 +220,10 @@ describe('Idempotency', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
+        subtotal: 10000,
+        taxTotal: 1000,
+        total: 11000,
         lines: [],
-        totals: { gross: 100, discount: 0, tax: 10, net: 110 },
       },
     });
 
@@ -241,8 +243,10 @@ describe('Idempotency', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
+        subtotal: 10000,
+        taxTotal: 1000,
+        total: 11000,
         lines: [],
-        totals: { gross: 100, discount: 0, tax: 10, net: 110 },
       },
     });
 
@@ -296,8 +300,11 @@ describe('handleOrderPlaced', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
+        subtotal: 5000,
+        taxTotal: 450,
+        discountTotal: 500,
+        total: 4950,
         lines: [],
-        totals: { gross: 50.00, discount: 5.00, tax: 4.50, net: 49.50 },
       },
     });
 
@@ -319,10 +326,12 @@ describe('handleOrderPlaced', () => {
         orderId: 'ord_001',
         locationId: LOCATION,
         lines: [
-          { catalogItemId: 'item_1', name: 'Burger', quantity: 2, unitPrice: 10, lineSubtotal: 20, discount: 0, tax: 2, lineTotal: 22 },
-          { catalogItemId: 'item_2', name: 'Fries', quantity: 1, unitPrice: 5, lineSubtotal: 5, discount: 0, tax: 0.50, lineTotal: 5.50 },
+          { catalogItemId: 'item_1', catalogItemName: 'Burger', qty: 2, lineTotal: 2200 },
+          { catalogItemId: 'item_2', catalogItemName: 'Fries', qty: 1, lineTotal: 550 },
         ],
-        totals: { gross: 25, discount: 0, tax: 2.50, net: 27.50 },
+        subtotal: 2500,
+        taxTotal: 250,
+        total: 2750,
       },
     });
 
@@ -346,8 +355,10 @@ describe('handleOrderPlaced', () => {
         locationId: LOCATION,
         customerId: 'cust_001',
         customerName: 'John Doe',
+        subtotal: 10000,
+        taxTotal: 1000,
+        total: 11000,
         lines: [],
-        totals: { gross: 100, discount: 0, tax: 10, net: 110 },
       },
     });
 
@@ -368,8 +379,10 @@ describe('handleOrderPlaced', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
+        subtotal: 10000,
+        taxTotal: 1000,
+        total: 11000,
         lines: [],
-        totals: { gross: 100, discount: 0, tax: 10, net: 110 },
       },
     });
 
@@ -391,8 +404,11 @@ describe('handleOrderPlaced', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
+        subtotal: 5000,
+        discountTotal: 500,
+        taxTotal: 450,
+        total: 4950,
         lines: [],
-        totals: { gross: 50, discount: 5, tax: 4.50, net: 49.50 },
       },
     });
 
@@ -412,8 +428,10 @@ describe('handleOrderPlaced', () => {
       data: {
         orderId: 'ord_002',
         locationId: LOCATION,
+        subtotal: 3000,
+        taxTotal: 300,
+        total: 3300,
         lines: [],
-        totals: { gross: 30, discount: 0, tax: 3, net: 33 },
       },
     });
 
@@ -432,8 +450,11 @@ describe('handleOrderPlaced', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
+        subtotal: 12000,
+        discountTotal: 2000,
+        taxTotal: 1000,
+        total: 11000,
         lines: [],
-        totals: { gross: 120, discount: 20, tax: 10, net: 110 },
       },
     });
 
@@ -466,7 +487,7 @@ describe('handleOrderVoided', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
-        amount: 49.50,
+        total: 4950,
         lines: [],
       },
     });
@@ -486,7 +507,7 @@ describe('handleOrderVoided', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
-        amount: 100,
+        total: 10000,
         lines: [],
       },
     });
@@ -507,7 +528,7 @@ describe('handleOrderVoided', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
-        amount: 50,
+        total: 5000,
         lines: [],
       },
     });
@@ -529,7 +550,7 @@ describe('handleOrderVoided', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
-        amount: 25,
+        total: 2500,
         lines: [],
       },
     });
@@ -551,10 +572,10 @@ describe('handleOrderVoided', () => {
       data: {
         orderId: 'ord_001',
         locationId: LOCATION,
-        amount: 50,
+        total: 5000,
         lines: [
-          { catalogItemId: 'item_1', quantity: 2, lineTotal: 30 },
-          { catalogItemId: 'item_2', quantity: 1, lineTotal: 20 },
+          { catalogItemId: 'item_1', qty: 2, lineTotal: 3000 },
+          { catalogItemId: 'item_2', qty: 1, lineTotal: 2000 },
         ],
       },
     });
@@ -646,6 +667,152 @@ describe('handleTenderRecorded', () => {
     // No select calls beyond location lookup
     expect(mockSelect).toHaveBeenCalledTimes(1);
   });
+
+  it('increments tenderGiftCard for gift_card tenders', async () => {
+    const event = makeEvent({
+      eventType: 'tender.recorded.v1',
+      data: {
+        orderId: 'ord_001',
+        locationId: LOCATION,
+        tenderType: 'gift_card',
+        amount: 2500,
+      },
+    });
+
+    mockIdempotencyNew();
+    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert();
+
+    await handleTenderRecorded(event as any);
+
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it('increments tenderHouseAccount for house_account tenders', async () => {
+    const event = makeEvent({
+      eventType: 'tender.recorded.v1',
+      data: {
+        orderId: 'ord_001',
+        locationId: LOCATION,
+        tenderType: 'house_account',
+        amount: 15000,
+      },
+    });
+
+    mockIdempotencyNew();
+    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert();
+
+    await handleTenderRecorded(event as any);
+
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it('increments tenderAch for ach tenders', async () => {
+    const event = makeEvent({
+      eventType: 'tender.recorded.v1',
+      data: {
+        orderId: 'ord_001',
+        locationId: LOCATION,
+        tenderType: 'ach',
+        amount: 50000,
+      },
+    });
+
+    mockIdempotencyNew();
+    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert();
+
+    await handleTenderRecorded(event as any);
+
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it('routes unknown tender types to tenderOther', async () => {
+    const event = makeEvent({
+      eventType: 'tender.recorded.v1',
+      data: {
+        orderId: 'ord_001',
+        locationId: LOCATION,
+        tenderType: 'cryptocurrency',
+        amount: 9999,
+      },
+    });
+
+    mockIdempotencyNew();
+    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert();
+
+    await handleTenderRecorded(event as any);
+
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it('records tipAmount in tipTotal column', async () => {
+    const event = makeEvent({
+      eventType: 'tender.recorded.v1',
+      data: {
+        orderId: 'ord_001',
+        locationId: LOCATION,
+        tenderType: 'card',
+        amount: 5000,
+        tipAmount: 1000,
+      },
+    });
+
+    mockIdempotencyNew();
+    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert();
+
+    await handleTenderRecorded(event as any);
+
+    // Should still be 2 execute calls — tip is included in the same upsert
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it('records surchargeAmountCents in surchargeTotal column', async () => {
+    const event = makeEvent({
+      eventType: 'tender.recorded.v1',
+      data: {
+        orderId: 'ord_001',
+        locationId: LOCATION,
+        tenderType: 'card',
+        amount: 5000,
+        surchargeAmountCents: 150,
+      },
+    });
+
+    mockIdempotencyNew();
+    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert();
+
+    await handleTenderRecorded(event as any);
+
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
+
+  it('records tips AND surcharges together in single upsert', async () => {
+    const event = makeEvent({
+      eventType: 'tender.recorded.v1',
+      data: {
+        orderId: 'ord_001',
+        locationId: LOCATION,
+        tenderType: 'card',
+        amount: 7500,
+        tipAmount: 1500,
+        surchargeAmountCents: 225,
+      },
+    });
+
+    mockIdempotencyNew();
+    mockSelectReturns([{ timezone: 'America/New_York' }]);
+    mockUpsert();
+
+    await handleTenderRecorded(event as any);
+
+    // Single upsert handles tender amount + tip + surcharge atomically
+    expect(mockExecute).toHaveBeenCalledTimes(2);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -672,12 +839,13 @@ describe('handleInventoryMovement', () => {
     });
 
     mockIdempotencyNew();
+    mockExecute.mockResolvedValueOnce([{ rp: 10 }]); // reorder point query
     mockUpsert();
 
     await handleInventoryMovement(event as any);
 
-    // idempotency + inventory upsert = 2 execute calls
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    // idempotency + reorder point query + inventory upsert = 3 execute calls
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('adds delta when newOnHand is not provided', async () => {
@@ -692,11 +860,12 @@ describe('handleInventoryMovement', () => {
     });
 
     mockIdempotencyNew();
+    mockExecute.mockResolvedValueOnce([{ rp: 10 }]); // reorder point query
     mockUpsert();
 
     await handleInventoryMovement(event as any);
 
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('recomputes isBelowThreshold on every update', async () => {
@@ -714,6 +883,7 @@ describe('handleInventoryMovement', () => {
     });
 
     mockIdempotencyNew();
+    mockExecute.mockResolvedValueOnce([{ rp: 10 }]); // reorder point query
     mockUpsert();
     await handleInventoryMovement(event1 as any);
 
@@ -734,11 +904,12 @@ describe('handleInventoryMovement', () => {
     });
 
     mockIdempotencyNew();
+    mockExecute.mockResolvedValueOnce([{ rp: 10 }]); // reorder point query
     mockUpsert();
     await handleInventoryMovement(event2 as any);
 
     // SQL includes: is_below_threshold = ${onHand} < rm_inventory_on_hand.low_stock_threshold
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 
   it('handles multiple movements accumulating correctly', async () => {
@@ -755,6 +926,7 @@ describe('handleInventoryMovement', () => {
     });
 
     mockIdempotencyNew();
+    mockExecute.mockResolvedValueOnce([{ rp: 10 }]); // reorder point query
     mockUpsert();
     await handleInventoryMovement(event1 as any);
 
@@ -774,10 +946,11 @@ describe('handleInventoryMovement', () => {
     });
 
     mockIdempotencyNew();
+    mockExecute.mockResolvedValueOnce([{ rp: 10 }]); // reorder point query
     mockUpsert();
     await handleInventoryMovement(event2 as any);
 
     // Both processed — SQL ON CONFLICT handles accumulation (on_hand + delta)
-    expect(mockExecute).toHaveBeenCalledTimes(2);
+    expect(mockExecute).toHaveBeenCalledTimes(3);
   });
 });

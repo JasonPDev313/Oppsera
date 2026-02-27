@@ -3,7 +3,7 @@
 // formats them as few-shot examples for injection into LLM prompts.
 // Automatically increments usage counts on retrieved pairs.
 
-import { findSimilar, incrementUsageCount } from './training-store';
+import { findSimilar, incrementUsageCounts } from './training-store';
 import type { SimilarTrainingPair } from './training-store';
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -17,12 +17,17 @@ export interface FewShotRetrieverOptions {
   includeMetricsMode?: boolean;
   /** Include examples with mode='sql'. Default: true */
   includeSqlMode?: boolean;
+  /** Use composite scoring (similarity + quality + recency). Default: true */
+  useCompositeScoring?: boolean;
+  /** Diversity threshold (0.0-1.0). Skip pairs with >threshold similarity to already-selected. Default: 0.85 */
+  diversityThreshold?: number;
 }
 
 // ── Defaults ────────────────────────────────────────────────────
 
 const DEFAULT_MAX_EXAMPLES = 3;
 const DEFAULT_MIN_SIMILARITY = 0.3;
+const DEFAULT_DIVERSITY_THRESHOLD = 0.85;
 
 // ── Public API ──────────────────────────────────────────────────
 
@@ -42,9 +47,11 @@ export async function retrieveFewShotExamples(
   const minSimilarity = opts?.minSimilarity ?? DEFAULT_MIN_SIMILARITY;
   const includeMetrics = opts?.includeMetricsMode ?? true;
   const includeSql = opts?.includeSqlMode ?? true;
+  const useComposite = opts?.useCompositeScoring ?? true;
+  const diversityThreshold = opts?.diversityThreshold ?? DEFAULT_DIVERSITY_THRESHOLD;
 
-  // Fetch more than needed so we can filter by mode after retrieval
-  const fetchLimit = maxExamples * 2;
+  // Fetch more than needed so we can filter by mode + diversity after retrieval
+  const fetchLimit = maxExamples * 3;
   const allPairs = await findSimilar(question, tenantId, fetchLimit);
 
   // Filter by mode preference and minimum similarity
@@ -58,21 +65,71 @@ export async function retrieveFewShotExamples(
     });
   }
 
-  // Take up to maxExamples
-  const selected = filtered.slice(0, maxExamples);
+  // Sort by composite score when enabled (combines similarity + quality + recency)
+  if (useComposite) {
+    filtered.sort((a, b) => b.compositeScore - a.compositeScore);
+  }
+
+  // Apply diversity filter: skip pairs too similar to already-selected ones
+  const selected = selectDiverse(filtered, maxExamples, diversityThreshold);
 
   if (selected.length === 0) {
     return '';
   }
 
-  // Best-effort usage count increment (fire-and-forget, never block retrieval)
-  for (const pair of selected) {
-    incrementUsageCount(pair.id).catch(() => {
-      // Swallow errors — usage tracking is non-critical
-    });
-  }
+  // Best-effort batch usage count increment (fire-and-forget, never block retrieval)
+  incrementUsageCounts(selected.map((p) => p.id)).catch(() => {
+    // Swallow errors — usage tracking is non-critical
+  });
 
   return formatAsPromptExamples(selected);
+}
+
+// ── Diversity Selection ──────────────────────────────────────────
+
+/**
+ * Greedily select up to `maxN` pairs, skipping any pair whose question
+ * text overlaps too heavily (>threshold) with an already-selected pair.
+ * This prevents near-duplicate examples from crowding out varied ones.
+ *
+ * Uses a simple token-overlap ratio as a lightweight diversity measure
+ * (no extra DB queries or embeddings needed).
+ */
+function selectDiverse(
+  sorted: SimilarTrainingPair[],
+  maxN: number,
+  threshold: number,
+): SimilarTrainingPair[] {
+  const selected: SimilarTrainingPair[] = [];
+
+  for (const pair of sorted) {
+    if (selected.length >= maxN) break;
+
+    const tooSimilar = selected.some((s) => tokenOverlap(s.question, pair.question) > threshold);
+    if (!tooSimilar) {
+      selected.push(pair);
+    }
+  }
+
+  return selected;
+}
+
+/**
+ * Compute Jaccard token overlap between two questions (0.0-1.0).
+ * Normalized lowercase word tokens with punctuation stripped — lightweight, no NLP deps.
+ */
+function tokenOverlap(a: string, b: string): number {
+  const normalize = (s: string) =>
+    new Set(s.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(Boolean));
+  const tokensA = normalize(a);
+  const tokensB = normalize(b);
+  if (tokensA.size === 0 && tokensB.size === 0) return 1.0;
+  let intersection = 0;
+  for (const t of tokensA) {
+    if (tokensB.has(t)) intersection++;
+  }
+  const union = tokensA.size + tokensB.size - intersection;
+  return union === 0 ? 0 : intersection / union;
 }
 
 /**

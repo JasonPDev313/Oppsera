@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills, apBillLines, vendors } from '@oppsera/db';
@@ -8,6 +9,10 @@ import type { CreateBillInput } from '../validation';
 
 export async function createBill(ctx: RequestContext, input: CreateBillInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createBill');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Validate vendor exists and is active
     const [vendor] = await tx
       .select()
@@ -86,6 +91,9 @@ export async function createBill(ctx: RequestContext, input: CreateBillInput) {
         .returning();
       insertedLines.push(inserted!);
     }
+
+    // Save idempotency key
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createBill', { ...bill!, lines: insertedLines });
 
     // Draft bills emit no GL event — only a domain event for tracking
     return {

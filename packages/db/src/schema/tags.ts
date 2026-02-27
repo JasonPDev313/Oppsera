@@ -7,6 +7,7 @@ import {
   index,
   uniqueIndex,
   jsonb,
+  real,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { generateUlid } from '@oppsera/shared';
@@ -39,6 +40,13 @@ export const tags = pgTable(
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     archivedBy: text('archived_by'),
     archivedReason: text('archived_reason'),
+    // Lifecycle columns (migration 0219)
+    defaultExpiryDays: integer('default_expiry_days'),
+    conflictsWith: text('conflicts_with').array().default(sql`'{}'`),
+    priority: integer('priority').notNull().default(100),
+    reEvaluationIntervalHours: integer('re_evaluation_interval_hours'),
+    tagGroup: text('tag_group'),
+    evidenceTemplate: text('evidence_template'),
   },
   (table) => [
     uniqueIndex('uq_tags_tenant_slug')
@@ -46,6 +54,9 @@ export const tags = pgTable(
       .where(sql`archived_at IS NULL`),
     index('idx_tags_tenant_type_active').on(table.tenantId, table.tagType, table.isActive),
     index('idx_tags_tenant_category').on(table.tenantId, table.category),
+    index('idx_tags_tenant_group')
+      .on(table.tenantId, table.tagGroup)
+      .where(sql`tag_group IS NOT NULL`),
   ],
 );
 
@@ -73,6 +84,8 @@ export const customerTags = pgTable(
     removedReason: text('removed_reason'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     evaluationSnapshot: jsonb('evaluation_snapshot').$type<Record<string, unknown> | null>(),
+    // Lifecycle column (migration 0219)
+    confidence: real('confidence'),
   },
   (table) => [
     uniqueIndex('uq_customer_tags_tenant_customer_tag_active')
@@ -115,11 +128,19 @@ export const smartTagRules = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     createdBy: text('created_by').notNull(),
+    // Event-driven columns (migration 0219)
+    triggerEvents: text('trigger_events').array().default(sql`'{}'`),
+    nextScheduledRunAt: timestamp('next_scheduled_run_at', { withTimezone: true }),
   },
   (table) => [
     uniqueIndex('uq_smart_tag_rules_tenant_tag').on(table.tenantId, table.tagId),
     index('idx_smart_tag_rules_tenant_active').on(table.tenantId, table.isActive),
     index('idx_smart_tag_rules_tenant_eval_mode').on(table.tenantId, table.evaluationMode),
+    index('idx_smart_tag_rules_tenant_next_run')
+      .on(table.tenantId, table.nextScheduledRunAt)
+      .where(sql`is_active = true AND next_scheduled_run_at IS NOT NULL`),
+    // GIN index idx_smart_tag_rules_tenant_trigger_events (migration 0219)
+    // exists only in SQL — Drizzle index builder does not support USING gin
   ],
 );
 
@@ -193,7 +214,80 @@ export const tagAuditLog = pgTable(
   ],
 );
 
+// ── Tag Actions — Configurable actions triggered on tag apply/remove/expire ──
+export const tagActions = pgTable(
+  'tag_actions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tagId: text('tag_id')
+      .notNull()
+      .references(() => tags.id, { onDelete: 'cascade' }),
+    trigger: text('trigger').notNull(), // 'on_apply' | 'on_remove' | 'on_expire'
+    actionType: text('action_type').notNull(),
+    config: jsonb('config').notNull().default('{}').$type<TagActionConfig>(),
+    isActive: boolean('is_active').notNull().default(true),
+    executionOrder: integer('execution_order').notNull().default(100),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_tag_actions_tenant').on(table.tenantId),
+    index('idx_tag_actions_tenant_tag').on(table.tenantId, table.tagId),
+    index('idx_tag_actions_tenant_tag_trigger')
+      .on(table.tenantId, table.tagId, table.trigger)
+      .where(sql`is_active = true`),
+  ],
+);
+
+// ── Tag Action Executions — Append-only audit log of action runs ────────────
+export const tagActionExecutions = pgTable(
+  'tag_action_executions',
+  {
+    id: text('id').primaryKey().$defaultFn(generateUlid),
+    tenantId: text('tenant_id')
+      .notNull()
+      .references(() => tenants.id),
+    tagActionId: text('tag_action_id')
+      .notNull()
+      .references(() => tagActions.id),
+    customerId: text('customer_id').notNull(),
+    trigger: text('trigger').notNull(),
+    status: text('status').notNull(), // 'success' | 'failed' | 'skipped'
+    resultSummary: jsonb('result_summary').$type<Record<string, unknown> | null>(),
+    errorMessage: text('error_message'),
+    durationMs: integer('duration_ms'),
+    executedAt: timestamp('executed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('idx_tag_action_executions_tenant_customer').on(table.tenantId, table.customerId),
+    index('idx_tag_action_executions_tenant_action').on(table.tenantId, table.tagActionId),
+    index('idx_tag_action_executions_tenant_executed').on(table.tenantId, table.executedAt),
+  ],
+);
+
 // ── JSONB Types ─────────────────────────────────────────────────────────────
+
+// Tag action trigger types
+export type TagActionTrigger = 'on_apply' | 'on_remove' | 'on_expire';
+
+// Tag action type enum
+export type TagActionType =
+  | 'log_activity'
+  | 'set_customer_field'
+  | 'add_to_segment'
+  | 'remove_from_segment'
+  | 'set_service_flag'
+  | 'remove_service_flag'
+  | 'send_notification'
+  | 'adjust_wallet'
+  | 'set_preference'
+  | 'create_alert';
+
+// Tag action config shapes per action type
+export type TagActionConfig = Record<string, unknown>;
 
 export type ConditionOperator =
   | 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'neq'

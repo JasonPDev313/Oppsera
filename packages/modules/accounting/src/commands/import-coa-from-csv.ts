@@ -4,6 +4,7 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import {
+  db,
   glAccounts,
   glClassifications,
   glCoaImportLogs,
@@ -11,6 +12,7 @@ import {
 import { generateUlid } from '@oppsera/shared';
 import { resolveNormalBalance } from '../helpers/resolve-normal-balance';
 import { parseCsvImport } from '../services/csv-import';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import type { ImportCoaFromCsvInput } from '../validation';
 
 export async function importCoaFromCsv(
@@ -27,6 +29,9 @@ export async function importCoaFromCsv(
   }
 
   const { parsedAccounts, warnings, stateDetections } = validation;
+
+  // Ensure accounting_settings row exists (safety net for non-bootstrap setup)
+  await ensureAccountingSettings(db, ctx.tenantId);
 
   // 2. Execute import in a single transaction
   const result = await publishWithOutbox(ctx, async (tx) => {

@@ -3,6 +3,7 @@ import type { RequestContext } from '@oppsera/core/auth/context';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import {
   CloseBatchNotFoundError,
   CloseBatchStatusConflictError,
@@ -14,10 +15,14 @@ import { buildBatchJournalLines } from '../helpers/build-batch-journal-lines';
 
 interface PostBatchToGlInput {
   closeBatchId: string;
+  clientRequestId?: string;
 }
 
 export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'postBatchToGl');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Validate close batch exists and is reconciled
     const batchRows = await tx.execute(
       sql`SELECT b.id, b.status, b.location_id, b.business_date, b.gl_journal_entry_id
@@ -123,6 +128,16 @@ export async function postBatchToGl(ctx: RequestContext, input: PostBatchToGlInp
       })),
     };
     const event = buildEventFromContext(ctx, FNB_EVENTS.GL_POSTING_CREATED, payload as unknown as Record<string, unknown>);
+
+    const resultPayload = {
+      closeBatchId: input.closeBatchId,
+      postingRefId,
+      totalDebitCents,
+      totalCreditCents,
+      lineCount: journalLines.length,
+      journalLines,
+    };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'postBatchToGl', resultPayload);
 
     return {
       result: {

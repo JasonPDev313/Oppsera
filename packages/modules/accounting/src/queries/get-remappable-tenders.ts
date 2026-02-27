@@ -14,6 +14,7 @@ export interface MissingMapping {
 
 export interface RemappableTender {
   tenderId: string;
+  sourceModule: string;
   businessDate: string;
   amountCents: number;
   unmappedEventCount: number;
@@ -42,9 +43,12 @@ export async function getRemappableTenders(
 
   return withTenant(input.tenantId, async (tx) => {
     // 1. Group unresolved unmapped events by tender (source_reference_id)
+    //    Includes all source modules (pos, pos_return, fnb, chargeback, etc.)
+    //    so the remap workflow covers every adapter that posts GL via tenders.
     const groupRows = await tx.execute(sql`
       SELECT
         source_reference_id AS tender_id,
+        source_module,
         COUNT(*)::int AS event_count,
         jsonb_agg(jsonb_build_object(
           'entityType', entity_type,
@@ -54,8 +58,7 @@ export async function getRemappableTenders(
       WHERE tenant_id = ${input.tenantId}
         AND resolved_at IS NULL
         AND source_reference_id IS NOT NULL
-        AND source_module = 'pos'
-      GROUP BY source_reference_id
+      GROUP BY source_reference_id, source_module
       ORDER BY MIN(created_at) DESC
       LIMIT ${limit}
     `);
@@ -66,19 +69,20 @@ export async function getRemappableTenders(
     // 2. Collect all tender IDs for batch GL entry lookup
     const tenderIds = groups.map((g) => String(g.tender_id));
 
-    // 3. Find posted GL entries for these tenders
+    // 3. Find posted GL entries for these tenders (any source module)
     const glRows = await tx.execute(sql`
-      SELECT id, source_reference_id, business_date
+      SELECT id, source_reference_id, source_module, business_date
       FROM gl_journal_entries
       WHERE tenant_id = ${input.tenantId}
-        AND source_module = 'pos'
         AND source_reference_id IN ${sql`(${sql.join(tenderIds.map(id => sql`${id}`), sql`, `)})`}
         AND status = 'posted'
     `);
 
+    // Key: "sourceModule:sourceReferenceId" to handle multiple modules posting for same reference
     const glEntryMap = new Map<string, { id: string; businessDate: string }>();
     for (const row of Array.from(glRows as Iterable<Record<string, unknown>>)) {
-      glEntryMap.set(String(row.source_reference_id), {
+      const key = `${String(row.source_module)}:${String(row.source_reference_id)}`;
+      glEntryMap.set(key, {
         id: String(row.id),
         businessDate: String(row.business_date),
       });
@@ -105,6 +109,7 @@ export async function getRemappableTenders(
 
     for (const group of groups) {
       const tenderId = String(group.tender_id);
+      const sourceModule = String(group.source_module);
       const eventCount = Number(group.event_count);
       const rawMappings = group.mappings as Array<{ entityType: string; entityId: string }>;
 
@@ -161,11 +166,16 @@ export async function getRemappableTenders(
         if (!nowMapped) allMapped = false;
       }
 
-      const glEntry = glEntryMap.get(tenderId);
+      const glEntryKey = `${sourceModule}:${tenderId}`;
+      const glEntry = glEntryMap.get(glEntryKey);
       const tenderInfo = tenderAmountMap.get(tenderId);
 
+      // For POS tenders, remap requires a GL entry to void+repost.
+      // For non-POS modules (returns, fnb, chargeback, etc.), the remap
+      // can only succeed if there's an existing GL entry to void.
       results.push({
         tenderId,
+        sourceModule,
         businessDate: tenderInfo?.businessDate ?? glEntry?.businessDate ?? '',
         amountCents: tenderInfo?.amountCents ?? 0,
         unmappedEventCount: eventCount,

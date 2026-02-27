@@ -6,6 +6,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { generateUlid, NotFoundError, ValidationError } from '@oppsera/shared';
 import { pmsPaymentTransactions, pmsFolioEntries } from '@oppsera/db';
 import type { RefundPaymentInput } from '../validation';
@@ -16,6 +17,10 @@ import { recalculateFolioTotals } from '../helpers/folio-totals';
 
 export async function refundPayment(ctx: RequestContext, input: RefundPaymentInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'refundPayment');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     const [txn] = await tx
       .select()
       .from(pmsPaymentTransactions)
@@ -120,7 +125,9 @@ export async function refundPayment(ctx: RequestContext, input: RefundPaymentInp
       status,
     });
 
-    return { result: { id: refundTxnId, status, refundId: gatewayResult.refundId }, events: [event] };
+    const resultPayload = { id: refundTxnId, status, refundId: gatewayResult.refundId };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'refundPayment', resultPayload);
+    return { result: resultPayload, events: [event] };
   });
 
   await auditLog(ctx, 'pms.payment.refunded', 'pms_payment_transaction', result.id);

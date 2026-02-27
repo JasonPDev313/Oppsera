@@ -1,4 +1,5 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -11,6 +12,12 @@ const LARGE_ADJUSTMENT_THRESHOLD_CENTS = 100_000; // $1,000
 
 export async function adjustLedger(ctx: RequestContext, input: AdjustLedgerInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    if (input.clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'adjustLedger');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    }
+
     // Verify billing account exists
     const [account] = await (tx as any).select().from(billingAccounts)
       .where(and(eq(billingAccounts.id, input.billingAccountId), eq(billingAccounts.tenantId, ctx.tenantId)))
@@ -94,7 +101,14 @@ export async function adjustLedger(ctx: RequestContext, input: AdjustLedgerInput
       reason: input.reason ?? null,
     });
 
-    return { result: { ...arTx!, newBalance }, events: [event] };
+    const resultData = { ...arTx!, newBalance };
+
+    // Save idempotency key
+    if (input.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'adjustLedger', resultData);
+    }
+
+    return { result: resultData, events: [event] };
   });
 
   await auditLog(ctx, `customer.ledger_${input.type}`, 'ar_transaction', result.id);

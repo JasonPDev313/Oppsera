@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { paymentSettlements, paymentSettlementLines, bankAccounts } from '@oppsera/db';
@@ -14,6 +15,10 @@ export async function postSettlement(
   input: PostSettlementInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'postSettlement');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Load settlement
     const [settlement] = await tx
       .select()
@@ -110,7 +115,6 @@ export async function postSettlement(
     // Dr Processing Fees (if any)
     if (feeAmount > 0) {
       // Try to find fee expense account from payment type GL mapping for 'card'
-      // Fall back to a general expense approach
       const feeAccountId = await resolveFeeExpenseAccount(tx, ctx.tenantId, settings);
       if (feeAccountId) {
         lines.push({
@@ -119,6 +123,20 @@ export async function postSettlement(
           creditAmount: '0',
           memo: `Processing fees - ${settlement.processorName}`,
         });
+      } else {
+        // Log unmapped event — fee amount is being netted into bank deposit
+        // instead of tracked as a separate expense. Accountant can remap later.
+        try {
+          const { logUnmappedEvent } = await import('../helpers/resolve-mapping');
+          await logUnmappedEvent(tx, ctx.tenantId, {
+            eventType: 'payment.settlement.posted.v1',
+            sourceModule: 'settlement',
+            sourceReferenceId: settlement.id,
+            entityType: 'processing_fee_account',
+            entityId: settlement.processorName ?? 'unknown',
+            reason: `Processing fee of $${feeAmount.toFixed(2)} has no GL expense account configured. Fee is netted into bank deposit (Dr Bank ${netAmount.toFixed(2)} instead of Dr Bank ${grossAmount.toFixed(2)} + Dr Fee ${feeAmount.toFixed(2)}). Configure fee_expense_account_id on payment_type_gl_defaults for 'card' to track fees separately.`,
+          });
+        } catch { /* best-effort tracking */ }
       }
     }
 
@@ -129,13 +147,6 @@ export async function postSettlement(
       creditAmount: grossAmount.toFixed(2),
       memo: `Settlement clearing - ${settlement.processorName}`,
     });
-
-    // If fees weren't separately posted, adjust bank debit to equal gross
-    if (feeAmount > 0 && lines.length === 2) {
-      // No fee account found — net the fees into the bank debit (net already accounts for fees)
-      // The journal is already balanced: Dr Bank(net) = Cr Undeposited(gross) - fees not tracked
-      // This is acceptable but log a warning
-    }
 
     // Post GL journal entry
     const postingApi = getAccountingPostingApi();
@@ -171,12 +182,16 @@ export async function postSettlement(
       journalEntryId: journalResult.id,
     });
 
+    const resultPayload = {
+      ...settlement,
+      status: 'posted' as const,
+      glJournalEntryId: journalResult.id,
+    };
+
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'postSettlement', resultPayload);
+
     return {
-      result: {
-        ...settlement,
-        status: 'posted' as const,
-        glJournalEntryId: journalResult.id,
-      },
+      result: resultPayload,
       events: [event],
     };
   });

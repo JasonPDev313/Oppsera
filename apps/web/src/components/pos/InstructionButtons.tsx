@@ -49,15 +49,18 @@ export function InstructionButtons({
 
   if (variant === 'fnb') {
     return (
-      <div className="flex gap-2 shrink-0">
+      <div className="flex gap-2 shrink-0 mt-1">
         {allowNone && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); handleClick('none'); }}
             className="rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-[0.96]"
             style={{
-              backgroundColor: value === 'none' ? 'var(--fnb-action-void)' : 'var(--fnb-bg-elevated)',
-              color: value === 'none' ? '#fff' : 'var(--fnb-text-muted)',
+              backgroundColor: value === 'none' ? 'var(--fnb-action-void)' : 'transparent',
+              color: value === 'none' ? '#fff' : 'var(--fnb-text-primary)',
+              border: value === 'none'
+                ? '1.5px solid var(--fnb-action-void)'
+                : '1.5px solid rgba(148, 163, 184, 0.35)',
             }}
           >
             None
@@ -69,8 +72,11 @@ export function InstructionButtons({
             onClick={(e) => { e.stopPropagation(); handleClick('extra'); }}
             className="rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-[0.96]"
             style={{
-              backgroundColor: value === 'extra' ? 'var(--fnb-status-seated)' : 'var(--fnb-bg-elevated)',
-              color: value === 'extra' ? '#fff' : 'var(--fnb-text-muted)',
+              backgroundColor: value === 'extra' ? 'var(--fnb-status-entrees-fired)' : 'transparent',
+              color: value === 'extra' ? '#fff' : 'var(--fnb-text-primary)',
+              border: value === 'extra'
+                ? '1.5px solid var(--fnb-status-entrees-fired)'
+                : '1.5px solid rgba(148, 163, 184, 0.35)',
             }}
           >
             Extra{extraPrice > 0 ? ` +${formatPrice(extraPrice)}` : ''}
@@ -82,8 +88,11 @@ export function InstructionButtons({
             onClick={(e) => { e.stopPropagation(); handleClick('on_side'); }}
             className="rounded-full px-4 py-2 text-xs font-bold transition-all active:scale-[0.96]"
             style={{
-              backgroundColor: value === 'on_side' ? 'var(--fnb-info)' : 'var(--fnb-bg-elevated)',
-              color: value === 'on_side' ? '#fff' : 'var(--fnb-text-muted)',
+              backgroundColor: value === 'on_side' ? 'var(--fnb-info)' : 'transparent',
+              color: value === 'on_side' ? '#fff' : 'var(--fnb-text-primary)',
+              border: value === 'on_side'
+                ? '1.5px solid var(--fnb-info)'
+                : '1.5px solid rgba(148, 163, 184, 0.35)',
             }}
           >
             On Side

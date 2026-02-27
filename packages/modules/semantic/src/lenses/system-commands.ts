@@ -28,6 +28,7 @@ function rowToSystemLens(row: typeof semanticLenses.$inferSelect): SystemLensRow
     defaultFilters: (row.defaultFilters as SystemLensRow['defaultFilters']) ?? null,
     systemPromptFragment: row.systemPromptFragment ?? null,
     exampleQuestions: row.exampleQuestions ?? null,
+    targetBusinessTypes: row.targetBusinessTypes ?? null,
     isActive: row.isActive,
     isSystem: row.isSystem,
     createdAt: row.createdAt.toISOString(),
@@ -50,6 +51,7 @@ export async function createSystemLens(input: CreateSystemLensInput): Promise<Sy
     defaultFilters,
     systemPromptFragment,
     exampleQuestions,
+    targetBusinessTypes,
   } = input;
 
   validateLensSlug(slug);
@@ -90,6 +92,7 @@ export async function createSystemLens(input: CreateSystemLensInput): Promise<Sy
       defaultFilters: defaultFilters ? (defaultFilters as never) : null,
       systemPromptFragment: systemPromptFragment ?? null,
       exampleQuestions: exampleQuestions ?? null,
+      targetBusinessTypes: targetBusinessTypes ?? null,
       isActive: true,
       isSystem: true,
     })
@@ -143,6 +146,7 @@ export async function updateSystemLens(input: UpdateSystemLensInput): Promise<Sy
   if (input.defaultFilters !== undefined) updateValues.defaultFilters = input.defaultFilters as never;
   if (input.systemPromptFragment !== undefined) updateValues.systemPromptFragment = input.systemPromptFragment;
   if (input.exampleQuestions !== undefined) updateValues.exampleQuestions = input.exampleQuestions;
+  if (input.targetBusinessTypes !== undefined) updateValues.targetBusinessTypes = input.targetBusinessTypes;
 
   const [updated] = await db
     .update(semanticLenses)

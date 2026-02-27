@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -8,10 +9,14 @@ import { apPayments, apPaymentAllocations, apBills, vendors, bankAccounts } from
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { AP_EVENTS } from '../events/types';
 
-export async function postPayment(ctx: RequestContext, paymentId: string) {
+export async function postPayment(ctx: RequestContext, paymentId: string, clientRequestId?: string) {
   const accountingApi = getAccountingPostingApi();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, clientRequestId, 'postPayment');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load payment
     const [payment] = await tx
       .select()
@@ -119,7 +124,10 @@ export async function postPayment(ctx: RequestContext, paymentId: string) {
       glJournalEntryId: glResult.id,
     });
 
-    return { result: { ...posted!, glJournalEntryId: glResult.id }, events: [event] };
+    const resultPayload = { ...posted!, glJournalEntryId: glResult.id };
+    await saveIdempotencyKey(tx, ctx.tenantId, clientRequestId, 'postPayment', resultPayload);
+
+    return { result: resultPayload, events: [event] };
   });
 
   await auditLog(ctx, 'ap.payment.posted', 'ap_payment', result.id);

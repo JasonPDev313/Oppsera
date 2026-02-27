@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Sparkles, Trash2, ToggleLeft, ToggleRight, Download, History,
   PanelRightOpen, PanelRightClose, BarChart3, Wrench, CalendarDays, Globe, Sliders,
+  Layers, ChevronDown, X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSemanticChat } from '@/hooks/use-semantic-chat';
@@ -37,6 +38,15 @@ const GOLF_SUGGESTIONS = [
 ];
 
 const HISTORY_OPEN_KEY = 'insights_history_open';
+const SELECTED_LENS_KEY = 'insights_selected_lens';
+
+// ── Lens type for the selector ──────────────────────────────────
+
+interface ChatLens {
+  slug: string;
+  displayName: string;
+  exampleQuestions: string[] | null;
+}
 
 // ── Elapsed timer hook ────────────────────────────────────────────
 
@@ -62,8 +72,17 @@ function useElapsedSeconds(running: boolean) {
 // ── Main component ────────────────────────────────────────────────
 
 export default function InsightsContent() {
-  const chat = useSemanticChat();
-  const { messages, isLoading, error, sendMessage, cancelRequest, clearMessages, initFromSession } = chat;
+  // Lens selection state (persisted to localStorage)
+  const [selectedLensSlug, setSelectedLensSlug] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(SELECTED_LENS_KEY) || null;
+  });
+  const [lenses, setLenses] = useState<ChatLens[]>([]);
+  const [lensDropdownOpen, setLensDropdownOpen] = useState(false);
+  const lensDropdownRef = useRef<HTMLDivElement>(null);
+
+  const chat = useSemanticChat({ lensSlug: selectedLensSlug ?? undefined });
+  const { messages, isLoading, isStreaming, error, sendMessage, cancelRequest, clearMessages, initFromSession } = chat;
   const searchParams = useSearchParams();
   const router = useRouter();
   const [showDebug, setShowDebug] = useState(false);
@@ -74,10 +93,54 @@ export default function InsightsContent() {
   const isEmpty = messages.length === 0;
   const elapsed = useElapsedSeconds(isLoading);
   const { isModuleEnabled } = useEntitlements();
-  const suggestions = useMemo(
-    () => isModuleEnabled('golf_reporting') ? GOLF_SUGGESTIONS : DEFAULT_SUGGESTIONS,
-    [isModuleEnabled],
+
+  // Fetch enabled lenses on mount
+  useEffect(() => {
+    apiFetch<{ data: ChatLens[] }>('/api/v1/semantic/lenses')
+      .then((res) => {
+        setLenses(res.data);
+        // If persisted lens no longer exists in enabled list, clear it
+        if (selectedLensSlug && !res.data.some((l) => l.slug === selectedLensSlug)) {
+          setSelectedLensSlug(null);
+          localStorage.removeItem(SELECTED_LENS_KEY);
+        }
+      })
+      .catch(() => { /* non-critical — lenses just won't appear */ });
+  }, []);
+
+  // Close lens dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (lensDropdownRef.current && !lensDropdownRef.current.contains(e.target as Node)) {
+        setLensDropdownOpen(false);
+      }
+    }
+    if (lensDropdownOpen) {
+      document.addEventListener('mousedown', handleClick);
+      return () => document.removeEventListener('mousedown', handleClick);
+    }
+  }, [lensDropdownOpen]);
+
+  const handleSelectLens = useCallback((slug: string | null) => {
+    setSelectedLensSlug(slug);
+    setLensDropdownOpen(false);
+    if (slug) {
+      localStorage.setItem(SELECTED_LENS_KEY, slug);
+    } else {
+      localStorage.removeItem(SELECTED_LENS_KEY);
+    }
+  }, []);
+
+  const selectedLens = useMemo(
+    () => lenses.find((l) => l.slug === selectedLensSlug) ?? null,
+    [lenses, selectedLensSlug],
   );
+
+  // Derive suggestions from selected lens (if it has exampleQuestions) or fallback
+  const suggestions = useMemo(() => {
+    if (selectedLens?.exampleQuestions?.length) return selectedLens.exampleQuestions;
+    return isModuleEnabled('golf_reporting') ? GOLF_SUGGESTIONS : DEFAULT_SUGGESTIONS;
+  }, [selectedLens, isModuleEnabled]);
 
   // History sidebar state
   const [historyOpen, setHistoryOpen] = useState(() => {
@@ -104,7 +167,7 @@ export default function InsightsContent() {
     if (!sessionParam || sessionLoadedRef.current) return;
     sessionLoadedRef.current = true;
     loadSession(sessionParam);
-  }, [searchParams]); // eslint-disable-line
+  }, [searchParams]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -309,16 +372,17 @@ export default function InsightsContent() {
               </div>
             )}
 
-            {messages.map((msg) => (
+            {messages.map((msg, idx) => (
               <ChatMessageBubble
                 key={msg.id}
                 message={msg}
                 showDebug={showDebug && msg.role === 'assistant'}
+                isStreaming={isStreaming && msg.role === 'assistant' && idx === messages.length - 1}
                 onFollowUpSelect={msg.role === 'assistant' ? handleSendMessage : undefined}
               />
             ))}
 
-            {isLoading && (
+            {isLoading && !isStreaming && (
               <div className="flex justify-start">
                 <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
                   <div className="flex items-center gap-2 text-muted-foreground">
@@ -350,13 +414,78 @@ export default function InsightsContent() {
         {/* Input area */}
         <div className="shrink-0 px-4 pb-4 pt-2 border-t border-border bg-background">
           <div className="max-w-4xl mx-auto">
+            {/* Lens selector row */}
+            {lenses.length > 0 && (
+              <div className="flex items-center gap-2 mb-2">
+                <div className="relative" ref={lensDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setLensDropdownOpen((p) => !p)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                      selectedLensSlug
+                        ? 'border-indigo-500/40 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20'
+                        : 'border-border bg-surface text-muted-foreground hover:bg-accent hover:text-foreground'
+                    }`}
+                  >
+                    <Layers className="h-3 w-3" />
+                    <span>{selectedLens?.displayName ?? 'No Lens'}</span>
+                    <ChevronDown className={`h-3 w-3 transition-transform ${lensDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {lensDropdownOpen && (
+                    <div className="absolute bottom-full left-0 mb-1 w-56 rounded-lg border border-border bg-surface shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectLens(null)}
+                        className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                          !selectedLensSlug
+                            ? 'bg-indigo-500/10 text-indigo-400'
+                            : 'text-foreground hover:bg-accent'
+                        }`}
+                      >
+                        <span className="font-medium">No Lens</span>
+                        <span className="block text-muted-foreground mt-0.5">General analysis — no specific focus</span>
+                      </button>
+                      {lenses.map((lens) => (
+                        <button
+                          key={lens.slug}
+                          type="button"
+                          onClick={() => handleSelectLens(lens.slug)}
+                          className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                            selectedLensSlug === lens.slug
+                              ? 'bg-indigo-500/10 text-indigo-400'
+                              : 'text-foreground hover:bg-accent'
+                          }`}
+                        >
+                          <span className="font-medium">{lens.displayName}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selectedLensSlug && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectLens(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Clear lens"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="flex items-end gap-2">
               <div className="flex-1">
                 <ChatInput
                   onSend={handleSendMessage}
                   onCancel={cancelRequest}
                   isLoading={isLoading}
-                  placeholder={"Ask a question about your data\u2026 (Enter to send, Shift+Enter for new line)"}
+                  placeholder={selectedLens
+                    ? `Ask about ${selectedLens.displayName.toLowerCase()}\u2026`
+                    : "Ask a question about your data\u2026 (Enter to send, Shift+Enter for new line)"}
                 />
               </div>
               <VoiceInput

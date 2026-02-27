@@ -1,7 +1,8 @@
-export { runPipeline, getLLMAdapter, setLLMAdapter } from './pipeline';
+export { runPipeline, runPipelineStreaming, getLLMAdapter, setLLMAdapter } from './pipeline';
+export type { SSEEvent, StreamCallbacks } from './pipeline';
 export { resolveIntent } from './intent-resolver';
 export { executeCompiledQuery } from './executor';
-export { generateNarrative, buildEmptyResultNarrative, getDefaultPromptTemplate } from './narrative';
+export { generateNarrative, generateNarrativeStreaming, buildEmptyResultNarrative, getDefaultPromptTemplate } from './narrative';
 export { generateSql } from './sql-generator';
 export { validateGeneratedSql } from './sql-validator';
 export { executeSqlQuery } from './sql-executor';
@@ -23,6 +24,8 @@ export type {
   PipelineInput,
   PipelineOutput,
   PipelineMode,
+  SSEEventType,
+  ChartConfig,
 } from './types';
 export type { SqlRetryResult, SqlRetryOptions, RetryParams } from './sql-retry';
 export type { PruneOptions } from './conversation-pruner';

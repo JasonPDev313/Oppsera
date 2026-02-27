@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apPayments, apPaymentAllocations, apBills } from '@oppsera/db';
@@ -10,8 +11,14 @@ export async function allocatePayment(
   ctx: RequestContext,
   paymentId: string,
   allocations: PaymentAllocationInput[],
+  clientRequestId?: string,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    if (clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, clientRequestId, 'allocatePayment');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    }
     // 1. Load payment — must be draft
     const [payment] = await tx
       .select()
@@ -68,6 +75,11 @@ export async function allocatePayment(
         billId: alloc.billId,
         amountApplied: alloc.amount,
       });
+    }
+
+    // Save idempotency key
+    if (clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, clientRequestId, 'allocatePayment', payment);
     }
 
     return { result: payment, events: [] };

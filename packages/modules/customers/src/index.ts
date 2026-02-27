@@ -448,6 +448,122 @@ export type {
   ValidationMessage,
 } from './services/csv-import/import-types';
 
+// Tag Lifecycle Services (Session 1 — Intelligent Tag System)
+export { resolveTagConflicts } from './services/tag-conflict-resolver';
+export type { ConflictResolution } from './services/tag-conflict-resolver';
+export { processExpiredTags, computeExpiryDate } from './services/tag-expiration-service';
+export type { ExpiredTagResult, ProcessExpiredTagsResult } from './services/tag-expiration-service';
+export {
+  buildTagEvidenceSnapshot,
+  buildManualTagEvidence,
+  computeConfidence,
+  renderEvidenceTemplate,
+} from './services/tag-evidence-builder';
+export type { TagEvidenceSnapshot } from './services/tag-evidence-builder';
+
 // Smart Tag Seed Templates
 export { SMART_TAG_SEED_TEMPLATES } from './seeds/smart-tag-seeds';
 export type { SmartTagSeedTemplate } from './seeds/smart-tag-seeds';
+
+// Tag Action Executor (Session 2 — Intelligent Tag System)
+export { executeTagActions } from './services/tag-action-executor';
+export type { ExecuteTagActionsResult, ActionExecutionResult } from './services/tag-action-executor';
+
+// Tag Action CRUD Commands (Session 2)
+export {
+  createTagAction,
+  updateTagAction,
+  deleteTagAction,
+  reorderTagActions,
+} from './commands/manage-tag-actions';
+
+// Tag Action Validation Schemas (Session 2)
+export {
+  createTagActionSchema,
+  updateTagActionSchema,
+  reorderTagActionsSchema,
+} from './commands/manage-tag-actions';
+
+// Tag Action Inferred Types (Session 2)
+export type {
+  CreateTagActionInput,
+  UpdateTagActionInput,
+  ReorderTagActionsInput,
+} from './commands/manage-tag-actions';
+
+// Tag Action Queries (Session 2)
+export {
+  listTagActions,
+  getTagActionExecutions,
+} from './queries';
+
+export type {
+  ListTagActionsInput,
+  TagActionItem,
+  GetTagActionExecutionsInput,
+  TagActionExecutionEntry,
+  GetTagActionExecutionsResult,
+} from './queries';
+
+// Tag Evaluation Consumer (Session 3 — Intelligent Tag System)
+export {
+  evaluateCustomerTagsOnEvent,
+  handleTagEvaluationOnOrderPlaced,
+  handleTagEvaluationOnTenderRecorded,
+  handleTagEvaluationOnOrderVoided,
+  handleTagEvaluationOnVisitRecorded,
+  handleTagEvaluationOnMembershipChanged,
+  processScheduledRules,
+} from './events/tag-evaluation-consumer';
+export type { TagEvaluationConsumerResult } from './events/tag-evaluation-consumer';
+
+// RFM Scoring Engine (Session 4 — Intelligent Tag System)
+export {
+  computeRfmScores,
+  computeRfmScoreForCustomer,
+  assignQuintileScores,
+  computeQuintiles,
+} from './services/rfm-scoring-engine';
+export type { RfmScoreResult, ComputeRfmResult } from './services/rfm-scoring-engine';
+
+// Predictive Metrics Service (Session 4 — Intelligent Tag System)
+export {
+  computePredictiveMetrics,
+  computePredictiveMetricsForCustomer,
+  computeMetricsForCustomer,
+  computeChurnRisk,
+  computePredictedClv,
+  computeSpendVelocity,
+  computeDaysUntilNextVisit,
+} from './services/predictive-metrics';
+export type { PredictiveMetricsResult, ComputePredictiveResult } from './services/predictive-metrics';
+
+// Smart Tag Templates (Session 5 — Intelligent Tag System)
+export {
+  SMART_TAG_TEMPLATES,
+  getTemplate,
+  getTemplatesByCategory,
+  searchTemplates,
+  matchTemplatesForScores,
+} from './services/smart-tag-templates';
+export type { SmartTagTemplate } from './services/smart-tag-templates';
+
+// Tag Analytics (Session 9 — Intelligent Tag System)
+export {
+  getTagPopulationTrends,
+  getTagOverlapMatrix,
+  getTagEffectiveness,
+  getTagHealth,
+} from './queries';
+export type {
+  TagPopulationTrendsInput,
+  TagPopulationPoint,
+  TagPopulationTrendsResult,
+  TagOverlapEntry,
+  TagOverlapMatrixResult,
+  TagEffectivenessInput,
+  TagEffectivenessResult,
+  TagHealthItem,
+  TagHealthResult,
+} from './queries';
+

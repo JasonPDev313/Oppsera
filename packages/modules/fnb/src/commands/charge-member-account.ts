@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { db } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { ChargeMemberAccountInput } from '../validation';
 
 /**
@@ -17,6 +18,7 @@ export async function chargeMemberAccount(
     memberId: string;
     billingAccountId: string;
     memberDisplayName: string;
+    clientRequestId?: string;
   },
 ) {
   return db.transaction(async (tx) => {
@@ -34,6 +36,14 @@ export async function chargeMemberAccount(
     }
 
     const session = rows[0]!;
+    const tenantIdFromSession = session.tenant_id as string;
+
+    // Idempotency check — uses tenantId from session since there is no RequestContext
+    // Cast tx to any: db.transaction() returns PgTransaction (no $client), but checkIdempotency
+    // internally casts to any as well — safe at runtime.
+    const idempotencyCheck = await checkIdempotency(tx as any, tenantIdFromSession, input.clientRequestId, 'chargeMemberAccount');
+    if (idempotencyCheck.isDuplicate) return idempotencyCheck.originalResult as any;
+
     const status = session.status as string;
     const expiresAt = new Date(session.expires_at as string);
 
@@ -51,7 +61,7 @@ export async function chargeMemberAccount(
     }
 
     const sessionId = session.id as string;
-    const tenantId = session.tenant_id as string;
+    const tenantId = tenantIdFromSession;
     const locationId = session.location_id as string;
     const totalCents = session.total_cents as number;
     const tipCents = input.tipAmountCents;
@@ -100,7 +110,7 @@ export async function chargeMemberAccount(
                   })}::jsonb)`,
     );
 
-    return {
+    const resultPayload = {
       error: null,
       sessionId,
       tabId: session.tab_id as string,
@@ -111,5 +121,9 @@ export async function chargeMemberAccount(
       tipCents,
       status: 'paid' as const,
     };
+
+    await saveIdempotencyKey(tx as any, tenantId, input.clientRequestId, 'chargeMemberAccount', resultPayload);
+
+    return resultPayload;
   });
 }

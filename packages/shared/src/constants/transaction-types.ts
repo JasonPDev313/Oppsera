@@ -113,7 +113,7 @@ export const SYSTEM_TRANSACTION_TYPES: readonly SystemTransactionType[] = [
   // ── Refunds ────────────────────────────────────────────────────
   { code: 'refund', name: 'Refund / Return', category: 'refund', description: 'Customer refund or merchandise return', debitHint: 'revenue', creditHint: 'asset', defaultDebitKind: 'contra_revenue', defaultCreditKind: 'cash_bank', sort: 500 },
   { code: 'refund_voucher', name: 'Refund to Voucher', category: 'refund', description: 'Refund issued as store credit or voucher', debitHint: 'revenue', creditHint: 'liability', defaultDebitKind: 'contra_revenue', defaultCreditKind: 'deposit_liability', sort: 510 },
-  { code: 'void', name: 'Void / Cancel', category: 'refund', description: 'Voided or canceled transaction', debitHint: null, creditHint: null, defaultDebitKind: 'none', defaultCreditKind: 'none', sort: 520 },
+  { code: 'void', name: 'Void / Cancel', category: 'refund', description: 'Voided or canceled transaction — GL reversal is automatic via void adapter', debitHint: null, creditHint: null, defaultDebitKind: 'none', defaultCreditKind: 'none', sort: 520 },
 
   // ── Settlement ─────────────────────────────────────────────────
   { code: 'processor_settlement', name: 'Processor Batch Settlement', category: 'settlement', description: 'Batch settlement from card processor', debitHint: 'asset', creditHint: 'asset', defaultDebitKind: 'cash_bank', defaultCreditKind: 'clearing', sort: 600 },
@@ -256,4 +256,15 @@ export const DEBIT_KIND_VALID_ACCOUNT_TYPES: Record<DebitKind, readonly string[]
 /** Look up a system transaction type by code */
 export function getSystemTransactionType(code: string): SystemTransactionType | undefined {
   return SYSTEM_TRANSACTION_TYPES.find(t => t.code === code);
+}
+
+/**
+ * Returns true for transaction types that are automatically posted by GL adapters
+ * and do NOT require manual GL account mapping. Example: void/cancel — the void
+ * adapter automatically reverses the original GL entry.
+ */
+export function isAutoPostedType(code: string): boolean {
+  const sysType = getSystemTransactionType(code);
+  if (!sysType) return false;
+  return sysType.defaultDebitKind === 'none' && sysType.defaultCreditKind === 'none';
 }

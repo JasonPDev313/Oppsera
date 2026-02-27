@@ -166,6 +166,9 @@ export const semanticLenses = pgTable('semantic_lenses', {
   // Example questions for this lens
   exampleQuestions: text('example_questions').array(),
 
+  // Business type targeting (null = available to all)
+  targetBusinessTypes: text('target_business_types').array(),
+
   isActive: boolean('is_active').notNull().default(true),
   isSystem: boolean('is_system').notNull().default(false), // shipped with product, not user-created
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -181,6 +184,18 @@ export const semanticNarrativeConfig = pgTable('semantic_narrative_config', {
   promptTemplate: text('prompt_template').notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   updatedBy: text('updated_by'),
+});
+
+// ── Tenant Lens Preferences ─────────────────────────────────────
+// Opt-out model: all system lenses are enabled by default.
+// When a tenant disables a lens, a row is inserted with enabled = false.
+
+export const tenantLensPreferences = pgTable('tenant_lens_preferences', {
+  id: text('id').primaryKey(),
+  tenantId: text('tenant_id').notNull(),
+  lensSlug: text('lens_slug').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // ── Type helpers ─────────────────────────────────────────────────

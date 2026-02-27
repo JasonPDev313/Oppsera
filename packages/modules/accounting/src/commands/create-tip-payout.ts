@@ -2,6 +2,7 @@ import { eq, and, sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { tipPayouts, tenders } from '@oppsera/db';
@@ -23,6 +24,10 @@ export async function createTipPayout(
   input: CreateTipPayoutInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createTipPayout');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // Compute outstanding tip balance for this employee
     const tipBalance = await computeTipBalance(
       tx,
@@ -78,7 +83,7 @@ export async function createTipPayout(
     const journalResult = await postingApi.postEntry(ctx, {
       businessDate: input.businessDate,
       sourceModule: 'tip_payout',
-      sourceReferenceId: `tip-payout-pending-${Date.now()}`, // temporary, will update with payout ID
+      sourceReferenceId: `tip-payout-${input.clientRequestId}`,
       memo: `Tip payout - ${input.payoutType} - employee ${input.employeeId}`,
       lines: [
         {
@@ -127,6 +132,8 @@ export async function createTipPayout(
       businessDate: input.businessDate,
       journalEntryId: journalResult.id,
     });
+
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createTipPayout', payout!);
 
     return { result: payout!, events: [event] };
   });

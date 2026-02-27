@@ -39,7 +39,6 @@ export async function remapGlForTender(
     .where(
       and(
         eq(glJournalEntries.tenantId, ctx.tenantId),
-        eq(glJournalEntries.sourceModule, 'pos'),
         eq(glJournalEntries.sourceReferenceId, tenderId),
         eq(glJournalEntries.status, 'posted'),
       ),
@@ -123,7 +122,6 @@ export async function remapGlForTender(
     .where(
       and(
         eq(glJournalEntries.tenantId, ctx.tenantId),
-        eq(glJournalEntries.sourceModule, 'pos'),
         eq(glJournalEntries.sourceReferenceId, tenderId),
         eq(glJournalEntries.status, 'posted'),
       ),
@@ -139,7 +137,6 @@ export async function remapGlForTender(
         remapped_journal_entry_id = ${newEntry?.id ?? null}
     WHERE tenant_id = ${ctx.tenantId}
       AND source_reference_id = ${tenderId}
-      AND source_module = 'pos'
       AND resolved_at IS NULL
   `);
 

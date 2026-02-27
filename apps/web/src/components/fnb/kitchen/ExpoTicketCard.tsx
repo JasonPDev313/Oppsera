@@ -3,12 +3,15 @@
 import type { ExpoTicketCard as ExpoTicketCardType } from '@/types/fnb';
 import { TimerBar, formatTimer, getTimerColorForElapsed } from './TimerBar';
 import { BumpButton } from './BumpButton';
+import { Flame, Undo2 } from 'lucide-react';
 
 interface ExpoTicketCardProps {
   ticket: ExpoTicketCardType;
   warningThresholdSeconds: number;
   criticalThresholdSeconds: number;
   onBumpTicket: (ticketId: string) => void;
+  onFireTicket?: (ticketId: string) => void;
+  onRecallTicket?: (ticketId: string) => void;
   disabled?: boolean;
 }
 
@@ -17,6 +20,8 @@ export function ExpoTicketCard({
   warningThresholdSeconds,
   criticalThresholdSeconds,
   onBumpTicket,
+  onFireTicket,
+  onRecallTicket,
   disabled,
 }: ExpoTicketCardProps) {
   const timerColor = getTimerColorForElapsed(
@@ -157,14 +162,49 @@ export function ExpoTicketCard({
         </div>
       )}
 
-      {/* Bump button */}
-      <div className="p-2">
-        <BumpButton
-          onClick={() => onBumpTicket(ticket.ticketId)}
-          disabled={disabled || !ticket.allItemsReady}
-          variant="served"
-          label={ticket.allItemsReady ? 'SERVE' : `${ticket.readyCount}/${ticket.totalCount} READY`}
-        />
+      {/* Action buttons */}
+      <div className="p-2 flex flex-col gap-1.5">
+        {ticket.status === 'pending' && onFireTicket ? (
+          <button
+            type="button"
+            onClick={() => onFireTicket(ticket.ticketId)}
+            disabled={disabled}
+            className="flex items-center justify-center gap-1.5 w-full rounded-md py-2 text-xs font-bold uppercase transition-colors disabled:opacity-40"
+            style={{
+              backgroundColor: 'rgba(249,115,22,0.2)',
+              color: '#f97316',
+              border: '1px solid rgba(249,115,22,0.3)',
+            }}
+          >
+            <Flame className="h-3.5 w-3.5" />
+            FIRE
+          </button>
+        ) : (
+          <>
+            <BumpButton
+              onClick={() => onBumpTicket(ticket.ticketId)}
+              disabled={disabled || !ticket.allItemsReady}
+              variant="served"
+              label={ticket.allItemsReady ? 'SERVE' : `${ticket.readyCount}/${ticket.totalCount} READY`}
+            />
+            {ticket.allItemsReady && onRecallTicket && (
+              <button
+                type="button"
+                onClick={() => onRecallTicket(ticket.ticketId)}
+                disabled={disabled}
+                className="flex items-center justify-center gap-1 w-full rounded-md py-1.5 text-[10px] font-semibold uppercase transition-colors disabled:opacity-40"
+                style={{
+                  backgroundColor: 'rgba(148,163,184,0.1)',
+                  color: 'var(--fnb-text-muted)',
+                  border: '1px solid rgba(148,163,184,0.15)',
+                }}
+              >
+                <Undo2 className="h-3 w-3" />
+                RECALL
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

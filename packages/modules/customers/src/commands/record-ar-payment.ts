@@ -3,8 +3,10 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError } from '@oppsera/shared';
-import { billingAccounts, arTransactions, arAllocations, statements, customerActivityLog, paymentJournalEntries } from '@oppsera/db';
+import { billingAccounts, arTransactions, arAllocations, statements, customerActivityLog } from '@oppsera/db';
+import { withTenant } from '@oppsera/db';
 import { eq, and, sql } from 'drizzle-orm';
+import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RecordArPaymentInput } from '../validation';
 
 export async function recordArPayment(ctx: RequestContext, input: RecordArPaymentInput) {
@@ -24,26 +26,6 @@ export async function recordArPayment(ctx: RequestContext, input: RecordArPaymen
       notes: input.notes ?? null,
       createdBy: ctx.user.id,
     }).returning();
-
-    // GL entry: Dr Cash / Cr AR
-    const [glEntry] = await (tx as any).insert(paymentJournalEntries).values({
-      tenantId: ctx.tenantId,
-      locationId: ctx.locationId ?? 'system',
-      referenceType: 'ar_payment',
-      referenceId: paymentTx!.id,
-      orderId: '',
-      entries: [
-        { accountCode: '1010', accountName: 'Cash on Hand', debit: input.amountCents, credit: 0 },
-        { accountCode: account.glArAccountCode, accountName: 'Accounts Receivable', debit: 0, credit: input.amountCents },
-      ],
-      businessDate: new Date().toISOString().split('T')[0]!,
-      sourceModule: 'billing',
-      glDimensions: ctx.locationId ? { locationId: ctx.locationId } : null,
-      recognitionStatus: 'recognized',
-    }).returning();
-
-    await (tx as any).update(arTransactions).set({ glJournalEntryId: glEntry!.id })
-      .where(eq(arTransactions.id, paymentTx!.id));
 
     // Auto-allocate to outstanding charges (FIFO by dueDate)
     const outstandingCharges = await (tx as any).select().from(arTransactions)
@@ -128,6 +110,49 @@ export async function recordArPayment(ctx: RequestContext, input: RecordArPaymen
 
     return { result: { ...paymentTx!, newBalance, allocations }, events: [event] };
   });
+
+  // ── GL posting (after AR payment committed) ──────────────
+  try {
+    const postingApi = getAccountingPostingApi();
+    try { await postingApi.ensureSettings(ctx.tenantId); } catch { /* non-fatal */ }
+    const settings = await postingApi.getSettings(ctx.tenantId);
+
+    const cashAccountId = settings.defaultUndepositedFundsAccountId
+      ?? settings.defaultUncategorizedRevenueAccountId;
+    const arAccountId = settings.defaultARControlAccountId
+      ?? settings.defaultUncategorizedRevenueAccountId;
+
+    if (cashAccountId && arAccountId) {
+      const amountDollars = (input.amountCents / 100).toFixed(2);
+      const businessDate = new Date().toISOString().split('T')[0]!;
+      const glResult = await postingApi.postEntry(ctx, {
+        businessDate,
+        sourceModule: 'billing',
+        sourceReferenceId: `ar-payment-${result.id}`,
+        memo: `AR payment: ${input.amountCents} cents`,
+        lines: [
+          { accountId: cashAccountId, debitAmount: amountDollars, creditAmount: '0', locationId: ctx.locationId ?? undefined, memo: 'Cash received' },
+          { accountId: arAccountId, debitAmount: '0', creditAmount: amountDollars, locationId: ctx.locationId ?? undefined, memo: 'AR payment' },
+        ],
+        forcePost: true,
+      });
+
+      // Best-effort: link GL journal entry to AR transaction
+      try {
+        await withTenant(ctx.tenantId, async (tx) => {
+          await tx
+            .update(arTransactions)
+            .set({ glJournalEntryId: glResult.id })
+            .where(eq(arTransactions.id, result.id));
+        });
+      } catch { /* non-fatal */ }
+    } else {
+      console.error(`[ar-gl] No cash or AR GL account configured for tenant=${ctx.tenantId}, AR payment ${result.id} has no GL entry`);
+    }
+  } catch (error) {
+    // GL failures NEVER block AR operations
+    console.error(`[ar-gl] GL posting failed for AR payment ${result.id}:`, error);
+  }
 
   await auditLog(ctx, 'ar.payment.created', 'ar_transaction', result.id);
   return result;

@@ -4,6 +4,7 @@ import { eq, and } from 'drizzle-orm';
 import type { EventEnvelope } from '@oppsera/shared';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { voidJournalEntry } from '../commands/void-journal-entry';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
 
@@ -41,9 +42,23 @@ export async function handleAchReturnForAccounting(event: EventEnvelope): Promis
   const data = event.data as unknown as AchReturnPayload;
 
   try {
-    // Check if accounting is enabled for this tenant
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, tenantId);
-    if (!settings) return; // no accounting — skip silently
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'payment.gateway.ach_returned.v1',
+          sourceModule: 'ach_return',
+          sourceReferenceId: data.achReturnId,
+          entityType: 'accounting_settings',
+          entityId: tenantId,
+          reason: 'CRITICAL: GL ACH return reversal skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block ACH returns */ }
+      console.error(`[ach-return-gl] CRITICAL: accounting settings missing for tenant=${tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     // Build synthetic context for GL void operations
     const ctx: RequestContext = {

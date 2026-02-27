@@ -3,8 +3,10 @@ import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { NotFoundError, ValidationError } from '@oppsera/shared';
-import { billingAccounts, arTransactions, customerActivityLog, paymentJournalEntries } from '@oppsera/db';
+import { billingAccounts, arTransactions, customerActivityLog } from '@oppsera/db';
+import { withTenant } from '@oppsera/db';
 import { eq, and } from 'drizzle-orm';
+import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RecordArTransactionInput } from '../validation';
 import { checkCreditLimit } from '../helpers/credit-limit';
 
@@ -49,27 +51,6 @@ export async function recordArTransaction(ctx: RequestContext, input: RecordArTr
       createdBy: ctx.user.id,
     }).returning();
 
-    // Generate GL journal entry
-    const glEntries = buildGlEntries(input.type, input.amountCents, account.glArAccountCode);
-    if (glEntries.length > 0) {
-      const [glEntry] = await (tx as any).insert(paymentJournalEntries).values({
-        tenantId: ctx.tenantId,
-        locationId: ctx.locationId ?? 'system',
-        referenceType: 'ar_transaction',
-        referenceId: arTx!.id,
-        orderId: input.referenceType === 'order' ? input.referenceId ?? '' : '',
-        entries: glEntries,
-        businessDate: new Date().toISOString().split('T')[0]!,
-        sourceModule: 'billing',
-        glDimensions: ctx.locationId ? { locationId: ctx.locationId } : null,
-        recognitionStatus: 'recognized',
-      }).returning();
-
-      // Update AR transaction with GL reference
-      await (tx as any).update(arTransactions).set({ glJournalEntryId: glEntry!.id })
-        .where(eq(arTransactions.id, arTx!.id));
-    }
-
     // Update cached balance
     const newBalance = Number(account.currentBalanceCents) + input.amountCents;
     await (tx as any).update(billingAccounts).set({
@@ -100,43 +81,107 @@ export async function recordArTransaction(ctx: RequestContext, input: RecordArTr
     return { result: { ...arTx!, newBalance }, events: [event] };
   });
 
+  // ── GL posting (after AR transaction committed) ──────────────
+  try {
+    const postingApi = getAccountingPostingApi();
+    try { await postingApi.ensureSettings(ctx.tenantId); } catch { /* non-fatal */ }
+    const settings = await postingApi.getSettings(ctx.tenantId);
+
+    const arAccountId = settings.defaultARControlAccountId
+      ?? settings.defaultUncategorizedRevenueAccountId;
+    const revenueAccountId = settings.defaultUncategorizedRevenueAccountId;
+    const cashAccountId = settings.defaultUndepositedFundsAccountId
+      ?? settings.defaultUncategorizedRevenueAccountId;
+
+    const glLines = buildModernGlLines(
+      input.type, input.amountCents,
+      arAccountId, revenueAccountId, cashAccountId,
+      ctx.locationId ?? undefined,
+    );
+
+    if (glLines.length > 0) {
+      const businessDate = new Date().toISOString().split('T')[0]!;
+      const glResult = await postingApi.postEntry(ctx, {
+        businessDate,
+        sourceModule: 'billing',
+        sourceReferenceId: `ar-tx-${result.id}`,
+        memo: `AR ${input.type}: ${Math.abs(input.amountCents)} cents`,
+        lines: glLines,
+        forcePost: true,
+      });
+
+      // Best-effort: link GL journal entry to AR transaction
+      try {
+        await withTenant(ctx.tenantId, async (tx) => {
+          await tx
+            .update(arTransactions)
+            .set({ glJournalEntryId: glResult.id })
+            .where(eq(arTransactions.id, result.id));
+        });
+      } catch { /* non-fatal */ }
+    }
+  } catch (error) {
+    // GL failures NEVER block AR operations
+    console.error(`[ar-gl] GL posting failed for AR transaction ${result.id}:`, error);
+  }
+
   await auditLog(ctx, `ar.${input.type}.created`, 'ar_transaction', result.id);
   return result;
 }
 
-function buildGlEntries(type: string, amountCents: number, arAccountCode: string) {
+/**
+ * Build GL journal lines using resolved account IDs (not hardcoded codes).
+ * Returns empty array if required accounts are missing.
+ */
+function buildModernGlLines(
+  type: string,
+  amountCents: number,
+  arAccountId: string | null,
+  revenueAccountId: string | null,
+  cashAccountId: string | null,
+  locationId?: string,
+): Array<{ accountId: string; debitAmount: string; creditAmount: string; locationId?: string; memo?: string }> {
   const absAmount = Math.abs(amountCents);
+  const amountDollars = (absAmount / 100).toFixed(2);
+
   switch (type) {
     case 'charge':
+      if (!arAccountId || !revenueAccountId) return [];
       return [
-        { accountCode: arAccountCode, accountName: 'Accounts Receivable', debit: absAmount, credit: 0 },
-        { accountCode: '4000', accountName: 'Revenue', debit: 0, credit: absAmount },
+        { accountId: arAccountId, debitAmount: amountDollars, creditAmount: '0', locationId, memo: 'AR charge' },
+        { accountId: revenueAccountId, debitAmount: '0', creditAmount: amountDollars, locationId, memo: 'Revenue' },
       ];
     case 'payment':
+      if (!cashAccountId || !arAccountId) return [];
       return [
-        { accountCode: '1010', accountName: 'Cash on Hand', debit: absAmount, credit: 0 },
-        { accountCode: arAccountCode, accountName: 'Accounts Receivable', debit: 0, credit: absAmount },
+        { accountId: cashAccountId, debitAmount: amountDollars, creditAmount: '0', locationId, memo: 'Cash received' },
+        { accountId: arAccountId, debitAmount: '0', creditAmount: amountDollars, locationId, memo: 'AR payment' },
       ];
     case 'adjustment':
+      if (!arAccountId || !revenueAccountId) return [];
       if (amountCents < 0) {
         return [
-          { accountCode: arAccountCode, accountName: 'Accounts Receivable', debit: 0, credit: absAmount },
-          { accountCode: '4000', accountName: 'Revenue Adjustment', debit: absAmount, credit: 0 },
+          { accountId: arAccountId, debitAmount: '0', creditAmount: amountDollars, locationId, memo: 'AR adjustment (credit)' },
+          { accountId: revenueAccountId, debitAmount: amountDollars, creditAmount: '0', locationId, memo: 'Revenue adjustment' },
         ];
       }
       return [
-        { accountCode: arAccountCode, accountName: 'Accounts Receivable', debit: absAmount, credit: 0 },
-        { accountCode: '4000', accountName: 'Revenue Adjustment', debit: 0, credit: absAmount },
+        { accountId: arAccountId, debitAmount: amountDollars, creditAmount: '0', locationId, memo: 'AR adjustment (debit)' },
+        { accountId: revenueAccountId, debitAmount: '0', creditAmount: amountDollars, locationId, memo: 'Revenue adjustment' },
       ];
     case 'writeoff':
+      // Writeoffs: Dr Bad Debt Expense / Cr AR — falls back to revenue for bad debt
+      if (!arAccountId || !revenueAccountId) return [];
       return [
-        { accountCode: '6100', accountName: 'Bad Debt Expense', debit: absAmount, credit: 0 },
-        { accountCode: arAccountCode, accountName: 'Accounts Receivable', debit: 0, credit: absAmount },
+        { accountId: revenueAccountId, debitAmount: amountDollars, creditAmount: '0', locationId, memo: 'Bad debt expense' },
+        { accountId: arAccountId, debitAmount: '0', creditAmount: amountDollars, locationId, memo: 'AR writeoff' },
       ];
     case 'late_fee':
+      // Late fees: Dr AR / Cr Revenue
+      if (!arAccountId || !revenueAccountId) return [];
       return [
-        { accountCode: arAccountCode, accountName: 'Accounts Receivable', debit: absAmount, credit: 0 },
-        { accountCode: '4600', accountName: 'Late Fee Revenue', debit: 0, credit: absAmount },
+        { accountId: arAccountId, debitAmount: amountDollars, creditAmount: '0', locationId, memo: 'AR late fee' },
+        { accountId: revenueAccountId, debitAmount: '0', creditAmount: amountDollars, locationId, memo: 'Late fee revenue' },
       ];
     default:
       return [];

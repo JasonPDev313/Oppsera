@@ -123,7 +123,7 @@ export type { StationListItem } from './queries/list-stations';
 export { getStationDetail } from './queries/get-station-detail';
 export type { StationDetail, DisplayConfig } from './queries/get-station-detail';
 export { getKdsView } from './queries/get-kds-view';
-export type { KdsView, KdsTicketCard, KdsTicketItem } from './queries/get-kds-view';
+export type { KdsView, KdsTicketCard, KdsTicketItem, KdsCompletedTicket } from './queries/get-kds-view';
 export { getExpoView } from './queries/get-expo-view';
 export type { ExpoView, ExpoTicketCard, ExpoTicketItem } from './queries/get-expo-view';
 export { getStationMetrics } from './queries/get-station-metrics';

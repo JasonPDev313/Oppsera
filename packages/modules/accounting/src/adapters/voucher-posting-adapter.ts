@@ -2,6 +2,7 @@ import type { EventEnvelope } from '@oppsera/shared';
 import { generateUlid } from '@oppsera/shared';
 import { db, pendingBreakageReview } from '@oppsera/db';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -62,8 +63,23 @@ export async function handleVoucherPurchaseForAccounting(event: EventEnvelope): 
   const data = event.data as unknown as VoucherPurchasedPayload;
 
   try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'voucher.purchased.v1',
+          sourceModule: 'voucher',
+          sourceReferenceId: data.voucherId,
+          entityType: 'accounting_settings',
+          entityId: event.tenantId,
+          reason: 'CRITICAL: GL voucher purchase posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block voucher ops */ }
+      console.error(`[voucher-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     const liabilityAccountId = data.liabilityChartOfAccountId;
     if (!liabilityAccountId) {
@@ -148,8 +164,23 @@ export async function handleVoucherRedemptionForAccounting(event: EventEnvelope)
   const data = event.data as unknown as VoucherRedeemedPayload;
 
   try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'voucher.redeemed.v1',
+          sourceModule: 'voucher',
+          sourceReferenceId: data.voucherId,
+          entityType: 'accounting_settings',
+          entityId: event.tenantId,
+          reason: 'CRITICAL: GL voucher redemption posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block voucher ops */ }
+      console.error(`[voucher-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     const liabilityAccountId = data.liabilityChartOfAccountId;
     if (!liabilityAccountId) {
@@ -238,8 +269,23 @@ export async function handleVoucherExpirationForAccounting(event: EventEnvelope)
   const data = event.data as unknown as VoucherExpiredPayload;
 
   try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'voucher.expired.v1',
+          sourceModule: 'voucher',
+          sourceReferenceId: data.voucherId,
+          entityType: 'accounting_settings',
+          entityId: event.tenantId,
+          reason: 'CRITICAL: GL voucher expiration posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block voucher ops */ }
+      console.error(`[voucher-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     // Check breakage policy: if automatic recognition is disabled,
     // queue to pending_breakage_review instead of posting GL directly

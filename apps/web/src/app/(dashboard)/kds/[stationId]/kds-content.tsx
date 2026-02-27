@@ -253,9 +253,50 @@ export default function KdsContent() {
               style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
               <p className="text-[10px] uppercase tracking-wider font-semibold mb-2"
                 style={{ color: 'var(--fnb-text-muted)' }}>Recently Completed</p>
-              <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
-                Completed tickets will appear here
-              </p>
+              {(!kdsView.recentlyCompleted || kdsView.recentlyCompleted.length === 0) ? (
+                <p className="text-xs" style={{ color: 'var(--fnb-text-muted)' }}>
+                  No completed tickets yet
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {kdsView.recentlyCompleted.map((ct) => {
+                    const mins = Math.floor(ct.completedSecondsAgo / 60);
+                    const agoLabel = mins < 1 ? 'just now' : mins === 1 ? '1m ago' : `${mins}m ago`;
+                    return (
+                      <div key={ct.ticketId}
+                        className="rounded-lg px-3 py-2"
+                        style={{
+                          backgroundColor: 'var(--fnb-bg-surface)',
+                          border: '1px solid rgba(148, 163, 184, 0.1)',
+                        }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold fnb-mono" style={{ color: 'var(--fnb-status-available)' }}>
+                            #{ct.ticketNumber}
+                          </span>
+                          <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+                            {agoLabel}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {ct.tableNumber != null && (
+                            <span className="text-[10px]" style={{ color: 'var(--fnb-text-secondary)' }}>
+                              T{ct.tableNumber}
+                            </span>
+                          )}
+                          <span className="text-[10px]" style={{ color: 'var(--fnb-text-muted)' }}>
+                            {ct.itemCount} item{ct.itemCount !== 1 ? 's' : ''}
+                          </span>
+                          {ct.serverName && (
+                            <span className="text-[10px] truncate" style={{ color: 'var(--fnb-text-muted)' }}>
+                              {ct.serverName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         ) : (

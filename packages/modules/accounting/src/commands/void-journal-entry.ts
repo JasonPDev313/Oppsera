@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { glJournalEntries, glJournalLines } from '@oppsera/db';
 import { generateUlid, NotFoundError, AppError } from '@oppsera/shared';
@@ -12,8 +13,13 @@ export async function voidJournalEntry(
   ctx: RequestContext,
   entryId: string,
   reason: string,
+  clientRequestId?: string,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, clientRequestId, 'voidJournalEntry');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load the posted entry
     const [entry] = await tx
       .select()
@@ -43,6 +49,26 @@ export async function voidJournalEntry(
       .select()
       .from(glJournalLines)
       .where(eq(glJournalLines.journalEntryId, entryId));
+
+    // 2b. Validate original entry is balanced before creating reversal.
+    // An unbalanced reversal doubles the corruption — detect it here.
+    if (originalLines.length > 0) {
+      let origDebits = 0;
+      let origCredits = 0;
+      for (const line of originalLines) {
+        origDebits += Number(line.debitAmount ?? 0);
+        origCredits += Number(line.creditAmount ?? 0);
+      }
+      origDebits = Math.round(origDebits * 100) / 100;
+      origCredits = Math.round(origCredits * 100) / 100;
+      if (origDebits !== origCredits) {
+        console.error(
+          `[void-journal-entry] Original entry ${entryId} is unbalanced: ` +
+          `debits=${origDebits}, credits=${origCredits}. ` +
+          `Reversal will also be unbalanced — investigate data corruption.`,
+        );
+      }
+    }
 
     // 3. Mark original as voided
     await tx
@@ -106,11 +132,15 @@ export async function voidJournalEntry(
       reason,
     });
 
+    const resultPayload = {
+      voidedEntry: { ...entry, status: 'voided' as const, voidedAt: new Date(), voidReason: reason },
+      reversalEntry: { ...reversal!, lines: reversedLines },
+    };
+
+    await saveIdempotencyKey(tx, ctx.tenantId, clientRequestId, 'voidJournalEntry', resultPayload);
+
     return {
-      result: {
-        voidedEntry: { ...entry, status: 'voided' as const, voidedAt: new Date(), voidReason: reason },
-        reversalEntry: { ...reversal!, lines: reversedLines },
-      },
+      result: resultPayload,
       events: [event],
     };
   });

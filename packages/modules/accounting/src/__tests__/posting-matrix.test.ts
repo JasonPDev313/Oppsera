@@ -47,12 +47,14 @@ const mockResolveSubDeptAccounts = vi.fn();
 const mockResolvePaymentTypeAccounts = vi.fn();
 const mockBatchResolveSubDepartmentAccounts = vi.fn();
 const mockBatchResolveTaxGroupAccounts = vi.fn();
+const mockBatchResolveDiscountGlMappings = vi.fn();
 vi.mock('../helpers/resolve-mapping', () => ({
   resolveSubDepartmentAccounts: (...args: any[]) => mockResolveSubDeptAccounts(...args),
   resolvePaymentTypeAccounts: (...args: any[]) => mockResolvePaymentTypeAccounts(...args),
   resolveTaxGroupAccount: vi.fn().mockResolvedValue('acct-tax-payable'),
   batchResolveSubDepartmentAccounts: (...args: any[]) => mockBatchResolveSubDepartmentAccounts(...args),
   batchResolveTaxGroupAccounts: (...args: any[]) => mockBatchResolveTaxGroupAccounts(...args),
+  batchResolveDiscountGlMappings: (...args: any[]) => mockBatchResolveDiscountGlMappings(...args),
   logUnmappedEvent: (...args: any[]) => mockLogUnmappedEvent(...args),
 }));
 
@@ -157,6 +159,7 @@ describe('GL Posting Matrix — Balance Validation', () => {
     // Default batch resolve mocks for POS adapter tests
     mockBatchResolveSubDepartmentAccounts.mockResolvedValue(new Map([['subdept-1', fullSubDeptMapping]]));
     mockBatchResolveTaxGroupAccounts.mockResolvedValue(new Map());
+    mockBatchResolveDiscountGlMappings.mockResolvedValue(new Map());
   });
 
   // ─── Voucher Adapters ─────────────────────────────────────

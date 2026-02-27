@@ -44,6 +44,7 @@ export async function getSalesTaxLiability(input: GetSalesTaxLiabilityInput): Pr
         AND je.business_date >= ${input.from}
         AND je.business_date <= ${input.to}
       WHERE tgd.tenant_id = ${input.tenantId}
+        AND (jl.id IS NULL OR je.id IS NOT NULL)
       GROUP BY tgd.tax_group_id, tgd.tax_payable_account_id, a.name
       ORDER BY tgd.tax_group_id
     `);

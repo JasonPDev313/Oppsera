@@ -33,9 +33,16 @@ export async function initializeAccountingPostingApi(): Promise<void> {
       return {
         defaultAPControlAccountId: settings?.defaultAPControlAccountId ?? null,
         defaultARControlAccountId: settings?.defaultARControlAccountId ?? null,
+        defaultUndepositedFundsAccountId: settings?.defaultUndepositedFundsAccountId ?? null,
+        defaultUncategorizedRevenueAccountId: settings?.defaultUncategorizedRevenueAccountId ?? null,
         baseCurrency: settings?.baseCurrency ?? 'USD',
         enableLegacyGlPosting: settings?.enableLegacyGlPosting ?? true,
       };
+    },
+
+    ensureSettings: async (tenantId) => {
+      const { ensureAccountingSettings } = await import('@oppsera/module-accounting');
+      await ensureAccountingSettings(db, tenantId);
     },
   };
 

@@ -133,7 +133,7 @@ export function isPiiColumn(columnName: string): boolean {
  * Regex patterns to detect PII in string values.
  * Applied to columns NOT already flagged by column-name heuristics.
  */
-const EMAIL_PATTERN = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const PHONE_PATTERN = /(?:\+?1[-.\s]?)?(?:\(\d{3}\)|\d{3})[-.\s]?\d{3}[-.\s]?\d{4}/g;
 const SSN_PATTERN = /\b\d{3}-\d{2}-\d{4}\b/g;
 

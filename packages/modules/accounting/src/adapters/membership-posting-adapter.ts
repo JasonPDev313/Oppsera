@@ -1,6 +1,7 @@
 import type { EventEnvelope } from '@oppsera/shared';
 import { db } from '@oppsera/db';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -43,8 +44,22 @@ export async function handleMembershipBillingForAccounting(event: EventEnvelope)
   const data = event.data as unknown as MembershipBillingPayload;
 
   try {
+    try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'membership.billing.charged.v1',
+          sourceModule: 'membership',
+          sourceReferenceId: data.membershipId,
+          entityType: 'accounting_settings',
+          entityId: event.tenantId,
+          reason: 'CRITICAL: GL membership billing posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block membership billing */ }
+      console.error(`[membership-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     // AR control account (debit side)
     const arAccountId = settings.defaultARControlAccountId;

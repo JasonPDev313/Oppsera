@@ -235,26 +235,23 @@ function GroupView({
               opt.allowOnSide);
 
           return (
-            <div
-              key={opt.id}
-              className="rounded-xl transition-all"
-              style={{
-                backgroundColor: isSelected
-                  ? 'var(--fnb-status-seated)'
-                  : 'var(--fnb-bg-elevated)',
-                color: isSelected ? '#fff' : 'var(--fnb-text-secondary)',
-              }}
-            >
-              <div className="flex items-center gap-3" style={{ padding: '12px 16px' }}>
-                {/* Toggle area (left side) */}
-                <button
-                  type="button"
-                  onClick={() => onToggle(opt.id)}
-                  className="flex items-center gap-3 flex-1 min-w-0 text-left active:scale-[0.98] transition-transform"
-                >
+            <div key={opt.id}>
+              {/* Entire row is clickable — no dead zones */}
+              <button
+                type="button"
+                onClick={() => onToggle(opt.id)}
+                className="w-full rounded-xl text-left active:scale-[0.98]"
+                style={{
+                  backgroundColor: isSelected
+                    ? 'var(--fnb-status-seated)'
+                    : 'var(--fnb-bg-elevated)',
+                  color: isSelected ? '#fff' : 'var(--fnb-text-secondary)',
+                }}
+              >
+                <div className="flex items-center gap-3" style={{ padding: '12px 16px' }}>
                   {/* Selection indicator */}
                   <div
-                    className="shrink-0 flex items-center justify-center transition-colors"
+                    className="shrink-0 flex items-center justify-center"
                     style={{
                       width: 22,
                       height: 22,
@@ -283,10 +280,35 @@ function GroupView({
                       </span>
                     )}
                   </div>
-                </button>
 
-                {/* Instruction pills (inline, right side) */}
-                {showInstructions && (
+                  {/* Price badge */}
+                  {effectivePrice > 0 && (
+                    <span
+                      className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold"
+                      style={{
+                        fontFamily: 'var(--fnb-font-mono)',
+                        backgroundColor: isSelected
+                          ? 'rgba(255,255,255,0.2)'
+                          : 'rgba(99, 102, 241, 0.1)',
+                        color: isSelected ? '#fff' : 'var(--fnb-info)',
+                      }}
+                    >
+                      +{formatMoney(effectivePrice)}
+                    </span>
+                  )}
+                  {effectivePrice === 0 && isSelected && instr !== 'none' && (
+                    <span
+                      className="shrink-0 text-[10px] font-medium"
+                      style={{ color: 'rgba(255,255,255,0.7)' }}
+                    >
+                      Included
+                    </span>
+                  )}
+                </div>
+              </button>
+              {/* Instruction pills rendered outside the toggle button to avoid click conflicts */}
+              {showInstructions && (
+                <div style={{ padding: '0 16px 8px' }}>
                   <InstructionButtons
                     allowNone={effectiveMode === 'all' || !!opt.allowNone}
                     allowExtra={effectiveMode === 'all' || !!opt.allowExtra}
@@ -297,32 +319,8 @@ function GroupView({
                     basePriceCents={opt.priceCents}
                     variant="fnb"
                   />
-                )}
-
-                {/* Price badge */}
-                {effectivePrice > 0 && (
-                  <span
-                    className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold"
-                    style={{
-                      fontFamily: 'var(--fnb-font-mono)',
-                      backgroundColor: isSelected
-                        ? 'rgba(255,255,255,0.2)'
-                        : 'rgba(99, 102, 241, 0.1)',
-                      color: isSelected ? '#fff' : 'var(--fnb-info)',
-                    }}
-                  >
-                    +{formatMoney(effectivePrice)}
-                  </span>
-                )}
-                {effectivePrice === 0 && isSelected && instr !== 'none' && (
-                  <span
-                    className="shrink-0 text-[10px] font-medium"
-                    style={{ color: 'rgba(255,255,255,0.7)' }}
-                  >
-                    Included
-                  </span>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -377,18 +375,14 @@ export function FnbModifierDrawer({
 
   const toggleOption = (groupId: string, optionId: string, maxSel: number) => {
     let shouldAutoAdvance = false;
+    let deselectedOptionId: string | null = null;
 
     setSelected((prev) => {
       const next = new Map(prev);
       const groupSet = new Set(next.get(groupId) ?? []);
       if (groupSet.has(optionId)) {
         groupSet.delete(optionId);
-        // Clear instruction when deselected
-        setModInstructions((p) => {
-          const n = { ...p };
-          delete n[optionId];
-          return n;
-        });
+        deselectedOptionId = optionId;
       } else {
         if (maxSel === 1) groupSet.clear();
         groupSet.add(optionId);
@@ -411,11 +405,20 @@ export function FnbModifierDrawer({
       return next;
     });
 
-    // Defer auto-advance to next tick so state has settled
+    // Clear instruction when deselected — outside the setSelected updater
+    if (deselectedOptionId) {
+      setModInstructions((p) => {
+        const n = { ...p };
+        delete n[deselectedOptionId!];
+        return n;
+      });
+    }
+
+    // Auto-advance on next frame so the selection renders first
     if (shouldAutoAdvance) {
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         setActiveStep((s) => Math.min(s + 1, totalSteps - 1));
-      }, 150);
+      });
     }
   };
 

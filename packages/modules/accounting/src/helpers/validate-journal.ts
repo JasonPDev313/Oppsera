@@ -148,6 +148,21 @@ export async function validateJournal(
       if (!settings.defaultRoundingAccountId) {
         throw new UnbalancedJournalError(totalDebits, totalCredits);
       }
+
+      // Validate the rounding account type — must be expense or equity (misc),
+      // never revenue or asset. Posting rounding to revenue inflates income;
+      // posting to asset creates phantom balances.
+      const roundingAccount = accountMap.get(settings.defaultRoundingAccountId);
+      if (roundingAccount) {
+        const invalidRoundingTypes = ['revenue', 'asset'];
+        if (invalidRoundingTypes.includes(roundingAccount.accountType)) {
+          console.warn(
+            `[validate-journal] Rounding account ${roundingAccount.accountNumber} is type '${roundingAccount.accountType}'. ` +
+            `Rounding accounts should be expense or equity type to avoid inflating revenue or creating phantom asset balances.`,
+          );
+        }
+      }
+
       // Auto-correct with rounding line
       const roundingAmount = (Math.round((totalDebits - totalCredits) * 100) / 100).toFixed(2);
       if (totalDebits > totalCredits) {
@@ -183,17 +198,30 @@ export async function validateJournal(
 }
 
 function getAllowedSourcesForControlType(controlAccountType: string): string[] {
+  // All automated GL adapter sourceModule values that legitimately post to each control type.
+  // These must stay in sync with the sourceModule values used in adapters/*.ts.
+  // Manual entries require hasControlAccountPermission — that check happens separately above.
   switch (controlAccountType) {
     case 'ap':
-      return ['ap', 'manual'];
+      return ['ap', 'inventory', 'pms', 'manual'];
     case 'ar':
-      return ['ar', 'manual'];
+      return ['ar', 'customers', 'membership', 'pms', 'manual'];
     case 'sales_tax':
-      return ['pos', 'ar', 'manual'];
+      return ['pos', 'pos_return', 'fnb', 'ar', 'pms', 'ach', 'manual'];
     case 'undeposited_funds':
-      return ['pos', 'manual'];
+      return [
+        'pos', 'pos_return', 'fnb', 'payments', 'chargeback',
+        'ach', 'ach_return', 'stored_value', 'voucher', 'pms',
+        'drawer_session', 'customers', 'membership', 'inventory', 'manual',
+      ];
     case 'bank':
-      return ['ap', 'ar', 'pos', 'manual'];
+      return [
+        'ap', 'ar', 'pos', 'pos_return', 'fnb', 'payments', 'chargeback',
+        'ach', 'ach_return', 'pms', 'drawer_session', 'stored_value',
+        'voucher', 'customers', 'membership', 'inventory', 'manual',
+      ];
+    case 'pms_guest_ledger':
+      return ['pms', 'manual'];
     default:
       return ['manual'];
   }

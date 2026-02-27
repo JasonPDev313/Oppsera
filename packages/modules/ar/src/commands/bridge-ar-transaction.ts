@@ -1,16 +1,21 @@
 import { sql } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { arInvoices, arReceipts } from '@oppsera/db';
 import { generateUlid, AppError } from '@oppsera/shared';
 
 interface BridgeArTransactionInput {
   arTransactionId: string;
+  clientRequestId?: string;
 }
 
 export async function bridgeArTransaction(ctx: RequestContext, input: BridgeArTransactionInput) {
   const result = await publishWithOutbox(ctx, async (tx): Promise<{ result: any; events: any[] }> => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'bridgeArTransaction');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load the ar_transaction
     const rows = await tx.execute(sql`
       SELECT id, tenant_id, billing_account_id, transaction_type, amount, description,
@@ -59,7 +64,9 @@ export async function bridgeArTransaction(ctx: RequestContext, input: BridgeArTr
         })
         .returning();
 
-      return { result: { type: 'invoice' as const, ...invoice! }, events: [] };
+      const invoiceResult = { type: 'invoice' as const, ...invoice! };
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'bridgeArTransaction', invoiceResult);
+      return { result: invoiceResult, events: [] };
 
     } else if (txType === 'payment' || txType === 'credit_memo') {
       // Create a receipt
@@ -81,7 +88,9 @@ export async function bridgeArTransaction(ctx: RequestContext, input: BridgeArTr
         })
         .returning();
 
-      return { result: { type: 'receipt' as const, ...receipt! }, events: [] };
+      const receiptResult = { type: 'receipt' as const, ...receipt! };
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'bridgeArTransaction', receiptResult);
+      return { result: receiptResult, events: [] };
     }
 
     throw new AppError('UNSUPPORTED_TX_TYPE', `Unsupported AR transaction type: ${txType}`, 400);

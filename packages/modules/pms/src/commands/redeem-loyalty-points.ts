@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { pmsLoyaltyMembers, pmsLoyaltyTransactions, pmsLoyaltyPrograms } from '@oppsera/db';
 import type { RedeemLoyaltyPointsInput } from '../validation';
@@ -20,6 +21,10 @@ export async function redeemLoyaltyPoints(
   input: RedeemLoyaltyPointsInput,
 ): Promise<RedemptionResult> {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'redeemLoyaltyPoints');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     const [member] = await tx
       .select()
       .from(pmsLoyaltyMembers)
@@ -75,15 +80,14 @@ export async function redeemLoyaltyPoints(
       balanceAfter: newBalance,
     });
 
-    return {
-      result: {
-        transactionId: transaction!.id,
-        pointsRedeemed: input.points,
-        creditCents,
-        balanceAfter: newBalance,
-      },
-      events: [event],
+    const resultPayload = {
+      transactionId: transaction!.id,
+      pointsRedeemed: input.points,
+      creditCents,
+      balanceAfter: newBalance,
     };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'redeemLoyaltyPoints', resultPayload);
+    return { result: resultPayload, events: [event] };
   });
 
   await auditLog(ctx, 'pms.loyalty.points_redeemed', 'pms_loyalty_transaction', result.transactionId);

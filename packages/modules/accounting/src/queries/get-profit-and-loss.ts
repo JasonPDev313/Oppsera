@@ -62,6 +62,10 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
         ? sql`AND jl.channel = ${filters.channel}`
         : sql``;
 
+      // NOTE: The (jl.id IS NULL OR je.id IS NOT NULL) guard ensures lines from
+      // non-posted entries (draft/error/voided) are excluded from P&L calculations.
+      // Without it, the LEFT JOIN on je with status='posted' filter in ON clause would
+      // leave jl values intact for non-posted entries, corrupting revenue/expense sums.
       const rows = await tx.execute(sql`
         SELECT
           a.id AS account_id,
@@ -89,6 +93,7 @@ export async function getProfitAndLoss(input: GetPnlInput): Promise<ProfitAndLos
         WHERE a.tenant_id = ${input.tenantId}
           AND a.is_active = true
           AND a.account_type IN ('revenue', 'expense')
+          AND (jl.id IS NULL OR je.id IS NOT NULL)
         GROUP BY a.id, a.account_number, a.name, a.account_type, a.is_contra_account, c.name
         HAVING COALESCE(SUM(jl.debit_amount), 0) != 0
             OR COALESCE(SUM(jl.credit_amount), 0) != 0

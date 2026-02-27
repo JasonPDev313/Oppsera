@@ -1,6 +1,7 @@
 import type { EventEnvelope } from '@oppsera/shared';
 import { db } from '@oppsera/db';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { resolvePaymentTypeAccounts, logUnmappedEvent } from '../helpers/resolve-mapping';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -59,8 +60,23 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
   const data = event.data as unknown as ChargebackReceivedPayload;
 
   try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'chargeback.received.v1',
+          sourceModule: 'chargeback',
+          sourceReferenceId: data.chargebackId,
+          entityType: 'accounting_settings',
+          entityId: event.tenantId,
+          reason: 'CRITICAL: GL chargeback received posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block payment ops */ }
+      console.error(`[chargeback-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     // Resolve accounts from payment type GL mapping
     const paymentMapping = await resolvePaymentTypeAccounts(db, event.tenantId, data.tenderType);
@@ -78,17 +94,21 @@ export async function handleChargebackReceivedForAccounting(event: EventEnvelope
       return;
     }
 
-    const expenseAccountId = paymentMapping?.feeExpenseAccountId;
+    let expenseAccountId = paymentMapping?.feeExpenseAccountId;
     if (!expenseAccountId) {
-      await logUnmappedEvent(db, event.tenantId, {
-        eventType: 'chargeback.received.v1',
-        sourceModule: 'chargeback',
-        sourceReferenceId: data.chargebackId,
-        entityType: 'payment_type',
-        entityId: data.tenderType,
-        reason: 'Missing fee expense account for chargeback posting',
-      });
-      return;
+      // Fallback to guaranteed suspense/uncategorized account so the entry still posts
+      expenseAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'chargeback.received.v1',
+          sourceModule: 'chargeback',
+          sourceReferenceId: data.chargebackId,
+          entityType: 'payment_type',
+          entityId: data.tenderType,
+          reason: `Missing fee expense account for chargeback posting${expenseAccountId ? ' — posted to suspense/uncategorized account' : ' — no fallback available, entry skipped'}`,
+        });
+      } catch { /* best-effort */ }
+      if (!expenseAccountId) return;
     }
 
     const amountDollars = (data.chargebackAmountCents / 100).toFixed(2);
@@ -152,8 +172,23 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
   const data = event.data as unknown as ChargebackResolvedPayload;
 
   try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, event.tenantId); } catch { /* non-fatal */ }
     const settings = await getAccountingSettings(db, event.tenantId);
-    if (!settings) return;
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'chargeback.resolved.v1',
+          sourceModule: 'chargeback',
+          sourceReferenceId: data.chargebackId,
+          entityType: 'accounting_settings',
+          entityId: event.tenantId,
+          reason: 'CRITICAL: GL chargeback resolution posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block payment ops */ }
+      console.error(`[chargeback-gl] CRITICAL: accounting settings missing for tenant=${event.tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
     const paymentMapping = await resolvePaymentTypeAccounts(db, event.tenantId, data.tenderType);
 
@@ -170,17 +205,21 @@ export async function handleChargebackResolvedForAccounting(event: EventEnvelope
       return;
     }
 
-    const expenseAccountId = paymentMapping?.feeExpenseAccountId;
+    let expenseAccountId = paymentMapping?.feeExpenseAccountId;
     if (!expenseAccountId) {
-      await logUnmappedEvent(db, event.tenantId, {
-        eventType: 'chargeback.resolved.v1',
-        sourceModule: 'chargeback',
-        sourceReferenceId: data.chargebackId,
-        entityType: 'payment_type',
-        entityId: data.tenderType,
-        reason: 'Missing fee expense account for chargeback resolution posting',
-      });
-      return;
+      // Fallback to guaranteed suspense/uncategorized account so the entry still posts
+      expenseAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
+      try {
+        await logUnmappedEvent(db, event.tenantId, {
+          eventType: 'chargeback.resolved.v1',
+          sourceModule: 'chargeback',
+          sourceReferenceId: data.chargebackId,
+          entityType: 'payment_type',
+          entityId: data.tenderType,
+          reason: `Missing fee expense account for chargeback resolution posting${expenseAccountId ? ' — posted to suspense/uncategorized account' : ' — no fallback available, entry skipped'}`,
+        });
+      } catch { /* best-effort */ }
+      if (!expenseAccountId) return;
     }
 
     const postingApi = getAccountingPostingApi();

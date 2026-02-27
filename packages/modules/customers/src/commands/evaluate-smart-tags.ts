@@ -10,6 +10,7 @@ import {
 } from '@oppsera/db';
 import { generateUlid } from '@oppsera/shared';
 import { evaluateCustomerForRule } from '../services/smart-tag-evaluator';
+import { executeTagActions } from '../services/tag-action-executor';
 import type { SmartTagConditionGroup } from '../types/smart-tag-conditions';
 
 export interface EvaluateSmartTagsInput {
@@ -241,6 +242,9 @@ async function applySmartTag(
     actorId: 'system',
     evidence,
   });
+
+  // Execute tag actions for on_apply trigger
+  await executeTagActions(tx, tenantId, customerId, rule.tagId, 'on_apply');
 }
 
 async function removeSmartTag(
@@ -287,4 +291,7 @@ async function removeSmartTag(
     actorId: 'system',
     evidence,
   });
+
+  // Execute tag actions for on_remove trigger
+  await executeTagActions(tx, tenantId, customerId, rule.tagId, 'on_remove');
 }

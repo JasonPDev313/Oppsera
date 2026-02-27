@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
@@ -8,10 +9,14 @@ import { apPayments, apPaymentAllocations, apBills, vendors, bankAccounts } from
 import { NotFoundError, AppError } from '@oppsera/shared';
 import { AP_EVENTS } from '../events/types';
 
-export async function voidPayment(ctx: RequestContext, paymentId: string, reason: string) {
+export async function voidPayment(ctx: RequestContext, paymentId: string, reason: string, clientRequestId?: string) {
   const accountingApi = getAccountingPostingApi();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, clientRequestId, 'voidPayment');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load payment
     const [payment] = await tx
       .select()
@@ -112,6 +117,8 @@ export async function voidPayment(ctx: RequestContext, paymentId: string, reason
       amount: payment.amount,
       reason,
     });
+
+    await saveIdempotencyKey(tx, ctx.tenantId, clientRequestId, 'voidPayment', voided!);
 
     return { result: voided!, events: [event] };
   });

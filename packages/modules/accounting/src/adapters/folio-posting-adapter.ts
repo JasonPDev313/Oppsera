@@ -14,6 +14,7 @@ import { db } from '@oppsera/db';
 import type { EventEnvelope } from '@oppsera/shared';
 import { logUnmappedEvent } from '../helpers/resolve-mapping';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { sql } from 'drizzle-orm';
@@ -72,11 +73,26 @@ export async function handleFolioChargeForAccounting(event: EventEnvelope): Prom
   const { tenantId } = event;
   const data = event.data as unknown as FolioChargePostedPayload;
 
-  // Check if accounting is enabled for this tenant
-  const settings = await getAccountingSettings(db, tenantId);
-  if (!settings) return; // no accounting — skip silently
+  try {
+    // Ensure accounting settings exist (auto-bootstrap if needed)
+    try { await ensureAccountingSettings(db, tenantId); } catch { /* non-fatal */ }
+    const settings = await getAccountingSettings(db, tenantId);
+    if (!settings) {
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'pms.folio.charge_posted.v1',
+          sourceModule: 'pms',
+          sourceReferenceId: data.entryId,
+          entityType: 'accounting_settings',
+          entityId: tenantId,
+          reason: 'CRITICAL: GL folio posting skipped — accounting settings missing even after ensureAccountingSettings. Investigate immediately.',
+        });
+      } catch { /* never block PMS ops */ }
+      console.error(`[folio-gl] CRITICAL: accounting settings missing for tenant=${tenantId} after ensureAccountingSettings`);
+      return;
+    }
 
-  const accountingApi = getAccountingPostingApi();
+    const accountingApi = getAccountingPostingApi();
 
   // Resolve guest ledger control account
   const guestLedgerAccountId = await resolveGuestLedgerAccount(tenantId);
@@ -182,7 +198,6 @@ export async function handleFolioChargeForAccounting(event: EventEnvelope): Prom
     ? new Date(event.occurredAt as string).toISOString().slice(0, 10)
     : new Date().toISOString().slice(0, 10);
 
-  try {
     await accountingApi.postEntry(ctx, {
       businessDate,
       sourceModule: 'pms',
@@ -195,13 +210,15 @@ export async function handleFolioChargeForAccounting(event: EventEnvelope): Prom
   } catch (error) {
     // PMS adapter must NEVER block folio operations — log and continue
     console.error(`PMS GL posting failed for folio entry ${data.entryId}:`, error);
-    await logUnmappedEvent(db, tenantId, {
-      eventType: 'pms.folio.charge_posted.v1',
-      sourceModule: 'pms',
-      sourceReferenceId: data.entryId,
-      entityType: 'posting_error',
-      entityId: data.entryId,
-      reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    });
+    try {
+      await logUnmappedEvent(db, tenantId, {
+        eventType: 'pms.folio.charge_posted.v1',
+        sourceModule: 'pms',
+        sourceReferenceId: data.entryId,
+        entityType: 'posting_error',
+        entityId: data.entryId,
+        reason: `GL posting failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      });
+    } catch { /* best-effort tracking */ }
   }
 }

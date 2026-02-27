@@ -32,12 +32,22 @@ export const METRIC_INFO: Record<string, MetricInfo> = {
   // Financial
   has_overdue_balance: { label: 'Has Overdue Balance', category: 'Financial', valueType: 'boolean' },
   open_incident_count: { label: 'Open Incident Count', category: 'Financial', valueType: 'number' },
+  // Predictive Intelligence
+  rfm_segment: { label: 'RFM Segment', category: 'Predictive', valueType: 'string' },
+  rfm_score: { label: 'RFM Composite Score', category: 'Predictive', valueType: 'number' },
+  rfm_recency: { label: 'RFM Recency Score', category: 'Predictive', valueType: 'number' },
+  rfm_frequency: { label: 'RFM Frequency Score', category: 'Predictive', valueType: 'number' },
+  rfm_monetary: { label: 'RFM Monetary Score', category: 'Predictive', valueType: 'number' },
+  churn_risk: { label: 'Churn Risk', category: 'Predictive', valueType: 'number' },
+  predicted_clv: { label: 'Predicted CLV', category: 'Predictive', valueType: 'number', unit: '$' },
+  spend_velocity: { label: 'Spend Velocity', category: 'Predictive', valueType: 'number' },
+  days_until_predicted_visit: { label: 'Days Until Predicted Visit', category: 'Predictive', valueType: 'number', unit: 'days' },
   // Golf
   handicap_index: { label: 'Handicap Index', category: 'Golf', valueType: 'number' },
   projected_rounds: { label: 'Projected Rounds', category: 'Golf', valueType: 'number' },
 } as const;
 
-const CATEGORY_ORDER = ['Visits', 'Spending', 'Lifecycle', 'Demographic', 'Financial', 'Golf'];
+const CATEGORY_ORDER = ['Visits', 'Spending', 'Lifecycle', 'Demographic', 'Financial', 'Predictive', 'Golf'];
 
 function getGroupedMetrics(): { category: string; metrics: { key: string; label: string }[] }[] {
   const groups: Record<string, { key: string; label: string }[]> = {};

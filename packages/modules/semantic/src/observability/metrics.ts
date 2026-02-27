@@ -60,23 +60,58 @@ interface TenantBucket {
   totalTokensOut: number;
 }
 
+const MAX_TRACKED_TENANTS = 1_000;
+const CLEANUP_INTERVAL_MS = 60_000; // 60s
+
 const _tenants = new Map<string, TenantBucket>();
+let _cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+function startCleanupTimer(): void {
+  if (_cleanupTimer) return;
+  _cleanupTimer = setInterval(() => {
+    if (_tenants.size <= MAX_TRACKED_TENANTS) return;
+    // Evict oldest entries (Map insertion order) until at 80% capacity
+    const target = Math.floor(MAX_TRACKED_TENANTS * 0.8);
+    const iter = _tenants.keys();
+    while (_tenants.size > target) {
+      const next = iter.next();
+      if (next.done) break;
+      _tenants.delete(next.value);
+    }
+  }, CLEANUP_INTERVAL_MS);
+  // Allow Node.js to exit even if the timer is still running
+  if (_cleanupTimer && typeof _cleanupTimer === 'object' && 'unref' in _cleanupTimer) {
+    _cleanupTimer.unref();
+  }
+}
 
 function getOrCreateBucket(tenantId: string): TenantBucket {
   let bucket = _tenants.get(tenantId);
-  if (!bucket) {
-    bucket = {
-      totalRequests: 0,
-      cacheHits: 0,
-      cacheMisses: 0,
-      errors: 0,
-      clarifications: 0,
-      latencies: [],
-      totalTokensIn: 0,
-      totalTokensOut: 0,
-    };
+  if (bucket) {
+    // LRU: move to end so oldest entries are evicted first
+    _tenants.delete(tenantId);
     _tenants.set(tenantId, bucket);
+    return bucket;
   }
+
+  // Evict oldest entry if at capacity
+  if (_tenants.size >= MAX_TRACKED_TENANTS) {
+    const firstKey = _tenants.keys().next().value;
+    if (firstKey !== undefined) _tenants.delete(firstKey);
+  }
+
+  bucket = {
+    totalRequests: 0,
+    cacheHits: 0,
+    cacheMisses: 0,
+    errors: 0,
+    clarifications: 0,
+    latencies: [],
+    totalTokensIn: 0,
+    totalTokensOut: 0,
+  };
+  _tenants.set(tenantId, bucket);
+  startCleanupTimer();
   return bucket;
 }
 
@@ -167,7 +202,7 @@ export function getGlobalMetrics(topN = 10): GlobalMetricsSummary {
     totalErrors += bucket.errors;
     totalTokensIn += bucket.totalTokensIn;
     totalTokensOut += bucket.totalTokensOut;
-    allLatencies.push(...bucket.latencies);
+    for (const lat of bucket.latencies) allLatencies.push(lat);
 
     const { p50, p95 } = computePercentiles(bucket.latencies);
     summaries.push({
@@ -207,4 +242,8 @@ export function getGlobalMetrics(topN = 10): GlobalMetricsSummary {
 /** Reset all metrics (for testing). */
 export function resetSemanticMetrics(): void {
   _tenants.clear();
+  if (_cleanupTimer) {
+    clearInterval(_cleanupTimer);
+    _cleanupTimer = null;
+  }
 }

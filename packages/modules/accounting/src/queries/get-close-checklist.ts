@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { withTenant } from '@oppsera/db';
 import { getReconciliationReadApi } from '@oppsera/core/helpers/reconciliation-read-api';
+import { GL_SOURCE_MODULES } from './get-gl-posting-gaps';
 
 export interface CloseChecklistItem {
   label: string;
@@ -25,6 +26,14 @@ export async function getCloseChecklist(
   const api = getReconciliationReadApi();
 
   // Parallel: API calls for cross-module status + local queries for accounting-owned data
+  // Compute period date range for tender summary
+  const periodStartDate = `${input.postingPeriod}-01`;
+  const periodEndDate = new Date(
+    Number(input.postingPeriod.slice(0, 4)),
+    Number(input.postingPeriod.slice(5, 7)),
+    0,
+  ).toISOString().slice(0, 10);
+
   const [apiResults, localResults] = await Promise.all([
     // Cross-module status checks via ReconciliationReadApi
     Promise.all([
@@ -35,19 +44,16 @@ export async function getCloseChecklist(
       api.getDepositStatus(input.tenantId, input.postingPeriod),
       api.getSettlementStatusCounts(input.tenantId, input.postingPeriod),
       api.getAchPendingCount(input.tenantId),
-      api.getAchReturnSummary(
-        input.tenantId,
-        `${input.postingPeriod}-01`,
-        // Last day of the month
-        new Date(Number(input.postingPeriod.slice(0, 4)), Number(input.postingPeriod.slice(5, 7)), 0).toISOString().slice(0, 10),
-      ),
+      api.getAchReturnSummary(input.tenantId, periodStartDate, periodEndDate),
+      // GL posting gap check: count of tenders in the period
+      api.getTendersSummary(input.tenantId, periodStartDate, periodEndDate),
     ]),
     // Local queries (accounting-owned tables)
     withTenant(input.tenantId, async (tx) => {
       // ── Wave 1: All independent queries in parallel ─────────────────
       // Combines the two accounting_settings queries into one and pipelines
       // all independent queries to eliminate sequential round-trip latency.
-      const [periodRows, draftRows, unmappedRows, trialRows, settingsRows, discountRows, deadLetterRows, recurringRows, bankRecRows] = await Promise.all([
+      const [periodRows, draftRows, unmappedRows, trialRows, settingsRows, discountRows, deadLetterRows, recurringRows, bankRecRows, glTenderCoverageRows] = await Promise.all([
         // 1. Period status
         tx.execute(sql`
           SELECT status FROM accounting_close_periods
@@ -62,11 +68,13 @@ export async function getCloseChecklist(
             AND posting_period = ${input.postingPeriod}
             AND status = 'draft'
         `),
-        // 3. Unresolved unmapped events
+        // 3. Unresolved unmapped events (scoped to accounting period)
         tx.execute(sql`
           SELECT COUNT(*)::int AS count FROM gl_unmapped_events
           WHERE tenant_id = ${input.tenantId}
             AND resolved_at IS NULL
+            AND created_at >= (${input.postingPeriod} || '-01')::date
+            AND created_at < ((${input.postingPeriod} || '-01')::date + INTERVAL '1 month')
         `),
         // 4. Trial balance
         tx.execute(sql`
@@ -99,11 +107,12 @@ export async function getCloseChecklist(
           FROM sub_department_gl_defaults
           WHERE tenant_id = ${input.tenantId}
         `),
-        // 16. Dead letter events
+        // 16. Dead letter events (tenant-scoped)
         tx.execute(sql`
           SELECT COUNT(*)::int AS count
           FROM event_dead_letters
           WHERE status = 'failed'
+            AND tenant_id = ${input.tenantId}
         `),
         // 19. Recurring entries current
         tx.execute(sql`
@@ -122,6 +131,16 @@ export async function getCloseChecklist(
           FROM bank_accounts ba
           WHERE ba.tenant_id = ${input.tenantId}
             AND ba.is_active = true
+        `),
+        // 21. GL posting coverage — count DISTINCT tenders posted to GL (all adapter modules)
+        // Uses shared GL_SOURCE_MODULES constant (single source of truth with gap detection)
+        tx.execute(sql`
+          SELECT COUNT(DISTINCT source_reference_id)::int AS gl_tender_count
+          FROM gl_journal_entries
+          WHERE tenant_id = ${input.tenantId}
+            AND source_module IN (${sql.join(GL_SOURCE_MODULES.map((m) => sql`${m}`), sql`, `)})
+            AND status IN ('posted', 'voided')
+            AND posting_period = ${input.postingPeriod}
         `),
       ]);
 
@@ -164,6 +183,9 @@ export async function getCloseChecklist(
       const bankRecArr = Array.from(bankRecRows as Iterable<Record<string, unknown>>);
       const totalBankAccounts = bankRecArr.length > 0 ? Number(bankRecArr[0]!.total_bank_accounts) : 0;
       const unreconciledBanks = bankRecArr.length > 0 ? Number(bankRecArr[0]!.unreconciled) : 0;
+
+      const glCoverageArr = Array.from(glTenderCoverageRows as Iterable<Record<string, unknown>>);
+      const glTenderCount = glCoverageArr.length > 0 ? Number(glCoverageArr[0]!.gl_tender_count) : 0;
 
       // ── Wave 2: Conditional queries (depend on settings from Wave 1) ──
       let apReconciliation: { glBalance: number; subledgerBalance: number } | null = null;
@@ -266,11 +288,12 @@ export async function getCloseChecklist(
         cogsCounts,
         recurringTotal, recurringOverdue,
         totalBankAccounts, unreconciledBanks,
+        glTenderCount,
       };
     }),
   ]);
 
-  const [drawerStatus, retailCloseStatus, fnbCloseStatus, pendingTipCount, depositStatus, settlementCounts, achPendingCount, achReturnSummary] = apiResults;
+  const [drawerStatus, retailCloseStatus, fnbCloseStatus, pendingTipCount, depositStatus, settlementCounts, achPendingCount, achReturnSummary, tenderSummary] = apiResults;
   const l = localResults as {
     periodStatus: string;
     draftCount: number;
@@ -291,6 +314,7 @@ export async function getCloseChecklist(
     recurringOverdue: number;
     totalBankAccounts: number;
     unreconciledBanks: number;
+    glTenderCount: number;
   };
   const items: CloseChecklistItem[] = [];
 
@@ -509,6 +533,20 @@ export async function getCloseChecklist(
       detail: l.unreconciledBanks > 0
         ? `${l.unreconciledBanks} of ${l.totalBankAccounts} bank account${l.totalBankAccounts !== 1 ? 's' : ''} not reconciled for this period`
         : `All ${l.totalBankAccounts} bank accounts reconciled`,
+    });
+  }
+
+  // 21. GL posting coverage — every tender should have a GL entry
+  if (tenderSummary.tenderCount > 0) {
+    const tenderTotal = tenderSummary.tenderCount;
+    const glCovered = l.glTenderCount;
+    const gap = Math.max(0, tenderTotal - glCovered);
+    items.push({
+      label: 'All tenders posted to GL',
+      status: gap === 0 ? 'pass' : 'fail',
+      detail: gap > 0
+        ? `${gap} of ${tenderTotal} tender${tenderTotal !== 1 ? 's' : ''} missing GL journal entries — check unmapped events for details`
+        : `All ${tenderTotal} tenders have corresponding GL entries`,
     });
   }
 

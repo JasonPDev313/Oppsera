@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills } from '@oppsera/db';
 import { NotFoundError, ValidationError, AppError } from '@oppsera/shared';
@@ -9,10 +10,14 @@ interface ApplyVendorCreditInput {
   creditBillId: string; // The negative bill (credit memo)
   targetBillId: string; // The positive bill to apply against
   amount: string; // How much of the credit to apply
+  clientRequestId?: string;
 }
 
 export async function applyVendorCredit(ctx: RequestContext, input: ApplyVendorCreditInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'applyVendorCredit');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load credit bill
     const [credit] = await tx
       .select()
@@ -77,14 +82,16 @@ export async function applyVendorCredit(ctx: RequestContext, input: ApplyVendorC
       .set({ balanceDue: newCreditBalance, status: creditStatus, updatedAt: new Date() })
       .where(eq(apBills.id, input.creditBillId));
 
+    const applyResult = {
+      creditBillId: input.creditBillId,
+      targetBillId: input.targetBillId,
+      amountApplied: input.amount,
+      targetNewBalance: newBalance,
+      creditNewBalance: newCreditBalance,
+    };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'applyVendorCredit', applyResult);
     return {
-      result: {
-        creditBillId: input.creditBillId,
-        targetBillId: input.targetBillId,
-        amountApplied: input.amount,
-        targetNewBalance: newBalance,
-        creditNewBalance: newCreditBalance,
-      },
+      result: applyResult,
       events: [],
     };
   });

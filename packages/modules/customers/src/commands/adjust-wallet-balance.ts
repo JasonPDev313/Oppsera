@@ -1,4 +1,5 @@
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -9,6 +10,12 @@ import type { AdjustWalletBalanceInput } from '../validation';
 
 export async function adjustWalletBalance(ctx: RequestContext, input: AdjustWalletBalanceInput) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    if (input.clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'adjustWalletBalance');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    }
+
     // Find wallet by walletAccountId + tenantId
     const [wallet] = await (tx as any).select().from(customerWalletAccounts)
       .where(and(eq(customerWalletAccounts.id, input.walletAccountId), eq(customerWalletAccounts.tenantId, ctx.tenantId)))
@@ -83,6 +90,11 @@ export async function adjustWalletBalance(ctx: RequestContext, input: AdjustWall
       newBalanceCents,
       customerWalletBalanceCents,
     });
+
+    // Save idempotency key
+    if (input.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'adjustWalletBalance', updated!);
+    }
 
     return { result: updated!, events: [event] };
   });

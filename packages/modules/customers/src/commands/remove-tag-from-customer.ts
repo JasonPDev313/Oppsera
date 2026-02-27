@@ -6,6 +6,7 @@ import { NotFoundError } from '@oppsera/shared';
 import { tags, customerTags, tagAuditLog } from '@oppsera/db';
 import { eq, and, isNull, sql } from 'drizzle-orm';
 import type { RemoveTagFromCustomerInput } from '../validation';
+import { executeTagActions } from '../services/tag-action-executor';
 
 export async function removeTagFromCustomer(
   ctx: RequestContext,
@@ -48,6 +49,9 @@ export async function removeTagFromCustomer(
       actorId: ctx.user.id,
       evidence: input.reason ? { reason: input.reason } : null,
     });
+
+    // Execute tag actions for on_remove trigger (fire-and-forget within tx)
+    await executeTagActions(tx as any, ctx.tenantId, customerId, tagId, 'on_remove');
 
     const event = buildEventFromContext(ctx, 'customer.tag.removed.v1', {
       customerId,

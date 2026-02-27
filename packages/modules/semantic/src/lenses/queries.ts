@@ -3,7 +3,7 @@
 // System lenses are resolved via the registry cache (registry.ts).
 
 import { db } from '@oppsera/db';
-import { semanticLenses } from '@oppsera/db';
+import { semanticLenses, tenantLensPreferences } from '@oppsera/db';
 import { eq, and, or, isNull } from 'drizzle-orm';
 import type { CustomLensRow, ListCustomLensesInput } from './types';
 import { LensNotFoundError } from './types';
@@ -103,4 +103,26 @@ export async function listAllLensesForTenant(
   }
 
   return results;
+}
+
+// ── getTenantLensPreferences ──────────────────────────────────────
+// Returns a Map of lensSlug → enabled for the given tenant.
+// If no preference exists for a lens, it is enabled by default.
+
+export async function getTenantLensPreferences(
+  tenantId: string,
+): Promise<Map<string, boolean>> {
+  const rows = await db
+    .select({
+      lensSlug: tenantLensPreferences.lensSlug,
+      enabled: tenantLensPreferences.enabled,
+    })
+    .from(tenantLensPreferences)
+    .where(eq(tenantLensPreferences.tenantId, tenantId));
+
+  const prefs = new Map<string, boolean>();
+  for (const row of rows) {
+    prefs.set(row.lensSlug, row.enabled);
+  }
+  return prefs;
 }

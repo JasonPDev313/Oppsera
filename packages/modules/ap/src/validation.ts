@@ -71,6 +71,7 @@ export const postBillSchema = z.object({
   billId: z.string().min(1),
   businessDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   forcePost: z.boolean().optional().default(false),
+  clientRequestId: z.string().optional(),
 });
 
 export type PostBillInput = z.input<typeof postBillSchema>;
@@ -79,6 +80,7 @@ export type PostBillInput = z.input<typeof postBillSchema>;
 export const voidBillSchema = z.object({
   billId: z.string().min(1),
   reason: z.string().min(1).max(500),
+  clientRequestId: z.string().optional(),
 });
 
 export type VoidBillInput = z.input<typeof voidBillSchema>;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ChevronLeft, ChevronRight, Sparkles, Settings2 } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
@@ -9,6 +9,10 @@ import { useSmartTagRuleMutations } from '@/hooks/use-smart-tag-rules';
 import type { SmartTagRuleDetail } from '@/hooks/use-smart-tag-rules';
 import { ConditionGroupEditor } from './ConditionGroupEditor';
 import type { ConditionGroup } from './ConditionGroupEditor';
+import { suggestFromText } from '@/lib/tag-suggestion-engine';
+import type { SuggestionMatch } from '@/lib/tag-suggestion-engine';
+import { TagSuggestionCards } from './TagSuggestionCards';
+import { TagActionEditor } from './TagActionEditor';
 
 interface SmartTagRuleBuilderProps {
   open: boolean;
@@ -177,6 +181,27 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
     }
   };
 
+  const handleApplyTemplate = useCallback((match: SuggestionMatch) => {
+    const t = match.template;
+    setForm((prev) => ({
+      ...prev,
+      name: prev.name || t.name,
+      description: prev.description || t.description,
+      conditionGroups: t.conditions.map((g) => ({
+        conditions: g.conditions.map((c) => ({
+          metric: c.metric,
+          operator: c.operator,
+          value: c.value,
+          unit: c.unit,
+        })),
+      })),
+      evaluationMode: t.evaluationMode,
+      autoRemove: t.autoRemove,
+      priority: String(t.priority),
+    }));
+    setErrors({});
+  }, []);
+
   const handleClose = () => {
     if (!isSubmitting) onClose();
   };
@@ -229,6 +254,7 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
               smartTags={smartTags}
               isEdit={isEdit}
               onUpdate={updateField}
+              onApplyTemplate={handleApplyTemplate}
             />
           )}
           {step === 1 && (
@@ -243,6 +269,7 @@ export function SmartTagRuleBuilder({ open, onClose, editRule, onSaved }: SmartT
               form={form}
               errors={errors}
               onUpdate={updateField}
+              tagId={isEdit ? form.tagId : undefined}
             />
           )}
         </div>
@@ -298,9 +325,16 @@ interface StepTagInfoProps {
   smartTags: { id: string; name: string; color: string }[];
   isEdit: boolean;
   onUpdate: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+  onApplyTemplate: (match: SuggestionMatch) => void;
 }
 
-function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate }: StepTagInfoProps) {
+function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate, onApplyTemplate }: StepTagInfoProps) {
+  const suggestions = useMemo(() => {
+    if (isEdit) return [];
+    const query = form.name || '';
+    return suggestFromText(query, { limit: 3 });
+  }, [form.name, isEdit]);
+
   return (
     <div className="space-y-5">
       {/* Tag selector */}
@@ -341,6 +375,14 @@ function StepTagInfo({ form, errors, smartTags, isEdit, onUpdate }: StepTagInfoP
         />
         {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
       </div>
+
+      {/* Template suggestions */}
+      {!isEdit && suggestions.length > 0 && (
+        <TagSuggestionCards
+          suggestions={suggestions}
+          onSelect={onApplyTemplate}
+        />
+      )}
 
       {/* Description */}
       <div className="space-y-1">
@@ -392,9 +434,10 @@ interface StepScheduleProps {
   form: FormState;
   errors: Record<string, string>;
   onUpdate: <K extends keyof FormState>(key: K, value: FormState[K]) => void;
+  tagId?: string;
 }
 
-function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
+function StepSchedule({ form, errors, onUpdate, tagId }: StepScheduleProps) {
   const showCron = form.evaluationMode === 'scheduled' || form.evaluationMode === 'hybrid';
 
   return (
@@ -512,6 +555,13 @@ function StepSchedule({ form, errors, onUpdate }: StepScheduleProps) {
           Higher priority rules are evaluated first (0 = lowest)
         </p>
       </div>
+
+      {/* Tag Actions (only when editing an existing rule with a tagId) */}
+      {tagId && (
+        <div className="border-t border-border pt-5">
+          <TagActionEditor tagId={tagId} compact />
+        </div>
+      )}
     </div>
   );
 }

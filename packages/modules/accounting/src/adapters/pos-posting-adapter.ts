@@ -9,6 +9,7 @@ import {
 } from '../helpers/resolve-mapping';
 import { getDiscountClassificationDef } from '@oppsera/shared';
 import { getAccountingSettings } from '../helpers/get-accounting-settings';
+import { ensureAccountingSettings } from '../helpers/ensure-accounting-settings';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 
@@ -109,11 +110,35 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   const { tenantId } = event;
   const data = event.data as unknown as TenderRecordedPayload;
 
-  // Check if accounting is enabled for this tenant
-  const settings = await getAccountingSettings(db, tenantId);
+  // Check if accounting is enabled for this tenant — auto-create if missing
+  let settings = await getAccountingSettings(db, tenantId);
   if (!settings) {
-    console.warn(`[pos-gl] GL posting skipped: accounting not bootstrapped (tenant=${tenantId}, tender=${data.tenderId})`);
-    return;
+    // Auto-create minimal settings row + wire any known fallback accounts
+    try {
+      const { created } = await ensureAccountingSettings(db, tenantId);
+      if (created) {
+        console.info(`[pos-gl] Auto-created accounting_settings for tenant=${tenantId}`);
+      }
+      settings = await getAccountingSettings(db, tenantId);
+    } catch {
+      // never block tender
+    }
+    if (!settings) {
+      console.warn(`[pos-gl] GL posting skipped: accounting_settings still missing after ensure (tenant=${tenantId}, tender=${data.tenderId})`);
+      try {
+        await logUnmappedEvent(db, tenantId, {
+          eventType: 'tender.recorded.v1',
+          sourceModule: 'pos',
+          sourceReferenceId: data.tenderId,
+          entityType: 'accounting_settings',
+          entityId: tenantId,
+          reason: 'GL posting skipped: accounting_settings could not be created for tenant',
+        });
+      } catch {
+        // never block tender
+      }
+      return;
+    }
   }
 
   const accountingApi = getAccountingPostingApi();
@@ -129,7 +154,21 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
 
   // Compute proportional allocation ratio
   const orderTotal = data.orderTotal ?? data.amount; // fallback: single tender = full amount
-  if (orderTotal <= 0) return; // zero-dollar order — nothing to post
+  if (orderTotal <= 0) {
+    // Zero/negative-dollar orders (fully comped, etc.) — no money changed hands,
+    // nothing to post. Log for visibility so admin can verify coverage.
+    try {
+      await logUnmappedEvent(db, tenantId, {
+        eventType: 'tender.recorded.v1',
+        sourceModule: 'pos',
+        sourceReferenceId: data.tenderId,
+        entityType: 'zero_dollar_order',
+        entityId: data.orderId,
+        reason: `GL posting skipped: orderTotal=${orderTotal} (zero/negative-dollar order, tender=${data.tenderId})`,
+      });
+    } catch { /* never block tender */ }
+    return;
+  }
   const tenderRatio = data.amount / orderTotal;
 
   const tipAmount = data.tipAmount ?? 0;
@@ -146,11 +185,16 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
 
   let depositAccountId: string | null = null;
   if (paymentTypeMapping) {
-    depositAccountId = settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId
+    depositAccountId = (settings.enableUndepositedFundsWorkflow && paymentTypeMapping.clearingAccountId)
       ? paymentTypeMapping.clearingAccountId
       : paymentTypeMapping.depositAccountId;
+    // Secondary fallback: mapping row exists but account fields are null
+    if (!depositAccountId) {
+      depositAccountId = settings.defaultUndepositedFundsAccountId ?? null;
+      missingMappings.push(`payment_type_incomplete:${paymentMethod}`);
+    }
   } else {
-    // Fallback: use default undeposited funds account
+    // No mapping at all: use default undeposited funds account
     depositAccountId = settings.defaultUndepositedFundsAccountId ?? null;
     missingMappings.push(`payment_type:${paymentMethod}`);
   }
@@ -251,6 +295,9 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
             ? `Revenue - sub-dept ${subDeptId}`
             : `Revenue - unmapped (fallback: uncategorized)`,
         });
+      } else if (!revenueAccountId && amountCents > 0) {
+        // Should never happen after ensureAccountingSettings guarantees suspense
+        missingMappings.push(`revenue_account_null:${subDeptId}`);
       }
     }
 
@@ -349,10 +396,12 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     if (data.priceOverrideLossCents && data.priceOverrideLossCents > 0) {
       const lossCents = Math.round(data.priceOverrideLossCents * tenderRatio);
       if (lossCents > 0) {
-        const priceOverrideAccountId = settings.defaultPriceOverrideExpenseAccountId
-          ?? settings.defaultUncategorizedRevenueAccountId
-          ?? null;
-        if (priceOverrideAccountId) {
+        const priceOverrideAccountId = settings.defaultPriceOverrideExpenseAccountId ?? null;
+        const offsetAccountId = settings.defaultUncategorizedRevenueAccountId ?? null;
+
+        // Both accounts must exist AND be distinct — posting debit/credit to the
+        // same account creates a self-canceling entry that inflates account activity.
+        if (priceOverrideAccountId && offsetAccountId && priceOverrideAccountId !== offsetAccountId) {
           // Price override loss is informational — it's ALREADY reflected in the
           // reduced revenue line (lower unit price). This entry is a memo-only
           // debit/credit pair to a price override tracking account for reporting.
@@ -368,7 +417,6 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
             memo: 'Price override loss (tracking)',
           });
           // Offset credit to uncategorized revenue — keeps GL balanced
-          const offsetAccountId = settings.defaultUncategorizedRevenueAccountId ?? priceOverrideAccountId;
           glLines.push({
             accountId: offsetAccountId,
             debitAmount: '0',
@@ -380,6 +428,7 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
             memo: 'Price override loss offset',
           });
         } else {
+          // Skip both lines — either an account is missing or they'd be the same account
           missingMappings.push('price_override_expense_account:missing');
         }
       }
@@ -443,6 +492,8 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
           channel: 'pos',
           memo: `Sales tax - group ${taxGroupId}`,
         });
+      } else if (!taxAccountId && taxCents > 0) {
+        missingMappings.push(`tax_account_null:${taxGroupId}`);
       }
     }
   } else {
@@ -460,6 +511,8 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
         channel: 'pos',
         memo: 'Revenue - no line detail (fallback: uncategorized)',
       });
+    } else if (!fallbackRevenueAccountId && data.amount > 0) {
+      missingMappings.push('revenue_fallback_null:uncategorized_account_missing');
     }
   }
 
@@ -488,6 +541,8 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
   }
 
   // ── 4. CREDIT: Surcharge revenue (per-tender, not proportional) ──
+  // IMPORTANT: Fallback cascade must ONLY use revenue-type accounts.
+  // Never add fallbacks to cash/asset/expense accounts here.
   if (surchargeAmount > 0) {
     const surchargeAccountId = settings.defaultSurchargeRevenueAccountId
       ?? settings.defaultUncategorizedRevenueAccountId
@@ -532,6 +587,8 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
       if (!settings.defaultTipsPayableAccountId) {
         missingMappings.push('tips_payable_account:missing');
       }
+    } else {
+      missingMappings.push('tips_payable_account_null:no_fallback_available');
     }
   }
 
@@ -549,10 +606,61 @@ export async function handleTenderForAccounting(event: EventEnvelope): Promise<v
     }
   }
 
+  // ── 6b. Pre-posting balance reconciliation ──────────────────────
+  // Multiple Math.round(value * tenderRatio) calls across sub-departments
+  // can accumulate beyond validateJournal's 5-cent tolerance on complex
+  // split-tender transactions. Add a balancing line if debits != credits.
+  {
+    let totalDebitsCents = 0;
+    let totalCreditsCents = 0;
+    for (const line of glLines) {
+      totalDebitsCents += Math.round(Number(line.debitAmount ?? 0) * 100);
+      totalCreditsCents += Math.round(Number(line.creditAmount ?? 0) * 100);
+    }
+    const imbalanceCents = totalDebitsCents - totalCreditsCents;
+    if (imbalanceCents !== 0) {
+      const roundingAccountId = settings.defaultRoundingAccountId
+        ?? settings.defaultUncategorizedRevenueAccountId
+        ?? null;
+      if (roundingAccountId) {
+        if (imbalanceCents > 0) {
+          glLines.push({
+            accountId: roundingAccountId,
+            debitAmount: '0',
+            creditAmount: (imbalanceCents / 100).toFixed(2),
+            terminalId: data.terminalId,
+            channel: 'pos',
+            memo: 'Rounding adjustment (proportional allocation)',
+          });
+        } else {
+          glLines.push({
+            accountId: roundingAccountId,
+            debitAmount: (Math.abs(imbalanceCents) / 100).toFixed(2),
+            creditAmount: '0',
+            terminalId: data.terminalId,
+            channel: 'pos',
+            memo: 'Rounding adjustment (proportional allocation)',
+          });
+        }
+      }
+    }
+  }
+
   // ── 7. Only post if we have valid debit and credit lines ───────
-  // With fallback accounts, this should only fail when NO fallback is configured
+  // With ensureAccountingSettings guaranteeing suspense account, this should
+  // NEVER fire. If it does, it means the suspense guarantee failed entirely.
   if (glLines.length < 2) {
-    console.error(`POS GL posting skipped for tender ${data.tenderId}: insufficient GL lines (${glLines.length}) — check fallback account configuration`);
+    console.error(`[pos-gl] CRITICAL: GL posting skipped for tender ${data.tenderId}: insufficient GL lines (${glLines.length}). Suspense account guarantee may have failed.`);
+    try {
+      await logUnmappedEvent(db, tenantId, {
+        eventType: 'tender.recorded.v1',
+        sourceModule: 'pos',
+        sourceReferenceId: data.tenderId,
+        entityType: 'gl_posting_gap',
+        entityId: data.tenderId,
+        reason: `CRITICAL: GL posting skipped — only ${glLines.length} GL lines generated. All fallback accounts missing. Tender amount=${data.amount}, order=${data.orderId}`,
+      });
+    } catch { /* never block tender */ }
     return;
   }
 

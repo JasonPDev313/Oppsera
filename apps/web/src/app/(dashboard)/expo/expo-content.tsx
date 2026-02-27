@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 type ExpoViewMode = 'rail' | 'grid';
-type ExpoFilter = 'all' | 'ready' | 'in_progress' | 'rush';
+type ExpoFilter = 'all' | 'ready' | 'in_progress' | 'held' | 'rush';
 
 // Default thresholds for expo (can be overridden per-station)
 const DEFAULT_WARNING_SECONDS = 480;
@@ -39,12 +39,28 @@ export default function ExpoContent() {
   } = useExpoView({ pollIntervalMs: isPaused ? PAUSED_INTERVAL : 5000 });
 
   // Fire a held ticket (send to kitchen)
-  const _fireTicket = useCallback(async (ticketId: string) => {
+  const fireTicket = useCallback(async (ticketId: string) => {
     setIsFiring(true);
     try {
       await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/fire`, {
         method: 'POST',
         body: JSON.stringify({ clientRequestId: `fire-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }),
+      });
+      refresh();
+    } catch {
+      // silent
+    } finally {
+      setIsFiring(false);
+    }
+  }, [refresh]);
+
+  // Recall a ready ticket back to kitchen
+  const recallTicket = useCallback(async (ticketId: string) => {
+    setIsFiring(true);
+    try {
+      await apiFetch(`/api/v1/fnb/kitchen/tickets/${ticketId}/recall`, {
+        method: 'POST',
+        body: JSON.stringify({ clientRequestId: `recall-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }),
       });
       refresh();
     } catch {
@@ -75,6 +91,8 @@ export default function ExpoContent() {
       tickets = tickets.filter((t) => t.allItemsReady);
     } else if (filter === 'in_progress') {
       tickets = tickets.filter((t) => !t.allItemsReady);
+    } else if (filter === 'held') {
+      tickets = tickets.filter((t) => t.status === 'pending');
     } else if (filter === 'rush') {
       tickets = tickets.filter((t) => t.priorityLevel >= 5);
     }
@@ -198,6 +216,7 @@ export default function ExpoContent() {
             { key: 'all' as const, label: 'All' },
             { key: 'ready' as const, label: 'Ready' },
             { key: 'in_progress' as const, label: 'In Progress' },
+            { key: 'held' as const, label: 'Held' },
             { key: 'rush' as const, label: 'Rush' },
           ]).map(({ key, label }) => (
             <button key={key} type="button"
@@ -233,7 +252,8 @@ export default function ExpoContent() {
             {filteredTickets.map((ticket) => (
               <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
                 warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
-                onBumpTicket={bumpTicket} disabled={isActing || isFiring} />
+                onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
+                disabled={isActing || isFiring} />
             ))}
           </div>
         ) : (
@@ -241,7 +261,8 @@ export default function ExpoContent() {
             {filteredTickets.map((ticket) => (
               <ExpoTicketCard key={ticket.ticketId} ticket={ticket}
                 warningThresholdSeconds={DEFAULT_WARNING_SECONDS} criticalThresholdSeconds={DEFAULT_CRITICAL_SECONDS}
-                onBumpTicket={bumpTicket} disabled={isActing || isFiring} />
+                onBumpTicket={bumpTicket} onFireTicket={fireTicket} onRecallTicket={recallTicket}
+                disabled={isActing || isFiring} />
             ))}
           </div>
         )}

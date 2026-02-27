@@ -46,6 +46,16 @@ export interface KdsTicketCard {
   otherStations: { stationId: string; stationName: string }[];
 }
 
+export interface KdsCompletedTicket {
+  ticketId: string;
+  ticketNumber: number;
+  tableNumber: number | null;
+  serverName: string | null;
+  itemCount: number;
+  completedAt: string;
+  completedSecondsAgo: number;
+}
+
 export interface KdsView {
   stationId: string;
   stationName: string;
@@ -55,6 +65,7 @@ export interface KdsView {
   criticalThresholdSeconds: number;
   tickets: KdsTicketCard[];
   activeTicketCount: number;
+  recentlyCompleted: KdsCompletedTicket[];
 }
 
 export async function getKdsView(
@@ -180,6 +191,41 @@ export async function getKdsView(
       }
     }
 
+    // Fetch recently completed tickets at this station (all items bumped/served/voided)
+    const completedRows = await tx.execute(
+      sql`SELECT kt.id, kt.ticket_number, kt.table_number, kt.server_name,
+                 COUNT(kti.id)::integer AS item_count,
+                 MAX(kti.ready_at) AS completed_at,
+                 EXTRACT(EPOCH FROM (NOW() - MAX(kti.ready_at)))::integer AS completed_seconds_ago
+          FROM fnb_kitchen_tickets kt
+          INNER JOIN fnb_kitchen_ticket_items kti
+            ON kti.ticket_id = kt.id AND kti.station_id = ${input.stationId}
+          WHERE kt.tenant_id = ${input.tenantId}
+            AND kt.location_id = ${input.locationId}
+            AND kt.business_date = ${input.businessDate}
+            AND kti.item_status IN ('bumped', 'served')
+            AND NOT EXISTS (
+              SELECT 1 FROM fnb_kitchen_ticket_items kti2
+              WHERE kti2.ticket_id = kt.id
+                AND kti2.station_id = ${input.stationId}
+                AND kti2.item_status NOT IN ('bumped', 'served', 'voided')
+            )
+          GROUP BY kt.id
+          ORDER BY MAX(kti.ready_at) DESC NULLS LAST
+          LIMIT 10`,
+    );
+    const recentlyCompleted: KdsCompletedTicket[] = Array.from(
+      completedRows as Iterable<Record<string, unknown>>,
+    ).map((r) => ({
+      ticketId: r.id as string,
+      ticketNumber: Number(r.ticket_number),
+      tableNumber: r.table_number != null ? Number(r.table_number) : null,
+      serverName: (r.server_name as string) ?? null,
+      itemCount: Number(r.item_count),
+      completedAt: (r.completed_at as string) ?? '',
+      completedSecondsAgo: Number(r.completed_seconds_ago ?? 0),
+    }));
+
     return {
       stationId: input.stationId,
       stationName: station ? (station.display_name as string) : input.stationId,
@@ -189,6 +235,7 @@ export async function getKdsView(
       criticalThresholdSeconds: station ? Number(station.critical_threshold_seconds) : 720,
       tickets: ticketCards,
       activeTicketCount: ticketCards.length,
+      recentlyCompleted,
     };
   });
 }

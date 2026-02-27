@@ -3,6 +3,7 @@ import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import type { RequestContext } from '@oppsera/core/auth/context';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { NotFoundError } from '@oppsera/shared';
 import { pmsLoyaltyMembers, pmsLoyaltyTransactions } from '@oppsera/db';
 import type { EarnLoyaltyPointsInput } from '../validation';
@@ -13,6 +14,10 @@ export async function earnLoyaltyPoints(
   input: EarnLoyaltyPointsInput,
 ) {
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'earnLoyaltyPoints');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     const [member] = await tx
       .select()
       .from(pmsLoyaltyMembers)
@@ -59,6 +64,7 @@ export async function earnLoyaltyPoints(
       balanceAfter: newBalance,
     });
 
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'earnLoyaltyPoints', transaction!);
     return { result: transaction!, events: [event] };
   });
 

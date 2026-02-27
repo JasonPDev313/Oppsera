@@ -241,3 +241,33 @@ export type {
   SmartTagEvaluationEntry,
   GetSmartTagEvaluationHistoryResult,
 } from './get-smart-tag-evaluation-history';
+
+// ── Tag Actions (Session 2 — Intelligent Tag System) ──────────────
+export { listTagActions } from './list-tag-actions';
+export type { ListTagActionsInput, TagActionItem } from './list-tag-actions';
+
+export { getTagActionExecutions } from './get-tag-action-executions';
+export type {
+  GetTagActionExecutionsInput,
+  TagActionExecutionEntry,
+  GetTagActionExecutionsResult,
+} from './get-tag-action-executions';
+
+// ── Tag Analytics (Session 9 — Intelligent Tag System) ──────────────
+export {
+  getTagPopulationTrends,
+  getTagOverlapMatrix,
+  getTagEffectiveness,
+  getTagHealth,
+} from './tag-analytics';
+export type {
+  TagPopulationTrendsInput,
+  TagPopulationPoint,
+  TagPopulationTrendsResult,
+  TagOverlapEntry,
+  TagOverlapMatrixResult,
+  TagEffectivenessInput,
+  TagEffectivenessResult,
+  TagHealthItem,
+  TagHealthResult,
+} from './tag-analytics';

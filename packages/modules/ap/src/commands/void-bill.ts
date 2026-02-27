@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills, apBillLines, apPaymentAllocations, vendors } from '@oppsera/db';
@@ -14,6 +15,9 @@ export async function voidBill(ctx: RequestContext, input: VoidBillInput) {
   const accountingApi = getAccountingPostingApi();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'voidBill');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Load bill
     const [bill] = await tx
       .select()
@@ -144,8 +148,10 @@ export async function voidBill(ctx: RequestContext, input: VoidBillInput) {
       reversalJournalEntryId,
     });
 
+    const voidedResult = { ...voided!, reversalJournalEntryId };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'voidBill', voidedResult);
     return {
-      result: { ...voided!, reversalJournalEntryId },
+      result: voidedResult,
       events: [event],
     };
   });

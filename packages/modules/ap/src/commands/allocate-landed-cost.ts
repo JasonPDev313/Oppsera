@@ -1,5 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { auditLog } from '@oppsera/core/audit/helpers';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
@@ -9,12 +10,19 @@ import { generateUlid, NotFoundError, AppError } from '@oppsera/shared';
 interface AllocateLandedCostInput {
   billId: string;
   postAdjustingEntry?: boolean; // If true, creates GL entry to move freight from expense to inventory
+  clientRequestId?: string;
 }
 
 export async function allocateLandedCost(ctx: RequestContext, input: AllocateLandedCostInput) {
   const accountingApi = getAccountingPostingApi();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    // Idempotency check
+    if (input.clientRequestId) {
+      const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'allocateLandedCost');
+      if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+    }
+
     // 1. Load bill — must be posted
     const [bill] = await tx
       .select()
@@ -138,8 +146,15 @@ export async function allocateLandedCost(ctx: RequestContext, input: AllocateLan
       glEntryId = glResult.id;
     }
 
+    const resultData = { billId: input.billId, allocations, glEntryId };
+
+    // Save idempotency key
+    if (input.clientRequestId) {
+      await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'allocateLandedCost', resultData);
+    }
+
     return {
-      result: { billId: input.billId, allocations, glEntryId },
+      result: resultData,
       events: [],
     };
   });

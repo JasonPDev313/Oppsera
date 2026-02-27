@@ -5,8 +5,11 @@ import { Plus, Pencil, Power, PowerOff, X, ChevronDown, ChevronRight, RefreshCw,
 import { useLenses } from '@/hooks/use-lenses';
 import { adminFetch } from '@/lib/api-fetch';
 import type { SystemLens, CreateSystemLensPayload, UpdateSystemLensPayload } from '@/types/lenses';
+import { BUSINESS_VERTICALS } from '@oppsera/shared';
 
-const DOMAIN_OPTIONS = ['', 'core', 'golf', 'inventory', 'customer', 'retail', 'fnb'];
+const DOMAIN_OPTIONS = ['', 'core', 'golf', 'inventory', 'customer', 'retail', 'fnb', 'pms'];
+
+const BUSINESS_TYPE_OPTIONS = BUSINESS_VERTICALS.map((v) => ({ value: v.key, label: v.name }));
 
 // ── Lens Form ────────────────────────────────────────────────────
 
@@ -31,6 +34,7 @@ function LensForm({
   const [defaultDimensions, setDefaultDimensions] = useState(initial?.defaultDimensions?.join(', ') ?? '');
   const [systemPromptFragment, setSystemPromptFragment] = useState(initial?.systemPromptFragment ?? '');
   const [exampleQuestions, setExampleQuestions] = useState(initial?.exampleQuestions?.join('\n') ?? '');
+  const [targetBusinessTypes, setTargetBusinessTypes] = useState<string[]>(initial?.targetBusinessTypes ?? []);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -61,6 +65,7 @@ function LensForm({
           ...(defaultDimensions && { defaultDimensions: parseList(defaultDimensions) }),
           ...(systemPromptFragment && { systemPromptFragment }),
           ...(exampleQuestions && { exampleQuestions: parseLines(exampleQuestions) }),
+          ...(targetBusinessTypes.length > 0 && { targetBusinessTypes }),
         };
         await onSubmit(payload);
       } else {
@@ -74,6 +79,7 @@ function LensForm({
           defaultDimensions: parseList(defaultDimensions),
           systemPromptFragment: systemPromptFragment || undefined,
           exampleQuestions: parseLines(exampleQuestions),
+          targetBusinessTypes: targetBusinessTypes.length > 0 ? targetBusinessTypes : null,
         };
         await onSubmit(payload);
       }
@@ -181,6 +187,39 @@ function LensForm({
         />
       </div>
 
+      <div>
+        <label className={labelClass}>Target Business Types</label>
+        <p className="text-xs text-slate-600 mb-2">Leave empty to make available to all business types.</p>
+        <div className="flex flex-wrap gap-3">
+          {BUSINESS_TYPE_OPTIONS.map((opt) => (
+            <label key={opt.value} className="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={targetBusinessTypes.includes(opt.value)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setTargetBusinessTypes((prev) => [...prev, opt.value]);
+                  } else {
+                    setTargetBusinessTypes((prev) => prev.filter((v) => v !== opt.value));
+                  }
+                }}
+                className="rounded border-slate-600 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+        {targetBusinessTypes.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setTargetBusinessTypes([])}
+            className="text-xs text-slate-500 hover:text-slate-300 mt-1.5 transition-colors"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+
       <div className="flex items-center gap-3 pt-2">
         <button
           type="submit"
@@ -229,6 +268,13 @@ function LensCard({
             <span className="text-sm font-medium text-white">{lens.displayName}</span>
             <code className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded">{lens.slug}</code>
             <span className="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded">{lens.domain}</span>
+            {lens.targetBusinessTypes && lens.targetBusinessTypes.length > 0 ? (
+              lens.targetBusinessTypes.map((bt) => (
+                <span key={bt} className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">{bt}</span>
+              ))
+            ) : (
+              <span className="text-xs bg-slate-700 text-slate-500 px-2 py-0.5 rounded">All types</span>
+            )}
             {!lens.isActive && (
               <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">Inactive</span>
             )}

@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { publishWithOutbox } from '@oppsera/core/events/publish-with-outbox';
 import { buildEventFromContext } from '@oppsera/core/events/build-event';
 import { auditLog } from '@oppsera/core/audit/helpers';
+import { checkIdempotency, saveIdempotencyKey } from '@oppsera/core/helpers/idempotency';
 import { getAccountingPostingApi } from '@oppsera/core/helpers/accounting-posting-api';
 import type { RequestContext } from '@oppsera/core/auth/context';
 import { apBills, apBillLines, vendors } from '@oppsera/db';
@@ -18,12 +19,16 @@ interface CreateVendorCreditInput {
     description?: string;
     amount: string; // positive value — will be stored as negative on the bill
   }>;
+  clientRequestId?: string;
 }
 
 export async function createVendorCredit(ctx: RequestContext, input: CreateVendorCreditInput) {
   const accountingApi = getAccountingPostingApi();
 
   const result = await publishWithOutbox(ctx, async (tx) => {
+    const idempotencyCheck = await checkIdempotency(tx, ctx.tenantId, input.clientRequestId, 'createVendorCredit');
+    if (idempotencyCheck.isDuplicate) return { result: idempotencyCheck.originalResult as any, events: [] };
+
     // 1. Validate vendor
     const [vendor] = await tx
       .select()
@@ -126,7 +131,9 @@ export async function createVendorCredit(ctx: RequestContext, input: CreateVendo
       businessDate: input.creditDate,
     });
 
-    return { result: { ...bill!, glJournalEntryId: glResult.id }, events: [event] };
+    const creditResult = { ...bill!, glJournalEntryId: glResult.id };
+    await saveIdempotencyKey(tx, ctx.tenantId, input.clientRequestId, 'createVendorCredit', creditResult);
+    return { result: creditResult, events: [event] };
   });
 
   await auditLog(ctx, 'ap.vendor_credit.created', 'ap_bill', result.id);

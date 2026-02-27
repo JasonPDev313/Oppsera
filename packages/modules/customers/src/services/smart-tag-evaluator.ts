@@ -6,7 +6,9 @@ import {
   customerIncidents,
   customerVisits,
   customerTags,
+  customerScores,
 } from '@oppsera/db';
+import { SCORE_TYPES } from '@oppsera/shared';
 import type {
   SmartTagConditionGroup,
   SmartTagCondition,
@@ -307,6 +309,100 @@ export async function resolveMetrics(
         ),
       );
     values.set('open_incident_count', result?.count ?? 0);
+  }
+
+  // Predictive Intelligence metrics (from customer_scores table)
+  const predictiveMetrics: ConditionMetric[] = [
+    'rfm_segment', 'rfm_score', 'rfm_recency', 'rfm_frequency', 'rfm_monetary',
+    'churn_risk', 'predicted_clv', 'spend_velocity', 'days_until_predicted_visit',
+  ];
+  const needsPredictive = predictiveMetrics.some((m) => neededMetrics.has(m));
+
+  if (needsPredictive) {
+    // Map condition metric names to score_type keys in customer_scores table
+    const scoreTypeMap: Record<string, string> = {
+      rfm_score: SCORE_TYPES.RFM,
+      rfm_segment: SCORE_TYPES.RFM,
+      rfm_recency: SCORE_TYPES.RFM_RECENCY,
+      rfm_frequency: SCORE_TYPES.RFM_FREQUENCY,
+      rfm_monetary: SCORE_TYPES.RFM_MONETARY,
+      churn_risk: SCORE_TYPES.CHURN_RISK,
+      predicted_clv: SCORE_TYPES.PREDICTED_CLV,
+      spend_velocity: SCORE_TYPES.SPEND_VELOCITY,
+      days_until_predicted_visit: SCORE_TYPES.DAYS_UNTIL_PREDICTED_VISIT,
+    };
+
+    // Determine which score types we need to fetch
+    const neededScoreTypes = new Set<string>();
+    for (const metric of predictiveMetrics) {
+      if (neededMetrics.has(metric)) {
+        neededScoreTypes.add(scoreTypeMap[metric]!);
+      }
+    }
+
+    // Fetch all needed scores in one query
+    const scoreRows = await tx
+      .select({
+        scoreType: customerScores.scoreType,
+        score: customerScores.score,
+        metadata: customerScores.metadata,
+      })
+      .from(customerScores)
+      .where(
+        and(
+          eq(customerScores.tenantId, tenantId),
+          eq(customerScores.customerId, customerId),
+          sql`${customerScores.scoreType} IN (${sql.join(
+            Array.from(neededScoreTypes).map((t) => sql`${t}`),
+            sql`, `,
+          )})`,
+        ),
+      );
+
+    // Build a lookup by scoreType
+    const scoreMap = new Map<string, { score: string; metadata: unknown }>();
+    for (const row of scoreRows) {
+      scoreMap.set(row.scoreType, { score: row.score, metadata: row.metadata });
+    }
+
+    // Resolve each predictive metric
+    if (neededMetrics.has('rfm_score')) {
+      const rfm = scoreMap.get(SCORE_TYPES.RFM);
+      values.set('rfm_score', rfm ? Number(rfm.score) : null);
+    }
+    if (neededMetrics.has('rfm_segment')) {
+      const rfm = scoreMap.get(SCORE_TYPES.RFM);
+      const meta = rfm?.metadata as Record<string, unknown> | null;
+      values.set('rfm_segment', meta?.segment ?? null);
+    }
+    if (neededMetrics.has('rfm_recency')) {
+      const s = scoreMap.get(SCORE_TYPES.RFM_RECENCY);
+      values.set('rfm_recency', s ? Number(s.score) : null);
+    }
+    if (neededMetrics.has('rfm_frequency')) {
+      const s = scoreMap.get(SCORE_TYPES.RFM_FREQUENCY);
+      values.set('rfm_frequency', s ? Number(s.score) : null);
+    }
+    if (neededMetrics.has('rfm_monetary')) {
+      const s = scoreMap.get(SCORE_TYPES.RFM_MONETARY);
+      values.set('rfm_monetary', s ? Number(s.score) : null);
+    }
+    if (neededMetrics.has('churn_risk')) {
+      const s = scoreMap.get(SCORE_TYPES.CHURN_RISK);
+      values.set('churn_risk', s ? Number(s.score) : null);
+    }
+    if (neededMetrics.has('predicted_clv')) {
+      const s = scoreMap.get(SCORE_TYPES.PREDICTED_CLV);
+      values.set('predicted_clv', s ? Number(s.score) : null);
+    }
+    if (neededMetrics.has('spend_velocity')) {
+      const s = scoreMap.get(SCORE_TYPES.SPEND_VELOCITY);
+      values.set('spend_velocity', s ? Number(s.score) : null);
+    }
+    if (neededMetrics.has('days_until_predicted_visit')) {
+      const s = scoreMap.get(SCORE_TYPES.DAYS_UNTIL_PREDICTED_VISIT);
+      values.set('days_until_predicted_visit', s ? Number(s.score) : null);
+    }
   }
 
   return values;
