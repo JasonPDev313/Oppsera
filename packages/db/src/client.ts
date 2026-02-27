@@ -30,6 +30,19 @@ function getDb(): DrizzleDB {
       idle_timeout: 20,
       max_lifetime: 300,
       connect_timeout: 10,
+      // Safety: session-level timeouts set on every new connection via startup params.
+      // idle_in_transaction_session_timeout: Postgres kills connections stuck in a
+      //   transaction (BEGIN without COMMIT/ROLLBACK) for >60s. Prevents frozen
+      //   Vercel serverless functions from holding FOR UPDATE locks forever.
+      //   (2026-02-27 outage fix — outbox worker held transactions during event
+      //   publishing, Vercel froze the event loop, connections stuck for hours)
+      // statement_timeout: Prevents any single query from running >30s.
+      // NOTE: Also set these at Supabase project level (Settings → Database)
+      //   for defense-in-depth, since Supavisor may reset connection params.
+      connection: {
+        statement_timeout: 30000,
+        idle_in_transaction_session_timeout: 60000,
+      },
     });
     globalForDb.__oppsera_db = drizzle(client, { schema });
   }
@@ -73,6 +86,10 @@ export function createAdminClient() {
       idle_timeout: 20,
       max_lifetime: 300,
       connect_timeout: 10,
+      connection: {
+        statement_timeout: 30000,
+        idle_in_transaction_session_timeout: 60000,
+      },
     });
     globalForAdmin.__oppsera_admin_db = drizzle(adminConn, { schema });
   }
